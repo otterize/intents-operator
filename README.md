@@ -1,0 +1,2 @@
+# spifferize
+Otterize-spiffe integration
