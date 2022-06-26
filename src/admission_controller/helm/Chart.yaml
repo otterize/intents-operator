@@ -1,0 +1,6 @@
+apiVersion: v2
+name: spifferize-admission-controller
+description: Otterize admission controller for Kubernetes integration with SPIFFE/SPIRE integration
+type: application
+version: 0.1.0
+appVersion: "1.16.0"

@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "spifferize.admission_controller.name" . }}
+  labels:
+    {{ template "spifferize.admission_controller.app_label" . }}: {{ template "spifferize.admission_controller.name" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{ template "spifferize.admission_controller.app_label" . }}: {{ template "spifferize.admission_controller.name" . }}
+  template:
+    metadata:
+      labels:
+        {{ template "spifferize.admission_controller.app_label" . }}: {{ template "spifferize.admission_controller.name" . }}
+    spec:
+      containers:
+        - name: {{ template "spifferize.admission_controller.name" . }}
+          image: "{{ .Values.repo }}:{{ .Values.image }}-{{ .Values.tag }}"
+          imagePullPolicy: Always
+          env:
+            - name: SERVICE_NAME
+              value: {{ template "spifferize.admission_controller.name" . }}
+            - name: WEBHOOK_NAME
+              value: {{ template "spifferize.admission_controller.name" . }}
+            - name: NAMESPACE
+              value: {{ .Release.Namespace }}
+            - name: LOG_LEVEL
+              value: {{ .Values.logLevel }}
+      serviceAccountName: {{ template "spifferize.admission_controller.name" . }}

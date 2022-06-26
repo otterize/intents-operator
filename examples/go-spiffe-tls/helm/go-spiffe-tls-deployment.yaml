@@ -13,9 +13,6 @@ spec:
       labels:
         app: client
     spec:
-      hostPID: true
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: client
           imagePullPolicy: Always
@@ -45,9 +42,6 @@ spec:
       labels:
         app: server
     spec:
-      hostPID: true
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: server
           ports:

@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "spifferize.admission_controller.name" . }}
+spec:
+  selector:
+    {{ template "spifferize.admission_controller.app_label" . }}: {{ template "spifferize.admission_controller.name" . }}
+  ports:
+    - protocol: TCP
+      port: 8443
+      name: https
+      targetPort: 8443

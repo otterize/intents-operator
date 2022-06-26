@@ -1,0 +1,30 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ template "spifferize.admission_controller.name" . }}
+rules:
+  - apiGroups:
+      - 'admissionregistration.k8s.io'
+    resources:
+      - 'mutatingwebhookconfigurations'
+    verbs:
+      - 'get'
+      - 'list'
+      - 'patch'
+  - apiGroups:
+      - 'apps'
+      - 'extensions'
+    resources:
+      - 'deployments'
+    verbs:
+      - 'get'
+      - 'list'
+      - 'watch'
+  - apiGroups:
+      - ''
+    resources:
+      - 'services'
+    verbs:
+      - 'get'
+      - 'list'
+      - 'watch'
