@@ -2,20 +2,24 @@
 Otterize-spiffe integration
 
 ## Admission Controller
+### Prerequisites 
+```shell
+brew install kustomize
+```
+
 ### Build
 ```shell
 cd src
-./admission_controller/build_locally_and_push.sh
+./operator/build_locally_and_push.sh
 ```
 
 ### Deploy
 ```shell
 cd src
-helm install spifferize-admission-controller ./admission_controller/helm
+./operator/deploy.sh
 ```
 
-### Upgrade
+### Uninstall
 ```shell
-cd src
-helm upgrade spifferize-admission-controller ./admission_controller/helm
+./operator/undeploy.sh
 ```
