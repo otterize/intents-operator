@@ -1,0 +1,5 @@
+dependencies:
+  - name: kafka
+    repository: https://charts.bitnami.com/bitnami
+    version: 14.x.x
+    alias: kafka
