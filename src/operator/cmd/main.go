@@ -1,8 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"fmt"
 	"github.com/otterize/spifferize/src/operator/controllers"
+	spire_client "github.com/otterize/spifferize/src/spire-client"
+	"github.com/sirupsen/logrus"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -21,6 +27,10 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+)
+
+const (
+	socketPath = "unix:////run/spire/sockets/agent.sock"
 )
 
 func init() {
@@ -58,6 +68,39 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+
+	source, err := workloadapi.New(context.Background(), workloadapi.WithAddr(socketPath))
+	if err != nil {
+		setupLog.Error(err, "unable to start source")
+		os.Exit(1)
+	}
+	defer source.Close()
+	setupLog.Info("API Initialized")
+	svid, err := source.FetchX509SVID(context.Background())
+	if err != nil {
+		setupLog.Error(err, "failed to get svid")
+		os.Exit(1)
+	}
+	bundle, err := source.FetchX509Bundles(context.Background())
+	if err != nil {
+		logrus.Error(err, "failed to get bundle")
+		os.Exit(1)
+	}
+
+	setupLog.Info(fmt.Sprintf("svid: %s", svid.ID))
+
+	entryClient, err := spire_client.NewEntryClientFromTCP("spire-server.spire:8081", svid, bundle)
+	if err != nil {
+		setupLog.Error(err, "failed to connect to server")
+		os.Exit(1)
+	}
+
+	entries, err := entryClient.ListEntries(context.Background(), &entryv1.ListEntriesRequest{})
+	if err != nil {
+		setupLog.Error(err, "failed to list entries")
+		os.Exit(1)
+	}
+	setupLog.Info(fmt.Sprintf("%v", entries))
 
 	if err = (&controllers.PodReconciler{
 		Client: mgr.GetClient(),
