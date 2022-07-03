@@ -1,4 +1,5 @@
-IMAGE=353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize-tools:spifferize-operator-latest
+REPO=353146681200.dkr.ecr.us-east-1.amazonaws.com
+IMAGE=$REPO/otterize-tools:spifferize-operator-latest
 cd config/manager
 kustomize edit set image controller=${IMAGE}
 cd -
