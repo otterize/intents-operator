@@ -3,12 +3,9 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"github.com/otterize/spifferize/src/operator/controllers"
 	spire_client "github.com/otterize/spifferize/src/spire-client"
-	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -39,12 +36,47 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
+func initSpireClient(ctx context.Context, spireServerAddr string) (spire_client.ServerClient, error) {
+	// fetch SVID & bundle through spire-agent API
+	source, err := workloadapi.New(ctx, workloadapi.WithAddr(socketPath))
+	if err != nil {
+		return nil, err
+	}
+	defer source.Close()
+
+	svid, err := source.FetchX509SVID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bundle, err := source.FetchX509Bundles(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// use SVID & bundle to connect to spire-server API
+	conf := spire_client.ServerClientConfig{
+		ServerAddress: spireServerAddr,
+		ClientSVID:    svid,
+		ClientBundle:  bundle,
+	}
+
+	serverClient, err := spire_client.NewServerClient(conf)
+	if err != nil {
+		return nil, err
+	}
+	setupLog.Info("Successfully connected to SPIRE server",
+		"server", spireServerAddr)
+	return serverClient, nil
+}
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var spireServerAddr string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&spireServerAddr, "spire-server-address", "spire-server.spire:8081", "SPIRE server API address.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -62,50 +94,25 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "spifferize",
+		LeaderElectionID:       "otterize/spifferize-operator",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	source, err := workloadapi.New(context.Background(), workloadapi.WithAddr(socketPath))
+	spireClient, err := initSpireClient(context.TODO(), spireServerAddr)
 	if err != nil {
-		setupLog.Error(err, "unable to start source")
+		setupLog.Error(err, "failed to connect to spire server")
 		os.Exit(1)
 	}
-	defer source.Close()
-	setupLog.Info("API Initialized")
-	svid, err := source.FetchX509SVID(context.Background())
-	if err != nil {
-		setupLog.Error(err, "failed to get svid")
-		os.Exit(1)
-	}
-	bundle, err := source.FetchX509Bundles(context.Background())
-	if err != nil {
-		logrus.Error(err, "failed to get bundle")
-		os.Exit(1)
-	}
-
-	setupLog.Info(fmt.Sprintf("svid: %s", svid.ID))
-
-	entryClient, err := spire_client.NewEntryClientFromTCP("spire-server.spire:8081", svid, bundle)
-	if err != nil {
-		setupLog.Error(err, "failed to connect to server")
-		os.Exit(1)
-	}
-
-	entries, err := entryClient.ListEntries(context.Background(), &entryv1.ListEntriesRequest{})
-	if err != nil {
-		setupLog.Error(err, "failed to list entries")
-		os.Exit(1)
-	}
-	setupLog.Info(fmt.Sprintf("%v", entries))
+	defer spireClient.Close()
 
 	if err = (&controllers.PodReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Pod"),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Log:         ctrl.Log.WithName("controllers").WithName("Pod"),
+		Scheme:      mgr.GetScheme(),
+		SpireClient: spireClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Pod")
 		os.Exit(1)

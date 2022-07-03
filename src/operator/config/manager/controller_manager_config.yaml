@@ -8,4 +8,4 @@ webhook:
   port: 9443
 leaderElection:
   leaderElect: true
-  resourceName: d84d636a.padok.fr
+  resourceName: otterize/spifferize-operator

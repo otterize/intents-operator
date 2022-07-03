@@ -2,8 +2,12 @@ package controllers
 
 import (
 	"context"
-
+	"fmt"
 	"github.com/go-logr/logr"
+	spire_client "github.com/otterize/spifferize/src/spire-client"
+	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
+	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
+	"google.golang.org/grpc/codes"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,23 +18,67 @@ import (
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log         logr.Logger
+	Scheme      *runtime.Scheme
+	SpireClient spire_client.ServerClient
 }
 
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;update;patch
 
 const (
-	podNameLabel = "spifferize/servicename"
+	serviceNameLabel               = "otterize/service-name"
+	spireEntryRegisteredAnnotation = "otterize/spire-entry-registered"
 )
+
+func (r *PodReconciler) registerPodSpireEntry(ctx context.Context, pod *corev1.Pod) error {
+	serviceName := pod.Labels[serviceNameLabel]
+	log := r.Log.WithValues("pod", pod.Name, "namespace", pod.Namespace, "serviceName", serviceName)
+
+	entry := types.Entry{
+		SpiffeId: &types.SPIFFEID{
+			TrustDomain: r.SpireClient.GetTrustDomain().String(),
+			Path:        fmt.Sprintf("/otterize/env/%s/service/%s", pod.Namespace, serviceName),
+		},
+		ParentId: &types.SPIFFEID{
+			TrustDomain: r.SpireClient.GetClientSpiffeID().TrustDomain().String(),
+			Path:        r.SpireClient.GetClientSpiffeID().Path(),
+		},
+		Selectors: []*types.Selector{
+			{Type: "k8s", Value: fmt.Sprintf("ns:%s", pod.Namespace)},
+			{Type: "k8s", Value: fmt.Sprintf("pod-label:%s=%s", serviceNameLabel, serviceName)},
+		},
+	}
+
+	log.Info("Creating SPIRE server entry")
+	entryClient := r.SpireClient.NewEntryClient()
+	batchCreateEntryRequest := entryv1.BatchCreateEntryRequest{Entries: []*types.Entry{&entry}}
+
+	resp, err := entryClient.BatchCreateEntry(ctx, &batchCreateEntryRequest)
+	if err != nil {
+		return err
+	}
+
+	if len(resp.Results) != 1 {
+		return fmt.Errorf("unexpected number of results returned from SPIRE server: %d", len(resp.Results))
+	}
+
+	result := resp.Results[0]
+	switch result.Status.Code {
+	case int32(codes.OK):
+		log.Info("SPIRE server entry created", "id", result.Entry.Id)
+	case int32(codes.AlreadyExists):
+		log.Info("SPIRE server entry already exists", "id", result.Entry.Id)
+	default:
+		return fmt.Errorf("entry failed to create with status %s", result.Status)
+	}
+
+	return nil
+}
 
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := r.Log.WithValues("pod", req.NamespacedName)
 
-	/*
-		Step 0: Fetch the Pod from the Kubernetes API.
-	*/
-
+	// Fetch the Pod from the Kubernetes API.
 	var pod corev1.Pod
 	if err := r.Get(ctx, req.NamespacedName, &pod); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -43,30 +91,25 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	/*
-	   Step 1: Add or remove the label.
-	*/
-
-	labelIsPresent := pod.Labels != nil && pod.Labels[podNameLabel] == pod.Name
-
-	if labelIsPresent {
-		// The desired state and actual state of the Pod are the same.
-		// No further action is required by the operator at this moment.
-		log.Info("no update required")
+	// Add spire-server entry for pod
+	if pod.Labels == nil || pod.Labels[serviceNameLabel] == "" {
+		log.Info("no update required - service name label not found")
 		return ctrl.Result{}, nil
 	}
 
-	// If the label should be set but is not, set it.
-	if pod.Labels == nil {
-		pod.Labels = make(map[string]string)
+	if err := r.registerPodSpireEntry(ctx, &pod); err != nil {
+		log.Error(err, "failed registering SPIRE entry for pod")
+		return ctrl.Result{}, err
 	}
-	pod.Labels[podNameLabel] = pod.Name
-	log.Info("adding label")
 
-	/*
-	   Step 2: Update the Pod in the Kubernetes API.
-	*/
+	// annotate the pod as having an entry
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	log.Info("adding pod annotation", spireEntryRegisteredAnnotation, "true")
+	pod.Annotations[spireEntryRegisteredAnnotation] = "true"
 
+	// Update the pod back in Kubernetes API
 	if err := r.Update(ctx, &pod); err != nil {
 		if apierrors.IsConflict(err) {
 			// The Pod has been updated since we read it.

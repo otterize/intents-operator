@@ -6,46 +6,53 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
-	spireServerUtil "github.com/spiffe/spire/cmd/spire-server/util"
 	"github.com/spiffe/spire/pkg/agent/client"
-	spireCommonUtil "github.com/spiffe/spire/pkg/common/util"
 	"google.golang.org/grpc"
 )
 
-func NewServerClientFromUnixSocket(socketPath string) (spireServerUtil.ServerClient, error) {
-	addr, err := spireCommonUtil.GetUnixAddrWithAbsPath(socketPath)
-	if err != nil {
-		return nil, err
-	}
-
-	c, err := spireServerUtil.NewServerClient(addr)
-	if err != nil {
-		panic(err)
-	}
-
-	return c, nil
+type ServerClient interface {
+	Close()
+	GetTrustDomain() spiffeid.TrustDomain
+	GetClientSpiffeID() spiffeid.ID
+	NewEntryClient() entryv1.EntryClient
 }
 
-func serverConn(ctx context.Context, serverAddress string, svid *x509svid.SVID, bundleSet *x509bundle.Set) (*grpc.ClientConn, error) {
-	trustDomain := svid.ID.TrustDomain()
-	bundle, ok := bundleSet.Get(trustDomain)
+type serverClient struct {
+	conf ServerClientConfig
+	conn *grpc.ClientConn
+}
+
+type ServerClientConfig struct {
+	ServerAddress string
+	ClientSVID    *x509svid.SVID
+	ClientBundle  *x509bundle.Set
+}
+
+func (c *ServerClientConfig) GetTrustDomain() spiffeid.TrustDomain {
+	return c.ClientSVID.ID.TrustDomain()
+}
+
+func serverConn(ctx context.Context, conf ServerClientConfig) (*grpc.ClientConn, error) {
+	trustDomain := conf.GetTrustDomain()
+	bundle, ok := conf.ClientBundle.Get(trustDomain)
 	if !ok {
 		return nil, fmt.Errorf("bundle is missing for domain %s", trustDomain)
 	}
 
 	return client.DialServer(ctx, client.DialServerConfig{
-		Address:     serverAddress,
-		TrustDomain: svid.ID.TrustDomain(),
+		Address:     conf.ServerAddress,
+		TrustDomain: trustDomain,
 		GetBundle: func() []*x509.Certificate {
 			return bundle.X509Authorities()
 		},
 		GetAgentCertificate: func() *tls.Certificate {
 			agentCert := &tls.Certificate{
-				PrivateKey: svid.PrivateKey,
+				PrivateKey: conf.ClientSVID.PrivateKey,
 			}
-			for _, cert := range svid.Certificates {
+			for _, cert := range conf.ClientSVID.Certificates {
 				agentCert.Certificate = append(agentCert.Certificate, cert.Raw)
 			}
 			return agentCert
@@ -53,11 +60,27 @@ func serverConn(ctx context.Context, serverAddress string, svid *x509svid.SVID, 
 	})
 }
 
-func NewEntryClientFromTCP(serverAddress string, svid *x509svid.SVID, bundleSet *x509bundle.Set) (entryv1.EntryClient, error) {
-	conn, err := serverConn(context.Background(), serverAddress, svid, bundleSet)
+func NewServerClient(conf ServerClientConfig) (ServerClient, error) {
+	conn, err := serverConn(context.Background(), conf)
 	if err != nil {
 		return nil, err
 	}
 
-	return entryv1.NewEntryClient(conn), nil
+	return &serverClient{conf: conf, conn: conn}, nil
+}
+
+func (c *serverClient) Close() {
+	_ = c.conn.Close()
+}
+
+func (c *serverClient) GetTrustDomain() spiffeid.TrustDomain {
+	return c.conf.GetTrustDomain()
+}
+
+func (c *serverClient) GetClientSpiffeID() spiffeid.ID {
+	return c.conf.ClientSVID.ID
+}
+
+func (c *serverClient) NewEntryClient() entryv1.EntryClient {
+	return entryv1.NewEntryClient(c.conn)
 }
