@@ -55,12 +55,11 @@ func initSpireClient(ctx context.Context, spireServerAddr string) (spire_client.
 
 	// use SVID & bundle to connect to spire-server API
 	conf := spire_client.ServerClientConfig{
-		ServerAddress: spireServerAddr,
-		ClientSVID:    svid,
-		ClientBundle:  bundle,
+		SVID:   svid,
+		Bundle: bundle,
 	}
 
-	serverClient, err := spire_client.NewServerClient(conf)
+	serverClient, err := spire_client.NewServerClient(ctx, spireServerAddr, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +93,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "otterize/spifferize-operator",
+		LeaderElectionID:       "spifferize-operator.otterize.com",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

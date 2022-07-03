@@ -26,8 +26,7 @@ type PodReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;update;patch
 
 const (
-	serviceNameLabel               = "otterize/service-name"
-	spireEntryRegisteredAnnotation = "otterize/spire-entry-registered"
+	serviceNameLabel = "otterize/service-name"
 )
 
 func (r *PodReconciler) registerPodSpireEntry(ctx context.Context, pod *corev1.Pod) error {
@@ -36,12 +35,12 @@ func (r *PodReconciler) registerPodSpireEntry(ctx context.Context, pod *corev1.P
 
 	entry := types.Entry{
 		SpiffeId: &types.SPIFFEID{
-			TrustDomain: r.SpireClient.GetTrustDomain().String(),
+			TrustDomain: r.SpireClient.ClientConf().TrustDomain().String(),
 			Path:        fmt.Sprintf("/otterize/env/%s/service/%s", pod.Namespace, serviceName),
 		},
 		ParentId: &types.SPIFFEID{
-			TrustDomain: r.SpireClient.GetClientSpiffeID().TrustDomain().String(),
-			Path:        r.SpireClient.GetClientSpiffeID().Path(),
+			TrustDomain: r.SpireClient.ClientConf().ClientSpiffeID().TrustDomain().String(),
+			Path:        r.SpireClient.ClientConf().ClientSpiffeID().Path(),
 		},
 		Selectors: []*types.Selector{
 			{Type: "k8s", Value: fmt.Sprintf("ns:%s", pod.Namespace)},
@@ -99,29 +98,6 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	if err := r.registerPodSpireEntry(ctx, &pod); err != nil {
 		log.Error(err, "failed registering SPIRE entry for pod")
-		return ctrl.Result{}, err
-	}
-
-	// annotate the pod as having an entry
-	if pod.Annotations == nil {
-		pod.Annotations = make(map[string]string)
-	}
-	log.Info("adding pod annotation", spireEntryRegisteredAnnotation, "true")
-	pod.Annotations[spireEntryRegisteredAnnotation] = "true"
-
-	// Update the pod back in Kubernetes API
-	if err := r.Update(ctx, &pod); err != nil {
-		if apierrors.IsConflict(err) {
-			// The Pod has been updated since we read it.
-			// Requeue the Pod to try to reconciliate again.
-			return ctrl.Result{Requeue: true}, nil
-		}
-		if apierrors.IsNotFound(err) {
-			// The Pod has been deleted since we read it.
-			// Requeue the Pod to try to reconciliate again.
-			return ctrl.Result{Requeue: true}, nil
-		}
-		log.Error(err, "unable to update Pod")
 		return ctrl.Result{}, err
 	}
 
