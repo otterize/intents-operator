@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/spifferize/src/operator/controllers"
 	spire_client "github.com/otterize/spifferize/src/spire-client"
+	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"os"
 
@@ -17,13 +19,11 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme = runtime.NewScheme()
 )
 
 const (
@@ -63,8 +63,7 @@ func initSpireClient(ctx context.Context, spireServerAddr string) (spire_client.
 	if err != nil {
 		return nil, err
 	}
-	setupLog.Info("Successfully connected to SPIRE server",
-		"server", spireServerAddr)
+	logrus.WithField("server_address", spireServerAddr).Infof("Successfully connected to SPIRE server")
 	return serverClient, nil
 }
 
@@ -79,13 +78,8 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
@@ -96,40 +90,41 @@ func main() {
 		LeaderElectionID:       "spifferize-operator.otterize.com",
 	})
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
+		logrus.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
 	spireClient, err := initSpireClient(context.TODO(), spireServerAddr)
 	if err != nil {
-		setupLog.Error(err, "failed to connect to spire server")
+		logrus.Error(err, "failed to connect to spire server")
 		os.Exit(1)
 	}
 	defer spireClient.Close()
 
-	if err = (&controllers.PodReconciler{
+	podReconciler := &controllers.PodReconciler{
 		Client:      mgr.GetClient(),
-		Log:         ctrl.Log.WithName("controllers").WithName("Pod"),
 		Scheme:      mgr.GetScheme(),
 		SpireClient: spireClient,
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Pod")
+	}
+
+	if err = podReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithField("controller", "Pod").Error(err, "unable to create controller")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
+		logrus.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
 	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
+		logrus.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
+	logrus.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
+		logrus.Error(err, "problem running manager")
 		os.Exit(1)
 	}
 }

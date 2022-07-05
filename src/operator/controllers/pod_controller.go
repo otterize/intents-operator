@@ -3,8 +3,8 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
 	spire_client "github.com/otterize/spifferize/src/spire-client"
+	"github.com/sirupsen/logrus"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
 	"google.golang.org/grpc/codes"
@@ -18,7 +18,6 @@ import (
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
-	Log         logr.Logger
 	Scheme      *runtime.Scheme
 	SpireClient spire_client.ServerClient
 }
@@ -31,7 +30,7 @@ const (
 
 func (r *PodReconciler) registerPodSpireEntry(ctx context.Context, pod *corev1.Pod) error {
 	serviceName := pod.Labels[serviceNameLabel]
-	log := r.Log.WithValues("pod", pod.Name, "namespace", pod.Namespace, "serviceName", serviceName)
+	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace, "service_name": serviceName})
 
 	entry := types.Entry{
 		SpiffeId: &types.SPIFFEID{
@@ -58,15 +57,15 @@ func (r *PodReconciler) registerPodSpireEntry(ctx context.Context, pod *corev1.P
 	}
 
 	if len(resp.Results) != 1 {
-		return fmt.Errorf("unexpected number of results returned from SPIRE server: %d", len(resp.Results))
+		return fmt.Errorf("unexpected number of results returned from SPIRE server, expected exactly 1 and got %d", len(resp.Results))
 	}
 
 	result := resp.Results[0]
 	switch result.Status.Code {
 	case int32(codes.OK):
-		log.Info("SPIRE server entry created", "id", result.Entry.Id)
+		log.WithField("entry_id", result.Entry.Id).Info("SPIRE server entry created")
 	case int32(codes.AlreadyExists):
-		log.Info("SPIRE server entry already exists", "id", result.Entry.Id)
+		log.WithField("entry_id", result.Entry.Id).Info("SPIRE server entry already exists")
 	default:
 		return fmt.Errorf("entry failed to create with status %s", result.Status)
 	}
@@ -75,7 +74,7 @@ func (r *PodReconciler) registerPodSpireEntry(ctx context.Context, pod *corev1.P
 }
 
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("pod", req.NamespacedName)
+	log := logrus.WithField("pod", req.NamespacedName)
 
 	// Fetch the Pod from the Kubernetes API.
 	var pod corev1.Pod
