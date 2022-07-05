@@ -12,10 +12,8 @@ spec:
     metadata:
       labels:
         app: client
+        otterize/service-name: go-spiffe-tls-client
     spec:
-      hostPID: true
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: client
           imagePullPolicy: Always
@@ -44,10 +42,8 @@ spec:
     metadata:
       labels:
         app: server
+        otterize/service-name: go-spiffe-tls-server
     spec:
-      hostPID: true
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
       containers:
         - name: server
           ports:
