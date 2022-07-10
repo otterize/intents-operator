@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	spire_client "github.com/otterize/spifferize/src/spire-client"
+	"github.com/otterize/spifferize/src/spire-client/bundles"
+	"github.com/otterize/spifferize/src/spire-client/entries"
 	"github.com/sirupsen/logrus"
-	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
-	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
-	"google.golang.org/grpc/codes"
+	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -18,59 +20,83 @@ import (
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	SpireClient spire_client.ServerClient
+	Scheme         *runtime.Scheme
+	SpireClient    spire_client.ServerClient
+	EntriesManager *entries.Manager
+	BundlesManager *bundles.Manager
 }
 
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=create;get;list;update;patch
 
 const (
-	serviceNameLabel = "otterize/service-name"
+	trustBundleSecretName = "spifferize-trust-bundle"
+	svidSecretName        = "spifferize-svid"
 )
 
-func (r *PodReconciler) registerPodSpireEntry(ctx context.Context, pod *corev1.Pod) error {
-	serviceName := pod.Labels[serviceNameLabel]
-	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace, "service_name": serviceName})
+func (r *PodReconciler) ensureSecret(ctx context.Context, secret *corev1.Secret) error {
+	log := logrus.WithFields(logrus.Fields{"secret.namespace": secret.Namespace, "secret.name": secret.Name})
 
-	entry := types.Entry{
-		SpiffeId: &types.SPIFFEID{
-			TrustDomain: r.SpireClient.ClientConf().TrustDomain().String(),
-			Path:        fmt.Sprintf("/otterize/env/%s/service/%s", pod.Namespace, serviceName),
-		},
-		ParentId: &types.SPIFFEID{
-			TrustDomain: r.SpireClient.ClientConf().ClientSpiffeID().TrustDomain().String(),
-			Path:        r.SpireClient.ClientConf().ClientSpiffeID().Path(),
-		},
-		Selectors: []*types.Selector{
-			{Type: "k8s", Value: fmt.Sprintf("ns:%s", pod.Namespace)},
-			{Type: "k8s", Value: fmt.Sprintf("pod-label:%s=%s", serviceNameLabel, serviceName)},
-		},
+	found := corev1.Secret{}
+	if err := r.Get(ctx, types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, &found); err != nil && apierrors.IsNotFound(err) {
+		log.Info("Creating a new secret")
+		if err := r.Create(ctx, secret); err != nil {
+			return err
+		}
+		log.Info("Secret created")
+		return nil
+	} else if err != nil {
+		return err
 	}
 
-	log.Info("Creating SPIRE server entry")
-	entryClient := r.SpireClient.NewEntryClient()
-	batchCreateEntryRequest := entryv1.BatchCreateEntryRequest{Entries: []*types.Entry{&entry}}
+	log.Info("Updating existing secret")
+	if err := r.Update(ctx, secret); err != nil {
+		return err
+	}
+	return nil
+}
 
-	resp, err := entryClient.BatchCreateEntry(ctx, &batchCreateEntryRequest)
+func (r *PodReconciler) ensureTrustBundleSecret(ctx context.Context, namespace string) error {
+	// create secret content
+	trustBundle, err := r.BundlesManager.GetTrustBundle(ctx)
 	if err != nil {
 		return err
 	}
 
-	if len(resp.Results) != 1 {
-		return fmt.Errorf("unexpected number of results returned from SPIRE server, expected exactly 1 and got %d", len(resp.Results))
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      trustBundleSecretName,
+			Namespace: namespace,
+		},
+		Data: map[string][]byte{
+			"trust-bundle-pem": trustBundle.BundlePEM,
+		},
 	}
 
-	result := resp.Results[0]
-	switch result.Status.Code {
-	case int32(codes.OK):
-		log.WithField("entry_id", result.Entry.Id).Info("SPIRE server entry created")
-	case int32(codes.AlreadyExists):
-		log.WithField("entry_id", result.Entry.Id).Info("SPIRE server entry already exists")
-	default:
-		return fmt.Errorf("entry failed to create with status %s", result.Status)
+	return r.ensureSecret(ctx, &secret)
+}
+
+func (r *PodReconciler) ensureSVIDSecret(ctx context.Context, namespace string, serviceName string, spiffeID spiffeid.ID) error {
+	svid, err := r.BundlesManager.GetX509SVID(ctx, spiffeID)
+	if err != nil {
+		return err
 	}
 
-	return nil
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s", svidSecretName, serviceName),
+			Namespace: namespace,
+			Annotations: map[string]string{
+				"expires-at": fmt.Sprintf("%d", svid.ExpiresAt),
+			},
+		},
+		Data: map[string][]byte{
+			"key-pem":  svid.KeyPEM,
+			"svid-pem": svid.SVIDPEM,
+		},
+	}
+
+	return r.ensureSecret(ctx, &secret)
 }
 
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -90,13 +116,25 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Add spire-server entry for pod
-	if pod.Labels == nil || pod.Labels[serviceNameLabel] == "" {
+	if pod.Labels == nil || pod.Labels[entries.ServiceNamePodLabel] == "" {
 		log.Info("no update required - service name label not found")
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.registerPodSpireEntry(ctx, &pod); err != nil {
+	serviceName := pod.Labels[entries.ServiceNamePodLabel]
+	spiffeID, err := r.EntriesManager.RegisterK8SPodEntry(ctx, pod.Namespace, serviceName)
+	if err != nil {
 		log.Error(err, "failed registering SPIRE entry for pod")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.ensureTrustBundleSecret(ctx, pod.Namespace); err != nil {
+		log.Error(err, "failed to create trust bundle secret")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.ensureSVIDSecret(ctx, pod.Namespace, serviceName, spiffeID); err != nil {
+		log.Error(err, "failed to create trust bundle secret")
 		return ctrl.Result{}, err
 	}
 

@@ -22,11 +22,23 @@ spec:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
               readOnly: true
+            - name: spifferize-trust-bundle
+              mountPath: /etc/spifferize/trust-bundle
+              readOnly: true
+            - name: spifferize-svid
+              mountPath: /etc/spifferize/svid
+              readOnly: true
       volumes:
         - name: spire-agent-socket
           hostPath:
             path: /run/spire/sockets
             type: Directory
+        - name: spifferize-trust-bundle
+          secret:
+            secretName: spifferize-trust-bundle
+        - name: spifferize-svid
+          secret:
+            secretName: spifferize-svid-go-spiffe-tls-client
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -54,11 +66,24 @@ spec:
             - name: spire-agent-socket
               mountPath: /run/spire/sockets
               readOnly: true
+            - name: spifferize-trust-bundle
+              mountPath: /etc/spifferize/trust-bundle
+              readOnly: true
+            - name: spifferize-svid
+              mountPath: /etc/spifferize/svid
+              readOnly: true
       volumes:
         - name: spire-agent-socket
           hostPath:
             path: /run/spire/sockets
             type: Directory
+        - name: spifferize-trust-bundle
+          secret:
+            secretName: spifferize-trust-bundle
+        - name: spifferize-svid
+          secret:
+            secretName: spifferize-svid-go-spiffe-tls-server
+
 ---
 apiVersion: v1
 kind: Service

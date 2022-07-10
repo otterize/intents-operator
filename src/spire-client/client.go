@@ -4,10 +4,9 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
-	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
+	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
+	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	agentv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/agent/v1"
 	bundlev1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/bundle/v1"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
@@ -21,7 +20,7 @@ import (
 type ServerClient interface {
 	Close()
 
-	ClientConf() ServerClientConfig
+	GetSpiffeID() spiffeid.ID
 
 	NewAgentClient() agentv1.AgentClient
 	NewBundleClient() bundlev1.BundleClient
@@ -31,42 +30,36 @@ type ServerClient interface {
 	NewHealthClient() grpc_health_v1.HealthClient
 }
 
-type ServerClientConfig struct {
-	SVID   *x509svid.SVID
-	Bundle *x509bundle.Set
-}
-
-func (conf ServerClientConfig) TrustDomain() spiffeid.TrustDomain {
-	return conf.SVID.ID.TrustDomain()
-}
-
-func (conf ServerClientConfig) ClientSpiffeID() spiffeid.ID {
-	return conf.SVID.ID
-}
-
 type serverClient struct {
-	conn       *grpc.ClientConn
-	clientConf ServerClientConfig
+	conn     *grpc.ClientConn
+	source   *workloadapi.X509Source
+	spiffeID spiffeid.ID
 }
 
-func serverConn(ctx context.Context, serverAddress string, clientConf ServerClientConfig) (*grpc.ClientConn, error) {
-	trustDomain := clientConf.SVID.ID.TrustDomain()
-	bundle, ok := clientConf.Bundle.Get(trustDomain)
-	if !ok {
-		return nil, fmt.Errorf("bundle is missing for domain %s", trustDomain)
-	}
-
+func serverConn(ctx context.Context, serverAddress string, trustDomain spiffeid.TrustDomain, source *workloadapi.X509Source) (*grpc.ClientConn, error) {
 	return client.DialServer(ctx, client.DialServerConfig{
 		Address:     serverAddress,
 		TrustDomain: trustDomain,
 		GetBundle: func() []*x509.Certificate {
+			bundle, err := source.GetX509BundleForTrustDomain(trustDomain)
+			if err != nil {
+				logrus.Error(err, "failed to get bundle source")
+				return nil
+			}
+
 			return bundle.X509Authorities()
 		},
 		GetAgentCertificate: func() *tls.Certificate {
-			agentCert := &tls.Certificate{
-				PrivateKey: clientConf.SVID.PrivateKey,
+			svid, err := source.GetX509SVID()
+			if err != nil {
+				logrus.Error(err, "failed to get svid source")
+				return nil
 			}
-			for _, cert := range clientConf.SVID.Certificates {
+
+			agentCert := &tls.Certificate{
+				PrivateKey: svid.PrivateKey,
+			}
+			for _, cert := range svid.Certificates {
 				agentCert.Certificate = append(agentCert.Certificate, cert.Raw)
 			}
 			return agentCert
@@ -74,21 +67,29 @@ func serverConn(ctx context.Context, serverAddress string, clientConf ServerClie
 	})
 }
 
-func NewServerClient(ctx context.Context, serverAddress string, clientConf ServerClientConfig) (ServerClient, error) {
-	conn, err := serverConn(ctx, serverAddress, clientConf)
+func NewServerClient(ctx context.Context, serverAddress string, source *workloadapi.X509Source) (ServerClient, error) {
+	svid, err := source.GetX509SVID()
+	if err != nil {
+		return nil, err
+	}
+	spiffeID := svid.ID
+	trustDomain := spiffeID.TrustDomain()
+
+	conn, err := serverConn(ctx, serverAddress, trustDomain, source)
 	if err != nil {
 		return nil, err
 	}
 
-	return &serverClient{clientConf: clientConf, conn: conn}, nil
+	return &serverClient{conn: conn, source: source, spiffeID: spiffeID}, nil
 }
 
 func (c *serverClient) Close() {
+	_ = c.source.Close()
 	_ = c.conn.Close()
 }
 
-func (c *serverClient) ClientConf() ServerClientConfig {
-	return c.clientConf
+func (c *serverClient) GetSpiffeID() spiffeid.ID {
+	return c.spiffeID
 }
 
 func (c *serverClient) NewAgentClient() agentv1.AgentClient {

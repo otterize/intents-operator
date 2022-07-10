@@ -6,6 +6,8 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/spifferize/src/operator/controllers"
 	spire_client "github.com/otterize/spifferize/src/spire-client"
+	"github.com/otterize/spifferize/src/spire-client/bundles"
+	"github.com/otterize/spifferize/src/spire-client/entries"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"os"
@@ -38,28 +40,12 @@ func init() {
 
 func initSpireClient(ctx context.Context, spireServerAddr string) (spire_client.ServerClient, error) {
 	// fetch SVID & bundle through spire-agent API
-	source, err := workloadapi.New(ctx, workloadapi.WithAddr(socketPath))
-	if err != nil {
-		return nil, err
-	}
-	defer source.Close()
-
-	svid, err := source.FetchX509SVID(ctx)
-	if err != nil {
-		return nil, err
-	}
-	bundle, err := source.FetchX509Bundles(ctx)
+	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))
 	if err != nil {
 		return nil, err
 	}
 
-	// use SVID & bundle to connect to spire-server API
-	conf := spire_client.ServerClientConfig{
-		SVID:   svid,
-		Bundle: bundle,
-	}
-
-	serverClient, err := spire_client.NewServerClient(ctx, spireServerAddr, conf)
+	serverClient, err := spire_client.NewServerClient(ctx, spireServerAddr, source)
 	if err != nil {
 		return nil, err
 	}
@@ -101,10 +87,15 @@ func main() {
 	}
 	defer spireClient.Close()
 
+	bundlesManager := bundles.NewBundlesManager(spireClient)
+	entriesManager := entries.NewEntriesManager(spireClient)
+
 	podReconciler := &controllers.PodReconciler{
-		Client:      mgr.GetClient(),
-		Scheme:      mgr.GetScheme(),
-		SpireClient: spireClient,
+		Client:         mgr.GetClient(),
+		Scheme:         mgr.GetScheme(),
+		SpireClient:    spireClient,
+		BundlesManager: bundlesManager,
+		EntriesManager: entriesManager,
 	}
 
 	if err = podReconciler.SetupWithManager(mgr); err != nil {
