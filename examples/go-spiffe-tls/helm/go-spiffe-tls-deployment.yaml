@@ -19,26 +19,13 @@ spec:
           imagePullPolicy: Always
           image: public.ecr.aws/e3b4k2v5/go-spiffe-client:latest
           volumeMounts:
-            - name: spire-agent-socket
-              mountPath: /run/spire/sockets
-              readOnly: true
-            - name: spifferize-trust-bundle
-              mountPath: /etc/spifferize/trust-bundle
-              readOnly: true
-            - name: spifferize-svid
-              mountPath: /etc/spifferize/svid
+            - name: spifferize-tls
+              mountPath: /etc/spifferize
               readOnly: true
       volumes:
-        - name: spire-agent-socket
-          hostPath:
-            path: /run/spire/sockets
-            type: Directory
-        - name: spifferize-trust-bundle
+        - name: spifferize-tls
           secret:
-            secretName: spifferize-trust-bundle
-        - name: spifferize-svid
-          secret:
-            secretName: spifferize-svid-go-spiffe-tls-client
+            secretName: spifferize-tls-go-spiffe-tls-client
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -63,27 +50,13 @@ spec:
           imagePullPolicy: Always
           image: public.ecr.aws/e3b4k2v5/go-spiffe-server:latest
           volumeMounts:
-            - name: spire-agent-socket
-              mountPath: /run/spire/sockets
-              readOnly: true
-            - name: spifferize-trust-bundle
-              mountPath: /etc/spifferize/trust-bundle
-              readOnly: true
-            - name: spifferize-svid
-              mountPath: /etc/spifferize/svid
+            - name: spifferize-tls
+              mountPath: /etc/spifferize
               readOnly: true
       volumes:
-        - name: spire-agent-socket
-          hostPath:
-            path: /run/spire/sockets
-            type: Directory
-        - name: spifferize-trust-bundle
+        - name: spifferize-tls
           secret:
-            secretName: spifferize-trust-bundle
-        - name: spifferize-svid
-          secret:
-            secretName: spifferize-svid-go-spiffe-tls-server
-
+            secretName: spifferize-tls-go-spiffe-tls-server
 ---
 apiVersion: v1
 kind: Service

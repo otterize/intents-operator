@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"github.com/otterize/spifferize/examples/spiffe-tls/utils"
 	"io"
 	"log"
 	"time"
@@ -11,12 +12,14 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/spiffetls"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
-	"github.com/spiffe/go-spiffe/v2/workloadapi"
 )
 
 const (
-	socketPath    = "unix:////run/spire/sockets/agent.sock"
 	serverAddress = "go-spiffe-server-service:55555"
+	bundlePath    = "/etc/spifferize/bundle.pem"
+	certFilePath  = "/etc/spifferize/svid.pem"
+	keyFilePath   = "/etc/spifferize/key.pem"
+	serverID      = "spiffe://example.org/otterize/namespace/default/service/go-spiffe-tls-server"
 )
 
 func dial() {
@@ -24,17 +27,23 @@ func dial() {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
+	log.Printf("Client starting to %s", serverAddress)
+
 	// Allowed SPIFFE ID
-	serverID := spiffeid.RequireFromString("spiffe://example.org/server")
+	serverID := spiffeid.RequireFromString(serverID)
 
 	// Create a TLS connection.
 	// The client expects the server to present an SVID with the spiffeID: 'spiffe://example.org/server'
 	//
 	// An alternative when creating Dial is using `spiffetls.Dial` that uses environment variable `SPIFFE_ENDPOINT_SOCKET`
+	svid := utils.NewLocalSVIDSource(certFilePath, keyFilePath)
+	bundle := utils.NewLocalBundleSource(bundlePath)
+
 	conn, err := spiffetls.DialWithMode(ctx, "tcp", serverAddress,
-		spiffetls.MTLSClientWithSourceOptions(
+		spiffetls.MTLSClientWithRawConfig(
 			tlsconfig.AuthorizeID(serverID),
-			workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)),
+			svid,
+			bundle,
 		))
 	if err != nil {
 		log.Fatalf("Unable to create TLS connection: %v", err)

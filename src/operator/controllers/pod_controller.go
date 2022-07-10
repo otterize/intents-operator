@@ -30,8 +30,7 @@ type PodReconciler struct {
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=create;get;list;update;patch
 
 const (
-	trustBundleSecretName = "spifferize-trust-bundle"
-	svidSecretName        = "spifferize-svid"
+	tlsSecretPrefix = "spifferize-tls"
 )
 
 func (r *PodReconciler) ensureSecret(ctx context.Context, secret *corev1.Secret) error {
@@ -56,27 +55,12 @@ func (r *PodReconciler) ensureSecret(ctx context.Context, secret *corev1.Secret)
 	return nil
 }
 
-func (r *PodReconciler) ensureTrustBundleSecret(ctx context.Context, namespace string) error {
-	// create secret content
+func (r *PodReconciler) ensureTLSSecret(ctx context.Context, namespace string, secretName string, spiffeID spiffeid.ID) error {
 	trustBundle, err := r.BundlesManager.GetTrustBundle(ctx)
 	if err != nil {
 		return err
 	}
 
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      trustBundleSecretName,
-			Namespace: namespace,
-		},
-		Data: map[string][]byte{
-			"trust-bundle-pem": trustBundle.BundlePEM,
-		},
-	}
-
-	return r.ensureSecret(ctx, &secret)
-}
-
-func (r *PodReconciler) ensureSVIDSecret(ctx context.Context, namespace string, serviceName string, spiffeID spiffeid.ID) error {
 	svid, err := r.BundlesManager.GetX509SVID(ctx, spiffeID)
 	if err != nil {
 		return err
@@ -84,15 +68,16 @@ func (r *PodReconciler) ensureSVIDSecret(ctx context.Context, namespace string, 
 
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", svidSecretName, serviceName),
+			Name:      secretName,
 			Namespace: namespace,
 			Annotations: map[string]string{
-				"expires-at": fmt.Sprintf("%d", svid.ExpiresAt),
+				"svid-expires-at": fmt.Sprintf("%d", svid.ExpiresAt),
 			},
 		},
 		Data: map[string][]byte{
-			"key-pem":  svid.KeyPEM,
-			"svid-pem": svid.SVIDPEM,
+			"bundle.pem": trustBundle.BundlePEM,
+			"key.pem":    svid.KeyPEM,
+			"svid.pem":   svid.SVIDPEM,
 		},
 	}
 
@@ -128,13 +113,9 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	if err := r.ensureTrustBundleSecret(ctx, pod.Namespace); err != nil {
-		log.Error(err, "failed to create trust bundle secret")
-		return ctrl.Result{}, err
-	}
-
-	if err := r.ensureSVIDSecret(ctx, pod.Namespace, serviceName, spiffeID); err != nil {
-		log.Error(err, "failed to create trust bundle secret")
+	secretName := fmt.Sprintf("%s-%s", tlsSecretPrefix, serviceName)
+	if err := r.ensureTLSSecret(ctx, pod.Namespace, secretName, spiffeID); err != nil {
+		log.Error(err, "failed to create trust bundle & svid secret")
 		return ctrl.Result{}, err
 	}
 
