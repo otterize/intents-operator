@@ -5,9 +5,11 @@ import (
 	"flag"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/spifferize/src/operator/controllers"
-	spire_client "github.com/otterize/spifferize/src/spire-client"
-	"github.com/otterize/spifferize/src/spire-client/bundles"
-	"github.com/otterize/spifferize/src/spire-client/entries"
+	"github.com/otterize/spifferize/src/operator/secrets"
+	"github.com/otterize/spifferize/src/spireclient"
+	"github.com/otterize/spifferize/src/spireclient/bundles"
+	"github.com/otterize/spifferize/src/spireclient/entries"
+	"github.com/otterize/spifferize/src/spireclient/svids"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"os"
@@ -38,14 +40,14 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 }
 
-func initSpireClient(ctx context.Context, spireServerAddr string) (spire_client.ServerClient, error) {
+func initSpireClient(ctx context.Context, spireServerAddr string) (spireclient.ServerClient, error) {
 	// fetch SVID & bundle through spire-agent API
 	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath)))
 	if err != nil {
 		return nil, err
 	}
 
-	serverClient, err := spire_client.NewServerClient(ctx, spireServerAddr, source)
+	serverClient, err := spireclient.NewServerClient(ctx, spireServerAddr, source)
 	if err != nil {
 		return nil, err
 	}
@@ -76,46 +78,52 @@ func main() {
 		LeaderElectionID:       "spifferize-operator.otterize.com",
 	})
 	if err != nil {
-		logrus.Error(err, "unable to start manager")
+		logrus.WithError(err).Error("unable to start manager")
 		os.Exit(1)
 	}
 
-	spireClient, err := initSpireClient(context.TODO(), spireServerAddr)
+	ctx := ctrl.SetupSignalHandler()
+
+	spireClient, err := initSpireClient(ctx, spireServerAddr)
 	if err != nil {
-		logrus.Error(err, "failed to connect to spire server")
+		logrus.WithError(err).Error("failed to connect to spire server")
 		os.Exit(1)
 	}
 	defer spireClient.Close()
 
-	bundlesManager := bundles.NewBundlesManager(spireClient)
-	entriesManager := entries.NewEntriesManager(spireClient)
+	bundlesStore := bundles.NewBundlesStore(spireClient)
+	svidsStore := svids.NewSVIDsStore(spireClient)
+	entriesRegistry := entries.NewEntriesRegistry(spireClient)
+	secretsManager := secrets.NewSecretsManager(mgr.GetClient(), bundlesStore, svidsStore)
 
 	podReconciler := &controllers.PodReconciler{
-		Client:         mgr.GetClient(),
-		Scheme:         mgr.GetScheme(),
-		SpireClient:    spireClient,
-		BundlesManager: bundlesManager,
-		EntriesManager: entriesManager,
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		SpireClient:     spireClient,
+		EntriesRegistry: entriesRegistry,
+		SecretsManager:  secretsManager,
 	}
 
 	if err = podReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithField("controller", "Pod").Error(err, "unable to create controller")
+		logrus.WithField("controller", "Pod").WithError(err).Error("unable to create controller")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
-		logrus.Error(err, "unable to set up health check")
+		logrus.WithError(err).Error("unable to set up health check")
 		os.Exit(1)
 	}
 	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
-		logrus.Error(err, "unable to set up ready check")
+		logrus.WithError(err).Error("unable to set up ready check")
 		os.Exit(1)
 	}
 
 	logrus.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		logrus.Error(err, "problem running manager")
+
+	go podReconciler.RefreshSecretsLoop(ctx)
+	if err := mgr.Start(ctx); err != nil {
+		logrus.WithError(err).Error("problem running manager")
 		os.Exit(1)
 	}
 }

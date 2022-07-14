@@ -1,4 +1,4 @@
-package spire_client
+package spireclient
 
 import (
 	"context"
@@ -43,7 +43,7 @@ func serverConn(ctx context.Context, serverAddress string, trustDomain spiffeid.
 		GetBundle: func() []*x509.Certificate {
 			bundle, err := source.GetX509BundleForTrustDomain(trustDomain)
 			if err != nil {
-				logrus.Error(err, "failed to get bundle source")
+				logrus.WithError(err).Error("failed to get bundle source")
 				return nil
 			}
 
@@ -52,7 +52,7 @@ func serverConn(ctx context.Context, serverAddress string, trustDomain spiffeid.
 		GetAgentCertificate: func() *tls.Certificate {
 			svid, err := source.GetX509SVID()
 			if err != nil {
-				logrus.Error(err, "failed to get svid source")
+				logrus.WithError(err).Error("failed to get svid source")
 				return nil
 			}
 

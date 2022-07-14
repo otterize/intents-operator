@@ -3,7 +3,7 @@ package entries
 import (
 	"context"
 	"fmt"
-	spire_client "github.com/otterize/spifferize/src/spire-client"
+	"github.com/otterize/spifferize/src/spireclient"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
@@ -11,24 +11,20 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
-const (
-	ServiceNamePodLabel = "otterize/service-name"
-)
-
-type Manager struct {
-	SpireClient spire_client.ServerClient
+type Registry struct {
+	spireClient spireclient.ServerClient
 }
 
-func NewEntriesManager(spireClient spire_client.ServerClient) *Manager {
-	return &Manager{SpireClient: spireClient}
+func NewEntriesRegistry(spireClient spireclient.ServerClient) *Registry {
+	return &Registry{spireClient: spireClient}
 }
 
-func (m *Manager) RegisterK8SPodEntry(ctx context.Context, namespace string, serviceName string) (spiffeid.ID, error) {
+func (m *Registry) RegisterK8SPodEntry(ctx context.Context, namespace string, ServiceNameLabel string, serviceName string) (spiffeid.ID, error) {
 	log := logrus.WithFields(logrus.Fields{"namespace": namespace, "service_name": serviceName})
 
-	trustDomain := m.SpireClient.GetSpiffeID().TrustDomain()
+	trustDomain := m.spireClient.GetSpiffeID().TrustDomain()
 	podSpiffeIDPath := fmt.Sprintf("/otterize/namespace/%s/service/%s", namespace, serviceName)
-	parentSpiffeIDPath := m.SpireClient.GetSpiffeID().Path()
+	parentSpiffeIDPath := m.spireClient.GetSpiffeID().Path()
 
 	entry := types.Entry{
 		SpiffeId: &types.SPIFFEID{
@@ -41,12 +37,12 @@ func (m *Manager) RegisterK8SPodEntry(ctx context.Context, namespace string, ser
 		},
 		Selectors: []*types.Selector{
 			{Type: "k8s", Value: fmt.Sprintf("ns:%s", namespace)},
-			{Type: "k8s", Value: fmt.Sprintf("pod-label:%s=%s", ServiceNamePodLabel, serviceName)},
+			{Type: "k8s", Value: fmt.Sprintf("pod-label:%s=%s", ServiceNameLabel, serviceName)},
 		},
 	}
 
 	log.Info("Creating SPIRE server entry")
-	entryClient := m.SpireClient.NewEntryClient()
+	entryClient := m.spireClient.NewEntryClient()
 	batchCreateEntryRequest := entryv1.BatchCreateEntryRequest{Entries: []*types.Entry{&entry}}
 
 	resp, err := entryClient.BatchCreateEntry(ctx, &batchCreateEntryRequest)

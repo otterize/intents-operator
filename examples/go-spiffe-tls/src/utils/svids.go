@@ -17,7 +17,7 @@ func NewLocalSVIDSource(certFilePath string, keyFilePath string) *LocalSVIDSourc
 func (s LocalSVIDSource) GetX509SVID() (*x509svid.SVID, error) {
 	svid, err := x509svid.Load(s.certFilePath, s.keyFilePath)
 	if err != nil {
-		logrus.Error(err, "error loading svid")
+		logrus.WithError(err).Error("error loading svid")
 		return nil, err
 	}
 	logrus.WithField("spiffeid", svid.ID.String()).Info("SVID Loaded")

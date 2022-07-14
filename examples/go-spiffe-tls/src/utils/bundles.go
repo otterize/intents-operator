@@ -17,7 +17,7 @@ func NewLocalBundleSource(path string) *LocalBundleSource {
 func (s LocalBundleSource) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomain) (*x509bundle.Bundle, error) {
 	bundle, err := x509bundle.Load(trustDomain, s.path)
 	if err != nil {
-		logrus.Error(err, "error loading bundle")
+		logrus.WithError(err).Error("error loading bundle")
 		return nil, err
 	}
 

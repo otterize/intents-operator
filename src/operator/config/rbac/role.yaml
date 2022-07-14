@@ -27,3 +27,13 @@ rules:
     - patch
     - update
     - watch
+- apiGroups:
+    - apps
+  resources:
+    - replicasets
+    - daemonsets
+    - statefulsets
+  verbs:
+    - get
+    - list
+    - watch
