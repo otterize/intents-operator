@@ -4,10 +4,13 @@ go 1.18
 
 require (
 	github.com/bombsimon/logrusr/v3 v3.0.0
+	github.com/golang/mock v1.6.0
+	github.com/samber/lo v1.25.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spiffe/go-spiffe/v2 v2.0.1-0.20220414143532-2ed460a8b9d3
 	github.com/spiffe/spire v1.3.1
 	github.com/spiffe/spire-api-sdk v1.3.1
+	github.com/stretchr/testify v1.7.1
 	google.golang.org/grpc v1.47.0
 	k8s.io/api v0.24.2
 	k8s.io/apimachinery v0.24.2
@@ -57,11 +60,11 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.12.2 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
-	github.com/samber/lo v1.25.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/twmb/murmur3 v1.1.6 // indirect
 	github.com/uber-go/tally/v4 v4.1.1 // indirect

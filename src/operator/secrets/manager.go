@@ -83,7 +83,12 @@ func (m *Manager) createTLSSecret(ctx context.Context, namespace string, secretN
 		return nil, err
 	}
 
-	svid, err := m.svidsStore.GetX509SVID(ctx, spiffeID)
+	privateKey, err := m.svidsStore.GeneratePrivateKey()
+	if err != nil {
+		return nil, err
+	}
+
+	svid, err := m.svidsStore.GetX509SVID(ctx, spiffeID, privateKey)
 	if err != nil {
 		return nil, err
 	}

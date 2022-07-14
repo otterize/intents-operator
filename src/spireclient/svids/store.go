@@ -3,6 +3,7 @@ package svids
 import (
 	"bytes"
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -16,7 +17,7 @@ import (
 )
 
 type Store struct {
-	spireClient spireclient.ServerClient
+	svidClient svidv1.SVIDClient
 }
 
 type EncodedX509SVID struct {
@@ -26,25 +27,22 @@ type EncodedX509SVID struct {
 }
 
 func NewSVIDsStore(spireClient spireclient.ServerClient) *Store {
-	return &Store{spireClient: spireClient}
+	return &Store{svidClient: spireClient.NewSVIDClient()}
 }
 
-func (s *Store) GetX509SVID(ctx context.Context, spiffeID spiffeid.ID) (EncodedX509SVID, error) {
-	svidClient := s.spireClient.NewSVIDClient()
+func (s *Store) GeneratePrivateKey() (crypto.PrivateKey, error) {
+	return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+}
 
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return EncodedX509SVID{}, fmt.Errorf("unable to generate key: %w", err)
-	}
-
+func (s *Store) GetX509SVID(ctx context.Context, spiffeID spiffeid.ID, privateKey crypto.PrivateKey) (EncodedX509SVID, error) {
 	csr, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
 		URIs: []*url.URL{spiffeID.URL()},
-	}, key)
+	}, privateKey)
 	if err != nil {
 		return EncodedX509SVID{}, fmt.Errorf("unable to generate CSR: %w", err)
 	}
 
-	resp, err := svidClient.MintX509SVID(ctx, &svidv1.MintX509SVIDRequest{
+	resp, err := s.svidClient.MintX509SVID(ctx, &svidv1.MintX509SVIDRequest{
 		Csr: csr,
 	})
 	if err != nil {
@@ -61,7 +59,7 @@ func (s *Store) GetX509SVID(ctx context.Context, spiffeID spiffeid.ID) (EncodedX
 		}
 	}
 
-	keyBytes, err := x509.MarshalPKCS8PrivateKey(key)
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
 	if err != nil {
 		return EncodedX509SVID{}, fmt.Errorf("failed marshaling private key: %w", err)
 	}
