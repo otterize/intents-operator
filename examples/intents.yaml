@@ -1,0 +1,13 @@
+apiVersion: otterize.com/v1alpha1
+kind: Intents
+metadata:
+  name: my-first-intents-object
+spec:
+  service:
+    name: busybox
+    calls:
+      - type: Kafka
+        server: shmerver
+        topics:
+          - name: shmopic
+            operation: consume
