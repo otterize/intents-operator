@@ -80,6 +80,11 @@ func buildReconcilersList(c client.Client, scheme *runtime.Scheme) ([]reconcile.
 	l = append(l, &reconcilers.IntentsValidatorReconciler{Client: c, Scheme: scheme})
 	l = append(l, &reconcilers.PodLabelsReconciler{Client: c, Scheme: scheme})
 	l = append(l, &reconcilers.NetworkPolicyReconciler{Client: c, Scheme: scheme})
+	kafka, err := reconcilers.NewKafkaACLsReconciler(c, scheme)
+	if err != nil {
+		return nil, err
+	}
+	l = append(l, kafka)
 
 	return l, nil
 }
