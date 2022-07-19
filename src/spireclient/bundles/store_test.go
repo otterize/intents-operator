@@ -4,8 +4,9 @@ import (
 	"context"
 	"crypto/x509"
 	"github.com/golang/mock/gomock"
-	mock_bundlev1 "github.com/otterize/spifferize/src/spireclient/mocks/bundlev1"
-	mock_spireclient "github.com/otterize/spifferize/src/spireclient/mocks/client"
+	mock_bundlev1 "github.com/otterize/spifferize/src/mocks/bundlev1"
+	mock_spireclient "github.com/otterize/spifferize/src/mocks/spireclient"
+	"github.com/otterize/spifferize/src/testdata"
 	"github.com/samber/lo"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -24,7 +25,7 @@ type StoreSuite struct {
 	controller   *gomock.Controller
 	spireClient  *mock_spireclient.MockServerClient
 	bundleClient *mock_bundlev1.MockBundleClient
-	store        *Store
+	store        Store
 }
 
 func (s *StoreSuite) SetupTest() {
@@ -41,7 +42,12 @@ func (s *StoreSuite) TearDownTest() {
 }
 
 func loadTestBundle() (*types.Bundle, error) {
-	x509Bundle, err := x509bundle.Load(trustDomain, "../testdata/bundle.pem")
+	testData, err := testdata.LoadTestData()
+	if err != nil {
+		return nil, err
+	}
+
+	x509Bundle, err := x509bundle.Parse(trustDomain, testData.BundlePEM)
 	if err != nil {
 		return nil, err
 	}

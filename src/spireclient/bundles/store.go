@@ -8,7 +8,11 @@ import (
 	bundlev1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/bundle/v1"
 )
 
-type Store struct {
+type Store interface {
+	GetTrustBundle(ctx context.Context) (EncodedTrustBundle, error)
+}
+
+type storeImpl struct {
 	bundleClient bundlev1.BundleClient
 }
 
@@ -16,11 +20,11 @@ type EncodedTrustBundle struct {
 	BundlePEM []byte
 }
 
-func NewBundlesStore(spireClient spireclient.ServerClient) *Store {
-	return &Store{bundleClient: spireClient.NewBundleClient()}
+func NewBundlesStore(spireClient spireclient.ServerClient) Store {
+	return &storeImpl{bundleClient: spireClient.NewBundleClient()}
 }
 
-func (s *Store) GetTrustBundle(ctx context.Context) (EncodedTrustBundle, error) {
+func (s *storeImpl) GetTrustBundle(ctx context.Context) (EncodedTrustBundle, error) {
 	bundle, err := s.bundleClient.GetBundle(ctx, &bundlev1.GetBundleRequest{})
 	if err != nil {
 		return EncodedTrustBundle{}, err

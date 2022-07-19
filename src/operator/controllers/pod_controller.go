@@ -30,8 +30,8 @@ type PodReconciler struct {
 	client.Client
 	Scheme          *runtime.Scheme
 	SpireClient     spireclient.ServerClient
-	EntriesRegistry *entries.Registry
-	SecretsManager  *secrets.Manager
+	EntriesRegistry entries.Registry
+	SecretsManager  secrets.Manager
 }
 
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;update;patch

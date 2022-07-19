@@ -30,7 +30,7 @@ type ServerClient interface {
 	NewHealthClient() grpc_health_v1.HealthClient
 }
 
-type serverClient struct {
+type serverClientImpl struct {
 	conn     *grpc.ClientConn
 	source   *workloadapi.X509Source
 	spiffeID spiffeid.ID
@@ -80,38 +80,38 @@ func NewServerClient(ctx context.Context, serverAddress string, source *workload
 		return nil, err
 	}
 
-	return &serverClient{conn: conn, source: source, spiffeID: spiffeID}, nil
+	return &serverClientImpl{conn: conn, source: source, spiffeID: spiffeID}, nil
 }
 
-func (c *serverClient) Close() {
+func (c *serverClientImpl) Close() {
 	_ = c.source.Close()
 	_ = c.conn.Close()
 }
 
-func (c *serverClient) GetSpiffeID() spiffeid.ID {
+func (c *serverClientImpl) GetSpiffeID() spiffeid.ID {
 	return c.spiffeID
 }
 
-func (c *serverClient) NewAgentClient() agentv1.AgentClient {
+func (c *serverClientImpl) NewAgentClient() agentv1.AgentClient {
 	return agentv1.NewAgentClient(c.conn)
 }
 
-func (c *serverClient) NewBundleClient() bundlev1.BundleClient {
+func (c *serverClientImpl) NewBundleClient() bundlev1.BundleClient {
 	return bundlev1.NewBundleClient(c.conn)
 }
 
-func (c *serverClient) NewEntryClient() entryv1.EntryClient {
+func (c *serverClientImpl) NewEntryClient() entryv1.EntryClient {
 	return entryv1.NewEntryClient(c.conn)
 }
 
-func (c *serverClient) NewSVIDClient() svidv1.SVIDClient {
+func (c *serverClientImpl) NewSVIDClient() svidv1.SVIDClient {
 	return svidv1.NewSVIDClient(c.conn)
 }
 
-func (c *serverClient) NewTrustDomainClient() trustdomainv1.TrustDomainClient {
+func (c *serverClientImpl) NewTrustDomainClient() trustdomainv1.TrustDomainClient {
 	return trustdomainv1.NewTrustDomainClient(c.conn)
 }
 
-func (c *serverClient) NewHealthClient() grpc_health_v1.HealthClient {
+func (c *serverClientImpl) NewHealthClient() grpc_health_v1.HealthClient {
 	return grpc_health_v1.NewHealthClient(c.conn)
 }

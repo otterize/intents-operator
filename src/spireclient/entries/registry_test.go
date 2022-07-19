@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/golang/mock/gomock"
-	mock_spireclient "github.com/otterize/spifferize/src/spireclient/mocks/client"
-	mock_entryv1 "github.com/otterize/spifferize/src/spireclient/mocks/entryv1"
+	mock_entryv1 "github.com/otterize/spifferize/src/mocks/entryv1"
+	mock_spireclient "github.com/otterize/spifferize/src/mocks/spireclient"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
@@ -23,7 +23,7 @@ type RegistrySuite struct {
 	controller  *gomock.Controller
 	spireClient *mock_spireclient.MockServerClient
 	entryClient *mock_entryv1.MockEntryClient
-	registry    *Registry
+	registry    Registry
 }
 
 func (s *RegistrySuite) SetupTest() {

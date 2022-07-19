@@ -5,8 +5,9 @@ import (
 	"crypto"
 	"crypto/x509"
 	"github.com/golang/mock/gomock"
-	mock_spireclient "github.com/otterize/spifferize/src/spireclient/mocks/client"
-	mock_svidv1 "github.com/otterize/spifferize/src/spireclient/mocks/svidv1"
+	mock_spireclient "github.com/otterize/spifferize/src/mocks/spireclient"
+	mock_svidv1 "github.com/otterize/spifferize/src/mocks/svidv1"
+	"github.com/otterize/spifferize/src/testdata"
 	"github.com/samber/lo"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
@@ -21,7 +22,7 @@ type StoreSuite struct {
 	controller  *gomock.Controller
 	spireClient *mock_spireclient.MockServerClient
 	svidClient  *mock_svidv1.MockSVIDClient
-	store       *Store
+	store       Store
 }
 
 func (s *StoreSuite) SetupTest() {
@@ -38,7 +39,11 @@ func (s *StoreSuite) TearDownTest() {
 }
 
 func loadTestSVID() (spiffeid.ID, *types.X509SVID, crypto.PrivateKey, error) {
-	x509SVID, err := x509svid.Load("../testdata/svid.pem", "../testdata/key.pem")
+	testData, err := testdata.LoadTestData()
+	if err != nil {
+		return spiffeid.ID{}, nil, nil, err
+	}
+	x509SVID, err := x509svid.Parse(testData.SVIDPEM, testData.KeyPEM)
 	if err != nil {
 		return spiffeid.ID{}, nil, nil, err
 	}

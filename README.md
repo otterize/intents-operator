@@ -13,9 +13,9 @@ brew install kustomize
 2. Add a SPIRE server entry for spifferize's operator (replace example.com with your trust domain)
 ```shell
 kubectl exec -n spire spire-server-0 -- /opt/spire/bin/spire-server entry create \
-    -spiffeID spiffe://example.org/ns/operator-system \
+    -spiffeID spiffe://example.org/ns/spifferize-operator-system \
     -parentID spiffe://example.org/ns/spire/sa/spire-agent \
-    -selector k8s:ns:operator-system -admin
+    -selector k8s:ns:spifferize-operator-system -admin
 ```
 
 ### Spifferize Operator Installation
