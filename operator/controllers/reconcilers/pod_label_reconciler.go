@@ -32,10 +32,11 @@ func (r *PodLabelsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	if k8serrors.IsNotFound(err) {
 		logrus.Infof("No intents found for namespace %s\n", namespace)
 		for _, pod := range pods.Items {
-			labels, hasDiff := cleanupOtterizeIntentLabels(pod.Labels)
-			if !hasDiff {
+			// If the pod was never labeled by Otterize, carry on
+			if _, ok := pod.Labels[otterizev1alpha1.OtterizeMarkerLabelKey]; !ok {
 				continue
 			}
+			labels := cleanupOtterizeIntentLabels(pod.Labels)
 
 			// Modify the pod's labels and update the object
 			logrus.Debugf("Removing Otterize labels from pod: %s\n", pod.Name)
@@ -85,26 +86,29 @@ func hasMissingOtterizeLabels(pod v1.Pod, labels map[string]string) bool {
 func hasDestServerLabel(pod *v1.Pod) {
 }
 
+// updateOtterizeIntentLabels updates a pod's labels with Otterize labels representing their intents
+// The pod is also labeled with "otterize-client=true" to mark it as having intents
 func updateOtterizeIntentLabels(pod v1.Pod, labels map[string]string) v1.Pod {
 	for k, v := range labels {
 		pod.Labels[k] = v
 	}
+	pod.Labels[otterizev1alpha1.OtterizeMarkerLabelKey] = "true"
 	return pod
 }
 
 // cleanupOtterizeIntentLabels Removes intent related labels from pods
-// Returns the pod's label map without Otterize labels and 'true' if any Otterize labels were removed
-func cleanupOtterizeIntentLabels(labels map[string]string) (map[string]string, bool) {
+// Returns the pod's label map without Otterize labels
+func cleanupOtterizeIntentLabels(labels map[string]string) map[string]string {
 	postCleanupLabels := map[string]string{}
-	hasDiff := false
 
 	for k, v := range labels {
-		if !strings.Contains(k, otterizev1alpha1.OtterizeAccessLabelKey) {
+		if !isOtterizeLabelKey(k) {
 			postCleanupLabels[k] = v
-		} else {
-			hasDiff = true
 		}
 	}
+	return postCleanupLabels
+}
 
-	return postCleanupLabels, hasDiff
+func isOtterizeLabelKey(s string) bool {
+	return !strings.Contains(s, "otterize-access") && !strings.Contains(s, "otterize-client")
 }
