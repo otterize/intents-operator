@@ -17,7 +17,7 @@ const (
 	bundlePath    = "/etc/spifferize/bundle.pem"
 	certFilePath  = "/etc/spifferize/svid.pem"
 	keyFilePath   = "/etc/spifferize/key.pem"
-	clientID      = "spiffe://example.org/otterize/namespace/default/service/go-spiffe-tls-client"
+	clientID      = "spiffe://example.org/otterize/namespace/go-spiffe-tls/service/client"
 )
 
 func main() {

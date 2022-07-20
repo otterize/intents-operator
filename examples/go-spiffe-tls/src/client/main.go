@@ -19,7 +19,7 @@ const (
 	bundlePath    = "/etc/spifferize/bundle.pem"
 	certFilePath  = "/etc/spifferize/svid.pem"
 	keyFilePath   = "/etc/spifferize/key.pem"
-	serverID      = "spiffe://example.org/otterize/namespace/default/service/go-spiffe-tls-server"
+	serverID      = "spiffe://example.org/otterize/namespace/go-spiffe-tls/service/server"
 )
 
 func dial() {

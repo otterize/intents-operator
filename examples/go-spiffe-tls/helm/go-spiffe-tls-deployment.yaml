@@ -1,7 +1,13 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: go-spiffe-tls
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: client
+  namespace: go-spiffe-tls
   labels:
     app: client
 spec:
@@ -31,6 +37,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: server
+  namespace: go-spiffe-tls
   labels:
     app: server
 spec:
@@ -62,6 +69,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: go-spiffe-server-service
+  namespace: go-spiffe-tls
 spec:
   type: ClusterIP
   selector:
