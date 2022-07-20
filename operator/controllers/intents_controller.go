@@ -28,10 +28,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type IntentsReconcilerConfig struct {
+	KafkaServers []otterizev1alpha1.KafkaServer
+}
+
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Conf   IntentsReconcilerConfig
 }
 
 //+kubebuilder:rbac:groups=otterize.com,resources=intents,verbs=get;list;watch;create;update;patch;delete
@@ -50,7 +55,7 @@ type IntentsReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 
-	reconcilersList, err := buildReconcilersList(r.Client, r.Scheme)
+	reconcilersList, err := r.buildReconcilersList(r.Client, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -74,17 +79,23 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func buildReconcilersList(c client.Client, scheme *runtime.Scheme) ([]reconcile.Reconciler, error) {
+func (r *IntentsReconciler) buildReconcilersList(c client.Client, scheme *runtime.Scheme) ([]reconcile.Reconciler, error) {
 	l := make([]reconcile.Reconciler, 0)
 
 	l = append(l, &reconcilers.IntentsValidatorReconciler{Client: c, Scheme: scheme})
 	l = append(l, &reconcilers.PodLabelsReconciler{Client: c, Scheme: scheme})
 	l = append(l, &reconcilers.NetworkPolicyReconciler{Client: c, Scheme: scheme})
-	kafka, err := reconcilers.NewKafkaACLsReconciler(c, scheme)
-	if err != nil {
-		return nil, err
+
+	logrus.Infof("Starting kafka reconcilers %v", r.Conf.KafkaServers)
+	if r.Conf.KafkaServers != nil {
+		for _, kafkaServer := range r.Conf.KafkaServers {
+			kafkaReconciler, err := reconcilers.NewKafkaACLsReconciler(c, scheme, kafkaServer)
+			if err != nil {
+				return nil, err
+			}
+			l = append(l, kafkaReconciler)
+		}
 	}
-	l = append(l, kafka)
 
 	return l, nil
 }

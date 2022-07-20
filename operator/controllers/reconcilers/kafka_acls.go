@@ -21,17 +21,18 @@ import (
 type KafkaACLsReconciler struct {
 	client.Client
 	Scheme           *runtime.Scheme
+	kafkaServer      otterizev1alpha1.KafkaServer
 	kafkaAdminClient sarama.ClusterAdmin
 }
 
-func getTLSConfig() (*tls.Config, error) {
-	cert, err := tls.LoadX509KeyPair("/etc/spifferize/svid.pem", "/etc/spifferize/key.pem")
+func getTLSConfig(tlsSource otterizev1alpha1.TLSSource) (*tls.Config, error) {
+	cert, err := tls.LoadX509KeyPair(tlsSource.CertFile, tlsSource.KeyFile)
 	if err != nil {
 		return nil, err
 	}
 
 	pool := x509.NewCertPool()
-	bundle, err := ioutil.ReadFile("/etc/spifferize/bundle.pem")
+	bundle, err := ioutil.ReadFile(tlsSource.RootCAFile)
 	if err != nil {
 		return nil, err
 	}
@@ -43,21 +44,20 @@ func getTLSConfig() (*tls.Config, error) {
 	}, nil
 }
 
-func getKafkaAdminClient(kafkaAddr string) (sarama.ClusterAdmin, error) {
-	addrs := []string{kafkaAddr}
+func getKafkaAdminClient(server otterizev1alpha1.KafkaServer) (sarama.ClusterAdmin, error) {
+	logrus.WithField("addr", server.Addr).Info("Connecting to kafka server")
+	addrs := []string{server.Addr}
 
 	config := sarama.NewConfig()
 	config.Version = sarama.V2_0_0_0
 
-	tlsConfig, err := getTLSConfig()
+	tlsConfig, err := getTLSConfig(server.TLS)
 	if err != nil {
 		return nil, err
 	}
 
-	if tlsConfig != nil {
-		config.Net.TLS.Config = tlsConfig
-		config.Net.TLS.Enable = true
-	}
+	config.Net.TLS.Config = tlsConfig
+	config.Net.TLS.Enable = true
 
 	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 
@@ -75,9 +75,9 @@ func getKafkaAdminClient(kafkaAddr string) (sarama.ClusterAdmin, error) {
 	return a, nil
 }
 
-func NewKafkaACLsReconciler(client client.Client, scheme *runtime.Scheme) (*KafkaACLsReconciler, error) {
-	r := KafkaACLsReconciler{Client: client, Scheme: scheme}
-	kafkaAdminClient, err := getKafkaAdminClient("amitlicht-kafka.default:9092") // TODO
+func NewKafkaACLsReconciler(client client.Client, scheme *runtime.Scheme, kafkaServer otterizev1alpha1.KafkaServer) (*KafkaACLsReconciler, error) {
+	r := KafkaACLsReconciler{Client: client, Scheme: scheme, kafkaServer: kafkaServer}
+	kafkaAdminClient, err := getKafkaAdminClient(kafkaServer)
 	if err != nil {
 		return nil, err
 	}
@@ -128,11 +128,19 @@ func (r *KafkaACLsReconciler) clearACLs(principal string) error {
 	return nil
 }
 
-func (r *KafkaACLsReconciler) createACLs(principal string, calls []otterizev1alpha1.Intent) error {
+func (r *KafkaACLsReconciler) createACLs(principal string, intentsNamespace string, calls []otterizev1alpha1.Intent) error {
 	topicToAclList := map[string][]*sarama.Acl{}
 
 	for _, call := range calls {
 		if call.Type != otterizev1alpha1.IntentTypeKafka || call.Topics == nil {
+			// not for kafka
+			continue
+		}
+
+		serverNamespace := lo.Ternary(call.Namespace != "", call.Namespace, intentsNamespace)
+
+		if serverNamespace != r.kafkaServer.Namespace || call.Server != r.kafkaServer.Name {
+			// not intended for this kafka host
 			continue
 		}
 
@@ -199,7 +207,7 @@ func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	logger.Info("Creating new ACLs")
-	if err := r.createACLs(principal, intents.Spec.Service.Calls); err != nil {
+	if err := r.createACLs(principal, intents.Namespace, intents.Spec.Service.Calls); err != nil {
 		return ctrl.Result{}, err
 	}
 
