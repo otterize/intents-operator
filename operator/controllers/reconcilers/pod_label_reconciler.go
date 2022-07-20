@@ -12,12 +12,12 @@ import (
 	"strings"
 )
 
-type PodLabelsReconciler struct {
+type PodLabelReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-func (r *PodLabelsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// List the pods in the namespace and update labels if required
 	pods := &v1.PodList{}
 	namespace := req.NamespacedName.Namespace

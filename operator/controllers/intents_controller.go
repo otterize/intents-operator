@@ -78,7 +78,7 @@ func buildReconcilersList(c client.Client, scheme *runtime.Scheme) ([]reconcile.
 	l := make([]reconcile.Reconciler, 0)
 
 	l = append(l, &reconcilers.IntentsValidatorReconciler{Client: c, Scheme: scheme})
-	l = append(l, &reconcilers.PodLabelsReconciler{Client: c, Scheme: scheme})
+	l = append(l, &reconcilers.PodLabelReconciler{Client: c, Scheme: scheme})
 	l = append(l, &reconcilers.NetworkPolicyReconciler{Client: c, Scheme: scheme})
 
 	return l, nil
