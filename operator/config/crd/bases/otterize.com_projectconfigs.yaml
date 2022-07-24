@@ -85,6 +85,15 @@ spec:
                   type: string
                 namespace:
                   type: string
+                tls:
+                  properties:
+                    certFile:
+                      type: string
+                    keyFile:
+                      type: string
+                    rootCAFile:
+                      type: string
+                  type: object
               type: object
             type: array
           kind:
