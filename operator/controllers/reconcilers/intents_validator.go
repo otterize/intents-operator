@@ -20,7 +20,6 @@ func (r *IntentsValidatorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	intents := &otterizev1alpha1.Intents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
-		logrus.Infof("No intents found for namespace %s\n", req.NamespacedName.Namespace)
 		return ctrl.Result{}, nil
 	}
 

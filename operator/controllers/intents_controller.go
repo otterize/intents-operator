@@ -57,7 +57,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	logrus.Infoln("## Starting new Otterize reconciliation cycle ##")
 	for _, r := range reconcilersList {
-		logrus.Infof("Starting cycle for %T\n", r)
+		logrus.Infof("Starting cycle for %T", r)
 		res, err := r.Reconcile(ctx, req)
 		if res.Requeue == true || err != nil {
 			return res, err

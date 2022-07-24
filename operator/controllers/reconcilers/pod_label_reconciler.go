@@ -30,24 +30,27 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	intents := &otterizev1alpha1.Intents{}
 	err = r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
-		logrus.Infof("No intents found for namespace %s\n", namespace)
+		logrus.Infof("Intents deleted for namespace %s. Removing Otterize labels from pods\n", namespace)
 		for _, pod := range pods.Items {
 			// If the pod was never labeled by Otterize, carry on
 			if _, ok := pod.Labels[otterizev1alpha1.OtterizeMarkerLabelKey]; !ok {
 				continue
 			}
-			labels := cleanupOtterizeIntentLabels(pod.Labels)
+			modifiedPod := cleanupOtterizeIntentLabels(pod)
 
 			// Modify the pod's labels and update the object
 			logrus.Debugf("Removing Otterize labels from pod: %s\n", pod.Name)
-			pod.Labels = labels
-			err := r.Update(ctx, &pod)
+			err := r.Update(ctx, &modifiedPod)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{Requeue: true}, nil
 		}
 
+		return ctrl.Result{}, nil
+	}
+
+	if intents.Spec == nil {
 		return ctrl.Result{}, nil
 	}
 
@@ -73,7 +76,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-// Check if this pod's labels need updating
+// hasMissingOtterizeLabels checks if a pod's labels need updating
 func hasMissingOtterizeLabels(pod v1.Pod, labels map[string]string) bool {
 	for k, _ := range labels {
 		if _, ok := pod.Labels[k]; !ok {
@@ -81,9 +84,6 @@ func hasMissingOtterizeLabels(pod v1.Pod, labels map[string]string) bool {
 		}
 	}
 	return false
-}
-
-func hasDestServerLabel(pod *v1.Pod) {
 }
 
 // updateOtterizeIntentLabels updates a pod's labels with Otterize labels representing their intents
@@ -98,17 +98,23 @@ func updateOtterizeIntentLabels(pod v1.Pod, labels map[string]string) v1.Pod {
 
 // cleanupOtterizeIntentLabels Removes intent related labels from pods
 // Returns the pod's label map without Otterize labels
-func cleanupOtterizeIntentLabels(labels map[string]string) map[string]string {
+func cleanupOtterizeIntentLabels(pod v1.Pod) v1.Pod {
 	postCleanupLabels := map[string]string{}
 
-	for k, v := range labels {
+	for k, v := range pod.Labels {
 		if !isOtterizeLabelKey(k) {
 			postCleanupLabels[k] = v
 		}
 	}
-	return postCleanupLabels
+
+	pod.Labels = postCleanupLabels
+	return pod
 }
 
 func isOtterizeLabelKey(s string) bool {
-	return !strings.Contains(s, "otterize-access") && !strings.Contains(s, "otterize-client")
+	if strings.Contains(s, "otterize-access") || strings.Contains(s, "otterize-client") {
+		return true
+	}
+
+	return false
 }

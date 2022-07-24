@@ -3,7 +3,6 @@ package reconcilers
 import (
 	"context"
 	otterizev1alpha1 "github.com/otterize/otternose/api/v1alpha1"
-	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,7 +18,6 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	intents := &otterizev1alpha1.Intents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
-		logrus.Infof("No intents found for namespace %s\n", req.NamespacedName.Namespace)
 		return ctrl.Result{}, nil
 	}
 
