@@ -20,6 +20,7 @@ import (
 	"context"
 	otterizev1alpha1 "github.com/otterize/otternose/api/v1alpha1"
 	"github.com/otterize/otternose/controllers/reconcilers"
+	"github.com/otterize/otternose/controllers/reconcilers/kafka_acls"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -85,17 +86,7 @@ func (r *IntentsReconciler) buildReconcilersList(c client.Client, scheme *runtim
 	l = append(l, &reconcilers.IntentsValidatorReconciler{Client: c, Scheme: scheme})
 	l = append(l, &reconcilers.PodLabelsReconciler{Client: c, Scheme: scheme})
 	l = append(l, &reconcilers.NetworkPolicyReconciler{Client: c, Scheme: scheme})
-
-	logrus.Infof("Starting kafka reconcilers %v", r.Conf.KafkaServers)
-	if r.Conf.KafkaServers != nil {
-		for _, kafkaServer := range r.Conf.KafkaServers {
-			kafkaReconciler, err := reconcilers.NewKafkaACLsReconciler(c, scheme, kafkaServer)
-			if err != nil {
-				return nil, err
-			}
-			l = append(l, kafkaReconciler)
-		}
-	}
+	l = append(l, &kafka_acls.KafkaACLsReconciler{Client: c, Scheme: scheme, KafkaServers: r.Conf.KafkaServers})
 
 	return l, nil
 }
