@@ -5,7 +5,7 @@ metadata:
   name: projectconfig-viewer-role
 rules:
 - apiGroups:
-  - otterize.otterize.com
+  - otterize.com
   resources:
   - projectconfigs
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - otterize.otterize.com
+  - otterize.com
   resources:
   - projectconfigs/status
   verbs:
