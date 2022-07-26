@@ -108,9 +108,6 @@ func (a *KafkaIntentsAdmin) collectTopicsToACLList(clientPrincipal string, inten
 				Operation:      operation,
 				PermissionType: sarama.AclPermissionAllow,
 			}
-			if _, ok := topicToACLList[topic.Name]; !ok {
-				topicToACLList[topic.Name] = []*sarama.Acl{}
-			}
 
 			topicToACLList[topic.Name] = append(topicToACLList[topic.Name], &acl)
 		}

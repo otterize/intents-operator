@@ -27,10 +27,6 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Inte
 			Namespace: lo.Ternary(intent.Namespace != "", intent.Namespace, defaultNamespace),
 		}
 
-		if _, ok := intentsByServer[serverName]; !ok {
-			intentsByServer[serverName] = []otterizev1alpha1.Intent{}
-		}
-
 		intentsByServer[serverName] = append(intentsByServer[serverName], intent)
 	}
 
@@ -62,10 +58,7 @@ func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error
 			return fmt.Errorf("failed connecting to kafka server %s: %w", serverName, err)
 		}
 
-		intentsForServer, ok := intentsByServer[serverName]
-		if !ok {
-			intentsForServer = []otterizev1alpha1.Intent{}
-		}
+		intentsForServer := intentsByServer[serverName]
 
 		if err := kafkaIntentsAdmin.ApplyIntents(intents.Spec.Service.Name, intents.Namespace, intentsForServer); err != nil {
 			return fmt.Errorf("failed applying intents on kafka server %s: %w", serverName, err)
