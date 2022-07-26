@@ -10,7 +10,6 @@ import (
 	"github.com/otterize/spifferize/src/spireclient/bundles"
 	"github.com/otterize/spifferize/src/spireclient/svids"
 	"github.com/otterize/spifferize/src/testdata"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/spire/pkg/common/pemutil"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
@@ -22,10 +21,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 	"time"
-)
-
-var (
-	trustDomain = spiffeid.RequireTrustDomainFromString("example.org")
 )
 
 type ManagerSuite struct {
@@ -76,7 +71,7 @@ func (m *TLSSecretMatcher) String() string {
 	return fmt.Sprintf("TLSSecretsMatcher(name=%s, namespace=%s)", m.name, m.namespace)
 }
 
-func (s *ManagerSuite) mockTLSStores(spiffeID spiffeid.ID, testData testdata.TestData) {
+func (s *ManagerSuite) mockTLSStores(entryId string, testData testdata.TestData) {
 	encodedBundle := bundles.EncodedTrustBundle{BundlePEM: testData.BundlePEM}
 	s.bundlesStore.EXPECT().GetTrustBundle(gomock.Any()).Return(encodedBundle, nil)
 
@@ -89,7 +84,7 @@ func (s *ManagerSuite) mockTLSStores(spiffeID spiffeid.ID, testData testdata.Tes
 		KeyPEM:  testData.KeyPEM,
 	}
 	s.svidsStore.EXPECT().GetX509SVID(
-		gomock.Any(), spiffeID, privateKey,
+		gomock.Any(), entryId, privateKey,
 	).Return(encodedX509SVID, nil)
 }
 
@@ -106,10 +101,9 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_NoExistingSecret() {
 
 	testData, err := testdata.LoadTestData()
 	s.Require().NoError(err)
-	spiffeID, err := spiffeid.FromPath(trustDomain, "/test")
-	s.Require().NoError(err)
+	entryId := "/test"
 
-	s.mockTLSStores(spiffeID, testData)
+	s.mockTLSStores(entryId, testData)
 
 	s.client.EXPECT().Create(
 		gomock.Any(),
@@ -124,7 +118,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_NoExistingSecret() {
 		},
 	).Return(nil)
 
-	err = s.manager.EnsureTLSSecret(context.Background(), namespace, secretName, serviceName, spiffeID)
+	err = s.manager.EnsureTLSSecret(context.Background(), namespace, secretName, serviceName, entryId, "", NewSecretFileNames("", "", ""))
 	s.Require().NoError(err)
 }
 
@@ -132,6 +126,8 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NeedsRefr
 	namespace := "test_namespace"
 	secretName := "test_secretname"
 	serviceName := "test_servicename"
+	secretFileNames := NewSecretFileNames("", "", "")
+	entryId := "/test"
 
 	s.client.EXPECT().Get(
 		gomock.Any(),
@@ -143,7 +139,12 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NeedsRefr
 				Name:      secretName,
 				Namespace: namespace,
 				Annotations: map[string]string{
-					svidExpiryAnnotation: time.Now().Format(time.RFC3339),
+					svidExpiryAnnotation:           time.Now().Format(time.RFC3339),
+					SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+					BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+					KeyFileNameAnnotation:          secretFileNames.KeyFileName,
+					tlsSecretServiceNameAnnotation: serviceName,
+					tlsSecretEntryIDAnnotation:     entryId,
 				},
 			},
 		}
@@ -151,10 +152,8 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NeedsRefr
 
 	testData, err := testdata.LoadTestData()
 	s.Require().NoError(err)
-	spiffeID, err := spiffeid.FromPath(trustDomain, "/test")
-	s.Require().NoError(err)
 
-	s.mockTLSStores(spiffeID, testData)
+	s.mockTLSStores(entryId, testData)
 
 	s.client.EXPECT().Update(
 		gomock.Any(),
@@ -169,7 +168,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NeedsRefr
 		},
 	).Return(nil)
 
-	err = s.manager.EnsureTLSSecret(context.Background(), namespace, secretName, serviceName, spiffeID)
+	err = s.manager.EnsureTLSSecret(context.Background(), namespace, secretName, serviceName, entryId, "", NewSecretFileNames("", "", ""))
 	s.Require().NoError(err)
 }
 
@@ -177,6 +176,8 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NoRefresh
 	namespace := "test_namespace"
 	secretName := "test_secretname"
 	serviceName := "test_servicename"
+	secretFileNames := NewSecretFileNames("", "", "")
+	entryId := "/test"
 
 	s.client.EXPECT().Get(
 		gomock.Any(),
@@ -188,16 +189,124 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NoRefresh
 				Name:      secretName,
 				Namespace: namespace,
 				Annotations: map[string]string{
-					svidExpiryAnnotation: time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
+					svidExpiryAnnotation:           time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
+					SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+					BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+					KeyFileNameAnnotation:          secretFileNames.KeyFileName,
+					tlsSecretServiceNameAnnotation: serviceName,
+					tlsSecretEntryIDAnnotation:     entryId,
 				},
 			},
 		}
 	})
 
-	spiffeID, err := spiffeid.FromPath(trustDomain, "/test")
+	err := s.manager.EnsureTLSSecret(context.Background(), namespace, secretName, serviceName, entryId, "", NewSecretFileNames("", "", ""))
+	s.Require().NoError(err)
+}
+
+func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNeeded_NewSecrets() {
+	namespace := "test_namespace"
+	secretName := "test_secretname"
+	serviceName := "test_servicename"
+	secretFileNames := NewSecretFileNames("", "", "")
+
+	s.client.EXPECT().Get(
+		gomock.Any(),
+		types.NamespacedName{Name: secretName, Namespace: namespace},
+		gomock.Any(),
+	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret) {
+		*found = corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: namespace,
+				Annotations: map[string]string{
+					svidExpiryAnnotation:           time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
+					SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+					BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+					KeyFileNameAnnotation:          secretFileNames.KeyFileName,
+					tlsSecretServiceNameAnnotation: serviceName,
+					entryHashAnnotation:            "",
+				},
+			},
+		}
+	})
+
+	testData, err := testdata.LoadTestData()
 	s.Require().NoError(err)
 
-	err = s.manager.EnsureTLSSecret(context.Background(), namespace, secretName, serviceName, spiffeID)
+	entryId := "/test"
+
+	s.mockTLSStores(entryId, testData)
+
+	newSecrets := NewSecretFileNames("different", "names", "this-time")
+
+	s.client.EXPECT().Update(
+		gomock.Any(),
+		&TLSSecretMatcher{
+			namespace: namespace,
+			name:      secretName,
+			tlsData: map[string][]byte{
+				newSecrets.BundleFileName: testData.BundlePEM,
+				newSecrets.KeyFileName:    testData.KeyPEM,
+				newSecrets.SvidFileName:   testData.SVIDPEM,
+			},
+		},
+	).Return(nil)
+
+	err = s.manager.EnsureTLSSecret(context.Background(), namespace, secretName, serviceName, entryId, "", newSecrets)
+	s.Require().NoError(err)
+}
+
+func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNeeded_EntryHashChanged() {
+	namespace := "test_namespace"
+	secretName := "test_secretname"
+	serviceName := "test_servicename"
+	secretFileNames := NewSecretFileNames("", "", "")
+
+	s.client.EXPECT().Get(
+		gomock.Any(),
+		types.NamespacedName{Name: secretName, Namespace: namespace},
+		gomock.Any(),
+	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret) {
+		*found = corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secretName,
+				Namespace: namespace,
+				Annotations: map[string]string{
+					svidExpiryAnnotation:           time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
+					SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+					BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+					KeyFileNameAnnotation:          secretFileNames.KeyFileName,
+					tlsSecretServiceNameAnnotation: serviceName,
+					entryHashAnnotation:            "",
+				},
+			},
+		}
+	})
+
+	testData, err := testdata.LoadTestData()
+	s.Require().NoError(err)
+
+	entryId := "/test"
+
+	s.mockTLSStores(entryId, testData)
+
+	newEntryHash := "New-Hash"
+
+	s.client.EXPECT().Update(
+		gomock.Any(),
+		&TLSSecretMatcher{
+			namespace: namespace,
+			name:      secretName,
+			tlsData: map[string][]byte{
+				secretFileNames.BundleFileName: testData.BundlePEM,
+				secretFileNames.KeyFileName:    testData.KeyPEM,
+				secretFileNames.SvidFileName:   testData.SVIDPEM,
+			},
+		},
+	).Return(nil)
+
+	err = s.manager.EnsureTLSSecret(context.Background(), namespace, secretName, serviceName, entryId, newEntryHash, secretFileNames)
 	s.Require().NoError(err)
 }
 
@@ -205,8 +314,8 @@ func (s *ManagerSuite) TestManager_RefreshTLSSecrets_RefreshNeeded() {
 	namespace := "test_namespace"
 	secretName := "test_secretname"
 	serviceName := "test_servicename"
-	spiffeID, err := spiffeid.FromPath(trustDomain, "/test")
-	s.Require().NoError(err)
+	entryId := "/test"
+	secretFileNames := NewSecretFileNames("", "", "")
 
 	s.client.EXPECT().List(
 		gomock.Any(),
@@ -222,7 +331,10 @@ func (s *ManagerSuite) TestManager_RefreshTLSSecrets_RefreshNeeded() {
 						Annotations: map[string]string{
 							svidExpiryAnnotation:           time.Now().Format(time.RFC3339),
 							tlsSecretServiceNameAnnotation: serviceName,
-							tlsSecretSPIFFEIDAnnotation:    spiffeID.String(),
+							tlsSecretEntryIDAnnotation:     entryId,
+							SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+							BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+							KeyFileNameAnnotation:          secretFileNames.KeyFileName,
 						},
 					},
 				},
@@ -232,7 +344,7 @@ func (s *ManagerSuite) TestManager_RefreshTLSSecrets_RefreshNeeded() {
 
 	testData, err := testdata.LoadTestData()
 	s.Require().NoError(err)
-	s.mockTLSStores(spiffeID, testData)
+	s.mockTLSStores(entryId, testData)
 
 	s.client.EXPECT().Update(
 		gomock.Any(),
@@ -255,8 +367,8 @@ func (s *ManagerSuite) TestManager_RefreshTLSSecrets_NoRefreshNeeded() {
 	namespace := "test_namespace"
 	secretName := "test_secretname"
 	serviceName := "test_servicename"
-	spiffeID, err := spiffeid.FromPath(trustDomain, "/test")
-	s.Require().NoError(err)
+	entryId := "/test"
+	secretFileNames := NewSecretFileNames("", "", "")
 
 	s.client.EXPECT().List(
 		gomock.Any(),
@@ -272,7 +384,10 @@ func (s *ManagerSuite) TestManager_RefreshTLSSecrets_NoRefreshNeeded() {
 						Annotations: map[string]string{
 							svidExpiryAnnotation:           time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
 							tlsSecretServiceNameAnnotation: serviceName,
-							tlsSecretSPIFFEIDAnnotation:    spiffeID.String(),
+							tlsSecretEntryIDAnnotation:     entryId,
+							SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+							BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+							KeyFileNameAnnotation:          secretFileNames.KeyFileName,
 						},
 					},
 				},
@@ -280,7 +395,7 @@ func (s *ManagerSuite) TestManager_RefreshTLSSecrets_NoRefreshNeeded() {
 		}
 	})
 
-	err = s.manager.RefreshTLSSecrets(context.Background())
+	err := s.manager.RefreshTLSSecrets(context.Background())
 	s.Require().NoError(err)
 }
 

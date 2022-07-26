@@ -3,6 +3,7 @@ module github.com/otterize/spifferize/src
 go 1.18
 
 require (
+	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/golang/mock v1.6.0
 	github.com/samber/lo v1.25.0
@@ -11,6 +12,7 @@ require (
 	github.com/spiffe/spire v1.3.1
 	github.com/spiffe/spire-api-sdk v1.3.1
 	github.com/stretchr/testify v1.7.1
+	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17
 	google.golang.org/grpc v1.47.0
 	k8s.io/api v0.24.2
 	k8s.io/apimachinery v0.24.2
@@ -71,7 +73,6 @@ require (
 	github.com/zeebo/errs v1.3.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/crypto v0.0.0-20220511200225-c6db032c6c88 // indirect
-	golang.org/x/exp v0.0.0-20220303212507-bbda1eaf7a17 // indirect
 	golang.org/x/net v0.0.0-20220526153639-5463443f8c37 // indirect
 	golang.org/x/oauth2 v0.0.0-20220524215830-622c5d57e401 // indirect
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect

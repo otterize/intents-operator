@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	spiffeid "github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
 // MockRegistry is a mock of Registry interface.
@@ -36,16 +35,16 @@ func (m *MockRegistry) EXPECT() *MockRegistryMockRecorder {
 }
 
 // RegisterK8SPodEntry mocks base method.
-func (m *MockRegistry) RegisterK8SPodEntry(arg0 context.Context, arg1, arg2, arg3 string) (spiffeid.ID, error) {
+func (m *MockRegistry) RegisterK8SPodEntry(arg0 context.Context, arg1, arg2, arg3 string, arg4 int32, arg5 []string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterK8SPodEntry", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(spiffeid.ID)
+	ret := m.ctrl.Call(m, "RegisterK8SPodEntry", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RegisterK8SPodEntry indicates an expected call of RegisterK8SPodEntry.
-func (mr *MockRegistryMockRecorder) RegisterK8SPodEntry(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+func (mr *MockRegistryMockRecorder) RegisterK8SPodEntry(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterK8SPodEntry", reflect.TypeOf((*MockRegistry)(nil).RegisterK8SPodEntry), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterK8SPodEntry", reflect.TypeOf((*MockRegistry)(nil).RegisterK8SPodEntry), arg0, arg1, arg2, arg3, arg4, arg5)
 }

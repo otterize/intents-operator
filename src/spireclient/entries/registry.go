@@ -8,11 +8,13 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
+	"strings"
 )
 
 type Registry interface {
-	RegisterK8SPodEntry(ctx context.Context, namespace string, serviceNameLabel string, serviceName string) (spiffeid.ID, error)
+	RegisterK8SPodEntry(ctx context.Context, namespace string, serviceNameLabel string, serviceName string, ttl int32, dnsNames []string) (string, error)
 }
 
 type registryImpl struct {
@@ -27,14 +29,24 @@ func NewEntriesRegistry(spireClient spireclient.ServerClient) Registry {
 	}
 }
 
-func (r *registryImpl) RegisterK8SPodEntry(ctx context.Context, namespace string, serviceNameLabel string, serviceName string) (spiffeid.ID, error) {
+func (r *registryImpl) RegisterK8SPodEntry(ctx context.Context, namespace string, serviceNameLabel string, serviceName string, ttl int32, dnsNames []string) (string, error) {
 	log := logrus.WithFields(logrus.Fields{"namespace": namespace, "service_name": serviceName})
 
 	trustDomain := r.parentSpiffeID.TrustDomain()
 	podSpiffeIDPath := fmt.Sprintf("/otterize/namespace/%s/service/%s", namespace, serviceName)
 	parentSpiffeIDPath := r.parentSpiffeID.Path()
 
+	// Kafka will use certificate's CN to enforce ACL Rules
+	commonName := []string{strings.Join([]string{serviceName, namespace}, ".")}
+
+	// Spire uses the first DNS name as CN. CN should be a valid dns name.
+	dnsNames = append(commonName, dnsNames...)
+
+	log.Infof("dns_names: %s", dnsNames)
+
 	entry := types.Entry{
+		Ttl:      ttl,
+		DnsNames: dnsNames,
 		SpiffeId: &types.SPIFFEID{
 			TrustDomain: trustDomain.String(),
 			Path:        podSpiffeIDPath,
@@ -54,11 +66,11 @@ func (r *registryImpl) RegisterK8SPodEntry(ctx context.Context, namespace string
 
 	resp, err := r.entryClient.BatchCreateEntry(ctx, &batchCreateEntryRequest)
 	if err != nil {
-		return spiffeid.ID{}, err
+		return "", err
 	}
 
 	if len(resp.Results) != 1 {
-		return spiffeid.ID{}, fmt.Errorf("unexpected number of results returned from SPIRE server, expected exactly 1 and got %d", len(resp.Results))
+		return "", fmt.Errorf("unexpected number of results returned from SPIRE server, expected exactly 1 and got %d", len(resp.Results))
 	}
 
 	result := resp.Results[0]
@@ -66,15 +78,35 @@ func (r *registryImpl) RegisterK8SPodEntry(ctx context.Context, namespace string
 	case int32(codes.OK):
 		log.WithField("entry_id", result.Entry.Id).Info("SPIRE server entry created")
 	case int32(codes.AlreadyExists):
-		log.WithField("entry_id", result.Entry.Id).Info("SPIRE server entry already exists")
+		if shouldUpdateEntry(result.Entry, &entry) {
+			entry.Id = result.Entry.Id
+			id, err := r.updateSpireEntry(ctx, &entry)
+			if err != nil {
+				return "", err
+			}
+			log.WithField("entry_id", id).Info("updated spire entry")
+			return id, nil
+		} else {
+			log.WithField("entry_id", result.Entry.Id).Info("SPIRE server entry already exists")
+		}
 	default:
-		return spiffeid.ID{}, fmt.Errorf("entry failed to create with status %s", result.Status)
+		return "", fmt.Errorf("entry failed to create with status %s", result.Status)
 	}
 
-	id, err := spiffeid.FromPath(trustDomain, entry.SpiffeId.Path)
+	return result.Entry.Id, nil
+}
+
+func (r *registryImpl) updateSpireEntry(ctx context.Context, entry *types.Entry) (string, error) {
+	batchUpdateEntryRequest := entryv1.BatchUpdateEntryRequest{Entries: []*types.Entry{entry}}
+	updateResp, err := r.entryClient.BatchUpdateEntry(ctx, &batchUpdateEntryRequest)
 	if err != nil {
-		return spiffeid.ID{}, err
+		return "", fmt.Errorf("entry update failed with error %w", err)
+	} else if status := updateResp.Results[0].Status; status.Code != int32(codes.OK) {
+		return "", fmt.Errorf("entry update failed with status %s", status)
 	}
+	return updateResp.Results[0].Entry.Id, nil
+}
 
-	return id, nil
+func shouldUpdateEntry(createResultEntry *types.Entry, desiredEntry *types.Entry) bool {
+	return createResultEntry.Ttl != desiredEntry.Ttl || !slices.Equal(createResultEntry.DnsNames, desiredEntry.DnsNames)
 }

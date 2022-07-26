@@ -56,6 +56,7 @@ func (s *RegistrySuite) TestRegistry_RegisterK8SPodEntry() {
 					{
 						Status: &types.Status{Code: int32(statusCode)},
 						Entry: &types.Entry{
+							Id: "test",
 							SpiffeId: &types.SPIFFEID{
 								TrustDomain: spiffeID.TrustDomain().String(),
 								Path:        spiffeID.Path(),
@@ -64,16 +65,72 @@ func (s *RegistrySuite) TestRegistry_RegisterK8SPodEntry() {
 					},
 				},
 			}
+
 			s.entryClient.EXPECT().BatchCreateEntry(gomock.Any(), gomock.Any()).Return(&response, nil)
-			retSpiffeID, err := s.registry.RegisterK8SPodEntry(context.Background(),
+
+			if statusCode == codes.AlreadyExists {
+				updateResponse := entryv1.BatchUpdateEntryResponse{
+					Results: []*entryv1.BatchUpdateEntryResponse_Result{
+						{
+							Status: &types.Status{Code: int32(codes.OK)},
+							Entry: &types.Entry{Id: "test",
+								SpiffeId: &types.SPIFFEID{TrustDomain: spiffeID.TrustDomain().String(),
+									Path: spiffeID.Path(),
+								},
+							},
+						},
+					},
+				}
+
+				s.entryClient.EXPECT().BatchUpdateEntry(gomock.Any(), gomock.Any()).Return(&updateResponse, nil)
+			}
+
+			entryId, err := s.registry.RegisterK8SPodEntry(context.Background(),
 				namespace,
 				serviceNameLabel,
-				serviceName)
+				serviceName,
+				0,
+				[]string{})
+
 			s.Require().NoError(err)
-			s.Require().Equal(retSpiffeID.String(), spiffeID.String())
+			s.Require().Equal(entryId, response.Results[0].Entry.Id)
 		})
 	}
 
+}
+
+func (s *RegistrySuite) TestShouldUpdateEntry() {
+	spiffeID, _ := spiffeid.FromPath(trustDomain, "/otterize/namespace/test-namespace/service/test-service-name")
+	entry1 := &types.Entry{
+		Id:       "test",
+		Ttl:      555,
+		DnsNames: []string{"hi.com"},
+		SpiffeId: &types.SPIFFEID{
+			TrustDomain: spiffeID.TrustDomain().String(),
+			Path:        spiffeID.Path(),
+		},
+	}
+	entry2 := &types.Entry{
+		Id:       "test",
+		Ttl:      555,
+		DnsNames: []string{"hi1.com"},
+		SpiffeId: &types.SPIFFEID{
+			TrustDomain: spiffeID.TrustDomain().String(),
+			Path:        spiffeID.Path(),
+		},
+	}
+	entry3 := &types.Entry{
+		Id:       "test",
+		Ttl:      666,
+		DnsNames: []string{"hi.com"},
+		SpiffeId: &types.SPIFFEID{
+			TrustDomain: spiffeID.TrustDomain().String(),
+			Path:        spiffeID.Path(),
+		},
+	}
+	s.Require().True(shouldUpdateEntry(entry1, entry2))
+	s.Require().True(shouldUpdateEntry(entry1, entry3))
+	s.Require().True(shouldUpdateEntry(entry2, entry3))
 }
 
 func TestRunRegistrySuite(t *testing.T) {

@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-tls-external
+spec:
+  type: LoadBalancer
+  selector:
+    app: lab-kafka
+  ports:
+  - name: tcp
+    port: 9094
+    targetPort: 9094
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-tls1
+spec:
+  type: ClusterIP
+  selector:
+    app: lab-kafka
+  ports:
+    - name: tcp
+      port: 9092
+      targetPort: 9092

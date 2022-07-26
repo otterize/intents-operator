@@ -11,7 +11,6 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	svids "github.com/otterize/spifferize/src/spireclient/svids"
-	spiffeid "github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
 // MockStore is a mock of Store interface.
@@ -53,7 +52,7 @@ func (mr *MockStoreMockRecorder) GeneratePrivateKey() *gomock.Call {
 }
 
 // GetX509SVID mocks base method.
-func (m *MockStore) GetX509SVID(arg0 context.Context, arg1 spiffeid.ID, arg2 crypto.PrivateKey) (svids.EncodedX509SVID, error) {
+func (m *MockStore) GetX509SVID(arg0 context.Context, arg1 string, arg2 crypto.PrivateKey) (svids.EncodedX509SVID, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetX509SVID", arg0, arg1, arg2)
 	ret0, _ := ret[0].(svids.EncodedX509SVID)

@@ -7,7 +7,6 @@ import (
 	mock_secrets "github.com/otterize/spifferize/src/mocks/secrets"
 	mock_spireclient "github.com/otterize/spifferize/src/mocks/spireclient"
 	mock_entries "github.com/otterize/spifferize/src/mocks/spireclient/entries"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,10 +14,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
-)
-
-var (
-	trustDomain = spiffeid.RequireTrustDomainFromString("example.org")
 )
 
 type PodControllerSuite struct {
@@ -51,8 +46,7 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 	podname := "test_podname"
 	servicename := "test_servicename"
 	secretname := "test_secretname"
-	spiffeID, err := spiffeid.FromPath(trustDomain, "/test")
-	s.Require().NoError(err)
+	entryID := "test"
 
 	s.client.EXPECT().Get(
 		gomock.Any(),
@@ -64,9 +58,9 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespace,
 					Name:      podname,
-					Labels: map[string]string{
-						ServiceNameInputLabel: servicename,
-						TLSSecretNameLabel:    secretname,
+					Annotations: map[string]string{
+						ServiceNameAnnotation:   servicename,
+						TLSSecretNameAnnotation: secretname,
 					},
 				},
 			}
@@ -80,11 +74,11 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 	})
 
 	// expect spire entry registration
-	s.entriesRegistry.EXPECT().RegisterK8SPodEntry(gomock.Any(), namespace, ServiceNameSelectorLabel, servicename).
-		Return(spiffeID, nil)
+	s.entriesRegistry.EXPECT().RegisterK8SPodEntry(gomock.Any(), namespace, ServiceNameSelectorLabel, servicename, int32(0), nil).
+		Return(entryID, nil)
 
 	// expect TLS secret creation
-	s.secretsManager.EXPECT().EnsureTLSSecret(gomock.Any(), namespace, secretname, servicename, spiffeID).Return(nil)
+	s.secretsManager.EXPECT().EnsureTLSSecret(gomock.Any(), namespace, secretname, servicename, entryID, gomock.Any(), gomock.Any()).Return(nil)
 
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: namespace, Name: podname}}
 	result, err := s.podReconciler.Reconcile(context.Background(), request)
