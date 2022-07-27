@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"path/filepath"
 	"testing"
 
@@ -29,8 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"github.com/otterize/intents-operator/shared/api/otterizev1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 

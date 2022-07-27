@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"github.com/otterize/intents-operator/operator/controllers"
+	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -31,8 +32,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"github.com/otterize/intents-operator/shared/api/otterizev1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 

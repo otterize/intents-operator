@@ -2,7 +2,7 @@ package reconcilers
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/shared/api/otterizev1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
