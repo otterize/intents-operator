@@ -2,7 +2,7 @@ package reconcilers
 
 import (
 	"context"
-	otterizev1alpha1 "github.com/otterize/otternose/api/v1alpha1"
+	"github.com/otterize/intents-operator/shared/api/otterizev1alpha1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"

@@ -18,8 +18,8 @@ package controllers
 
 import (
 	"context"
-	otterizev1alpha1 "github.com/otterize/otternose/api/v1alpha1"
-	"github.com/otterize/otternose/controllers/reconcilers"
+	"github.com/otterize/intents-operator/operator/controllers/reconcilers"
+	"github.com/otterize/intents-operator/shared/api/otterizev1alpha1"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 

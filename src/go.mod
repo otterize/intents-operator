@@ -1,4 +1,4 @@
-module github.com/otterize/otternose
+module github.com/otterize/intents-operator
 
 go 1.18
 
@@ -10,7 +10,6 @@ require (
 	k8s.io/apimachinery v0.24.0
 	k8s.io/client-go v0.24.0
 	sigs.k8s.io/controller-runtime v0.12.1
-	github.com/amit7itz/goset v1.0.1
 )
 
 require (
@@ -84,3 +83,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+replace github.com/otterize/intents-operator/shared/api/otterizev1alpha1 => ./shared/api/otterizev1alpha1
+
+replace github.com/otterize/intents-operator/operator/controllers => ./operator/controllers

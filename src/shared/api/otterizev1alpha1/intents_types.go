@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package otterizev1alpha1
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-const OtterizeAccessLabelKey = "otterize-access/%s"
+const OtterizeAccessLabelKey = "otterize-access"
 const OtterizeMarkerLabelKey = "otterize-client"
 
 type IntentType string
@@ -146,7 +146,7 @@ func (in *Intents) GetIntentsLabelMapping(defaultNS string) map[string]string {
 		} else {
 			ns = defaultNS
 		}
-		serverToNamespace[fmt.Sprintf(OtterizeAccessLabelKey, intent.Server)] = ns
+		serverToNamespace[OtterizeAccessLabelKey] = fmt.Sprintf("%s-%s", intent.Server, ns)
 	}
 
 	return serverToNamespace

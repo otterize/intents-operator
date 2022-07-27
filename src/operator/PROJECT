@@ -5,7 +5,7 @@ plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: operator
-repo: github.com/otterize/otternose
+repo: github.com/otterize/intents-operator
 resources:
 - api:
     crdVersion: v1
@@ -14,6 +14,6 @@ resources:
   domain: otterize.com
   group: otterize
   kind: Intents
-  path: github.com/otterize/otternose/api/v1alpha1
+  path: github.com/otterize/intents-operator/api/v1alpha1
   version: v1alpha1
 version: "3"
