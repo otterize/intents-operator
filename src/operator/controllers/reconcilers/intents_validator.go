@@ -34,7 +34,7 @@ func (r *IntentsValidatorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	serviceName := intents.GetServiceName()
 	logrus.Debugln("Intents for service: " + serviceName)
-	for _, intent := range intents.GetCallList() {
+	for _, intent := range intents.GetCallsList() {
 		logrus.Debugf("%s has intent to access %s. Intent type: %s\n", serviceName, intent.Server, intent.Type)
 		if err := validateIntent(intent); err != nil {
 			return ctrl.Result{}, err

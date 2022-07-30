@@ -131,23 +131,23 @@ func (in *Intents) GetServiceName() string {
 	return in.Spec.Service.Name
 }
 
-func (in *Intents) GetCallList() []Intent {
+func (in *Intents) GetCallsList() []Intent {
 	return in.Spec.Service.Calls
 }
 
 func (in *Intents) GetIntentsLabelMapping(defaultNS string) map[string]string {
 	// TODO: Filter out non-HTTP intents ?
-	serverToNamespace := map[string]string{}
+	otterizeAccessLabels := map[string]string{}
 
-	for _, intent := range in.GetCallList() {
+	for _, intent := range in.GetCallsList() {
 		var ns string
 		if intent.Namespace != "" {
 			ns = intent.Namespace
 		} else {
 			ns = defaultNS
 		}
-		serverToNamespace[OtterizeAccessLabelKey] = fmt.Sprintf("%s-%s", intent.Server, ns)
+		otterizeAccessLabels[OtterizeAccessLabelKey] = fmt.Sprintf("%s-%s", intent.Server, ns)
 	}
 
-	return serverToNamespace
+	return otterizeAccessLabels
 }

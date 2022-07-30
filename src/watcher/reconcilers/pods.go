@@ -8,7 +8,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,7 +24,7 @@ const (
 	OwnerTypeDeployment  = "Deployment"
 )
 
-const OtterizeDestServerLabelKey = "otterize-server"
+const OtterizeClientNameIndexField = "name"
 
 type PodWatcher struct {
 	client.Client
@@ -48,15 +47,15 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	otterizeIdentity, err := w.ResolvePodToOtterizeIdentity(ctx, pod)
+	otterizeIdentity, err := w.resolvePodToOtterizeIdentity(ctx, pod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if !w.hasOtterizeServerLabel(pod) {
+	if !otterizev1alpha1.HasOtterizeServerLabel(pod) {
 		// Label pods as destination servers
 		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeIdentity.Name)
-		pod.Labels[OtterizeDestServerLabelKey] = otterizeIdentity.Name
+		pod.Labels[otterizev1alpha1.OtterizeDestServerLabelKey] = otterizeIdentity.Name
 		err := w.Update(ctx, pod)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -64,21 +63,63 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Validate pods are aligned with intents as clients
-	intents := w.getIntentsObjForClient(otterizeIdentity.Name, otterizeIdentity.Namespace)
-	err = w.Get(ctx, req.NamespacedName, &intents)
+	var intents otterizev1alpha1.IntentsList
+	err = w.List(
+		ctx, &intents,
+		&client.MatchingFields{OtterizeClientNameIndexField: otterizeIdentity.Name},
+		&client.ListOptions{Namespace: otterizeIdentity.Namespace})
+
 	if err != nil {
 		logrus.Errorln(err)
 		return ctrl.Result{}, err
 	}
 
-	logrus.Infoln("INTENTS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-	logrus.Infof("%v\n", intents)
+	if len(intents.Items) == 0 {
+		return ctrl.Result{}, err
+	}
+
+	otterizeAccessLabels := map[string]string{}
+	for _, intent := range intents.Items {
+		currIntentLabels := intent.GetIntentsLabelMapping(otterizeIdentity.Namespace)
+		for k, v := range currIntentLabels {
+			otterizeAccessLabels[k] = v
+		}
+	}
+
+	if otterizev1alpha1.HasMissingOtterizeLabels(pod, otterizeAccessLabels) {
+		pod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, otterizeAccessLabels)
+		err := w.Update(ctx, pod)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{Requeue: true}, nil
+	}
 
 	return ctrl.Result{}, nil
 }
 
-func (w *PodWatcher) ResolvePodToOtterizeIdentity(ctx context.Context, pod *v1.Pod) (*types.NamespacedName, error) {
+func (w *PodWatcher) InitIntentIndexes(mgr manager.Manager) error {
+	err := mgr.GetCache().IndexField(
+		context.Background(),
+		&otterizev1alpha1.Intents{},
+		OtterizeClientNameIndexField,
+		func(object client.Object) []string {
+
+			intents := object.(*otterizev1alpha1.Intents)
+			if intents.Spec == nil {
+				return nil
+			}
+			return []string{intents.Spec.Service.Name}
+		})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (w *PodWatcher) resolvePodToOtterizeIdentity(ctx context.Context, pod *v1.Pod) (*types.NamespacedName, error) {
 	var otterizeIdentity string
 	var ownerKind client.Object
 	for _, owner := range pod.OwnerReferences {
@@ -106,11 +147,8 @@ func (w *PodWatcher) ResolvePodToOtterizeIdentity(ctx context.Context, pod *v1.P
 	return nil, fmt.Errorf("pod %s has no owner", pod.Name)
 }
 
-func (w *PodWatcher) getIntentsObjForClient(name string, ns string) otterizev1alpha1.Intents {
+func (w *PodWatcher) getIntentsObjForClient(name string) otterizev1alpha1.Intents {
 	return otterizev1alpha1.Intents{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: ns,
-		},
 		Spec: &otterizev1alpha1.IntentsSpec{
 			Service: otterizev1alpha1.Service{
 				Name: name,
@@ -127,10 +165,6 @@ func (w *PodWatcher) getOtterizeIdentityFromObject(obj client.Object) string {
 	return obj.GetName()
 }
 
-func (w *PodWatcher) labelPodServerIdentity(pod *v1.Pod, serverName string) {
-
-}
-
 func (w *PodWatcher) Register(mgr manager.Manager) error {
 	watcher, err := controller.New("pod-watcher", mgr, controller.Options{
 		Reconciler: w,
@@ -144,9 +178,4 @@ func (w *PodWatcher) Register(mgr manager.Manager) error {
 	}
 
 	return nil
-}
-
-func (w *PodWatcher) hasOtterizeServerLabel(pod *v1.Pod) bool {
-	_, exists := pod.Labels[OtterizeDestServerLabelKey]
-	return exists
 }

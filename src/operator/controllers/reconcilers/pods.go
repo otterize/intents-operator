@@ -30,23 +30,8 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	intents := &otterizev1alpha1.Intents{}
 	err = r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
-		logrus.Infof("Intents deleted for namespace %s. Removing Otterize labels from pods\n", namespace)
-		for _, pod := range pods.Items {
-			// If the pod was never labeled by Otterize, carry on
-			if _, ok := pod.Labels[otterizev1alpha1.OtterizeMarkerLabelKey]; !ok {
-				continue
-			}
-			modifiedPod := cleanupOtterizeIntentLabels(pod)
-
-			// Modify the pod's labels and update the object
-			logrus.Debugf("Removing Otterize labels from pod: %s\n", pod.Name)
-			err := r.Update(ctx, &modifiedPod)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-			return ctrl.Result{Requeue: true}, nil
-		}
-
+		// TODO: Handle label deletion for removed intent object
+		logrus.Infof("Intents deleted for namespace %s", namespace)
 		return ctrl.Result{}, nil
 	}
 
@@ -59,12 +44,12 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	for _, pod := range pods.Items {
 		// TODO: This is weak, change this
-		if strings.HasPrefix(pod.Name, serviceName) && hasMissingOtterizeLabels(pod, intentLabels) {
+		if strings.HasPrefix(pod.Name, serviceName) && otterizev1alpha1.HasMissingOtterizeLabels(&pod, intentLabels) {
 			logrus.Infof("Updating %s pod labels with new intents\n", serviceName)
 			logrus.Debugln(intentLabels)
 
-			pod = updateOtterizeIntentLabels(pod, intentLabels)
-			err := r.Update(ctx, &pod)
+			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(&pod, intentLabels)
+			err := r.Update(ctx, updatedPod)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -74,47 +59,4 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	return ctrl.Result{}, nil
-}
-
-// hasMissingOtterizeLabels checks if a pod's labels need updating
-func hasMissingOtterizeLabels(pod v1.Pod, labels map[string]string) bool {
-	for k, _ := range labels {
-		if _, ok := pod.Labels[k]; !ok {
-			return true
-		}
-	}
-	return false
-}
-
-// updateOtterizeIntentLabels updates a pod's labels with Otterize labels representing their intents
-// The pod is also labeled with "otterize-client=true" to mark it as having intents
-func updateOtterizeIntentLabels(pod v1.Pod, labels map[string]string) v1.Pod {
-	for k, v := range labels {
-		pod.Labels[k] = v
-	}
-	pod.Labels[otterizev1alpha1.OtterizeMarkerLabelKey] = "true"
-	return pod
-}
-
-// cleanupOtterizeIntentLabels Removes intent related labels from pods
-// Returns the pod's label map without Otterize labels
-func cleanupOtterizeIntentLabels(pod v1.Pod) v1.Pod {
-	postCleanupLabels := map[string]string{}
-
-	for k, v := range pod.Labels {
-		if !isOtterizeLabelKey(k) {
-			postCleanupLabels[k] = v
-		}
-	}
-
-	pod.Labels = postCleanupLabels
-	return pod
-}
-
-func isOtterizeLabelKey(s string) bool {
-	if strings.Contains(s, "otterize-access") || strings.Contains(s, "otterize-client") {
-		return true
-	}
-
-	return false
 }
