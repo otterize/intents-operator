@@ -40,6 +40,7 @@ spec:
         - --leader-elect
         image: controller:latest
         name: manager
+        imagePullPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
         # TODO(user): uncomment for common cases that do not require escalating privileges
@@ -67,5 +68,21 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
+        volumeMounts:
+          - name: spifferize-tls
+            mountPath: /etc/spifferize
+            readOnly: true
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
+      volumes:
+        - name: spifferize-tls
+          secret:
+            secretName: spifferize-tls-controller-manager
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: spifferize-tls-controller-manager
+  namespace: system

@@ -1,5 +1,5 @@
-apiVersion: controller-runtime.sigs.k8s.io/v1alpha1
-kind: ControllerManagerConfig
+apiVersion: otterize.com/v1alpha1
+kind: ProjectConfig
 health:
   healthProbeBindAddress: :8081
 metrics:
@@ -19,3 +19,11 @@ leaderElection:
 #   if you are doing or is intended to do any operation such as perform cleanups 
 #   after the manager stops then its usage might be unsafe.
 #   leaderElectionReleaseOnCancel: true
+#kafkaServers:
+#  - name: my-kafka
+#    namespace: default
+#    addr: my-kafka:9092
+#    tls:
+#      certFile: /etc/spifferize/svid.pem
+#      keyFile: /etc/spifferize/key.pem
+#      rootCAFile: /etc/spifferize/bundle.pem

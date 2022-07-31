@@ -1,0 +1,20 @@
+# permissions for end users to view projectconfigs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: projectconfig-viewer-role
+rules:
+- apiGroups:
+  - otterize.com
+  resources:
+  - projectconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - otterize.com
+  resources:
+  - projectconfigs/status
+  verbs:
+  - get
