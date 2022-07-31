@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/asaskevich/govalidator"
-	"github.com/otterize/spifferize/src/operator/secrets"
-	"github.com/otterize/spifferize/src/spireclient"
-	"github.com/otterize/spifferize/src/spireclient/entries"
+	"github.com/otterize/spire-integration-operator/src/operator/secrets"
+	"github.com/otterize/spire-integration-operator/src/spireclient"
+	"github.com/otterize/spire-integration-operator/src/spireclient/entries"
 	"github.com/sirupsen/logrus"
 	"hash/fnv"
 	appsv1 "k8s.io/api/apps/v1"
@@ -31,7 +31,7 @@ const (
 	KeyFileNameAnnotation    = "otterize/key-file-name"
 	DNSNamesAnnotation       = "otterize/dns-names"
 	CertTTLAnnotation        = "otterize/cert-ttl"
-	ServiceNameSelectorLabel = "spifferize/service-name"
+	ServiceNameSelectorLabel = "spire-integration-operator/service-name"
 )
 
 // PodReconciler reconciles a Pod object

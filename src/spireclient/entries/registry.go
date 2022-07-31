@@ -3,7 +3,7 @@ package entries
 import (
 	"context"
 	"fmt"
-	"github.com/otterize/spifferize/src/spireclient"
+	"github.com/otterize/spire-integration-operator/src/spireclient"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"

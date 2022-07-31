@@ -1,4 +1,4 @@
-module github.com/otterize/spifferize/src
+module github.com/otterize/spire-integration-operator/src
 
 go 1.18
 

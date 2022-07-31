@@ -18,20 +18,20 @@ spec:
     metadata:
       labels:
         app: client
-        otterize/tls-secret-name: spifferize-tls-go-spiffe-tls-client
+        otterize/tls-secret-name: go-spiffe-tls-client-tls-secret
     spec:
       containers:
         - name: client
           imagePullPolicy: Always
           image: public.ecr.aws/e3b4k2v5/go-spiffe-client:latest
           volumeMounts:
-            - name: spifferize-tls
-              mountPath: /etc/spifferize
+            - name: spire-integration-tls
+              mountPath: /etc/spire-integration
               readOnly: true
       volumes:
-        - name: spifferize-tls
+        - name: spire-integration-tls
           secret:
-            secretName: spifferize-tls-go-spiffe-tls-client
+            secretName: go-spiffe-tls-client-tls-secret
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -48,7 +48,7 @@ spec:
     metadata:
       labels:
         app: server
-        otterize/tls-secret-name: spifferize-tls-go-spiffe-tls-server
+        otterize/tls-secret-name: go-spiffe-tls-server-tls-secret
     spec:
       containers:
         - name: server
@@ -57,13 +57,13 @@ spec:
           imagePullPolicy: Always
           image: public.ecr.aws/e3b4k2v5/go-spiffe-server:latest
           volumeMounts:
-            - name: spifferize-tls
-              mountPath: /etc/spifferize
+            - name: spire-integration-tls
+              mountPath: /etc/spire-integration
               readOnly: true
       volumes:
-        - name: spifferize-tls
+        - name: spire-integration-tls
           secret:
-            secretName: spifferize-tls-go-spiffe-tls-server
+            secretName: go-spiffe-tls-server-tls-secret
 ---
 apiVersion: v1
 kind: Service

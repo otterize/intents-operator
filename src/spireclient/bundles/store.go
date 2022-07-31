@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/pem"
-	"github.com/otterize/spifferize/src/spireclient"
+	"github.com/otterize/spire-integration-operator/src/spireclient"
 	bundlev1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/bundle/v1"
 )
 

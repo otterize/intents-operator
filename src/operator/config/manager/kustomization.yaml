@@ -13,4 +13,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize-tools
-  newTag: spifferize-operator-latest
+  newTag: spire-integration-operator-latest

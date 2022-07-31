@@ -16,14 +16,14 @@ kafka:
     tls:
       type: pem
       existingSecrets:
-        - spifferize-tls-go-spiffe-tls-kafka
+        - kafka-tls-secret
   authorizerClassName: kafka.security.authorizer.AclAuthorizer
   allowEveryoneIfNoAclFound: true
   podLabels:
     app: lab-kafka
   podAnnotations:
     otterize/service-name: kafka
-    otterize/tls-secret-name: spifferize-tls-go-spiffe-tls-kafka
+    otterize/tls-secret-name: kafka-tls-secret
     otterize/bundle-file-name: ca.crt
     otterize/svid-file-name: tls.crt
     otterize/key-file-name: tls.key
@@ -38,7 +38,7 @@ kafka:
   extraVolumes:
     - name: kafka-secrets
       secret:
-        secretName: spifferize-tls-go-spiffe-tls-kafka
+        secretName: kafka-tls-secret
   extraVolumeMounts:
     - mountPath: /certs2
       name: kafka-secrets

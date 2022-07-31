@@ -3,8 +3,8 @@ package secrets
 import (
 	"context"
 	"errors"
-	"github.com/otterize/spifferize/src/spireclient/bundles"
-	"github.com/otterize/spifferize/src/spireclient/svids"
+	"github.com/otterize/spire-integration-operator/src/spireclient/bundles"
+	"github.com/otterize/spire-integration-operator/src/spireclient/svids"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -16,10 +16,10 @@ import (
 )
 
 const (
-	secretTypeLabel                = "spifferize/secret-type"
-	tlsSecretServiceNameAnnotation = "spifferize/service-name"
-	tlsSecretEntryIDAnnotation     = "spifferize/entry-id"
-	svidExpiryAnnotation           = "spifferize/svid-expires-at"
+	secretTypeLabel                = "spire-integration-operator/secret-type"
+	tlsSecretServiceNameAnnotation = "spire-integration-operator/service-name"
+	tlsSecretEntryIDAnnotation     = "spire-integration-operator/entry-id"
+	svidExpiryAnnotation           = "spire-integration-operator/svid-expires-at"
 	SVIDFileNameAnnotation         = "otterize/svid-file-name"
 	BundleFileNameAnnotation       = "otterize/bundle-file-name"
 	KeyFileNameAnnotation          = "otterize/key-file-name"

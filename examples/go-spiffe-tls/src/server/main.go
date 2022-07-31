@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
-	"github.com/otterize/spifferize/examples/spiffe-tls/utils"
+	"github.com/otterize/spire-integration-operator/examples/spiffe-tls/utils"
 	"log"
 	"net"
 
@@ -14,9 +14,9 @@ import (
 
 const (
 	serverAddress = "0.0.0.0:55555"
-	bundlePath    = "/etc/spifferize/bundle.pem"
-	certFilePath  = "/etc/spifferize/svid.pem"
-	keyFilePath   = "/etc/spifferize/key.pem"
+	bundlePath    = "/etc/spire-integration-operator/bundle.pem"
+	certFilePath  = "/etc/spire-integration-operator/svid.pem"
+	keyFilePath   = "/etc/spire-integration-operator/key.pem"
 	clientID      = "spiffe://example.org/otterize/namespace/go-spiffe-tls/service/client"
 )
 

@@ -1,6 +1,6 @@
 #! /usr/bin/env bash
 REPO=353146681200.dkr.ecr.us-east-1.amazonaws.com
-IMAGE=$REPO/otterize-tools:spifferize-operator-latest
+IMAGE=$REPO/otterize-tools:spire-integration-operator-latest
 set -ex
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $REPO
 cd $(dirname $0)/..

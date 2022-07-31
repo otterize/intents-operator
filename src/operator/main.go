@@ -4,12 +4,12 @@ import (
 	"context"
 	"flag"
 	"github.com/bombsimon/logrusr/v3"
-	"github.com/otterize/spifferize/src/operator/controllers"
-	"github.com/otterize/spifferize/src/operator/secrets"
-	"github.com/otterize/spifferize/src/spireclient"
-	"github.com/otterize/spifferize/src/spireclient/bundles"
-	"github.com/otterize/spifferize/src/spireclient/entries"
-	"github.com/otterize/spifferize/src/spireclient/svids"
+	"github.com/otterize/spire-integration-operator/src/operator/controllers"
+	"github.com/otterize/spire-integration-operator/src/operator/secrets"
+	"github.com/otterize/spire-integration-operator/src/spireclient"
+	"github.com/otterize/spire-integration-operator/src/spireclient/bundles"
+	"github.com/otterize/spire-integration-operator/src/spireclient/entries"
+	"github.com/otterize/spire-integration-operator/src/spireclient/svids"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"os"
@@ -75,7 +75,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "spifferize-operator.otterize.com",
+		LeaderElectionID:       "spire-integration-operator.otterize.com",
 	})
 	if err != nil {
 		logrus.WithError(err).Error("unable to start manager")

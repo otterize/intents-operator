@@ -1,4 +1,4 @@
-module github.com/otterize/spifferize/examples/spiffe-tls
+module github.com/otterize/spire-integration-operator/examples/spiffe-tls
 
 go 1.13
 
