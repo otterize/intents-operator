@@ -35,11 +35,3 @@ kafka:
     requests:
       cpu: 50m
       memory: 256Mi
-  extraVolumes:
-    - name: kafka-secrets
-      secret:
-        secretName: kafka-tls-secret
-  extraVolumeMounts:
-    - mountPath: /certs2
-      name: kafka-secrets
-

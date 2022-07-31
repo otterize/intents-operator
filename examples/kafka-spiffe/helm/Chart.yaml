@@ -1,5 +1,0 @@
-apiVersion: v1
-appVersion: "1.1.1"
-description: Bitnami kafka with spiffe generated jks
-name: spiffe-kafka
-version: 0.1.0
