@@ -35,7 +35,7 @@ func NewPodWatcher(c client.Client) *PodWatcher {
 }
 
 func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Infof("Reconciling due to pod change: %s\n", req.Name)
+	logrus.Infof("Reconciling due to pod change: %s", req.Name)
 	pod := &v1.Pod{}
 	err := w.Get(ctx, req.NamespacedName, pod)
 	if k8serrors.IsNotFound(err) {
@@ -85,8 +85,8 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			otterizeAccessLabels[k] = v
 		}
 	}
-
 	if otterizev1alpha1.HasMissingOtterizeLabels(pod, otterizeAccessLabels) {
+		logrus.Infof("Updating Otterize access labels for %s", otterizeIdentity.Name)
 		pod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, otterizeAccessLabels)
 		err := w.Update(ctx, pod)
 		if err != nil {

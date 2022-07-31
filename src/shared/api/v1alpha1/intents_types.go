@@ -146,7 +146,7 @@ func (in *Intents) GetIntentsLabelMapping(defaultNS string) map[string]string {
 		} else {
 			ns = defaultNS
 		}
-		otterizeAccessLabels[OtterizeAccessLabelKey] = fmt.Sprintf("%s-%s", intent.Server, ns)
+		otterizeAccessLabels[OtterizeAccessLabelKey] = fmt.Sprintf("%s.%s", intent.Server, ns)
 	}
 
 	return otterizeAccessLabels
