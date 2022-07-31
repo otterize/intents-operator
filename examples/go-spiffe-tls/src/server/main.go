@@ -14,9 +14,9 @@ import (
 
 const (
 	serverAddress = "0.0.0.0:55555"
-	bundlePath    = "/etc/spire-integration-operator/bundle.pem"
-	certFilePath  = "/etc/spire-integration-operator/svid.pem"
-	keyFilePath   = "/etc/spire-integration-operator/key.pem"
+	bundlePath    = "/etc/spire-integration/bundle.pem"
+	certFilePath  = "/etc/spire-integration/svid.pem"
+	keyFilePath   = "/etc/spire-integration/key.pem"
 	clientID      = "spiffe://example.org/otterize/namespace/go-spiffe-tls/service/client"
 )
 
