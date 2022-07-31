@@ -152,6 +152,42 @@ func (a *KafkaIntentsAdmin) createACLs(topicToACLList TopicToACLList) error {
 	return nil
 }
 
+func (a *KafkaIntentsAdmin) logACLs() error {
+	logger := logrus.WithFields(
+		logrus.Fields{
+			"serverName":      a.kafkaServer.Name,
+			"serverNamespace": a.kafkaServer.Namespace,
+		})
+
+	aclFilter := sarama.AclFilter{
+		ResourceType:              sarama.AclResourceAny,
+		ResourcePatternTypeFilter: sarama.AclPatternAny,
+		PermissionType:            sarama.AclPermissionAllow,
+		Operation:                 sarama.AclOperationAny,
+	}
+
+	acls, err := a.kafkaAdminClient.ListAcls(aclFilter)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("Current state of ACL rules")
+	for _, aclRules := range acls {
+		for _, acl := range aclRules.Acls {
+			logger.WithFields(logrus.Fields{
+				"ResourceName":   aclRules.Resource.ResourceName,
+				"resourceType":   aclRules.Resource.ResourceType,
+				"Principal":      acl.Principal,
+				"PermissionType": acl.PermissionType,
+				"Operation":      acl.Operation,
+				"host":           acl.Host,
+			}).Infof("ACL:")
+		}
+
+	}
+	return nil
+}
+
 func (a *KafkaIntentsAdmin) ApplyIntents(clientName string, clientNamespace string, intents []otterizev1alpha1.Intent) error {
 	clientPrincipal := fmt.Sprintf("User:CN=%s.%s", clientName, clientNamespace)
 	logger := logrus.WithFields(
@@ -173,12 +209,15 @@ func (a *KafkaIntentsAdmin) ApplyIntents(clientName string, clientNamespace stri
 
 	if len(topicToACLList) == 0 {
 		logger.Info("No new ACLs found to apply on server")
-		return nil
+	} else {
+		logger.Info("Creating new ACLs")
+		if err := a.createACLs(topicToACLList); err != nil {
+			return fmt.Errorf("failed creating ACLs on server: %w", err)
+		}
 	}
 
-	logger.Info("Creating new ACLs")
-	if err := a.createACLs(topicToACLList); err != nil {
-		return fmt.Errorf("failed creating ACLs on server: %w", err)
+	if err := a.logACLs(); err != nil {
+		logger.WithError(err).Error("failed logging current ACL rules")
 	}
 
 	return nil
