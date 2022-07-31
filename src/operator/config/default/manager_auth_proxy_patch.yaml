@@ -34,7 +34,8 @@ spec:
             cpu: 5m
             memory: 64Mi
       - name: manager
-        args:
-        - "--health-probe-bind-address=:8081"
-        - "--metrics-bind-address=127.0.0.1:8080"
-        - "--leader-elect"
+# Commented out due to kustomize build confilct error
+#        args:
+#        - "--health-probe-bind-address=:8081"
+#        - "--metrics-bind-address=127.0.0.1:8080"
+#        - "--leader-elect"
