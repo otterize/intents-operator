@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/Shopify/sarama"
-	otterizev1alpha1 "github.com/otterize/otternose/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"io/ioutil"
