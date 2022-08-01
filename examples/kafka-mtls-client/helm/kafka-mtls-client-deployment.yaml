@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kafka-mtls-client
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: client
+  namespace: kafka-mtls-client
+  labels:
+    app: client
+spec:
+  selector:
+    matchLabels:
+      app: client
+  template:
+    metadata:
+      labels:
+        app: client
+      annotations:
+        otterize/tls-secret-name: kafka-mtls-client-tls-secret
+    spec:
+      containers:
+        - name: client
+          imagePullPolicy: Always
+          image: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize-tools:kafka-mtls-client-latest
+          volumeMounts:
+            - name: spire-integration-tls
+              mountPath: /etc/spire-integration
+              readOnly: true
+      volumes:
+        - name: spire-integration-tls
+          secret:
+            secretName: kafka-mtls-client-tls-secret
