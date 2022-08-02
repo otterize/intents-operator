@@ -23,15 +23,19 @@ import (
 )
 
 const (
-	refreshSecretsLoopTick   = time.Minute
-	ServiceNameAnnotation    = "otterize/service-name"
-	TLSSecretNameAnnotation  = "otterize/tls-secret-name"
-	SVIDFileNameAnnotation   = "otterize/svid-file-name"
-	BundleFileNameAnnotation = "otterize/bundle-file-name"
-	KeyFileNameAnnotation    = "otterize/key-file-name"
-	DNSNamesAnnotation       = "otterize/dns-names"
-	CertTTLAnnotation        = "otterize/cert-ttl"
-	ServiceNameSelectorLabel = "spire-integration-operator/service-name"
+	refreshSecretsLoopTick      = time.Minute
+	ServiceNameAnnotation       = "otterize/service-name"
+	TLSSecretNameAnnotation     = "otterize/tls-secret-name"
+	SVIDFileNameAnnotation      = "otterize/svid-file-name"
+	BundleFileNameAnnotation    = "otterize/bundle-file-name"
+	KeyFileNameAnnotation       = "otterize/key-file-name"
+	DNSNamesAnnotation          = "otterize/dns-names"
+	CertTTLAnnotation           = "otterize/cert-ttl"
+	CertTypeAnnotation          = "otterize/cert-type"
+	KeyStoreNameAnnotation      = "otterize/keystore-file-name"
+	TrustStoreNameAnnotation    = "otterize/truststore-file-name"
+	JksStoresPasswordAnnotation = "otterize/jks-password"
+	ServiceNameSelectorLabel    = "spire-integration-operator/service-name"
 )
 
 // PodReconciler reconciles a Pod object
@@ -139,14 +143,28 @@ func (r *PodReconciler) generatePodTLSSecret(ctx context.Context, pod *corev1.Po
 	}
 
 	secretName := pod.Annotations[TLSSecretNameAnnotation]
-	secretNames := secrets.NewSecretFileNames(pod.Annotations[SVIDFileNameAnnotation], pod.Annotations[BundleFileNameAnnotation], pod.Annotations[KeyFileNameAnnotation])
-	log.WithFields(logrus.Fields{"secret_name": secretName, "secret_filenames": secretNames}).Info("ensuring TLS secret")
-	if err := r.SecretsManager.EnsureTLSSecret(ctx, pod.Namespace, secretName, serviceName, entryID, entryHash, secretNames); err != nil {
+	certConfig := certConfigFromPod(pod)
+	log.WithFields(logrus.Fields{"secret_name": secretName, "cert_config": certConfig}).Info("ensuring TLS secret")
+	secretConfig := secrets.NewSecretConfig(entryID, entryHash, secretName, pod.Namespace, serviceName, certConfig)
+	if err := r.SecretsManager.EnsureTLSSecret(ctx, secretConfig); err != nil {
 		log.WithError(err).Error("failed creating TLS secret")
 		return err
 	}
 
 	return nil
+}
+
+func certConfigFromPod(pod *corev1.Pod) secrets.CertConfig {
+	certType := secrets.StrToCertType(pod.Annotations[CertTypeAnnotation])
+	certConfig := secrets.CertConfig{CertType: certType}
+	switch certType {
+	case secrets.PemCertType:
+		certConfig.PemConfig = secrets.NewPemConfig(pod.Annotations[SVIDFileNameAnnotation], pod.Annotations[BundleFileNameAnnotation], pod.Annotations[KeyFileNameAnnotation])
+	case secrets.JksCertType:
+		certConfig.JksConfig = secrets.NewJksConfig(pod.Annotations[KeyStoreNameAnnotation], pod.Annotations[TrustStoreNameAnnotation], pod.Annotations[JksStoresPasswordAnnotation])
+
+	}
+	return certConfig
 }
 
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

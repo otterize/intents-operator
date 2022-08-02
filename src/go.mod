@@ -6,6 +6,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/golang/mock v1.6.0
+	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.0
 	github.com/samber/lo v1.25.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spiffe/go-spiffe/v2 v2.0.1-0.20220414143532-2ed460a8b9d3

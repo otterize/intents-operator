@@ -3,6 +3,7 @@ package secrets
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/otterize/spire-integration-operator/src/spireclient/bundles"
 	"github.com/otterize/spire-integration-operator/src/spireclient/svids"
 	"github.com/samber/lo"
@@ -12,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 	"time"
 )
 
@@ -24,31 +26,112 @@ const (
 	BundleFileNameAnnotation       = "otterize/bundle-file-name"
 	KeyFileNameAnnotation          = "otterize/key-file-name"
 	entryHashAnnotation            = "otterize/entry-hash"
+	certTypeAnnotation             = "otterize/cert-type"
+	KeystoreAnnotation             = "otterize/keystore-file-name"
+	TruststoreAnnotation           = "otterize/truststore-file-name"
+	JksPasswordAnnotation          = "otterize/jks-password"
 	secretExpiryDelta              = 10 * time.Minute
 )
 
 type SecretType string
+type CertType string
 
 const (
 	tlsSecretType = SecretType("TLS")
+	JksCertType   = CertType("jks")
+	PemCertType   = CertType("pem")
 )
 
-type SecretFileNames struct {
+func StrToCertType(strCertType string) CertType {
+	switch CertType(strings.ToLower(strCertType)) {
+	case JksCertType:
+		return JksCertType
+	case PemCertType:
+		return PemCertType
+	default:
+		return PemCertType
+	}
+}
+
+type PemConfig struct {
 	SvidFileName   string
 	BundleFileName string
 	KeyFileName    string
 }
 
-func NewSecretFileNames(svidFileName string, bundleFileName string, keyFileName string) SecretFileNames {
-	newFileNames := SecretFileNames{}
+func NewPemConfig(svidFileName string, bundleFileName string, keyFileName string) PemConfig {
+	newFileNames := PemConfig{}
 	newFileNames.SvidFileName, _ = lo.Coalesce(svidFileName, "svid.pem")
 	newFileNames.KeyFileName, _ = lo.Coalesce(keyFileName, "key.pem")
 	newFileNames.BundleFileName, _ = lo.Coalesce(bundleFileName, "bundle.pem")
 	return newFileNames
 }
 
+type JksConfig struct {
+	KeyStoreFileName   string
+	TrustStoreFileName string
+	Password           string
+}
+
+func NewJksConfig(keystoreFileName string, truststoreFileName string, password string) JksConfig {
+	newFileNames := JksConfig{}
+	newFileNames.KeyStoreFileName, _ = lo.Coalesce(keystoreFileName, "keystore.jks")
+	newFileNames.TrustStoreFileName, _ = lo.Coalesce(truststoreFileName, "truststore.jks")
+	newFileNames.Password, _ = lo.Coalesce(password, "password")
+	return newFileNames
+}
+
+type CertConfig struct {
+	CertType  CertType
+	JksConfig JksConfig
+	PemConfig PemConfig
+}
+
+type SecretConfig struct {
+	EntryID     string
+	EntryHash   string
+	SecretName  string
+	Namespace   string
+	ServiceName string
+	CertConfig  CertConfig
+}
+
+func NewSecretConfig(entryID string, entryHash string, secretName string, namespace string, serviceName string, certConfig CertConfig) SecretConfig {
+	return SecretConfig{
+		EntryID:     entryID,
+		EntryHash:   entryHash,
+		SecretName:  secretName,
+		Namespace:   namespace,
+		ServiceName: serviceName,
+		CertConfig:  certConfig,
+	}
+}
+
+func SecretConfigFromExistingSecret(secret *corev1.Secret) SecretConfig {
+	return SecretConfig{
+		SecretName:  secret.Name,
+		ServiceName: secret.Annotations[tlsSecretServiceNameAnnotation],
+		EntryID:     secret.Annotations[tlsSecretEntryIDAnnotation],
+		EntryHash:   secret.Annotations[entryHashAnnotation],
+		Namespace:   secret.Namespace,
+		CertConfig: CertConfig{
+			CertType: CertType(secret.Annotations[certTypeAnnotation]),
+			PemConfig: PemConfig{
+				SvidFileName:   secret.Annotations[SVIDFileNameAnnotation],
+				BundleFileName: secret.Annotations[BundleFileNameAnnotation],
+				KeyFileName:    secret.Annotations[KeyFileNameAnnotation],
+			},
+			JksConfig: JksConfig{
+				KeyStoreFileName:   secret.Annotations[KeystoreAnnotation],
+				TrustStoreFileName: secret.Annotations[TruststoreAnnotation],
+				Password:           secret.Annotations[JksPasswordAnnotation],
+			},
+		},
+	}
+}
+
 type Manager interface {
-	EnsureTLSSecret(ctx context.Context, namespace string, secretName string, serviceName string, entryID string, entryHash string, secretFileNames SecretFileNames) error
+	EnsureTLSSecret(ctx context.Context, config SecretConfig) error
 	RefreshTLSSecrets(ctx context.Context) error
 }
 
@@ -99,7 +182,7 @@ func (m *managerImpl) getExistingSecret(ctx context.Context, namespace string, n
 	return &found, true, nil
 }
 
-func (m *managerImpl) createTLSSecret(ctx context.Context, namespace string, secretName string, serviceName string, entryID string, entryHash string, secretFileNames SecretFileNames) (*corev1.Secret, error) {
+func (m *managerImpl) createTLSSecret(ctx context.Context, config SecretConfig) (*corev1.Secret, error) {
 	trustBundle, err := m.bundlesStore.GetTrustBundle(ctx)
 	if err != nil {
 		return nil, err
@@ -110,7 +193,7 @@ func (m *managerImpl) createTLSSecret(ctx context.Context, namespace string, sec
 		return nil, err
 	}
 
-	svid, err := m.svidsStore.GetX509SVID(ctx, entryID, privateKey)
+	svid, err := m.svidsStore.GetX509SVID(ctx, config.EntryID, privateKey)
 	if err != nil {
 		return nil, err
 	}
@@ -118,48 +201,81 @@ func (m *managerImpl) createTLSSecret(ctx context.Context, namespace string, sec
 	expiry := time.Unix(svid.ExpiresAt, 0)
 	expiryStr := expiry.Format(time.RFC3339)
 
+	secretData, err := m.generateSecretData(trustBundle, svid, config.CertConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretName,
-			Namespace: namespace,
+			Name:      config.SecretName,
+			Namespace: config.Namespace,
 			Labels: map[string]string{
 				secretTypeLabel: string(tlsSecretType),
 			},
 			Annotations: map[string]string{
 				svidExpiryAnnotation:           expiryStr,
-				tlsSecretServiceNameAnnotation: serviceName,
-				tlsSecretEntryIDAnnotation:     entryID,
-				SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
-				BundleFileNameAnnotation:       secretFileNames.BundleFileName,
-				KeyFileNameAnnotation:          secretFileNames.KeyFileName,
-				entryHashAnnotation:            entryHash,
+				tlsSecretServiceNameAnnotation: config.ServiceName,
+				tlsSecretEntryIDAnnotation:     config.EntryID,
+				SVIDFileNameAnnotation:         config.CertConfig.PemConfig.SvidFileName,
+				BundleFileNameAnnotation:       config.CertConfig.PemConfig.BundleFileName,
+				KeyFileNameAnnotation:          config.CertConfig.PemConfig.KeyFileName,
+				entryHashAnnotation:            config.EntryHash,
+				KeystoreAnnotation:             config.CertConfig.JksConfig.KeyStoreFileName,
+				TruststoreAnnotation:           config.CertConfig.JksConfig.TrustStoreFileName,
+				JksPasswordAnnotation:          config.CertConfig.JksConfig.Password,
 			},
 		},
-		Data: map[string][]byte{
-			secretFileNames.BundleFileName: trustBundle.BundlePEM,
-			secretFileNames.KeyFileName:    svid.KeyPEM,
-			secretFileNames.SvidFileName:   svid.SVIDPEM,
-		},
+		Data: secretData,
 	}
 
 	return &secret, nil
 }
 
-func (m *managerImpl) EnsureTLSSecret(ctx context.Context, namespace string, secretName string, serviceName string, entryID string, entryHash string, secretFileNames SecretFileNames) error {
-	log := logrus.WithFields(logrus.Fields{"secret.namespace": namespace, "secret.name": secretName})
+func (m *managerImpl) generateSecretData(trustBundle bundles.EncodedTrustBundle, svid svids.EncodedX509SVID, certConfig CertConfig) (map[string][]byte, error) {
+	switch certConfig.CertType {
+	case JksCertType:
+		trustStoreBytes, err := trustBundleToTrustStore(trustBundle, certConfig.JksConfig.Password)
+		if err != nil {
+			return nil, err
+		}
 
-	existingSecret, isExistingSecret, err := m.getExistingSecret(ctx, namespace, secretName)
+		keyStoreBytes, err := svidToKeyStore(svid, certConfig.JksConfig.Password)
+		if err != nil {
+			return nil, err
+		}
+		return map[string][]byte{
+			certConfig.JksConfig.TrustStoreFileName: trustStoreBytes,
+			certConfig.JksConfig.KeyStoreFileName:   keyStoreBytes,
+		}, nil
+	case PemCertType:
+		return map[string][]byte{
+			certConfig.PemConfig.BundleFileName: trustBundle.BundlePEM,
+			certConfig.PemConfig.KeyFileName:    svid.KeyPEM,
+			certConfig.PemConfig.SvidFileName:   svid.SVIDPEM,
+		}, nil
+	default:
+		return nil, fmt.Errorf("failed generating secret data. unsupported cert type %s", certConfig.CertType)
+	}
+}
+
+func (m *managerImpl) EnsureTLSSecret(ctx context.Context, config SecretConfig) error {
+	log := logrus.WithFields(logrus.Fields{"secret.namespace": config.Namespace, "secret.name": config.SecretName})
+
+	existingSecret, isExistingSecret, err := m.getExistingSecret(ctx, config.Namespace, config.SecretName)
 	if err != nil {
 		log.WithError(err).Error("failed querying for secret")
 		return err
 	}
 
-	if isExistingSecret && !m.isRefreshNeeded(existingSecret) && !m.isUpdateNeeded(existingSecret, serviceName, entryID, entryHash, secretFileNames) {
-		log.Info("secret already exists and does not require refreshing or updating")
+	if isExistingSecret &&
+		!m.isRefreshNeeded(existingSecret) &&
+		!m.isUpdateNeeded(SecretConfigFromExistingSecret(existingSecret), config) {
+		log.Info("secret already exists and does not require refreshing nor updating")
 		return nil
 	}
 
-	secret, err := m.createTLSSecret(ctx, namespace, secretName, serviceName, entryID, entryHash, secretFileNames)
+	secret, err := m.createTLSSecret(ctx, config)
 	if err != nil {
 		log.WithError(err).Error("failed creating TLS secret")
 		return err
@@ -176,20 +292,18 @@ func (m *managerImpl) EnsureTLSSecret(ctx context.Context, namespace string, sec
 
 func (m *managerImpl) refreshTLSSecret(ctx context.Context, secret *corev1.Secret) error {
 	log := logrus.WithFields(logrus.Fields{"secret.namespace": secret.Namespace, "secret.name": secret.Name})
-	serviceName, ok := secret.Annotations[tlsSecretServiceNameAnnotation]
+	_, ok := secret.Annotations[tlsSecretServiceNameAnnotation]
 	if !ok {
 		return errors.New("service name annotation is missing")
 	}
 
-	entryId, ok := secret.Annotations[tlsSecretEntryIDAnnotation]
+	_, ok = secret.Annotations[tlsSecretEntryIDAnnotation]
 
 	if !ok {
 		return errors.New("entry ID annotation is missing")
 	}
 
-	secretFileNamesFromAnnotations := NewSecretFileNames(secret.Annotations[SVIDFileNameAnnotation], secret.Annotations[BundleFileNameAnnotation], secret.Annotations[KeyFileNameAnnotation])
-
-	newSecret, err := m.createTLSSecret(ctx, secret.Namespace, secret.Name, serviceName, entryId, secret.Annotations[entryHashAnnotation], secretFileNamesFromAnnotations)
+	newSecret, err := m.createTLSSecret(ctx, SecretConfigFromExistingSecret(secret))
 	if err != nil {
 		return err
 	}
@@ -225,17 +339,9 @@ func (m *managerImpl) RefreshTLSSecrets(ctx context.Context) error {
 	return nil
 }
 
-func (m *managerImpl) isUpdateNeeded(existingSecret *corev1.Secret, serviceName string, entryID string, entryHash string, secretFileNames SecretFileNames) bool {
-	log := logrus.WithFields(logrus.Fields{"secret.namespace": existingSecret.Namespace, "secret.name": existingSecret.Name})
-	serviceNameCheck := existingSecret.Annotations[tlsSecretServiceNameAnnotation] == serviceName
-	EntryIDCheck := existingSecret.Annotations[tlsSecretEntryIDAnnotation] == entryID
-	SVIDFileNameCheck := existingSecret.Annotations[SVIDFileNameAnnotation] == secretFileNames.SvidFileName
-	BundleFileNameCheck := existingSecret.Annotations[BundleFileNameAnnotation] == secretFileNames.BundleFileName
-	KeyFileNameCheck := existingSecret.Annotations[KeyFileNameAnnotation] == secretFileNames.KeyFileName
-	HashCheck := existingSecret.Annotations[entryHashAnnotation] == entryHash
-
-	needsUpdate := !(serviceNameCheck && EntryIDCheck && SVIDFileNameCheck && BundleFileNameCheck && KeyFileNameCheck && HashCheck)
-
+func (m *managerImpl) isUpdateNeeded(existingSecretConfig SecretConfig, newSecretConfig SecretConfig) bool {
+	log := logrus.WithFields(logrus.Fields{"secret.namespace": existingSecretConfig.Namespace, "secret.name": existingSecretConfig.SecretName})
+	needsUpdate := existingSecretConfig != newSecretConfig
 	log.Infof("needs update: %v", needsUpdate)
 
 	return needsUpdate
