@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-const OtterizeDestServerLabelKey = "otterize-server"
+const OtterizeDestServerLabelKey = "otterize/server"
 
 // HasMissingOtterizeLabels checks if a pod's labels need updating
 func HasMissingOtterizeLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) bool {
@@ -48,7 +48,7 @@ func CleanupOtterizeIntentLabels(pod v1.Pod) v1.Pod {
 }
 
 func isOtterizeLabelKey(s string) bool {
-	if strings.Contains(s, "otterize-access") || strings.Contains(s, "otterize-client") {
+	if strings.Contains(s, OtterizeAccessLabelKey) || strings.Contains(s, OtterizeMarkerLabelKey) {
 		return true
 	}
 

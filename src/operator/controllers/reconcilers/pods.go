@@ -18,17 +18,11 @@ type PodLabelReconciler struct {
 }
 
 func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// List the pods in the namespace and update labels if required
 	pods := &v1.PodList{}
 	namespace := req.NamespacedName.Namespace
 
-	err := r.List(ctx, pods, &client.ListOptions{Namespace: namespace})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	intents := &otterizev1alpha1.Intents{}
-	err = r.Get(ctx, req.NamespacedName, intents)
+	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		// TODO: Handle label deletion for removed intent object
 		logrus.Infof("Intents deleted for namespace %s", namespace)
@@ -41,6 +35,12 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	serviceName := intents.GetServiceName()
 	intentLabels := intents.GetIntentsLabelMapping(namespace)
+
+	// List the pods in the namespace and update labels if required
+	err = r.List(ctx, pods, &client.ListOptions{Namespace: namespace})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	for _, pod := range pods.Items {
 		// TODO: This is weak, change this

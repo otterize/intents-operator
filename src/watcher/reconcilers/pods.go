@@ -147,16 +147,6 @@ func (w *PodWatcher) resolvePodToOtterizeIdentity(ctx context.Context, pod *v1.P
 	return nil, fmt.Errorf("pod %s has no owner", pod.Name)
 }
 
-func (w *PodWatcher) getIntentsObjForClient(name string) otterizev1alpha1.Intents {
-	return otterizev1alpha1.Intents{
-		Spec: &otterizev1alpha1.IntentsSpec{
-			Service: otterizev1alpha1.Service{
-				Name: name,
-			},
-		},
-	}
-}
-
 func (w *PodWatcher) getOtterizeIdentityFromObject(obj client.Object) string {
 	owners := obj.GetOwnerReferences()
 	if len(owners) != 0 {

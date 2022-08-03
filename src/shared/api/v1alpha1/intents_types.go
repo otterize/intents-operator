@@ -24,8 +24,8 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-const OtterizeAccessLabelKey = "otterize-access"
-const OtterizeMarkerLabelKey = "otterize-client"
+const OtterizeAccessLabelKey = "otterize/access-%s-%s"
+const OtterizeMarkerLabelKey = "otterize/client"
 
 type IntentType string
 
@@ -135,19 +135,22 @@ func (in *Intents) GetCallsList() []Intent {
 	return in.Spec.Service.Calls
 }
 
-func (in *Intents) GetIntentsLabelMapping(defaultNS string) map[string]string {
+func (in *Intents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
 	// TODO: Filter out non-HTTP intents ?
 	otterizeAccessLabels := map[string]string{}
 
 	for _, intent := range in.GetCallsList() {
-		var ns string
-		if intent.Namespace != "" {
-			ns = intent.Namespace
-		} else {
-			ns = defaultNS
-		}
-		otterizeAccessLabels[OtterizeAccessLabelKey] = fmt.Sprintf("%s.%s", intent.Server, ns)
+		ns := intent.ResolveIntentNamespace(requestNamespace)
+		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, intent.Server, ns)] = "true"
 	}
 
 	return otterizeAccessLabels
+}
+
+func (in *Intent) ResolveIntentNamespace(requestNamespace string) string {
+	if in.Namespace != "" {
+		return in.Namespace
+	}
+
+	return requestNamespace
 }
