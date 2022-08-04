@@ -1,16 +1,29 @@
 package v1alpha1
 
 import (
+	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"strings"
 )
 
-const OtterizeDestServerLabelKey = "otterize/server"
+const OtterizeServerLabelKey = "otterize/server"
 
-// HasMissingOtterizeLabels checks if a pod's labels need updating
-func HasMissingOtterizeLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) bool {
-	for k, _ := range otterizeAccessLabels {
+// OtterizeLabelsDiffExists checks if a pod's labels need updating
+func OtterizeLabelsDiffExists(pod *v1.Pod, otterizeAccessLabels map[string]string) bool {
+	podLabels := pod.Labels
+	for k, v := range podLabels {
+		if isOtterizeAccessLabel(k) {
+			if _, ok := otterizeAccessLabels[k]; !ok {
+				logrus.Infof("Found Otterize access label to be removed %s=%s", k, v)
+				// The pod has a label that needs to be removed
+				return true
+			}
+		}
+	}
+	for k, v := range otterizeAccessLabels {
 		if _, ok := pod.Labels[k]; !ok {
+			logrus.Infof("Found missing label: %s=%s", k, v)
+			// The pod is missing a label
 			return true
 		}
 	}
@@ -20,6 +33,7 @@ func HasMissingOtterizeLabels(pod *v1.Pod, otterizeAccessLabels map[string]strin
 // UpdateOtterizeAccessLabels updates a pod's labels with Otterize labels representing their intents
 // The pod is also labeled with "otterize-client=true" to mark it as having intents
 func UpdateOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) *v1.Pod {
+	cleanupOtterizeLabels(pod)
 	for k, v := range otterizeAccessLabels {
 		pod.Labels[k] = v
 	}
@@ -28,27 +42,20 @@ func UpdateOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]str
 }
 
 func HasOtterizeServerLabel(pod *v1.Pod) bool {
-	_, exists := pod.Labels[OtterizeDestServerLabelKey]
+	_, exists := pod.Labels[OtterizeServerLabelKey]
 	return exists
 }
 
-// CleanupOtterizeIntentLabels Removes intent related labels from pods
-// Returns the pod's label map without Otterize labels
-func CleanupOtterizeIntentLabels(pod v1.Pod) v1.Pod {
-	postCleanupLabels := map[string]string{}
-
-	for k, v := range pod.Labels {
-		if !isOtterizeLabelKey(k) {
-			postCleanupLabels[k] = v
+func cleanupOtterizeLabels(pod *v1.Pod) {
+	for k, _ := range pod.Labels {
+		if isOtterizeAccessLabel(k) {
+			delete(pod.Labels, k)
 		}
 	}
-
-	pod.Labels = postCleanupLabels
-	return pod
 }
 
-func isOtterizeLabelKey(s string) bool {
-	if strings.Contains(s, OtterizeAccessLabelKey) || strings.Contains(s, OtterizeMarkerLabelKey) {
+func isOtterizeAccessLabel(s string) bool {
+	if strings.Contains(s, "otterize/access") {
 		return true
 	}
 

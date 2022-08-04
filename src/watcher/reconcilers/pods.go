@@ -55,7 +55,9 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if !otterizev1alpha1.HasOtterizeServerLabel(pod) {
 		// Label pods as destination servers
 		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeIdentity.Name)
-		pod.Labels[otterizev1alpha1.OtterizeDestServerLabelKey] = otterizeIdentity.Name
+		pod.Labels[otterizev1alpha1.OtterizeServerLabelKey] =
+			fmt.Sprintf("%s-%s", otterizeIdentity.Name, otterizeIdentity.Namespace)
+
 		err := w.Update(ctx, pod)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -85,7 +87,7 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			otterizeAccessLabels[k] = v
 		}
 	}
-	if otterizev1alpha1.HasMissingOtterizeLabels(pod, otterizeAccessLabels) {
+	if otterizev1alpha1.OtterizeLabelsDiffExists(pod, otterizeAccessLabels) {
 		logrus.Infof("Updating Otterize access labels for %s", otterizeIdentity.Name)
 		pod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, otterizeAccessLabels)
 		err := w.Update(ctx, pod)
@@ -104,7 +106,6 @@ func (w *PodWatcher) InitIntentIndexes(mgr manager.Manager) error {
 		&otterizev1alpha1.Intents{},
 		OtterizeClientNameIndexField,
 		func(object client.Object) []string {
-
 			intents := object.(*otterizev1alpha1.Intents)
 			if intents.Spec == nil {
 				return nil

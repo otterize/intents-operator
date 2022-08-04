@@ -104,7 +104,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(intent otter
 		Spec: v1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha1.OtterizeDestServerLabelKey: intent.Server,
+					otterizev1alpha1.OtterizeServerLabelKey: fmt.Sprintf("%s-%s", intent.Server, intent.Namespace),
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{

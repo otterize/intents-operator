@@ -136,7 +136,6 @@ func (in *Intents) GetCallsList() []Intent {
 }
 
 func (in *Intents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
-	// TODO: Filter out non-HTTP intents ?
 	otterizeAccessLabels := map[string]string{}
 
 	for _, intent := range in.GetCallsList() {
