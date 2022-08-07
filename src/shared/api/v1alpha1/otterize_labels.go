@@ -51,7 +51,7 @@ func cleanupOtterizeIntentLabels(pod v1.Pod) v1.Pod {
 }
 
 func isOtterizeLabelKey(s string) bool {
-	if strings.HasPrefix(s, "otterize/access") || strings.HasPrefix(s, "otterize-client") {
+	if strings.HasPrefix(s, "otterize/access") || strings.HasPrefix(s, OtterizeMarkerLabelKey) {
 		return true
 	}
 	return false
