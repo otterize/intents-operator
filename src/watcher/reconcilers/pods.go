@@ -24,7 +24,7 @@ const (
 	OwnerTypeDeployment  = "Deployment"
 )
 
-const OtterizeClientNameIndexField = "name"
+const OtterizeClientNameIndexField = "spec.service.name"
 
 type PodWatcher struct {
 	client.Client
@@ -55,12 +55,12 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if !otterizev1alpha1.HasOtterizeServerLabel(pod) {
 		// Label pods as destination servers
 		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeIdentity.Name)
-		pod.Labels[otterizev1alpha1.OtterizeDestServerLabelKey] = otterizeIdentity.Name
+		pod.Labels[otterizev1alpha1.OtterizeServerLabelKey] = otterizeIdentity.Name
 		err := w.Update(ctx, pod)
 		if err != nil {
+			logrus.Errorln("Failed labeling pod as server", "Pod name", pod.Name, "Namespace", pod.Namespace)
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	var intents otterizev1alpha1.IntentsList
@@ -70,12 +70,13 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		&client.ListOptions{Namespace: otterizeIdentity.Namespace})
 
 	if err != nil {
-		logrus.Errorln(err)
+		logrus.Errorln("Failed listing intents", "Service name",
+			otterizeIdentity.Name, "Namespace", otterizeIdentity.Namespace)
 		return ctrl.Result{}, err
 	}
 
 	if len(intents.Items) == 0 {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
 	otterizeAccessLabels := map[string]string{}
@@ -90,9 +91,10 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		pod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, otterizeAccessLabels)
 		err := w.Update(ctx, pod)
 		if err != nil {
+			logrus.Errorln("Failed updating Otterize labels for pod", "Pod name",
+				pod.Name, "Namespace", pod.Namespace)
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{Requeue: true}, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -104,7 +106,6 @@ func (w *PodWatcher) InitIntentIndexes(mgr manager.Manager) error {
 		&otterizev1alpha1.Intents{},
 		OtterizeClientNameIndexField,
 		func(object client.Object) []string {
-
 			intents := object.(*otterizev1alpha1.Intents)
 			if intents.Spec == nil {
 				return nil
@@ -145,16 +146,6 @@ func (w *PodWatcher) resolvePodToOtterizeIdentity(ctx context.Context, pod *v1.P
 	}
 
 	return nil, fmt.Errorf("pod %s has no owner", pod.Name)
-}
-
-func (w *PodWatcher) getIntentsObjForClient(name string) otterizev1alpha1.Intents {
-	return otterizev1alpha1.Intents{
-		Spec: &otterizev1alpha1.IntentsSpec{
-			Service: otterizev1alpha1.Service{
-				Name: name,
-			},
-		},
-	}
 }
 
 func (w *PodWatcher) getOtterizeIdentityFromObject(obj client.Object) string {
