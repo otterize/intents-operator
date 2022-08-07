@@ -9,7 +9,6 @@ COPY go.sum go.sum
 # and so that source changes don't invalidate our downloaded layer
 RUN go mod download
 
-RUN ls -lh
 # Copy the go source
 COPY operator/cmd/main.go main.go
 COPY shared/api shared/api/

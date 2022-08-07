@@ -11,7 +11,11 @@ COPY watcher/cmd/main.go main.go
 COPY shared/api shared/api/
 COPY watcher/ watcher/
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o /watcher main.go
+RUN go test ./watcher/... && go build -a -o /watcher main.go
 
+
+FROM gcr.io/distroless/static:nonroot
+WORKDIR /
+COPY --from=builder /workspace/watcher .
 
 ENTRYPOINT ["/watcher"]
