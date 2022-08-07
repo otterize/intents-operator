@@ -45,9 +45,8 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if strings.HasPrefix(pod.Name, serviceName) && otterizev1alpha1.HasMissingOtterizeLabels(&pod, intentLabels) {
 			logrus.Infof("Updating %s pod labels with new intents", serviceName)
 			logrus.Debugln(intentLabels)
-
-			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(&pod, intentLabels)
-			err := r.Update(ctx, updatedPod)
+			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, intentLabels)
+			err := r.Patch(ctx, &updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				return ctrl.Result{}, err
 			}

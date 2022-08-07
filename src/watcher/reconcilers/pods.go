@@ -36,8 +36,8 @@ func NewPodWatcher(c client.Client) *PodWatcher {
 
 func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logrus.Infof("Reconciling due to pod change: %s", req.Name)
-	pod := &v1.Pod{}
-	err := w.Get(ctx, req.NamespacedName, pod)
+	pod := v1.Pod{}
+	err := w.Get(ctx, req.NamespacedName, &pod)
 	if k8serrors.IsNotFound(err) {
 		logrus.Infoln("Pod was deleted")
 		return ctrl.Result{}, nil
@@ -47,16 +47,19 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	otterizeIdentity, err := w.resolvePodToOtterizeIdentity(ctx, pod)
+	otterizeIdentity, err := w.resolvePodToOtterizeIdentity(ctx, &pod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if !otterizev1alpha1.HasOtterizeServerLabel(pod) {
+	if !otterizev1alpha1.HasOtterizeServerLabel(&pod) {
 		// Label pods as destination servers
 		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeIdentity.Name)
-		pod.Labels[otterizev1alpha1.OtterizeServerLabelKey] = otterizeIdentity.Name
-		err := w.Update(ctx, pod)
+		updatedPod := pod.DeepCopy()
+		updatedPod.Labels[otterizev1alpha1.OtterizeServerLabelKey] =
+			fmt.Sprintf("%s-%s", otterizeIdentity.Name, otterizeIdentity.Namespace)
+
+		err := w.Patch(ctx, &pod, client.MergeFrom(updatedPod))
 		if err != nil {
 			logrus.Errorln("Failed labeling pod as server", "Pod name", pod.Name, "Namespace", pod.Namespace)
 			return ctrl.Result{}, err
@@ -86,10 +89,10 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			otterizeAccessLabels[k] = v
 		}
 	}
-	if otterizev1alpha1.HasMissingOtterizeLabels(pod, otterizeAccessLabels) {
+	if otterizev1alpha1.HasMissingOtterizeLabels(&pod, otterizeAccessLabels) {
 		logrus.Infof("Updating Otterize access labels for %s", otterizeIdentity.Name)
-		pod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, otterizeAccessLabels)
-		err := w.Update(ctx, pod)
+		updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, otterizeAccessLabels)
+		err := w.Patch(ctx, &pod, client.MergeFrom(&updatedPod))
 		if err != nil {
 			logrus.Errorln("Failed updating Otterize labels for pod", "Pod name",
 				pod.Name, "Namespace", pod.Namespace)

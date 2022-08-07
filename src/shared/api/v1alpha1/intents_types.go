@@ -24,8 +24,8 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-const OtterizeAccessLabelKey = "otterize-access"
-const OtterizeMarkerLabelKey = "otterize-client"
+const OtterizeAccessLabelKey = "otterize/access-%s-%s"
+const OtterizeMarkerLabelKey = "otterize/client"
 
 type IntentType string
 
@@ -146,7 +146,7 @@ func (in *Intents) GetIntentsLabelMapping(defaultNS string) map[string]string {
 		} else {
 			ns = defaultNS
 		}
-		otterizeAccessLabels[OtterizeAccessLabelKey] = fmt.Sprintf("%s.%s", intent.Server, ns)
+		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, intent.Server, ns)] = "true"
 	}
 
 	return otterizeAccessLabels

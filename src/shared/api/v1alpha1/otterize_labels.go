@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-const OtterizeServerLabelKey = "otterize-server"
+const OtterizeServerLabelKey = "otterize/server"
 
 // HasMissingOtterizeLabels checks if a pod's labels need updating
 func HasMissingOtterizeLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) bool {
@@ -21,7 +21,8 @@ func HasMissingOtterizeLabels(pod *v1.Pod, otterizeAccessLabels map[string]strin
 
 // UpdateOtterizeAccessLabels updates a pod's labels with Otterize labels representing their intents
 // The pod is also labeled with "otterize-client=true" to mark it as having intents
-func UpdateOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) *v1.Pod {
+func UpdateOtterizeAccessLabels(pod v1.Pod, otterizeAccessLabels map[string]string) v1.Pod {
+	pod = cleanupOtterizeIntentLabels(pod)
 	for k, v := range otterizeAccessLabels {
 		pod.Labels[k] = v
 	}
@@ -34,9 +35,9 @@ func HasOtterizeServerLabel(pod *v1.Pod) bool {
 	return exists
 }
 
-// CleanupOtterizeIntentLabels Removes intent related labels from pods
+// cleanupOtterizeIntentLabels Removes intent related labels from pods
 // Returns the pod's label map without Otterize labels
-func CleanupOtterizeIntentLabels(pod v1.Pod) v1.Pod {
+func cleanupOtterizeIntentLabels(pod v1.Pod) v1.Pod {
 	postCleanupLabels := map[string]string{}
 
 	for k, v := range pod.Labels {
@@ -50,9 +51,8 @@ func CleanupOtterizeIntentLabels(pod v1.Pod) v1.Pod {
 }
 
 func isOtterizeLabelKey(s string) bool {
-	if strings.HasPrefix(s, "otterize-access") || strings.HasPrefix(s, "otterize-client") {
+	if strings.HasPrefix(s, "otterize/access") || strings.HasPrefix(s, "otterize-client") {
 		return true
 	}
-
 	return false
 }
