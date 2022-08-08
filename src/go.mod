@@ -6,8 +6,10 @@ require (
 	github.com/Shopify/sarama v1.34.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
+	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
 	github.com/samber/lo v1.25.0
 	github.com/sirupsen/logrus v1.8.1
+	github.com/vishalkuo/bimap v0.0.0-20220726225509-e0b4f20de28b
 	k8s.io/api v0.24.0
 	k8s.io/apimachinery v0.24.0
 	k8s.io/client-go v0.24.0
