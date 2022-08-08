@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -24,8 +26,10 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-const OtterizeAccessLabelKey = "otterize/access-%s-%s"
+const OtterizeAccessLabelKey = "otterize/access-%s"
 const OtterizeMarkerLabelKey = "otterize/client"
+const MaxOtterizeNameLength = 20
+const MaxNamespaceLength = 20
 
 type IntentType string
 
@@ -140,7 +144,8 @@ func (in *Intents) GetIntentsLabelMapping(requestNamespace string) map[string]st
 
 	for _, intent := range in.GetCallsList() {
 		ns := intent.ResolveIntentNamespace(requestNamespace)
-		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, intent.Server, ns)] = "true"
+		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.Server, ns)
+		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)] = "true"
 	}
 
 	return otterizeAccessLabels
@@ -152,4 +157,24 @@ func (in *Intent) ResolveIntentNamespace(requestNamespace string) string {
 	}
 
 	return requestNamespace
+}
+
+// GetFormattedOtterizeIdentity truncates
+func GetFormattedOtterizeIdentity(name, ns string) string {
+	// Truncate name and namespace to 20 chars each
+	if len(name) > MaxOtterizeNameLength {
+		name = name[:MaxOtterizeNameLength]
+	}
+
+	if len(ns) > MaxNamespaceLength {
+		ns = ns[:MaxNamespaceLength]
+	}
+
+	// Get MD5 for trimmed "name-namespace" string
+	hash := md5.Sum([]byte(fmt.Sprintf("%s-%s", name, ns)))
+	hashSuffix := hex.EncodeToString(hash[:6])
+
+	// Return "name-namespace-hash" string as formatted Otterize identity
+	return fmt.Sprintf("%s-%s-%s", name, ns, hashSuffix)
+
 }
