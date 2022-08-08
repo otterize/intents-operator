@@ -24,7 +24,6 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	intents := &otterizev1alpha1.Intents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
-		// TODO: Handle label deletion for removed intent object
 		logrus.Infof("Intents deleted for namespace %s", namespace)
 		return ctrl.Result{}, nil
 	}
@@ -43,20 +42,16 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	for _, pod := range pods.Items {
-		// TODO: This is weak, change this
-		if strings.HasPrefix(pod.Name, serviceName) && otterizev1alpha1.OtterizeLabelsDiffExists(&pod, intentLabels) {
+		if strings.HasPrefix(pod.Name, serviceName) && otterizev1alpha1.LabelDiffExists(&pod, intentLabels) {
 			logrus.Infof("Updating %s pod labels with new intents", serviceName)
 			logrus.Debugln(intentLabels)
 
-			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(&pod, intentLabels)
-			err := r.Update(ctx, updatedPod)
+			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, intentLabels)
+			err := r.Patch(ctx, &updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				return ctrl.Result{}, err
 			}
-
-			return ctrl.Result{Requeue: true}, nil
 		}
 	}
-
 	return ctrl.Result{}, nil
 }

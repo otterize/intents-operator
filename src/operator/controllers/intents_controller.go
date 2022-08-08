@@ -56,7 +56,6 @@ type IntentsReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
 	reconcilersList, err := r.buildReconcilersList(r.Client, r.Scheme)
 	if err != nil {
 		return ctrl.Result{}, err
