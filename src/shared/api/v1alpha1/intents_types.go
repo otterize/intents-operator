@@ -159,8 +159,13 @@ func (in *Intent) ResolveIntentNamespace(requestNamespace string) string {
 	return requestNamespace
 }
 
-// GetFormattedOtterizeIdentity truncates
+// GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)
+// It also adds a 6 char md5 hash of the full name+ns string and returns the formatted string
+// This is due to Kubernetes' limit on 63 char label keys/values
 func GetFormattedOtterizeIdentity(name, ns string) string {
+	// Get MD5 for full length "name-namespace" string
+	hash := md5.Sum([]byte(fmt.Sprintf("%s-%s", name, ns)))
+
 	// Truncate name and namespace to 20 chars each
 	if len(name) > MaxOtterizeNameLength {
 		name = name[:MaxOtterizeNameLength]
@@ -170,11 +175,8 @@ func GetFormattedOtterizeIdentity(name, ns string) string {
 		ns = ns[:MaxNamespaceLength]
 	}
 
-	// Get MD5 for trimmed "name-namespace" string
-	hash := md5.Sum([]byte(fmt.Sprintf("%s-%s", name, ns)))
 	hashSuffix := hex.EncodeToString(hash[:6])
 
-	// Return "name-namespace-hash" string as formatted Otterize identity
 	return fmt.Sprintf("%s-%s-%s", name, ns, hashSuffix)
 
 }

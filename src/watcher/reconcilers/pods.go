@@ -55,8 +55,11 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if !otterizev1alpha1.HasOtterizeServerLabel(&pod) {
 		// Label pods as destination servers
 		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeIdentity.Name)
-		updatedPod := w.getPodWithServerLabel(pod)
-		err := w.Patch(ctx, &updatedPod, client.MergeFrom(&pod))
+		updatedPod := pod.DeepCopy()
+		updatedPod.Labels[otterizev1alpha1.OtterizeServerLabelKey] =
+			otterizev1alpha1.GetFormattedOtterizeIdentity(otterizeIdentity.Name, otterizeIdentity.Namespace)
+
+		err := w.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.Errorln("Failed labeling pod as server", "Pod name", pod.Name, "Namespace", pod.Namespace)
 			logrus.Errorln(err)
@@ -170,10 +173,4 @@ func (w *PodWatcher) Register(mgr manager.Manager) error {
 	}
 
 	return nil
-}
-
-func (w *PodWatcher) getPodWithServerLabel(pod v1.Pod) v1.Pod {
-	pod.Labels[otterizev1alpha1.OtterizeServerLabelKey] =
-		otterizev1alpha1.GetFormattedOtterizeIdentity(pod.Name, pod.Namespace)
-	return pod
 }
