@@ -267,7 +267,7 @@ func (a *KafkaIntentsAdmin) getAppliedKafkaTopic(clientPrincipal string) ([]otte
 	}
 
 	for _, resourceAcls := range principalAcls {
-		existingKafkaAclRules, err := lox.MapErr(resourceAcls.Acls, func(acl *sarama.Acl, _ int) (otterizev1alpha1.KafkaTopic, error) {
+		resourceAppliedKafkaTopics, err := lox.MapErr(resourceAcls.Acls, func(acl *sarama.Acl, _ int) (otterizev1alpha1.KafkaTopic, error) {
 			operation, ok := KafkaOperationToAclOperationBMap.GetInverse(acl.Operation)
 			if !ok {
 				return otterizev1alpha1.KafkaTopic{}, fmt.Errorf("unknown operation %v", acl.Operation)
@@ -278,7 +278,7 @@ func (a *KafkaIntentsAdmin) getAppliedKafkaTopic(clientPrincipal string) ([]otte
 			return nil, err
 		}
 
-		appliedKafkaTopics = append(appliedKafkaTopics, existingKafkaAclRules...)
+		appliedKafkaTopics = append(appliedKafkaTopics, resourceAppliedKafkaTopics...)
 	}
 
 	return appliedKafkaTopics, nil
