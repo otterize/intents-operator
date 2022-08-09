@@ -212,10 +212,8 @@ func (a *KafkaIntentsAdmin) ApplyIntents(clientName string, clientNamespace stri
 	if err != nil {
 		return fmt.Errorf("failed getting applied ACL rules %w", err)
 	}
-	newAclRules, AclRulesToDelete, err := a.kafkaAclDifference(intents, appliedKafkaTopics)
-	if err != nil {
-		return err
-	}
+
+	newAclRules, AclRulesToDelete := a.kafkaAclDifference(intents, appliedKafkaTopics)
 
 	if len(newAclRules) == 0 {
 		logger.Info("No new ACLs found to apply on server")
@@ -246,10 +244,10 @@ func (a *KafkaIntentsAdmin) ApplyIntents(clientName string, clientNamespace stri
 	return nil
 }
 
-func (a *KafkaIntentsAdmin) kafkaAclDifference(intents []otterizev1alpha1.Intent, appliedTopicAcls []otterizev1alpha1.KafkaTopic) ([]otterizev1alpha1.KafkaTopic, []otterizev1alpha1.KafkaTopic, error) {
+func (a *KafkaIntentsAdmin) kafkaAclDifference(intents []otterizev1alpha1.Intent, appliedTopicAcls []otterizev1alpha1.KafkaTopic) ([]otterizev1alpha1.KafkaTopic, []otterizev1alpha1.KafkaTopic) {
 	kafkaAcls := lo.Flatten(lo.Map(intents, func(intent otterizev1alpha1.Intent, _ int) []otterizev1alpha1.KafkaTopic { return intent.Topics }))
 	newAclRules, AclRulesToDelete := lo.Difference(kafkaAcls, appliedTopicAcls)
-	return newAclRules, AclRulesToDelete, nil
+	return newAclRules, AclRulesToDelete
 }
 
 func (a *KafkaIntentsAdmin) getAppliedKafkaTopics(clientPrincipal string) ([]otterizev1alpha1.KafkaTopic, error) {
