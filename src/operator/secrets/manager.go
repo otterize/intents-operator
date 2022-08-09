@@ -224,6 +224,7 @@ func (m *managerImpl) createTLSSecret(ctx context.Context, config SecretConfig) 
 				KeystoreAnnotation:             config.CertConfig.JksConfig.KeyStoreFileName,
 				TruststoreAnnotation:           config.CertConfig.JksConfig.TrustStoreFileName,
 				JksPasswordAnnotation:          config.CertConfig.JksConfig.Password,
+				certTypeAnnotation:             string(config.CertConfig.CertType),
 			},
 		},
 		Data: secretData,
