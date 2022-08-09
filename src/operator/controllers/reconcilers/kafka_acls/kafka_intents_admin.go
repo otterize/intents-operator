@@ -208,7 +208,7 @@ func (a *KafkaIntentsAdmin) ApplyIntents(clientName string, clientNamespace stri
 			"serverNamespace": a.kafkaServer.Namespace,
 		})
 
-	appliedKafkaTopics, err := a.getAppliedKafkaTopic(clientPrincipal)
+	appliedKafkaTopics, err := a.getAppliedKafkaTopics(clientPrincipal)
 	if err != nil {
 		return fmt.Errorf("failed getting applied ACL rules %w", err)
 	}
@@ -253,7 +253,7 @@ func (a *KafkaIntentsAdmin) kafkaAclDifference(intents []otterizev1alpha1.Intent
 	return newAclRules, AclRulesToDelete, nil
 }
 
-func (a *KafkaIntentsAdmin) getAppliedKafkaTopic(clientPrincipal string) ([]otterizev1alpha1.KafkaTopic, error) {
+func (a *KafkaIntentsAdmin) getAppliedKafkaTopics(clientPrincipal string) ([]otterizev1alpha1.KafkaTopic, error) {
 	appliedKafkaTopics := make([]otterizev1alpha1.KafkaTopic, 0)
 	principalAcls, err := a.kafkaAdminClient.ListAcls(sarama.AclFilter{
 		ResourceType:              sarama.AclResourceTopic,
