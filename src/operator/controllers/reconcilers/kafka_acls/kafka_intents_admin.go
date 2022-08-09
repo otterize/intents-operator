@@ -217,14 +217,13 @@ func (a *KafkaIntentsAdmin) ApplyIntents(clientName string, clientNamespace stri
 		return err
 	}
 
-	topicToACLList, err := a.collectTopicsToACLList(clientPrincipal, newAclRules)
-	if err != nil {
-		return fmt.Errorf("failed collecting ACLs for server: %w", err)
-	}
-
-	if len(topicToACLList) == 0 {
+	if len(newAclRules) == 0 {
 		logger.Info("No new ACLs found to apply on server")
 	} else {
+		topicToACLList, err := a.collectTopicsToACLList(clientPrincipal, newAclRules)
+		if err != nil {
+			return fmt.Errorf("failed collecting ACLs for server: %w", err)
+		}
 		logger.Infof("Creating %d new ACLs", len(newAclRules))
 		if err := a.createACLs(topicToACLList); err != nil {
 			return fmt.Errorf("failed creating ACLs on server: %w", err)
@@ -236,7 +235,7 @@ func (a *KafkaIntentsAdmin) ApplyIntents(clientName string, clientNamespace stri
 	} else {
 		logger.Infof("deleting %d ACL rules", len(AclRulesToDelete))
 		if err := a.deleteACLs(clientPrincipal, AclRulesToDelete); err != nil {
-			return fmt.Errorf("failed creating ACLs on server: %w", err)
+			return fmt.Errorf("failed deleting ACLs on server: %w", err)
 		}
 	}
 
