@@ -91,6 +91,8 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
 func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(intent otterizev1alpha1.Intent, objName string) *v1.NetworkPolicy {
+	otterizeIdentityStr := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intent.Namespace)
+
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: objName,
@@ -114,7 +116,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(intent otter
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									fmt.Sprintf(
-										otterizev1alpha1.OtterizeAccessLabelKey, intent.Server, intent.Namespace): "true",
+										otterizev1alpha1.OtterizeAccessLabelKey, otterizeIdentityStr): "true",
 								},
 							},
 						},
