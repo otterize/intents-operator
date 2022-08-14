@@ -1,5 +1,5 @@
 kafka:
-  superUsers: "User:CN=kafka.default,C=US,O=SPIRE"
+  superUsers: "User:CN=kafka.default,O=SPIRE,C=US;User:CN=intents-operator.intents-operator-system,O=SPIRE,C=US"
   livenessProbe:
     initialDelaySeconds: 20
   readinessProbe:
@@ -19,7 +19,7 @@ kafka:
         - kafka-tls-secret
       password: password
   authorizerClassName: kafka.security.authorizer.AclAuthorizer
-  allowEveryoneIfNoAclFound: true
+  allowEveryoneIfNoAclFound: false
   podLabels:
     app: lab-kafka
   podAnnotations:
