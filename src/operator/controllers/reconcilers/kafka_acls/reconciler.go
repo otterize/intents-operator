@@ -11,7 +11,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+var finalizerName = "otterize-intents.kafka/finalizer"
 
 type KafkaACLsReconciler struct {
 	client.Client
@@ -70,6 +73,22 @@ func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error
 	return nil
 }
 
+func (r *KafkaACLsReconciler) RemoveACLs(intents *otterizev1alpha1.Intents) error {
+	for _, kafkaServer := range r.KafkaServers {
+		serverName := types.NamespacedName{Name: kafkaServer.Name, Namespace: kafkaServer.Namespace}
+
+		kafkaIntentsAdmin, err := NewKafkaIntentsAdmin(kafkaServer)
+		if err != nil {
+			return fmt.Errorf("failed connecting to kafka server %s: %w", serverName, err)
+		}
+
+		if err := kafkaIntentsAdmin.RemoveClientIntents(intents.Spec.Service.Name, intents.Namespace); err != nil {
+			return fmt.Errorf("failed applying intents on kafka server %s: %w", serverName, err)
+		}
+	}
+	return nil
+}
+
 func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	intents := &otterizev1alpha1.Intents{}
 	logger := logrus.WithField("namespaced_name", req.NamespacedName.String())
@@ -83,6 +102,32 @@ func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	if intents.Spec == nil {
 		logger.Info("No specs found")
+		return ctrl.Result{}, nil
+	}
+
+	// examine DeletionTimestamp to determine if object is under deletion
+	if intents.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !controllerutil.ContainsFinalizer(intents, finalizerName) {
+			logger.Infof("Adding finalizer %s", finalizerName)
+			controllerutil.AddFinalizer(intents, finalizerName)
+			if err := r.Update(ctx, intents); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		// The object is being deleted
+		if controllerutil.ContainsFinalizer(intents, finalizerName) {
+			logger.Infof("Removing associated Acls")
+			if err := r.RemoveACLs(intents); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			controllerutil.RemoveFinalizer(intents, finalizerName)
+			if err := r.Update(ctx, intents); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
 		return ctrl.Result{}, nil
 	}
 
