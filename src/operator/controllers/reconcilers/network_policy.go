@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const OtterizeNetworkPolicyNameTemplate = "%s-to-%s-at-%s"
+const OtterizeNetworkPolicyNameTemplate = "%s-from-%s-to-%s"
 const OtterizeNetworkPolicy = "otterize/network-policy"
 
 type NetworkPolicyReconciler struct {
@@ -56,8 +56,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 func (r *NetworkPolicyReconciler) formatNetworkPolicyResourceName(client string, intent otterizev1alpha1.Intent) string {
-
-	return fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, client, intent.Server, intent.Namespace)
+	return fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, client, intent.Namespace, intent.Server)
 }
 
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
@@ -77,7 +76,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, nil
 
 	} else if err != nil {
 		return ctrl.Result{}, err
