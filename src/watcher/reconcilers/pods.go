@@ -92,8 +92,8 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 	if otterizev1alpha1.LabelDiffExists(&pod, otterizeAccessLabels) {
 		logrus.Infof("Updating Otterize access labels for %s", otterizeIdentity.Name)
-		updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, otterizeAccessLabels)
-		err := w.Patch(ctx, &pod, client.MergeFrom(&updatedPod))
+		updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
+		err := w.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.Errorln("Failed updating Otterize labels for pod", "Pod name",
 				pod.Name, "Namespace", pod.Namespace)

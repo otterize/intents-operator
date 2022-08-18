@@ -25,7 +25,7 @@ func LabelDiffExists(pod *v1.Pod, otterizeAccessLabels map[string]string) bool {
 
 // UpdateOtterizeAccessLabels updates a pod's labels with Otterize labels representing their intents
 // The pod is also labeled with "otterize-client=true" to mark it as having intents
-func UpdateOtterizeAccessLabels(pod v1.Pod, otterizeAccessLabels map[string]string) v1.Pod {
+func UpdateOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) *v1.Pod {
 	pod = cleanupOtterizeLabels(pod)
 	for k, v := range otterizeAccessLabels {
 		pod.Labels[k] = v
@@ -39,7 +39,7 @@ func HasOtterizeServerLabel(pod *v1.Pod) bool {
 	return exists
 }
 
-func cleanupOtterizeLabels(pod v1.Pod) v1.Pod {
+func cleanupOtterizeLabels(pod *v1.Pod) *v1.Pod {
 	for k, _ := range pod.Labels {
 		if isOtterizeAccessLabel(k) {
 			delete(pod.Labels, k)

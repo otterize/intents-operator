@@ -34,7 +34,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	serviceName := intents.GetServiceName()
 	intentLabels := intents.GetIntentsLabelMapping(namespace)
-
+	logrus.Infof("Intent")
 	// List the pods in the namespace and update labels if required
 	err = r.List(ctx, pods, &client.ListOptions{Namespace: namespace})
 	if err != nil {
@@ -44,10 +44,9 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	for _, pod := range pods.Items {
 		if strings.HasPrefix(pod.Name, serviceName) && otterizev1alpha1.LabelDiffExists(&pod, intentLabels) {
 			logrus.Infof("Updating %s pod labels with new intents", serviceName)
-			logrus.Debugln(intentLabels)
 
-			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, intentLabels)
-			err := r.Patch(ctx, &updatedPod, client.MergeFrom(&pod))
+			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
+			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				return ctrl.Result{}, err
 			}

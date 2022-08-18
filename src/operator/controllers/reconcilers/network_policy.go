@@ -43,12 +43,9 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			// We never actually update the intent, we just set it here, so we can to access it later
 			intent.Namespace = req.Namespace
 		}
-		res, err := r.handleNetworkPolicyCreation(ctx, intents.GetServiceName(), intent)
+		res, err := r.handleNetworkPolicyCreation(ctx, intents.GetServiceName(), req.Namespace, intent)
 		if err != nil {
 			return res, err
-		}
-		if res.Requeue {
-			return res, nil
 		}
 	}
 
@@ -61,17 +58,19 @@ func (r *NetworkPolicyReconciler) formatNetworkPolicyResourceName(client string,
 
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context,
-	client string,
+	client, IntentsResourceNS string,
 	intent otterizev1alpha1.Intent) (ctrl.Result, error) {
 
 	policy := &v1.NetworkPolicy{}
 	policyName := r.formatNetworkPolicyResourceName(client, intent)
-	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.Namespace}, policy)
+	logrus.Infof("POLICY NAME!!!!!!!!!!!!!! %s", policyName)
+	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: IntentsResourceNS}, policy)
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(err) {
+		logrus.Infoln("NOT FOUND!")
 		logrus.Infof("Updating network policy for %s", client)
-		policy := r.buildNetworkPolicyObjectForIntent(intent, policyName)
+		policy := r.buildNetworkPolicyObjectForIntent(intent, policyName, IntentsResourceNS)
 		err := r.Create(ctx, policy)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -82,22 +81,21 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		return ctrl.Result{}, err
 	}
 
-	// Found network policy, skip creation
+	// Found network policy, check for diff
 	// TODO: Add code to compensate for changes in intents vs existing policies
 	return ctrl.Result{}, nil
-
 }
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
-func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(intent otterizev1alpha1.Intent, objName string) *v1.NetworkPolicy {
-	otterizeIdentityStr := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intent.Namespace)
+func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
+	intent otterizev1alpha1.Intent,
+	objName, intentsResourceNS string) *v1.NetworkPolicy {
+	otterizeIdentityStr := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intentsResourceNS)
 
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: objName,
-			// NOTE: this does NOT mean the intent's namespace - but rather the target server's namespace
-			// Since we enforce on Ingress, this makes sense
-			Namespace: intent.Namespace,
+			Name:      objName,
+			Namespace: intentsResourceNS,
 			Labels: map[string]string{
 				OtterizeNetworkPolicy: "true",
 			},
@@ -105,7 +103,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(intent otter
 		Spec: v1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha1.OtterizeServerLabelKey: fmt.Sprintf("%s-%s", intent.Server, intent.Namespace),
+					otterizev1alpha1.OtterizeServerLabelKey: otterizeIdentityStr,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{
