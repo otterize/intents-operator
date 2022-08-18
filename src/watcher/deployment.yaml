@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otterize-pod-watcher
+  labels:
+    app: otterize-pod-watcher
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: otterize-pod-watcher
+  template:
+    metadata:
+      labels:
+        app: otterize-pod-watcher
+    spec:
+      serviceAccountName: pod-watcher
+      containers:
+        - name: pod-watcher
+          image: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize:watcher-0.0.6
+          imagePullPolicy: Always
