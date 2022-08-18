@@ -1,0 +1,4 @@
+1. Get the currently registered SPIFFE entries from the server:
+
+  kubectl exec -n {{ .Release.Namespace }} {{ include "spire.fullname" . }}-server-0 -c spire-server -- \
+    bin/spire-server entry show -socketPath /run/spire/server-sockets/registration.sock

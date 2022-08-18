@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "spire.fullname" . }}-server-test-connection"
+  labels:
+    {{- include "spire.server.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": test
+spec:
+  containers:
+    - name: check-port
+      image: busybox
+      command: ['nc']
+      args: ['-zvw3', '{{ include "spire.fullname" . }}-server', '{{ .Values.server.service.port }}']
+  restartPolicy: Never

@@ -1,0 +1,40 @@
+apiVersion: v2
+name: spire
+description: |
+  A Helm chart for deploying spire-server and spire-agent.
+
+  > :warning: Please note this chart requires Projected Service Account Tokens which has to be enabled on your k8s api server.
+
+  > :warning: Minimum Spire version is `v1.0.2`.
+
+  To enable Projected Service Account Tokens on Docker for Mac/Windows run the following
+  command to SSH into the Docker Desktop K8s VM.
+
+  ```bash
+  docker run -it --privileged --pid=host debian nsenter -t 1 -m -u -n -i sh
+  ```
+
+  Then add the following to `/etc/kubernetes/manifests/kube-apiserver.yaml`
+
+  ```yaml
+  spec:
+    containers:
+      - command:
+          - kube-apiserver
+          - --api-audiences=api,spire-server
+          - --service-account-issuer=api,spire-agent
+          - --service-account-key-file=/run/config/pki/sa.pub
+          - --service-account-signing-key-file=/run/config/pki/sa.key
+  ```
+type: application
+version: 0.4.0
+appVersion: "1.0.2"
+keywords: ["spiffe", "spire", "spire-server", "spire-agent"]
+home: https://github.com/philips-labs/helm-charts/charts/spire
+sources:
+  - https://github.com/philips-labs/helm-charts/charts/spire
+maintainers:
+  - name: marcofranssen
+    email: marco.franssen@philips.com
+    url: https://marcofranssen.nl
+kubeVersion: ">=1.19.0-0"

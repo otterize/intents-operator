@@ -24,6 +24,7 @@ kafka:
     app: lab-kafka
   podAnnotations:
     otterize/cert-type: jks
+    otterize/cert-ttl: "999999999"
     otterize/service-name: kafka
     otterize/tls-secret-name: kafka-tls-secret
     otterize/truststore-file-name: kafka.truststore.jks
