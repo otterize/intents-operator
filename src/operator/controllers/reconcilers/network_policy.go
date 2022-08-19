@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
-	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const OtterizeNetworkPolicyNameTemplate = "%s-from-%s-to-%s"
+const OtterizeNetworkPolicyNameTemplate = "access-to-%s-from-%s"
 const OtterizeNetworkPolicy = "otterize/network-policy"
 
 type NetworkPolicyReconciler struct {
@@ -43,7 +42,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			// We never actually update the intent, we just set it here, so we can to access it later
 			intent.Namespace = req.Namespace
 		}
-		res, err := r.handleNetworkPolicyCreation(ctx, intents.GetServiceName(), req.Namespace, intent)
+		res, err := r.handleNetworkPolicyCreation(ctx, intent)
 		if err != nil {
 			return res, err
 		}
@@ -52,25 +51,16 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
-func (r *NetworkPolicyReconciler) formatNetworkPolicyResourceName(client string, intent otterizev1alpha1.Intent) string {
-	return fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, client, intent.Namespace, intent.Server)
-}
-
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
-	ctx context.Context,
-	client, IntentsResourceNS string,
-	intent otterizev1alpha1.Intent) (ctrl.Result, error) {
+	ctx context.Context, intent otterizev1alpha1.Intent) (ctrl.Result, error) {
 
+	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Server, intent.Namespace)
 	policy := &v1.NetworkPolicy{}
-	policyName := r.formatNetworkPolicyResourceName(client, intent)
-	logrus.Infof("POLICY NAME!!!!!!!!!!!!!! %s", policyName)
-	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: IntentsResourceNS}, policy)
+	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.Namespace}, policy)
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(err) {
-		logrus.Infoln("NOT FOUND!")
-		logrus.Infof("Updating network policy for %s", client)
-		policy := r.buildNetworkPolicyObjectForIntent(intent, policyName, IntentsResourceNS)
+		policy := r.buildNetworkPolicyObjectForIntent(intent, policyName)
 		err := r.Create(ctx, policy)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -88,14 +78,13 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
 func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
-	intent otterizev1alpha1.Intent,
-	objName, intentsResourceNS string) *v1.NetworkPolicy {
-	otterizeIdentityStr := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intentsResourceNS)
+	intent otterizev1alpha1.Intent, objName string) *v1.NetworkPolicy {
+	otterizeIdentityStr := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intent.Namespace)
 
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      objName,
-			Namespace: intentsResourceNS,
+			Namespace: intent.Namespace,
 			Labels: map[string]string{
 				OtterizeNetworkPolicy: "true",
 			},
@@ -114,6 +103,11 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 								MatchLabels: map[string]string{
 									fmt.Sprintf(
 										otterizev1alpha1.OtterizeAccessLabelKey, otterizeIdentityStr): "true",
+								},
+							},
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									otterizev1alpha1.OtterizeNamespaceLabelKey: intent.Namespace,
 								},
 							},
 						},

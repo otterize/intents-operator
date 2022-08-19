@@ -28,6 +28,7 @@ import (
 
 const OtterizeAccessLabelKey = "otterize/access-%s"
 const OtterizeMarkerLabelKey = "otterize/client"
+const OtterizeNamespaceLabelKey = "otterize/namespace-name"
 const MaxOtterizeNameLength = 20
 const MaxNamespaceLength = 20
 
