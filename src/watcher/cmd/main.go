@@ -28,6 +28,7 @@ func main() {
 		logrus.WithError(err).Panic("unable to start manager")
 	}
 	podWatcher := reconcilers.NewPodWatcher(mgr.GetClient())
+	nsWatcher := reconcilers.NewNamespaceWatcher(mgr.GetClient())
 
 	err = podWatcher.InitIntentIndexes(mgr)
 	if err != nil {
@@ -35,6 +36,11 @@ func main() {
 	}
 
 	err = podWatcher.Register(mgr)
+	if err != nil {
+		logrus.WithError(err).Panic()
+	}
+
+	err = nsWatcher.Register(mgr)
 	if err != nil {
 		logrus.WithError(err).Panic()
 	}
