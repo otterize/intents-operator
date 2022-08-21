@@ -105,7 +105,7 @@ func (a *KafkaIntentsAdmin) collectTopicsToACLList(clientPrincipal string, topic
 	return topicToACLList, nil
 }
 
-func (a *KafkaIntentsAdmin) clearACLs(clientPrincipal string) error {
+func (a *KafkaIntentsAdmin) clearACLs(clientPrincipal string) (int, error) {
 	aclFilter := sarama.AclFilter{
 		ResourceType:              sarama.AclResourceTopic,
 		ResourcePatternTypeFilter: sarama.AclPatternAny,
@@ -115,11 +115,12 @@ func (a *KafkaIntentsAdmin) clearACLs(clientPrincipal string) error {
 		Host:                      lo.ToPtr("*"),
 	}
 
-	if _, err := a.kafkaAdminClient.DeleteACL(aclFilter, true); err != nil {
-		return fmt.Errorf("failed deleting ACLs on server: %w", err)
+	matchedAcls, err := a.kafkaAdminClient.DeleteACL(aclFilter, true)
+	if err != nil {
+		return 0, fmt.Errorf("failed deleting ACLs on server: %w", err)
 	}
 
-	return nil
+	return len(matchedAcls), nil
 }
 
 func (a *KafkaIntentsAdmin) createACLs(topicToACLList TopicToACLList) error {
@@ -242,6 +243,24 @@ func (a *KafkaIntentsAdmin) ApplyIntents(clientName string, clientNamespace stri
 	}
 
 	return nil
+}
+
+func (a *KafkaIntentsAdmin) RemoveClientIntents(clientName string, clientNamespace string) error {
+	clientPrincipal := fmt.Sprintf("User:CN=%s.%s", clientName, clientNamespace)
+	logger := logrus.WithFields(
+		logrus.Fields{
+			"clientPrincipal": clientPrincipal,
+			"serverName":      a.kafkaServer.Name,
+			"serverNamespace": a.kafkaServer.Namespace,
+		})
+	countDeleted, err := a.clearACLs(clientPrincipal)
+	if err != nil {
+		logger.Errorf("failed clearing acl rules for principal %s", clientPrincipal)
+		return fmt.Errorf("failed clearing acls %w", err)
+	}
+	logger.Infof("%d acl rules was deleted", countDeleted)
+	return nil
+
 }
 
 func (a *KafkaIntentsAdmin) kafkaAclDifference(intents []otterizev1alpha1.Intent, appliedTopicAcls []otterizev1alpha1.KafkaTopic) ([]otterizev1alpha1.KafkaTopic, []otterizev1alpha1.KafkaTopic) {
