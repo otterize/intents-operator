@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-var finalizerName = "otterize-intents.kafka/finalizer"
+const FinalizerName = "otterize-intents.kafka/finalizer"
 
 type KafkaACLsReconciler struct {
 	client.Client
@@ -107,22 +107,22 @@ func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// examine DeletionTimestamp to determine if object is under deletion
 	if intents.ObjectMeta.DeletionTimestamp.IsZero() {
-		if !controllerutil.ContainsFinalizer(intents, finalizerName) {
-			logger.Infof("Adding finalizer %s", finalizerName)
-			controllerutil.AddFinalizer(intents, finalizerName)
+		if !controllerutil.ContainsFinalizer(intents, FinalizerName) {
+			logger.Infof("Adding finalizer %s", FinalizerName)
+			controllerutil.AddFinalizer(intents, FinalizerName)
 			if err := r.Update(ctx, intents); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	} else {
 		// The object is being deleted
-		if controllerutil.ContainsFinalizer(intents, finalizerName) {
+		if controllerutil.ContainsFinalizer(intents, FinalizerName) {
 			logger.Infof("Removing associated Acls")
 			if err := r.RemoveACLs(intents); err != nil {
 				return ctrl.Result{}, err
 			}
 
-			controllerutil.RemoveFinalizer(intents, finalizerName)
+			controllerutil.RemoveFinalizer(intents, FinalizerName)
 			if err := r.Update(ctx, intents); err != nil {
 				return ctrl.Result{}, err
 			}
