@@ -38,7 +38,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	callsList := intents.GetCallsList()
 
-	logrus.Infof("Reconcling network policies for service: %s in namespace %s",
+	logrus.Infof("Reconciling network policies for service: %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
 
 	for _, intent := range callsList {
