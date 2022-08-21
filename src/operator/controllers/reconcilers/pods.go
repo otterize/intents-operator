@@ -34,7 +34,6 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	serviceName := intents.GetServiceName()
 	intentLabels := intents.GetIntentsLabelMapping(namespace)
-	logrus.Infof("Intent")
 	// List the pods in the namespace and update labels if required
 	err = r.List(ctx, pods, &client.ListOptions{Namespace: namespace})
 	if err != nil {
