@@ -39,7 +39,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	logrus.Infof("Reconciling network policies for service: %s in namespace %s",
+	logrus.Infof("Reconciling network policies for service %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
 
 	res, err := r.handleFinalizerForIntents(ctx, intents)
@@ -49,8 +49,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return res, nil
 	}
 
-	callsList := intents.GetCallsList()
-	for _, intent := range callsList {
+	for _, intent := range intents.GetCallsList() {
 		if intent.Namespace == "" {
 			// We never actually update the intent, we just set it here, so we can to access it later
 			intent.Namespace = req.Namespace
@@ -74,7 +73,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(err) {
 		logrus.Infof(
-			"Creating network policy to enable access from namespace %s to %s", intent.Server, intentsObjNamespace)
+			"Creating network policy to enable access from namespace %s to %s", intentsObjNamespace, intent.Server)
 		policy := r.buildNetworkPolicyObjectForIntent(intent, policyName, intentsObjNamespace)
 		err := r.Create(ctx, policy)
 		if err != nil {
@@ -94,7 +93,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 func (r *NetworkPolicyReconciler) handleFinalizerForIntents(
 	ctx context.Context, intents *otterizev1alpha1.Intents) (ctrl.Result, error) {
 
-	if intents.ObjectMeta.DeletionTimestamp.IsZero() {
+	if intents.DeletionTimestamp.IsZero() {
 		if !controllerutil.ContainsFinalizer(intents, NetworkPolicyFinalizerName) {
 			logrus.Infof("Adding finalizer %s", NetworkPolicyFinalizerName)
 			controllerutil.AddFinalizer(intents, NetworkPolicyFinalizerName)
@@ -106,17 +105,33 @@ func (r *NetworkPolicyReconciler) handleFinalizerForIntents(
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(intents, NetworkPolicyFinalizerName) {
 			logrus.Infof("Removing network policies for deleted intents for service: %s", intents.Spec.Service.Name)
-			callsList := intents.GetCallsList()
-			for _, intent := range callsList {
+			for _, intent := range intents.GetCallsList() {
 				if intent.Namespace == "" {
-					intent.Namespace = intents.ObjectMeta.Namespace
+					intent.Namespace = intents.Namespace
 				}
 
-				res, err := r.removeNetworkPolicy(ctx, intent, intents.ObjectMeta.Namespace)
+				var intentsList otterizev1alpha1.IntentsList
+				err := r.List(
+					ctx, &intentsList,
+					&client.MatchingFields{otterizev1alpha1.OtterizeTargetServerIndexField: intent.Server},
+					&client.ListOptions{Namespace: intents.Namespace})
+
 				if err != nil {
 					return ctrl.Result{}, err
-				} else if res.Requeue {
-					return res, nil
+				}
+
+				if len(intentsList.Items) == 1 {
+					// We have only 1 intents resource that has this server as its target - and it is the current one
+					// We need to delete the network policy that allows access from this namespace, as there no other
+					// clients in this namespace that need to access the target server
+					logrus.Infof("No other intents in the namespace reference target server: %s", intent.Server)
+					logrus.Infoln("Removing matching network policy for server")
+					res, err := r.removeNetworkPolicy(ctx, intent, intents.Namespace)
+					if err != nil {
+						return ctrl.Result{}, err
+					} else if res.Requeue {
+						return res, nil
+					}
 				}
 			}
 

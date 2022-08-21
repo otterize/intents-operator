@@ -104,7 +104,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (p *PodWatcher) InitIntentIndexes(mgr manager.Manager) error {
+func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&otterizev1alpha1.Intents{},

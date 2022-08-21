@@ -106,16 +106,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.IntentsReconciler{
+	intentsReconciler := &controllers.IntentsReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Conf:   controllers.IntentsReconcilerConfig{KafkaServers: ctrlConfig.KafkaServers},
-	}).SetupWithManager(mgr); err != nil {
+		Conf:   controllers.IntentsReconcilerConfig{KafkaServers: ctrlConfig.KafkaServers}}
+
+	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
+		setupLog.Error(err, "unable to init indices", "controller", "Intents")
+		os.Exit(1)
+	}
+
+	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Intents")
 		os.Exit(1)
 	}
-	//+kubebuilder:scaffold:builder
 
+	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)

@@ -29,6 +29,7 @@ import (
 const OtterizeAccessLabelKey = "otterize/access-%s"
 const OtterizeMarkerLabelKey = "otterize/client"
 const OtterizeNamespaceLabelKey = "otterize/namespace-name"
+const OtterizeTargetServerIndexField = "spec.service.calls.server"
 const MaxOtterizeNameLength = 20
 const MaxNamespaceLength = 20
 
@@ -161,7 +162,7 @@ func (in *Intent) ResolveIntentNamespace(requestNamespace string) string {
 }
 
 // GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)
-// It also adds a 6 char md5 hash of the full name+ns string and returns the formatted string
+// It also adds a short md5 hash of the full name+ns string and returns the formatted string
 // This is due to Kubernetes' limit on 63 char label keys/values
 func GetFormattedOtterizeIdentity(name, ns string) string {
 	// Get MD5 for full length "name-namespace" string

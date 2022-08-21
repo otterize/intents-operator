@@ -30,7 +30,7 @@ func main() {
 	podWatcher := reconcilers.NewPodWatcher(mgr.GetClient())
 	nsWatcher := reconcilers.NewNamespaceWatcher(mgr.GetClient())
 
-	err = podWatcher.InitIntentIndexes(mgr)
+	err = podWatcher.InitIntentsClientIndices(mgr)
 	if err != nil {
 		logrus.WithError(err).Panic()
 	}

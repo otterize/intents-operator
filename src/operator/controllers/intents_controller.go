@@ -90,3 +90,31 @@ func (r *IntentsReconciler) buildReconcilersList(c client.Client, scheme *runtim
 
 	return l, nil
 }
+
+// InitIntentsServerIndices indexes intents by target server name
+// This is used in finalizers to determine whether a network policy should be removed from the target namespace
+func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
+	err := mgr.GetCache().IndexField(
+		context.Background(),
+		&otterizev1alpha1.Intents{},
+		otterizev1alpha1.OtterizeTargetServerIndexField,
+		func(object client.Object) []string {
+			var res []string
+			intents := object.(*otterizev1alpha1.Intents)
+			if intents.Spec == nil {
+				return nil
+			}
+
+			for _, intent := range intents.GetCallsList() {
+				res = append(res, intent.Server)
+			}
+
+			return res
+		})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
