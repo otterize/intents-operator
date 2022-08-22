@@ -7,15 +7,15 @@ import (
 
 const OtterizeServerLabelKey = "otterize/server"
 
-// LabelDiffExists checks if a pod's labels need updating
-func LabelDiffExists(pod *v1.Pod, otterizeAccessLabels map[string]string) bool {
+// IsMissingOtterizeAccessLabels checks if a pod's labels need updating
+func IsMissingOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) bool {
 	podOtterizeAccessLabels := GetOtterizeLabelsFromPod(pod)
 	if len(podOtterizeAccessLabels) != len(otterizeAccessLabels) {
 		return true
 	}
 
 	// Length is equal, check for diff in keys
-	for k, _ := range podOtterizeAccessLabels {
+	for k := range podOtterizeAccessLabels {
 		if _, ok := otterizeAccessLabels[k]; !ok {
 			return true
 		}
@@ -40,7 +40,7 @@ func HasOtterizeServerLabel(pod *v1.Pod) bool {
 }
 
 func cleanupOtterizeLabels(pod *v1.Pod) *v1.Pod {
-	for k, _ := range pod.Labels {
+	for k := range pod.Labels {
 		if isOtterizeAccessLabel(k) {
 			delete(pod.Labels, k)
 		}

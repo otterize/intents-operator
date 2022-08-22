@@ -46,9 +46,10 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			// We never actually update the intent, we just set it here, so we can to access it later
 			intent.Namespace = req.Namespace
 		}
-		res, err := r.handleNetworkPolicyCreation(ctx, intent, req.Namespace)
+
+		err := r.handleNetworkPolicyCreation(ctx, intent, req.Namespace)
 		if err != nil {
-			return res, err
+			return ctrl.Result{}, err
 		}
 	}
 
@@ -56,9 +57,9 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
-	ctx context.Context, intent otterizev1alpha1.Intent, clientNamespace string) (ctrl.Result, error) {
+	ctx context.Context, intent otterizev1alpha1.Intent, intentsObjNamespace string) error {
 
-	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Server, clientNamespace)
+	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Server, intentsObjNamespace)
 	logrus.Infof("Looking for policy: %s", policyName)
 	policy := &v1.NetworkPolicy{}
 	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.Namespace}, policy)
@@ -66,26 +67,26 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(err) {
 		logrus.Infof(
-			"Creating network policy to enable access from namespace %s to %s", intent.Server, clientNamespace)
-		policy := r.buildNetworkPolicyObjectForIntent(intent, policyName, clientNamespace)
+			"Creating network policy to enable access from namespace %s to %s", intent.Server, intentsObjNamespace)
+		policy := r.buildNetworkPolicyObjectForIntent(intent, policyName, intentsObjNamespace)
 		err := r.Create(ctx, policy)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
-		return ctrl.Result{}, nil
+		return nil
 
 	} else if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	// Found network policy, check for diff
 	// TODO: Add code to compensate for changes in intents vs existing policies
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
 func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
-	intent otterizev1alpha1.Intent, objName, clientNamespace string) *v1.NetworkPolicy {
+	intent otterizev1alpha1.Intent, objName, intentsObjNamespace string) *v1.NetworkPolicy {
 	otterizeIdentityStr := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intent.Namespace)
 
 	return &v1.NetworkPolicy{
@@ -114,7 +115,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 							},
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha1.OtterizeNamespaceLabelKey: clientNamespace,
+									otterizev1alpha1.OtterizeNamespaceLabelKey: intentsObjNamespace,
 								},
 							},
 						},
