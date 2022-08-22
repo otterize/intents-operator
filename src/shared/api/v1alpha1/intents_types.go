@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -24,8 +26,11 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-const OtterizeAccessLabelKey = "otterize/access-%s-%s"
+const OtterizeAccessLabelKey = "otterize/access-%s"
 const OtterizeMarkerLabelKey = "otterize/client"
+const OtterizeNamespaceLabelKey = "otterize/namespace-name"
+const MaxOtterizeNameLength = 20
+const MaxNamespaceLength = 20
 
 type IntentType string
 
@@ -135,19 +140,45 @@ func (in *Intents) GetCallsList() []Intent {
 	return in.Spec.Service.Calls
 }
 
-func (in *Intents) GetIntentsLabelMapping(defaultNS string) map[string]string {
-	// TODO: Filter out non-HTTP intents ?
+func (in *Intents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
 	otterizeAccessLabels := map[string]string{}
 
 	for _, intent := range in.GetCallsList() {
-		var ns string
-		if intent.Namespace != "" {
-			ns = intent.Namespace
-		} else {
-			ns = defaultNS
-		}
-		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, intent.Server, ns)] = "true"
+		ns := intent.ResolveIntentNamespace(requestNamespace)
+		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.Server, ns)
+		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)] = "true"
 	}
 
 	return otterizeAccessLabels
+}
+
+func (in *Intent) ResolveIntentNamespace(requestNamespace string) string {
+	if in.Namespace != "" {
+		return in.Namespace
+	}
+
+	return requestNamespace
+}
+
+// GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)
+// It also adds a 6 char md5 hash of the full name+ns string and returns the formatted string
+// This is due to Kubernetes' limit on 63 char label keys/values
+func GetFormattedOtterizeIdentity(name, ns string) string {
+	// Get MD5 for full length "name-namespace" string
+	hash := md5.Sum([]byte(fmt.Sprintf("%s-%s", name, ns)))
+
+	// Truncate name and namespace to 20 chars each
+	if len(name) > MaxOtterizeNameLength {
+		name = name[:MaxOtterizeNameLength]
+	}
+
+	if len(ns) > MaxNamespaceLength {
+		ns = ns[:MaxNamespaceLength]
+	}
+	// A 6 char hash, even although truncated, leaves 2 ^ 48 combinations which should be enough
+	// for unique identities in a k8s cluster
+	hashSuffix := hex.EncodeToString(hash[:])[:6]
+
+	return fmt.Sprintf("%s-%s-%s", name, ns, hashSuffix)
+
 }

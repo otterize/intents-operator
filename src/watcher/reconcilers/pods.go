@@ -57,11 +57,12 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeIdentity.Name)
 		updatedPod := pod.DeepCopy()
 		updatedPod.Labels[otterizev1alpha1.OtterizeServerLabelKey] =
-			fmt.Sprintf("%s-%s", otterizeIdentity.Name, otterizeIdentity.Namespace)
+			otterizev1alpha1.GetFormattedOtterizeIdentity(otterizeIdentity.Name, otterizeIdentity.Namespace)
 
-		err := w.Patch(ctx, &pod, client.MergeFrom(updatedPod))
+		err := w.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.Errorln("Failed labeling pod as server", "Pod name", pod.Name, "Namespace", pod.Namespace)
+			logrus.Errorln(err)
 			return ctrl.Result{}, err
 		}
 	}
@@ -89,10 +90,10 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			otterizeAccessLabels[k] = v
 		}
 	}
-	if otterizev1alpha1.HasMissingOtterizeLabels(&pod, otterizeAccessLabels) {
+	if otterizev1alpha1.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
 		logrus.Infof("Updating Otterize access labels for %s", otterizeIdentity.Name)
-		updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, otterizeAccessLabels)
-		err := w.Patch(ctx, &pod, client.MergeFrom(&updatedPod))
+		updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
+		err := w.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.Errorln("Failed updating Otterize labels for pod", "Pod name",
 				pod.Name, "Namespace", pod.Namespace)
