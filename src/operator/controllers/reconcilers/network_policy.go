@@ -121,23 +121,24 @@ func (r *NetworkPolicyReconciler) handleFinalizerForIntents(
 				}
 
 				if len(intentsList.Items) == 1 {
-					// We have only 1 intents resource that has this server as its target - and it is the current one
-					// We need to delete the network policy that allows access from this namespace, as there no other
-					// clients in this namespace that need to access the target server
+					// We have only 1 intents resource that has this server as its target - and it's the current one
+					// We need to delete the network policy that allows access from this namespace, as there are no other
+					// clients in that namespace that need to access the target server
 					logrus.Infof("No other intents in the namespace reference target server: %s", intent.Server)
 					logrus.Infoln("Removing matching network policy for server")
-					res, err := r.removeNetworkPolicy(ctx, intent, intents.Namespace)
+					err := r.removeNetworkPolicy(ctx, intent, intents.Namespace)
 					if err != nil {
 						return ctrl.Result{}, err
-					} else if res.Requeue {
-						return res, nil
 					}
 				}
 			}
 
 			controllerutil.RemoveFinalizer(intents, NetworkPolicyFinalizerName)
+			intents = &otterizev1alpha1.Intents{}
+
 			if err := r.Update(ctx, intents); err != nil {
-				return ctrl.Result{}, err
+				logrus.Infof("Removing finalizer!!!!!!!!!! ")
+				return ctrl.Result{Requeue: true}, err
 			}
 		}
 	}
@@ -148,22 +149,21 @@ func (r *NetworkPolicyReconciler) handleFinalizerForIntents(
 func (r *NetworkPolicyReconciler) removeNetworkPolicy(
 	ctx context.Context,
 	intent otterizev1alpha1.Intent,
-	intentsObjNamespace string) (ctrl.Result, error) {
+	intentsObjNamespace string) error {
 
 	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Server, intentsObjNamespace)
 	policy := &v1.NetworkPolicy{}
 	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.Namespace}, policy)
 
 	if k8serrors.IsNotFound(err) {
-		return ctrl.Result{}, nil
+		return nil
 	} else {
 		err := r.Delete(ctx, policy)
 		if err != nil {
-			return ctrl.Result{}, nil
+			return nil
 		}
-		// We requeue to make sure the object is removed in the next iteration, we don't want to leave ghost policies
-		return ctrl.Result{Requeue: true}, nil
 	}
+	return nil
 }
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
