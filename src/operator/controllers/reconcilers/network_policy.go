@@ -87,7 +87,8 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
 func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 	intent otterizev1alpha1.Intent, policyName, intentsObjNamespace string) *v1.NetworkPolicy {
-	otterizeIdentityStr := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intent.Namespace)
+	// The intent's target server made of name + namespace + hash
+	formattedTargetServer := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intent.Namespace)
 
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -100,7 +101,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 		Spec: v1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha1.OtterizeServerLabelKey: otterizeIdentityStr,
+					otterizev1alpha1.OtterizeServerLabelKey: formattedTargetServer,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{
@@ -110,7 +111,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									fmt.Sprintf(
-										otterizev1alpha1.OtterizeAccessLabelKey, otterizeIdentityStr): "true",
+										otterizev1alpha1.OtterizeAccessLabelKey, formattedTargetServer): "true",
 								},
 							},
 							NamespaceSelector: &metav1.LabelSelector{
