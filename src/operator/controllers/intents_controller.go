@@ -18,8 +18,8 @@ package controllers
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/operator/controllers/reconcilers"
-	"github.com/otterize/intents-operator/operator/controllers/reconcilers/kafka_acls"
+	"github.com/otterize/intents-operator/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/operator/controllers/intents_reconcilers/kafka_acls"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -82,9 +82,9 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *IntentsReconciler) buildReconcilersList(c client.Client, scheme *runtime.Scheme) ([]reconcile.Reconciler, error) {
 	l := make([]reconcile.Reconciler, 0)
 
-	l = append(l, &reconcilers.IntentsValidatorReconciler{Client: c, Scheme: scheme})
-	l = append(l, &reconcilers.PodLabelReconciler{Client: c, Scheme: scheme})
-	l = append(l, &reconcilers.NetworkPolicyReconciler{Client: c, Scheme: scheme})
+	l = append(l, &intents_reconcilers.IntentsValidatorReconciler{Client: c, Scheme: scheme})
+	l = append(l, &intents_reconcilers.PodLabelReconciler{Client: c, Scheme: scheme})
+	l = append(l, &intents_reconcilers.NetworkPolicyReconciler{Client: c, Scheme: scheme})
 	l = append(l, &kafka_acls.KafkaACLsReconciler{Client: c, Scheme: scheme, KafkaServers: r.Conf.KafkaServers})
 
 	return l, nil

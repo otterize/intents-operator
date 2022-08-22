@@ -1,0 +1,6 @@
+apiVersion: otterize.com/v1alpha1
+kind: KafkaServerConfig
+metadata:
+  name: kafkaserverconfig-sample
+spec:
+  # TODO(user): Add fields here
