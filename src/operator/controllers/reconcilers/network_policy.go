@@ -102,7 +102,6 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 
 func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 	ctx context.Context, intents *otterizev1alpha1.Intents) error {
-	// The object is being deleted
 	if controllerutil.ContainsFinalizer(intents, NetworkPolicyFinalizerName) {
 		logrus.Infof("Removing network policies for deleted intents for service: %s", intents.Spec.Service.Name)
 		for _, intent := range intents.GetCallsList() {
