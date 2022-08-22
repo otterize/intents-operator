@@ -86,12 +86,12 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
 func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
-	intent otterizev1alpha1.Intent, objName, intentsObjNamespace string) *v1.NetworkPolicy {
+	intent otterizev1alpha1.Intent, policyName, intentsObjNamespace string) *v1.NetworkPolicy {
 	otterizeIdentityStr := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intent.Namespace)
 
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      objName,
+			Name:      policyName,
 			Namespace: intent.Namespace,
 			Labels: map[string]string{
 				OtterizeNetworkPolicy: "true",
