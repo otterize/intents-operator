@@ -38,6 +38,12 @@ type KafkaServerConfigStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
+type TLSSource struct {
+	CertFile   string `json:"certFile,omitempty"`
+	KeyFile    string `json:"keyFile,omitempty"`
+	RootCAFile string `json:"rootCAFile,omitempty"`
+}
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
@@ -48,6 +54,11 @@ type KafkaServerConfig struct {
 
 	Spec   KafkaServerConfigSpec   `json:"spec,omitempty"`
 	Status KafkaServerConfigStatus `json:"status,omitempty"`
+
+	Name      string    `json:"name,omitempty"`
+	Namespace string    `json:"namespace,omitempty"`
+	Addr      string    `json:"addr,omitempty"`
+	TLS       TLSSource `json:"tls,omitempty"`
 }
 
 //+kubebuilder:object:root=true

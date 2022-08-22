@@ -1,4 +1,4 @@
-package kafka_acls
+package kafkaacls
 
 import (
 	"crypto/tls"
@@ -18,7 +18,7 @@ import (
 type TopicToACLList map[string][]*sarama.Acl
 
 type KafkaIntentsAdmin struct {
-	kafkaServer      otterizev1alpha1.KafkaServer
+	kafkaServer      otterizev1alpha1.KafkaServerConfig
 	kafkaAdminClient sarama.ClusterAdmin
 }
 
@@ -57,7 +57,7 @@ func getTLSConfig(tlsSource otterizev1alpha1.TLSSource) (*tls.Config, error) {
 	}, nil
 }
 
-func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServer) (*KafkaIntentsAdmin, error) {
+func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig) (*KafkaIntentsAdmin, error) {
 	logger := logrus.WithField("addr", kafkaServer.Addr)
 	logger.Info("Connecting to kafka server")
 	addrs := []string{kafkaServer.Addr}

@@ -18,11 +18,18 @@ package controllers
 
 import (
 	"context"
+	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	"github.com/sirupsen/logrus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	finalizerName = "kafkaserverconfig.otterize/finalizer"
 )
 
 // KafkaServerConfigReconciler reconciles a KafkaServerConfig object
@@ -35,19 +42,55 @@ type KafkaServerConfigReconciler struct {
 //+kubebuilder:rbac:groups=otterize.com,resources=kafkaserverconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=otterize.com,resources=kafkaserverconfigs/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the KafkaServerConfig object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
-func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) (ctrl.Result, error) {
+	logger := logrus.WithFields(logrus.Fields{"name": kafkaServerConfig.Name, "namespace": kafkaServerConfig.Namespace})
+	if controllerutil.ContainsFinalizer(kafkaServerConfig, finalizerName) {
+		logger.Info("Removing associated Acls")
+		// TODO
 
-	// TODO(user): your logic here
+		controllerutil.RemoveFinalizer(kafkaServerConfig, finalizerName)
+		if err := r.Update(ctx, kafkaServerConfig); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *KafkaServerConfigReconciler) ensureFinalizerRegistered(ctx context.Context, kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) error {
+	logger := logrus.WithFields(logrus.Fields{"name": kafkaServerConfig.Name, "namespace": kafkaServerConfig.Namespace})
+	if !controllerutil.ContainsFinalizer(kafkaServerConfig, finalizerName) {
+		logger.Infof("Adding finalizer %s", finalizerName)
+		controllerutil.AddFinalizer(kafkaServerConfig, finalizerName)
+		if err := r.Update(ctx, kafkaServerConfig); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := logrus.WithField("namespaced_name", req.NamespacedName.String())
+
+	kafkaServerConfig := &otterizev1alpha1.KafkaServerConfig{}
+
+	err := r.Get(ctx, req.NamespacedName, kafkaServerConfig)
+	if err != nil && k8serrors.IsNotFound(err) {
+		logger.Info("No kafka server config found")
+		return ctrl.Result{}, nil
+	} else if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if !kafkaServerConfig.ObjectMeta.DeletionTimestamp.IsZero() {
+		// The object is being deleted
+		return r.ensureFinalizerRun(ctx, kafkaServerConfig)
+	}
+
+	if err := r.ensureFinalizerRegistered(ctx, kafkaServerConfig); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
@@ -56,6 +99,6 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		// For().
+		For(&otterizev1alpha1.KafkaServerConfig{}).
 		Complete(r)
 }
