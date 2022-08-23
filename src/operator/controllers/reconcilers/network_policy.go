@@ -49,7 +49,6 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
-
 	}
 
 	if !controllerutil.ContainsFinalizer(intents, NetworkPolicyFinalizerName) {
@@ -132,7 +131,6 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 		}
 
 		controllerutil.RemoveFinalizer(intents, NetworkPolicyFinalizerName)
-		logrus.Infof("Removing finalizer!!!!!!!!!! ")
 		if err := r.Update(ctx, intents); err != nil {
 			return err
 		}

@@ -26,12 +26,15 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-const OtterizeAccessLabelKey = "otterize/access-%s"
-const OtterizeMarkerLabelKey = "otterize/client"
-const OtterizeNamespaceLabelKey = "otterize/namespace-name"
-const OtterizeTargetServerIndexField = "spec.service.calls.server"
-const MaxOtterizeNameLength = 20
-const MaxNamespaceLength = 20
+const (
+	OtterizeAccessLabelKey         = "otterize/access-%s"
+	OtterizeMarkerLabelKey         = "otterize/client"
+	OtterizeNamespaceLabelKey      = "otterize/namespace-name"
+	OtterizeTargetServerIndexField = "spec.service.calls.server"
+	MaxOtterizeNameLength          = 20
+	MaxNamespaceLength             = 20
+	SkipWatcherReconcileFlag       = "otterize/skip-watcher-reconcile"
+)
 
 type IntentType string
 
@@ -153,12 +156,14 @@ func (in *Intents) GetIntentsLabelMapping(requestNamespace string) map[string]st
 	return otterizeAccessLabels
 }
 
-func (in *Intent) ResolveIntentNamespace(requestNamespace string) string {
+// ResolveIntentNamespace returns target namespace for intent if exists
+// or the entire resource's namespace if the specific intent has no target namespace, as it's optional
+func (in *Intent) ResolveIntentNamespace(intentsObjNamespace string) string {
 	if in.Namespace != "" {
 		return in.Namespace
 	}
 
-	return requestNamespace
+	return intentsObjNamespace
 }
 
 // GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)

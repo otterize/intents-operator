@@ -35,7 +35,7 @@ func NewPodWatcher(c client.Client) *PodWatcher {
 }
 
 func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Infof("Reconciling due to pod change: %s", req.Name)
+	logrus.Debugf("Reconciling due to pod change: %s", req.Name)
 	pod := v1.Pod{}
 	err := p.Get(ctx, req.NamespacedName, &pod)
 	if k8serrors.IsNotFound(err) {
@@ -47,17 +47,23 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	otterizeIdentity, err := p.resolvePodToOtterizeIdentity(ctx, &pod)
+	// Intents were deleted and the pod was updated by the operator, skip reconciliation
+	_, ok := pod.Annotations[otterizev1alpha1.SkipWatcherReconcileFlag]
+	if ok {
+		return ctrl.Result{}, nil
+	}
+
+	otterizeServiceIdentity, err := p.resolvePodToOtterizeIdentity(ctx, &pod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if !otterizev1alpha1.HasOtterizeServerLabel(&pod) {
 		// Label pods as destination servers
-		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeIdentity.Name)
+		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeServiceIdentity.Name)
 		updatedPod := pod.DeepCopy()
 		updatedPod.Labels[otterizev1alpha1.OtterizeServerLabelKey] =
-			otterizev1alpha1.GetFormattedOtterizeIdentity(otterizeIdentity.Name, otterizeIdentity.Namespace)
+			otterizev1alpha1.GetFormattedOtterizeIdentity(otterizeServiceIdentity.Name, otterizeServiceIdentity.Namespace)
 
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
@@ -70,12 +76,12 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	var intents otterizev1alpha1.IntentsList
 	err = p.List(
 		ctx, &intents,
-		&client.MatchingFields{OtterizeClientNameIndexField: otterizeIdentity.Name},
-		&client.ListOptions{Namespace: otterizeIdentity.Namespace})
+		&client.MatchingFields{OtterizeClientNameIndexField: otterizeServiceIdentity.Name},
+		&client.ListOptions{Namespace: otterizeServiceIdentity.Namespace})
 
 	if err != nil {
 		logrus.Errorln("Failed listing intents", "Service name",
-			otterizeIdentity.Name, "Namespace", otterizeIdentity.Namespace)
+			otterizeServiceIdentity.Name, "Namespace", otterizeServiceIdentity.Namespace)
 		return ctrl.Result{}, err
 	}
 
@@ -85,13 +91,13 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	otterizeAccessLabels := map[string]string{}
 	for _, intent := range intents.Items {
-		currIntentLabels := intent.GetIntentsLabelMapping(otterizeIdentity.Namespace)
+		currIntentLabels := intent.GetIntentsLabelMapping(otterizeServiceIdentity.Namespace)
 		for k, v := range currIntentLabels {
 			otterizeAccessLabels[k] = v
 		}
 	}
 	if otterizev1alpha1.LabelDiffExists(&pod, otterizeAccessLabels) {
-		logrus.Infof("Updating Otterize access labels for %s", otterizeIdentity.Name)
+		logrus.Infof("Updating Otterize access labels for %s", otterizeServiceIdentity.Name)
 		updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
