@@ -7,12 +7,16 @@ import (
 
 const OtterizeServerLabelKey = "otterize/server"
 
-// HasMissingOtterizeLabels checks if a pod's labels need updating
-func HasMissingOtterizeLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) bool {
-	for k, v := range otterizeAccessLabels {
-		if currVal, ok := pod.Labels[k]; !ok {
-			return true
-		} else if v != currVal {
+// IsMissingOtterizeAccessLabels checks if a pod's labels need updating
+func IsMissingOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) bool {
+	podOtterizeAccessLabels := GetOtterizeLabelsFromPod(pod)
+	if len(podOtterizeAccessLabels) != len(otterizeAccessLabels) {
+		return true
+	}
+
+	// Length is equal, check for diff in keys
+	for k := range podOtterizeAccessLabels {
+		if _, ok := otterizeAccessLabels[k]; !ok {
 			return true
 		}
 	}
@@ -21,8 +25,8 @@ func HasMissingOtterizeLabels(pod *v1.Pod, otterizeAccessLabels map[string]strin
 
 // UpdateOtterizeAccessLabels updates a pod's labels with Otterize labels representing their intents
 // The pod is also labeled with "otterize-client=true" to mark it as having intents
-func UpdateOtterizeAccessLabels(pod v1.Pod, otterizeAccessLabels map[string]string) v1.Pod {
-	pod = cleanupOtterizeIntentLabels(pod)
+func UpdateOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) *v1.Pod {
+	pod = cleanupOtterizeLabels(pod)
 	for k, v := range otterizeAccessLabels {
 		pod.Labels[k] = v
 	}
@@ -35,24 +39,29 @@ func HasOtterizeServerLabel(pod *v1.Pod) bool {
 	return exists
 }
 
-// cleanupOtterizeIntentLabels Removes intent related labels from pods
-// Returns the pod's label map without Otterize labels
-func cleanupOtterizeIntentLabels(pod v1.Pod) v1.Pod {
-	postCleanupLabels := map[string]string{}
-
-	for k, v := range pod.Labels {
-		if !isOtterizeLabelKey(k) {
-			postCleanupLabels[k] = v
+func cleanupOtterizeLabels(pod *v1.Pod) *v1.Pod {
+	for k := range pod.Labels {
+		if isOtterizeAccessLabel(k) {
+			delete(pod.Labels, k)
 		}
 	}
-
-	pod.Labels = postCleanupLabels
 	return pod
 }
 
-func isOtterizeLabelKey(s string) bool {
-	if strings.HasPrefix(s, "otterize/access") || strings.HasPrefix(s, OtterizeMarkerLabelKey) {
+func isOtterizeAccessLabel(s string) bool {
+	if strings.HasPrefix(s, "otterize/access") {
 		return true
 	}
 	return false
+}
+
+func GetOtterizeLabelsFromPod(pod *v1.Pod) map[string]string {
+	otterizeLabels := map[string]string{}
+	for k, v := range pod.Labels {
+		if isOtterizeAccessLabel(k) {
+			otterizeLabels[k] = v
+		}
+	}
+
+	return otterizeLabels
 }

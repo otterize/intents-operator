@@ -40,6 +40,7 @@ type IntentsReconciler struct {
 //+kubebuilder:rbac:groups=otterize.com,resources=intents/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=otterize.com,resources=intents/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
+//+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

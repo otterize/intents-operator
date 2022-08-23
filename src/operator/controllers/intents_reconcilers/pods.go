@@ -18,17 +18,11 @@ type PodLabelReconciler struct {
 }
 
 func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// List the pods in the namespace and update labels if required
 	pods := &v1.PodList{}
 	namespace := req.NamespacedName.Namespace
 
-	err := r.List(ctx, pods, &client.ListOptions{Namespace: namespace})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	intents := &otterizev1alpha1.Intents{}
-	err = r.Get(ctx, req.NamespacedName, intents)
+	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		logrus.Infof("Intents deleted for namespace %s", namespace)
 		return ctrl.Result{}, nil
@@ -40,13 +34,18 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	serviceName := intents.GetServiceName()
 	intentLabels := intents.GetIntentsLabelMapping(namespace)
+	// List the pods in the namespace and update labels if required
+	err = r.List(ctx, pods, &client.ListOptions{Namespace: namespace})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	for _, pod := range pods.Items {
-		if strings.HasPrefix(pod.Name, serviceName) && otterizev1alpha1.HasMissingOtterizeLabels(&pod, intentLabels) {
+		if strings.HasPrefix(pod.Name, serviceName) && otterizev1alpha1.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
 			logrus.Infof("Updating %s pod labels with new intents", serviceName)
-			logrus.Debugln(intentLabels)
-			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod, intentLabels)
-			err := r.Patch(ctx, &updatedPod, client.MergeFrom(&pod))
+
+			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
+			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				return ctrl.Result{}, err
 			}
