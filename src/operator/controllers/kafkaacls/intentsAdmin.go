@@ -67,14 +67,14 @@ func getTLSConfig(tlsSource otterizev1alpha1.TLSSource) (*tls.Config, error) {
 }
 
 func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig) (*KafkaIntentsAdmin, error) {
-	logger := logrus.WithField("addr", kafkaServer.Addr)
+	logger := logrus.WithField("addr", kafkaServer.Spec.Addr)
 	logger.Info("Connecting to kafka server")
-	addrs := []string{kafkaServer.Addr}
+	addrs := []string{kafkaServer.Spec.Addr}
 
 	config := sarama.NewConfig()
 	config.Version = sarama.V2_0_0_0
 
-	tlsConfig, err := getTLSConfig(kafkaServer.TLS)
+	tlsConfig, err := getTLSConfig(kafkaServer.Spec.TLS)
 	if err != nil {
 		return nil, err
 	}

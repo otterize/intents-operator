@@ -56,14 +56,14 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, ka
 		return ctrl.Result{}, nil
 	}
 
-	if intentsAdmin, ok := r.ServersStore.Get(kafkaServerConfig.ServerName, kafkaServerConfig.Namespace); ok {
+	if intentsAdmin, ok := r.ServersStore.Get(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Namespace); ok {
 		logger.Info("Removing associated ACLs")
 		if err := intentsAdmin.ClearIntents(); err != nil {
 			return ctrl.Result{}, err
 		}
 
 		logger.Info("Removing Kafka server from store")
-		r.ServersStore.Remove(kafkaServerConfig.ServerName, kafkaServerConfig.Namespace)
+		r.ServersStore.Remove(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Namespace)
 	} else {
 		logger.Info("Kafka server not registered to servers store")
 	}
@@ -124,7 +124,7 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	if err := kafkaIntentsAdmin.ApplyServerTopicsConf(kafkaServerConfig.Topics); err != nil {
+	if err := kafkaIntentsAdmin.ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics); err != nil {
 		return ctrl.Result{}, err
 	}
 

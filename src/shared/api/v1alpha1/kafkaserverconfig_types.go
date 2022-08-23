@@ -20,23 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
-// KafkaServerConfigSpec defines the desired state of KafkaServerConfig
-type KafkaServerConfigSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of KafkaServerConfig. Edit kafkaserverconfig_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
-}
-
-// KafkaServerConfigStatus defines the observed state of KafkaServerConfig
-type KafkaServerConfigStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-}
 
 type TLSSource struct {
 	CertFile   string `json:"certFile,omitempty"`
@@ -58,6 +42,23 @@ type TopicConfig struct {
 	IntentsRequired        bool                `json:"intentsRequired"`
 }
 
+// KafkaServerConfigSpec defines the desired state of KafkaServerConfig
+type KafkaServerConfigSpec struct {
+	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+
+	ServerName string        `json:"serverName,omitempty"`
+	Addr       string        `json:"addr,omitempty"`
+	TLS        TLSSource     `json:"tls"`
+	Topics     []TopicConfig `json:"topics"`
+}
+
+// KafkaServerConfigStatus defines the observed state of KafkaServerConfig
+type KafkaServerConfigStatus struct {
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
+}
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
@@ -68,11 +69,6 @@ type KafkaServerConfig struct {
 
 	Spec   KafkaServerConfigSpec   `json:"spec,omitempty"`
 	Status KafkaServerConfigStatus `json:"status,omitempty"`
-
-	ServerName string        `json:"serverName,omitempty"`
-	Addr       string        `json:"addr,omitempty"`
-	TLS        TLSSource     `json:"tls"`
-	Topics     []TopicConfig `json:"topics"`
 }
 
 //+kubebuilder:object:root=true

@@ -18,7 +18,7 @@ func (s *ServersStore) Add(config *v1alpha1.KafkaServerConfig) (*KafkaIntentsAdm
 		return nil, err
 	}
 
-	name := types.NamespacedName{Name: config.ServerName, Namespace: config.Namespace}
+	name := types.NamespacedName{Name: config.Spec.ServerName, Namespace: config.Namespace}
 	s.serversByName[name] = a
 	return a, nil
 }
