@@ -53,3 +53,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - otterize.com
+  resources:
+  - kafkaserverconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - otterize.com
+  resources:
+  - kafkaserverconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - otterize.com
+  resources:
+  - kafkaserverconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
