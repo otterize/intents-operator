@@ -8,5 +8,5 @@ roleRef:
   name: otterize-watcher-role
 subjects:
   - kind: ServiceAccount
-    name: otterize-watcher
-    namespace: evya
+    name: pod-watcher
+    namespace: otterize
