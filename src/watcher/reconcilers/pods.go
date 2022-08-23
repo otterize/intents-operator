@@ -161,7 +161,7 @@ func (w *PodWatcher) getOtterizeIdentityFromObject(obj client.Object) string {
 }
 
 func (w *PodWatcher) Register(mgr manager.Manager) error {
-	watcher, err := controller.New("pod-watcher", mgr, controller.Options{
+	watcher, err := controller.New("otterize-watcher", mgr, controller.Options{
 		Reconciler: w,
 	})
 	if err != nil {

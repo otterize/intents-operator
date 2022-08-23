@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: otterize-pod-watcher
+  name: otterize-watcher
   namespace: otterize
   labels:
     app: otterize-watcher
