@@ -44,6 +44,20 @@ type TLSSource struct {
 	RootCAFile string `json:"rootCAFile,omitempty"`
 }
 
+type ResourcePatternType string
+
+const (
+	ResourcePatternTypeLiteral = "literal"
+	ResourcePatternTypePrefix  = "prefix"
+)
+
+type TopicConfig struct {
+	Topic                  string              `json:"topic"`
+	Pattern                ResourcePatternType `json:"pattern"`
+	ClientIdentityRequired bool                `json:"clientIdentityRequired"`
+	IntentsRequired        bool                `json:"intentsRequired"`
+}
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
@@ -55,10 +69,10 @@ type KafkaServerConfig struct {
 	Spec   KafkaServerConfigSpec   `json:"spec,omitempty"`
 	Status KafkaServerConfigStatus `json:"status,omitempty"`
 
-	Name      string    `json:"name,omitempty"`
-	Namespace string    `json:"namespace,omitempty"`
-	Addr      string    `json:"addr,omitempty"`
-	TLS       TLSSource `json:"tls,omitempty"`
+	ServerName string        `json:"serverName,omitempty"`
+	Addr       string        `json:"addr,omitempty"`
+	TLS        TLSSource     `json:"tls"`
+	Topics     []TopicConfig `json:"topics"`
 }
 
 //+kubebuilder:object:root=true

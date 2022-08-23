@@ -1,8 +1,9 @@
-package kafka_acls
+package intents_reconcilers
 
 import (
 	"context"
 	"fmt"
+	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -18,8 +19,8 @@ var finalizerName = "otterize-intents.kafka/finalizer"
 
 type KafkaACLsReconciler struct {
 	client.Client
-	Scheme       *runtime.Scheme
-	KafkaServers []otterizev1alpha1.KafkaServer
+	Scheme             *runtime.Scheme
+	KafkaServersStores *kafkaacls.ServersStore
 }
 
 func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Intent) map[types.NamespacedName][]otterizev1alpha1.Intent {
@@ -36,57 +37,35 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Inte
 	return intentsByServer
 }
 
-func (r *KafkaACLsReconciler) logMissingIntentServers(intentsByServer map[types.NamespacedName][]otterizev1alpha1.Intent) {
-	serversByName := map[types.NamespacedName]otterizev1alpha1.KafkaServer{}
-	for _, kafkaServer := range r.KafkaServers {
-		serverName := types.NamespacedName{Name: kafkaServer.Name, Namespace: kafkaServer.Namespace}
-		serversByName[serverName] = kafkaServer
-	}
-
-	for serverName, _ := range intentsByServer {
-		if _, ok := serversByName[serverName]; !ok {
-			logrus.WithField("server", serverName).Warning("Did not apply intents to server - no server configuration was defined")
-		}
-	}
-}
-
 func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Service.Calls)
 
-	for _, kafkaServer := range r.KafkaServers {
-		serverName := types.NamespacedName{Name: kafkaServer.Name, Namespace: kafkaServer.Namespace}
-
-		kafkaIntentsAdmin, err := NewKafkaIntentsAdmin(kafkaServer)
-		if err != nil {
-			return fmt.Errorf("failed connecting to kafka server %s: %w", serverName, err)
-		}
-
+	if err := r.KafkaServersStores.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
 		intentsForServer := intentsByServer[serverName]
-
 		if err := kafkaIntentsAdmin.ApplyIntents(intents.Spec.Service.Name, intents.Namespace, intentsForServer); err != nil {
 			return fmt.Errorf("failed applying intents on kafka server %s: %w", serverName, err)
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
-	r.logMissingIntentServers(intentsByServer)
+	for serverName, _ := range intentsByServer {
+		if _, ok := r.KafkaServersStores.Get(serverName.Name, serverName.Namespace); !ok {
+			logrus.WithField("server", serverName).Warning("Did not apply intents to server - no server configuration was defined")
+		}
+	}
 
 	return nil
 }
 
 func (r *KafkaACLsReconciler) RemoveACLs(intents *otterizev1alpha1.Intents) error {
-	for _, kafkaServer := range r.KafkaServers {
-		serverName := types.NamespacedName{Name: kafkaServer.Name, Namespace: kafkaServer.Namespace}
-
-		kafkaIntentsAdmin, err := NewKafkaIntentsAdmin(kafkaServer)
-		if err != nil {
-			return fmt.Errorf("failed connecting to kafka server %s: %w", serverName, err)
-		}
-
+	return r.KafkaServersStores.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
 		if err := kafkaIntentsAdmin.RemoveClientIntents(intents.Spec.Service.Name, intents.Namespace); err != nil {
-			return fmt.Errorf("failed applying intents on kafka server %s: %w", serverName, err)
+			return fmt.Errorf("failed removing intents from kafka server %s: %w", serverName, err)
 		}
-	}
-	return nil
+		return nil
+	})
 }
 
 func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

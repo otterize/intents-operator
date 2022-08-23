@@ -19,7 +19,7 @@ package controllers
 import (
 	"context"
 	"github.com/otterize/intents-operator/operator/controllers/intents_reconcilers"
-	"github.com/otterize/intents-operator/operator/controllers/intents_reconcilers/kafka_acls"
+	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -29,15 +29,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type IntentsReconcilerConfig struct {
-	KafkaServers []otterizev1alpha1.KafkaServer
-}
-
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Conf   IntentsReconcilerConfig
+	Scheme            *runtime.Scheme
+	KafkaServersStore *kafkaacls.ServersStore
 }
 
 //+kubebuilder:rbac:groups=otterize.com,resources=intents,verbs=get;list;watch;create;update;patch;delete
@@ -47,13 +43,6 @@ type IntentsReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the Intents object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.12.1/pkg/reconcile
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reconcilersList, err := r.buildReconcilersList(r.Client, r.Scheme)
 	if err != nil {
@@ -85,7 +74,7 @@ func (r *IntentsReconciler) buildReconcilersList(c client.Client, scheme *runtim
 	l = append(l, &intents_reconcilers.IntentsValidatorReconciler{Client: c, Scheme: scheme})
 	l = append(l, &intents_reconcilers.PodLabelReconciler{Client: c, Scheme: scheme})
 	l = append(l, &intents_reconcilers.NetworkPolicyReconciler{Client: c, Scheme: scheme})
-	l = append(l, &kafka_acls.KafkaACLsReconciler{Client: c, Scheme: scheme, KafkaServers: r.Conf.KafkaServers})
+	l = append(l, &intents_reconcilers.KafkaACLsReconciler{Client: c, Scheme: scheme, KafkaServersStores: r.KafkaServersStore})
 
 	return l, nil
 }

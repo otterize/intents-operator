@@ -76,26 +76,6 @@ spec:
                 description: ReadinessEndpointName, defaults to "readyz"
                 type: string
             type: object
-          kafkaServers:
-            items:
-              properties:
-                addr:
-                  type: string
-                name:
-                  type: string
-                namespace:
-                  type: string
-                tls:
-                  properties:
-                    certFile:
-                      type: string
-                    keyFile:
-                      type: string
-                    rootCAFile:
-                      type: string
-                  type: object
-              type: object
-            type: array
           kind:
             description: 'Kind is a string value representing the REST resource this
               object represents. Servers may infer this from the endpoint the client

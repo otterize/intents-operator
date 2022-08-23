@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	"os"
 
 	"github.com/otterize/intents-operator/operator/controllers"
@@ -107,17 +108,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	kafkaServersStore := kafkaacls.NewServersStore()
+
 	if err = (&controllers.IntentsReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Conf:   controllers.IntentsReconcilerConfig{KafkaServers: ctrlConfig.KafkaServers},
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		KafkaServersStore: kafkaServersStore,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Intents")
 		os.Exit(1)
 	}
 	if err = (&controllers.KafkaServerConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		ServersStore: kafkaServersStore,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "KafkaServerConfig")
 		os.Exit(1)
