@@ -33,7 +33,7 @@ const (
 	OtterizeTargetServerIndexField = "spec.service.calls.server"
 	MaxOtterizeNameLength          = 20
 	MaxNamespaceLength             = 20
-	SkipWatcherReconcileFlag       = "otterize/skip-watcher-reconcile"
+	AllIntentsRemoved              = "otterize/all-intents-removed"
 )
 
 type IntentType string

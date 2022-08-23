@@ -35,7 +35,7 @@ func NewPodWatcher(c client.Client) *PodWatcher {
 }
 
 func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Debugf("Reconciling due to pod change: %s", req.Name)
+	logrus.Infof("Reconciling due to pod change: %s", req.Name)
 	pod := v1.Pod{}
 	err := p.Get(ctx, req.NamespacedName, &pod)
 	if k8serrors.IsNotFound(err) {
@@ -45,12 +45,6 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	if err != nil {
 		return ctrl.Result{}, err
-	}
-
-	// Intents were deleted and the pod was updated by the operator, skip reconciliation
-	_, ok := pod.Annotations[otterizev1alpha1.SkipWatcherReconcileFlag]
-	if ok {
-		return ctrl.Result{}, nil
 	}
 
 	otterizeServiceIdentity, err := p.resolvePodToOtterizeIdentity(ctx, &pod)
@@ -71,6 +65,13 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			logrus.Errorln(err)
 			return ctrl.Result{}, err
 		}
+	}
+
+	// Intents were deleted and the pod was updated by the operator, skip reconciliation
+	_, ok := pod.Annotations[otterizev1alpha1.AllIntentsRemoved]
+	if ok {
+		logrus.Infof("Skipping reconciliation for pod %s - pod is handled by the operator", req.Name)
+		return ctrl.Result{}, nil
 	}
 
 	var intents otterizev1alpha1.IntentsList
@@ -101,8 +102,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
-			logrus.Errorln("Failed updating Otterize labels for pod", "Pod name",
-				pod.Name, "Namespace", pod.Namespace)
+			logrus.Errorf("Failed updating Otterize labels for pod %s in namespace %s", pod.Name, pod.Namespace)
 			return ctrl.Result{}, err
 		}
 	}

@@ -124,6 +124,9 @@ func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 			controllerutil.RemoveFinalizer(intents, FinalizerName)
 			if err := r.Update(ctx, intents); err != nil {
+				if k8serrors.IsConflict(err) {
+					return ctrl.Result{Requeue: true}, nil
+				}
 				return ctrl.Result{}, err
 			}
 		}

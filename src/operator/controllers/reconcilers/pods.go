@@ -40,6 +40,9 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.cleanFinalizerAndUnlabelPods(ctx, intents)
 		if err != nil {
+			if k8serrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -66,7 +69,6 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			logrus.Infof("Updating %s pod labels with new intents", serviceName)
 
 			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
-
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				return ctrl.Result{}, err
@@ -101,7 +103,7 @@ func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
 		// Remove the access label for each intent, for every pod in the list
 		for _, pod := range podList.Items {
 			updatedPod := pod.DeepCopy()
-			updatedPod.Annotations[otterizev1alpha1.SkipWatcherReconcileFlag] = "true"
+			updatedPod.Annotations[otterizev1alpha1.AllIntentsRemoved] = "true"
 			for _, intent := range intents.GetCallsList() {
 				targetServerIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(
 					intent.Server, intent.ResolveIntentNamespace(intents.Namespace))

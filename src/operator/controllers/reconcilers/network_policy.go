@@ -46,6 +46,9 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.cleanFinalizerAndPolicies(ctx, intents)
 		if err != nil {
+			if k8serrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -134,6 +137,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 		if err := r.Update(ctx, intents); err != nil {
 			return err
 		}
+
 	}
 
 	return nil
