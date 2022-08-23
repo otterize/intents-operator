@@ -181,8 +181,9 @@ func GetFormattedOtterizeIdentity(name, ns string) string {
 	if len(ns) > MaxNamespaceLength {
 		ns = ns[:MaxNamespaceLength]
 	}
-
-	hashSuffix := hex.EncodeToString(hash[:6])
+	// A 6 char hash, even although truncated, leaves 2 ^ 48 combinations which should be enough
+	// for unique identities in a k8s cluster
+	hashSuffix := hex.EncodeToString(hash[:])[:6]
 
 	return fmt.Sprintf("%s-%s-%s", name, ns, hashSuffix)
 

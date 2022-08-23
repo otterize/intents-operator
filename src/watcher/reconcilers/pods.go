@@ -97,7 +97,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			otterizeAccessLabels[k] = v
 		}
 	}
-	if otterizev1alpha1.LabelDiffExists(&pod, otterizeAccessLabels) {
+	if otterizev1alpha1.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
 		logrus.Infof("Updating Otterize access labels for %s", otterizeServiceIdentity.Name)
 		updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
@@ -171,11 +171,11 @@ func (p *PodWatcher) Register(mgr manager.Manager) error {
 		Reconciler: p,
 	})
 	if err != nil {
-		return fmt.Errorf("unable to set up pods controller: %p", err)
+		return fmt.Errorf("unable to set up pods controller: %w", err)
 	}
 
 	if err = watcher.Watch(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForObject{}); err != nil {
-		return fmt.Errorf("unable to watch Pods: %p", err)
+		return fmt.Errorf("unable to watch Pods: %w", err)
 	}
 
 	return nil
