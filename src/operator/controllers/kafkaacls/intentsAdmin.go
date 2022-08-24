@@ -29,6 +29,7 @@ type KafkaIntentsAdmin struct {
 
 var (
 	kafkaOperationToAclOperation = map[otterizev1alpha1.KafkaOperation]sarama.AclOperation{
+		otterizev1alpha1.KafkaOperationAll:             sarama.AclOperationAll,
 		otterizev1alpha1.KafkaOperationConsume:         sarama.AclOperationRead,
 		otterizev1alpha1.KafkaOperationProduce:         sarama.AclOperationWrite,
 		otterizev1alpha1.KafkaOperationCreate:          sarama.AclOperationCreate,
@@ -216,7 +217,7 @@ func (a *KafkaIntentsAdmin) logACLs() error {
 }
 
 func (a *KafkaIntentsAdmin) ApplyIntents(clientName string, clientNamespace string, intents []otterizev1alpha1.Intent) error {
-	principal := fmt.Sprintf("User:CN=%s.%s", clientName, clientNamespace)
+	principal := fmt.Sprintf("User:CN=%s.%s,O=SPIRE,C=US", clientName, clientNamespace)
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"principal":       principal,

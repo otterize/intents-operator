@@ -44,6 +44,7 @@ const (
 type KafkaOperation string
 
 const (
+	KafkaOperationAll             KafkaOperation = "all"
 	KafkaOperationConsume         KafkaOperation = "consume"
 	KafkaOperationProduce         KafkaOperation = "produce"
 	KafkaOperationCreate          KafkaOperation = "create"
