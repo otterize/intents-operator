@@ -50,7 +50,7 @@ type KafkaServerConfigSpec struct {
 	ServerName string        `json:"serverName,omitempty"`
 	Addr       string        `json:"addr,omitempty"`
 	TLS        TLSSource     `json:"tls"`
-	Topics     []TopicConfig `json:"topics"`
+	Topics     []TopicConfig `json:"topics,omitempty"`
 }
 
 // KafkaServerConfigStatus defines the observed state of KafkaServerConfig

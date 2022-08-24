@@ -58,7 +58,7 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, ka
 
 	if intentsAdmin, ok := r.ServersStore.Get(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Namespace); ok {
 		logger.Info("Removing associated ACLs")
-		if err := intentsAdmin.ClearIntents(); err != nil {
+		if err := intentsAdmin.RemoveAllIntents(); err != nil {
 			return ctrl.Result{}, err
 		}
 

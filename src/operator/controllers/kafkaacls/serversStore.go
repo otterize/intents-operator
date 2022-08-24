@@ -10,7 +10,9 @@ type ServersStore struct {
 }
 
 func NewServersStore() *ServersStore {
-	return &ServersStore{}
+	return &ServersStore{
+		serversByName: map[types.NamespacedName]*KafkaIntentsAdmin{},
+	}
 }
 func (s *ServersStore) Add(config *v1alpha1.KafkaServerConfig) (*KafkaIntentsAdmin, error) {
 	a, err := NewKafkaIntentsAdmin(*config)
