@@ -9,3 +9,16 @@ spec:
     certFile: /etc/spifferize/svid.pem
     keyFile: /etc/spifferize/key.pem
     rootCAFile: /etc/spifferize/bundle.pem
+  topics:
+    - topic: "orders*"
+      pattern: prefix
+      clientIdentityRequired: true
+      intentsRequired: true
+    - topic: "payments"
+      pattern: literal
+      clientIdentityRequired: true
+      intentsRequired: false
+    - topic: "*"
+      pattern: literal
+      clientIdentityRequired: false
+      intentsRequired: false

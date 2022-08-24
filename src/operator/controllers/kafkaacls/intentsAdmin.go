@@ -177,7 +177,7 @@ func (a *KafkaIntentsAdmin) deleteACLsByPrincipalTopics(principal string, topics
 func (a *KafkaIntentsAdmin) logACLs() error {
 	logger := logrus.WithFields(
 		logrus.Fields{
-			"serverName":      a.kafkaServer.Name,
+			"serverName":      a.kafkaServer.Spec.ServerName,
 			"serverNamespace": a.kafkaServer.Namespace,
 		})
 
@@ -202,11 +202,11 @@ func (a *KafkaIntentsAdmin) logACLs() error {
 		for _, acl := range aclRules.Acls {
 			logger.WithFields(logrus.Fields{
 				"ResourceName":   aclRules.Resource.ResourceName,
-				"resourceType":   aclRules.Resource.ResourceType,
+				"ResourceType":   aclRules.Resource.ResourceType.String(),
 				"Principal":      acl.Principal,
-				"PermissionType": acl.PermissionType,
-				"Operation":      acl.Operation,
-				"host":           acl.Host,
+				"PermissionType": acl.PermissionType.String(),
+				"Operation":      acl.Operation.String(),
+				"Host":           acl.Host,
 			}).Info("ACL:")
 		}
 
@@ -219,7 +219,7 @@ func (a *KafkaIntentsAdmin) ApplyIntents(clientName string, clientNamespace stri
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"principal":       principal,
-			"serverName":      a.kafkaServer.Name,
+			"serverName":      a.kafkaServer.Spec.ServerName,
 			"serverNamespace": a.kafkaServer.Namespace,
 		})
 
@@ -264,7 +264,7 @@ func (a *KafkaIntentsAdmin) RemoveClientIntents(clientName string, clientNamespa
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"principal":       principal,
-			"serverName":      a.kafkaServer.Name,
+			"serverName":      a.kafkaServer.Spec.ServerName,
 			"serverNamespace": a.kafkaServer.Namespace,
 		})
 	countDeleted, err := a.deleteACLsByPrincipalTopicsByPrincipal(principal)
@@ -320,7 +320,7 @@ func (a *KafkaIntentsAdmin) getAppliedKafkaTopics(principal string) ([]otterizev
 func (a *KafkaIntentsAdmin) RemoveAllIntents() error {
 	logger := logrus.WithFields(
 		logrus.Fields{
-			"serverName":      a.kafkaServer.Name,
+			"serverName":      a.kafkaServer.Spec.ServerName,
 			"serverNamespace": a.kafkaServer.Namespace,
 		})
 
@@ -468,7 +468,7 @@ func (a *KafkaIntentsAdmin) deleteResourceAcls(resourceAclsToDelete []*sarama.Re
 func (a *KafkaIntentsAdmin) ApplyServerTopicsConf(topicsConf []otterizev1alpha1.TopicConfig) error {
 	logger := logrus.WithFields(
 		logrus.Fields{
-			"serverName":      a.kafkaServer.Name,
+			"serverName":      a.kafkaServer.Spec.ServerName,
 			"serverNamespace": a.kafkaServer.Namespace,
 		})
 
@@ -490,12 +490,17 @@ func (a *KafkaIntentsAdmin) ApplyServerTopicsConf(topicsConf []otterizev1alpha1.
 		if err := a.kafkaAdminClient.CreateACLs(resourceAclsToCreate); err != nil {
 			return fmt.Errorf("failed creating ACLs: %w", err)
 		}
+	} else {
+		logger.Info("No new ACLs to create for topic configuration")
 	}
+
 	if len(resourceAclsToDelete) > 0 {
 		logger.Infof("Delete %d resource ACLs for topic configurations", len(resourceAclsToDelete))
 		if err := a.deleteResourceAcls(resourceAclsToDelete); err != nil {
 			return fmt.Errorf("failed deleting ACLs: %w", err)
 		}
+	} else {
+		logger.Info("No existing ACLs to delete for topic configuration")
 	}
 
 	if err := a.logACLs(); err != nil {
