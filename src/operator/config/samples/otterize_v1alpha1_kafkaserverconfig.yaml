@@ -10,15 +10,15 @@ spec:
     keyFile: /etc/spifferize/key.pem
     rootCAFile: /etc/spifferize/bundle.pem
   topics:
-    - topic: "orders*"
-      pattern: prefix
+    - topic: "orders"
+      pattern: literal
       clientIdentityRequired: true
       intentsRequired: true
     - topic: "payments"
       pattern: literal
       clientIdentityRequired: true
       intentsRequired: false
-    - topic: "*"
-      pattern: literal
+    - topic: "customers-"
+      pattern: prefix
       clientIdentityRequired: false
       intentsRequired: false

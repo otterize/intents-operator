@@ -201,12 +201,13 @@ func (a *KafkaIntentsAdmin) logACLs() error {
 	for _, aclRules := range acls {
 		for _, acl := range aclRules.Acls {
 			logger.WithFields(logrus.Fields{
-				"ResourceName":   aclRules.Resource.ResourceName,
-				"ResourceType":   aclRules.Resource.ResourceType.String(),
-				"Principal":      acl.Principal,
-				"PermissionType": acl.PermissionType.String(),
-				"Operation":      acl.Operation.String(),
-				"Host":           acl.Host,
+				"ResourceName":        aclRules.Resource.ResourceName,
+				"ResourcePatternType": aclRules.Resource.ResourcePatternType.String(),
+				"ResourceType":        aclRules.Resource.ResourceType.String(),
+				"Principal":           acl.Principal,
+				"PermissionType":      acl.PermissionType.String(),
+				"Operation":           acl.Operation.String(),
+				"Host":                acl.Host,
 			}).Info("ACL:")
 		}
 
@@ -421,6 +422,7 @@ func (a *KafkaIntentsAdmin) getAppliedTopicsConfAcls() (map[sarama.Resource][]sa
 func (a *KafkaIntentsAdmin) kafkaResourceAclsDiff(expected map[sarama.Resource][]sarama.Acl, found map[sarama.Resource][]sarama.Acl) (
 	resourceAclsToCreate []*sarama.ResourceAcls, resourceAclsToDelete []*sarama.ResourceAcls) {
 
+	// handle added / updated resources
 	for resource, expectedAcls := range expected {
 		existingAcls := found[resource]
 		aclsToAdd, aclsToDelete := lo.Difference(expectedAcls, existingAcls)
@@ -437,6 +439,18 @@ func (a *KafkaIntentsAdmin) kafkaResourceAclsDiff(expected map[sarama.Resource][
 				&sarama.ResourceAcls{
 					Resource: resource,
 					Acls:     lo.ToSlicePtr(aclsToDelete),
+				},
+			)
+		}
+	}
+
+	// handle deleted resources
+	for resource, existingAcls := range found {
+		if _, ok := expected[resource]; !ok {
+			resourceAclsToDelete = append(resourceAclsToDelete,
+				&sarama.ResourceAcls{
+					Resource: resource,
+					Acls:     lo.ToSlicePtr(existingAcls),
 				},
 			)
 		}
