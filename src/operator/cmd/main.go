@@ -21,6 +21,7 @@ import (
 	"github.com/otterize/intents-operator/operator/controllers"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -62,6 +63,7 @@ func main() {
 		"The controller will load its initial configuration from this file. "+
 			"Omit this flag to use the default configuration values. "+
 			"Command-line flags override configuration from this file.")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -74,6 +76,7 @@ func main() {
 	ctrlConfig := otterizev1alpha1.ProjectConfig{}
 
 	options := ctrl.Options{
+		//NewCache:               cache.MultiNamespacedCacheBuilder(),
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443,
@@ -97,6 +100,10 @@ func main() {
 		if err != nil {
 			setupLog.Error(err, "unable to load the config file")
 			os.Exit(1)
+		}
+
+		if len(ctrlConfig.WatchNamespaces) != 0 {
+			options.NewCache = cache.MultiNamespacedCacheBuilder(ctrlConfig.WatchNamespaces)
 		}
 	}
 

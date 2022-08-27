@@ -1,5 +1,8 @@
 apiVersion: otterize.com/v1alpha1
 kind: ProjectConfig
+#watchNamespaces:
+#  - namespace1
+#  - namespace2
 health:
   healthProbeBindAddress: :8081
 metrics:
