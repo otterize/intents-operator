@@ -42,7 +42,7 @@ func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error
 
 	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
 		intentsForServer := intentsByServer[serverName]
-		if err := kafkaIntentsAdmin.ApplyIntents(intents.Spec.Service.Name, intents.Namespace, intentsForServer); err != nil {
+		if err := kafkaIntentsAdmin.ApplyClientIntents(intents.Spec.Service.Name, intents.Namespace, intentsForServer); err != nil {
 			return fmt.Errorf("failed applying intents on kafka server %s: %w", serverName, err)
 		}
 		return nil
