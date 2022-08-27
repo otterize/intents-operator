@@ -196,6 +196,11 @@ func (in *ProjectConfig) DeepCopyInto(out *ProjectConfig) {
 	out.TypeMeta = in.TypeMeta
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	in.ControllerManagerConfigurationSpec.DeepCopyInto(&out.ControllerManagerConfigurationSpec)
+	if in.WatchNamespaces != nil {
+		in, out := &in.WatchNamespaces, &out.WatchNamespaces
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.KafkaServers != nil {
 		in, out := &in.KafkaServers, &out.KafkaServers
 		*out = make([]KafkaServer, len(*in))
