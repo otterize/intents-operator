@@ -75,7 +75,7 @@ func (r *IntentsReconciler) buildReconcilersList(c client.Client, scheme *runtim
 	l = append(l, &intents_reconcilers.IntentsValidatorReconciler{Client: c, Scheme: scheme})
 	l = append(l, &intents_reconcilers.PodLabelReconciler{Client: c, Scheme: scheme})
 	l = append(l, &intents_reconcilers.NetworkPolicyReconciler{Client: c, Scheme: scheme})
-	l = append(l, &intents_reconcilers.KafkaACLsReconciler{Client: c, Scheme: scheme, KafkaServersStores: r.KafkaServersStore})
+	l = append(l, &intents_reconcilers.KafkaACLsReconciler{Client: c, Scheme: scheme, KafkaServersStore: r.KafkaServersStore})
 
 	return l, nil
 }

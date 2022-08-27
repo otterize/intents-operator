@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"github.com/sirupsen/logrus"
@@ -56,7 +57,14 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, ka
 		return ctrl.Result{}, nil
 	}
 
-	if intentsAdmin, ok := r.ServersStore.Get(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Namespace); ok {
+	intentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Namespace)
+	if err != nil {
+		if !errors.Is(err, kafkaacls.ServerSpecNotFound) {
+			return ctrl.Result{}, err
+		} else {
+			logger.Info("Kafka server not registered to servers store")
+		}
+	} else {
 		logger.Info("Removing associated ACLs")
 		if err := intentsAdmin.RemoveAllIntents(); err != nil {
 			return ctrl.Result{}, err
@@ -64,8 +72,6 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, ka
 
 		logger.Info("Removing Kafka server from store")
 		r.ServersStore.Remove(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Namespace)
-	} else {
-		logger.Info("Kafka server not registered to servers store")
 	}
 
 	controllerutil.RemoveFinalizer(kafkaServerConfig, finalizerName)
@@ -119,7 +125,9 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	kafkaIntentsAdmin, err := r.ServersStore.Add(kafkaServerConfig)
+	r.ServersStore.Add(kafkaServerConfig)
+
+	kafkaIntentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Name)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

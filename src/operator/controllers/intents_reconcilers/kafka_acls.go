@@ -19,8 +19,8 @@ var finalizerName = "otterize-intents.kafka/finalizer"
 
 type KafkaACLsReconciler struct {
 	client.Client
-	Scheme             *runtime.Scheme
-	KafkaServersStores *kafkaacls.ServersStore
+	Scheme            *runtime.Scheme
+	KafkaServersStore *kafkaacls.ServersStore
 }
 
 func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Intent) map[types.NamespacedName][]otterizev1alpha1.Intent {
@@ -40,7 +40,7 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Inte
 func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Service.Calls)
 
-	if err := r.KafkaServersStores.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
+	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
 		intentsForServer := intentsByServer[serverName]
 		if err := kafkaIntentsAdmin.ApplyIntents(intents.Spec.Service.Name, intents.Namespace, intentsForServer); err != nil {
 			return fmt.Errorf("failed applying intents on kafka server %s: %w", serverName, err)
@@ -51,7 +51,7 @@ func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error
 	}
 
 	for serverName, _ := range intentsByServer {
-		if _, ok := r.KafkaServersStores.Get(serverName.Name, serverName.Namespace); !ok {
+		if !r.KafkaServersStore.Exists(serverName.Name, serverName.Namespace) {
 			logrus.WithField("server", serverName).Warning("Did not apply intents to server - no server configuration was defined")
 		}
 	}
@@ -60,7 +60,7 @@ func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error
 }
 
 func (r *KafkaACLsReconciler) RemoveACLs(intents *otterizev1alpha1.Intents) error {
-	return r.KafkaServersStores.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
+	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
 		if err := kafkaIntentsAdmin.RemoveClientIntents(intents.Spec.Service.Name, intents.Namespace); err != nil {
 			return fmt.Errorf("failed removing intents from kafka server %s: %w", serverName, err)
 		}

@@ -116,7 +116,7 @@ func (a *KafkaIntentsAdmin) collectTopicsToACLList(principal string, topics []ot
 	return topicToACLList, nil
 }
 
-func (a *KafkaIntentsAdmin) deleteACLsByPrincipalTopicsByPrincipal(principal string) (int, error) {
+func (a *KafkaIntentsAdmin) deleteACLsByPrincipal(principal string) (int, error) {
 	aclFilter := sarama.AclFilter{
 		ResourceType:              sarama.AclResourceTopic,
 		ResourcePatternTypeFilter: sarama.AclPatternAny,
@@ -152,7 +152,7 @@ func (a *KafkaIntentsAdmin) createACLs(topicToACLList TopicToACLList) error {
 	return nil
 }
 
-func (a *KafkaIntentsAdmin) deleteACLsByPrincipalTopics(principal string, topics []otterizev1alpha1.KafkaTopic) error {
+func (a *KafkaIntentsAdmin) deleteACLsByPrincipalAndTopics(principal string, topics []otterizev1alpha1.KafkaTopic) error {
 	for _, topic := range topics {
 		operation, ok := KafkaOperationToAclOperationBMap.Get(topic.Operation)
 		if !ok {
@@ -249,7 +249,7 @@ func (a *KafkaIntentsAdmin) ApplyIntents(clientName string, clientNamespace stri
 		logger.Info("No ACL rules to delete")
 	} else {
 		logger.Infof("deleting %d ACL rules", len(AclRulesToDelete))
-		if err := a.deleteACLsByPrincipalTopics(principal, AclRulesToDelete); err != nil {
+		if err := a.deleteACLsByPrincipalAndTopics(principal, AclRulesToDelete); err != nil {
 			return fmt.Errorf("failed deleting ACLs on server: %w", err)
 		}
 	}
@@ -269,7 +269,7 @@ func (a *KafkaIntentsAdmin) RemoveClientIntents(clientName string, clientNamespa
 			"serverName":      a.kafkaServer.Spec.ServerName,
 			"serverNamespace": a.kafkaServer.Namespace,
 		})
-	countDeleted, err := a.deleteACLsByPrincipalTopicsByPrincipal(principal)
+	countDeleted, err := a.deleteACLsByPrincipal(principal)
 	if err != nil {
 		logger.Errorf("failed clearing acl rules for principal %s", principal)
 		return fmt.Errorf("failed clearing acls %w", err)

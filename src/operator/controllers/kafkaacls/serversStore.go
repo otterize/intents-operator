@@ -1,28 +1,27 @@
 package kafkaacls
 
 import (
+	"errors"
 	"github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
+var (
+	ServerSpecNotFound = errors.New("failed getting kafka server connection - server configuration specs not set")
+)
+
 type ServersStore struct {
-	serversByName map[types.NamespacedName]*KafkaIntentsAdmin
+	serversByName map[types.NamespacedName]*v1alpha1.KafkaServerConfig
 }
 
 func NewServersStore() *ServersStore {
 	return &ServersStore{
-		serversByName: map[types.NamespacedName]*KafkaIntentsAdmin{},
+		serversByName: map[types.NamespacedName]*v1alpha1.KafkaServerConfig{},
 	}
 }
-func (s *ServersStore) Add(config *v1alpha1.KafkaServerConfig) (*KafkaIntentsAdmin, error) {
-	a, err := NewKafkaIntentsAdmin(*config)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *ServersStore) Add(config *v1alpha1.KafkaServerConfig) {
 	name := types.NamespacedName{Name: config.Spec.ServerName, Namespace: config.Namespace}
-	s.serversByName[name] = a
-	return a, nil
+	s.serversByName[name] = config
 }
 
 func (s *ServersStore) Remove(serverName string, namespace string) {
@@ -32,14 +31,28 @@ func (s *ServersStore) Remove(serverName string, namespace string) {
 	}
 }
 
-func (s *ServersStore) Get(serverName string, namespace string) (*KafkaIntentsAdmin, bool) {
+func (s *ServersStore) Exists(serverName string, namespace string) bool {
 	name := types.NamespacedName{Name: serverName, Namespace: namespace}
-	a, ok := s.serversByName[name]
-	return a, ok
+	_, ok := s.serversByName[name]
+	return ok
+}
+
+func (s *ServersStore) Get(serverName string, namespace string) (*KafkaIntentsAdmin, error) {
+	name := types.NamespacedName{Name: serverName, Namespace: namespace}
+	config, ok := s.serversByName[name]
+	if !ok {
+		return nil, ServerSpecNotFound
+	}
+
+	return NewKafkaIntentsAdmin(*config)
 }
 
 func (s *ServersStore) MapErr(f func(types.NamespacedName, *KafkaIntentsAdmin) error) error {
-	for serverName, a := range s.serversByName {
+	for serverName, config := range s.serversByName {
+		a, err := NewKafkaIntentsAdmin(*config)
+		if err != nil {
+			return err
+		}
 		if err := f(serverName, a); err != nil {
 			return err
 		}
