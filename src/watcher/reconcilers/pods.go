@@ -34,10 +34,10 @@ func NewPodWatcher(c client.Client) *PodWatcher {
 	return &PodWatcher{c}
 }
 
-func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logrus.Infof("Reconciling due to pod change: %s", req.Name)
 	pod := v1.Pod{}
-	err := w.Get(ctx, req.NamespacedName, &pod)
+	err := p.Get(ctx, req.NamespacedName, &pod)
 	if k8serrors.IsNotFound(err) {
 		logrus.Infoln("Pod was deleted")
 		return ctrl.Result{}, nil
@@ -47,19 +47,19 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	otterizeIdentity, err := w.resolvePodToOtterizeIdentity(ctx, &pod)
+	otterizeServiceIdentity, err := p.resolvePodToOtterizeIdentity(ctx, &pod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if !otterizev1alpha1.HasOtterizeServerLabel(&pod) {
 		// Label pods as destination servers
-		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeIdentity.Name)
+		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeServiceIdentity.Name)
 		updatedPod := pod.DeepCopy()
 		updatedPod.Labels[otterizev1alpha1.OtterizeServerLabelKey] =
-			otterizev1alpha1.GetFormattedOtterizeIdentity(otterizeIdentity.Name, otterizeIdentity.Namespace)
+			otterizev1alpha1.GetFormattedOtterizeIdentity(otterizeServiceIdentity.Name, otterizeServiceIdentity.Namespace)
 
-		err := w.Patch(ctx, updatedPod, client.MergeFrom(&pod))
+		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.Errorln("Failed labeling pod as server", "Pod name", pod.Name, "Namespace", pod.Namespace)
 			logrus.Errorln(err)
@@ -67,15 +67,22 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
+	// Intents were deleted and the pod was updated by the operator, skip reconciliation
+	_, ok := pod.Annotations[otterizev1alpha1.AllIntentsRemoved]
+	if ok {
+		logrus.Infof("Skipping reconciliation for pod %s - pod is handled by intents-operator", req.Name)
+		return ctrl.Result{}, nil
+	}
+
 	var intents otterizev1alpha1.IntentsList
-	err = w.List(
+	err = p.List(
 		ctx, &intents,
-		&client.MatchingFields{OtterizeClientNameIndexField: otterizeIdentity.Name},
-		&client.ListOptions{Namespace: otterizeIdentity.Namespace})
+		&client.MatchingFields{OtterizeClientNameIndexField: otterizeServiceIdentity.Name},
+		&client.ListOptions{Namespace: otterizeServiceIdentity.Namespace})
 
 	if err != nil {
 		logrus.Errorln("Failed listing intents", "Service name",
-			otterizeIdentity.Name, "Namespace", otterizeIdentity.Namespace)
+			otterizeServiceIdentity.Name, "Namespace", otterizeServiceIdentity.Namespace)
 		return ctrl.Result{}, err
 	}
 
@@ -85,18 +92,17 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	otterizeAccessLabels := map[string]string{}
 	for _, intent := range intents.Items {
-		currIntentLabels := intent.GetIntentsLabelMapping(otterizeIdentity.Namespace)
+		currIntentLabels := intent.GetIntentsLabelMapping(otterizeServiceIdentity.Namespace)
 		for k, v := range currIntentLabels {
 			otterizeAccessLabels[k] = v
 		}
 	}
 	if otterizev1alpha1.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
-		logrus.Infof("Updating Otterize access labels for %s", otterizeIdentity.Name)
+		logrus.Infof("Updating Otterize access labels for %s", otterizeServiceIdentity.Name)
 		updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
-		err := w.Patch(ctx, updatedPod, client.MergeFrom(&pod))
+		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
-			logrus.Errorln("Failed updating Otterize labels for pod", "Pod name",
-				pod.Name, "Namespace", pod.Namespace)
+			logrus.Errorf("Failed updating Otterize labels for pod %s in namespace %s", pod.Name, pod.Namespace)
 			return ctrl.Result{}, err
 		}
 	}
@@ -104,7 +110,7 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (w *PodWatcher) InitIntentIndexes(mgr manager.Manager) error {
+func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&otterizev1alpha1.Intents{},
@@ -124,7 +130,7 @@ func (w *PodWatcher) InitIntentIndexes(mgr manager.Manager) error {
 	return nil
 }
 
-func (w *PodWatcher) resolvePodToOtterizeIdentity(ctx context.Context, pod *v1.Pod) (*types.NamespacedName, error) {
+func (p *PodWatcher) resolvePodToOtterizeIdentity(ctx context.Context, pod *v1.Pod) (*types.NamespacedName, error) {
 	var otterizeIdentity string
 	var ownerKind client.Object
 	for _, owner := range pod.OwnerReferences {
@@ -141,18 +147,18 @@ func (w *PodWatcher) resolvePodToOtterizeIdentity(ctx context.Context, pod *v1.P
 		default:
 			logrus.Infof("Unknown owner kind %s for pod %s", owner.Kind, pod.Name)
 		}
-		err := w.Get(ctx, namespacedName, ownerKind)
+		err := p.Get(ctx, namespacedName, ownerKind)
 		if err != nil {
 			return nil, err
 		}
-		otterizeIdentity = w.getOtterizeIdentityFromObject(ownerKind)
+		otterizeIdentity = p.getOtterizeIdentityFromObject(ownerKind)
 		return &types.NamespacedName{Name: otterizeIdentity, Namespace: pod.Namespace}, nil
 	}
 
 	return nil, fmt.Errorf("pod %s has no owner", pod.Name)
 }
 
-func (w *PodWatcher) getOtterizeIdentityFromObject(obj client.Object) string {
+func (p *PodWatcher) getOtterizeIdentityFromObject(obj client.Object) string {
 	owners := obj.GetOwnerReferences()
 	if len(owners) != 0 {
 		return owners[0].Name
@@ -161,7 +167,7 @@ func (w *PodWatcher) getOtterizeIdentityFromObject(obj client.Object) string {
 }
 
 func (w *PodWatcher) Register(mgr manager.Manager) error {
-	watcher, err := controller.New("otterize-watcher", mgr, controller.Options{
+	watcher, err := controller.New("otterize-pod-watcher", mgr, controller.Options{
 		Reconciler: w,
 	})
 	if err != nil {

@@ -19,11 +19,3 @@ leaderElection:
 #   if you are doing or is intended to do any operation such as perform cleanups 
 #   after the manager stops then its usage might be unsafe.
 #   leaderElectionReleaseOnCancel: true
-#kafkaServers:
-#  - name: kafka
-#    namespace: kafkans
-#    addr: kafka.kafkans:9092
-#    tls:
-#      certFile: /etc/tls/svid.pem
-#      keyFile: /etc/tls/key.pem
-#      rootCAFile: /etc/tls/bundle.pem
