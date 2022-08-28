@@ -111,8 +111,8 @@ func main() {
 	kafkaServersStore := kafkaacls.NewServersStore()
 
 	intentsReconciler := &controllers.IntentsReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
 		KafkaServersStore: kafkaServersStore}
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
