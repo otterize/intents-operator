@@ -3,4 +3,12 @@ kind: Intents
 metadata:
   name: intents-sample
 spec:
-  # TODO(user): Add fields here
+  service:
+    name: client
+    calls:
+      - type: Kafka
+        server: kafka
+        namespace: default
+        topics:
+          - name: orders
+            operation: all

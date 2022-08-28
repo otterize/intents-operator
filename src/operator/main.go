@@ -18,6 +18,10 @@ package main
 
 import (
 	"flag"
+	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
+	"os"
+
+	"github.com/otterize/intents-operator/operator/controllers"
 	"github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"os"
 
@@ -107,11 +111,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controllers.IntentsReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Conf:   controllers.IntentsReconcilerConfig{KafkaServers: ctrlConfig.KafkaServers},
-	}).SetupWithManager(mgr); err != nil {
+	kafkaServersStore := kafkaacls.NewServersStore()
+
+	intentsReconciler := &controllers.IntentsReconciler{
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		KafkaServersStore: kafkaServersStore}
+
+	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
+		setupLog.Error(err, "unable to init indices", "controller", "Intents")
+		os.Exit(1)
+	}
+
+	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Intents")
 		os.Exit(1)
 	}
@@ -119,8 +131,16 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Intents")
 		os.Exit(1)
 	}
-	//+kubebuilder:scaffold:builder
+	if err = (&controllers.KafkaServerConfigReconciler{
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		ServersStore: kafkaServersStore,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "KafkaServerConfig")
+		os.Exit(1)
+	}
 
+	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
