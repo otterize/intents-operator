@@ -166,9 +166,9 @@ func (p *PodWatcher) getOtterizeIdentityFromObject(obj client.Object) string {
 	return obj.GetName()
 }
 
-func (p *PodWatcher) Register(mgr manager.Manager) error {
-	watcher, err := controller.New("pod-watcher", mgr, controller.Options{
-		Reconciler: p,
+func (w *PodWatcher) Register(mgr manager.Manager) error {
+	watcher, err := controller.New("otterize-pod-watcher", mgr, controller.Options{
+		Reconciler: w,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to set up pods controller: %w", err)
