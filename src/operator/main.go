@@ -18,10 +18,11 @@ package main
 
 import (
 	"flag"
+	"github.com/otterize/intents-operator/operator/controllers"
+	"github.com/otterize/intents-operator/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	"os"
 
-	"github.com/otterize/intents-operator/operator/controllers"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -110,10 +111,19 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore()
 
-	intentsReconciler := &controllers.IntentsReconciler{
-		Client:            mgr.GetClient(),
-		Scheme:            mgr.GetScheme(),
-		KafkaServersStore: kafkaServersStore}
+	svcReconciler := external_traffic.NewExternalTrafficReconciler(mgr.GetClient(), mgr.GetScheme())
+
+	if err = svcReconciler.InitServiceReconcilerIndex(mgr); err != nil {
+		setupLog.Error(err, "unable to init indices", "controller", "Service")
+		os.Exit(1)
+	}
+
+	if err = svcReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Service")
+		os.Exit(1)
+	}
+
+	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		setupLog.Error(err, "unable to init indices", "controller", "Intents")
@@ -124,6 +134,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Intents")
 		os.Exit(1)
 	}
+
 	if err = (&controllers.KafkaServerConfigReconciler{
 		Client:       mgr.GetClient(),
 		Scheme:       mgr.GetScheme(),
