@@ -91,7 +91,7 @@ func (r *KafkaACLsReconciler) RemoveACLs(intents *otterizev1alpha1.Intents) erro
 
 func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	intents := &otterizev1alpha1.Intents{}
-	logger := logrus.WithField("namespaced_name", req.NamespacedName.String())
+	logger := logrus.WithField("namespacedName", req.String())
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if err != nil && k8serrors.IsNotFound(err) {
 		logger.Info("No intents found")
