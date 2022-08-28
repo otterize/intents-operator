@@ -10,8 +10,8 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
-COPY operator/cmd/main.go main.go
-COPY shared/api shared/api/
+COPY operator/main.go main.go
+COPY operator/api operator/api/
 COPY operator/controllers operator/controllers/
 
 # Build

@@ -18,9 +18,10 @@ package main
 
 import (
 	"flag"
-	"github.com/otterize/intents-operator/operator/controllers"
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	"github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"os"
+
+	"github.com/otterize/intents-operator/operator/controllers"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -43,7 +44,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(otterizev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(v1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -71,7 +72,7 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	var err error
-	ctrlConfig := otterizev1alpha1.ProjectConfig{}
+	ctrlConfig := v1alpha1.ProjectConfig{}
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -112,6 +113,10 @@ func main() {
 		Conf:   controllers.IntentsReconcilerConfig{KafkaServers: ctrlConfig.KafkaServers},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Intents")
+		os.Exit(1)
+	}
+	if err = (&v1alpha1.Intents{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Intents")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder

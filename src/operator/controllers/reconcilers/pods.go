@@ -2,7 +2,7 @@ package reconcilers
 
 import (
 	"context"
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	"github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,7 +21,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	pods := &v1.PodList{}
 	namespace := req.NamespacedName.Namespace
 
-	intents := &otterizev1alpha1.Intents{}
+	intents := &v1alpha1.Intents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		logrus.Infof("Intents deleted for namespace %s", namespace)
@@ -41,10 +41,10 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	for _, pod := range pods.Items {
-		if strings.HasPrefix(pod.Name, serviceName) && otterizev1alpha1.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
+		if strings.HasPrefix(pod.Name, serviceName) && v1alpha1.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
 			logrus.Infof("Updating %s pod labels with new intents", serviceName)
 
-			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
+			updatedPod := v1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				return ctrl.Result{}, err

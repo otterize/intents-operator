@@ -3,7 +3,7 @@ package kafka_acls
 import (
 	"context"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	"github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,11 +19,11 @@ var finalizerName = "otterize-intents.kafka/finalizer"
 type KafkaACLsReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
-	KafkaServers []otterizev1alpha1.KafkaServer
+	KafkaServers []v1alpha1.KafkaServer
 }
 
-func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Intent) map[types.NamespacedName][]otterizev1alpha1.Intent {
-	intentsByServer := map[types.NamespacedName][]otterizev1alpha1.Intent{}
+func getIntentsByServer(defaultNamespace string, intents []v1alpha1.Intent) map[types.NamespacedName][]v1alpha1.Intent {
+	intentsByServer := map[types.NamespacedName][]v1alpha1.Intent{}
 	for _, intent := range intents {
 		serverName := types.NamespacedName{
 			Name:      intent.Server,
@@ -36,8 +36,8 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Inte
 	return intentsByServer
 }
 
-func (r *KafkaACLsReconciler) logMissingIntentServers(intentsByServer map[types.NamespacedName][]otterizev1alpha1.Intent) {
-	serversByName := map[types.NamespacedName]otterizev1alpha1.KafkaServer{}
+func (r *KafkaACLsReconciler) logMissingIntentServers(intentsByServer map[types.NamespacedName][]v1alpha1.Intent) {
+	serversByName := map[types.NamespacedName]v1alpha1.KafkaServer{}
 	for _, kafkaServer := range r.KafkaServers {
 		serverName := types.NamespacedName{Name: kafkaServer.Name, Namespace: kafkaServer.Namespace}
 		serversByName[serverName] = kafkaServer
@@ -50,7 +50,7 @@ func (r *KafkaACLsReconciler) logMissingIntentServers(intentsByServer map[types.
 	}
 }
 
-func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error {
+func (r *KafkaACLsReconciler) applyACLs(intents *v1alpha1.Intents) error {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Service.Calls)
 
 	for _, kafkaServer := range r.KafkaServers {
@@ -73,7 +73,7 @@ func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error
 	return nil
 }
 
-func (r *KafkaACLsReconciler) RemoveACLs(intents *otterizev1alpha1.Intents) error {
+func (r *KafkaACLsReconciler) RemoveACLs(intents *v1alpha1.Intents) error {
 	for _, kafkaServer := range r.KafkaServers {
 		serverName := types.NamespacedName{Name: kafkaServer.Name, Namespace: kafkaServer.Namespace}
 
@@ -90,7 +90,7 @@ func (r *KafkaACLsReconciler) RemoveACLs(intents *otterizev1alpha1.Intents) erro
 }
 
 func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	intents := &otterizev1alpha1.Intents{}
+	intents := &v1alpha1.Intents{}
 	logger := logrus.WithField("namespaced_name", req.NamespacedName.String())
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if err != nil && k8serrors.IsNotFound(err) {

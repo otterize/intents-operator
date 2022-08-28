@@ -1,7 +1,7 @@
 package main
 
 import (
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/watcher/reconcilers"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"

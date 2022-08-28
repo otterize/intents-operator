@@ -18,9 +18,9 @@ package controllers
 
 import (
 	"context"
+	"github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/operator/controllers/reconcilers"
 	"github.com/otterize/intents-operator/operator/controllers/reconcilers/kafka_acls"
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -30,7 +30,7 @@ import (
 )
 
 type IntentsReconcilerConfig struct {
-	KafkaServers []otterizev1alpha1.KafkaServer
+	KafkaServers []v1alpha1.KafkaServer
 }
 
 // IntentsReconciler reconciles a Intents object
@@ -76,7 +76,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev1alpha1.Intents{}).
+		For(&v1alpha1.Intents{}).
 		Complete(r)
 }
 

@@ -3,7 +3,6 @@ package reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -52,12 +51,12 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if !otterizev1alpha1.HasOtterizeServerLabel(&pod) {
+	if !v1alpha1.HasOtterizeServerLabel(&pod) {
 		// Label pods as destination servers
 		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeIdentity.Name)
 		updatedPod := pod.DeepCopy()
-		updatedPod.Labels[otterizev1alpha1.OtterizeServerLabelKey] =
-			otterizev1alpha1.GetFormattedOtterizeIdentity(otterizeIdentity.Name, otterizeIdentity.Namespace)
+		updatedPod.Labels[v1alpha1.OtterizeServerLabelKey] =
+			v1alpha1.GetFormattedOtterizeIdentity(otterizeIdentity.Name, otterizeIdentity.Namespace)
 
 		err := w.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
@@ -67,7 +66,7 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
-	var intents otterizev1alpha1.IntentsList
+	var intents v1alpha1.IntentsList
 	err = w.List(
 		ctx, &intents,
 		&client.MatchingFields{OtterizeClientNameIndexField: otterizeIdentity.Name},
@@ -90,9 +89,9 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			otterizeAccessLabels[k] = v
 		}
 	}
-	if otterizev1alpha1.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
+	if v1alpha1.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
 		logrus.Infof("Updating Otterize access labels for %s", otterizeIdentity.Name)
-		updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
+		updatedPod := v1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
 		err := w.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.Errorln("Failed updating Otterize labels for pod", "Pod name",
@@ -107,10 +106,10 @@ func (w *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 func (w *PodWatcher) InitIntentIndexes(mgr manager.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha1.Intents{},
+		&v1alpha1.Intents{},
 		OtterizeClientNameIndexField,
 		func(object client.Object) []string {
-			intents := object.(*otterizev1alpha1.Intents)
+			intents := object.(*v1alpha1.Intents)
 			if intents.Spec == nil {
 				return nil
 			}
