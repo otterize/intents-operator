@@ -127,7 +127,7 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	r.ServersStore.Add(kafkaServerConfig)
 
-	kafkaIntentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Name)
+	kafkaIntentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
