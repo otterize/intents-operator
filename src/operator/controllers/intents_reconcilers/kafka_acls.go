@@ -37,7 +37,7 @@ func getIntentsByServer(defaultNamespace string, intents []v1alpha1.Intent) map[
 	return intentsByServer
 }
 
-func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error {
+func (r *KafkaACLsReconciler) applyACLs(intents *v1alpha1.Intents) error {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Service.Calls)
 
 	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {

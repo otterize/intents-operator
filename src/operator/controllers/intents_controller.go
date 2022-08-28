@@ -18,9 +18,9 @@ package controllers
 
 import (
 	"context"
+	"github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
-	"github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -28,10 +28,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-type IntentsReconcilerConfig struct {
-	KafkaServers []v1alpha1.KafkaServer
-}
 
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
