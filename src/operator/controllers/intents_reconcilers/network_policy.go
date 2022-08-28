@@ -1,4 +1,4 @@
-package reconcilers
+package intents_reconcilers
 
 import (
 	"context"
