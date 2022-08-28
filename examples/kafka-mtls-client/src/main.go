@@ -16,9 +16,13 @@ import (
 
 const (
 	kafkaAddr  = "kafka-tls-0.kafka-tls-headless.default.svc.cluster.local:9092"
-	certFile   = "/etc/spire-integration/svid.pem"
-	keyFile    = "/etc/spire-integration/key.pem"
-	rootCAFile = "/etc/spire-integration/bundle.pem"
+	tlsEnabled = true
+	//kafkaAddr     = "kafka-tls2.default.svc.cluster.local:9095"
+	//tlsEnabled    = false
+	testTopicName = "orders"
+	certFile      = "/etc/spire-integration/svid.pem"
+	keyFile       = "/etc/spire-integration/key.pem"
+	rootCAFile    = "/etc/spire-integration/bundle.pem"
 )
 
 func getTLSConfig() (*tls.Config, error) {
@@ -40,6 +44,41 @@ func getTLSConfig() (*tls.Config, error) {
 	}, nil
 }
 
+func ensureKafkaTopic(client sarama.Client, topic string) error {
+	logrus.WithField("topicName", testTopicName).Info("Ensuring topic")
+
+	admin, err := sarama.NewClusterAdminFromClient(client)
+	if err != nil {
+		return err
+	}
+
+	topics, err := admin.ListTopics()
+	if err != nil {
+		return fmt.Errorf("failed listing topics: %w", err)
+	}
+
+	if _, found := topics[topic]; !found {
+		err = admin.CreateTopic(topic, &sarama.TopicDetail{
+			NumPartitions:     1,
+			ReplicationFactor: 1,
+		}, false)
+		if err != nil {
+			return fmt.Errorf("failed creating topic: %w", err)
+		}
+	}
+
+	topicsMeta, err := admin.DescribeTopics([]string{topic})
+	if err != nil {
+		return fmt.Errorf("failed describing topic: %w", err)
+	}
+
+	for _, topicMeta := range topicsMeta {
+		logrus.WithFields(logrus.Fields{"topicMeta": topicMeta, "topic": topic}).Info("Topic metadata")
+	}
+
+	return nil
+}
+
 func main() {
 	logrus.WithField("addr", kafkaAddr).Info("Connecting to kafka server")
 	addrs := []string{kafkaAddr}
@@ -47,13 +86,14 @@ func main() {
 	config := sarama.NewConfig()
 	config.Version = sarama.V2_0_0_0
 
-	tlsConfig, err := getTLSConfig()
-	if err != nil {
-		logrus.WithError(err).Panic()
+	config.Net.TLS.Enable = tlsEnabled
+	if tlsEnabled {
+		tlsConfig, err := getTLSConfig()
+		if err != nil {
+			logrus.WithError(err).Panic()
+		}
+		config.Net.TLS.Config = tlsConfig
 	}
-
-	config.Net.TLS.Config = tlsConfig
-	config.Net.TLS.Enable = true
 
 	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 
@@ -68,6 +108,10 @@ func main() {
 	}
 
 	logrus.WithField("topics", topics).Info("Topics")
+
+	if err := ensureKafkaTopic(a, testTopicName); err != nil {
+		logrus.WithError(err).Panic()
+	}	
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

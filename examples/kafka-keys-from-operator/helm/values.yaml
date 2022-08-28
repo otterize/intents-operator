@@ -8,8 +8,14 @@ kafka:
     - "CLIENT://:9092"
     - "INTERNAL://:9093"
     - "EXTERNAL://:9094"
+    - "EXTERNAL_PLAIN://:9095"
   # CLIENT and EXTERNAL should be SSL so kafka will use the certificates
-  listenerSecurityProtocolMap: "INTERNAL:SSL,CLIENT:SSL,EXTERNAL:SSL"
+  advertisedListeners:
+    - "CLIENT://:9092"
+    - "INTERNAL://:9093"
+    - "EXTERNAL://:9094"
+    - "EXTERNAL_PLAIN://:9095"
+  listenerSecurityProtocolMap: "INTERNAL:SSL,CLIENT:SSL,EXTERNAL:SSL,EXTERNAL_PLAIN:PLAINTEXT"
   auth:
     clientProtocol: mtls
     interBrokerProtocol: mtls
