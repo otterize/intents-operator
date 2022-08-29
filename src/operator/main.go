@@ -18,11 +18,9 @@ package main
 
 import (
 	"flag"
-	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
-	"os"
-
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/operator/controllers"
+	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
@@ -111,12 +109,18 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore()
 
-	if err = (&controllers.IntentsReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Conf:   controllers.IntentsReconcilerConfig{KafkaServers: ctrlConfig.KafkaServers},
-	}).SetupWithManager(mgr); err != nil {
+	intentsReconciler := &controllers.IntentsReconciler{
+		Client:            mgr.GetClient(),
+		Scheme:            mgr.GetScheme(),
+		KafkaServersStore: kafkaServersStore}
+
+	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init indices")
+	}
+
+	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
+
 	}
 	if err = (&controllers.KafkaServerConfigReconciler{
 		Client:       mgr.GetClient(),
