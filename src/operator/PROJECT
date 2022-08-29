@@ -16,4 +16,13 @@ resources:
   kind: Intents
   path: github.com/otterize/intents-operator/shared/api/v1alpha1
   version: v1alpha1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: otterize.com
+  group: otterize
+  kind: KafkaServerConfig
+  path: github.com/otterize/intents-operator/shared/api/v1alpha1
+  version: v1alpha1
 version: "3"

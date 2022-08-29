@@ -83,7 +83,7 @@ func main() {
 	podWatcher := reconcilers.NewPodWatcher(mgr.GetClient())
 	nsWatcher := reconcilers.NewNamespaceWatcher(mgr.GetClient())
 
-	err = podWatcher.InitIntentIndexes(mgr)
+	err = podWatcher.InitIntentsClientIndices(mgr)
 	if err != nil {
 		logrus.WithError(err).Panic()
 	}
@@ -98,7 +98,7 @@ func main() {
 		logrus.WithError(err).Panic()
 	}
 
-	logrus.Infoln("## Starting Otterize Pod Watcher ##")
+	logrus.Infoln("## Starting Otterize Watcher ##")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		logrus.WithError(err).Panic("problem running manager")
 	}

@@ -21,19 +21,6 @@ import (
 	cfg "sigs.k8s.io/controller-runtime/pkg/config/v1alpha1"
 )
 
-type TLSSource struct {
-	CertFile   string `json:"certFile,omitempty"`
-	KeyFile    string `json:"keyFile,omitempty"`
-	RootCAFile string `json:"rootCAFile,omitempty"`
-}
-
-type KafkaServer struct {
-	Name      string    `json:"name,omitempty"`
-	Namespace string    `json:"namespace,omitempty"`
-	Addr      string    `json:"addr,omitempty"`
-	TLS       TLSSource `json:"tls,omitempty"`
-}
-
 //+kubebuilder:object:root=true
 
 // ProjectConfig is the Schema for the projectconfigs API
@@ -48,8 +35,6 @@ type ProjectConfig struct {
 	// If it is not specified, the controller watches all namespaces.
 	// +optional
 	WatchNamespaces []string `json:"watchNamespaces,omitempty"`
-
-	KafkaServers []KafkaServer `json:"kafkaServers,omitempty"`
 }
 
 func init() {

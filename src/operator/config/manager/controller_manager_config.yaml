@@ -22,11 +22,3 @@ leaderElection:
 #   if you are doing or is intended to do any operation such as perform cleanups 
 #   after the manager stops then its usage might be unsafe.
 #   leaderElectionReleaseOnCancel: true
-#kafkaServers:
-#  - name: my-kafka
-#    namespace: default
-#    addr: my-kafka:9092
-#    tls:
-#      certFile: /etc/spifferize/svid.pem
-#      keyFile: /etc/spifferize/key.pem
-#      rootCAFile: /etc/spifferize/bundle.pem

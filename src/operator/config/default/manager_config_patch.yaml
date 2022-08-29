@@ -5,6 +5,9 @@ metadata:
   namespace: system
 spec:
   template:
+    metadata:
+      annotations:
+        otterize/tls-secret-name: spifferize-tls-controller-manager
     spec:
       containers:
       - name: manager

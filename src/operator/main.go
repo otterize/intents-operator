@@ -18,6 +18,9 @@ package main
 
 import (
 	"flag"
+	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
+	"os"
+
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/operator/controllers"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
@@ -106,6 +109,8 @@ func main() {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
 
+	kafkaServersStore := kafkaacls.NewServersStore()
+
 	if err = (&controllers.IntentsReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
@@ -113,8 +118,15 @@ func main() {
 	}).SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
 	}
-	//+kubebuilder:scaffold:builder
+	if err = (&controllers.KafkaServerConfigReconciler{
+		Client:       mgr.GetClient(),
+		Scheme:       mgr.GetScheme(),
+		ServersStore: kafkaServersStore,
+	}).SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
+	}
 
+	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		logrus.WithError(err).Fatal("unable to set up health check")
 	}

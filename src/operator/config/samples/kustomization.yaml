@@ -1,4 +1,5 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
 - otterize_v1alpha1_intents.yaml
+- otterize_v1alpha1_kafkaserverconfig.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples
