@@ -46,7 +46,6 @@ func main() {
 	ctrlConfig := otterizev1alpha1.ProjectConfig{}
 
 	options := ctrl.Options{
-		//NewCache:               cache.MultiNamespacedCacheBuilder(),
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
 		Port:                   9443,
