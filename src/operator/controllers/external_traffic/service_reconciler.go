@@ -31,7 +31,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
+	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer && svc.Spec.Type != corev1.ServiceTypeNodePort {
 		return ctrl.Result{}, nil
 	}
 	err = r.handleNetworkPolicyCreation(ctx, svc)
