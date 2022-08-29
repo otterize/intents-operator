@@ -86,3 +86,4 @@ metadata:
     control-plane: controller-manager
   name: spifferize-tls-controller-manager
   namespace: system
+
