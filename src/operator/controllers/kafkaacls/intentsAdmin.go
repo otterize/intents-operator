@@ -94,6 +94,12 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig) (*Kafk
 	return &KafkaIntentsAdmin{kafkaServer: kafkaServer, kafkaAdminClient: a}, nil
 }
 
+func (a *KafkaIntentsAdmin) Close() {
+	if err := a.kafkaAdminClient.Close(); err != nil {
+		logrus.WithError(err).Error("Error closing kafka admin client")
+	}
+}
+
 func (a *KafkaIntentsAdmin) formatPrincipal(clientName string, clientNamespace string) string {
 	return fmt.Sprintf("User:CN=%s.%s,O=SPIRE,C=US", clientName, clientNamespace)
 }

@@ -47,13 +47,9 @@ func (s *ServersStore) Get(serverName string, namespace string) (*KafkaIntentsAd
 	return NewKafkaIntentsAdmin(*config)
 }
 
-func (s *ServersStore) MapErr(f func(types.NamespacedName, *KafkaIntentsAdmin) error) error {
+func (s *ServersStore) MapErr(f func(types.NamespacedName, *v1alpha1.KafkaServerConfig) error) error {
 	for serverName, config := range s.serversByName {
-		a, err := NewKafkaIntentsAdmin(*config)
-		if err != nil {
-			return err
-		}
-		if err := f(serverName, a); err != nil {
+		if err := f(serverName, config); err != nil {
 			return err
 		}
 	}
