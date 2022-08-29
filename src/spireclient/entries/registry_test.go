@@ -6,10 +6,12 @@ import (
 	"github.com/golang/mock/gomock"
 	mock_entryv1 "github.com/otterize/spire-integration-operator/src/mocks/entryv1"
 	mock_spireclient "github.com/otterize/spire-integration-operator/src/mocks/spireclient"
+	"github.com/samber/lo"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
 	"github.com/stretchr/testify/suite"
+	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"testing"
 )
@@ -97,6 +99,74 @@ func (s *RegistrySuite) TestRegistry_RegisterK8SPodEntry() {
 		})
 	}
 
+}
+
+type batchCreateEntryRequestMatcher struct {
+	dnsNames *[]string
+}
+
+func (m *batchCreateEntryRequestMatcher) Matches(x interface{}) bool {
+	request, ok := x.(*entryv1.BatchCreateEntryRequest)
+	if !ok {
+		return false
+	}
+
+	if len(request.Entries) != 1 {
+		return false
+	}
+
+	if m.dnsNames != nil && !slices.Equal(request.Entries[0].DnsNames, *m.dnsNames) {
+		return false
+	}
+
+	return true
+}
+
+func (m *batchCreateEntryRequestMatcher) String() string {
+	return fmt.Sprintf("is a BatchCreateEntryRequest")
+}
+
+func (s *RegistrySuite) TestRegistry_RegisterK8SPodEntry_DedupDnsNames() {
+	namespace := "test-namespace"
+	serviceNameLabel := "test/service-name"
+	serviceName := "test-service-name"
+	defaultCommonName := fmt.Sprintf("%s.%s", serviceName, namespace)
+	extraDnsNames := []string{"hi.com", "test.org"}
+	spiffeID, err := spiffeid.FromPath(trustDomain, "/otterize/namespace/test-namespace/service/test-service-name")
+	s.Require().NoError(err)
+
+	response := entryv1.BatchCreateEntryResponse{
+		Results: []*entryv1.BatchCreateEntryResponse_Result{
+			{
+				Status: &types.Status{Code: int32(codes.OK)},
+				Entry: &types.Entry{
+					Id: "test",
+					SpiffeId: &types.SPIFFEID{
+						TrustDomain: spiffeID.TrustDomain().String(),
+						Path:        spiffeID.Path(),
+					},
+				},
+			},
+		},
+	}
+
+	m := batchCreateEntryRequestMatcher{
+		dnsNames: lo.ToPtr(append([]string{defaultCommonName}, extraDnsNames...)),
+	}
+
+	s.entryClient.EXPECT().BatchCreateEntry(gomock.Any(), &m).Return(&response, nil)
+
+	// defaultCommonName appears in extraDnsNames input arg and should be deduplicated
+	inputDnsNames := append(extraDnsNames, defaultCommonName)
+	entryId, err := s.registry.RegisterK8SPodEntry(context.Background(),
+		namespace,
+		serviceNameLabel,
+		serviceName,
+		0,
+		inputDnsNames)
+
+	s.Require().NoError(err)
+	s.Require().Equal(entryId, response.Results[0].Entry.Id)
 }
 
 func (s *RegistrySuite) TestShouldUpdateEntry() {

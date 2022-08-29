@@ -29,18 +29,22 @@ func NewEntriesRegistry(spireClient spireclient.ServerClient) Registry {
 	}
 }
 
-func (r *registryImpl) RegisterK8SPodEntry(ctx context.Context, namespace string, serviceNameLabel string, serviceName string, ttl int32, dnsNames []string) (string, error) {
+func (r *registryImpl) RegisterK8SPodEntry(ctx context.Context, namespace string, serviceNameLabel string, serviceName string, ttl int32, extraDnsNames []string) (string, error) {
 	log := logrus.WithFields(logrus.Fields{"namespace": namespace, "service_name": serviceName})
 
 	trustDomain := r.parentSpiffeID.TrustDomain()
 	podSpiffeIDPath := fmt.Sprintf("/otterize/namespace/%s/service/%s", namespace, serviceName)
 	parentSpiffeIDPath := r.parentSpiffeID.Path()
 
-	// Kafka will use certificate's CN to enforce ACL Rules
-	commonName := []string{strings.Join([]string{serviceName, namespace}, ".")}
-
 	// Spire uses the first DNS name as CN. CN should be a valid dns name.
-	dnsNames = append(commonName, dnsNames...)
+	commonName := strings.Join([]string{serviceName, namespace}, ".")
+	i := slices.Index(extraDnsNames, commonName)
+	if i != -1 {
+		// Remove common name from extra DNS names to make sure it doesn't appear as duplicate
+		extraDnsNames = slices.Delete(extraDnsNames, i, i+1)
+	}
+
+	dnsNames := append([]string{commonName}, extraDnsNames...)
 
 	log.Infof("dns_names: %s", dnsNames)
 
