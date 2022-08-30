@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -188,4 +189,20 @@ func GetFormattedOtterizeIdentity(name, ns string) string {
 
 	return fmt.Sprintf("%s-%s-%s", name, ns, hashSuffix)
 
+}
+
+// BuildPodLabelSelector returns a label selector to match the otterize server labels for an intents resource
+// Since we label ALL pods with their unique server identity, we can use this label to get said pods for client usage as well
+func (in *Intents) BuildPodLabelSelector() (labels.Selector, error) {
+	labelSelector, err := labels.Parse(
+		fmt.Sprintf("%s=%s",
+			OtterizeServerLabelKey,
+			// Since all pods are also labeled with their server identity, we use the Otterize server label
+			// To find all pods for this specific service
+			GetFormattedOtterizeIdentity(in.Spec.Service.Name, in.Namespace)))
+	if err != nil {
+		return nil, nil
+	}
+
+	return labelSelector, nil
 }
