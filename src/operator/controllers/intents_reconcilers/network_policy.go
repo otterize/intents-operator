@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	"github.com/otterize/intents-operator/operator/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,7 +25,7 @@ type NetworkPolicyReconciler struct {
 }
 
 func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	intents := &v1alpha1.Intents{}
+	intents := &otterizev1alpha1.Intents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
@@ -76,7 +76,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
-	ctx context.Context, intent v1alpha1.Intent, intentsObjNamespace string) error {
+	ctx context.Context, intent otterizev1alpha1.Intent, intentsObjNamespace string) error {
 
 	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Server, intentsObjNamespace)
 	policy := &v1.NetworkPolicy{}
@@ -103,7 +103,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 }
 
 func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
-	ctx context.Context, intents *v1alpha1.Intents) error {
+	ctx context.Context, intents *otterizev1alpha1.Intents) error {
 	if !controllerutil.ContainsFinalizer(intents, NetworkPolicyFinalizerName) {
 		return nil
 	}
@@ -113,10 +113,10 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 			intent.Namespace = intents.Namespace
 		}
 
-		var intentsList v1alpha1.IntentsList
+		var intentsList otterizev1alpha1.IntentsList
 		err := r.List(
 			ctx, &intentsList,
-			&client.MatchingFields{v1alpha1.OtterizeTargetServerIndexField: intent.Server},
+			&client.MatchingFields{otterizev1alpha1.OtterizeTargetServerIndexField: intent.Server},
 			&client.ListOptions{Namespace: intents.Namespace})
 
 		if err != nil {
@@ -145,7 +145,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 
 func (r *NetworkPolicyReconciler) removeNetworkPolicy(
 	ctx context.Context,
-	intent v1alpha1.Intent,
+	intent otterizev1alpha1.Intent,
 	intentsObjNamespace string) error {
 
 	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Server, intentsObjNamespace)
@@ -165,9 +165,9 @@ func (r *NetworkPolicyReconciler) removeNetworkPolicy(
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
 func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
-	intent v1alpha1.Intent, policyName, intentsObjNamespace string) *v1.NetworkPolicy {
+	intent otterizev1alpha1.Intent, policyName, intentsObjNamespace string) *v1.NetworkPolicy {
 	// The intent's target server made of name + namespace + hash
-	formattedTargetServer := v1alpha1.GetFormattedOtterizeIdentity(intent.Server, intent.Namespace)
+	formattedTargetServer := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intent.Namespace)
 
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -180,7 +180,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 		Spec: v1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					v1alpha1.OtterizeServerLabelKey: formattedTargetServer,
+					otterizev1alpha1.OtterizeServerLabelKey: formattedTargetServer,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{
@@ -190,12 +190,12 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									fmt.Sprintf(
-										v1alpha1.OtterizeAccessLabelKey, formattedTargetServer): "true",
+										otterizev1alpha1.OtterizeAccessLabelKey, formattedTargetServer): "true",
 								},
 							},
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									v1alpha1.OtterizeNamespaceLabelKey: intentsObjNamespace,
+									otterizev1alpha1.OtterizeNamespaceLabelKey: intentsObjNamespace,
 								},
 							},
 						},

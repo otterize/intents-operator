@@ -18,7 +18,7 @@ package controllers
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/operator/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	"github.com/sirupsen/logrus"
@@ -65,7 +65,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.Intents{}).
+		For(&otterizev1alpha1.Intents{}).
 		Complete(r)
 }
 
@@ -85,11 +85,11 @@ func (r *IntentsReconciler) buildReconcilersList(c client.Client, scheme *runtim
 func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&v1alpha1.Intents{},
-		v1alpha1.OtterizeTargetServerIndexField,
+		&otterizev1alpha1.Intents{},
+		otterizev1alpha1.OtterizeTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
-			intents := object.(*v1alpha1.Intents)
+			intents := object.(*otterizev1alpha1.Intents)
 			if intents.Spec == nil {
 				return nil
 			}

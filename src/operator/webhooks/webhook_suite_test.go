@@ -20,7 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/otterize/intents-operator/operator/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"net"
 	"path/filepath"
 	"testing"
@@ -79,7 +79,7 @@ var _ = BeforeSuite(func() {
 	Expect(conf).NotTo(BeNil())
 
 	scheme := runtime.NewScheme()
-	err = v1alpha1.AddToScheme(scheme)
+	err = otterizev1alpha1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = admissionv1beta1.AddToScheme(scheme)

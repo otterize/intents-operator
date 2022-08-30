@@ -3,7 +3,7 @@ package reconcilers
 import (
 	"context"
 	"fmt"
-	"github.com/otterize/intents-operator/operator/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -52,12 +52,12 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	if !v1alpha1.HasOtterizeServerLabel(&pod) {
+	if !otterizev1alpha1.HasOtterizeServerLabel(&pod) {
 		// Label pods as destination servers
 		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, otterizeServiceIdentity.Name)
 		updatedPod := pod.DeepCopy()
-		updatedPod.Labels[v1alpha1.OtterizeServerLabelKey] =
-			v1alpha1.GetFormattedOtterizeIdentity(otterizeServiceIdentity.Name, otterizeServiceIdentity.Namespace)
+		updatedPod.Labels[otterizev1alpha1.OtterizeServerLabelKey] =
+			otterizev1alpha1.GetFormattedOtterizeIdentity(otterizeServiceIdentity.Name, otterizeServiceIdentity.Namespace)
 
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
@@ -68,13 +68,13 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Intents were deleted and the pod was updated by the operator, skip reconciliation
-	_, ok := pod.Annotations[v1alpha1.AllIntentsRemoved]
+	_, ok := pod.Annotations[otterizev1alpha1.AllIntentsRemoved]
 	if ok {
 		logrus.Infof("Skipping reconciliation for pod %s - pod is handled by intents-operator", req.Name)
 		return ctrl.Result{}, nil
 	}
 
-	var intents v1alpha1.IntentsList
+	var intents otterizev1alpha1.IntentsList
 	err = p.List(
 		ctx, &intents,
 		&client.MatchingFields{OtterizeClientNameIndexField: otterizeServiceIdentity.Name},
@@ -97,9 +97,9 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			otterizeAccessLabels[k] = v
 		}
 	}
-	if v1alpha1.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
+	if otterizev1alpha1.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
 		logrus.Infof("Updating Otterize access labels for %s", otterizeServiceIdentity.Name)
-		updatedPod := v1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
+		updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.Errorf("Failed updating Otterize labels for pod %s in namespace %s", pod.Name, pod.Namespace)
@@ -113,10 +113,10 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&v1alpha1.Intents{},
+		&otterizev1alpha1.Intents{},
 		OtterizeClientNameIndexField,
 		func(object client.Object) []string {
-			intents := object.(*v1alpha1.Intents)
+			intents := object.(*otterizev1alpha1.Intents)
 			if intents.Spec == nil {
 				return nil
 			}

@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	"github.com/otterize/intents-operator/operator/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -23,8 +23,8 @@ type KafkaACLsReconciler struct {
 	KafkaServersStore *kafkaacls.ServersStore
 }
 
-func getIntentsByServer(defaultNamespace string, intents []v1alpha1.Intent) map[types.NamespacedName][]v1alpha1.Intent {
-	intentsByServer := map[types.NamespacedName][]v1alpha1.Intent{}
+func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Intent) map[types.NamespacedName][]otterizev1alpha1.Intent {
+	intentsByServer := map[types.NamespacedName][]otterizev1alpha1.Intent{}
 	for _, intent := range intents {
 		serverName := types.NamespacedName{
 			Name:      intent.Server,
@@ -37,7 +37,7 @@ func getIntentsByServer(defaultNamespace string, intents []v1alpha1.Intent) map[
 	return intentsByServer
 }
 
-func (r *KafkaACLsReconciler) applyACLs(intents *v1alpha1.Intents) error {
+func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Service.Calls)
 
 	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
@@ -59,7 +59,7 @@ func (r *KafkaACLsReconciler) applyACLs(intents *v1alpha1.Intents) error {
 	return nil
 }
 
-func (r *KafkaACLsReconciler) RemoveACLs(intents *v1alpha1.Intents) error {
+func (r *KafkaACLsReconciler) RemoveACLs(intents *otterizev1alpha1.Intents) error {
 	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
 		if err := kafkaIntentsAdmin.RemoveClientIntents(intents.Spec.Service.Name, intents.Namespace); err != nil {
 			return fmt.Errorf("failed removing intents from kafka server %s: %w", serverName, err)
@@ -69,7 +69,7 @@ func (r *KafkaACLsReconciler) RemoveACLs(intents *v1alpha1.Intents) error {
 }
 
 func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	intents := &v1alpha1.Intents{}
+	intents := &otterizev1alpha1.Intents{}
 	logger := logrus.WithField("namespacedName", req.String())
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if err != nil && k8serrors.IsNotFound(err) {

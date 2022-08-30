@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	"github.com/otterize/intents-operator/operator/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,7 +26,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	pods := &v1.PodList{}
 	namespace := req.NamespacedName.Namespace
 
-	intents := &v1alpha1.Intents{}
+	intents := &otterizev1alpha1.Intents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		logrus.Infof("Intents deleted for namespace %s", namespace)
@@ -65,10 +65,10 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	for _, pod := range pods.Items {
-		if strings.HasPrefix(pod.Name, serviceName) && v1alpha1.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
+		if strings.HasPrefix(pod.Name, serviceName) && otterizev1alpha1.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
 			logrus.Infof("Updating %s pod labels with new intents", serviceName)
 
-			updatedPod := v1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
+			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				return ctrl.Result{}, err
@@ -79,7 +79,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
-	ctx context.Context, intents *v1alpha1.Intents) error {
+	ctx context.Context, intents *otterizev1alpha1.Intents) error {
 
 	if !controllerutil.ContainsFinalizer(intents, PodLabelFinalizerName) {
 		return nil
@@ -89,10 +89,10 @@ func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
 	// We're getting the pods matched
 	labelSelector, err := labels.Parse(
 		fmt.Sprintf("%s=%s",
-			v1alpha1.OtterizeServerLabelKey,
+			otterizev1alpha1.OtterizeServerLabelKey,
 			// Since all pods are also labeled with their server identity, we use the Otterize server label
 			// To find all pods for this specific service
-			v1alpha1.GetFormattedOtterizeIdentity(intents.Spec.Service.Name, intents.Namespace)))
+			otterizev1alpha1.GetFormattedOtterizeIdentity(intents.Spec.Service.Name, intents.Namespace)))
 	if err != nil {
 		return err
 	}
@@ -106,12 +106,12 @@ func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
 	// Remove the access label for each intent, for every pod in the list
 	for _, pod := range podList.Items {
 		updatedPod := pod.DeepCopy()
-		updatedPod.Annotations[v1alpha1.AllIntentsRemoved] = "true"
+		updatedPod.Annotations[otterizev1alpha1.AllIntentsRemoved] = "true"
 		for _, intent := range intents.GetCallsList() {
-			targetServerIdentity := v1alpha1.GetFormattedOtterizeIdentity(
+			targetServerIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(
 				intent.Server, intent.ResolveIntentNamespace(intents.Namespace))
 
-			accessLabel := fmt.Sprintf(v1alpha1.OtterizeAccessLabelKey, targetServerIdentity)
+			accessLabel := fmt.Sprintf(otterizev1alpha1.OtterizeAccessLabelKey, targetServerIdentity)
 			delete(updatedPod.Labels, accessLabel)
 		}
 

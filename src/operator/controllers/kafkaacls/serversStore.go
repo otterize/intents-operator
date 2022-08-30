@@ -2,7 +2,7 @@ package kafkaacls
 
 import (
 	"errors"
-	"github.com/otterize/intents-operator/operator/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -11,15 +11,15 @@ var (
 )
 
 type ServersStore struct {
-	serversByName map[types.NamespacedName]*v1alpha1.KafkaServerConfig
+	serversByName map[types.NamespacedName]*otterizev1alpha1.KafkaServerConfig
 }
 
 func NewServersStore() *ServersStore {
 	return &ServersStore{
-		serversByName: map[types.NamespacedName]*v1alpha1.KafkaServerConfig{},
+		serversByName: map[types.NamespacedName]*otterizev1alpha1.KafkaServerConfig{},
 	}
 }
-func (s *ServersStore) Add(config *v1alpha1.KafkaServerConfig) {
+func (s *ServersStore) Add(config *otterizev1alpha1.KafkaServerConfig) {
 	name := types.NamespacedName{Name: config.Spec.ServerName, Namespace: config.Namespace}
 	s.serversByName[name] = config
 }

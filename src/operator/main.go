@@ -18,7 +18,7 @@ package main
 
 import (
 	"flag"
-	"github.com/otterize/intents-operator/operator/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/operator/controllers"
 	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/operator/webhooks"
@@ -44,7 +44,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(v1alpha1.AddToScheme(scheme))
+	utilruntime.Must(otterizev1alpha1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -72,7 +72,7 @@ func main() {
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	var err error
-	ctrlConfig := v1alpha1.ProjectConfig{}
+	ctrlConfig := otterizev1alpha1.ProjectConfig{}
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
