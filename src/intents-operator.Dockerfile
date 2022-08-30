@@ -11,7 +11,7 @@ RUN go mod download
 
 # Copy the go source
 COPY operator/main.go main.go
-COPY shared/api shared/api/
+COPY shared/ shared/
 COPY operator/controllers operator/controllers/
 
 # Build
