@@ -40,7 +40,13 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Inte
 func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Service.Calls)
 
-	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
+	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha1.KafkaServerConfig) error {
+		kafkaIntentsAdmin, err := kafkaacls.NewKafkaIntentsAdmin(*config)
+		if err != nil {
+			return err
+		}
+		defer kafkaIntentsAdmin.Close()
+
 		intentsForServer := intentsByServer[serverName]
 		if err := kafkaIntentsAdmin.ApplyClientIntents(intents.Spec.Service.Name, intents.Namespace, intentsForServer); err != nil {
 			return fmt.Errorf("failed applying intents on kafka server %s: %w", serverName, err)
@@ -60,7 +66,13 @@ func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error
 }
 
 func (r *KafkaACLsReconciler) RemoveACLs(intents *otterizev1alpha1.Intents) error {
-	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
+	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha1.KafkaServerConfig) error {
+		kafkaIntentsAdmin, err := kafkaacls.NewKafkaIntentsAdmin(*config)
+		if err != nil {
+			return err
+		}
+		defer kafkaIntentsAdmin.Close()
+
 		if err := kafkaIntentsAdmin.RemoveClientIntents(intents.Spec.Service.Name, intents.Namespace); err != nil {
 			return fmt.Errorf("failed removing intents from kafka server %s: %w", serverName, err)
 		}
