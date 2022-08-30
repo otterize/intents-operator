@@ -37,14 +37,3 @@ func (r *ExternalTrafficReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&corev1.Service{}).
 		Complete(r)
 }
-
-func (r *ExternalTrafficReconciler) InitServiceReconcilerIndex(mgr ctrl.Manager) error {
-	return mgr.GetCache().IndexField(
-		context.Background(),
-		&corev1.Service{},
-		"spec.type",
-		func(object client.Object) []string {
-			svc := object.(*corev1.Service)
-			return []string{string(svc.Spec.Type)}
-		})
-}

@@ -113,11 +113,6 @@ func main() {
 
 	svcReconciler := external_traffic.NewExternalTrafficReconciler(mgr.GetClient(), mgr.GetScheme())
 
-	if err = svcReconciler.InitServiceReconcilerIndex(mgr); err != nil {
-		setupLog.Error(err, "unable to init indices", "controller", "Service")
-		os.Exit(1)
-	}
-
 	if err = svcReconciler.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Service")
 		os.Exit(1)
