@@ -105,4 +105,6 @@ require (
 
 replace github.com/otterize/intents-operator/operator/api/v1alpha1 => ./operator/api/v1alpha1
 
+replace github.com/otterize/intents-operator/operator/webhooks => ./operator/webhooks
+
 replace github.com/otterize/intents-operator/operator/controllers => ./operator/controllers
