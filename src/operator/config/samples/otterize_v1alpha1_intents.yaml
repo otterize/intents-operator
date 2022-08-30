@@ -1,4 +1,4 @@
-apiVersion: otterize.com/otterizev1alpha1
+apiVersion: otterize.com/v1alpha1
 kind: Intents
 metadata:
   name: intents-sample
