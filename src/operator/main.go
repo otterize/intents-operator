@@ -18,11 +18,12 @@ package main
 
 import (
 	"flag"
-	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
-	"os"
-
+	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/operator/controllers"
+	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	"github.com/sirupsen/logrus"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -33,13 +34,11 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme = runtime.NewScheme()
 )
 
 func init() {
@@ -64,13 +63,10 @@ func main() {
 		"The controller will load its initial configuration from this file. "+
 			"Omit this flag to use the default configuration values. "+
 			"Command-line flags override configuration from this file.")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
+
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
 	ctrlConfig := otterizev1alpha1.ProjectConfig{}
@@ -97,15 +93,18 @@ func main() {
 	if configFile != "" {
 		options, err = options.AndFrom(ctrl.ConfigFile().AtPath(configFile).OfKind(&ctrlConfig))
 		if err != nil {
-			setupLog.Error(err, "unable to load the config file")
-			os.Exit(1)
+			logrus.WithError(err).Fatal("unable to load the config file")
+		}
+
+		if len(ctrlConfig.WatchNamespaces) != 0 {
+			options.NewCache = cache.MultiNamespacedCacheBuilder(ctrlConfig.WatchNamespaces)
+			logrus.Infof("Will only watch the following namespaces: %v", ctrlConfig.WatchNamespaces)
 		}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
+		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
 
 	kafkaServersStore := kafkaacls.NewServersStore()
@@ -116,36 +115,31 @@ func main() {
 		KafkaServersStore: kafkaServersStore}
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
-		setupLog.Error(err, "unable to init indices", "controller", "Intents")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("unable to init indices")
 	}
 
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Intents")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
+
 	}
 	if err = (&controllers.KafkaServerConfigReconciler{
 		Client:       mgr.GetClient(),
 		Scheme:       mgr.GetScheme(),
 		ServersStore: kafkaServersStore,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "KafkaServerConfig")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
 	}
 
 	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("unable to set up health check")
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("unable to set up ready check")
 	}
 
-	setupLog.Info("starting manager")
+	logrus.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("problem running manager")
 	}
 }

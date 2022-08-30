@@ -150,6 +150,13 @@ spec:
               of all controllers so that all controllers will not send list requests
               simultaneously.
             type: string
+          watchNamespaces:
+            description: WatchNamespaces restricts the operator to watch only those
+              specified namespaces. If it is not specified, the controller watches
+              all namespaces.
+            items:
+              type: string
+            type: array
           webhook:
             description: Webhook contains the controllers webhook configuration
             properties:
