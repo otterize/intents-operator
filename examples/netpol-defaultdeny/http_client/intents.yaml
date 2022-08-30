@@ -1,0 +1,11 @@
+apiVersion: otterize.com/v1alpha1
+kind: Intents
+metadata:
+  name: http-client-test
+  namespace: http-server-test
+spec:
+  service:
+    name: client
+    calls:
+      - server: server
+        type: HTTP

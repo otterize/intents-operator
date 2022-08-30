@@ -69,21 +69,12 @@ spec:
             cpu: 10m
             memory: 64Mi
         volumeMounts:
-          - name: spifferize-tls
-            mountPath: /etc/spifferize
+          - name: tls
+            mountPath: /etc/tls
             readOnly: true
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
-        - name: spifferize-tls
+        - name: tls
           secret:
-            secretName: spifferize-tls-controller-manager
----
-apiVersion: v1
-kind: Secret
-metadata:
-  labels:
-    control-plane: controller-manager
-  name: spifferize-tls-controller-manager
-  namespace: system
-
+            secretName: tls-controller-manager
