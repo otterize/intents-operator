@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	"github.com/otterize/intents-operator/shared/injectablerecorder"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,6 +22,7 @@ type KafkaACLsReconciler struct {
 	client.Client
 	Scheme            *runtime.Scheme
 	KafkaServersStore *kafkaacls.ServersStore
+	injectablerecorder.InjectableRecorder
 }
 
 func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Intent) map[types.NamespacedName][]otterizev1alpha1.Intent {
@@ -31,13 +33,17 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Inte
 			Namespace: lo.Ternary(intent.Namespace != "", intent.Namespace, defaultNamespace),
 		}
 
+		if intent.Type != otterizev1alpha1.IntentTypeKafka {
+			continue
+		}
+
 		intentsByServer[serverName] = append(intentsByServer[serverName], intent)
 	}
 
 	return intentsByServer
 }
 
-func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error {
+func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) (serverCount int, err error) {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Service.Calls)
 
 	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
@@ -47,16 +53,10 @@ func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) error
 		}
 		return nil
 	}); err != nil {
-		return err
+		return 0, err
 	}
 
-	for serverName, _ := range intentsByServer {
-		if !r.KafkaServersStore.Exists(serverName.Name, serverName.Namespace) {
-			logrus.WithField("server", serverName).Warning("Did not apply intents to server - no server configuration was defined")
-		}
-	}
-
-	return nil
+	return len(intentsByServer), nil
 }
 
 func (r *KafkaACLsReconciler) RemoveACLs(intents *otterizev1alpha1.Intents) error {
@@ -98,6 +98,7 @@ func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if controllerutil.ContainsFinalizer(intents, FinalizerName) {
 			logger.Infof("Removing associated Acls")
 			if err := r.RemoveACLs(intents); err != nil {
+				r.RecordWarningEvent(intents, "could not remove Kafka ACLs", err.Error())
 				return ctrl.Result{}, err
 			}
 
@@ -114,10 +115,15 @@ func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	logger.Info("Applying new ACLs")
-	if err := r.applyACLs(intents); err != nil {
+	serverCount, err := r.applyACLs(intents)
+	if err != nil {
+		r.RecordWarningEvent(intents, "could not apply Kafka ACLs", err.Error())
 		return ctrl.Result{}, err
 	}
 
+	if serverCount > 0 {
+		r.RecordNormalEventf(intents, "Kafka ACL reconcile complete", "Reconciled %d Kafka brokers", serverCount)
+	}
 	return ctrl.Result{}, nil
 
 }

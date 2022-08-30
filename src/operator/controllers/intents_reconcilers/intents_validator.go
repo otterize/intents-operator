@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	"github.com/otterize/intents-operator/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,6 +15,7 @@ import (
 type IntentsValidatorReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	injectablerecorder.InjectableRecorder
 }
 
 func (r *IntentsValidatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -37,6 +39,7 @@ func (r *IntentsValidatorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	for _, intent := range intents.GetCallsList() {
 		logrus.Debugf("%s intends to access %s. Intent type: %s", serviceName, intent.Server, intent.Type)
 		if err := validateIntent(intent); err != nil {
+			r.RecordWarningEvent(intents, "validation failed", err.Error())
 			return ctrl.Result{}, err
 		}
 	}

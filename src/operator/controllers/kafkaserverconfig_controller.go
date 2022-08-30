@@ -21,6 +21,7 @@ import (
 	"errors"
 	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	"github.com/otterize/intents-operator/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -39,6 +40,15 @@ type KafkaServerConfigReconciler struct {
 	client.Client
 	Scheme       *runtime.Scheme
 	ServersStore *kafkaacls.ServersStore
+	injectablerecorder.InjectableRecorder
+}
+
+func NewKafkaServerConfigReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore) *KafkaServerConfigReconciler {
+	return &KafkaServerConfigReconciler{
+		Client:       client,
+		Scheme:       scheme,
+		ServersStore: serversStore,
+	}
 }
 
 //+kubebuilder:rbac:groups=otterize.com,resources=kafkaserverconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -133,16 +143,24 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	if err := kafkaIntentsAdmin.ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics); err != nil {
+		r.RecordWarningEvent(kafkaServerConfig, "failed to apply server config to Kafka broker", err.Error())
 		return ctrl.Result{}, err
 	}
 
+	r.RecordNormalEvent(kafkaServerConfig, "successfully applied server config", "")
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
 		For(&otterizev1alpha1.KafkaServerConfig{}).
 		Complete(r)
+	if err != nil {
+		return err
+	}
+
+	r.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+	return nil
 }

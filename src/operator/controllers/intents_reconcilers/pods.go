@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	"github.com/otterize/intents-operator/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,6 +21,7 @@ const PodLabelFinalizerName = "otterize-intents.pods/finalizer"
 type PodLabelReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	injectablerecorder.InjectableRecorder
 }
 
 func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -43,6 +45,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
+			r.RecordWarningEvent(intents, "could not remove pod labels", err.Error())
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -61,6 +64,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// List the pods in the namespace and update labels if required
 	err = r.List(ctx, pods, &client.ListOptions{Namespace: namespace})
 	if err != nil {
+		r.RecordWarningEvent(intents, "could not list pods", err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -71,6 +75,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
+				r.RecordWarningEvent(intents, "could not update pod", err.Error())
 				return ctrl.Result{}, err
 			}
 		}
