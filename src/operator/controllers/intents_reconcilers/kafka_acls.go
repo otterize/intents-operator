@@ -2,6 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
@@ -46,14 +47,25 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Inte
 func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.Intents) (serverCount int, err error) {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Service.Calls)
 
-	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, kafkaIntentsAdmin *kafkaacls.KafkaIntentsAdmin) error {
-		intentsForServer := intentsByServer[serverName]
-		if err := kafkaIntentsAdmin.ApplyClientIntents(intents.Spec.Service.Name, intents.Namespace, intentsForServer); err != nil {
-			return fmt.Errorf("failed applying intents on kafka server %s: %w", serverName, err)
+	for server, intentList := range intentsByServer {
+		adminClient, err := r.KafkaServersStore.Get(server.Name, server.Namespace)
+		if err != nil {
+			if errors.Is(err, kafkaacls.ServerSpecNotFound) {
+				r.RecordWarningEventf(intents, "Kafka ACL reconcile failed", "broker %s not configured", server)
+				continue
+			}
+			err := fmt.Errorf("failed to connect to Kafka server %s: %w", server, err)
+			if err != nil {
+				r.RecordWarningEventf(intents, "Kafka ACL reconcile failed", err.Error())
+				return 0, err
+			}
 		}
-		return nil
-	}); err != nil {
-		return 0, err
+
+		err = adminClient.ApplyClientIntents(intents.Spec.Service.Name, intents.Namespace, intentList)
+		if err != nil {
+			r.RecordWarningEvent(intents, "Kafka ACL reconcile failed", err.Error())
+			return 0, err
+		}
 	}
 
 	return len(intentsByServer), nil
