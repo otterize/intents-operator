@@ -20,9 +20,11 @@ import (
 	"flag"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/operator/controllers"
+	"github.com/otterize/intents-operator/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
 	"github.com/sirupsen/logrus"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -109,10 +111,14 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore()
 
-	intentsReconciler := &controllers.IntentsReconciler{
-		Client:            mgr.GetClient(),
-		Scheme:            mgr.GetScheme(),
-		KafkaServersStore: kafkaServersStore}
+	svcReconciler := external_traffic.NewExternalTrafficReconciler(mgr.GetClient(), mgr.GetScheme())
+
+	if err = svcReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Error("unable to create controller", "controller", "Service")
+		os.Exit(1)
+	}
+
+	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
@@ -122,6 +128,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
 
 	}
+
 	if err = (&controllers.KafkaServerConfigReconciler{
 		Client:       mgr.GetClient(),
 		Scheme:       mgr.GetScheme(),

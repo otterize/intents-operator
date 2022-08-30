@@ -21,9 +21,7 @@ import (
 	"github.com/otterize/intents-operator/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
 	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
-	"github.com/sirupsen/logrus"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
+	"github.com/otterize/intents-operator/shared/reconcilergroup"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,9 +29,17 @@ import (
 
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
-	client.Client
-	Scheme            *runtime.Scheme
-	KafkaServersStore *kafkaacls.ServersStore
+	group *reconcilergroup.Group
+}
+
+func NewIntentsReconciler(client client.Client, scheme *runtime.Scheme, kafkaServerStore *kafkaacls.ServersStore) *IntentsReconciler {
+	return &IntentsReconciler{
+		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
+			&intents_reconcilers.IntentsValidatorReconciler{Client: client, Scheme: scheme},
+			&intents_reconcilers.PodLabelReconciler{Client: client, Scheme: scheme},
+			&intents_reconcilers.NetworkPolicyReconciler{Client: client, Scheme: scheme},
+			&intents_reconcilers.KafkaACLsReconciler{Client: client, Scheme: scheme, KafkaServersStore: kafkaServerStore},
+		)}
 }
 
 //+kubebuilder:rbac:groups=otterize.com,resources=intents,verbs=get;list;watch;create;update;patch;delete
@@ -45,21 +51,7 @@ type IntentsReconciler struct {
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	reconcilersList, err := r.buildReconcilersList(r.Client, r.Scheme)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	logrus.Infoln("## Starting new Otterize reconciliation cycle ##")
-	for _, r := range reconcilersList {
-		logrus.Infof("Starting cycle for %T", r)
-		res, err := r.Reconcile(ctx, req)
-		if res.Requeue == true || err != nil {
-			return res, err
-		}
-	}
-
-	return ctrl.Result{}, nil
+	return r.group.Reconcile(ctx, req)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -67,17 +59,6 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev1alpha1.Intents{}).
 		Complete(r)
-}
-
-func (r *IntentsReconciler) buildReconcilersList(c client.Client, scheme *runtime.Scheme) ([]reconcile.Reconciler, error) {
-	l := make([]reconcile.Reconciler, 0)
-
-	l = append(l, &intents_reconcilers.IntentsValidatorReconciler{Client: c, Scheme: scheme})
-	l = append(l, &intents_reconcilers.PodLabelReconciler{Client: c, Scheme: scheme})
-	l = append(l, &intents_reconcilers.NetworkPolicyReconciler{Client: c, Scheme: scheme})
-	l = append(l, &intents_reconcilers.KafkaACLsReconciler{Client: c, Scheme: scheme, KafkaServersStore: r.KafkaServersStore})
-
-	return l, nil
 }
 
 // InitIntentsServerIndices indexes intents by target server name
