@@ -30,6 +30,11 @@ type ProjectConfig struct {
 
 	// ControllerManagerConfigurationSpec returns the contfigurations for controllers
 	cfg.ControllerManagerConfigurationSpec `json:",inline"`
+
+	// WatchNamespaces restricts the operator to watch only those specified namespaces.
+	// If it is not specified, the controller watches all namespaces.
+	// +optional
+	WatchNamespaces []string `json:"watchNamespaces,omitempty"`
 }
 
 func init() {
