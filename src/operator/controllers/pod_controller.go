@@ -153,6 +153,8 @@ func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod,
 		return err
 	}
 
+	r.EventRecorder.Eventf(pod, corev1.EventTypeNormal, "Successfully ensured secret under name '%s'", secretName)
+
 	return nil
 }
 
@@ -221,6 +223,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.EventRecorder.Event(pod, corev1.EventTypeWarning, "Failed registering SPIRE entry", err.Error())
 		return ctrl.Result{}, err
 	}
+	r.EventRecorder.Event(pod, corev1.EventTypeNormal, "Successfully registered pod under SPIRE with entry ID '%s'", entryID)
 
 	hashStr, err := r.getEntryHash(pod.Namespace, serviceName, ttl, dnsNames)
 	if err != nil {
