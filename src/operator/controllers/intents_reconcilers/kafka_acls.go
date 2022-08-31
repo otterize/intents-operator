@@ -3,8 +3,8 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"

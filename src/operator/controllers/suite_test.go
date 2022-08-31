@@ -17,7 +17,7 @@ limitations under the License.
 package controllers
 
 import (
-	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"path/filepath"
 	"testing"
 

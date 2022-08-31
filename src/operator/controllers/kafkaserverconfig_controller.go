@@ -19,8 +19,8 @@ package controllers
 import (
 	"context"
 	"errors"
-	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"

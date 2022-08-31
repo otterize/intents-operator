@@ -20,7 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"net"
 	"path/filepath"
 	"testing"

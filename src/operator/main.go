@@ -17,17 +17,18 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"github.com/bombsimon/logrusr/v3"
-	"github.com/otterize/intents-operator/operator/controllers"
-	"github.com/otterize/intents-operator/operator/controllers/external_traffic"
-	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/operator/controllers"
+	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
+	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/sirupsen/logrus"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
-	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/operator/webhooks"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/webhooks"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -56,6 +57,7 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var configFile string
+	var selfSignedCert bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -66,12 +68,15 @@ func main() {
 		"The controller will load its initial configuration from this file. "+
 			"Omit this flag to use the default configuration values. "+
 			"Command-line flags override configuration from this file.")
+	flag.BoolVar(&selfSignedCert, "self-signed-cert", true,
+		"Whether to generate and use a self signed cert as the CA for webhooks")
 
 	flag.Parse()
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
+	var CertBundle webhooks.CertificateBundle
 	ctrlConfig := otterizev1alpha1.ProjectConfig{}
 
 	options := ctrl.Options{
@@ -129,9 +134,29 @@ func main() {
 
 	}
 
-	val := webhooks.NewIntentsValidator(mgr.GetClient())
+	if selfSignedCert == true {
+		logrus.Infoln("Creating self signing certs")
+		CertBundle, err =
+			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", "intents-operator-system")
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
+		}
+		err = webhooks.WriteCertToFiles(CertBundle)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed writing certs to file system")
+		}
+		if selfSignedCert == true {
+			err = webhooks.UpdateWebHookCA(context.Background(),
+				"intents-operator-validating-webhook-configuration", CertBundle.CertPem)
+			if err != nil {
+				logrus.WithError(err).Fatal("somethign with uipdated")
+			}
+		}
+	}
 
-	if err = val.SetupWebhookWithManager(mgr); err != nil {
+	intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
+
+	if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
 		os.Exit(1)
 	}

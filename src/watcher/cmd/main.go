@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 	"github.com/bombsimon/logrusr/v3"
-	otterizev1alpha1 "github.com/otterize/intents-operator/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/watcher/reconcilers"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/watcher/reconcilers"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
