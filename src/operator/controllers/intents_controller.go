@@ -77,7 +77,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			}
 
 			for _, intent := range intents.GetCallsList() {
-				res = append(res, intent.Server)
+				res = append(res, intent.Name)
 			}
 
 			return res

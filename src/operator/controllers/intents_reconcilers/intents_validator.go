@@ -35,7 +35,7 @@ func (r *IntentsValidatorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	serviceName := intents.GetServiceName()
 	logrus.Debugf("Intents for service: %s", serviceName)
 	for _, intent := range intents.GetCallsList() {
-		logrus.Debugf("%s intends to access %s. Intent type: %s", serviceName, intent.Server, intent.Type)
+		logrus.Debugf("%s intends to access %s. Intent type: %s", serviceName, intent.Name, intent.Type)
 		if err := validateIntent(intent); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -44,12 +44,6 @@ func (r *IntentsValidatorReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 func validateIntent(intent otterizev1alpha1.Intent) error {
-	if intent.Type == otterizev1alpha1.IntentTypeKafka {
-		if intent.HTTPResources != nil {
-			return errors.New("invalid intent format. type 'Kafka' cannot contain HTTP resources")
-		}
-	}
-
 	if intent.Type == otterizev1alpha1.IntentTypeHTTP {
 		if intent.Topics != nil {
 			return errors.New("invalid intent format. type 'HTTP' cannot contain kafka topics")

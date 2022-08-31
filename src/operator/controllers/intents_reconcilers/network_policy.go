@@ -78,14 +78,14 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intent otterizev1alpha1.Intent, intentsObjNamespace string) error {
 
-	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Server, intentsObjNamespace)
+	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Name, intentsObjNamespace)
 	policy := &v1.NetworkPolicy{}
 	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.Namespace}, policy)
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(err) {
 		logrus.Infof(
-			"Creating network policy to enable access from namespace %s to %s", intentsObjNamespace, intent.Server)
+			"Creating network policy to enable access from namespace %s to %s", intentsObjNamespace, intent.Name)
 		policy := r.buildNetworkPolicyObjectForIntent(intent, policyName, intentsObjNamespace)
 		err := r.Create(ctx, policy)
 		if err != nil {
@@ -116,7 +116,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 		var intentsList otterizev1alpha1.IntentsList
 		err := r.List(
 			ctx, &intentsList,
-			&client.MatchingFields{otterizev1alpha1.OtterizeTargetServerIndexField: intent.Server},
+			&client.MatchingFields{otterizev1alpha1.OtterizeTargetServerIndexField: intent.Name},
 			&client.ListOptions{Namespace: intents.Namespace})
 
 		if err != nil {
@@ -127,7 +127,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 			// We have only 1 intents resource that has this server as its target - and it's the current one
 			// We need to delete the network policy that allows access from this namespace, as there are no other
 			// clients in that namespace that need to access the target server
-			logrus.Infof("No other intents in the namespace reference target server: %s", intent.Server)
+			logrus.Infof("No other intents in the namespace reference target server: %s", intent.Name)
 			logrus.Infoln("Removing matching network policy for server")
 			if err = r.removeNetworkPolicy(ctx, intent, intents.Namespace); err != nil {
 				return err
@@ -148,7 +148,7 @@ func (r *NetworkPolicyReconciler) removeNetworkPolicy(
 	intent otterizev1alpha1.Intent,
 	intentsObjNamespace string) error {
 
-	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Server, intentsObjNamespace)
+	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Name, intentsObjNamespace)
 	policy := &v1.NetworkPolicy{}
 	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.Namespace}, policy)
 
@@ -167,7 +167,7 @@ func (r *NetworkPolicyReconciler) removeNetworkPolicy(
 func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 	intent otterizev1alpha1.Intent, policyName, intentsObjNamespace string) *v1.NetworkPolicy {
 	// The intent's target server made of name + namespace + hash
-	formattedTargetServer := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intent.Namespace)
+	formattedTargetServer := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Name, intent.Namespace)
 
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{

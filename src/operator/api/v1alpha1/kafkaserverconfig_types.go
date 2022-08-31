@@ -23,9 +23,9 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 type TLSSource struct {
-	CertFile   string `json:"certFile,omitempty"`
-	KeyFile    string `json:"keyFile,omitempty"`
-	RootCAFile string `json:"rootCAFile,omitempty"`
+	CertFile   string `json:"certFile,omitempty" yaml:"certFile,omitempty"`
+	KeyFile    string `json:"keyFile,omitempty" yaml:"keyFile,omitempty"`
+	RootCAFile string `json:"rootCAFile,omitempty" yaml:"rootCAFile,omitempty"`
 }
 
 type ResourcePatternType string
@@ -36,10 +36,10 @@ const (
 )
 
 type TopicConfig struct {
-	Topic                  string              `json:"topic"`
-	Pattern                ResourcePatternType `json:"pattern"`
-	ClientIdentityRequired bool                `json:"clientIdentityRequired"`
-	IntentsRequired        bool                `json:"intentsRequired"`
+	Topic                  string              `json:"topic" yaml:"topic"`
+	Pattern                ResourcePatternType `json:"pattern" yaml:"pattern"`
+	ClientIdentityRequired bool                `json:"clientIdentityRequired" yaml:"clientIdentityRequired"`
+	IntentsRequired        bool                `json:"intentsRequired" yaml:"intentsRequired"`
 }
 
 // KafkaServerConfigSpec defines the desired state of KafkaServerConfig
@@ -47,10 +47,10 @@ type KafkaServerConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	ServerName string        `json:"serverName,omitempty"`
-	Addr       string        `json:"addr,omitempty"`
-	TLS        TLSSource     `json:"tls"`
-	Topics     []TopicConfig `json:"topics,omitempty"`
+	ServerName string        `json:"serverName,omitempty" yaml:"serverName,omitempty"`
+	Addr       string        `json:"addr,omitempty" yaml:"addr,omitempty"`
+	TLS        TLSSource     `json:"tls" yaml:"tls"`
+	Topics     []TopicConfig `json:"topics,omitempty" yaml:"topics,omitempty"`
 }
 
 // KafkaServerConfigStatus defines the observed state of KafkaServerConfig
@@ -64,20 +64,20 @@ type KafkaServerConfigStatus struct {
 
 // KafkaServerConfig is the Schema for the kafkaserverconfigs API
 type KafkaServerConfig struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline" yaml:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
-	Spec   KafkaServerConfigSpec   `json:"spec,omitempty"`
-	Status KafkaServerConfigStatus `json:"status,omitempty"`
+	Spec   KafkaServerConfigSpec   `json:"spec,omitempty" yaml:"spec,omitempty"`
+	Status KafkaServerConfigStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
 // KafkaServerConfigList contains a list of KafkaServerConfig
 type KafkaServerConfigList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []KafkaServerConfig `json:"items"`
+	metav1.TypeMeta `json:",inline" yaml:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Items           []KafkaServerConfig `json:"items" yaml:"items"`
 }
 
 func init() {

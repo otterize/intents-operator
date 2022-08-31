@@ -25,16 +25,16 @@ import (
 
 // ProjectConfig is the Schema for the projectconfigs API
 type ProjectConfig struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline" yaml:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
 	// ControllerManagerConfigurationSpec returns the contfigurations for controllers
-	cfg.ControllerManagerConfigurationSpec `json:",inline"`
+	cfg.ControllerManagerConfigurationSpec `json:",inline" yaml:",inline"`
 
 	// WatchNamespaces restricts the operator to watch only those specified namespaces.
 	// If it is not specified, the controller watches all namespaces.
 	// +optional
-	WatchNamespaces []string `json:"watchNamespaces,omitempty"`
+	WatchNamespaces []string `json:"watchNamespaces,omitempty" yaml:"watchNamespaces,omitempty"`
 }
 
 func init() {
