@@ -18,10 +18,10 @@ package controllers
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/operator/controllers/intents_reconcilers"
-	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
-	"github.com/otterize/intents-operator/shared/reconcilergroup"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/shared/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"

@@ -2,7 +2,7 @@ package kafkaacls
 
 import (
 	"errors"
-	"github.com/otterize/intents-operator/shared/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/shared/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
