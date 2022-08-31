@@ -15,5 +15,6 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o watcherbin main.go
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/watcherbin main
+USER 65532:65532
 
 ENTRYPOINT ["/main"]
