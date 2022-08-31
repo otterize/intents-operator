@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"regexp"
 )
 
 type TopicToACLList map[string][]*sarama.Acl
@@ -20,6 +21,11 @@ type TopicToACLList map[string][]*sarama.Acl
 const (
 	AnonymousUserPrincipalName = "User:ANONYMOUS"
 	AnyUserPrincipalName       = "User:*"
+)
+
+var (
+	serviceNameRE = regexp.MustCompile(`\$ServiceName`)
+	namespaceRE   = regexp.MustCompile(`\$Namespace`)
 )
 
 type KafkaIntentsAdmin struct {
@@ -101,7 +107,13 @@ func (a *KafkaIntentsAdmin) Close() {
 }
 
 func (a *KafkaIntentsAdmin) formatPrincipal(clientName string, clientNamespace string) string {
-	return fmt.Sprintf("User:CN=%s.%s,O=SPIRE,C=US", clientName, clientNamespace)
+	username := a.kafkaServer.Spec.UsernameMapping
+	if username == "" {
+		username = otterizev1alpha1.UsernameMappingDefault
+	}
+	username = serviceNameRE.ReplaceAllString(username, clientName)
+	username = namespaceRE.ReplaceAllString(username, clientNamespace)
+	return fmt.Sprintf("User:%s", username)
 }
 
 func (a *KafkaIntentsAdmin) queryAppliedIntentKafkaTopics(principal string) ([]otterizev1alpha1.KafkaTopic, error) {

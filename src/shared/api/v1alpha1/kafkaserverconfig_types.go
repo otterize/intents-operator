@@ -33,6 +33,7 @@ type ResourcePatternType string
 const (
 	ResourcePatternTypeLiteral = "literal"
 	ResourcePatternTypePrefix  = "prefix"
+	UsernameMappingDefault     = "CN=$ServiceName.$Namespace,O=SPIRE,C=US"
 )
 
 type TopicConfig struct {
@@ -47,10 +48,11 @@ type KafkaServerConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	ServerName string        `json:"serverName,omitempty"`
-	Addr       string        `json:"addr,omitempty"`
-	TLS        TLSSource     `json:"tls"`
-	Topics     []TopicConfig `json:"topics,omitempty"`
+	ServerName      string        `json:"serverName,omitempty"`
+	Addr            string        `json:"addr,omitempty"`
+	TLS             TLSSource     `json:"tls"`
+	UsernameMapping string        `json:"usernameMapping,omitempty"`
+	Topics          []TopicConfig `json:"topics,omitempty"`
 }
 
 // KafkaServerConfigStatus defines the observed state of KafkaServerConfig
