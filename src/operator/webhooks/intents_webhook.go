@@ -75,14 +75,9 @@ func (v *IntentsValidator) validateNoDuplicateClients(ctx context.Context, inten
 		return err
 	}
 	desiredClientName := intentsObj.GetServiceName()
-	for _, intent := range intentsList.Items {
-		// Intents for this client already exists, deny admission
-		if intent.GetServiceName() == desiredClientName {
-			// This is relevant for update - skip the comparison if it's the same object
-			if intent.Name == intentsObj.Name {
-				continue
-			}
-
+	for _, existingIntent := range intentsList.Items {
+		// Deny admission if intents already exist for this client, and it's not the same object being updated
+		if existingIntent.GetServiceName() == desiredClientName && existingIntent.Name != intentsObj.Name {
 			gvk := intentsObj.GroupVersionKind()
 			return errors.NewInvalid(
 				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
@@ -93,7 +88,7 @@ func (v *IntentsValidator) validateNoDuplicateClients(ctx context.Context, inten
 						Field:    "name",
 						BadValue: desiredClientName,
 						Detail: fmt.Sprintf(
-							"Intents for client %s already exist in resource %s", desiredClientName, intent.Name),
+							"Intents for client %s already exist in resource %s", desiredClientName, existingIntent.Name),
 					},
 				})
 		}
