@@ -76,7 +76,7 @@ func main() {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
-	var CertBundle webhooks.CertificateBundle
+	var certBundle webhooks.CertificateBundle
 	ctrlConfig := otterizev1alpha1.ProjectConfig{}
 
 	options := ctrl.Options{
@@ -136,20 +136,20 @@ func main() {
 
 	if selfSignedCert == true {
 		logrus.Infoln("Creating self signing certs")
-		CertBundle, err =
+		certBundle, err =
 			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", "intents-operator-system")
 		if err != nil {
 			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
 		}
-		err = webhooks.WriteCertToFiles(CertBundle)
+		err = webhooks.WriteCertToFiles(certBundle)
 		if err != nil {
 			logrus.WithError(err).Fatal("failed writing certs to file system")
 		}
 		if selfSignedCert == true {
 			err = webhooks.UpdateWebHookCA(context.Background(),
-				"intents-operator-validating-webhook-configuration", CertBundle.CertPem)
+				"intents-operator-validating-webhook-configuration", certBundle.CertPem)
 			if err != nil {
-				logrus.WithError(err).Fatal("somethign with uipdated")
+				logrus.WithError(err).Fatal("updating webhook certificate failed")
 			}
 		}
 	}
