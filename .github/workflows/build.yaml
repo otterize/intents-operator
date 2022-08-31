@@ -8,6 +8,9 @@ on:
     types:
       - opened
       - synchronize
+  push:
+    branches:
+      - main
 
 env:
   REGISTRY: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize
