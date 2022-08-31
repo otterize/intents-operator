@@ -68,13 +68,13 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
-        volumeMounts:
-          - name: tls
-            mountPath: /etc/tls
-            readOnly: true
+#        volumeMounts:
+#          - name: tls
+#            mountPath: /etc/tls
+#            readOnly: true
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10
-      volumes:
-        - name: tls
-          secret:
-            secretName: tls-controller-manager
+#      volumes:
+#        - name: tls
+#          secret:
+#            secretName: tls-controller-manager

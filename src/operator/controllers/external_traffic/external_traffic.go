@@ -2,7 +2,7 @@ package external_traffic
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/shared/reconcilergroup"
+	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
