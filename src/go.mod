@@ -1,4 +1,4 @@
-module github.com/otterize/intents-operator
+module github.com/otterize/intents-operator/src
 
 go 1.18
 
