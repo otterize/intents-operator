@@ -11,8 +11,10 @@ RUN go mod download
 
 # Copy the go source
 COPY operator/main.go main.go
-COPY shared/ shared/
+COPY operator/api operator/api/
 COPY operator/controllers operator/controllers/
+COPY shared/reconcilergroup shared/reconcilergroup
+COPY operator/webhooks operator/webhooks/
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go

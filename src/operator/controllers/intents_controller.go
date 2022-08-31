@@ -18,9 +18,9 @@ package controllers
 
 import (
 	"context"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/shared/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -47,6 +47,7 @@ func NewIntentsReconciler(client client.Client, scheme *runtime.Scheme, kafkaSer
 //+kubebuilder:rbac:groups=otterize.com,resources=intents/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
+//+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

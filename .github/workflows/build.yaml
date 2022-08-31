@@ -1,5 +1,4 @@
-# Checks that we can build and validate the Unittest
-name: Pull-Request-Checks
+name: Build
 
 on: [push]
 
