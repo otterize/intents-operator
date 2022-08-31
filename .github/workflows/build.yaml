@@ -55,11 +55,9 @@ jobs:
           file: src/${{ matrix.service }}.Dockerfile
           tags: ${{ env.REGISTRY }}:${{ matrix.service }}-${{ github.sha }}
           push: true
-          target: release
           network: host
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          build-args: RUN_ID=${{ github.run_id }}
           secrets: |
             "github_token=${{ secrets.OTTERIZEBOT_GITHUB_TOKEN }}"
 
