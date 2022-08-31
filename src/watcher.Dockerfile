@@ -7,7 +7,7 @@ COPY go.sum go.sum
 RUN go mod download
 
 COPY watcher/cmd/main.go main.go
-COPY shared/api shared/api/
+COPY shared/ shared/
 COPY watcher/ watcher/
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o watcherbin main.go
