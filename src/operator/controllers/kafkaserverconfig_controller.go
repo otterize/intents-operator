@@ -19,8 +19,8 @@ package controllers
 import (
 	"context"
 	"errors"
-	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -90,7 +90,8 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, ka
 	return ctrl.Result{}, nil
 }
 
-func (r *KafkaServerConfigReconciler) ensureFinalizerRegistered(ctx context.Context, kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) error {
+func (r *KafkaServerConfigReconciler) ensureFinalizerRegistered(
+	ctx context.Context, kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) error {
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"name":      kafkaServerConfig.Name,

@@ -104,6 +104,9 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/otterize/intents-operator/shared/api/otterizev1alpha1 => ./shared/api/otterizev1alpha1
-
-replace github.com/otterize/intents-operator/operator/controllers => ./operator/controllers
+replace (
+	github.com/otterize/intents-operator/operator/api/v1alpha1 => ./operator/api/v1alpha1
+	github.com/otterize/intents-operator/operator/controllers => ./operator/controllers
+	github.com/otterize/intents-operator/operator/webhooks => ./operator/webhooks
+	github.com/otterize/intents-operator/shared/reconcilergroup => ./shared/reconcilergroup
+)
