@@ -52,8 +52,6 @@ jobs:
           username: otterize
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Registry login step intentionally missing
-
       - name: Build & Test
         uses: docker/build-push-action@v2
         with:

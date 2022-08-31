@@ -75,9 +75,9 @@ type Intent struct {
 	Name string     `json:"name" yaml:"name"`
 
 	//+optional
-	Namespace string `json:"namespace" yaml:"namespace"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	//+optional
-	Topics []KafkaTopic `json:"topics" yaml:"topics"`
+	Topics []KafkaTopic `json:"topics,omitempty" yaml:"topics,omitempty"`
 }
 
 type KafkaTopic struct {
