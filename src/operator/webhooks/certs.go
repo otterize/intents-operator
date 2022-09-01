@@ -18,13 +18,16 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"math/big"
+	"os"
+	"path/filepath"
 	"time"
 )
 
 const (
-	Year           = 365 * 24 * time.Hour
-	CertFilePath   = "/tmp/k8s-webhook-server/serving-certs/tls.crt"
-	PrivateKeyPath = "/tmp/k8s-webhook-server/serving-certs/tls.key"
+	Year               = 365 * 24 * time.Hour
+	CertDirPath        = "/tmp/k8s-webhook-server/serving-certs"
+	CertFilename       = "tls.crt"
+	PrivateKeyFilename = "tls.key"
 )
 
 type CertificateBundle struct {
@@ -73,12 +76,19 @@ func GenerateSelfSignedCertificate(hostname string, namespace string) (Certifica
 }
 
 func WriteCertToFiles(bundle CertificateBundle) error {
-	err := ioutil.WriteFile(CertFilePath, bundle.CertPem, 0600)
+	err := os.MkdirAll(CertDirPath, 0600)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(PrivateKeyPath, bundle.PrivateKeyPem, 0600)
-	return err
+
+	certFilePath := filepath.Join(CertDirPath, CertFilename)
+	privateKeyFilePath := filepath.Join(PrivateKeyFilename, CertFilename)
+
+	err = ioutil.WriteFile(certFilePath, bundle.CertPem, 0600)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(privateKeyFilePath, bundle.PrivateKeyPem, 0600)
 }
 
 func getKubeClient() (*kubernetes.Clientset, error) {

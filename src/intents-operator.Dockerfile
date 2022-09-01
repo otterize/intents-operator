@@ -13,7 +13,7 @@ RUN go mod download
 COPY operator/main.go main.go
 COPY operator/api operator/api/
 COPY operator/controllers operator/controllers/
-COPY shared/reconcilergroup shared/reconcilergroup
+COPY shared shared
 COPY operator/webhooks operator/webhooks/
 
 # Build

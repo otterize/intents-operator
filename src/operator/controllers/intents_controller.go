@@ -32,12 +32,12 @@ type IntentsReconciler struct {
 	group *reconcilergroup.Group
 }
 
-func NewIntentsReconciler(client client.Client, scheme *runtime.Scheme, kafkaServerStore *kafkaacls.ServersStore) *IntentsReconciler {
+func NewIntentsReconciler(client client.Client, scheme *runtime.Scheme, kafkaServerStore *kafkaacls.ServersStore, restrictToNamespaces []string) *IntentsReconciler {
 	return &IntentsReconciler{
 		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 			&intents_reconcilers.IntentsValidatorReconciler{Client: client, Scheme: scheme},
 			&intents_reconcilers.PodLabelReconciler{Client: client, Scheme: scheme},
-			&intents_reconcilers.NetworkPolicyReconciler{Client: client, Scheme: scheme},
+			&intents_reconcilers.NetworkPolicyReconciler{Client: client, Scheme: scheme, RestrictToNamespaces: restrictToNamespaces},
 			&intents_reconcilers.KafkaACLsReconciler{Client: client, Scheme: scheme, KafkaServersStore: kafkaServerStore},
 		)}
 }
@@ -57,9 +57,16 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev1alpha1.Intents{}).
 		Complete(r)
+	if err != nil {
+		return err
+	}
+
+	r.group.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+
+	return nil
 }
 
 // InitIntentsServerIndices indexes intents by target server name
@@ -77,7 +84,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			}
 
 			for _, intent := range intents.GetCallsList() {
-				res = append(res, intent.Server)
+				res = append(res, intent.Name)
 			}
 
 			return res

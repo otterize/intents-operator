@@ -8,6 +8,7 @@ RUN go mod download
 
 COPY watcher/cmd/main.go main.go
 COPY operator/api operator/api/
+COPY shared shared
 COPY watcher/ watcher/
 
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o watcherbin main.go
