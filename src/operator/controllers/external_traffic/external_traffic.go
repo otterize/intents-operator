@@ -2,7 +2,7 @@ package external_traffic
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/shared/reconcilergroup"
+	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,15 +36,4 @@ func (r *ExternalTrafficReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Service{}).
 		Complete(r)
-}
-
-func (r *ExternalTrafficReconciler) InitServiceReconcilerIndex(mgr ctrl.Manager) error {
-	return mgr.GetCache().IndexField(
-		context.Background(),
-		&corev1.Service{},
-		"spec.type",
-		func(object client.Object) []string {
-			svc := object.(*corev1.Service)
-			return []string{string(svc.Spec.Type)}
-		})
 }

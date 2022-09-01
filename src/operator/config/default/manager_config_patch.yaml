@@ -7,7 +7,7 @@ spec:
   template:
     metadata:
       annotations:
-        otterize/tls-secret-name: spifferize-tls-controller-manager
+        otterize/tls-secret-name: tls-controller-manager
     spec:
       containers:
       - name: manager

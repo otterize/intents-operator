@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/Shopify/sarama"
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/lox"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -92,6 +92,12 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig) (*Kafk
 	}
 
 	return &KafkaIntentsAdmin{kafkaServer: kafkaServer, kafkaAdminClient: a}, nil
+}
+
+func (a *KafkaIntentsAdmin) Close() {
+	if err := a.kafkaAdminClient.Close(); err != nil {
+		logrus.WithError(err).Error("Error closing kafka admin client")
+	}
 }
 
 func (a *KafkaIntentsAdmin) formatPrincipal(clientName string, clientNamespace string) string {

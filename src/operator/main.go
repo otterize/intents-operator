@@ -17,14 +17,18 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
-	"github.com/otterize/intents-operator/operator/controllers"
-	"github.com/otterize/intents-operator/operator/controllers/external_traffic"
-	"github.com/otterize/intents-operator/operator/controllers/kafkaacls"
+	"github.com/bombsimon/logrusr/v3"
+	"github.com/otterize/intents-operator/src/operator/controllers"
+	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
+	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/sirupsen/logrus"
 	"os"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
-
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/webhooks"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -34,13 +38,11 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme = runtime.NewScheme()
 )
 
 func init() {
@@ -55,6 +57,7 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var configFile string
+	var selfSignedCert bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -65,15 +68,15 @@ func main() {
 		"The controller will load its initial configuration from this file. "+
 			"Omit this flag to use the default configuration values. "+
 			"Command-line flags override configuration from this file.")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
+	flag.BoolVar(&selfSignedCert, "self-signed-cert", true,
+		"Whether to generate and use a self signed cert as the CA for webhooks")
+
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
+	var certBundle webhooks.CertificateBundle
 	ctrlConfig := otterizev1alpha1.ProjectConfig{}
 
 	options := ctrl.Options{
@@ -98,40 +101,63 @@ func main() {
 	if configFile != "" {
 		options, err = options.AndFrom(ctrl.ConfigFile().AtPath(configFile).OfKind(&ctrlConfig))
 		if err != nil {
-			setupLog.Error(err, "unable to load the config file")
-			os.Exit(1)
+			logrus.WithError(err).Fatal("unable to load the config file")
+		}
+
+		if len(ctrlConfig.WatchNamespaces) != 0 {
+			options.NewCache = cache.MultiNamespacedCacheBuilder(ctrlConfig.WatchNamespaces)
+			logrus.Infof("Will only watch the following namespaces: %v", ctrlConfig.WatchNamespaces)
 		}
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
+		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
-
 	kafkaServersStore := kafkaacls.NewServersStore()
 
 	svcReconciler := external_traffic.NewExternalTrafficReconciler(mgr.GetClient(), mgr.GetScheme())
 
-	if err = svcReconciler.InitServiceReconcilerIndex(mgr); err != nil {
-		setupLog.Error(err, "unable to init indices", "controller", "Service")
-		os.Exit(1)
-	}
-
 	if err = svcReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Service")
+		logrus.WithError(err).Error("unable to create controller", "controller", "Service")
 		os.Exit(1)
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
-		setupLog.Error(err, "unable to init indices", "controller", "Intents")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("unable to init indices")
 	}
 
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Intents")
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
+
+	}
+
+	if selfSignedCert == true {
+		logrus.Infoln("Creating self signing certs")
+		certBundle, err =
+			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", "intents-operator-system")
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
+		}
+		err = webhooks.WriteCertToFiles(certBundle)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed writing certs to file system")
+		}
+		if selfSignedCert == true {
+			err = webhooks.UpdateWebHookCA(context.Background(),
+				"intents-operator-validating-webhook-configuration", certBundle.CertPem)
+			if err != nil {
+				logrus.WithError(err).Fatal("updating webhook certificate failed")
+			}
+		}
+	}
+
+	intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
+
+	if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
 		os.Exit(1)
 	}
 
@@ -140,23 +166,19 @@ func main() {
 		Scheme:       mgr.GetScheme(),
 		ServersStore: kafkaServersStore,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "KafkaServerConfig")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
 	}
 
 	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("unable to set up health check")
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("unable to set up ready check")
 	}
 
-	setupLog.Info("starting manager")
+	logrus.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("problem running manager")
 	}
 }
