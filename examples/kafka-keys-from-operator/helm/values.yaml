@@ -1,5 +1,5 @@
 kafka:
-  superUsers: "User:CN=kafka.default,O=SPIRE,C=US;User:CN=intents-operator.intents-operator-system,O=SPIRE,C=US"
+  superUsers: "User:CN=kafka.default,O=SPIRE,C=US;User:CN=intents-operator-controller-manager.intents-operator-system,O=SPIRE,C=US"
   livenessProbe:
     initialDelaySeconds: 20
   readinessProbe:
