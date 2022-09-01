@@ -42,8 +42,6 @@ type IntentType string
 const (
 	IntentTypeHTTP  IntentType = "HTTP"
 	IntentTypeKafka IntentType = "Kafka"
-	IntentTypeGRPC  IntentType = "gRPC"
-	IntentTypeRedis IntentType = "Redis"
 )
 
 type KafkaOperation string
@@ -62,49 +60,29 @@ const (
 	KafkaOperationIdempotentWrite KafkaOperation = "IdempotentWrite"
 )
 
-type HTTPMethod string
-
-const (
-	HTTPMethodGet     HTTPMethod = "GET"
-	HTTPMethodPost    HTTPMethod = "POST"
-	HTTPMethodPut     HTTPMethod = "PUT"
-	HTTPMethodDelete  HTTPMethod = "DELETE"
-	HTTPMethodOptions HTTPMethod = "OPTIONS"
-	HTTPMethodTrace   HTTPMethod = "TRACE"
-	HTTPMethodPatch   HTTPMethod = "PATCH"
-	HTTPMethodConnect HTTPMethod = "CONNECT"
-)
-
 // IntentsSpec defines the desired state of Intents
 type IntentsSpec struct {
-	Service Service `json:"service"`
+	Service Service `json:"service" yaml:"service"`
 }
 
 type Service struct {
-	Name  string   `json:"name"`
-	Calls []Intent `json:"calls"`
-}
-
-type HTTPResource struct {
-	Path   string     `json:"path"`
-	Method HTTPMethod `json:"method"`
+	Name  string   `json:"name" yaml:"name"`
+	Calls []Intent `json:"calls" yaml:"calls"`
 }
 
 type Intent struct {
-	Type   IntentType `json:"type"`
-	Server string     `json:"server"`
+	Type IntentType `json:"type" yaml:"type"`
+	Name string     `json:"name" yaml:"name"`
 
 	//+optional
-	Namespace string `json:"namespace"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	//+optional
-	Topics []KafkaTopic `json:"topics"`
-	//+optional
-	HTTPResources []HTTPResource `json:"http_resources"`
+	Topics []KafkaTopic `json:"topics,omitempty" yaml:"topics,omitempty"`
 }
 
 type KafkaTopic struct {
-	Name      string         `json:"name"`
-	Operation KafkaOperation `json:"operation"`
+	Name      string         `json:"name" yaml:"name"`
+	Operation KafkaOperation `json:"operation" yaml:"operation"`
 }
 
 // IntentsStatus defines the observed state of Intents
@@ -118,20 +96,20 @@ type IntentsStatus struct {
 
 // Intents is the Schema for the intents API
 type Intents struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta   `json:",inline" yaml:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
-	Spec   *IntentsSpec  `json:"spec,omitempty"`
-	Status IntentsStatus `json:"status,omitempty"`
+	Spec   *IntentsSpec   `json:"spec,omitempty" yaml:"spec,omitempty"`
+	Status *IntentsStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
 // IntentsList contains a list of Intents
 type IntentsList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Intents `json:"items"`
+	metav1.TypeMeta `json:",inline" yaml:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
+	Items           []Intents `json:"items" yaml:"items"`
 }
 
 func init() {
@@ -151,7 +129,7 @@ func (in *Intents) GetIntentsLabelMapping(requestNamespace string) map[string]st
 
 	for _, intent := range in.GetCallsList() {
 		ns := intent.ResolveIntentNamespace(requestNamespace)
-		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.Server, ns)
+		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.Name, ns)
 		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)] = "true"
 	}
 

@@ -27,7 +27,7 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Inte
 	intentsByServer := map[types.NamespacedName][]otterizev1alpha1.Intent{}
 	for _, intent := range intents {
 		serverName := types.NamespacedName{
-			Name:      intent.Server,
+			Name:      intent.Name,
 			Namespace: lo.Ternary(intent.Namespace != "", intent.Namespace, defaultNamespace),
 		}
 
