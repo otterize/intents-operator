@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/golang/mock/gomock"
 	mock_client "github.com/otterize/spire-integration-operator/src/mocks/controller-runtime/client"
+	mock_record "github.com/otterize/spire-integration-operator/src/mocks/eventrecorder"
 	mock_secrets "github.com/otterize/spire-integration-operator/src/mocks/secrets"
 	mock_spireclient "github.com/otterize/spire-integration-operator/src/mocks/spireclient"
 	mock_entries "github.com/otterize/spire-integration-operator/src/mocks/spireclient/entries"
@@ -32,12 +33,16 @@ func (s *PodControllerSuite) SetupTest() {
 	s.spireClient = mock_spireclient.NewMockServerClient(s.controller)
 	s.entriesRegistry = mock_entries.NewMockRegistry(s.controller)
 	s.secretsManager = mock_secrets.NewMockManager(s.controller)
+	eventRecorder := mock_record.NewMockEventRecorder(s.controller)
+	eventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	eventRecorder.EXPECT().Eventf(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 	s.podReconciler = &PodReconciler{
 		Client:          s.client,
 		Scheme:          nil,
 		SpireClient:     s.spireClient,
 		EntriesRegistry: s.entriesRegistry,
 		SecretsManager:  s.secretsManager,
+		EventRecorder:   eventRecorder,
 	}
 }
 
