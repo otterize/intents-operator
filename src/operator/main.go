@@ -24,7 +24,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/sirupsen/logrus"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
@@ -119,11 +118,10 @@ func main() {
 	svcReconciler := external_traffic.NewExternalTrafficReconciler(mgr.GetClient(), mgr.GetScheme())
 
 	if err = svcReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Error("unable to create controller", "controller", "Service")
-		os.Exit(1)
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Service")
 	}
 
-	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore)
+	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, ctrlConfig.WatchNamespaces)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
@@ -158,14 +156,11 @@ func main() {
 
 	if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
-		os.Exit(1)
 	}
 
-	if err = (&controllers.KafkaServerConfigReconciler{
-		Client:       mgr.GetClient(),
-		Scheme:       mgr.GetScheme(),
-		ServersStore: kafkaServersStore,
-	}).SetupWithManager(mgr); err != nil {
+	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore)
+
+	if err = kafkaServerConfigReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
 	}
 

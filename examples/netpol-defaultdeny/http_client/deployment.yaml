@@ -17,5 +17,5 @@ spec:
       containers:
         - name: client
           image: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize-tools:http-client-test
-        imagePullPolicy: Always
+          imagePullPolicy: Always
 
