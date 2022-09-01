@@ -103,6 +103,7 @@ func main() {
 		SpireClient:     spireClient,
 		EntriesRegistry: entriesRegistry,
 		SecretsManager:  secretsManager,
+		EventRecorder:   mgr.GetEventRecorderFor("spire-integration-operator"),
 	}
 
 	if err = podReconciler.SetupWithManager(mgr); err != nil {

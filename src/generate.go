@@ -9,3 +9,4 @@ package src
 //go:generate go run github.com/golang/mock/mockgen@v1.6.0 -destination=mocks/spireclient/entries/mock.go github.com/otterize/spire-integration-operator/src/spireclient/entries Registry
 //go:generate go run github.com/golang/mock/mockgen@v1.6.0 -destination=mocks/spireclient/svids/mock.go github.com/otterize/spire-integration-operator/src/spireclient/svids Store
 //go:generate go run github.com/golang/mock/mockgen@v1.6.0 -destination=mocks/secrets/mock.go github.com/otterize/spire-integration-operator/src/operator/secrets Manager
+//go:generate go run github.com/golang/mock/mockgen@v1.6.0 -destination=mocks/eventrecorder/mock.go k8s.io/client-go/tools/record EventRecorder
