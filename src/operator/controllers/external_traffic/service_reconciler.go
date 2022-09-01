@@ -3,6 +3,7 @@ package external_traffic
 import (
 	"context"
 	"fmt"
+	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -23,6 +24,7 @@ const OtterizeNetworkPolicy = "otterize/network-policy"
 type ServiceReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	injectablerecorder.InjectableRecorder
 }
 
 func formatPolicyName(name string, namespace string) string {
@@ -70,11 +72,13 @@ func (r *ServiceReconciler) handleNetworkPolicyCreationOrUpdate(
 			"Creating network policy to enable access from external traffic to load balancer service %s (ns %s)", service.Name, service.Namespace)
 		err := r.Create(ctx, newPolicy)
 		if err != nil {
+			r.RecordWarningEvent(service, "failed to create external traffic network policy", err.Error())
 			return err
 		}
 		return nil
 
 	} else if err != nil {
+		r.RecordWarningEvent(service, "failed to get external traffic network policy", err.Error())
 		return err
 	}
 

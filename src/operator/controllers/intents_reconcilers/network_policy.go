@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,7 +23,9 @@ const NetworkPolicyFinalizerName = "otterize-intents.policies/finalizer"
 
 type NetworkPolicyReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme               *runtime.Scheme
+	RestrictToNamespaces []string
+	injectablerecorder.InjectableRecorder
 }
 
 func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -49,6 +53,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
+			r.RecordWarningEvent(intents, "could not remove network policies", err.Error())
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -66,12 +71,21 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			// We never actually update the intent, we just set it here, so we can to access it later
 			intent.Namespace = req.Namespace
 		}
+		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, intent.Namespace) {
+			// Namespace is not in list of namespaces we're allowed to act in, so drop it.
+			r.RecordWarningEventf(intents, "namespace not allowed", "namespace %s was specified in intent, but is not allowed by configuration", intent.Namespace)
+			continue
+		}
 		err := r.handleNetworkPolicyCreation(ctx, intent, req.Namespace)
 		if err != nil {
+			r.RecordWarningEvent(intents, "could not create network policies", err.Error())
 			return ctrl.Result{}, err
 		}
 	}
 
+	if len(intents.GetCallsList()) > 0 {
+		r.RecordNormalEventf(intents, "NetworkPolicy reconcile complete", "Reconciled %d servers", len(intents.GetCallsList()))
+	}
 	return ctrl.Result{}, nil
 }
 
