@@ -61,8 +61,7 @@ func (r *ServiceReconciler) handleNetworkPolicyDelete(ctx context.Context, req c
 	}
 	err = r.Delete(ctx, existingPolicy)
 	if err != nil {
-		logrus.WithError(err).Error("failed to delete network policy, retrying")
-		return ctrl.Result{Requeue: true}, nil
+		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
