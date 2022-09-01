@@ -33,7 +33,8 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	svc := &corev1.Service{}
 	err := r.Get(ctx, req.NamespacedName, svc)
 	if k8serrors.IsNotFound(err) {
-		return r.handleNetworkPolicyDelete(ctx, req)
+		// delete is handled by garbage collection - the service owns the network policy
+		return ctrl.Result{}, nil
 	}
 
 	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer && svc.Spec.Type != corev1.ServiceTypeNodePort {
@@ -49,23 +50,6 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return ctrl.Result{}, nil
 }
 
-func (r *ServiceReconciler) handleNetworkPolicyDelete(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	existingPolicy := &v1.NetworkPolicy{}
-	err := r.Get(ctx, types.NamespacedName{Name: formatPolicyName(req.Name, req.Namespace), Namespace: req.Namespace}, existingPolicy)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			// no cleanup needed
-			return ctrl.Result{}, nil
-		}
-		return ctrl.Result{}, err
-	}
-	err = r.Delete(ctx, existingPolicy)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
-}
-
 func (r *ServiceReconciler) handleNetworkPolicyCreationOrUpdate(
 	ctx context.Context, service *corev1.Service) error {
 
@@ -73,6 +57,12 @@ func (r *ServiceReconciler) handleNetworkPolicyCreationOrUpdate(
 	existingPolicy := &v1.NetworkPolicy{}
 	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: service.Namespace}, existingPolicy)
 	newPolicy := r.buildNetworkPolicyObjectForService(service, policyName)
+	newPolicy.SetOwnerReferences([]metav1.OwnerReference{{
+		APIVersion: service.APIVersion,
+		Kind:       service.Kind,
+		Name:       service.Name,
+		UID:        service.UID,
+	}})
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(err) {
@@ -93,7 +83,11 @@ func (r *ServiceReconciler) handleNetworkPolicyCreationOrUpdate(
 		return nil
 	}
 
-	err = r.Update(ctx, newPolicy)
+	policyCopy := existingPolicy.DeepCopy()
+	policyCopy.Spec = newPolicy.Spec
+	policyCopy.SetOwnerReferences(newPolicy.GetOwnerReferences())
+
+	err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 	if err != nil {
 		return err
 	}
