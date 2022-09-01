@@ -3,7 +3,7 @@ package reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/sirupsen/logrus"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"

@@ -3,8 +3,8 @@ package intents_reconcilers
 import (
 	"context"
 	"errors"
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
-	"github.com/otterize/intents-operator/shared/injectablerecorder"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"

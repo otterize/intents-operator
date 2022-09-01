@@ -3,8 +3,8 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/shared/api/v1alpha1"
-	"github.com/otterize/intents-operator/shared/injectablerecorder"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/networking/v1"
@@ -180,6 +180,7 @@ func (r *NetworkPolicyReconciler) removeNetworkPolicy(
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
 func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 	intent otterizev1alpha1.Intent, policyName, intentsObjNamespace string) *v1.NetworkPolicy {
+	// The intent's target server made of name + namespace + hash
 	formattedTargetServer := otterizev1alpha1.GetFormattedOtterizeIdentity(intent.Server, intent.Namespace)
 
 	return &v1.NetworkPolicy{
