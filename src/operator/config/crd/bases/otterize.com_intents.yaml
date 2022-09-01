@@ -40,21 +40,9 @@ spec:
                   calls:
                     items:
                       properties:
-                        http_resources:
-                          items:
-                            properties:
-                              method:
-                                type: string
-                              path:
-                                type: string
-                            required:
-                            - method
-                            - path
-                            type: object
-                          type: array
-                        namespace:
+                        name:
                           type: string
-                        server:
+                        namespace:
                           type: string
                         topics:
                           items:
@@ -71,7 +59,7 @@ spec:
                         type:
                           type: string
                       required:
-                      - server
+                      - name
                       - type
                       type: object
                     type: array

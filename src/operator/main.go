@@ -143,12 +143,10 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Fatal("failed writing certs to file system")
 		}
-		if selfSignedCert == true {
-			err = webhooks.UpdateWebHookCA(context.Background(),
-				"intents-operator-validating-webhook-configuration", certBundle.CertPem)
-			if err != nil {
-				logrus.WithError(err).Fatal("updating webhook certificate failed")
-			}
+		err = webhooks.UpdateWebHookCA(context.Background(),
+			"intents-operator-validating-webhook-configuration", certBundle.CertPem)
+		if err != nil {
+			logrus.WithError(err).Fatal("updating webhook certificate failed")
 		}
 	}
 
