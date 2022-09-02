@@ -22,8 +22,9 @@ const OtterizeNetworkPolicyNameTemplate = "external-access-to-%s-from-%s"
 const OtterizeNetworkPolicy = "otterize/network-policy"
 
 type ServiceReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
+	client            client.Client
+	Scheme            *runtime.Scheme
+	ingressReconciler *IngressReconciler
 	injectablerecorder.InjectableRecorder
 }
 
@@ -31,9 +32,30 @@ func formatPolicyName(name string, namespace string) string {
 	return fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, name, namespace)
 }
 
+func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, ingressReconciler *IngressReconciler) *ServiceReconciler {
+	return &ServiceReconciler{
+		client:            client,
+		Scheme:            scheme,
+		ingressReconciler: ingressReconciler,
+	}
+}
+
+func (r *ServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	r.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&corev1.Service{}).
+		Complete(r)
+}
+
 func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	res, err := r.ingressReconciler.ReconcileService(ctx, req)
+	if err != nil || !res.IsZero() {
+		return res, err
+	}
+
 	svc := &corev1.Service{}
-	err := r.Get(ctx, req.NamespacedName, svc)
+	err = r.client.Get(ctx, req.NamespacedName, svc)
 	if k8serrors.IsNotFound(err) {
 		// delete is handled by garbage collection - the service owns the network policy
 		return ctrl.Result{}, nil
@@ -57,7 +79,7 @@ func (r *ServiceReconciler) handleNetworkPolicyCreationOrUpdate(
 
 	policyName := formatPolicyName(service.Name, service.Namespace)
 	existingPolicy := &v1.NetworkPolicy{}
-	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: service.Namespace}, existingPolicy)
+	err := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: service.Namespace}, existingPolicy)
 	newPolicy := r.buildNetworkPolicyObjectForService(service, policyName)
 	newPolicy.SetOwnerReferences([]metav1.OwnerReference{{
 		APIVersion: service.APIVersion,
@@ -70,7 +92,7 @@ func (r *ServiceReconciler) handleNetworkPolicyCreationOrUpdate(
 	if k8serrors.IsNotFound(err) {
 		logrus.Infof(
 			"Creating network policy to enable access from external traffic to load balancer service %s (ns %s)", service.Name, service.Namespace)
-		err := r.Create(ctx, newPolicy)
+		err := r.client.Create(ctx, newPolicy)
 		if err != nil {
 			r.RecordWarningEvent(service, "failed to create external traffic network policy", err.Error())
 			return err
@@ -91,7 +113,7 @@ func (r *ServiceReconciler) handleNetworkPolicyCreationOrUpdate(
 	policyCopy.Spec = newPolicy.Spec
 	policyCopy.SetOwnerReferences(newPolicy.GetOwnerReferences())
 
-	err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
+	err = r.client.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 	if err != nil {
 		return err
 	}
