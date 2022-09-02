@@ -4,14 +4,14 @@ layout:
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: operator
+projectName: intents-operator
 repo: github.com/otterize/intents-operator
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: otterize.com
+  domain: k8s.otterize.com
   group: otterize
   kind: Intents
   path: github.com/otterize/intents-operator/api/v1alpha1
@@ -20,7 +20,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: otterize.com
+  domain: k8s.otterize.com
   group: otterize
   kind: KafkaServerConfig
   path: github.com/otterize/intents-operator/api/v1alpha1

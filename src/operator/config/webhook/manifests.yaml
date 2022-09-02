@@ -16,7 +16,7 @@ webhooks:
   name: vintents.kb.io
   rules:
   - apiGroups:
-    - otterize.com
+    - k8s.otterize.com
     apiVersions:
     - v1alpha1
     operations:

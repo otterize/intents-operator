@@ -5,9 +5,9 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.9.0
   creationTimestamp: null
-  name: projectconfigs.otterize.com
+  name: projectconfigs.k8s.otterize.com
 spec:
-  group: otterize.com
+  group: k8s.otterize.com
   names:
     kind: ProjectConfig
     listKind: ProjectConfigList
