@@ -113,10 +113,10 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha1.Intents{},
+		&otterizev1alpha1.ClientIntents{},
 		OtterizeClientNameIndexField,
 		func(object client.Object) []string {
-			intents := object.(*otterizev1alpha1.Intents)
+			intents := object.(*otterizev1alpha1.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}

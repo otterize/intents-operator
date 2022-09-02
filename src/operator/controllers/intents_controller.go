@@ -58,7 +58,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev1alpha1.Intents{}).
+		For(&otterizev1alpha1.ClientIntents{}).
 		Complete(r)
 	if err != nil {
 		return err
@@ -74,11 +74,11 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha1.Intents{},
+		&otterizev1alpha1.ClientIntents{},
 		otterizev1alpha1.OtterizeTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
-			intents := object.(*otterizev1alpha1.Intents)
+			intents := object.(*otterizev1alpha1.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}

@@ -19,7 +19,7 @@ type IntentsValidatorReconciler struct {
 }
 
 func (r *IntentsValidatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	intents := &otterizev1alpha1.Intents{}
+	intents := &otterizev1alpha1.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		return ctrl.Result{}, nil

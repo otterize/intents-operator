@@ -26,7 +26,7 @@ type PodLabelReconciler struct {
 func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	namespace := req.NamespacedName.Namespace
 
-	intents := &otterizev1alpha1.Intents{}
+	intents := &otterizev1alpha1.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		logrus.Infof("Intents deleted for namespace %s", namespace)
@@ -91,7 +91,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
-	ctx context.Context, intents *otterizev1alpha1.Intents) error {
+	ctx context.Context, intents *otterizev1alpha1.ClientIntents) error {
 
 	if !controllerutil.ContainsFinalizer(intents, PodLabelFinalizerName) {
 		return nil

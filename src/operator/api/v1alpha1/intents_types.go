@@ -60,14 +60,14 @@ const (
 	KafkaOperationIdempotentWrite KafkaOperation = "IdempotentWrite"
 )
 
-// IntentsSpec defines the desired state of Intents
+// IntentsSpec defines the desired state of ClientIntents
 type IntentsSpec struct {
-	Service Service `json:"service" yaml:"service"`
+	Service Service  `json:"service" yaml:"service"`
+	Calls   []Intent `json:"calls" yaml:"calls"`
 }
 
 type Service struct {
-	Name  string   `json:"name" yaml:"name"`
-	Calls []Intent `json:"calls" yaml:"calls"`
+	Name string `json:"name" yaml:"name"`
 }
 
 type Intent struct {
@@ -85,7 +85,7 @@ type KafkaTopic struct {
 	Operation KafkaOperation `json:"operation" yaml:"operation"`
 }
 
-// IntentsStatus defines the observed state of Intents
+// IntentsStatus defines the observed state of ClientIntents
 type IntentsStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
@@ -94,8 +94,8 @@ type IntentsStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Intents is the Schema for the intents API
-type Intents struct {
+// ClientIntents is the Schema for the intents API
+type ClientIntents struct {
 	metav1.TypeMeta   `json:",inline" yaml:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
@@ -105,26 +105,26 @@ type Intents struct {
 
 //+kubebuilder:object:root=true
 
-// IntentsList contains a list of Intents
+// IntentsList contains a list of ClientIntents
 type IntentsList struct {
 	metav1.TypeMeta `json:",inline" yaml:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
-	Items           []Intents `json:"items" yaml:"items"`
+	Items           []ClientIntents `json:"items" yaml:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Intents{}, &IntentsList{})
+	SchemeBuilder.Register(&ClientIntents{}, &IntentsList{})
 }
 
-func (in *Intents) GetServiceName() string {
+func (in *ClientIntents) GetServiceName() string {
 	return in.Spec.Service.Name
 }
 
-func (in *Intents) GetCallsList() []Intent {
-	return in.Spec.Service.Calls
+func (in *ClientIntents) GetCallsList() []Intent {
+	return in.Spec.Calls
 }
 
-func (in *Intents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
+func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
 	otterizeAccessLabels := map[string]string{}
 
 	for _, intent := range in.GetCallsList() {
@@ -170,7 +170,7 @@ func GetFormattedOtterizeIdentity(name, ns string) string {
 }
 
 // BuildPodLabelSelector returns a label selector to match the otterize server labels for an intents resource
-func (in *Intents) BuildPodLabelSelector() (labels.Selector, error) {
+func (in *ClientIntents) BuildPodLabelSelector() (labels.Selector, error) {
 	labelSelector, err := labels.Parse(
 		fmt.Sprintf("%s=%s",
 			OtterizeServerLabelKey,

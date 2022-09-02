@@ -29,7 +29,7 @@ type NetworkPolicyReconciler struct {
 }
 
 func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	intents := &otterizev1alpha1.Intents{}
+	intents := &otterizev1alpha1.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
@@ -117,7 +117,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 }
 
 func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
-	ctx context.Context, intents *otterizev1alpha1.Intents) error {
+	ctx context.Context, intents *otterizev1alpha1.ClientIntents) error {
 	if !controllerutil.ContainsFinalizer(intents, NetworkPolicyFinalizerName) {
 		return nil
 	}
