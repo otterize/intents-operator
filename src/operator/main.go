@@ -158,11 +158,11 @@ func main() {
 		}
 	}
 
-	//intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
-	//
-	//if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
-	//	logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
-	//}
+	intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
+
+	if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
+	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore)
 
