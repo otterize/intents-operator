@@ -52,58 +52,62 @@ func (r *IngressReconciler) serviceFromIngressBackendService(ctx context.Context
 	return svc, nil
 }
 
-func (r *IngressReconciler) ReconcileService(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	existingPolicy, existingPolicyErr := r.getExistingPolicyForService(ctx, req.Name, req.Namespace)
-	service := &corev1.Service{}
-	getServiceErr := r.client.Get(ctx, req.NamespacedName, service)
-	if k8serrors.IsNotFound(getServiceErr) {
-		if existingPolicyErr != nil {
-			if k8serrors.IsNotFound(existingPolicyErr) {
-				// no policy, nothing to do
-				return ctrl.Result{}, nil
+func (r *IngressReconciler) ingressFromNetworkPolicy(ctx context.Context, networkPolicy *v1.NetworkPolicy) (*v1.Ingress, error) {
+	for _, ownerRef := range networkPolicy.OwnerReferences {
+		if ownerRef.Kind == "Ingress" {
+			ingress := &v1.Ingress{}
+			err := r.client.Get(ctx, types.NamespacedName{Name: ownerRef.Name, Namespace: networkPolicy.Namespace}, ingress)
+			if err != nil {
+				return nil, err
 			}
-			return ctrl.Result{}, getServiceErr
+			return ingress, nil
 		}
-		getServiceErr = r.client.Delete(ctx, existingPolicy)
-		if getServiceErr != nil {
-			return ctrl.Result{}, getServiceErr
-		}
-		return ctrl.Result{}, nil
 	}
 
-	// Service exists
+	return nil, k8serrors.NewNotFound(v1.Resource("ingress"), networkPolicy.Name)
+}
+
+// ReconcileService updates the network policy for an ingress when a service is updated and has
+// a network policy created by this reconciler.
+// The policy contains both labels and ports - the ports are taken from the Ingress, as that is the source
+// of truth, but the labels for the service may need to be re-resolved when a service is updated.
+func (r *IngressReconciler) ReconcileService(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	existingPolicy, existingPolicyErr := r.getExistingPolicyForService(ctx, req.Name, req.Namespace)
+
 	if existingPolicyErr != nil {
 		if k8serrors.IsNotFound(existingPolicyErr) {
-			// Policy does not exist, so service is unrelated to an ingress
+			// Policy does not exist, so service is unrelated to an ingress, nothing to do
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, existingPolicyErr
 	}
 
-	if len(existingPolicy.OwnerReferences) != 0 && existingPolicy.OwnerReferences[0].Kind == "Ingress" {
-		err := r.handleNetworkPolicyCreationOrUpdate(ctx, service, nil)
-		if err != nil {
-			if k8serrors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
-			}
-			return ctrl.Result{}, err
+	ingress, err := r.ingressFromNetworkPolicy(ctx, existingPolicy)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// no ingress for this network policy, nothing to do here
+			return ctrl.Result{}, nil
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return r.reconcileIngress(ctx, ingress)
 }
 
 func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	ingress := &v1.Ingress{}
 	err := r.client.Get(ctx, req.NamespacedName, ingress)
 	if k8serrors.IsNotFound(err) {
-		// delete is handled by garbage collection - the ingress owns the network policy
+		// delete is handled by garbage collection - the ingress owns the network policy - nothing to do here
 		return ctrl.Result{}, nil
 	}
 
+	return r.reconcileIngress(ctx, ingress)
+}
+
+func (r *IngressReconciler) reconcileIngress(ctx context.Context, ingress *v1.Ingress) (ctrl.Result, error) {
 	services := make(map[string]*corev1.Service)
 	if ingress.Spec.DefaultBackend != nil {
-		svc, err := r.serviceFromIngressBackendService(ctx, req.Namespace, ingress.Spec.DefaultBackend.Service)
+		svc, err := r.serviceFromIngressBackendService(ctx, ingress.Namespace, ingress.Spec.DefaultBackend.Service)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				// The service might not exist yet, if the ingress was created first. Retry later.
@@ -115,7 +119,7 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	for _, rule := range ingress.Spec.Rules {
 		for _, path := range rule.HTTP.Paths {
-			svc, err := r.serviceFromIngressBackendService(ctx, req.Namespace, path.Backend.Service)
+			svc, err := r.serviceFromIngressBackendService(ctx, ingress.Namespace, path.Backend.Service)
 			if err != nil {
 				if k8serrors.IsNotFound(err) {
 					// The service might not exist yet, if the ingress was created first. Retry later.
