@@ -4,30 +4,26 @@ import (
 	"context"
 	"fmt"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/samber/lo"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const OtterizeIngressNetworkPolicyNameTemplate = "ingress-external-access-to-%s-from-%s"
+const OtterizeIngressNetworkPolicyNameTemplate = "ingress-external-access-to-%s"
 
 type IngressReconciler struct {
-	client client.Client
-	Scheme *runtime.Scheme
+	client           client.Client
+	Scheme           *runtime.Scheme
+	netpolReconciler *NetworkPolicyReconciler
 	injectablerecorder.InjectableRecorder
 }
 
 func NewIngressReconciler(client client.Client, scheme *runtime.Scheme) *IngressReconciler {
-	return &IngressReconciler{client: client, Scheme: scheme}
+	return &IngressReconciler{client: client, Scheme: scheme, netpolReconciler: NewNetworkPolicyReconciler(client)}
 }
 
 func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -38,8 +34,8 @@ func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func formatIngressPolicyName(name string, namespace string) string {
-	return fmt.Sprintf(OtterizeIngressNetworkPolicyNameTemplate, name, namespace)
+func (r *IngressReconciler) formatPolicyName(serviceName string) string {
+	return fmt.Sprintf(OtterizeIngressNetworkPolicyNameTemplate, serviceName)
 }
 
 func (r *IngressReconciler) serviceFromIngressBackendService(ctx context.Context, namespace string, backend *v1.IngressServiceBackend) (*corev1.Service, error) {
@@ -67,10 +63,13 @@ func (r *IngressReconciler) ingressFromNetworkPolicy(ctx context.Context, networ
 	return nil, k8serrors.NewNotFound(v1.Resource("ingress"), networkPolicy.Name)
 }
 
-// ReconcileService updates the network policy for an ingress when a service is updated and has
-// a network policy created by this reconciler.
-// The policy contains both labels and ports - the ports are taken from the Ingress, as that is the source
-// of truth, but the labels for the service may need to be re-resolved when a service is updated.
+// ReconcileService updates the network policy for an ingress and all its services when one of the related services is
+// updated.
+// When a service is updated, its labels may have changed, and the network policy needs to be refreshed.
+// When a service's labels change, the ingress does not change at all, and yet we need to update
+// the policy.
+// This only handles service updates - if a service was missing at the time the ingress was created,
+// reconciliation for the ingress itself will fail and will be retried.
 func (r *IngressReconciler) ReconcileService(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	existingPolicy, existingPolicyErr := r.getExistingPolicyForService(ctx, req.Name, req.Namespace)
 
@@ -131,13 +130,7 @@ func (r *IngressReconciler) reconcileIngress(ctx context.Context, ingress *v1.In
 	}
 
 	for _, service := range services {
-		ownerRefs := []metav1.OwnerReference{{
-			APIVersion: ingress.APIVersion,
-			Kind:       ingress.Kind,
-			Name:       ingress.Name,
-			UID:        ingress.UID,
-		}}
-		err := r.handleNetworkPolicyCreationOrUpdate(ctx, service, ownerRefs)
+		err := r.netpolReconciler.handleNetworkPolicyCreationOrUpdate(ctx, service, ingress, r.formatPolicyName(service.Name))
 		if err != nil {
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
@@ -149,7 +142,7 @@ func (r *IngressReconciler) reconcileIngress(ctx context.Context, ingress *v1.In
 }
 
 func (r *IngressReconciler) getExistingPolicyForService(ctx context.Context, name string, namespace string) (*v1.NetworkPolicy, error) {
-	policyName := formatIngressPolicyName(name, namespace)
+	policyName := r.formatPolicyName(name)
 	existingPolicy := &v1.NetworkPolicy{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: namespace}, existingPolicy)
 	if err != nil {
@@ -157,89 +150,4 @@ func (r *IngressReconciler) getExistingPolicyForService(ctx context.Context, nam
 	}
 
 	return existingPolicy, nil
-}
-
-func (r *IngressReconciler) handleNetworkPolicyCreationOrUpdate(
-	ctx context.Context, service *corev1.Service, ownerRefsOverride []metav1.OwnerReference) error {
-
-	existingPolicy, err := r.getExistingPolicyForService(ctx, service.Name, service.Namespace)
-
-	newPolicy := r.buildNetworkPolicyObjectForService(service)
-	if ownerRefsOverride != nil {
-		newPolicy.SetOwnerReferences(ownerRefsOverride)
-	}
-
-	// No matching network policy found, create one
-	if k8serrors.IsNotFound(err) {
-		logrus.Infof(
-			"Creating network policy to enable access from external traffic to ingress service %s (ns %s)", service.Name, service.Namespace)
-		err := r.client.Create(ctx, newPolicy)
-		if err != nil {
-			r.RecordWarningEvent(service, "failed to create external traffic network policy", err.Error())
-			return err
-		}
-		return nil
-
-	} else if err != nil {
-		r.RecordWarningEvent(service, "failed to get external traffic network policy", err.Error())
-		return err
-	}
-
-	// Found matching policy, is an update needed?
-	if reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
-		return nil
-	}
-
-	policyCopy := existingPolicy.DeepCopy()
-	policyCopy.Spec = newPolicy.Spec
-	if newPolicy.OwnerReferences != nil {
-		policyCopy.SetOwnerReferences(newPolicy.GetOwnerReferences())
-	}
-
-	err = r.client.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *IngressReconciler) buildNetworkPolicyObjectForService(
-	service *corev1.Service) *v1.NetworkPolicy {
-	serviceSpecCopy := service.Spec.DeepCopy()
-
-	netpol := &v1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      formatIngressPolicyName(service.Name, service.Namespace),
-			Namespace: service.Namespace,
-			Labels: map[string]string{
-				OtterizeNetworkPolicy: "true",
-			},
-		},
-		Spec: v1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: serviceSpecCopy.Selector,
-			},
-			Ingress: []v1.NetworkPolicyIngressRule{
-				{},
-			},
-		},
-	}
-
-	for _, port := range serviceSpecCopy.Ports {
-		netpolPort := v1.NetworkPolicyPort{
-			Port: lo.ToPtr(port.TargetPort),
-		}
-
-		if port.TargetPort.IntVal == 0 && len(port.TargetPort.StrVal) == 0 {
-			netpolPort.Port = lo.ToPtr(intstr.FromInt(int(port.Port)))
-		}
-
-		if len(port.Protocol) != 0 {
-			netpolPort.Protocol = lo.ToPtr(port.Protocol)
-		}
-		netpol.Spec.Ingress[0].Ports = append(netpol.Spec.Ingress[0].Ports, netpolPort)
-	}
-
-	return netpol
 }
