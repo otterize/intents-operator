@@ -36,7 +36,9 @@ func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, ingressR
 }
 
 func (r *ServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	r.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+	recorder := mgr.GetEventRecorderFor("intents-operator")
+	r.InjectRecorder(recorder)
+	r.netpolReconciler.InjectRecorder(recorder)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Service{}).
