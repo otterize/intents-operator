@@ -51,9 +51,9 @@ func NewKafkaServerConfigReconciler(client client.Client, scheme *runtime.Scheme
 	}
 }
 
-//+kubebuilder:rbac:groups=otterize.com,resources=kafkaserverconfigs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=otterize.com,resources=kafkaserverconfigs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=otterize.com,resources=kafkaserverconfigs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=kafkaserverconfigs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=kafkaserverconfigs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=kafkaserverconfigs/finalizers,verbs=update
 
 func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) error {
 	logger := logrus.WithFields(

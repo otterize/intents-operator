@@ -35,7 +35,7 @@ type IntentsValidator struct {
 
 func (v *IntentsValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&otterizev1alpha1.Intents{}).
+		For(&otterizev1alpha1.ClientIntents{}).
 		WithValidator(v).
 		Complete()
 }
@@ -46,20 +46,20 @@ func NewIntentsValidator(c client.Client) *IntentsValidator {
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-otterize-com-v1alpha1-intents,mutating=false,failurePolicy=fail,sideEffects=None,groups=otterize.com,resources=intents,verbs=create;update,versions=v1alpha1,name=vintents.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-otterize-com-v1alpha1-intents,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=intents,verbs=create;update,versions=v1alpha1,name=vintents.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &IntentsValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *IntentsValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
-	intentsObj := obj.(*otterizev1alpha1.Intents)
+	intentsObj := obj.(*otterizev1alpha1.ClientIntents)
 	return v.validateNoDuplicateClients(ctx, intentsObj)
 
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *IntentsValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
-	intentsObj := oldObj.(*otterizev1alpha1.Intents)
+	intentsObj := oldObj.(*otterizev1alpha1.ClientIntents)
 	return v.validateNoDuplicateClients(ctx, intentsObj)
 
 }
@@ -69,7 +69,7 @@ func (v *IntentsValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 	return nil
 }
 
-func (v *IntentsValidator) validateNoDuplicateClients(ctx context.Context, intentsObj *otterizev1alpha1.Intents) error {
+func (v *IntentsValidator) validateNoDuplicateClients(ctx context.Context, intentsObj *otterizev1alpha1.ClientIntents) error {
 	intentsList := &otterizev1alpha1.IntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
 		return err

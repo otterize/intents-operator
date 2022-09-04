@@ -8,6 +8,17 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - pods
   verbs:
   - get
@@ -33,19 +44,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - networking.k8s.io
-  resources:
-  - networkpolicies
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - otterize.com
+  - k8s.otterize.com
   resources:
   - intents
   verbs:
@@ -57,13 +56,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - otterize.com
+  - k8s.otterize.com
   resources:
   - intents/finalizers
   verbs:
   - update
 - apiGroups:
-  - otterize.com
+  - k8s.otterize.com
   resources:
   - intents/status
   verbs:
@@ -71,7 +70,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - otterize.com
+  - k8s.otterize.com
   resources:
   - kafkaserverconfigs
   verbs:
@@ -83,16 +82,28 @@ rules:
   - update
   - watch
 - apiGroups:
-  - otterize.com
+  - k8s.otterize.com
   resources:
   - kafkaserverconfigs/finalizers
   verbs:
   - update
 - apiGroups:
-  - otterize.com
+  - k8s.otterize.com
   resources:
   - kafkaserverconfigs/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

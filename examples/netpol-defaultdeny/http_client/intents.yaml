@@ -1,5 +1,5 @@
-apiVersion: otterize.com/v1alpha1
-kind: Intents
+apiVersion: k8s.otterize.com/v1alpha1
+kind: ClientIntents
 metadata:
   name: http-client-test
   namespace: http-server-test
@@ -7,5 +7,5 @@ spec:
   service:
     name: client
     calls:
-      - server: server
+      - name: server
         type: HTTP
