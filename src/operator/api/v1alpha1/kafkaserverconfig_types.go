@@ -33,6 +33,7 @@ type ResourcePatternType string
 const (
 	ResourcePatternTypeLiteral = "literal"
 	ResourcePatternTypePrefix  = "prefix"
+	UsernameMappingDefault     = "CN=$ServiceName.$Namespace,O=SPIRE,C=US"
 )
 
 type TopicConfig struct {
@@ -50,6 +51,7 @@ type KafkaServerConfigSpec struct {
 	ServerName string        `json:"serverName,omitempty" yaml:"serverName,omitempty"`
 	Addr       string        `json:"addr,omitempty" yaml:"addr,omitempty"`
 	TLS        TLSSource     `json:"tls" yaml:"tls"`
+	UsernameMapping string        `json:"usernameMapping,omitempty" yaml:"usernameMapping,omitempty"`
 	Topics     []TopicConfig `json:"topics,omitempty" yaml:"topics,omitempty"`
 }
 

@@ -82,7 +82,7 @@ func WriteCertToFiles(bundle CertificateBundle) error {
 	}
 
 	certFilePath := filepath.Join(CertDirPath, CertFilename)
-	privateKeyFilePath := filepath.Join(PrivateKeyFilename, CertFilename)
+	privateKeyFilePath := filepath.Join(CertDirPath, PrivateKeyFilename)
 
 	err = ioutil.WriteFile(certFilePath, bundle.CertPem, 0600)
 	if err != nil {
