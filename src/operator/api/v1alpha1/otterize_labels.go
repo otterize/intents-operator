@@ -34,9 +34,9 @@ func UpdateOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]str
 	return pod
 }
 
-func HasOtterizeServerLabel(pod *v1.Pod) bool {
-	_, exists := pod.Labels[OtterizeServerLabelKey]
-	return exists
+func HasOtterizeServerLabel(pod *v1.Pod, labelValue string) bool {
+	value, exists := pod.Labels[OtterizeServerLabelKey]
+	return exists && value == labelValue
 }
 
 func cleanupOtterizeLabelsAndAnnotations(pod *v1.Pod) *v1.Pod {
