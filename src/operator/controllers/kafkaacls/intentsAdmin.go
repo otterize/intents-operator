@@ -350,6 +350,10 @@ func (a *KafkaIntentsAdmin) RemoveAllIntents() error {
 
 	logger.Infof("%d acl rules was deleted", len(matchedAcls))
 
+	if err := a.deleteConsumerGroupWildcardACLs(); err != nil {
+		return fmt.Errorf("failed deleting consumer group ACLs on server: %w", err)
+	}
+
 	return nil
 }
 
@@ -526,9 +530,44 @@ func (a *KafkaIntentsAdmin) ApplyServerTopicsConf(topicsConf []otterizev1alpha1.
 		logger.Info("No existing ACLs to delete for topic configuration")
 	}
 
+	if err := a.ensureConsumerGroupWildcardACLs(); err != nil {
+		logger.WithError(err).Error("failed logging current ACL rules")
+	}
+
 	if err := a.logACLs(); err != nil {
 		logger.WithError(err).Error("failed logging current ACL rules")
 	}
 
+	return nil
+}
+
+func (a *KafkaIntentsAdmin) ensureConsumerGroupWildcardACLs() error {
+	// in order to use a consumer group, a consumer needs read and describe privileges on that group.
+	// although read and describe privileges on consumer group resource are enough for fetching and committing offsets
+	// further topic level privileges should be granted as well: https://kafka.apache.org/documentation/#operations_resources_and_protocols
+	r := sarama.Resource{ResourceType: sarama.AclResourceGroup, ResourceName: "*", ResourcePatternType: sarama.AclPatternLiteral}
+	groupDescribeACL := &sarama.Acl{Principal: "User:*", Operation: sarama.AclOperationDescribe, PermissionType: sarama.AclPermissionAllow, Host: "*"}
+	groupReadACL := &sarama.Acl{Principal: "User:*", Operation: sarama.AclOperationRead, PermissionType: sarama.AclPermissionAllow, Host: "*"}
+	// if exists no error will be thrown
+	err := a.kafkaAdminClient.CreateACLs([]*sarama.ResourceAcls{{Resource: r, Acls: []*sarama.Acl{groupDescribeACL, groupReadACL}}})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *KafkaIntentsAdmin) deleteConsumerGroupWildcardACLs() error {
+	_, err := a.kafkaAdminClient.DeleteACL(
+		sarama.AclFilter{
+			ResourceType:              sarama.AclResourceGroup,
+			ResourceName:              lo.ToPtr("*"),
+			ResourcePatternTypeFilter: sarama.AclPatternLiteral,
+			PermissionType:            sarama.AclPermissionAllow,
+			Principal:                 lo.ToPtr(AnyUserPrincipalName),
+			Operation:                 sarama.AclOperationAny,
+		}, false)
+	if err != nil {
+		return err
+	}
 	return nil
 }
