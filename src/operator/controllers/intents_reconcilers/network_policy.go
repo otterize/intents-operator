@@ -140,7 +140,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 			intent.Namespace = intents.Namespace
 		}
 
-		var intentsList otterizev1alpha1.IntentsList
+		var intentsList otterizev1alpha1.ClientIntentsList
 		err := r.List(
 			ctx, &intentsList,
 			&client.MatchingFields{otterizev1alpha1.OtterizeTargetServerIndexField: intent.Name},

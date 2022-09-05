@@ -46,7 +46,7 @@ rules:
 - apiGroups:
   - k8s.otterize.com
   resources:
-  - intents
+  - clientintents
   verbs:
   - create
   - delete
@@ -58,13 +58,13 @@ rules:
 - apiGroups:
   - k8s.otterize.com
   resources:
-  - intents/finalizers
+  - clientintents/finalizers
   verbs:
   - update
 - apiGroups:
   - k8s.otterize.com
   resources:
-  - intents/status
+  - clientintents/status
   verbs:
   - get
   - patch
@@ -95,6 +95,14 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - networking.k8s.io
   resources:
