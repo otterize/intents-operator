@@ -42,9 +42,9 @@ func NewIntentsReconciler(client client.Client, scheme *runtime.Scheme, kafkaSer
 		)}
 }
 
-//+kubebuilder:rbac:groups=otterize.com,resources=intents,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=otterize.com,resources=intents/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=otterize.com,resources=intents/finalizers,verbs=update
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=intents,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=intents/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=intents/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 //+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list
@@ -58,7 +58,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev1alpha1.Intents{}).
+		For(&otterizev1alpha1.ClientIntents{}).
 		Complete(r)
 	if err != nil {
 		return err
@@ -74,11 +74,11 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha1.Intents{},
+		&otterizev1alpha1.ClientIntents{},
 		otterizev1alpha1.OtterizeTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
-			intents := object.(*otterizev1alpha1.Intents)
+			intents := object.(*otterizev1alpha1.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}

@@ -32,7 +32,7 @@ func (g *Group) Reconcile(ctx context.Context, req reconcile.Request) (reconcile
 	for _, reconciler := range g.reconcilers {
 		logrus.Infof("Starting cycle for %T", reconciler)
 		res, err := reconciler.Reconcile(ctx, req)
-		if res.Requeue == true || err != nil {
+		if !res.IsZero() || err != nil {
 			return res, err
 		}
 	}

@@ -10,6 +10,8 @@ type InjectableRecorder struct {
 	Recorder record.EventRecorder
 }
 
+//+kubebuilder:rbac:groups="",resources=events,verbs=get;update;patch;list;watch;create
+
 func (r *InjectableRecorder) InjectRecorder(recorder record.EventRecorder) {
 	r.Recorder = recorder
 }

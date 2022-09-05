@@ -115,7 +115,13 @@ func main() {
 	}
 	kafkaServersStore := kafkaacls.NewServersStore()
 
-	svcReconciler := external_traffic.NewExternalTrafficReconciler(mgr.GetClient(), mgr.GetScheme())
+	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), mgr.GetScheme())
+
+	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
+	}
+
+	svcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), mgr.GetScheme(), ingressReconciler)
 
 	if err = svcReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Service")
@@ -143,12 +149,10 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Fatal("failed writing certs to file system")
 		}
-		if selfSignedCert == true {
-			err = webhooks.UpdateWebHookCA(context.Background(),
-				"intents-operator-validating-webhook-configuration", certBundle.CertPem)
-			if err != nil {
-				logrus.WithError(err).Fatal("updating webhook certificate failed")
-			}
+		err = webhooks.UpdateWebHookCA(context.Background(),
+			"intents-operator-validating-webhook-configuration", certBundle.CertPem)
+		if err != nil {
+			logrus.WithError(err).Fatal("updating webhook certificate failed")
 		}
 	}
 

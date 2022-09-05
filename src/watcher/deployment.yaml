@@ -16,7 +16,14 @@ spec:
         app: otterize-pod-watcher
     spec:
       serviceAccountName: otterize-pod-watcher
+      securityContext:
+        runAsNonRoot: true
       containers:
         - name: otterize-pod-watcher
-          image: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize:watcher-0.0.6
+          image: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize:watcher-latest
           imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - "ALL"
