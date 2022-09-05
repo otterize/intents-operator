@@ -12,6 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -101,26 +102,38 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intent otterizev1alpha1.Intent, intentsObjNamespace string) error {
 
 	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Name, intentsObjNamespace)
-	policy := &v1.NetworkPolicy{}
-	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.Namespace}, policy)
+	existingPolicy := &v1.NetworkPolicy{}
+	newPolicy := r.buildNetworkPolicyObjectForIntent(intent, policyName, intentsObjNamespace)
+	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.Namespace}, existingPolicy)
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(err) {
 		logrus.Infof(
 			"Creating network policy to enable access from namespace %s to %s", intentsObjNamespace, intent.Name)
-		policy := r.buildNetworkPolicyObjectForIntent(intent, policyName, intentsObjNamespace)
-		err := r.Create(ctx, policy)
+		err := r.Create(ctx, newPolicy)
 		if err != nil {
 			return err
 		}
 		return nil
 
 	} else if err != nil {
+		r.RecordWarningEvent(existingPolicy, "failed to get network policy", err.Error())
 		return err
 	}
 
 	// Found network policy, check for diff
-	// TODO: Add code to compensate for changes in intents vs existing policies
+	if reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
+		return nil
+	}
+
+	policyCopy := existingPolicy.DeepCopy()
+	policyCopy.Spec = newPolicy.Spec
+
+	err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

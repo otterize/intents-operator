@@ -131,7 +131,7 @@ func UpdateWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
 		return err
 	}
 
-	logrus.Info("Installing new certificate in ", webHookName, " mutating webhook configuration")
+	logrus.Infof("Installing new certificate in %s", webHookName)
 	_, err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(ctx, webHookName, types.JSONPatchType, newCAByte, metav1.PatchOptions{})
 	return err
 }

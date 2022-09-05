@@ -57,6 +57,7 @@ func main() {
 	var probeAddr string
 	var configFile string
 	var selfSignedCert bool
+	var autoCreateNetworkPoliciesForExternalTraffic bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -69,6 +70,8 @@ func main() {
 			"Command-line flags override configuration from this file.")
 	flag.BoolVar(&selfSignedCert, "self-signed-cert", true,
 		"Whether to generate and use a self signed cert as the CA for webhooks")
+	flag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", false,
+		"Whether to automatically create network policies for external traffic")
 
 	flag.Parse()
 
