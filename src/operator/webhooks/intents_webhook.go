@@ -52,16 +52,54 @@ var _ webhook.CustomValidator = &IntentsValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *IntentsValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+	var allErrs field.ErrorList
 	intentsObj := obj.(*otterizev1alpha1.ClientIntents)
-	return v.validateNoDuplicateClients(ctx, intentsObj)
+	intentsList := &otterizev1alpha1.IntentsList{}
+	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
+		return err
+	}
+	if err := v.validateNoDuplicateClients(intentsObj, intentsList); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
+	if err := v.validateSpec(intentsObj); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if len(allErrs) == 0 {
+		return nil
+	}
+
+	gvk := intentsObj.GroupVersionKind()
+	return errors.NewInvalid(
+		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
+		intentsObj.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *IntentsValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+	var allErrs field.ErrorList
 	intentsObj := oldObj.(*otterizev1alpha1.ClientIntents)
-	return v.validateNoDuplicateClients(ctx, intentsObj)
+	intentsList := &otterizev1alpha1.IntentsList{}
+	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
+		return err
+	}
+	if err := v.validateNoDuplicateClients(intentsObj, intentsList); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
+	if err := v.validateSpec(intentsObj); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if len(allErrs) == 0 {
+		return nil
+	}
+
+	gvk := intentsObj.GroupVersionKind()
+	return errors.NewInvalid(
+		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
+		intentsObj.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -69,30 +107,38 @@ func (v *IntentsValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 	return nil
 }
 
-func (v *IntentsValidator) validateNoDuplicateClients(ctx context.Context, intentsObj *otterizev1alpha1.ClientIntents) error {
-	intentsList := &otterizev1alpha1.IntentsList{}
-	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
-		return err
-	}
+func (v *IntentsValidator) validateNoDuplicateClients(
+	intentsObj *otterizev1alpha1.ClientIntents,
+	intentsList *otterizev1alpha1.IntentsList) *field.Error {
+
 	desiredClientName := intentsObj.GetServiceName()
 	for _, existingIntent := range intentsList.Items {
 		// Deny admission if intents already exist for this client, and it's not the same object being updated
 		if existingIntent.GetServiceName() == desiredClientName && existingIntent.Name != intentsObj.Name {
-			gvk := intentsObj.GroupVersionKind()
-			return errors.NewInvalid(
-				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-				intentsObj.Name,
-				field.ErrorList{
-					&field.Error{
-						Type:     field.ErrorTypeDuplicate,
-						Field:    "name",
-						BadValue: desiredClientName,
-						Detail: fmt.Sprintf(
-							"Intents for client %s already exist in resource %s", desiredClientName, existingIntent.Name),
-					},
-				})
+			return &field.Error{
+				Type:     field.ErrorTypeDuplicate,
+				Field:    "name",
+				BadValue: desiredClientName,
+				Detail: fmt.Sprintf(
+					"Intents for client %s already exist in resource %s", desiredClientName, existingIntent.Name),
+			}
 		}
 	}
+	return nil
+}
 
+// validateSpec
+func (v *IntentsValidator) validateSpec(intents *otterizev1alpha1.ClientIntents) *field.Error {
+	for _, intent := range intents.GetCallsList() {
+		if intent.Type == otterizev1alpha1.IntentTypeHTTP {
+			if intent.Topics != nil {
+				return &field.Error{
+					Type:   field.ErrorTypeForbidden,
+					Field:  "topics",
+					Detail: "invalid intent format. type 'HTTP' cannot contain kafka topics",
+				}
+			}
+		}
+	}
 	return nil
 }
