@@ -10,6 +10,7 @@ require (
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
 	github.com/samber/lo v1.25.0
 	github.com/sirupsen/logrus v1.8.1
+	github.com/stretchr/testify v1.7.1
 	github.com/vishalkuo/bimap v0.0.0-20220726225509-e0b4f20de28b
 	k8s.io/api v0.24.0
 	k8s.io/apimachinery v0.24.0
@@ -70,6 +71,7 @@ require (
 	github.com/nxadm/tail v1.4.8 // indirect
 	github.com/pierrec/lz4/v4 v4.1.14 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.12.1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect

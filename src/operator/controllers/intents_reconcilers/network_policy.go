@@ -31,9 +31,9 @@ type NetworkPolicyReconciler struct {
 
 func NewNetworkPolicyReconciler(c client.Client, s *runtime.Scheme, restrictToNamespaces []string) *NetworkPolicyReconciler {
 	return &NetworkPolicyReconciler{
-		Client: c,
-		Scheme: s,
-		RestrictToNamespaces: restrictToNamespaces
+		Client:               c,
+		Scheme:               s,
+		RestrictToNamespaces: restrictToNamespaces,
 	}
 }
 

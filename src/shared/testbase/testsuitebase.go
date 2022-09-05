@@ -3,6 +3,7 @@ package testbase
 import (
 	"context"
 	"fmt"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
@@ -13,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -27,6 +29,7 @@ type ControllerManagerTestSuiteBase struct {
 	suite.Suite
 	testEnv          *envtest.Environment
 	cfg              *rest.Config
+	CRDPath          string
 	TestNamespace    string
 	K8sDirectClient  *kubernetes.Clientset
 	mgrCtx           context.Context
@@ -37,6 +40,7 @@ type ControllerManagerTestSuiteBase struct {
 func (s *ControllerManagerTestSuiteBase) SetupSuite() {
 	s.testEnv = &envtest.Environment{}
 	var err error
+	s.testEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd", "bases")}
 
 	s.cfg, err = s.testEnv.Start()
 	s.Require().NoError(err)
@@ -49,10 +53,6 @@ func (s *ControllerManagerTestSuiteBase) SetupSuite() {
 
 func (s *ControllerManagerTestSuiteBase) TearDownSuite() {
 	s.Require().NoError(s.testEnv.Stop())
-}
-
-func (s *ControllerManagerTestSuiteBase) AddCRDs(relativePath string) {
-	s.testEnv.CRDDirectoryPaths = strings.Split(relativePath, "/")
 }
 
 func (s *ControllerManagerTestSuiteBase) SetupTest() {
@@ -246,4 +246,22 @@ func (s *ControllerManagerTestSuiteBase) AddDeploymentWithService(name string, p
 	deployment := s.AddDeployment(name, podIps, podLabels)
 	service := s.AddService(name, podIps, podLabels)
 	return deployment, service
+}
+
+func (s *ControllerManagerTestSuiteBase) AddIntents(
+	objName,
+	clientName string,
+	callList []otterizev1alpha1.Intent) *otterizev1alpha1.ClientIntents {
+
+	intents := &otterizev1alpha1.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: s.TestNamespace},
+		Spec: &otterizev1alpha1.IntentsSpec{
+			Service: otterizev1alpha1.Service{Name: clientName},
+			Calls:   callList,
+		},
+	}
+	err := s.Mgr.GetClient().Create(context.Background(), intents)
+	s.Require().NoError(err)
+
+	return intents
 }
