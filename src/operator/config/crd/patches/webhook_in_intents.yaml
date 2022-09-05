@@ -2,7 +2,7 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: intents.otterize.com
+  name: clientintents.k8s.otterize.com
 spec:
   conversion:
     strategy: Webhook
