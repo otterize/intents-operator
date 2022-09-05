@@ -28,6 +28,14 @@ type NetworkPolicyReconciler struct {
 	injectablerecorder.InjectableRecorder
 }
 
+func NewNetworkPolicyReconciler(c client.Client, s *runtime.Scheme, restrictToNamespaces []string) *NetworkPolicyReconciler {
+	return &NetworkPolicyReconciler{
+		Client: c,
+		Scheme: s,
+		RestrictToNamespaces: restrictToNamespaces
+	}
+}
+
 func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	intents := &otterizev1alpha1.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
