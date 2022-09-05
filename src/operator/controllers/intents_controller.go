@@ -41,9 +41,9 @@ func NewIntentsReconciler(client client.Client, scheme *runtime.Scheme, kafkaSer
 		)}
 }
 
-//+kubebuilder:rbac:groups=k8s.otterize.com,resources=intents,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=k8s.otterize.com,resources=intents/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=k8s.otterize.com,resources=intents/finalizers,verbs=update
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 //+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list

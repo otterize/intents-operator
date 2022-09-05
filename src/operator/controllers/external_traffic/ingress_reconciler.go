@@ -15,6 +15,9 @@ import (
 
 const OtterizeIngressNetworkPolicyNameTemplate = "ingress-external-access-to-%s"
 
+//+kubebuilder:rbac:groups="networking.k8s.io",resources=ingresses,verbs=get;list;watch
+//+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
+
 type IngressReconciler struct {
 	client           client.Client
 	Scheme           *runtime.Scheme

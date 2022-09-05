@@ -105,15 +105,15 @@ type ClientIntents struct {
 
 //+kubebuilder:object:root=true
 
-// IntentsList contains a list of ClientIntents
-type IntentsList struct {
+// ClientIntentsList contains a list of ClientIntents
+type ClientIntentsList struct {
 	metav1.TypeMeta `json:",inline" yaml:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 	Items           []ClientIntents `json:"items" yaml:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ClientIntents{}, &IntentsList{})
+	SchemeBuilder.Register(&ClientIntents{}, &ClientIntentsList{})
 }
 
 func (in *ClientIntents) GetServiceName() string {

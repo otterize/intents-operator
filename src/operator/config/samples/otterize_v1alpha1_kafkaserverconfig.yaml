@@ -1,4 +1,4 @@
-apiVersion: otterize.com/v1alpha1
+apiVersion: k8s.otterize.com/v1alpha1
 kind: KafkaServerConfig
 metadata:
   name: kafkaserverconfig-sample
