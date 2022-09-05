@@ -6,6 +6,6 @@ metadata:
 spec:
   service:
     name: client
-    calls:
-      - name: server
-        type: HTTP
+  calls:
+    - name: server
+      type: HTTP

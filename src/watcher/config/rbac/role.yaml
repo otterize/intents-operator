@@ -27,9 +27,9 @@ rules:
       - 'list'
       - 'watch'
   - apiGroups:
-      - "otterize.com"
+      - "k8s.otterize.com"
     resources:
-      - intents
+      - clientintents
     verbs:
       - get
       - list

@@ -54,7 +54,7 @@ var _ webhook.CustomValidator = &IntentsValidator{}
 func (v *IntentsValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	var allErrs field.ErrorList
 	intentsObj := obj.(*otterizev1alpha1.ClientIntents)
-	intentsList := &otterizev1alpha1.IntentsList{}
+	intentsList := &otterizev1alpha1.ClientIntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
 		return err
 	}
@@ -80,7 +80,7 @@ func (v *IntentsValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 func (v *IntentsValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
 	var allErrs field.ErrorList
 	intentsObj := oldObj.(*otterizev1alpha1.ClientIntents)
-	intentsList := &otterizev1alpha1.IntentsList{}
+	intentsList := &otterizev1alpha1.ClientIntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (v *IntentsValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 
 func (v *IntentsValidator) validateNoDuplicateClients(
 	intentsObj *otterizev1alpha1.ClientIntents,
-	intentsList *otterizev1alpha1.IntentsList) *field.Error {
+	intentsList *otterizev1alpha1.ClientIntentsList) *field.Error {
 
 	desiredClientName := intentsObj.GetServiceName()
 	for _, existingIntent := range intentsList.Items {

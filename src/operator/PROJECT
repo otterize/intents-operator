@@ -1,4 +1,4 @@
-domain: otterize.com
+domain: k8s.otterize.com
 layout:
 - go.kubebuilder.io/v3
 plugins:

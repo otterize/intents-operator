@@ -67,7 +67,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	var intents otterizev1alpha1.IntentsList
+	var intents otterizev1alpha1.ClientIntentsList
 	err = p.List(
 		ctx, &intents,
 		&client.MatchingFields{OtterizeClientNameIndexField: serviceID},
