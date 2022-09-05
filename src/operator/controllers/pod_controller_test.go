@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"github.com/golang/mock/gomock"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	mock_client "github.com/otterize/spire-integration-operator/src/mocks/controller-runtime/client"
 	mock_record "github.com/otterize/spire-integration-operator/src/mocks/eventrecorder"
 	mock_secrets "github.com/otterize/spire-integration-operator/src/mocks/secrets"
@@ -33,17 +34,12 @@ func (s *PodControllerSuite) SetupTest() {
 	s.spireClient = mock_spireclient.NewMockServerClient(s.controller)
 	s.entriesRegistry = mock_entries.NewMockRegistry(s.controller)
 	s.secretsManager = mock_secrets.NewMockManager(s.controller)
+	serviceIdResolver := serviceidresolver.NewResolver(s.client)
 	eventRecorder := mock_record.NewMockEventRecorder(s.controller)
 	eventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
 	eventRecorder.EXPECT().Eventf(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
-	s.podReconciler = &PodReconciler{
-		Client:          s.client,
-		Scheme:          nil,
-		SpireClient:     s.spireClient,
-		EntriesRegistry: s.entriesRegistry,
-		SecretsManager:  s.secretsManager,
-		EventRecorder:   eventRecorder,
-	}
+	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, s.secretsManager,
+		serviceIdResolver, eventRecorder)
 }
 
 func (s *PodControllerSuite) TestController_Reconcile() {
@@ -64,8 +60,8 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 					Namespace: namespace,
 					Name:      podname,
 					Annotations: map[string]string{
-						ServiceNameAnnotation:   servicename,
-						TLSSecretNameAnnotation: secretname,
+						serviceidresolver.ServiceNameAnnotation: servicename,
+						TLSSecretNameAnnotation:                 secretname,
 					},
 				},
 			}

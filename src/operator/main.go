@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/bombsimon/logrusr/v3"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/spire-integration-operator/src/operator/controllers"
 	"github.com/otterize/spire-integration-operator/src/operator/secrets"
 	"github.com/otterize/spire-integration-operator/src/spireclient"
@@ -96,15 +97,10 @@ func main() {
 	svidsStore := svids.NewSVIDsStore(spireClient)
 	entriesRegistry := entries.NewEntriesRegistry(spireClient)
 	secretsManager := secrets.NewSecretsManager(mgr.GetClient(), bundlesStore, svidsStore)
-
-	podReconciler := &controllers.PodReconciler{
-		Client:          mgr.GetClient(),
-		Scheme:          mgr.GetScheme(),
-		SpireClient:     spireClient,
-		EntriesRegistry: entriesRegistry,
-		SecretsManager:  secretsManager,
-		EventRecorder:   mgr.GetEventRecorderFor("spire-integration-operator"),
-	}
+	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
+	eventRecorder := mgr.GetEventRecorderFor("spire-integration-operator")
+	podReconciler := controllers.NewPodReconciler(mgr.GetClient(), mgr.GetScheme(), entriesRegistry, secretsManager,
+		serviceIdResolver, eventRecorder)
 
 	if err = podReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithField("controller", "Pod").WithError(err).Error("unable to create controller")

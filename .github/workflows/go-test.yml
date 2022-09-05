@@ -27,5 +27,9 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
 
       - name: Test
-        run: go test -v ./...
+        run: |
+          git config --global url."https://$GITHUB_TOKEN:x-oauth-basic@github.com/".insteadOf "https://github.com/"
+          go test -v ./...
         working-directory: src
+        env:
+          GITHUB_TOKEN: ${{ secrets.OTTERIZEBOT_GITHUB_TOKEN }}  # REMOVE ME when the opensource repos become public
