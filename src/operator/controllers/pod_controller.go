@@ -156,9 +156,12 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	// Ensure the ServiceNameSelectorLabel is set
 	result, err := r.updatePodLabel(ctx, pod, ServiceNameSelectorLabel, serviceID)
-	if err != nil || result.Requeue {
+	if err != nil {
 		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Pod label update failed", err.Error())
 		return result, err
+	}
+	if result.Requeue {
+		return result, nil
 	}
 
 	dnsNames, err := r.resolvePodToCertDNSNames(pod)
