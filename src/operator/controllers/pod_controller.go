@@ -32,7 +32,7 @@ const (
 	KeyStoreNameAnnotation      = "otterize/keystore-file-name"
 	TrustStoreNameAnnotation    = "otterize/truststore-file-name"
 	JksStoresPasswordAnnotation = "otterize/jks-password"
-	ServiceNameSelectorLabel    = "otterize/spire-integration-operator/service-name"
+	ServiceNameSelectorLabel    = "otterize/spire-integration-operator.service-name"
 )
 
 // PodReconciler reconciles a Pod object
@@ -106,7 +106,7 @@ func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod,
 	certConfig := certConfigFromPod(pod)
 	log.WithFields(logrus.Fields{"secret_name": secretName, "cert_config": certConfig}).Info("ensuring TLS secret")
 	secretConfig := secrets.NewSecretConfig(entryID, entryHash, secretName, pod.Namespace, serviceName, certConfig)
-	if err := r.secretsManager.EnsureTLSSecret(ctx, secretConfig); err != nil {
+	if err := r.secretsManager.EnsureTLSSecret(ctx, secretConfig, pod); err != nil {
 		log.WithError(err).Error("failed creating TLS secret")
 		return err
 	}
