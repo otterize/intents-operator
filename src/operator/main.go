@@ -17,11 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
@@ -76,7 +78,7 @@ func main() {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
-	//var certBundle webhooks.CertificateBundle
+	var certBundle webhooks.CertificateBundle
 	ctrlConfig := otterizev1alpha1.ProjectConfig{}
 
 	options := ctrl.Options{
@@ -137,29 +139,29 @@ func main() {
 
 	}
 
-	//if selfSignedCert == true {
-	//	logrus.Infoln("Creating self signing certs")
-	//	certBundle, err =
-	//		webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", "intents-operator-system")
-	//	if err != nil {
-	//		logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
-	//	}
-	//	err = webhooks.WriteCertToFiles(certBundle)
-	//	if err != nil {
-	//		logrus.WithError(err).Fatal("failed writing certs to file system")
-	//	}
-	//	err = webhooks.UpdateWebHookCA(context.Background(),
-	//		"intents-operator-validating-webhook-configuration", certBundle.CertPem)
-	//	if err != nil {
-	//		logrus.WithError(err).Fatal("updating webhook certificate failed")
-	//	}
-	//}
+	if selfSignedCert == true {
+		logrus.Infoln("Creating self signing certs")
+		certBundle, err =
+			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", "intents-operator-system")
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
+		}
+		err = webhooks.WriteCertToFiles(certBundle)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed writing certs to file system")
+		}
+		err = webhooks.UpdateWebHookCA(context.Background(),
+			"intents-operator-validating-webhook-configuration", certBundle.CertPem)
+		if err != nil {
+			logrus.WithError(err).Fatal("updating webhook certificate failed")
+		}
+	}
 
-	//intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
-	//
-	//if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
-	//	logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
-	//}
+	intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
+
+	if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
+	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore)
 
