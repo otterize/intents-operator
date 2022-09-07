@@ -122,16 +122,19 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	}
 
 	// Found network policy, check for diff
-	if reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
-		return nil
-	}
+	if !reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
+		policyCopy := existingPolicy.DeepCopy()
+		policyCopy.Spec = newPolicy.Spec
 
-	policyCopy := existingPolicy.DeepCopy()
-	policyCopy.Spec = newPolicy.Spec
+		err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
+		if err != nil {
+			return err
+		}
 
-	err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
-	if err != nil {
-		return err
+		err = r.handleNetworkPolicyRemoval(ctx, intent, intentsObjNamespace)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
