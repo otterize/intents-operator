@@ -40,6 +40,84 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.Reconciler.InjectRecorder(recorder)
 }
 
+func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
+	intents := s.AddIntents("finalizer-intents", "test-client", []otterizev1alpha1.Intent{{
+		Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server",
+	},
+	})
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
+
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	intents = &otterizev1alpha1.ClientIntents{}
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+		Namespace: s.TestNamespace, Name: "finalizer-intents"}, intents)
+	s.Require().NoError(err)
+
+	s.Require().NotEmpty(intents.Finalizers)
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerRemoved() {
+	intents := s.AddIntents(
+		"finalizer-intents", "test-client", []otterizev1alpha1.Intent{{
+			Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server"}})
+
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	additionalFinalizerIntents := intents.DeepCopy()
+
+	// We have to add another finalizer so the object won't actually be deleted after the netpol reconciler finishes
+	additionalFinalizerIntents.Finalizers = append(additionalFinalizerIntents.Finalizers, "finalizer-to-prevent-obj-deletion")
+	err = s.Mgr.GetClient().Patch(context.Background(), additionalFinalizerIntents, client.MergeFrom(intents))
+	s.Require().NoError(err)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	err = s.Mgr.GetClient().Delete(context.Background(), intents, &client.DeleteOptions{GracePeriodSeconds: lo.ToPtr(int64(0))})
+	s.Require().NoError(err)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	s.WaitForDeletionToBeMarked(intents)
+
+	res = ctrl.Result{Requeue: true}
+	for res.Requeue {
+		res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: s.TestNamespace,
+				Name:      intents.Name,
+			},
+		})
+		s.Require().NoError(err)
+		s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	}
+
+	intents = &otterizev1alpha1.ClientIntents{}
+	// Policy should have been deleted because intents were removed
+	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
+		Namespace: s.TestNamespace, Name: "finalizer-intents",
+	}, intents)
+
+	// We expect an error to have occurred
+	s.Require().True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != NetworkPolicyFinalizerName)
+}
+
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreate() {
 	intents := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
 		Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server",
