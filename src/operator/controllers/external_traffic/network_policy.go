@@ -55,7 +55,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreationOrUpdate(
 		return err
 	}
 
-	if r.enabled {
+	if !r.enabled {
 		r.RecordNormalEvent(policyOwner, "removing external traffic network policy", "reconciler was disabled")
 		err := r.client.Delete(ctx, existingPolicy)
 		if err != nil {
