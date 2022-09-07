@@ -11,8 +11,10 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"testing"
 )
@@ -23,8 +25,20 @@ type NetworkPolicyReconcilerTestSuite struct {
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) SetupSuite() {
-	s.ControllerManagerTestSuiteBase.SetupSuite([]string{"../../config/crd/bases"})
-	err := otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
+	s.TestEnv = &envtest.Environment{}
+	var err error
+	s.TestEnv.CRDDirectoryPaths = []string{"../../config/crd/bases"}
+
+	s.RestConfig, err = s.TestEnv.Start()
+	s.Require().NoError(err)
+	s.Require().NotNil(s.RestConfig)
+
+	s.K8sDirectClient, err = kubernetes.NewForConfig(s.RestConfig)
+	s.Require().NoError(err)
+	s.Require().NotNil(s.K8sDirectClient)
+
+	//s.ControllerManagerTestSuiteBase.SetupSuite([]string{"../../config/crd/bases"})
+	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 }
 

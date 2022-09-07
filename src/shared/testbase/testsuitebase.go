@@ -29,26 +29,12 @@ const waitForDeletionTSTimeout = 3 * time.Second
 type ControllerManagerTestSuiteBase struct {
 	suite.Suite
 	TestEnv          *envtest.Environment
-	cfg              *rest.Config
+	RestConfig       *rest.Config
 	TestNamespace    string
 	K8sDirectClient  *kubernetes.Clientset
 	mgrCtx           context.Context
 	mgrCtxCancelFunc context.CancelFunc
 	Mgr              manager.Manager
-}
-
-func (s *ControllerManagerTestSuiteBase) SetupSuite(crdPaths []string) {
-	s.TestEnv = &envtest.Environment{}
-	var err error
-	s.TestEnv.CRDDirectoryPaths = crdPaths
-
-	s.cfg, err = s.TestEnv.Start()
-	s.Require().NoError(err)
-	s.Require().NotNil(s.cfg)
-
-	s.K8sDirectClient, err = kubernetes.NewForConfig(s.cfg)
-	s.Require().NoError(err)
-	s.Require().NotNil(s.K8sDirectClient)
 }
 
 func (s *ControllerManagerTestSuiteBase) TearDownSuite() {
@@ -59,7 +45,7 @@ func (s *ControllerManagerTestSuiteBase) SetupTest() {
 	s.mgrCtx, s.mgrCtxCancelFunc = context.WithCancel(context.Background())
 
 	var err error
-	s.Mgr, err = manager.New(s.cfg, manager.Options{MetricsBindAddress: "0"})
+	s.Mgr, err = manager.New(s.RestConfig, manager.Options{MetricsBindAddress: "0"})
 	s.Require().NoError(err)
 }
 
