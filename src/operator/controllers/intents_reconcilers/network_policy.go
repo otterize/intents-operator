@@ -228,6 +228,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					otterizev1alpha1.OtterizeServerLabelKey: formattedTargetServer,
