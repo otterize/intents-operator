@@ -118,16 +118,14 @@ func main() {
 	}
 	kafkaServersStore := kafkaacls.NewServersStore()
 
-	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), mgr.GetScheme())
-	svcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), mgr.GetScheme(), ingressReconciler)
-	if autoCreateNetworkPoliciesForExternalTraffic {
-		if err = ingressReconciler.SetupWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
-		}
+	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic)
+	svcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), mgr.GetScheme(), ingressReconciler, autoCreateNetworkPoliciesForExternalTraffic)
+	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
+	}
 
-		if err = svcReconciler.SetupWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal("unable to create controller", "controller", "Service")
-		}
+	if err = svcReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Service")
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, ctrlConfig.WatchNamespaces)

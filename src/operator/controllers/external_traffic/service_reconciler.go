@@ -29,12 +29,12 @@ func (r *ServiceReconciler) formatPolicyName(serviceName string) string {
 	return fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, serviceName)
 }
 
-func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, ingressReconciler *IngressReconciler) *ServiceReconciler {
+func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, ingressReconciler *IngressReconciler, enabled bool) *ServiceReconciler {
 	return &ServiceReconciler{
 		client:            client,
 		Scheme:            scheme,
 		ingressReconciler: ingressReconciler,
-		netpolReconciler:  NewNetworkPolicyReconciler(client),
+		netpolReconciler:  NewNetworkPolicyReconciler(client, enabled),
 	}
 }
 

@@ -25,8 +25,8 @@ type IngressReconciler struct {
 	injectablerecorder.InjectableRecorder
 }
 
-func NewIngressReconciler(client client.Client, scheme *runtime.Scheme) *IngressReconciler {
-	return &IngressReconciler{client: client, Scheme: scheme, netpolReconciler: NewNetworkPolicyReconciler(client)}
+func NewIngressReconciler(client client.Client, scheme *runtime.Scheme, enabled bool) *IngressReconciler {
+	return &IngressReconciler{client: client, Scheme: scheme, netpolReconciler: NewNetworkPolicyReconciler(client, enabled)}
 }
 
 func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
