@@ -23,6 +23,13 @@ type PodLabelReconciler struct {
 	injectablerecorder.InjectableRecorder
 }
 
+func NewPodLabelReconciler(c client.Client, s *runtime.Scheme) *PodLabelReconciler {
+	return &PodLabelReconciler{
+		Client: c,
+		Scheme: s,
+	}
+}
+
 func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	namespace := req.NamespacedName.Namespace
 

@@ -37,7 +37,6 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
 
-	//s.ControllerManagerTestSuiteBase.SetupSuite([]string{"../../config/crd/bases"})
 	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 }
