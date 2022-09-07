@@ -41,15 +41,16 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreationOrUpdate(
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(err) {
-		logrus.Infof(
-			"Creating network policy to enable access from external traffic to load balancer service %s (ns %s)", service.GetName(), service.GetNamespace())
-		err := r.client.Create(ctx, newPolicy)
-		if err != nil {
-			r.RecordWarningEvent(policyOwner, "failed to create external traffic network policy", err.Error())
-			return err
+		if r.enabled {
+			logrus.Infof(
+				"Creating network policy to enable access from external traffic to load balancer service %s (ns %s)", service.GetName(), service.GetNamespace())
+			err := r.client.Create(ctx, newPolicy)
+			if err != nil {
+				r.RecordWarningEvent(policyOwner, "failed to create external traffic network policy", err.Error())
+				return err
+			}
 		}
 		return nil
-
 	} else if err != nil {
 		r.RecordWarningEvent(policyOwner, "failed to get external traffic network policy", err.Error())
 		return err
@@ -96,6 +97,7 @@ func buildNetworkPolicyObjectForService(
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: serviceSpecCopy.Selector,
 			},
