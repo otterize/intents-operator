@@ -148,25 +148,9 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 			intent.Namespace = intents.Namespace
 		}
 
-		var intentsList otterizev1alpha1.ClientIntentsList
-		err := r.List(
-			ctx, &intentsList,
-			&client.MatchingFields{otterizev1alpha1.OtterizeTargetServerIndexField: intent.Name},
-			&client.ListOptions{Namespace: intents.Namespace})
-
+		err := r.handleNetworkPolicyRemoval(ctx, intent, intents.Namespace)
 		if err != nil {
 			return err
-		}
-
-		if len(intentsList.Items) == 1 {
-			// We have only 1 intents resource that has this server as its target - and it's the current one
-			// We need to delete the network policy that allows access from this namespace, as there are no other
-			// clients in that namespace that need to access the target server
-			logrus.Infof("No other intents in the namespace reference target server: %s", intent.Name)
-			logrus.Infoln("Removing matching network policy for server")
-			if err = r.removeNetworkPolicy(ctx, intent, intents.Namespace); err != nil {
-				return err
-			}
 		}
 	}
 
@@ -178,7 +162,35 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 	return nil
 }
 
-func (r *NetworkPolicyReconciler) removeNetworkPolicy(
+func (r *NetworkPolicyReconciler) handleNetworkPolicyRemoval(
+	ctx context.Context,
+	intent otterizev1alpha1.Intent,
+	intentsObjNamespace string) error {
+
+	var intentsList otterizev1alpha1.ClientIntentsList
+	err := r.List(
+		ctx, &intentsList,
+		&client.MatchingFields{otterizev1alpha1.OtterizeTargetServerIndexField: intent.Name},
+		&client.ListOptions{Namespace: intentsObjNamespace})
+
+	if err != nil {
+		return err
+	}
+
+	if len(intentsList.Items) == 1 {
+		// We have only 1 intents resource that has this server as its target - and it's the current one
+		// We need to delete the network policy that allows access from this namespace, as there are no other
+		// clients in that namespace that need to access the target server
+		logrus.Infof("No other intents in the namespace reference target server: %s", intent.Name)
+		logrus.Infoln("Removing matching network policy for server")
+		if err = r.deleteNetworkPolicy(ctx, intent, intentsObjNamespace); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 	ctx context.Context,
 	intent otterizev1alpha1.Intent,
 	intentsObjNamespace string) error {

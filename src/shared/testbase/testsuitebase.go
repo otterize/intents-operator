@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"path/filepath"
+	_ "os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -24,12 +24,12 @@ import (
 
 const waitForCreationInterval = 200 * time.Millisecond
 const waitForCreationTimeout = 3 * time.Second
+const waitForDeletionTSTimeout = 3 * time.Second
 
 type ControllerManagerTestSuiteBase struct {
 	suite.Suite
-	testEnv          *envtest.Environment
+	TestEnv          *envtest.Environment
 	cfg              *rest.Config
-	CRDPath          string
 	TestNamespace    string
 	K8sDirectClient  *kubernetes.Clientset
 	mgrCtx           context.Context
@@ -37,12 +37,12 @@ type ControllerManagerTestSuiteBase struct {
 	Mgr              manager.Manager
 }
 
-func (s *ControllerManagerTestSuiteBase) SetupSuite() {
-	s.testEnv = &envtest.Environment{}
+func (s *ControllerManagerTestSuiteBase) SetupSuite(crdPaths []string) {
+	s.TestEnv = &envtest.Environment{}
 	var err error
-	s.testEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd", "bases")}
+	s.TestEnv.CRDDirectoryPaths = crdPaths
 
-	s.cfg, err = s.testEnv.Start()
+	s.cfg, err = s.TestEnv.Start()
 	s.Require().NoError(err)
 	s.Require().NotNil(s.cfg)
 
@@ -52,7 +52,7 @@ func (s *ControllerManagerTestSuiteBase) SetupSuite() {
 }
 
 func (s *ControllerManagerTestSuiteBase) TearDownSuite() {
-	s.Require().NoError(s.testEnv.Stop())
+	s.Require().NoError(s.TestEnv.Stop())
 }
 
 func (s *ControllerManagerTestSuiteBase) SetupTest() {
@@ -96,6 +96,20 @@ func (s *ControllerManagerTestSuiteBase) waitForObjectToBeCreated(obj client.Obj
 			return false, err
 		}
 		return true, nil
+	}))
+}
+
+// WaitForDeletionToBeMarked tries to get an object multiple times until its deletion timestamp is set in K8S
+func (s *ControllerManagerTestSuiteBase) WaitForDeletionToBeMarked(obj client.Object) {
+	s.Require().NoError(wait.PollImmediate(waitForCreationInterval, waitForDeletionTSTimeout, func() (done bool, err error) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
+		if !obj.GetDeletionTimestamp().IsZero() {
+			return true, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		return false, nil
 	}))
 }
 
@@ -262,6 +276,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntents(
 	}
 	err := s.Mgr.GetClient().Create(context.Background(), intents)
 	s.Require().NoError(err)
+	s.waitForObjectToBeCreated(intents)
 
 	return intents
 }
