@@ -9,7 +9,7 @@
 ![openssf](https://img.shields.io/static/v1?label=openssf%20best%20practices&message=passing&color=success)
 ![community](https://img.shields.io/badge/slack-Otterize_Slack-orange.svg?logo=slack)
 
-[About](#about) | [Quickstart](https://docs.otterize.com/documentation/quick-tutorials/mtls) | [How does the SPIRE Integration Operator work?](#service-name-resolution-and-automatic-pod-labeling) | [Docs](https://docs.otterize.com/documentation/k8s-operators/credential-operator) | [Contributing](#contributing) | [Slack](#slack)
+[About](#about) | [Quickstart](https://docs.otterize.com/documentation/quick-tutorials/mtls) | [How does the SPIRE Integration Operator work?](#how-does-the-spire-integration-operator-work) | [Docs](https://docs.otterize.com/documentation/k8s-operators/credential-operator) | [Contributing](#contributing) | [Slack](#slack)
 
 ## About
 The Otterize SPIRE Integration Operator automatically resolves pods to dev-friendly service names, registers them with a SPIRE server, and optionally provisions credentials as a Kubernetes Secrets.
@@ -18,7 +18,7 @@ The Otterize SPIRE Integration Operator automatically resolves pods to dev-frien
 ## How does the SPIRE Integration Operator work?
 
 ### SPIRE entry registration
-Once the operator [resolves the service name](#Service_name_resolution_automatic_pod_labeling) for a pod, it labels the pod and registers an entry with the SPIRE server.
+Once the operator [resolves the service name](#service-name-resolution-and-automatic-pod-labeling) for a pod, it labels the pod and registers an entry with the SPIRE server.
 
 ### Credential generation
 After the operator has registered the pod, which happens automatically upon startup, the pod can use the SPIRE Workload API to generate credentials for the SVID `<servicename>.<namespace>`.
