@@ -23,11 +23,11 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/sirupsen/logrus"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/src/operator/webhooks"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -118,13 +118,11 @@ func main() {
 	}
 	kafkaServersStore := kafkaacls.NewServersStore()
 
-	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), mgr.GetScheme())
-
+	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic)
+	svcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), mgr.GetScheme(), ingressReconciler, autoCreateNetworkPoliciesForExternalTraffic)
 	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
 	}
-
-	svcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), mgr.GetScheme(), ingressReconciler)
 
 	if err = svcReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Service")

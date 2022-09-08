@@ -18,10 +18,11 @@ import (
 type NetworkPolicyReconciler struct {
 	client client.Client
 	injectablerecorder.InjectableRecorder
+	enabled bool
 }
 
-func NewNetworkPolicyReconciler(client client.Client) *NetworkPolicyReconciler {
-	return &NetworkPolicyReconciler{client: client}
+func NewNetworkPolicyReconciler(client client.Client, enabled bool) *NetworkPolicyReconciler {
+	return &NetworkPolicyReconciler{client: client, enabled: enabled}
 }
 
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreationOrUpdate(
@@ -40,18 +41,30 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreationOrUpdate(
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(err) {
-		logrus.Infof(
-			"Creating network policy to enable access from external traffic to load balancer service %s (ns %s)", service.GetName(), service.GetNamespace())
-		err := r.client.Create(ctx, newPolicy)
-		if err != nil {
-			r.RecordWarningEvent(service, "failed to create external traffic network policy", err.Error())
-			return err
+		if r.enabled {
+			logrus.Infof(
+				"Creating network policy to enable access from external traffic to load balancer service %s (ns %s)", service.GetName(), service.GetNamespace())
+			err := r.client.Create(ctx, newPolicy)
+			if err != nil {
+				r.RecordWarningEvent(policyOwner, "failed to create external traffic network policy", err.Error())
+				return err
+			}
 		}
 		return nil
-
 	} else if err != nil {
-		r.RecordWarningEvent(service, "failed to get external traffic network policy", err.Error())
+		r.RecordWarningEvent(policyOwner, "failed to get external traffic network policy", err.Error())
 		return err
+	}
+
+	if !r.enabled {
+		r.RecordNormalEvent(policyOwner, "removing external traffic network policy", "reconciler was disabled")
+		err := r.client.Delete(ctx, existingPolicy)
+		if err != nil {
+			r.RecordWarningEvent(policyOwner, "failed removing external traffic network policy", err.Error())
+			return err
+		}
+		r.RecordNormalEvent(policyOwner, "removed external traffic network policy", "success")
+		return nil
 	}
 
 	// Found matching policy, is an update needed?
@@ -84,6 +97,7 @@ func buildNetworkPolicyObjectForService(
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: serviceSpecCopy.Selector,
 			},
