@@ -8,6 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	goset "github.com/amit7itz/goset"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -32,6 +33,20 @@ func NewMockRegistry(ctrl *gomock.Controller) *MockRegistry {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRegistry) EXPECT() *MockRegistryMockRecorder {
 	return m.recorder
+}
+
+// CleanupOrphanK8SPodEntries mocks base method.
+func (m *MockRegistry) CleanupOrphanK8SPodEntries(arg0 context.Context, arg1 string, arg2 map[string]*goset.Set[string]) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CleanupOrphanK8SPodEntries", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CleanupOrphanK8SPodEntries indicates an expected call of CleanupOrphanK8SPodEntries.
+func (mr *MockRegistryMockRecorder) CleanupOrphanK8SPodEntries(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupOrphanK8SPodEntries", reflect.TypeOf((*MockRegistry)(nil).CleanupOrphanK8SPodEntries), arg0, arg1, arg2)
 }
 
 // RegisterK8SPodEntry mocks base method.

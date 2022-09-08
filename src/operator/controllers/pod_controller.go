@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	"github.com/asaskevich/govalidator"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/spire-integration-operator/src/operator/secrets"
@@ -21,18 +22,19 @@ import (
 )
 
 const (
-	refreshSecretsLoopTick      = time.Minute
-	TLSSecretNameAnnotation     = "otterize/tls-secret-name"
-	SVIDFileNameAnnotation      = "otterize/svid-file-name"
-	BundleFileNameAnnotation    = "otterize/bundle-file-name"
-	KeyFileNameAnnotation       = "otterize/key-file-name"
-	DNSNamesAnnotation          = "otterize/dns-names"
-	CertTTLAnnotation           = "otterize/cert-ttl"
-	CertTypeAnnotation          = "otterize/cert-type"
-	KeyStoreNameAnnotation      = "otterize/keystore-file-name"
-	TrustStoreNameAnnotation    = "otterize/truststore-file-name"
-	JksStoresPasswordAnnotation = "otterize/jks-password"
-	ServiceNameSelectorLabel    = "otterize/spire-integration-operator.service-name"
+	refreshSecretsLoopTick       = time.Minute
+	cleanupOrphanEntriesLoopTick = 10 * time.Minute
+	TLSSecretNameAnnotation      = "otterize/tls-secret-name"
+	SVIDFileNameAnnotation       = "otterize/svid-file-name"
+	BundleFileNameAnnotation     = "otterize/bundle-file-name"
+	KeyFileNameAnnotation        = "otterize/key-file-name"
+	DNSNamesAnnotation           = "otterize/dns-names"
+	CertTTLAnnotation            = "otterize/cert-ttl"
+	CertTypeAnnotation           = "otterize/cert-type"
+	KeyStoreNameAnnotation       = "otterize/keystore-file-name"
+	TrustStoreNameAnnotation     = "otterize/truststore-file-name"
+	JksStoresPasswordAnnotation  = "otterize/jks-password"
+	ServiceNameSelectorLabel     = "otterize/spire-integration-operator.service-name"
 )
 
 // PodReconciler reconciles a Pod object
@@ -184,7 +186,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Failed registering SPIRE entry", err.Error())
 		return ctrl.Result{}, err
 	}
-	r.eventRecorder.Event(pod, corev1.EventTypeNormal, "Successfully registered pod under SPIRE with entry ID '%s'", entryID)
+	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, "Successfully registered pod under SPIRE with entry ID '%s'", entryID)
 
 	hashStr, err := r.getEntryHash(pod.Namespace, serviceID, ttl, dnsNames)
 	if err != nil {
@@ -247,14 +249,47 @@ func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *PodReconciler) RefreshSecretsLoop(ctx context.Context) {
+func (r *PodReconciler) cleanupOrphanEntries(ctx context.Context) error {
+	podsList := corev1.PodList{}
+	if err := r.Client.List(ctx, &podsList, client.HasLabels{ServiceNameSelectorLabel}); err != nil {
+		return fmt.Errorf("error listing pods with service name labels: %w", err)
+	}
+
+	existingServicesByNamespace := map[string]*goset.Set[string]{}
+	for _, pod := range podsList.Items {
+		if _, ok := existingServicesByNamespace[pod.Namespace]; !ok {
+			existingServicesByNamespace[pod.Namespace] = goset.NewSet[string]()
+		}
+
+		existingServicesByNamespace[pod.Namespace].Add(pod.Labels[ServiceNameSelectorLabel])
+	}
+
+	if err := r.entriesRegistry.CleanupOrphanK8SPodEntries(ctx, ServiceNameSelectorLabel, existingServicesByNamespace); err != nil {
+		return fmt.Errorf("error cleaning up orphan entries: %w", err)
+	}
+
+	return nil
+}
+
+func (r *PodReconciler) MaintenanceLoop(ctx context.Context) {
+	refreshSecretsTicker := time.NewTicker(refreshSecretsLoopTick)
+	cleanupOrphanEntriesTicker := time.NewTicker(cleanupOrphanEntriesLoopTick)
 	for {
 		select {
-		case <-time.After(refreshSecretsLoopTick):
-			err := r.secretsManager.RefreshTLSSecrets(ctx)
-			if err != nil {
-				logrus.WithError(err).Error("failed refreshing TLS secrets")
-			}
+		case <-refreshSecretsTicker.C:
+			go func() {
+				err := r.secretsManager.RefreshTLSSecrets(ctx)
+				if err != nil {
+					logrus.WithError(err).Error("failed refreshing TLS secrets")
+				}
+			}()
+		case <-cleanupOrphanEntriesTicker.C:
+			go func() {
+				err := r.cleanupOrphanEntries(ctx)
+				if err != nil {
+					logrus.WithError(err).Error("failed cleaning up orphan SPIRE entries")
+				}
+			}()
 		case <-ctx.Done():
 			return
 		}

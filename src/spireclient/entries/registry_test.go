@@ -3,6 +3,7 @@ package entries
 import (
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	"github.com/golang/mock/gomock"
 	mock_entryv1 "github.com/otterize/spire-integration-operator/src/mocks/entryv1"
 	mock_spireclient "github.com/otterize/spire-integration-operator/src/mocks/spireclient"
@@ -201,6 +202,76 @@ func (s *RegistrySuite) TestShouldUpdateEntry() {
 	s.Require().True(shouldUpdateEntry(entry1, entry2))
 	s.Require().True(shouldUpdateEntry(entry1, entry3))
 	s.Require().True(shouldUpdateEntry(entry2, entry3))
+}
+
+type batchDeleteEntryRequestMatcher struct {
+	entryIDs *[]string
+}
+
+func (m *batchDeleteEntryRequestMatcher) Matches(x interface{}) bool {
+	request, ok := x.(*entryv1.BatchDeleteEntryRequest)
+	if !ok {
+		return false
+	}
+
+	if len(request.Ids) != 1 {
+		return false
+	}
+
+	if m.entryIDs != nil && !slices.Equal(request.Ids, *m.entryIDs) {
+		return false
+	}
+
+	return true
+}
+
+func (m *batchDeleteEntryRequestMatcher) String() string {
+	return fmt.Sprintf("is a BatchDeleteEntryRequest")
+}
+
+func (s *RegistrySuite) TestRegistry_DeleteK8SPodEntry() {
+	serviceNameLabel := "test/service-name"
+	namespace := "test-namespace"
+	serviceName := "test-service-name"
+	entryId := "test-entryid"
+	spiffeID, err := spiffeid.FromPath(trustDomain, "/otterize/namespace/test-namespace/service/test-service-name")
+	s.Require().NoError(err)
+
+	listEntriesResponse := entryv1.ListEntriesResponse{
+		Entries: []*types.Entry{
+			{
+				Id: entryId,
+				SpiffeId: &types.SPIFFEID{
+					TrustDomain: spiffeID.TrustDomain().String(),
+					Path:        spiffeID.Path(),
+				},
+				Selectors: []*types.Selector{
+					{Type: "k8s", Value: fmt.Sprintf("ns:%s", namespace)},
+					{Type: "k8s", Value: fmt.Sprintf("pod-label:%s=%s", serviceNameLabel, serviceName)},
+				},
+			},
+		},
+	}
+
+	s.entryClient.EXPECT().ListEntries(gomock.Any(), gomock.Any()).Return(&listEntriesResponse, nil)
+
+	deleteEntriesResponse := entryv1.BatchDeleteEntryResponse{
+		Results: []*entryv1.BatchDeleteEntryResponse_Result{
+			{Id: entryId},
+		},
+	}
+
+	m := batchDeleteEntryRequestMatcher{
+		entryIDs: lo.ToPtr([]string{entryId}),
+	}
+
+	s.entryClient.EXPECT().BatchDeleteEntry(gomock.Any(), &m).Return(&deleteEntriesResponse, nil)
+
+	err = s.registry.CleanupOrphanK8SPodEntries(context.Background(),
+		serviceNameLabel,
+		map[string]*goset.Set[string]{namespace: goset.NewSet[string]()})
+
+	s.Require().NoError(err)
 }
 
 func TestRunRegistrySuite(t *testing.T) {

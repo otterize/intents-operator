@@ -119,7 +119,7 @@ func main() {
 
 	logrus.Info("starting manager")
 
-	go podReconciler.RefreshSecretsLoop(ctx)
+	go podReconciler.MaintenanceLoop(ctx)
 	if err := mgr.Start(ctx); err != nil {
 		logrus.WithError(err).Error("problem running manager")
 		os.Exit(1)

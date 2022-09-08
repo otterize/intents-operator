@@ -36,8 +36,8 @@ func (s *PodControllerSuite) SetupTest() {
 	s.secretsManager = mock_secrets.NewMockManager(s.controller)
 	serviceIdResolver := serviceidresolver.NewResolver(s.client)
 	eventRecorder := mock_record.NewMockEventRecorder(s.controller)
-	eventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
-	eventRecorder.EXPECT().Eventf(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any())
+	eventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	eventRecorder.EXPECT().Eventf(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, s.secretsManager,
 		serviceIdResolver, eventRecorder)
 }

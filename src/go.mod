@@ -3,10 +3,11 @@ module github.com/otterize/spire-integration-operator/src
 go 1.18
 
 require (
+	github.com/amit7itz/goset v1.1.0
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/golang/mock v1.6.0
-	github.com/otterize/intents-operator/src v0.0.0-20220904184811-c44f32f5e813
+	github.com/otterize/intents-operator/src v0.0.0-20220908093359-0838c363d68c
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.0
 	github.com/samber/lo v1.25.0
 	github.com/sirupsen/logrus v1.8.1

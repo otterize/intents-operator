@@ -168,7 +168,7 @@ func (m *managerImpl) isRefreshNeeded(secret *corev1.Secret) bool {
 		return true
 	}
 
-	log.Info("secret expiry is far enough")
+	log.Debug("secret expiry is far enough")
 	return false
 }
 
