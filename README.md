@@ -9,7 +9,7 @@
 ![openssf](https://img.shields.io/static/v1?label=openssf%20best%20practices&message=passing&color=success)
 ![community](https://img.shields.io/badge/slack-Otterize_Slack-orange.svg?logo=slack)
 
-[About](#about) | [Quickstart](https://docs.otterize.com/documentation/quick-tutorials/mtls) | [How does the SPIRE Integration Operator work?](#how-does-the-intents-operator-work) | [Docs](https://docs.otterize.com/documentation/k8s-operators/credential-operator) | [Contributing](#contributing) | [Slack](#slack)
+[About](#about) | [Quickstart](https://docs.otterize.com/documentation/quick-tutorials/mtls) | [How does the SPIRE Integration Operator work?](#service-name-resolution-and-automatic-pod-labeling) | [Docs](https://docs.otterize.com/documentation/k8s-operators/credential-operator) | [Contributing](#contributing) | [Slack](#slack)
 
 ## About
 The Otterize SPIRE Integration Operator automatically resolves pods to dev-friendly service names, registers them with a SPIRE server, and optionally provisions credentials as a Kubernetes Secrets.
