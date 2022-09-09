@@ -1,4 +1,4 @@
-# Otterize Intents Operator
+# Otterize intents operator
 
 ![Otter Manning Helm](./otterhelm.png)
 
@@ -9,22 +9,22 @@
 ![openssf](https://img.shields.io/static/v1?label=openssf%20best%20practices&message=passing&color=success)
 ![community](https://img.shields.io/badge/slack-Otterize_Slack-orange.svg?logo=slack)
 
-[About](#about) | [Quickstart](https://docs.otterize.com/documentation/quick-tutorials/network-mapper) | [How does the Intents Operator work?](#how-does-the-intents-operator-work) | [Contributing](#contributing) | [Slack](#slack)
+[About](#about) | [Quick tutorial](https://docs.otterize.com/documentation/quick-tutorials/network-mapper) | [How does the intents operator work?](#how-does-the-intents-operator-work) | [Contributing](#contributing) | [Slack](#slack)
 
 ## About
-The Otterize Intents Operator is an open source Kubernetes operator that enables you to declaratively manage service-to-service authorization using Network Policies and Kafka ACLs, and enables you to achieve zero-trust in your cluster while significantly reducing developer friction.
+The Otterize intents operator is an open source Kubernetes operator that enables you to declaratively manage service-to-service authorization using Network Policies and Kafka ACLs, and enables you to achieve zero-trust in your cluster while significantly reducing developer friction.
 
 Developers declaratively specify which other services their service needs to access, in the terms and abstraction they're used to (so, services accessing services, rather than pod labels, etc.), and the Intents Operator applies Network Policies, pod labels and Kafka ACLs, depending on how you've deployed it, to enable the required access.
 
-Installed together with the [Otterize Network Mapper](https://github.com/otterize/network-mapper) and SPIRE, you can automatically detect existing traffic between pods in your cluster, and generate ClientIntents (or manually author), a Kubernetes resource, that describes these communications. The Intents Operator then enforces the intents using Network Policies and Kafka ACLs.
+Installed together with the [Otterize network mapper](https://github.com/otterize/network-mapper) and SPIRE, you can automatically detect existing traffic between pods in your cluster, and generate ClientIntents (or manually author), a Kubernetes resource, that describes these communications. The intents operator then enforces the intents using network policies and Kafka ACLs.
 
 Only ClientIntents need to be created - other resources such as credentials, network policies and labels are automatically created.
 
 
-## How does the Intents Operator work?
+## How does the intents operator work?
 
-### Network Policies
-The Intents Operator facilitiates Kubernetes NetworkPolicy creation by creating appropriate network policies, as well as labeling pods, to allow access to services according to the ClientIntents that are declared.
+### Network policies
+The intents operator facilitiates Kubernetes NetworkPolicy creation by creating appropriate network policies, as well as labeling pods, to allow access to services according to the ClientIntents that are declared.
 
 This intent results in the creation of a NetworkPolicy for the service `server`, as well as labels the pods for the `client` and `server` services, so that an ingress network policy applies to the server and allows the client pods to connect. See [Service name resolution](#Service_name_resolution) to learn how service names are resolved.
 ```
@@ -41,7 +41,7 @@ This intent results in the creation of a NetworkPolicy for the service `server`,
 ```
 
 ### Kafka mTLS & ACLs
-The Intents Operator can manage Kafka ACLs for pods running in your Kubernetes cluster. This works best when integrated with SPIRE and the [SPIRE Integration Operator](https://github.com/otterize/spire-integration-operator). The SPIRE Integration Operator registers workloads with a bundled SPIRE server and writes credentials into secrets for use by your pods. The Intents Operator is then able to configure ACLs on a Kafka cluster with those workload identities so that your pods can access the Kafka cluster, or specific topics.
+The intents operator can manage Kafka ACLs for pods running in your Kubernetes cluster. This works best when integrated with SPIRE and the [SPIRE Integration Operator](https://github.com/otterize/spire-integration-operator). The SPIRE Integration Operator registers workloads with a bundled SPIRE server and writes credentials into secrets for use by your pods. The Intents Operator is then able to configure ACLs on a Kafka cluster with those workload identities so that your pods can access the Kafka cluster, or specific topics.
 
 For brevity, this README only covers Network Policies internals. [Learn more about using the Intents Operator with Kafka mTLS & ACLs](https://docs.otterize.com/documentation/quick-tutorials/kafka-mtls)
 
