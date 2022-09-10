@@ -112,8 +112,6 @@ func main() {
 		}
 	}
 
-	options.NewCache = cache.MultiNamespacedCacheBuilder([]string{"http-server-test"})
-
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
