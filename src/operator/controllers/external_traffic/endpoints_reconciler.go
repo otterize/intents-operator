@@ -152,7 +152,6 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 			continue
 		}
 
-		//podNames = append(podNames, address.TargetRef.Name)
 		pod := &corev1.Pod{}
 		err := r.client.Get(ctx, types.NamespacedName{Name: address.TargetRef.Name, Namespace: address.TargetRef.Namespace}, pod)
 		if err != nil {
@@ -183,18 +182,6 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 		if len(netpolList.Items) == 0 {
 			continue
 		}
-		//svc := &corev1.Service{}
-		//err = r.client.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
-		//if err != nil {
-		//	if k8serrors.IsNotFound(err) {
-		//		continue
-		//	}
-		//}
-
-		// KafkaServerConfig refers to service ->
-		// if we have Otterize intents that apply to that service
-		// OR there's a default deny policy
-		// we need to add a network policy that enables us to connect to that service
 
 		foundOtterizeNetpolsAffectingPods = true
 		result, err := r.ReconcileServiceForOtterizeNetpol(ctx, endpoints, serverLabel, ingressList, &netpolList.Items[0])
@@ -204,18 +191,6 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 		if !result.IsZero() {
 			return result, nil
 		}
-
-		// on endpoints reconcile: create netpol, update netpol
-		// if the service labels change, they may no longer match intents ->
-		// find any netpols not associated with an existing endpoint and remove them
-		// on service reconcile: check if netpol already exists, if so, update it -> netpol name must only rely on svc name
-		// on service delete: if netpol already exists, delete it
-		// on intents delete: if netpol exists, delete it -> find the netpol using label. this is safe due to finalizer
-		// -> if there is an Otterize netpol, and a service, we will add an external access netpol.
-		// Service updates could mean the target pods are no longer affected by Otterize policies
-		// So service updates should not affect the labels, only the ports.
-		// but can we determine ports from the endpoints actually?
-		// But service updates are actually irrelevant, since service updates get reflected in endpoints updates
 
 	}
 
