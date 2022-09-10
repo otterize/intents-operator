@@ -18,6 +18,7 @@ import (
 const OtterizeNetworkPolicyNameTemplate = "external-access-to-%s"
 
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 
 type EndpointsReconciler struct {
