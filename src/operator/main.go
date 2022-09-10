@@ -70,7 +70,7 @@ func main() {
 			"Command-line flags override configuration from this file.")
 	flag.BoolVar(&selfSignedCert, "self-signed-cert", true,
 		"Whether to generate and use a self signed cert as the CA for webhooks")
-	flag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", false,
+	flag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", true,
 		"Whether to automatically create network policies for external traffic")
 
 	flag.Parse()
@@ -112,25 +112,40 @@ func main() {
 		}
 	}
 
+	options.NewCache = cache.MultiNamespacedCacheBuilder([]string{"http-server-test"})
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
 	kafkaServersStore := kafkaacls.NewServersStore()
 
-	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic)
-	svcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), mgr.GetScheme(), ingressReconciler, autoCreateNetworkPoliciesForExternalTraffic)
+	endpointReconciler := external_traffic.NewEndpointReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic)
+
+	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init index for ingress")
+	}
+
+	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
+	}
+
+	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), mgr.GetScheme(), endpointReconciler)
 	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
 	}
 
-	if err = svcReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "Service")
+	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, ctrlConfig.WatchNamespaces)
+	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler, ctrlConfig.WatchNamespaces)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init indices")
+	}
+
+	if err = intentsReconciler.InitEndpointsPodNamesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
 	}
 
@@ -157,11 +172,11 @@ func main() {
 		}
 	}
 
-	intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
-
-	if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
-	}
+	//intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
+	//
+	//if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
+	//	logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
+	//}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore)
 

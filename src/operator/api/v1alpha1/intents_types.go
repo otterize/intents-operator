@@ -28,13 +28,18 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
-	OtterizeAccessLabelKey         = "otterize/access-%s"
-	OtterizeMarkerLabelKey         = "otterize/client"
-	OtterizeNamespaceLabelKey      = "otterize/namespace-name"
-	OtterizeTargetServerIndexField = "spec.service.calls.server"
-	MaxOtterizeNameLength          = 20
-	MaxNamespaceLength             = 20
-	AllIntentsRemoved              = "otterize/all-intents-removed"
+	OtterizeAccessLabelKey                 = "otterize/access-%s"
+	OtterizeMarkerLabelKey                 = "otterize/client"
+	OtterizeNamespaceLabelKey              = "otterize/namespace-name"
+	OtterizeCreatedForServiceAnnotation    = "otterize/created-for-service"
+	OtterizeCreatedForIngressAnnotation    = "otterize/created-for-ingress"
+	OtterizeTargetServerIndexField         = "spec.service.calls.server"
+	EndpointsPodNamesIndexField            = "endpointsPodNames"
+	IngressServiceNamesIndexField          = "ingressServiceNames"
+	NetworkPoliciesByIngressNameIndexField = "networkPoliciesByIngressName"
+	MaxOtterizeNameLength                  = 20
+	MaxNamespaceLength                     = 20
+	AllIntentsRemoved                      = "otterize/all-intents-removed"
 )
 
 type IntentType string

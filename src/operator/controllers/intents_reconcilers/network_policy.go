@@ -4,14 +4,18 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/controllers/consts"
+	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,20 +23,22 @@ import (
 )
 
 const OtterizeNetworkPolicyNameTemplate = "access-to-%s-from-%s"
-const OtterizeNetworkPolicy = "otterize/network-policy"
+
 const NetworkPolicyFinalizerName = "otterize-intents.policies/finalizer"
 
 type NetworkPolicyReconciler struct {
 	client.Client
 	Scheme               *runtime.Scheme
+	endpointsReconciler  *external_traffic.EndpointsReconciler
 	RestrictToNamespaces []string
 	injectablerecorder.InjectableRecorder
 }
 
-func NewNetworkPolicyReconciler(c client.Client, s *runtime.Scheme, restrictToNamespaces []string) *NetworkPolicyReconciler {
+func NewNetworkPolicyReconciler(c client.Client, s *runtime.Scheme, endpointsReconciler *external_traffic.EndpointsReconciler, restrictToNamespaces []string) *NetworkPolicyReconciler {
 	return &NetworkPolicyReconciler{
 		Client:               c,
 		Scheme:               s,
+		endpointsReconciler:  endpointsReconciler,
 		RestrictToNamespaces: restrictToNamespaces,
 	}
 }
@@ -114,6 +120,46 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		if err != nil {
 			return err
 		}
+
+		selector, err := metav1.LabelSelectorAsSelector(&newPolicy.Spec.PodSelector)
+		if err != nil {
+			return err
+		}
+		// Are any pods affected right now? If so, we need to request a Reconcile from the EndpointsReconciler, since
+		// it doesn't get notified on network policy changes.
+		podList := &corev1.PodList{}
+		err = r.List(ctx, podList,
+			&client.ListOptions{Namespace: newPolicy.Namespace},
+			client.MatchingLabelsSelector{Selector: selector})
+		if err != nil {
+			return err
+		}
+
+		affectedEndpointsList := sets.NewString()
+
+		// If so, check whether they belong to endpoints (= are used by a service), and send those to the EndpointsReconciler.
+		for _, pod := range podList.Items {
+			var endpointsList corev1.EndpointsList
+			err = r.List(
+				ctx, &endpointsList,
+				&client.MatchingFields{otterizev1alpha1.EndpointsPodNamesIndexField: pod.Name},
+				&client.ListOptions{Namespace: pod.Namespace})
+
+			if err != nil {
+				return err
+			}
+			for _, endpoints := range endpointsList.Items {
+				affectedEndpointsList.Insert(endpoints.Name)
+			}
+		}
+
+		for affectedEndpointsName := range affectedEndpointsList {
+			_, err := r.endpointsReconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: affectedEndpointsName, Namespace: newPolicy.Namespace}})
+			if err != nil {
+				return err
+			}
+		}
+
 		return nil
 
 	} else if err != nil {
@@ -124,6 +170,8 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	// Found network policy, check for diff
 	if !reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
 		policyCopy := existingPolicy.DeepCopy()
+		policyCopy.Labels = newPolicy.Labels
+		policyCopy.Annotations = newPolicy.Annotations
 		policyCopy.Spec = newPolicy.Spec
 
 		err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
@@ -202,15 +250,31 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 	policy := &v1.NetworkPolicy{}
 	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.Namespace}, policy)
 
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else {
-		err := r.Delete(ctx, policy)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	// Remove network policies created by the external traffic reconcilers.
+	// Once no more Otterize network policies are present, there's no longer need for them.
+	externalPolicyList := &v1.NetworkPolicyList{}
+	serviceNameLabel := policy.Labels[consts.OtterizeNetworkPolicy]
+	err = r.List(ctx, externalPolicyList, client.MatchingLabels{consts.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
+		&client.ListOptions{Namespace: policy.Namespace})
+	if err != nil {
+		return err
+	}
+
+	for _, externalPolicy := range externalPolicyList.Items {
+		err := r.Delete(ctx, externalPolicy.DeepCopy())
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+
+	return r.Delete(ctx, policy)
 }
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
@@ -224,7 +288,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 			Name:      policyName,
 			Namespace: intent.Namespace,
 			Labels: map[string]string{
-				OtterizeNetworkPolicy: "true",
+				consts.OtterizeNetworkPolicy: formattedTargetServer,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
