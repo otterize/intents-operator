@@ -158,14 +158,14 @@ func (s *ControllerManagerTestSuiteBase) AddService(name string, podIps []string
 	return service
 }
 
-func (s *ControllerManagerTestSuiteBase) AddReplicaSet(name string, podIps []string, podLabels map[string]string) *appsv1.ReplicaSet {
+func (s *ControllerManagerTestSuiteBase) AddReplicaSet(name string, podIps []string, podLabels, annotations map[string]string) *appsv1.ReplicaSet {
 	replicaSet := &appsv1.ReplicaSet{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},
 		Spec: appsv1.ReplicaSetSpec{
 			Replicas: lo.ToPtr(int32(len(podIps))),
 			Selector: &metav1.LabelSelector{MatchLabels: podLabels},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace, Labels: podLabels},
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace, Labels: podLabels, Annotations: annotations},
 				Spec: corev1.PodSpec{Containers: []corev1.Container{
 					{
 						Name:            name,
@@ -201,14 +201,17 @@ func (s *ControllerManagerTestSuiteBase) AddReplicaSet(name string, podIps []str
 	return replicaSet
 }
 
-func (s *ControllerManagerTestSuiteBase) AddDeployment(name string, podIps []string, podLabels map[string]string) *appsv1.Deployment {
+func (s *ControllerManagerTestSuiteBase) AddDeployment(
+	name string,
+	podIps []string,
+	podLabels, annotations map[string]string) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace, Annotations: annotations},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: lo.ToPtr(int32(len(podIps))),
 			Selector: &metav1.LabelSelector{MatchLabels: podLabels},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace, Labels: podLabels},
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace, Labels: podLabels, Annotations: annotations},
 				Spec: corev1.PodSpec{Containers: []corev1.Container{
 					{
 						Name:            name,
@@ -225,7 +228,7 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(name string, podIps []str
 
 	s.waitForObjectToBeCreated(deployment)
 
-	replicaSet := s.AddReplicaSet(name, podIps, podLabels)
+	replicaSet := s.AddReplicaSet(name, podIps, podLabels, annotations)
 	replicaSet.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
 		{
 			APIVersion:         "apps/v1",
@@ -242,8 +245,11 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(name string, podIps []str
 	return deployment
 }
 
-func (s *ControllerManagerTestSuiteBase) AddDeploymentWithService(name string, podIps []string, podLabels map[string]string) (*appsv1.Deployment, *corev1.Service) {
-	deployment := s.AddDeployment(name, podIps, podLabels)
+func (s *ControllerManagerTestSuiteBase) AddDeploymentWithService(
+	name string,
+	podIps []string,
+	podLabels, annotations map[string]string) (*appsv1.Deployment, *corev1.Service) {
+	deployment := s.AddDeployment(name, podIps, podLabels, annotations)
 	service := s.AddService(name, podIps, podLabels)
 	return deployment, service
 }
