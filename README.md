@@ -1,4 +1,4 @@
-# Otterize Intents Operator
+# Otterize intents operator
 
 ![Otter Manning Helm](./otterhelm.png)
 
@@ -9,136 +9,72 @@
 ![openssf](https://img.shields.io/static/v1?label=openssf%20best%20practices&message=passing&color=success)
 ![community](https://img.shields.io/badge/slack-Otterize_Slack-orange.svg?logo=slack)
 
-The Otterize Intents Operator is an open source Kubernetes operator that enables you to declaratively manage service-to-service authorization using Network Policies and Kafka ACLs, and enables you to achieve zero-trust in your cluster while significantly reducing developer friction.
+[About](#about) | [Quick tutorial](https://docs.otterize.com/documentation/quick-tutorials/network-mapper) | [How does the intents operator work?](#how-does-the-intents-operator-work) | [Contributing](#contributing) | [Slack](#slack)
 
-Developers declaratively specify which other services their service needs to access, in the terms and abstraction they're used to (so, services accessing services, rather than pod labels, etc.), and the Intents Operator applies Network Policies, pod labels and Kafka ACLs, depending on how you've deployed it, to enable the required access.
+## About
+The Otterize intents operator is an open source Kubernetes operator for easily managing service-to-service authorization by declaring the calls each service needs to make, using [client intents files](https://otterize.com/ibac). The intents operator uses these files to configure network policies, Kafka ACLs, and other enforcement points (in the future) to allow just the intended calls. 
 
-Installed together with the [Otterize Network Mapper](https://github.com/otterize/network-mapper) and SPIRE, you can automatically detect existing traffic between pods in your cluster, and generate ClientIntents (or manually author), a Kubernetes resource, that describes these communications. The Intents Operator then enforces the intents using Network Policies and Kafka ACLs.
+The Otterize intents operator is a part of [Otterize OSS](https://otterize.com/oss) and works within a single Kubernetes cluster.
 
-Only ClientIntents need to be created - other resources such as credentials, network policies and labels are automatically created.
-
-
-- [How does the Intents Operator work?](#how-does-the-intents-operator-work)
-    - [Network Policies](#network-policies)
-    - [Kafka mTLS & ACLs](#kafka-mtls-acls)
-- [Quickstart](#quickstart)
-- [Contributing](#contributing)
-- [Join the Community](#join-the-community)
-
-
-
-
-## How does the Intents Operator work?
-
-### Network Policies
-The Intents Operator facilitiates Kubernetes NetworkPolicy creation by creating appropriate network policies, as well as labeling pods, to allow access to services according to the ClientIntents that are declared.
-
-This intent results in the creation of a NetworkPolicy for the service `server`, as well as labels the pods for the `client` and `server` services, so that an ingress network policy applies to the server and allows the client pods to connect. See [Service name resolution](#Service_name_resolution) to learn how service names are resolved.
+Here's an example of a CRD-formatted intents file for a service called **"checkoutservice"**, which intends to call **"ecomm-events"** (a Kafka cluster) and **"shippingervice"** (an HTTP server):
+```yaml
+apiVersion: k8s.otterize.com/v1
+kind: ClientIntents
+metadata:
+  name: checkoutservice
+  namespace: production
+spec:
+  service:
+    name: checkoutservice
+  calls:
+    - name: ecomm-events
+      type: kafka
+      topics: 
+        - name: orders
+          operation: produce
+    - name: shippingservice
+      type: http
+      resources:
+      - path: /shipments
+        methods: [ get, post ]
 ```
-    apiVersion: k8s.otterize.com/v1alpha1
-    kind: ClientIntents
-    metadata:
-      name: client
-    spec:
-      service:
-        name: client
-      calls:
-        - name: server
-          type: HTTP
-```
+In this example the developers of **"checkoutservice"** chose to declare more granular information about the calls they'll make, allowing tighter enforcement of authorization.
+
+Developers create and maintain these intents file for each service alongside its code. The intents are expressed in terms they're used to -- services accessing services, not pod labels and such -- without worrying about how access is controlled. 
+With this [intent-based access control](https://otterize.com/ibac) approach, you can implement a zero-trust Kubernetes cluster with minimal developer friction.
+
+To bootstrap client intents files for the services running in your cluster, you can use the [Otterize network mapper](https://github.com/otterize/network-mapper) to automatically detect pod-to-pod calls in your cluster and build a network map. The map can be exported as a set of client intents files. When applied to your cluster (`kubectl apply`), the Otterize intents operator will configure network policies, Kafka ACLs, etc. to authorize just these calls. Developers can then evolve the intents files as their needs evolve, and the authorization will automatically evolve with them, so access is always minimized to what's needed.
+
+If credentials such as X509 certificates are needed for authentication and authorization -- for example, to connect to Kafka with mTLS -- the Otterize intents operator works with SPIRE and the [SPIRE integration operator](https://github.com/otterize/spire-integration-operator) to automatically establish pod service identities, generate trusted credentials for each client service, and deliver them to the pod in a locally-mounted volume.
+
+
+## How does the intents operator work?
+
+### Network policies
+The intents operator automatically creates, updates and deletes network policies, and automatically labels client and server pods, to reflect precisely the client-to-server calls declared in client intents files.
+
+In the example above, the `checkoutservice` intends to call the `shippingservice`. When the CRD is applied through `kubectl apply`, the intents operator labels the `checkoutservice` and `shippingservice` pods, and creates a network policy for the ingress of the `shippingservice` that references these labels and allows calls to the `shippingservice` from the `checkoutservice`.
+
+See [service names and pod labels](#service_names_and_pod_labels) to learn how the right service names are inferred for pods, and how pods are labeled.
 
 ### Kafka mTLS & ACLs
-The Intents Operator can manage Kafka ACLs for pods running in your Kubernetes cluster. This works best when integrated with SPIRE and the [SPIRE Integration Operator](https://github.com/otterize/spire-integration-operator). The SPIRE Integration Operator registers workloads with a bundled SPIRE server and writes credentials into secrets for use by your pods. The Intents Operator is then able to configure ACLs on a Kafka cluster with those workload identities so that your pods can access the Kafka cluster, or specific topics.
+The intents operator automatically creates, updates, and deletes ACLs in Kafka clusters running within your Kubernetes cluster. It works together with SPIRE and the [Otterize SPIRE integration operator](https://github.com/otterize/spire-integration-operator) to easily enable secure access to Kafka from client pods, all in your Kubernetes cluster.
 
-For brevity, this README only covers Network Policies internals. [Learn more about using the Intents Operator with Kafka mTLS & ACLs](https://docs.otterize.com/documentation/quick-tutorials/kafka-mtls)
+The Otterize SPIRE integration operator automatically registers client pods with a SPIRE server, and writes the trusted credentials generated by SPIRE into Kubernetes secrets for use by those pods. The intents operator will in turn reflect the kafka-type intents as Kafka ACLs associated with those pod identities, so client pods get the precise access declared in their intents files.
 
-### Service name resolution and automatic pod labeling
-Service name resolution is performed one of two ways:
-1. If an `intents.otterize.com/service-name` label is present, that name is used.
-2. If not, a recursive look up is performed for the Kubernetes resource owner for a Pod until the root is reached. For example, if you have a `Deployment` named `client`, which then creates and owns a `ReplicaSet`, which then creates and owns a `Pod`, then the service name for that pod is `client` - same as the name of the `Deployment`.
+<!-- For brevity, this README only covers Network Policies internals. [Learn more about using the Intents Operator with Kafka mTLS & ACLs](https://docs.otterize.com/documentation/quick-tutorials/kafka-mtls) -->
 
-The value resulting from this process is then combined with the namespace of the pod, and hashed together to form the value of the label `intents.otterize.com/server`.
+### Service names and pod labels
+Client intents files use service names to refer to client and server services. How do Otterize operators decide what is the name of the service that runs within the pod? The algorithm is as follows:
+1. If the pod has an `otterize/service-name` label, its value is used as the service name. This allows developers and automations to explicitly name services, if needed.
+2. If there is no `otterize/service-name` label, a recursive look up is performed for the Kubernetes resource owner of the pod, until the root resource is reached, and its name is used as the service name. For example, if you have a `Deployment` named `checkoutservice`, which then creates and owns a `ReplicaSet`, which then creates and owns a `Pod`, then the service name for that pod is `checkoutservice` - same as the name of the `Deployment`. This is intended to capture the likely-more-meaningful "human name" of the service.
 
-That label is then used as a selector for network policies.
-Another, similar label - `intents.otterize.com/access-server-<servicename>-<servicehash>`, is applied to client pods which have declared their ClientIntent to access the server. That label is used as 
-
-## Quickstart
-1. Install the Intents Operator together with the [Otterize Network Mapper](https://github.com/otterize/network-mapper) (which does what it says on the tin):
-    ```
-    helm repo add otterize https://helm.otterize.com
-    helm install otterize -n otterize --create-namespace otterize/kubernetes-otterize
-    ```
-2. Install a demo client & server
-    ```
-    kubectl create namespace simple-client-server
-    kubectl apply -n simple-client-server -f examples/simple-client-server
-    ```
-2. Map their traffic and export as intents
-    ```
-    curl -LJO otterize-cli
-    ./otterize --mapper-namespace otterize intents export # view
-    ```
-    Output:
-    ```yaml
-    apiVersion: k8s.otterize.com/v1alpha1
-    kind: ClientIntents
-    metadata:
-      name: client
-    spec:
-      service:
-        name: client
-      calls:
-        - name: server
-          type: HTTP
-      ```
-    
-4. Export to file:
-    ```
-    ./otterize --mapper-namespace otterize intents export -f intents.yaml
-    ```
-5. Apply the intents
-    ```
-    kubectl apply -n simple-client-server -f intents.yaml
-    ```
-6. The operator creates a network policy for clients that want to connect to `server`
-A single network policy per server is used, for performance reasons, to reduce the number of rules that need to be applied.
-    ```
-    kubectl get networkpolicy -n simple-client-server access-to-server-from-simple-client-server -o yaml
-    ```
-    Output:
-    ```yaml
-    apiVersion: networking.k8s.io/v1
-    kind: NetworkPolicy
-    metadata:
-      name: access-to-server-from-simple-client-server
-      namespace: simple-client-server
-    spec:
-      ingress:
-      - from:
-          podSelector:
-            matchLabels:
-              otterize/access-server-simple-client-server-f398fa: "true"
-      podSelector:
-        matchLabels:
-          otterize/server: server-simple-client-server-f398fa
-      policyTypes:
-      - Ingress
-
-    ```
-7. Both the client and server pods are labeled for the NetworkPolicy to apply
-    ```
-    kubectl get pods -n simple-client-server --show-labels
-    ```
-    Output:
-    ```
-    client-75465549b-nlmdw    1/1     Running   0          72s   otterize/access-server-simple-client-server-f398fa=true
-    
-    server-579c697768-gbbm2   1/1     Running   0          71s   otterize/server=server-simple-client-server-f398fa
-    ```
+Pods are then labeled with values derived from service names. For example, 
+the service name is combined with the namespace of the pod and hashed to form the value of the label `otterize/server`. This label is then used as a selector for network policies. Another label, `otterize/access-server-<servicename>-<servicehash>`, is applied to client pods which have declared their intent to access the server. This label is used as the selector to determine which client pods are allowed to access the server pod.
 
 ## Contributing
 1. Feel free to fork and open a pull request! Include tests and document your code in [Godoc style](https://go.dev/blog/godoc)
 2. In your pull request, please refer to an existing issue or open a new one.
 
-## Join the Community
+## Slack
 [Join the Otterize Slack!](https://join.slack.com/t/otterizeworkspace/shared_invite/zt-1fnbnl1lf-ub6wler4QrW6ZzIn2U9x1A)
