@@ -37,7 +37,7 @@ The value resulting from this process forms the value of the label `spire-integr
 ## Contributing
 1. Feel free to fork and open a pull request! Include tests and document your code in [Godoc style](https://go.dev/blog/godoc)
 2. In your pull request, please refer to an existing issue or open a new one.
-3. For instructions on developing for the operator, see the [README for that section](./src/README.md).
+3. For instructions on developing for the operator, see the [README for that section](src/operator/README.md).
 
 ## Slack
 [Join the Otterize Slack!](https://join.slack.com/t/otterizeworkspace/shared_invite/zt-1fnbnl1lf-ub6wler4QrW6ZzIn2U9x1A)

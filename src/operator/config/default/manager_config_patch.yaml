@@ -8,6 +8,7 @@ spec:
     spec:
       containers:
       - name: manager
+        imagePullPolicy: Always
         args:
         - "--config=controller_manager_config.yaml"
         volumeMounts:

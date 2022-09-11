@@ -18,6 +18,7 @@ env:
 
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -37,18 +38,13 @@ jobs:
         run: |
           git config --global url."https://$GITHUB_TOKEN:x-oauth-basic@github.com/".insteadOf "https://github.com/"
           go test -v ./...
-        working-directory: src
+        working-directory: src/operator
         env:
           GITHUB_TOKEN: ${{ secrets.OTTERIZEBOT_GITHUB_TOKEN }}  # REMOVE ME when the opensource repos become public
 
   build:
     name: Build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service:
-          - spire-integration-operator
-
     steps:
       - name: Check out the code
         uses: actions/checkout@v2
@@ -81,9 +77,9 @@ jobs:
       - name: Build & Test
         uses: docker/build-push-action@v2
         with:
-          context: src/
-          file: src/${{ matrix.service }}.Dockerfile
-          tags: ${{ env.REGISTRY }}:${{ matrix.service }}-${{ github.sha }}
+          context: src/operator
+          file: src/operator/Dockerfile
+          tags: ${{ env.REGISTRY }}:spire-integration-operator-${{ github.sha }}
           push: true
           network: host
           cache-from: type=gha

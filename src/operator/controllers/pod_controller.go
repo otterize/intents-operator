@@ -6,9 +6,9 @@ import (
 	"github.com/amit7itz/goset"
 	"github.com/asaskevich/govalidator"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/otterize/spire-integration-operator/src/operator/metadata"
-	"github.com/otterize/spire-integration-operator/src/operator/secrets"
-	"github.com/otterize/spire-integration-operator/src/spireclient/entries"
+	"github.com/otterize/spire-integration-operator/src/controllers/metadata"
+	"github.com/otterize/spire-integration-operator/src/controllers/secrets"
+	"github.com/otterize/spire-integration-operator/src/controllers/spireclient/entries"
 	"github.com/sirupsen/logrus"
 	"hash/fnv"
 	corev1 "k8s.io/api/core/v1"
@@ -38,8 +38,9 @@ type PodReconciler struct {
 }
 
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=core,resources=secrets,verbs=create;get;list;update;patch
-// +kubebuilder:rbac:groups=apps,resources=replicasets,deamonsets,statefulsets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=create;get;list;update;patch;watch
+// +kubebuilder:rbac:groups=apps,resources=replicasets;daemonsets;statefulsets;deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=get;update;patch;list;watch;create
 
 func NewPodReconciler(client client.Client, scheme *runtime.Scheme, entriesRegistry entries.Registry,
 	secretsManager secrets.Manager, serviceIdResolver *serviceidresolver.Resolver, eventRecorder record.EventRecorder) *PodReconciler {
