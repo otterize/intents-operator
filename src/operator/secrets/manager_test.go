@@ -46,7 +46,7 @@ func (s *ManagerSuite) SetupTest() {
 type TLSSecretMatcher struct {
 	name      string
 	namespace string
-	tlsData   map[string][]byte
+	tlsData   *map[string][]byte
 }
 
 func (m *TLSSecretMatcher) Matches(x interface{}) bool {
@@ -63,7 +63,7 @@ func (m *TLSSecretMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	if !reflect.DeepEqual(secret.Data, m.tlsData) {
+	if m.tlsData != nil && !reflect.DeepEqual(secret.Data, *m.tlsData) {
 		return false
 	}
 
@@ -113,7 +113,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_NoExistingSecret() {
 		&TLSSecretMatcher{
 			namespace: namespace,
 			name:      secretName,
-			tlsData: map[string][]byte{
+			tlsData: &map[string][]byte{
 				"bundle.pem": testData.BundlePEM,
 				"key.pem":    testData.KeyPEM,
 				"svid.pem":   testData.SVIDPEM,
@@ -168,7 +168,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NeedsRefr
 		&TLSSecretMatcher{
 			namespace: namespace,
 			name:      secretName,
-			tlsData: map[string][]byte{
+			tlsData: &map[string][]byte{
 				"bundle.pem": testData.BundlePEM,
 				"key.pem":    testData.KeyPEM,
 				"svid.pem":   testData.SVIDPEM,
@@ -198,6 +198,9 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NoRefresh
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
 				Namespace: namespace,
+				Labels: map[string]string{
+					metadata.SecretTypeLabel: string(tlsSecretType),
+				},
 				Annotations: map[string]string{
 					metadata.TLSSecretSVIDExpiryAnnotation:  time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
 					metadata.SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
@@ -211,28 +214,18 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NoRefresh
 		}
 	})
 
-	testData, err := testdata.LoadTestData()
-	s.Require().NoError(err)
-
-	s.mockTLSStores(entryId, testData)
-
 	s.client.EXPECT().Update(
 		gomock.Any(),
 		&TLSSecretMatcher{
 			namespace: namespace,
 			name:      secretName,
-			tlsData: map[string][]byte{
-				"bundle.pem": testData.BundlePEM,
-				"key.pem":    testData.KeyPEM,
-				"svid.pem":   testData.SVIDPEM,
-			},
 		},
 	).Return(nil)
 
 	certConfig := CertConfig{CertType: StrToCertType("pem"), PemConfig: NewPemConfig("", "", "")}
 	secretConf := NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
 
-	err = s.manager.EnsureTLSSecret(context.Background(), secretConf, nil)
+	err := s.manager.EnsureTLSSecret(context.Background(), secretConf, nil)
 	s.Require().NoError(err)
 }
 
@@ -278,7 +271,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 		&TLSSecretMatcher{
 			namespace: namespace,
 			name:      secretName,
-			tlsData: map[string][]byte{
+			tlsData: &map[string][]byte{
 				newSecrets.BundleFileName: testData.BundlePEM,
 				newSecrets.KeyFileName:    testData.KeyPEM,
 				newSecrets.SvidFileName:   testData.SVIDPEM,
@@ -336,7 +329,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 		&TLSSecretMatcher{
 			namespace: namespace,
 			name:      secretName,
-			tlsData: map[string][]byte{
+			tlsData: &map[string][]byte{
 				secretFileNames.BundleFileName: testData.BundlePEM,
 				secretFileNames.KeyFileName:    testData.KeyPEM,
 				secretFileNames.SvidFileName:   testData.SVIDPEM,
@@ -394,7 +387,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 		&TLSSecretMatcher{
 			namespace: namespace,
 			name:      secretName,
-			tlsData: map[string][]byte{
+			tlsData: &map[string][]byte{
 				secretFileNames.BundleFileName: testData.BundlePEM,
 				secretFileNames.KeyFileName:    testData.KeyPEM,
 				secretFileNames.SvidFileName:   testData.SVIDPEM,
@@ -452,7 +445,7 @@ func (s *ManagerSuite) TestManager_RefreshTLSSecrets_RefreshNeeded() {
 		&TLSSecretMatcher{
 			namespace: namespace,
 			name:      secretName,
-			tlsData: map[string][]byte{
+			tlsData: &map[string][]byte{
 				"bundle.pem": testData.BundlePEM,
 				"key.pem":    testData.KeyPEM,
 				"svid.pem":   testData.SVIDPEM,

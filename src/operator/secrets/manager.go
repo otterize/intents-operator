@@ -266,9 +266,13 @@ func (m *managerImpl) EnsureTLSSecret(ctx context.Context, config SecretConfig, 
 		}
 	}
 
-	if err := m.updateTLSSecretConfig(ctx, config, secret); err != nil {
-		log.WithError(err).Error("failed updating TLS secret config")
-		return err
+	if !isExistingSecret ||
+		m.isRefreshNeeded(secret) ||
+		m.isUpdateNeeded(SecretConfigFromExistingSecret(secret), config) {
+		if err := m.updateTLSSecretConfig(ctx, config, secret); err != nil {
+			log.WithError(err).Error("failed updating TLS secret config")
+			return err
+		}
 	}
 
 	if owner != nil {
