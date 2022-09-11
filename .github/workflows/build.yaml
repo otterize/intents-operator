@@ -1,0 +1,122 @@
+name: Build
+concurrency:
+  group: "${{github.repository}}${{ github.ref }}"
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize
+  REPOSITORY_NAME: otterize-tools
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+
+      - name: Setup dep cache
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+      - name: Test
+        run: |
+          git config --global url."https://$GITHUB_TOKEN:x-oauth-basic@github.com/".insteadOf "https://github.com/"
+          go test -v ./...
+        working-directory: src
+        env:
+          GITHUB_TOKEN: ${{ secrets.OTTERIZEBOT_GITHUB_TOKEN }}  # REMOVE ME when the opensource repos become public
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - spire-integration-operator
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          driver-opts: network=host
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: otterize
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build & Test
+        uses: docker/build-push-action@v2
+        with:
+          context: src/
+          file: src/${{ matrix.service }}.Dockerfile
+          tags: ${{ env.REGISTRY }}:${{ matrix.service }}-${{ github.sha }}
+          push: true
+          network: host
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          secrets: |
+            "github_token=${{ secrets.OTTERIZEBOT_GITHUB_TOKEN }}"
+
+  tag-latest:
+    name: Tag latest
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - id: install-aws-cli
+        uses: unfor19/install-aws-cli-action@v1
+
+      # Push the Docker image to AWS ECR
+      - name: Tag Images as latest
+        run: |-
+          retag_image_as_latest() { MANIFEST=$(aws ecr batch-get-image --repository-name ${{ env.REPOSITORY_NAME }} --image-ids imageTag="$1-${{ github.sha }}" --query "images[].imageManifest" --output text); if [ -z "$MANIFEST" ]; then echo Manifest not found; exit 1; fi; OUTPUT=$(aws ecr put-image --repository-name ${{ env.REPOSITORY_NAME }} --image-tag "$1-latest" --image-manifest "$MANIFEST" 2>&1 || true); if echo $OUTPUT | grep 'An error occurred' >/dev/null && ! echo $OUTPUT | grep ImageAlreadyExistsException >/dev/null; then echo $OUTPUT; exit 1; fi; }
+          retag_image_as_latest spire-integration-operator

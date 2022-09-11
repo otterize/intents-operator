@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
 	"time"
 )
@@ -121,7 +120,7 @@ func SecretConfigFromExistingSecret(secret *corev1.Secret) SecretConfig {
 }
 
 type Manager interface {
-	EnsureTLSSecret(ctx context.Context, config SecretConfig, owner metav1.Object) error
+	EnsureTLSSecret(ctx context.Context, config SecretConfig) (*corev1.Secret, error)
 	RefreshTLSSecrets(ctx context.Context) error
 }
 
@@ -250,50 +249,43 @@ func (m *managerImpl) generateSecretData(trustBundle bundles.EncodedTrustBundle,
 	}
 }
 
-func (m *managerImpl) EnsureTLSSecret(ctx context.Context, config SecretConfig, owner metav1.Object) error {
+func (m *managerImpl) EnsureTLSSecret(ctx context.Context, config SecretConfig) (*corev1.Secret, error) {
 	log := logrus.WithFields(logrus.Fields{"secret.namespace": config.Namespace, "secret.name": config.SecretName})
 
 	existingSecret, isExistingSecret, err := m.getExistingSecret(ctx, config.Namespace, config.SecretName)
 	if err != nil {
 		log.WithError(err).Error("failed querying for secret")
-		return err
+		return nil, err
 	}
 
 	if isExistingSecret &&
 		!m.isRefreshNeeded(existingSecret) &&
 		!m.isUpdateNeeded(SecretConfigFromExistingSecret(existingSecret), config) {
 		log.Info("secret already exists and does not require refreshing nor updating")
-		return nil
+		return existingSecret, nil
 	}
 
 	secret, err := m.createTLSSecret(ctx, config)
 	if err != nil {
 		log.WithError(err).Error("failed creating TLS secret")
-		return err
-	}
-
-	if owner != nil {
-		if err := controllerutil.SetOwnerReference(owner, secret, m.Scheme()); err != nil {
-			log.WithError(err).Error("failed setting pod as owner reference")
-			return err
-		}
+		return nil, err
 	}
 
 	if isExistingSecret {
 		log.Info("Updating existing secret")
 		if err := m.Update(ctx, secret); err != nil {
 			logrus.WithError(err).Error("failed updating existing secret")
-			return err
+			return nil, err
 		}
 	} else {
 		log.Info("Creating a new secret")
 		if err := m.Create(ctx, secret); err != nil {
 			logrus.WithError(err).Error("failed creating new secret")
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return secret, nil
 }
 
 func (m *managerImpl) refreshTLSSecret(ctx context.Context, secret *corev1.Secret) error {

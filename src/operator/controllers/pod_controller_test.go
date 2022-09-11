@@ -13,7 +13,10 @@ import (
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
@@ -39,6 +42,10 @@ func (s *PodControllerSuite) SetupTest() {
 	eventRecorder := mock_record.NewMockEventRecorder(s.controller)
 	eventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	eventRecorder.EXPECT().Eventf(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	s.client.EXPECT().Scheme().Return(scheme).AnyTimes()
 	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, s.secretsManager,
 		serviceIdResolver, eventRecorder)
 }
@@ -80,7 +87,14 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 		Return(entryID, nil)
 
 	// expect TLS secret creation
-	s.secretsManager.EXPECT().EnsureTLSSecret(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-secret",
+			Namespace: namespace,
+		},
+	}
+	s.secretsManager.EXPECT().EnsureTLSSecret(gomock.Any(), gomock.Any()).Return(secret, nil)
+	s.client.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).Return(nil)
 
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: namespace, Name: podname}}
 	result, err := s.podReconciler.Reconcile(context.Background(), request)

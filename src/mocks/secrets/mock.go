@@ -10,7 +10,7 @@ import (
 
 	gomock "github.com/golang/mock/gomock"
 	secrets "github.com/otterize/spire-integration-operator/src/operator/secrets"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 // MockManager is a mock of Manager interface.
@@ -37,17 +37,18 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 }
 
 // EnsureTLSSecret mocks base method.
-func (m *MockManager) EnsureTLSSecret(arg0 context.Context, arg1 secrets.SecretConfig, arg2 v1.Object) error {
+func (m *MockManager) EnsureTLSSecret(arg0 context.Context, arg1 secrets.SecretConfig) (*v1.Secret, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EnsureTLSSecret", arg0, arg1, arg2)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret := m.ctrl.Call(m, "EnsureTLSSecret", arg0, arg1)
+	ret0, _ := ret[0].(*v1.Secret)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // EnsureTLSSecret indicates an expected call of EnsureTLSSecret.
-func (mr *MockManagerMockRecorder) EnsureTLSSecret(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockManagerMockRecorder) EnsureTLSSecret(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureTLSSecret", reflect.TypeOf((*MockManager)(nil).EnsureTLSSecret), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnsureTLSSecret", reflect.TypeOf((*MockManager)(nil).EnsureTLSSecret), arg0, arg1)
 }
 
 // RefreshTLSSecrets mocks base method.
