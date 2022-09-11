@@ -39,6 +39,7 @@ const (
 	MaxNamespaceLength             = 20
 )
 
+// +kubebuilder:validation:Enum=HTTP;Kafka
 type IntentType string
 
 const (
