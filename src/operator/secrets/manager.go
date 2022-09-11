@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/otterize/spire-integration-operator/src/operator/metadata"
 	"github.com/otterize/spire-integration-operator/src/spireclient/bundles"
 	"github.com/otterize/spire-integration-operator/src/spireclient/svids"
 	"github.com/samber/lo"
@@ -19,19 +20,7 @@ import (
 )
 
 const (
-	secretTypeLabel                = "spire-integration-operator/secret-type"
-	tlsSecretServiceNameAnnotation = "spire-integration-operator/service-name"
-	tlsSecretEntryIDAnnotation     = "spire-integration-operator/entry-id"
-	svidExpiryAnnotation           = "spire-integration-operator/svid-expires-at"
-	SVIDFileNameAnnotation         = "otterize/svid-file-name"
-	BundleFileNameAnnotation       = "otterize/bundle-file-name"
-	KeyFileNameAnnotation          = "otterize/key-file-name"
-	entryHashAnnotation            = "otterize/entry-hash"
-	certTypeAnnotation             = "otterize/cert-type"
-	KeystoreAnnotation             = "otterize/keystore-file-name"
-	TruststoreAnnotation           = "otterize/truststore-file-name"
-	JksPasswordAnnotation          = "otterize/jks-password"
-	secretExpiryDelta              = 10 * time.Minute
+	secretExpiryDelta = 10 * time.Minute
 )
 
 type SecretType string
@@ -111,21 +100,21 @@ func NewSecretConfig(entryID string, entryHash string, secretName string, namesp
 func SecretConfigFromExistingSecret(secret *corev1.Secret) SecretConfig {
 	return SecretConfig{
 		SecretName:  secret.Name,
-		ServiceName: secret.Annotations[tlsSecretServiceNameAnnotation],
-		EntryID:     secret.Annotations[tlsSecretEntryIDAnnotation],
-		EntryHash:   secret.Annotations[entryHashAnnotation],
+		ServiceName: secret.Annotations[metadata.TLSSecretServiceNameAnnotation],
+		EntryID:     secret.Annotations[metadata.TLSSecretEntryIDAnnotation],
+		EntryHash:   secret.Annotations[metadata.TLSSecretEntryHashAnnotation],
 		Namespace:   secret.Namespace,
 		CertConfig: CertConfig{
-			CertType: CertType(secret.Annotations[certTypeAnnotation]),
+			CertType: CertType(secret.Annotations[metadata.CertTypeAnnotation]),
 			PemConfig: PemConfig{
-				SvidFileName:   secret.Annotations[SVIDFileNameAnnotation],
-				BundleFileName: secret.Annotations[BundleFileNameAnnotation],
-				KeyFileName:    secret.Annotations[KeyFileNameAnnotation],
+				SvidFileName:   secret.Annotations[metadata.SVIDFileNameAnnotation],
+				BundleFileName: secret.Annotations[metadata.BundleFileNameAnnotation],
+				KeyFileName:    secret.Annotations[metadata.KeyFileNameAnnotation],
 			},
 			JksConfig: JksConfig{
-				KeyStoreFileName:   secret.Annotations[KeystoreAnnotation],
-				TrustStoreFileName: secret.Annotations[TruststoreAnnotation],
-				Password:           secret.Annotations[JksPasswordAnnotation],
+				KeyStoreFileName:   secret.Annotations[metadata.KeyStoreFileNameAnnotation],
+				TrustStoreFileName: secret.Annotations[metadata.TrustStoreFileNameAnnotation],
+				Password:           secret.Annotations[metadata.JksPasswordAnnotation],
 			},
 		},
 	}
@@ -149,7 +138,7 @@ func NewSecretsManager(c client.Client, bundlesStore bundles.Store, svidsStore s
 func (m *managerImpl) isRefreshNeeded(secret *corev1.Secret) bool {
 	log := logrus.WithFields(logrus.Fields{"secret.namespace": secret.Namespace, "secret.name": secret.Name})
 	expiryBaseline := time.Now().Add(secretExpiryDelta)
-	expiryStr, ok := secret.Annotations[svidExpiryAnnotation]
+	expiryStr, ok := secret.Annotations[metadata.TLSSecretSVIDExpiryAnnotation]
 	if !ok {
 		log.Warn("secret missing expiry annotation, will re-create it")
 		return true
@@ -212,20 +201,20 @@ func (m *managerImpl) createTLSSecret(ctx context.Context, config SecretConfig) 
 			Name:      config.SecretName,
 			Namespace: config.Namespace,
 			Labels: map[string]string{
-				secretTypeLabel: string(tlsSecretType),
+				metadata.SecretTypeLabel: string(tlsSecretType),
 			},
 			Annotations: map[string]string{
-				svidExpiryAnnotation:           expiryStr,
-				tlsSecretServiceNameAnnotation: config.ServiceName,
-				tlsSecretEntryIDAnnotation:     config.EntryID,
-				SVIDFileNameAnnotation:         config.CertConfig.PemConfig.SvidFileName,
-				BundleFileNameAnnotation:       config.CertConfig.PemConfig.BundleFileName,
-				KeyFileNameAnnotation:          config.CertConfig.PemConfig.KeyFileName,
-				entryHashAnnotation:            config.EntryHash,
-				KeystoreAnnotation:             config.CertConfig.JksConfig.KeyStoreFileName,
-				TruststoreAnnotation:           config.CertConfig.JksConfig.TrustStoreFileName,
-				JksPasswordAnnotation:          config.CertConfig.JksConfig.Password,
-				certTypeAnnotation:             string(config.CertConfig.CertType),
+				metadata.TLSSecretSVIDExpiryAnnotation:  expiryStr,
+				metadata.TLSSecretServiceNameAnnotation: config.ServiceName,
+				metadata.TLSSecretEntryIDAnnotation:     config.EntryID,
+				metadata.TLSSecretEntryHashAnnotation:   config.EntryHash,
+				metadata.SVIDFileNameAnnotation:         config.CertConfig.PemConfig.SvidFileName,
+				metadata.BundleFileNameAnnotation:       config.CertConfig.PemConfig.BundleFileName,
+				metadata.KeyFileNameAnnotation:          config.CertConfig.PemConfig.KeyFileName,
+				metadata.KeyStoreFileNameAnnotation:     config.CertConfig.JksConfig.KeyStoreFileName,
+				metadata.TrustStoreFileNameAnnotation:   config.CertConfig.JksConfig.TrustStoreFileName,
+				metadata.JksPasswordAnnotation:          config.CertConfig.JksConfig.Password,
+				metadata.CertTypeAnnotation:             string(config.CertConfig.CertType),
 			},
 		},
 		Data: secretData,
@@ -309,12 +298,12 @@ func (m *managerImpl) EnsureTLSSecret(ctx context.Context, config SecretConfig, 
 
 func (m *managerImpl) refreshTLSSecret(ctx context.Context, secret *corev1.Secret) error {
 	log := logrus.WithFields(logrus.Fields{"secret.namespace": secret.Namespace, "secret.name": secret.Name})
-	_, ok := secret.Annotations[tlsSecretServiceNameAnnotation]
+	_, ok := secret.Annotations[metadata.TLSSecretServiceNameAnnotation]
 	if !ok {
 		return errors.New("service name annotation is missing")
 	}
 
-	_, ok = secret.Annotations[tlsSecretEntryIDAnnotation]
+	_, ok = secret.Annotations[metadata.TLSSecretEntryIDAnnotation]
 
 	if !ok {
 		return errors.New("entry ID annotation is missing")
@@ -332,7 +321,7 @@ func (m *managerImpl) refreshTLSSecret(ctx context.Context, secret *corev1.Secre
 func (m *managerImpl) RefreshTLSSecrets(ctx context.Context) error {
 	logrus.Info("refreshing TLS secrets")
 	secrets := corev1.SecretList{}
-	if err := m.List(ctx, &secrets, &client.MatchingLabels{secretTypeLabel: string(tlsSecretType)}); err != nil {
+	if err := m.List(ctx, &secrets, &client.MatchingLabels{metadata.SecretTypeLabel: string(tlsSecretType)}); err != nil {
 		logrus.WithError(err).Error("failed listing TLS secrets")
 		return err
 	}

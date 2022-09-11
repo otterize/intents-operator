@@ -7,6 +7,7 @@ import (
 	mock_client "github.com/otterize/spire-integration-operator/src/mocks/controller-runtime/client"
 	mock_bundles "github.com/otterize/spire-integration-operator/src/mocks/spireclient/bundles"
 	mock_svids "github.com/otterize/spire-integration-operator/src/mocks/spireclient/svids"
+	"github.com/otterize/spire-integration-operator/src/operator/metadata"
 	"github.com/otterize/spire-integration-operator/src/spireclient/bundles"
 	"github.com/otterize/spire-integration-operator/src/spireclient/svids"
 	"github.com/otterize/spire-integration-operator/src/testdata"
@@ -58,7 +59,7 @@ func (m *TLSSecretMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	if secret.Labels == nil || secret.Labels[secretTypeLabel] != string(tlsSecretType) {
+	if secret.Labels == nil || secret.Labels[metadata.SecretTypeLabel] != string(tlsSecretType) {
 		return false
 	}
 
@@ -145,13 +146,13 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NeedsRefr
 				Name:      secretName,
 				Namespace: namespace,
 				Annotations: map[string]string{
-					svidExpiryAnnotation:           time.Now().Format(time.RFC3339),
-					SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
-					BundleFileNameAnnotation:       secretFileNames.BundleFileName,
-					KeyFileNameAnnotation:          secretFileNames.KeyFileName,
-					tlsSecretServiceNameAnnotation: serviceName,
-					tlsSecretEntryIDAnnotation:     entryId,
-					certTypeAnnotation:             "pem",
+					metadata.TLSSecretSVIDExpiryAnnotation:  time.Now().Format(time.RFC3339),
+					metadata.SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+					metadata.BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+					metadata.KeyFileNameAnnotation:          secretFileNames.KeyFileName,
+					metadata.TLSSecretServiceNameAnnotation: serviceName,
+					metadata.TLSSecretEntryIDAnnotation:     entryId,
+					metadata.CertTypeAnnotation:             "pem",
 				},
 			},
 		}
@@ -198,13 +199,13 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NoRefresh
 				Name:      secretName,
 				Namespace: namespace,
 				Annotations: map[string]string{
-					svidExpiryAnnotation:           time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
-					SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
-					BundleFileNameAnnotation:       secretFileNames.BundleFileName,
-					KeyFileNameAnnotation:          secretFileNames.KeyFileName,
-					tlsSecretServiceNameAnnotation: serviceName,
-					tlsSecretEntryIDAnnotation:     entryId,
-					certTypeAnnotation:             "pem",
+					metadata.TLSSecretSVIDExpiryAnnotation:  time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
+					metadata.SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+					metadata.BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+					metadata.KeyFileNameAnnotation:          secretFileNames.KeyFileName,
+					metadata.TLSSecretServiceNameAnnotation: serviceName,
+					metadata.TLSSecretEntryIDAnnotation:     entryId,
+					metadata.CertTypeAnnotation:             "pem",
 				},
 			},
 		}
@@ -233,13 +234,13 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 				Name:      secretName,
 				Namespace: namespace,
 				Annotations: map[string]string{
-					svidExpiryAnnotation:           time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
-					SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
-					BundleFileNameAnnotation:       secretFileNames.BundleFileName,
-					KeyFileNameAnnotation:          secretFileNames.KeyFileName,
-					tlsSecretServiceNameAnnotation: serviceName,
-					entryHashAnnotation:            "",
-					certTypeAnnotation:             "pem",
+					metadata.TLSSecretSVIDExpiryAnnotation:  time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
+					metadata.SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+					metadata.BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+					metadata.KeyFileNameAnnotation:          secretFileNames.KeyFileName,
+					metadata.TLSSecretServiceNameAnnotation: serviceName,
+					metadata.TLSSecretEntryHashAnnotation:   "",
+					metadata.CertTypeAnnotation:             "pem",
 				},
 			},
 		}
@@ -291,13 +292,13 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 				Name:      secretName,
 				Namespace: namespace,
 				Annotations: map[string]string{
-					svidExpiryAnnotation:           time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
-					SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
-					BundleFileNameAnnotation:       secretFileNames.BundleFileName,
-					KeyFileNameAnnotation:          secretFileNames.KeyFileName,
-					tlsSecretServiceNameAnnotation: serviceName,
-					entryHashAnnotation:            "",
-					certTypeAnnotation:             "pem",
+					metadata.TLSSecretSVIDExpiryAnnotation:  time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
+					metadata.SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+					metadata.BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+					metadata.KeyFileNameAnnotation:          secretFileNames.KeyFileName,
+					metadata.TLSSecretServiceNameAnnotation: serviceName,
+					metadata.TLSSecretEntryHashAnnotation:   "",
+					metadata.CertTypeAnnotation:             "pem",
 				},
 			},
 		}
@@ -349,13 +350,13 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 				Name:      secretName,
 				Namespace: namespace,
 				Annotations: map[string]string{
-					svidExpiryAnnotation:           time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
-					SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
-					BundleFileNameAnnotation:       secretFileNames.BundleFileName,
-					KeyFileNameAnnotation:          secretFileNames.KeyFileName,
-					tlsSecretServiceNameAnnotation: serviceName,
-					entryHashAnnotation:            "",
-					certTypeAnnotation:             "jks",
+					metadata.TLSSecretSVIDExpiryAnnotation:  time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
+					metadata.SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+					metadata.BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+					metadata.KeyFileNameAnnotation:          secretFileNames.KeyFileName,
+					metadata.TLSSecretServiceNameAnnotation: serviceName,
+					metadata.TLSSecretEntryHashAnnotation:   "",
+					metadata.CertTypeAnnotation:             "jks",
 				},
 			},
 		}
@@ -410,13 +411,13 @@ func (s *ManagerSuite) TestManager_RefreshTLSSecrets_RefreshNeeded() {
 						Name:      secretName,
 						Namespace: namespace,
 						Annotations: map[string]string{
-							svidExpiryAnnotation:           time.Now().Format(time.RFC3339),
-							tlsSecretServiceNameAnnotation: serviceName,
-							tlsSecretEntryIDAnnotation:     entryId,
-							SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
-							BundleFileNameAnnotation:       secretFileNames.BundleFileName,
-							KeyFileNameAnnotation:          secretFileNames.KeyFileName,
-							certTypeAnnotation:             "pem",
+							metadata.TLSSecretSVIDExpiryAnnotation:  time.Now().Format(time.RFC3339),
+							metadata.TLSSecretServiceNameAnnotation: serviceName,
+							metadata.TLSSecretEntryIDAnnotation:     entryId,
+							metadata.SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+							metadata.BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+							metadata.KeyFileNameAnnotation:          secretFileNames.KeyFileName,
+							metadata.CertTypeAnnotation:             "pem",
 						},
 					},
 				},
@@ -464,13 +465,13 @@ func (s *ManagerSuite) TestManager_RefreshTLSSecrets_NoRefreshNeeded() {
 						Name:      secretName,
 						Namespace: namespace,
 						Annotations: map[string]string{
-							svidExpiryAnnotation:           time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
-							tlsSecretServiceNameAnnotation: serviceName,
-							tlsSecretEntryIDAnnotation:     entryId,
-							SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
-							BundleFileNameAnnotation:       secretFileNames.BundleFileName,
-							KeyFileNameAnnotation:          secretFileNames.KeyFileName,
-							certTypeAnnotation:             "pem",
+							metadata.TLSSecretSVIDExpiryAnnotation:  time.Now().Add(2 * secretExpiryDelta).Format(time.RFC3339),
+							metadata.TLSSecretServiceNameAnnotation: serviceName,
+							metadata.TLSSecretEntryIDAnnotation:     entryId,
+							metadata.SVIDFileNameAnnotation:         secretFileNames.SvidFileName,
+							metadata.BundleFileNameAnnotation:       secretFileNames.BundleFileName,
+							metadata.KeyFileNameAnnotation:          secretFileNames.KeyFileName,
+							metadata.CertTypeAnnotation:             "pem",
 						},
 					},
 				},

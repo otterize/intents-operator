@@ -9,6 +9,7 @@ import (
 	mock_secrets "github.com/otterize/spire-integration-operator/src/mocks/secrets"
 	mock_spireclient "github.com/otterize/spire-integration-operator/src/mocks/spireclient"
 	mock_entries "github.com/otterize/spire-integration-operator/src/mocks/spireclient/entries"
+	"github.com/otterize/spire-integration-operator/src/operator/metadata"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,7 +62,7 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 					Name:      podname,
 					Annotations: map[string]string{
 						serviceidresolver.ServiceNameAnnotation: servicename,
-						TLSSecretNameAnnotation:                 secretname,
+						metadata.TLSSecretNameAnnotation:        secretname,
 					},
 				},
 			}
@@ -75,7 +76,7 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 	})
 
 	// expect spire entry registration
-	s.entriesRegistry.EXPECT().RegisterK8SPodEntry(gomock.Any(), namespace, ServiceNameSelectorLabel, servicename, int32(0), nil).
+	s.entriesRegistry.EXPECT().RegisterK8SPodEntry(gomock.Any(), namespace, metadata.ServiceNameLabel, servicename, int32(0), nil).
 		Return(entryID, nil)
 
 	// expect TLS secret creation
@@ -85,7 +86,7 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 	result, err := s.podReconciler.Reconcile(context.Background(), request)
 	s.Require().NoError(err)
 	s.Require().True(result.IsZero())
-	s.Require().Equal(update.Labels[ServiceNameSelectorLabel], servicename)
+	s.Require().Equal(update.Labels[metadata.ServiceNameLabel], servicename)
 }
 
 func TestRunPodControllerSuite(t *testing.T) {

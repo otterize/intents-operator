@@ -29,14 +29,14 @@ kafka:
   podLabels:
     app: lab-kafka
   podAnnotations:
-    otterize/cert-type: jks
-    otterize/cert-ttl: "999999999"
-    otterize/service-name: kafka
-    otterize/tls-secret-name: kafka-tls-secret
-    otterize/truststore-file-name: kafka.truststore.jks
-    otterize/keystore-file-name: kafka-keystore.jks
-    otterize/jks-password: password
-    otterize/dns-names: "kafka-tls-0.kafka-tls-headless.default.svc.cluster.local,kafka-tls.default.svc.cluster.local"
+    spire-integration.otterize.com/cert-type: jks
+    spire-integration.otterize.com/cert-ttl: "999999999"
+    spire-integration.otterize.com/service-name: kafka
+    spire-integration.otterize.com/tls-secret-name: kafka-tls-secret
+    spire-integration.otterize.com/truststore-file-name: kafka.truststore.jks
+    spire-integration.otterize.com/keystore-file-name: kafka-keystore.jks
+    spire-integration.otterize.com/jks-password: password
+    spire-integration.otterize.com/dns-names: "kafka-tls-0.kafka-tls-headless.default.svc.cluster.local,kafka-tls.default.svc.cluster.local"
   zookeeper:
     podLabels:
       app: lab-zookeeper

@@ -6,6 +6,7 @@ import (
 	"github.com/amit7itz/goset"
 	"github.com/asaskevich/govalidator"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/spire-integration-operator/src/operator/metadata"
 	"github.com/otterize/spire-integration-operator/src/operator/secrets"
 	"github.com/otterize/spire-integration-operator/src/spireclient/entries"
 	"github.com/sirupsen/logrus"
@@ -24,17 +25,6 @@ import (
 const (
 	refreshSecretsLoopTick       = time.Minute
 	cleanupOrphanEntriesLoopTick = 10 * time.Minute
-	TLSSecretNameAnnotation      = "otterize/tls-secret-name"
-	SVIDFileNameAnnotation       = "otterize/svid-file-name"
-	BundleFileNameAnnotation     = "otterize/bundle-file-name"
-	KeyFileNameAnnotation        = "otterize/key-file-name"
-	DNSNamesAnnotation           = "otterize/dns-names"
-	CertTTLAnnotation            = "otterize/cert-ttl"
-	CertTypeAnnotation           = "otterize/cert-type"
-	KeyStoreNameAnnotation       = "otterize/keystore-file-name"
-	TrustStoreNameAnnotation     = "otterize/truststore-file-name"
-	JksStoresPasswordAnnotation  = "otterize/jks-password"
-	ServiceNameSelectorLabel     = "otterize/spire-integration-operator.service-name"
 )
 
 // PodReconciler reconciles a Pod object
@@ -99,12 +89,12 @@ func (r *PodReconciler) updatePodLabel(ctx context.Context, pod *corev1.Pod, lab
 
 func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod, serviceName string, entryID string, entryHash string) error {
 	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace})
-	if pod.Annotations == nil || pod.Annotations[TLSSecretNameAnnotation] == "" {
-		log.WithField("annotation.key", TLSSecretNameAnnotation).Info("skipping TLS secrets creation - annotation not found")
+	if pod.Annotations == nil || pod.Annotations[metadata.TLSSecretNameAnnotation] == "" {
+		log.WithField("annotation.key", metadata.TLSSecretNameAnnotation).Info("skipping TLS secrets creation - annotation not found")
 		return nil
 	}
 
-	secretName := pod.Annotations[TLSSecretNameAnnotation]
+	secretName := pod.Annotations[metadata.TLSSecretNameAnnotation]
 	certConfig := certConfigFromPod(pod)
 	log.WithFields(logrus.Fields{"secret_name": secretName, "cert_config": certConfig}).Info("ensuring TLS secret")
 	secretConfig := secrets.NewSecretConfig(entryID, entryHash, secretName, pod.Namespace, serviceName, certConfig)
@@ -119,13 +109,21 @@ func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod,
 }
 
 func certConfigFromPod(pod *corev1.Pod) secrets.CertConfig {
-	certType := secrets.StrToCertType(pod.Annotations[CertTypeAnnotation])
+	certType := secrets.StrToCertType(pod.Annotations[metadata.CertTypeAnnotation])
 	certConfig := secrets.CertConfig{CertType: certType}
 	switch certType {
 	case secrets.PemCertType:
-		certConfig.PemConfig = secrets.NewPemConfig(pod.Annotations[SVIDFileNameAnnotation], pod.Annotations[BundleFileNameAnnotation], pod.Annotations[KeyFileNameAnnotation])
+		certConfig.PemConfig = secrets.NewPemConfig(
+			pod.Annotations[metadata.SVIDFileNameAnnotation],
+			pod.Annotations[metadata.BundleFileNameAnnotation],
+			pod.Annotations[metadata.KeyFileNameAnnotation],
+		)
 	case secrets.JksCertType:
-		certConfig.JksConfig = secrets.NewJksConfig(pod.Annotations[KeyStoreNameAnnotation], pod.Annotations[TrustStoreNameAnnotation], pod.Annotations[JksStoresPasswordAnnotation])
+		certConfig.JksConfig = secrets.NewJksConfig(
+			pod.Annotations[metadata.KeyStoreFileNameAnnotation],
+			pod.Annotations[metadata.TrustStoreFileNameAnnotation],
+			pod.Annotations[metadata.JksPasswordAnnotation],
+		)
 
 	}
 	return certConfig
@@ -156,8 +154,8 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	// Ensure the ServiceNameSelectorLabel is set
-	result, err := r.updatePodLabel(ctx, pod, ServiceNameSelectorLabel, serviceID)
+	// Ensure the ServiceNameLabel is set
+	result, err := r.updatePodLabel(ctx, pod, metadata.ServiceNameLabel, serviceID)
 	if err != nil {
 		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Pod label update failed", err.Error())
 		return result, err
@@ -180,7 +178,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Add spire-server entry for pod
-	entryID, err := r.entriesRegistry.RegisterK8SPodEntry(ctx, pod.Namespace, ServiceNameSelectorLabel, serviceID, ttl, dnsNames)
+	entryID, err := r.entriesRegistry.RegisterK8SPodEntry(ctx, pod.Namespace, metadata.ServiceNameLabel, serviceID, ttl, dnsNames)
 	if err != nil {
 		log.WithError(err).Error("failed registering SPIRE entry for pod")
 		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Failed registering SPIRE entry", err.Error())
@@ -205,7 +203,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 func (r *PodReconciler) getEntryHash(namespace string, serviceName string, ttl int32, dnsNames []string) (string, error) {
 	entryPropertiesHashMaker := fnv.New32a()
-	_, err := entryPropertiesHashMaker.Write([]byte(namespace + ServiceNameSelectorLabel + serviceName + string(ttl) + strings.Join(dnsNames, "")))
+	_, err := entryPropertiesHashMaker.Write([]byte(namespace + metadata.ServiceNameLabel + serviceName + string(ttl) + strings.Join(dnsNames, "")))
 	if err != nil {
 		return "", fmt.Errorf("failed hashing SPIRE entry properties %w", err)
 	}
@@ -214,11 +212,11 @@ func (r *PodReconciler) getEntryHash(namespace string, serviceName string, ttl i
 }
 
 func (r *PodReconciler) resolvePodToCertDNSNames(pod *corev1.Pod) ([]string, error) {
-	if len(pod.Annotations[DNSNamesAnnotation]) == 0 {
+	if len(pod.Annotations[metadata.DNSNamesAnnotation]) == 0 {
 		return nil, nil
 	}
 
-	dnsNames := strings.Split(pod.Annotations[DNSNamesAnnotation], ",")
+	dnsNames := strings.Split(pod.Annotations[metadata.DNSNamesAnnotation], ",")
 	for _, name := range dnsNames {
 		if !govalidator.IsDNSName(name) {
 			return nil, fmt.Errorf("invalid DNS name: %s", name)
@@ -228,7 +226,7 @@ func (r *PodReconciler) resolvePodToCertDNSNames(pod *corev1.Pod) ([]string, err
 }
 
 func (r *PodReconciler) resolvePodToCertTTl(pod *corev1.Pod) (int32, error) {
-	ttlString := pod.Annotations[CertTTLAnnotation]
+	ttlString := pod.Annotations[metadata.CertTTLAnnotation]
 	if len(ttlString) == 0 {
 		return 0, nil
 	}
@@ -251,7 +249,7 @@ func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *PodReconciler) cleanupOrphanEntries(ctx context.Context) error {
 	podsList := corev1.PodList{}
-	if err := r.Client.List(ctx, &podsList, client.HasLabels{ServiceNameSelectorLabel}); err != nil {
+	if err := r.Client.List(ctx, &podsList, client.HasLabels{metadata.ServiceNameLabel}); err != nil {
 		return fmt.Errorf("error listing pods with service name labels: %w", err)
 	}
 
@@ -261,10 +259,10 @@ func (r *PodReconciler) cleanupOrphanEntries(ctx context.Context) error {
 			existingServicesByNamespace[pod.Namespace] = goset.NewSet[string]()
 		}
 
-		existingServicesByNamespace[pod.Namespace].Add(pod.Labels[ServiceNameSelectorLabel])
+		existingServicesByNamespace[pod.Namespace].Add(pod.Labels[metadata.ServiceNameLabel])
 	}
 
-	if err := r.entriesRegistry.CleanupOrphanK8SPodEntries(ctx, ServiceNameSelectorLabel, existingServicesByNamespace); err != nil {
+	if err := r.entriesRegistry.CleanupOrphanK8SPodEntries(ctx, metadata.ServiceNameLabel, existingServicesByNamespace); err != nil {
 		return fmt.Errorf("error cleaning up orphan entries: %w", err)
 	}
 

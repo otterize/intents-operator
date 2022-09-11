@@ -19,7 +19,7 @@ spec:
       labels:
         app: client
       annotations:
-        otterize/tls-secret-name: go-spiffe-tls-client-tls-secret
+        spire-integration.otterize.com/tls-secret-name: go-spiffe-tls-client-tls-secret
     spec:
       containers:
         - name: client
@@ -50,7 +50,7 @@ spec:
       labels:
         app: server
       annotations:
-        otterize/tls-secret-name: go-spiffe-tls-server-tls-secret
+        spire-integration.otterize.com/tls-secret-name: go-spiffe-tls-server-tls-secret
     spec:
       containers:
         - name: server
