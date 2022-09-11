@@ -14,7 +14,7 @@ on:
 
 env:
   REGISTRY: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize
-  REPOSITORY_NAME: otterize-tools
+  REPOSITORY_NAME: otterize
 
 jobs:
   test:

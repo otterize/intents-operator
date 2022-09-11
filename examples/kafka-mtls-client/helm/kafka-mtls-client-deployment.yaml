@@ -24,7 +24,7 @@ spec:
       containers:
         - name: client
           imagePullPolicy: Always
-          image: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize-tools:kafka-mtls-client-latest
+          image: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize:kafka-mtls-client-latest
           volumeMounts:
             - name: spire-integration-tls
               mountPath: /etc/spire-integration

@@ -12,5 +12,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize-tools
+  newName: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize
   newTag: spire-integration-operator-latest
