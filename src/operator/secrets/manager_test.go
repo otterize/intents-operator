@@ -125,9 +125,8 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_NoExistingSecret() {
 
 	secretConf := NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
 
-	secret, err := s.manager.EnsureTLSSecret(context.Background(), secretConf)
+	err = s.manager.EnsureTLSSecret(context.Background(), secretConf, nil)
 	s.Require().NoError(err)
-	s.Require().NotNil(secret)
 }
 
 func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NeedsRefresh() {
@@ -179,9 +178,8 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NeedsRefr
 
 	certConfig := CertConfig{CertType: StrToCertType("pem"), PemConfig: NewPemConfig("", "", "")}
 	secretConf := NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
-	secret, err := s.manager.EnsureTLSSecret(context.Background(), secretConf)
+	err = s.manager.EnsureTLSSecret(context.Background(), secretConf, nil)
 	s.Require().NoError(err)
-	s.Require().NotNil(secret)
 }
 
 func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NoRefreshNeeded() {
@@ -213,12 +211,29 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NoRefresh
 		}
 	})
 
+	testData, err := testdata.LoadTestData()
+	s.Require().NoError(err)
+
+	s.mockTLSStores(entryId, testData)
+
+	s.client.EXPECT().Update(
+		gomock.Any(),
+		&TLSSecretMatcher{
+			namespace: namespace,
+			name:      secretName,
+			tlsData: map[string][]byte{
+				"bundle.pem": testData.BundlePEM,
+				"key.pem":    testData.KeyPEM,
+				"svid.pem":   testData.SVIDPEM,
+			},
+		},
+	).Return(nil)
+
 	certConfig := CertConfig{CertType: StrToCertType("pem"), PemConfig: NewPemConfig("", "", "")}
 	secretConf := NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
 
-	secret, err := s.manager.EnsureTLSSecret(context.Background(), secretConf)
+	err = s.manager.EnsureTLSSecret(context.Background(), secretConf, nil)
 	s.Require().NoError(err)
-	s.Require().NotNil(secret)
 }
 
 func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNeeded_NewSecrets() {
@@ -275,9 +290,8 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 
 	secretConf := NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
 
-	secret, err := s.manager.EnsureTLSSecret(context.Background(), secretConf)
+	err = s.manager.EnsureTLSSecret(context.Background(), secretConf, nil)
 	s.Require().NoError(err)
-	s.Require().NotNil(secret)
 }
 
 func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNeeded_EntryHashChanged() {
@@ -334,9 +348,8 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 
 	secretConf := NewSecretConfig(entryId, newEntryHash, secretName, namespace, serviceName, certConfig)
 
-	secret, err := s.manager.EnsureTLSSecret(context.Background(), secretConf)
+	err = s.manager.EnsureTLSSecret(context.Background(), secretConf, nil)
 	s.Require().NoError(err)
-	s.Require().NotNil(secret)
 }
 
 func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNeeded_CertTypeChanged() {
@@ -393,9 +406,8 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 
 	secretConf := NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
 
-	secret, err := s.manager.EnsureTLSSecret(context.Background(), secretConf)
+	err = s.manager.EnsureTLSSecret(context.Background(), secretConf, nil)
 	s.Require().NoError(err)
-	s.Require().NotNil(secret)
 }
 
 func (s *ManagerSuite) TestManager_RefreshTLSSecrets_RefreshNeeded() {

@@ -87,14 +87,7 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 		Return(entryID, nil)
 
 	// expect TLS secret creation
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-secret",
-			Namespace: namespace,
-		},
-	}
-	s.secretsManager.EXPECT().EnsureTLSSecret(gomock.Any(), gomock.Any()).Return(secret, nil)
-	s.client.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Secret{})).Return(nil)
+	s.secretsManager.EXPECT().EnsureTLSSecret(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	request := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: namespace, Name: podname}}
 	result, err := s.podReconciler.Reconcile(context.Background(), request)

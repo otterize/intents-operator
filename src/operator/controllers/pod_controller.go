@@ -17,7 +17,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strconv"
 	"strings"
 	"time"
@@ -99,19 +98,8 @@ func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod,
 	certConfig := certConfigFromPod(pod)
 	log.WithFields(logrus.Fields{"secret_name": secretName, "cert_config": certConfig}).Info("ensuring TLS secret")
 	secretConfig := secrets.NewSecretConfig(entryID, entryHash, secretName, pod.Namespace, serviceName, certConfig)
-	secret, err := r.secretsManager.EnsureTLSSecret(ctx, secretConfig)
-	if err != nil {
+	if err := r.secretsManager.EnsureTLSSecret(ctx, secretConfig, pod); err != nil {
 		log.WithError(err).Error("failed creating TLS secret")
-		return err
-	}
-
-	if err := controllerutil.SetOwnerReference(pod, secret, r.Scheme()); err != nil {
-		log.WithError(err).Error("failed setting pod as owner reference")
-		return err
-	}
-
-	if err := r.Client.Update(ctx, secret); err != nil {
-		log.WithError(err).Error("failed updating pod as owner reference")
 		return err
 	}
 

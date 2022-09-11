@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
 	"time"
 )
@@ -120,7 +121,7 @@ func SecretConfigFromExistingSecret(secret *corev1.Secret) SecretConfig {
 }
 
 type Manager interface {
-	EnsureTLSSecret(ctx context.Context, config SecretConfig) (*corev1.Secret, error)
+	EnsureTLSSecret(ctx context.Context, config SecretConfig, owner metav1.Object) error
 	RefreshTLSSecrets(ctx context.Context) error
 }
 
@@ -171,20 +172,20 @@ func (m *managerImpl) getExistingSecret(ctx context.Context, namespace string, n
 	return &found, true, nil
 }
 
-func (m *managerImpl) createTLSSecret(ctx context.Context, config SecretConfig) (*corev1.Secret, error) {
+func (m *managerImpl) updateTLSSecretConfig(ctx context.Context, config SecretConfig, secret *corev1.Secret) error {
 	trustBundle, err := m.bundlesStore.GetTrustBundle(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	privateKey, err := m.svidsStore.GeneratePrivateKey()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	svid, err := m.svidsStore.GetX509SVID(ctx, config.EntryID, privateKey)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	expiry := time.Unix(svid.ExpiresAt, 0)
@@ -192,34 +193,29 @@ func (m *managerImpl) createTLSSecret(ctx context.Context, config SecretConfig) 
 
 	secretData, err := m.generateSecretData(trustBundle, svid, config.CertConfig)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	secret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      config.SecretName,
-			Namespace: config.Namespace,
-			Labels: map[string]string{
-				metadata.SecretTypeLabel: string(tlsSecretType),
-			},
-			Annotations: map[string]string{
-				metadata.TLSSecretSVIDExpiryAnnotation:  expiryStr,
-				metadata.TLSSecretServiceNameAnnotation: config.ServiceName,
-				metadata.TLSSecretEntryIDAnnotation:     config.EntryID,
-				metadata.TLSSecretEntryHashAnnotation:   config.EntryHash,
-				metadata.SVIDFileNameAnnotation:         config.CertConfig.PemConfig.SvidFileName,
-				metadata.BundleFileNameAnnotation:       config.CertConfig.PemConfig.BundleFileName,
-				metadata.KeyFileNameAnnotation:          config.CertConfig.PemConfig.KeyFileName,
-				metadata.KeyStoreFileNameAnnotation:     config.CertConfig.JksConfig.KeyStoreFileName,
-				metadata.TrustStoreFileNameAnnotation:   config.CertConfig.JksConfig.TrustStoreFileName,
-				metadata.JksPasswordAnnotation:          config.CertConfig.JksConfig.Password,
-				metadata.CertTypeAnnotation:             string(config.CertConfig.CertType),
-			},
-		},
-		Data: secretData,
+	secret.Labels = map[string]string{
+		metadata.SecretTypeLabel: string(tlsSecretType),
 	}
 
-	return &secret, nil
+	secret.Annotations = map[string]string{
+		metadata.TLSSecretSVIDExpiryAnnotation:  expiryStr,
+		metadata.TLSSecretServiceNameAnnotation: config.ServiceName,
+		metadata.TLSSecretEntryIDAnnotation:     config.EntryID,
+		metadata.TLSSecretEntryHashAnnotation:   config.EntryHash,
+		metadata.SVIDFileNameAnnotation:         config.CertConfig.PemConfig.SvidFileName,
+		metadata.BundleFileNameAnnotation:       config.CertConfig.PemConfig.BundleFileName,
+		metadata.KeyFileNameAnnotation:          config.CertConfig.PemConfig.KeyFileName,
+		metadata.KeyStoreFileNameAnnotation:     config.CertConfig.JksConfig.KeyStoreFileName,
+		metadata.TrustStoreFileNameAnnotation:   config.CertConfig.JksConfig.TrustStoreFileName,
+		metadata.JksPasswordAnnotation:          config.CertConfig.JksConfig.Password,
+		metadata.CertTypeAnnotation:             string(config.CertConfig.CertType),
+	}
+
+	secret.Data = secretData
+	return nil
 }
 
 func (m *managerImpl) generateSecretData(trustBundle bundles.EncodedTrustBundle, svid svids.EncodedX509SVID, certConfig CertConfig) (map[string][]byte, error) {
@@ -249,43 +245,54 @@ func (m *managerImpl) generateSecretData(trustBundle bundles.EncodedTrustBundle,
 	}
 }
 
-func (m *managerImpl) EnsureTLSSecret(ctx context.Context, config SecretConfig) (*corev1.Secret, error) {
+func (m *managerImpl) EnsureTLSSecret(ctx context.Context, config SecretConfig, owner metav1.Object) error {
 	log := logrus.WithFields(logrus.Fields{"secret.namespace": config.Namespace, "secret.name": config.SecretName})
 
 	existingSecret, isExistingSecret, err := m.getExistingSecret(ctx, config.Namespace, config.SecretName)
 	if err != nil {
 		log.WithError(err).Error("failed querying for secret")
-		return nil, err
+		return err
 	}
 
-	if isExistingSecret &&
-		!m.isRefreshNeeded(existingSecret) &&
-		!m.isUpdateNeeded(SecretConfigFromExistingSecret(existingSecret), config) {
-		log.Info("secret already exists and does not require refreshing nor updating")
-		return existingSecret, nil
+	var secret *corev1.Secret
+	if isExistingSecret {
+		secret = existingSecret
+	} else {
+		secret = &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      config.SecretName,
+				Namespace: config.Namespace,
+			},
+		}
 	}
 
-	secret, err := m.createTLSSecret(ctx, config)
-	if err != nil {
-		log.WithError(err).Error("failed creating TLS secret")
-		return nil, err
+	if err := m.updateTLSSecretConfig(ctx, config, secret); err != nil {
+		log.WithError(err).Error("failed updating TLS secret config")
+		return err
+	}
+
+	if owner != nil {
+		if err := controllerutil.SetOwnerReference(owner, secret, m.Scheme()); err != nil {
+			log.WithError(err).Error("failed setting pod as owner reference")
+			return err
+		}
 	}
 
 	if isExistingSecret {
 		log.Info("Updating existing secret")
 		if err := m.Update(ctx, secret); err != nil {
 			logrus.WithError(err).Error("failed updating existing secret")
-			return nil, err
+			return err
 		}
 	} else {
 		log.Info("Creating a new secret")
 		if err := m.Create(ctx, secret); err != nil {
 			logrus.WithError(err).Error("failed creating new secret")
-			return nil, err
+			return err
 		}
 	}
 
-	return secret, nil
+	return nil
 }
 
 func (m *managerImpl) refreshTLSSecret(ctx context.Context, secret *corev1.Secret) error {
@@ -301,13 +308,12 @@ func (m *managerImpl) refreshTLSSecret(ctx context.Context, secret *corev1.Secre
 		return errors.New("entry ID annotation is missing")
 	}
 
-	newSecret, err := m.createTLSSecret(ctx, SecretConfigFromExistingSecret(secret))
-	if err != nil {
+	if err := m.updateTLSSecretConfig(ctx, SecretConfigFromExistingSecret(secret), secret); err != nil {
 		return err
 	}
 
 	log.Info("Updating existing secret")
-	return m.Update(ctx, newSecret)
+	return m.Update(ctx, secret)
 }
 
 func (m *managerImpl) RefreshTLSSecrets(ctx context.Context) error {
