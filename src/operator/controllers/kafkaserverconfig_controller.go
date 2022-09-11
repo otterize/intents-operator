@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	finalizerName = "kafkaserverconfig.otterize/finalizer"
+	finalizerName = "intents.otterize.com/kafkaserverconfig-finalizer"
 )
 
 // KafkaServerConfigReconciler reconciles a KafkaServerConfig object
