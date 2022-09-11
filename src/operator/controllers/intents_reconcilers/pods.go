@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-const PodLabelFinalizerName = "otterize-intents.pods/finalizer"
+const PodLabelFinalizerName = "intents.otterize.com/pods-finalizer"
 
 type PodLabelReconciler struct {
 	client.Client
@@ -115,7 +115,7 @@ func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
 	// Remove the access label for each intent, for every pod in the list
 	for _, pod := range podList.Items {
 		updatedPod := pod.DeepCopy()
-		updatedPod.Annotations[otterizev1alpha1.AllIntentsRemoved] = "true"
+		updatedPod.Annotations[otterizev1alpha1.AllIntentsRemovedAnnotation] = "true"
 		for _, intent := range intents.GetCallsList() {
 			targetServerIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(
 				intent.Name, intent.ResolveIntentNamespace(intents.Namespace))

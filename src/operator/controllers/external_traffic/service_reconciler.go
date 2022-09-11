@@ -12,7 +12,7 @@ import (
 )
 
 const OtterizeNetworkPolicyNameTemplate = "external-access-to-%s"
-const OtterizeNetworkPolicy = "otterize/network-policy"
+const OtterizeNetworkPolicy = "intents.otterize.com/network-policy"
 
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create

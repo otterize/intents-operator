@@ -54,13 +54,13 @@ For brevity, this README only covers Network Policies internals. [Learn more abo
 
 ### Service name resolution and automatic pod labeling
 Service name resolution is performed one of two ways:
-1. If an `otterize/service-name` label is present, that name is used.
+1. If an `intents.otterize.com/service-name` label is present, that name is used.
 2. If not, a recursive look up is performed for the Kubernetes resource owner for a Pod until the root is reached. For example, if you have a `Deployment` named `client`, which then creates and owns a `ReplicaSet`, which then creates and owns a `Pod`, then the service name for that pod is `client` - same as the name of the `Deployment`.
 
-The value resulting from this process is then combined with the namespace of the pod, and hashed together to form the value of the label `otterize/server`.
+The value resulting from this process is then combined with the namespace of the pod, and hashed together to form the value of the label `intents.otterize.com/server`.
 
 That label is then used as a selector for network policies.
-Another, similar label - `otterize/access-server-<servicename>-<servicehash>`, is applied to client pods which have declared their ClientIntent to access the server. That label is used as 
+Another, similar label - `intents.otterize.com/access-server-<servicename>-<servicehash>`, is applied to client pods which have declared their ClientIntent to access the server. That label is used as 
 
 ## Quickstart
 1. Install the Intents Operator together with the [Otterize Network Mapper](https://github.com/otterize/network-mapper) (which does what it says on the tin):

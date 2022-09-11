@@ -61,7 +61,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	// Intents were deleted and the pod was updated by the operator, skip reconciliation
-	_, ok := pod.Annotations[otterizev1alpha1.AllIntentsRemoved]
+	_, ok := pod.Annotations[otterizev1alpha1.AllIntentsRemovedAnnotation]
 	if ok {
 		logrus.Infof("Skipping reconciliation for pod %s - pod is handled by intents-operator", req.Name)
 		return ctrl.Result{}, nil
