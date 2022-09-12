@@ -14,6 +14,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strings"
 )
 
 type TopicToACLList map[string][]*sarama.Acl
@@ -31,6 +32,7 @@ var (
 type KafkaIntentsAdmin struct {
 	kafkaServer      otterizev1alpha1.KafkaServerConfig
 	kafkaAdminClient sarama.ClusterAdmin
+	userNameMapping  string
 }
 
 var (
@@ -74,6 +76,39 @@ func getTLSConfig(tlsSource otterizev1alpha1.TLSSource) (*tls.Config, error) {
 	}, nil
 }
 
+func getUserPrincipalMapping(tlsCert tls.Certificate) (string, error) {
+	parsedCert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+	if err != nil {
+		return "", fmt.Errorf("failed parsing certificate: %w", err)
+	}
+	// as mentioned in the documentation, SSL user name will be of the form:
+	// "CN=writeuser,OU=Unknown,O=Unknown,L=Unknown,ST=Unknown,C=Unknown"  (order sensitive)
+	// https://kafka.apache.org/documentation/#security_authz_ssl:~:text=Customizing%20SSL%20User%20Name
+	subjectParts := []string{"CN=$ServiceName.$Namespace"}
+	if len(parsedCert.Subject.OrganizationalUnit) > 0 {
+		subjectParts = append(subjectParts, "OU="+parsedCert.Subject.OrganizationalUnit[0])
+	}
+	if len(parsedCert.Subject.Organization) > 0 {
+		subjectParts = append(subjectParts, "O="+parsedCert.Subject.Organization[0])
+	}
+
+	if len(parsedCert.Subject.Locality) > 0 {
+		subjectParts = append(subjectParts, "L="+parsedCert.Subject.Locality[0])
+	}
+
+	if len(parsedCert.Subject.Province) > 0 {
+		// this is not a mistake ST stands for stateOrProvince
+		subjectParts = append(subjectParts, "ST="+parsedCert.Subject.Province[0])
+	}
+
+	if len(parsedCert.Subject.Country) > 0 {
+		subjectParts = append(subjectParts, "C="+parsedCert.Subject.Country[0])
+	}
+
+	return strings.Join(subjectParts, ","), nil
+
+}
+
 func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig) (*KafkaIntentsAdmin, error) {
 	logger := logrus.WithField("addr", kafkaServer.Spec.Addr)
 	logger.Info("Connecting to kafka server")
@@ -83,6 +118,11 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig) (*Kafk
 	config.Version = sarama.V2_0_0_0
 
 	tlsConfig, err := getTLSConfig(kafkaServer.Spec.TLS)
+	if err != nil {
+		return nil, err
+	}
+
+	usernameMapping, err := getUserPrincipalMapping(tlsConfig.Certificates[0])
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +137,7 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig) (*Kafk
 		return nil, err
 	}
 
-	return &KafkaIntentsAdmin{kafkaServer: kafkaServer, kafkaAdminClient: a}, nil
+	return &KafkaIntentsAdmin{kafkaServer: kafkaServer, kafkaAdminClient: a, userNameMapping: usernameMapping}, nil
 }
 
 func (a *KafkaIntentsAdmin) Close() {
@@ -107,10 +147,7 @@ func (a *KafkaIntentsAdmin) Close() {
 }
 
 func (a *KafkaIntentsAdmin) formatPrincipal(clientName string, clientNamespace string) string {
-	username := a.kafkaServer.Spec.UsernameMapping
-	if username == "" {
-		username = otterizev1alpha1.UsernameMappingDefault
-	}
+	username := a.userNameMapping
 	username = serviceNameRE.ReplaceAllString(username, clientName)
 	username = namespaceRE.ReplaceAllString(username, clientNamespace)
 	return fmt.Sprintf("User:%s", username)

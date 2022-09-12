@@ -201,10 +201,7 @@ func (s *ControllerManagerTestSuiteBase) AddReplicaSet(name string, podIps []str
 	return replicaSet
 }
 
-func (s *ControllerManagerTestSuiteBase) AddDeployment(
-	name string,
-	podIps []string,
-	podLabels map[string]string) *appsv1.Deployment {
+func (s *ControllerManagerTestSuiteBase) AddDeployment(name string, podIps []string, podLabels map[string]string) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},
 		Spec: appsv1.DeploymentSpec{
@@ -246,10 +243,7 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 	return deployment
 }
 
-func (s *ControllerManagerTestSuiteBase) AddDeploymentWithService(
-	name string,
-	podIps []string,
-	podLabels map[string]string) (*appsv1.Deployment, *corev1.Service) {
+func (s *ControllerManagerTestSuiteBase) AddDeploymentWithService(name string, podIps []string, podLabels map[string]string) (*appsv1.Deployment, *corev1.Service) {
 	deployment := s.AddDeployment(name, podIps, podLabels)
 	service := s.AddService(name, podIps, podLabels)
 	return deployment, service

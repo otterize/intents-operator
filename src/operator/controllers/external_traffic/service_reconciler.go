@@ -12,7 +12,7 @@ import (
 )
 
 const OtterizeNetworkPolicyNameTemplate = "external-access-to-%s"
-const OtterizeNetworkPolicy = "otterize/network-policy"
+const OtterizeNetworkPolicy = "intents.otterize.com/network-policy"
 
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
@@ -29,12 +29,12 @@ func (r *ServiceReconciler) formatPolicyName(serviceName string) string {
 	return fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, serviceName)
 }
 
-func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, ingressReconciler *IngressReconciler) *ServiceReconciler {
+func NewServiceReconciler(client client.Client, scheme *runtime.Scheme, ingressReconciler *IngressReconciler, enabled bool) *ServiceReconciler {
 	return &ServiceReconciler{
 		client:            client,
 		Scheme:            scheme,
 		ingressReconciler: ingressReconciler,
-		netpolReconciler:  NewNetworkPolicyReconciler(client),
+		netpolReconciler:  NewNetworkPolicyReconciler(client, enabled),
 	}
 }
 

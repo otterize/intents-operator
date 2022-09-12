@@ -28,15 +28,18 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
-	OtterizeAccessLabelKey         = "otterize/access-%s"
-	OtterizeMarkerLabelKey         = "otterize/client"
-	OtterizeNamespaceLabelKey      = "otterize/namespace-name"
+	OtterizeAccessLabelPrefix      = "intents.otterize.com/access"
+	OtterizeAccessLabelKey         = "intents.otterize.com/access-%s"
+	OtterizeClientLabelKey         = "intents.otterize.com/client"
+	OtterizeServerLabelKey         = "intents.otterize.com/server"
+	OtterizeNamespaceLabelKey      = "intents.otterize.com/namespace-name"
+	AllIntentsRemovedAnnotation    = "intents.otterize.com/all-intents-removed"
 	OtterizeTargetServerIndexField = "spec.service.calls.server"
 	MaxOtterizeNameLength          = 20
 	MaxNamespaceLength             = 20
-	AllIntentsRemoved              = "otterize/all-intents-removed"
 )
 
+// +kubebuilder:validation:Enum=HTTP;Kafka
 type IntentType string
 
 const (

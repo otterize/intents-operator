@@ -12,10 +12,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
 )
 
-const PodLabelFinalizerName = "otterize-intents.pods/finalizer"
+const PodLabelFinalizerName = "intents.otterize.com/pods-finalizer"
 
 type PodLabelReconciler struct {
 	client.Client
@@ -83,9 +82,8 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	for _, pod := range podList.Items {
-		if strings.HasPrefix(pod.Name, serviceName) && otterizev1alpha1.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
+		if otterizev1alpha1.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
 			logrus.Infof("Updating %s pod labels with new intents", serviceName)
-
 			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
@@ -122,7 +120,7 @@ func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
 	// Remove the access label for each intent, for every pod in the list
 	for _, pod := range podList.Items {
 		updatedPod := pod.DeepCopy()
-		updatedPod.Annotations[otterizev1alpha1.AllIntentsRemoved] = "true"
+		updatedPod.Annotations[otterizev1alpha1.AllIntentsRemovedAnnotation] = "true"
 		for _, intent := range intents.GetCallsList() {
 			targetServerIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(
 				intent.Name, intent.ResolveIntentNamespace(intents.Namespace))

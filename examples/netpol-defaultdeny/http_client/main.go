@@ -10,9 +10,16 @@ import (
 
 func main() {
 	i := 0
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DisableKeepAlives = true
+	transport.ForceAttemptHTTP2 = false
+
+	client := &http.Client{Transport: transport}
+
 	for {
 		println("Making request")
-		makeRequest()
+		makeRequest(client)
 		fmt.Printf("[%d] Request complete\n", i)
 		time.Sleep(1 * time.Second)
 
@@ -21,7 +28,7 @@ func main() {
 	}
 }
 
-func makeRequest() {
+func makeRequest(client *http.Client) {
 	ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctxTimeout, http.MethodGet, "http://http-server-test-internal:8111", nil)
@@ -30,7 +37,7 @@ func makeRequest() {
 		return
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		println(err.Error())
 		return

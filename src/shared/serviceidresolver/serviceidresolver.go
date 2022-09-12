@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	ServiceNameAnnotation = "otterize/service-name"
+	ServiceNameAnnotation = "intents.otterize.com/service-name"
 )
 
 type Resolver struct {
@@ -25,7 +25,7 @@ func NewResolver(c client.Client) *Resolver {
 
 // ResolvePodToServiceIdentity resolves a pod object to its otterize service ID, referenced in intents objects.
 // This is done by recursion over the pod's owner reference hierarchy until reaching a root owner reference.
-// In case the pod is annotated with an "otterize/service-name" annotation, that annotation's value will override
+// In case the pod is annotated with an "intents.otterize.com/service-name" annotation, that annotation's value will override
 // any owner reference name as the service name.
 func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (string, error) {
 	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace})
@@ -58,6 +58,6 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 		obj = ownerObj
 	}
 
-	log.WithFields(logrus.Fields{"owner": obj.GetName(), "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Info("pod resolved to owner name")
+	log.WithFields(logrus.Fields{"owner": obj.GetName(), "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Debug("pod resolved to owner name")
 	return obj.GetName(), nil
 }

@@ -18,9 +18,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const OtterizeNetworkPolicyNameTemplate = "access-to-%s-from-%s"
-const OtterizeNetworkPolicy = "otterize/network-policy"
-const NetworkPolicyFinalizerName = "otterize-intents.policies/finalizer"
+const (
+	OtterizeNetworkPolicyNameTemplate = "access-to-%s-from-%s"
+	OtterizeNetworkPolicy             = "intents.otterize.com/network-policy"
+	NetworkPolicyFinalizerName        = "intents.otterize.com/network-policy-finalizer"
+)
 
 type NetworkPolicyReconciler struct {
 	client.Client
@@ -228,6 +230,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					otterizev1alpha1.OtterizeServerLabelKey: formattedTargetServer,
