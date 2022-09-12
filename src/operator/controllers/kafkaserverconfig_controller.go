@@ -198,7 +198,7 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	if kafkaServerConfig.Spec.NoAutoCreateIntentsForOperator {
+	if !kafkaServerConfig.Spec.NoAutoCreateIntentsForOperator {
 		err := r.createAutomaticIntentsToKafkaServer(ctx, kafkaServerConfig)
 		if err != nil {
 			return ctrl.Result{}, err
