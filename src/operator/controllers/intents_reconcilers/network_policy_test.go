@@ -127,7 +127,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerRemoved() {
 		Namespace: s.TestNamespace, Name: "finalizer-intents",
 	}, intents)
 
-	// We expect an error to have occurred
 	s.Require().True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != NetworkPolicyFinalizerName)
 }
 
