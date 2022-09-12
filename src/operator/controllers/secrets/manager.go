@@ -100,7 +100,7 @@ func NewSecretConfig(entryID string, entryHash string, secretName string, namesp
 func SecretConfigFromExistingSecret(secret *corev1.Secret) SecretConfig {
 	return SecretConfig{
 		SecretName:  secret.Name,
-		ServiceName: secret.Annotations[metadata.TLSSecretServiceNameAnnotation],
+		ServiceName: secret.Annotations[metadata.TLSSecretRegisteredServiceNameAnnotation],
 		EntryID:     secret.Annotations[metadata.TLSSecretEntryIDAnnotation],
 		EntryHash:   secret.Annotations[metadata.TLSSecretEntryHashAnnotation],
 		Namespace:   secret.Namespace,
@@ -201,17 +201,17 @@ func (m *managerImpl) updateTLSSecretConfig(ctx context.Context, config SecretCo
 	}
 
 	secret.Annotations = map[string]string{
-		metadata.TLSSecretSVIDExpiryAnnotation:  expiryStr,
-		metadata.TLSSecretServiceNameAnnotation: config.ServiceName,
-		metadata.TLSSecretEntryIDAnnotation:     config.EntryID,
-		metadata.TLSSecretEntryHashAnnotation:   config.EntryHash,
-		metadata.SVIDFileNameAnnotation:         config.CertConfig.PemConfig.SvidFileName,
-		metadata.BundleFileNameAnnotation:       config.CertConfig.PemConfig.BundleFileName,
-		metadata.KeyFileNameAnnotation:          config.CertConfig.PemConfig.KeyFileName,
-		metadata.KeyStoreFileNameAnnotation:     config.CertConfig.JksConfig.KeyStoreFileName,
-		metadata.TrustStoreFileNameAnnotation:   config.CertConfig.JksConfig.TrustStoreFileName,
-		metadata.JksPasswordAnnotation:          config.CertConfig.JksConfig.Password,
-		metadata.CertTypeAnnotation:             string(config.CertConfig.CertType),
+		metadata.TLSSecretSVIDExpiryAnnotation:            expiryStr,
+		metadata.TLSSecretRegisteredServiceNameAnnotation: config.ServiceName,
+		metadata.TLSSecretEntryIDAnnotation:               config.EntryID,
+		metadata.TLSSecretEntryHashAnnotation:             config.EntryHash,
+		metadata.SVIDFileNameAnnotation:                   config.CertConfig.PemConfig.SvidFileName,
+		metadata.BundleFileNameAnnotation:                 config.CertConfig.PemConfig.BundleFileName,
+		metadata.KeyFileNameAnnotation:                    config.CertConfig.PemConfig.KeyFileName,
+		metadata.KeyStoreFileNameAnnotation:               config.CertConfig.JksConfig.KeyStoreFileName,
+		metadata.TrustStoreFileNameAnnotation:             config.CertConfig.JksConfig.TrustStoreFileName,
+		metadata.JksPasswordAnnotation:                    config.CertConfig.JksConfig.Password,
+		metadata.CertTypeAnnotation:                       string(config.CertConfig.CertType),
 	}
 
 	secret.Data = secretData
@@ -301,7 +301,7 @@ func (m *managerImpl) EnsureTLSSecret(ctx context.Context, config SecretConfig, 
 
 func (m *managerImpl) refreshTLSSecret(ctx context.Context, secret *corev1.Secret) error {
 	log := logrus.WithFields(logrus.Fields{"secret.namespace": secret.Namespace, "secret.name": secret.Name})
-	_, ok := secret.Annotations[metadata.TLSSecretServiceNameAnnotation]
+	_, ok := secret.Annotations[metadata.TLSSecretRegisteredServiceNameAnnotation]
 	if !ok {
 		return errors.New("service name annotation is missing")
 	}

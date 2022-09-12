@@ -155,8 +155,8 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	// Ensure the ServiceNameLabel is set
-	result, err := r.updatePodLabel(ctx, pod, metadata.ServiceNameLabel, serviceID)
+	// Ensure the RegisteredServiceNameLabel is set
+	result, err := r.updatePodLabel(ctx, pod, metadata.RegisteredServiceNameLabel, serviceID)
 	if err != nil {
 		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Pod label update failed", err.Error())
 		return result, err
@@ -179,7 +179,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Add spire-server entry for pod
-	entryID, err := r.entriesRegistry.RegisterK8SPodEntry(ctx, pod.Namespace, metadata.ServiceNameLabel, serviceID, ttl, dnsNames)
+	entryID, err := r.entriesRegistry.RegisterK8SPodEntry(ctx, pod.Namespace, metadata.RegisteredServiceNameLabel, serviceID, ttl, dnsNames)
 	if err != nil {
 		log.WithError(err).Error("failed registering SPIRE entry for pod")
 		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Failed registering SPIRE entry", err.Error())
@@ -204,7 +204,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 func (r *PodReconciler) getEntryHash(namespace string, serviceName string, ttl int32, dnsNames []string) (string, error) {
 	entryPropertiesHashMaker := fnv.New32a()
-	_, err := entryPropertiesHashMaker.Write([]byte(namespace + metadata.ServiceNameLabel + serviceName + string(ttl) + strings.Join(dnsNames, "")))
+	_, err := entryPropertiesHashMaker.Write([]byte(namespace + metadata.RegisteredServiceNameLabel + serviceName + string(ttl) + strings.Join(dnsNames, "")))
 	if err != nil {
 		return "", fmt.Errorf("failed hashing SPIRE entry properties %w", err)
 	}
@@ -250,7 +250,7 @@ func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *PodReconciler) cleanupOrphanEntries(ctx context.Context) error {
 	podsList := corev1.PodList{}
-	if err := r.Client.List(ctx, &podsList, client.HasLabels{metadata.ServiceNameLabel}); err != nil {
+	if err := r.Client.List(ctx, &podsList, client.HasLabels{metadata.RegisteredServiceNameLabel}); err != nil {
 		return fmt.Errorf("error listing pods with service name labels: %w", err)
 	}
 
@@ -260,10 +260,10 @@ func (r *PodReconciler) cleanupOrphanEntries(ctx context.Context) error {
 			existingServicesByNamespace[pod.Namespace] = goset.NewSet[string]()
 		}
 
-		existingServicesByNamespace[pod.Namespace].Add(pod.Labels[metadata.ServiceNameLabel])
+		existingServicesByNamespace[pod.Namespace].Add(pod.Labels[metadata.RegisteredServiceNameLabel])
 	}
 
-	if err := r.entriesRegistry.CleanupOrphanK8SPodEntries(ctx, metadata.ServiceNameLabel, existingServicesByNamespace); err != nil {
+	if err := r.entriesRegistry.CleanupOrphanK8SPodEntries(ctx, metadata.RegisteredServiceNameLabel, existingServicesByNamespace); err != nil {
 		return fmt.Errorf("error cleaning up orphan entries: %w", err)
 	}
 

@@ -83,7 +83,7 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 	})
 
 	// expect spire entry registration
-	s.entriesRegistry.EXPECT().RegisterK8SPodEntry(gomock.Any(), namespace, metadata.ServiceNameLabel, servicename, int32(0), nil).
+	s.entriesRegistry.EXPECT().RegisterK8SPodEntry(gomock.Any(), namespace, metadata.RegisteredServiceNameLabel, servicename, int32(0), nil).
 		Return(entryID, nil)
 
 	// expect TLS secret creation
@@ -93,7 +93,7 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 	result, err := s.podReconciler.Reconcile(context.Background(), request)
 	s.Require().NoError(err)
 	s.Require().True(result.IsZero())
-	s.Require().Equal(update.Labels[metadata.ServiceNameLabel], servicename)
+	s.Require().Equal(update.Labels[metadata.RegisteredServiceNameLabel], servicename)
 }
 
 func TestRunPodControllerSuite(t *testing.T) {
