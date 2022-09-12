@@ -50,7 +50,11 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	intentTargetServerName := "test-server"
 	otterizeSvcIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(deploymentName, s.TestNamespace)
 	// We add the otterize/server label here, to mock the watcher's behaviour
-	s.AddDeployment("whocares", []string{"1.1.1.1"}, map[string]string{otterizev1alpha1.OtterizeServerLabelKey: otterizeSvcIdentity})
+	s.AddDeployment(
+		"whocares",
+		[]string{"1.1.1.1"},
+		map[string]string{otterizev1alpha1.OtterizeServerLabelKey: otterizeSvcIdentity},
+		map[string]string{})
 
 	intents := s.AddIntents("test-intents", deploymentName, []otterizev1alpha1.Intent{{
 		Type: otterizev1alpha1.IntentTypeHTTP, Name: intentTargetServerName,
@@ -96,8 +100,8 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemoved() {
 	s.AddDeployment(deploymentName, []string{"1.1.1.1"}, map[string]string{
 		otterizev1alpha1.OtterizeServerLabelKey: otterizeSvcIdentity,
 		accessLabel:                             "true"},
+		map[string]string{"a": "b"},
 	)
-	s.PatchAnnotations(fmt.Sprintf("%s-0", deploymentName), map[string]string{"a": "b"})
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
@@ -141,7 +145,11 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 	otterizeSvcIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(deploymentName, s.TestNamespace)
 
 	// We add the otterize/server label here, to mock the watcher's behaviour
-	s.AddDeployment("whocares", []string{"1.1.1.1"}, map[string]string{otterizev1alpha1.OtterizeServerLabelKey: otterizeSvcIdentity})
+	s.AddDeployment(
+		"whocares",
+		[]string{"1.1.1.1"},
+		map[string]string{otterizev1alpha1.OtterizeServerLabelKey: otterizeSvcIdentity},
+		map[string]string{})
 
 	intents := s.AddIntents("test-intents", deploymentName, []otterizev1alpha1.Intent{{
 		Type: otterizev1alpha1.IntentTypeHTTP, Name: intentTargetServerName,
@@ -199,7 +207,7 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
 	intentTargetServerName := "test-server"
 	// We add the otterize/server label here, to mock the watcher's behaviour
-	s.AddDeployment("whocares", []string{"1.1.1.1"}, map[string]string{"A": "b"})
+	s.AddDeployment("whocares", []string{"1.1.1.1"}, map[string]string{"A": "b"}, map[string]string{})
 
 	intents := s.AddIntents("test-intents", "abc", []otterizev1alpha1.Intent{{
 		Type: otterizev1alpha1.IntentTypeHTTP, Name: intentTargetServerName,
