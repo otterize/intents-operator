@@ -132,7 +132,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemoved() {
 		intentTargetServerName, s.TestNamespace)
 
 	s.Require().NotContains(pod.Labels, accessLabel)
-	s.Require().Contains(pod.Annotations, otterizev1alpha1.AllIntentsRemoved)
+	s.Require().Contains(pod.Annotations, otterizev1alpha1.AllIntentsRemovedAnnotation)
 }
 
 func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
