@@ -19,16 +19,20 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -37,21 +41,27 @@ const (
 
 // KafkaServerConfigReconciler reconciles a KafkaServerConfig object
 type KafkaServerConfigReconciler struct {
-	client.Client
-	Scheme       *runtime.Scheme
-	ServersStore *kafkaacls.ServersStore
+	client               client.Client
+	Scheme               *runtime.Scheme
+	ServersStore         *kafkaacls.ServersStore
+	operatorPodName      string
+	operatorPodNamespace string
 	injectablerecorder.InjectableRecorder
 }
 
-func NewKafkaServerConfigReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore) *KafkaServerConfigReconciler {
+func NewKafkaServerConfigReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore,
+	operatorPodName string, operatorPodNameSpace string) *KafkaServerConfigReconciler {
 	return &KafkaServerConfigReconciler{
-		Client:       client,
-		Scheme:       scheme,
-		ServersStore: serversStore,
+		client:               client,
+		Scheme:               scheme,
+		ServersStore:         serversStore,
+		operatorPodName:      operatorPodName,
+		operatorPodNamespace: operatorPodNameSpace,
 	}
 }
 
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=kafkaserverconfigs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=kafkaserverconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=kafkaserverconfigs/finalizers,verbs=update
 
@@ -63,7 +73,7 @@ func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConf
 		},
 	)
 
-	intentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Namespace)
+	intentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.Service.Name, kafkaServerConfig.Namespace)
 	if err != nil && errors.Is(err, kafkaacls.ServerSpecNotFound) {
 		logger.Info("Kafka server not registered to servers store")
 		return nil
@@ -79,7 +89,7 @@ func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConf
 	}
 
 	logger.Info("Removing Kafka server from store")
-	r.ServersStore.Remove(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Namespace)
+	r.ServersStore.Remove(kafkaServerConfig.Spec.Service.Name, kafkaServerConfig.Namespace)
 	return nil
 }
 
@@ -93,7 +103,7 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, ka
 	}
 
 	controllerutil.RemoveFinalizer(kafkaServerConfig, finalizerName)
-	if err := r.Update(ctx, kafkaServerConfig); err != nil {
+	if err := r.client.Update(ctx, kafkaServerConfig); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -115,10 +125,63 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRegistered(
 
 	logger.Infof("Adding finalizer %s", finalizerName)
 	controllerutil.AddFinalizer(kafkaServerConfig, finalizerName)
-	if err := r.Update(ctx, kafkaServerConfig); err != nil {
+	if err := r.client.Update(ctx, kafkaServerConfig); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func (r *KafkaServerConfigReconciler) createAutomaticIntentsToKafkaServer(ctx context.Context, config *otterizev1alpha1.KafkaServerConfig) error {
+	operatorPod := &v1.Pod{}
+	err := r.client.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, operatorPod)
+	if err != nil {
+		return err
+	}
+
+	annotatedServiceName, ok := operatorPod.Annotations[serviceidresolver.ServiceNameAnnotation]
+	if !ok {
+		r.RecordWarningEventf(config, "IntentsOperatorIdentityResolveFailed", "failed resolving intents operator identity - '%s' label required", annotatedServiceName)
+		return fmt.Errorf("failed resolving intents operator identity - '%s' label required", annotatedServiceName)
+	}
+
+	newIntents := &otterizev1alpha1.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      config.Name,
+			Namespace: operatorPod.Namespace,
+		},
+		Spec: &otterizev1alpha1.IntentsSpec{
+			Service: otterizev1alpha1.Service{
+				Name: annotatedServiceName,
+			},
+			Calls: []otterizev1alpha1.Intent{{
+				Type:      otterizev1alpha1.IntentTypeHTTP,
+				Name:      config.Spec.Service.Name,
+				Namespace: config.Namespace,
+			}},
+		},
+	}
+
+	existingIntents := &otterizev1alpha1.ClientIntents{}
+	err = r.client.Get(ctx, types.NamespacedName{Name: config.Name, Namespace: config.Namespace}, existingIntents)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			err := r.client.Create(ctx, newIntents)
+			if err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	} else {
+		intentsCopy := existingIntents.DeepCopy()
+		intentsCopy.Spec = newIntents.Spec
+		intentsCopy.SetOwnerReferences(newIntents.GetOwnerReferences())
+		err := r.client.Patch(ctx, intentsCopy, client.MergeFrom(existingIntents))
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -127,12 +190,19 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	kafkaServerConfig := &otterizev1alpha1.KafkaServerConfig{}
 
-	err := r.Get(ctx, req.NamespacedName, kafkaServerConfig)
+	err := r.client.Get(ctx, req.NamespacedName, kafkaServerConfig)
 	if err != nil && k8serrors.IsNotFound(err) {
 		logger.Info("No kafka server config found")
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if kafkaServerConfig.Spec.AutoCreateIntentsForOperator {
+		err := r.createAutomaticIntentsToKafkaServer(ctx, kafkaServerConfig)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if !kafkaServerConfig.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -146,7 +216,7 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	r.ServersStore.Add(kafkaServerConfig)
 
-	kafkaIntentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.ServerName, kafkaServerConfig.Namespace)
+	kafkaIntentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.Service.Name, kafkaServerConfig.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

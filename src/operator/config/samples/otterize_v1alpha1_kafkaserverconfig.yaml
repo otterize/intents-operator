@@ -2,9 +2,12 @@ apiVersion: k8s.otterize.com/v1alpha1
 kind: KafkaServerConfig
 metadata:
   name: kafkaserverconfig-sample
+  namespace: http-server-test
 spec:
-  serverName: kafka
-  addr: kafka-tls-0.kafka-tls-headless.default.svc.cluster.local:9092
+  service:
+    name: client
+  kubernetesServiceName: http-server-test-internal
+  kubernetesServicePort: 9092
   tls:
     certFile: /etc/tls/svid.pem
     keyFile: /etc/tls/key.pem

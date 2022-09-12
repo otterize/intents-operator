@@ -23,6 +23,7 @@ spec:
         kubectl.kubernetes.io/default-container: manager
       labels:
         control-plane: controller-manager
+        otterize/service-name: "intents-operator"
     spec:
       securityContext:
         runAsNonRoot: true
@@ -34,6 +35,15 @@ spec:
         image: controller:latest
         name: manager
         imagePullPolicy: Always
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

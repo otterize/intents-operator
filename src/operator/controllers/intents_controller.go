@@ -37,7 +37,7 @@ func NewIntentsReconciler(client client.Client, scheme *runtime.Scheme, kafkaSer
 		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 			&intents_reconcilers.PodLabelReconciler{Client: client, Scheme: scheme},
 			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, restrictToNamespaces),
-			&intents_reconcilers.KafkaACLsReconciler{Client: client, Scheme: scheme, KafkaServersStore: kafkaServerStore},
+			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore),
 		)}
 }
 

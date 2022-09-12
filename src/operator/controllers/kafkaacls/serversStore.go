@@ -20,7 +20,7 @@ func NewServersStore() *ServersStore {
 	}
 }
 func (s *ServersStore) Add(config *otterizev1alpha1.KafkaServerConfig) {
-	name := types.NamespacedName{Name: config.Spec.ServerName, Namespace: config.Namespace}
+	name := types.NamespacedName{Name: config.Spec.Service.Name, Namespace: config.Namespace}
 	s.serversByName[name] = config
 }
 
