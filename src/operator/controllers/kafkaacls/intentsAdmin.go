@@ -110,9 +110,9 @@ func getUserPrincipalMapping(tlsCert tls.Certificate) (string, error) {
 }
 
 func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig) (*KafkaIntentsAdmin, error) {
-	logger := logrus.WithField("kubernetesServiceName", kafkaServer.Spec.KubernetesServiceName)
+	logger := logrus.WithField("addr", kafkaServer.Spec.Addr)
 	logger.Info("Connecting to kafka server")
-	addrs := []string{fmt.Sprintf("%s.%s:%d", kafkaServer.Spec.KubernetesServiceName, kafkaServer.Namespace, kafkaServer.Spec.KubernetesServicePort)}
+	addrs := []string{kafkaServer.Spec.Addr}
 
 	config := sarama.NewConfig()
 	config.Version = sarama.V2_0_0_0

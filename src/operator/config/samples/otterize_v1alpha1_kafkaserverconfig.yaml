@@ -5,9 +5,9 @@ metadata:
   namespace: http-server-test
 spec:
   service:
-    name: client
-  kubernetesServiceName: http-server-test-internal
-  kubernetesServicePort: 9092
+    name: kafka
+  addr: kafka-tls-0.kafka-tls-headless.default.svc.cluster.local:9092
+  autoCreateIntentsForOperator: true
   tls:
     certFile: /etc/tls/svid.pem
     keyFile: /etc/tls/key.pem

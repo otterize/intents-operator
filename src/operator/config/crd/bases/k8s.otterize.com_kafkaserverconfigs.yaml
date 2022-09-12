@@ -37,7 +37,7 @@ spec:
             properties:
               addr:
                 type: string
-              autoCreateIntentsForOperator:
+              noAutoCreateIntentsForOperator:
                 description: If Intents for network policies are enabled, and there
                   are other Intents to this Kafka server, will automatically create
                   an Intent so that the Intents Operator can connect.

@@ -21,9 +21,9 @@ spec:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
+        intents.otterize.com/service-name: "intents-operator"
       labels:
         control-plane: controller-manager
-        otterize/service-name: "intents-operator"
     spec:
       securityContext:
         runAsNonRoot: true
