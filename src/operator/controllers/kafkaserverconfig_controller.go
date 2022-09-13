@@ -41,7 +41,7 @@ const (
 
 // KafkaServerConfigReconciler reconciles a KafkaServerConfig object
 type KafkaServerConfigReconciler struct {
-	client               client.Client
+	client.Client
 	Scheme               *runtime.Scheme
 	ServersStore         *kafkaacls.ServersStore
 	operatorPodName      string
@@ -52,7 +52,7 @@ type KafkaServerConfigReconciler struct {
 func NewKafkaServerConfigReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore,
 	operatorPodName string, operatorPodNameSpace string) *KafkaServerConfigReconciler {
 	return &KafkaServerConfigReconciler{
-		client:               client,
+		Client:               client,
 		Scheme:               scheme,
 		ServersStore:         serversStore,
 		operatorPodName:      operatorPodName,
@@ -103,7 +103,7 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, ka
 	}
 
 	controllerutil.RemoveFinalizer(kafkaServerConfig, finalizerName)
-	if err := r.client.Update(ctx, kafkaServerConfig); err != nil {
+	if err := r.Update(ctx, kafkaServerConfig); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -125,24 +125,24 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRegistered(
 
 	logger.Infof("Adding finalizer %s", finalizerName)
 	controllerutil.AddFinalizer(kafkaServerConfig, finalizerName)
-	if err := r.client.Update(ctx, kafkaServerConfig); err != nil {
+	if err := r.Update(ctx, kafkaServerConfig); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *KafkaServerConfigReconciler) createAutomaticIntentsToKafkaServer(ctx context.Context, config *otterizev1alpha1.KafkaServerConfig) error {
+func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx context.Context, config *otterizev1alpha1.KafkaServerConfig) error {
 	operatorPod := &v1.Pod{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, operatorPod)
+	err := r.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, operatorPod)
 	if err != nil {
 		return err
 	}
 
-	annotatedServiceName, ok := operatorPod.Annotations[serviceidresolver.ServiceNameAnnotation]
+	annotatedServiceName, ok := serviceidresolver.ResolvePodToServiceIdentityUsingAnnotationOnly(operatorPod)
 	if !ok {
-		r.RecordWarningEventf(config, "IntentsOperatorIdentityResolveFailed", "failed resolving intents operator identity - '%s' label required", annotatedServiceName)
-		return fmt.Errorf("failed resolving intents operator identity - '%s' label required", annotatedServiceName)
+		r.RecordWarningEventf(config, "IntentsOperatorIdentityResolveFailed", "failed resolving intents operator identity - service name annotation required")
+		return fmt.Errorf("failed resolving intents operator identity - service name annotation required")
 	}
 
 	newIntents := &otterizev1alpha1.ClientIntents{
@@ -155,18 +155,24 @@ func (r *KafkaServerConfigReconciler) createAutomaticIntentsToKafkaServer(ctx co
 				Name: annotatedServiceName,
 			},
 			Calls: []otterizev1alpha1.Intent{{
+				// HTTP is used here to indicate that this should only apply network policies.
+				// In the future, should be updated as declaring type HTTP becomes unnecessary.
 				Type:      otterizev1alpha1.IntentTypeHTTP,
 				Name:      config.Spec.Service.Name,
 				Namespace: config.Namespace,
 			}},
 		},
 	}
+	err = controllerutil.SetOwnerReference(config, newIntents, r.Scheme)
+	if err != nil {
+		return err
+	}
 
 	existingIntents := &otterizev1alpha1.ClientIntents{}
-	err = r.client.Get(ctx, types.NamespacedName{Name: config.Name, Namespace: config.Namespace}, existingIntents)
+	err = r.Get(ctx, types.NamespacedName{Name: config.Name, Namespace: config.Namespace}, existingIntents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			err := r.client.Create(ctx, newIntents)
+			err := r.Create(ctx, newIntents)
 			if err != nil {
 				return err
 			}
@@ -176,8 +182,11 @@ func (r *KafkaServerConfigReconciler) createAutomaticIntentsToKafkaServer(ctx co
 	} else {
 		intentsCopy := existingIntents.DeepCopy()
 		intentsCopy.Spec = newIntents.Spec
-		intentsCopy.SetOwnerReferences(newIntents.GetOwnerReferences())
-		err := r.client.Patch(ctx, intentsCopy, client.MergeFrom(existingIntents))
+		err = controllerutil.SetOwnerReference(config, intentsCopy, r.Scheme)
+		if err != nil {
+			return err
+		}
+		err := r.Patch(ctx, intentsCopy, client.MergeFrom(existingIntents))
 		if err != nil {
 			return err
 		}
@@ -190,7 +199,7 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	kafkaServerConfig := &otterizev1alpha1.KafkaServerConfig{}
 
-	err := r.client.Get(ctx, req.NamespacedName, kafkaServerConfig)
+	err := r.Get(ctx, req.NamespacedName, kafkaServerConfig)
 	if err != nil && k8serrors.IsNotFound(err) {
 		logger.Info("No kafka server config found")
 		return ctrl.Result{}, nil
@@ -199,7 +208,7 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	if !kafkaServerConfig.Spec.NoAutoCreateIntentsForOperator {
-		err := r.createAutomaticIntentsToKafkaServer(ctx, kafkaServerConfig)
+		err := r.createIntentsFromOperatorToKafkaServer(ctx, kafkaServerConfig)
 		if err != nil {
 			return ctrl.Result{}, err
 		}

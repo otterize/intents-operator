@@ -23,6 +23,11 @@ func NewResolver(c client.Client) *Resolver {
 	return &Resolver{c}
 }
 
+func ResolvePodToServiceIdentityUsingAnnotationOnly(pod *corev1.Pod) (string, bool) {
+	annotation, ok := pod.Annotations[ServiceNameAnnotation]
+	return annotation, ok
+}
+
 // ResolvePodToServiceIdentity resolves a pod object to its otterize service ID, referenced in intents objects.
 // This is done by recursion over the pod's owner reference hierarchy until reaching a root owner reference.
 // In case the pod is annotated with an "intents.otterize.com/service-name" annotation, that annotation's value will override
@@ -30,7 +35,7 @@ func NewResolver(c client.Client) *Resolver {
 func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (string, error) {
 	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace})
 
-	annotatedServiceName, ok := pod.Annotations[ServiceNameAnnotation]
+	annotatedServiceName, ok := ResolvePodToServiceIdentityUsingAnnotationOnly(pod)
 	if ok {
 		return annotatedServiceName, nil
 	}
