@@ -16,13 +16,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const FinalizerName = "otterize-intents.kafka/finalizer"
+const (
+	KafkaACLsFinalizerName = "intents.otterize.com/kafka-finalizer"
+)
 
-type KafkaACLsReconciler struct {
-	client.Client
-	Scheme            *runtime.Scheme
+type KafkaACLReconciler struct {
+	client            client.Client
+	scheme            *runtime.Scheme
 	KafkaServersStore *kafkaacls.ServersStore
 	injectablerecorder.InjectableRecorder
+}
+
+func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore) *KafkaACLReconciler {
+	return &KafkaACLReconciler{client: client, scheme: scheme, KafkaServersStore: serversStore}
 }
 
 func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Intent) map[types.NamespacedName][]otterizev1alpha1.Intent {
@@ -43,7 +49,7 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Inte
 	return intentsByServer
 }
 
-func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) (serverCount int, err error) {
+func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) (serverCount int, err error) {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Calls)
 
 	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha1.KafkaServerConfig) error {
@@ -75,7 +81,7 @@ func (r *KafkaACLsReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents)
 	return len(intentsByServer), nil
 }
 
-func (r *KafkaACLsReconciler) RemoveACLs(intents *otterizev1alpha1.ClientIntents) error {
+func (r *KafkaACLReconciler) RemoveACLs(intents *otterizev1alpha1.ClientIntents) error {
 	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha1.KafkaServerConfig) error {
 		kafkaIntentsAdmin, err := kafkaacls.NewKafkaIntentsAdmin(*config)
 		if err != nil {
@@ -90,10 +96,10 @@ func (r *KafkaACLsReconciler) RemoveACLs(intents *otterizev1alpha1.ClientIntents
 	})
 }
 
-func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	intents := &otterizev1alpha1.ClientIntents{}
 	logger := logrus.WithField("namespacedName", req.String())
-	err := r.Get(ctx, req.NamespacedName, intents)
+	err := r.client.Get(ctx, req.NamespacedName, intents)
 	if err != nil && k8serrors.IsNotFound(err) {
 		logger.Info("No intents found")
 		return ctrl.Result{}, nil
@@ -108,24 +114,24 @@ func (r *KafkaACLsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	// examine DeletionTimestamp to determine if object is under deletion
 	if intents.ObjectMeta.DeletionTimestamp.IsZero() {
-		if !controllerutil.ContainsFinalizer(intents, FinalizerName) {
-			logger.Infof("Adding finalizer %s", FinalizerName)
-			controllerutil.AddFinalizer(intents, FinalizerName)
-			if err := r.Update(ctx, intents); err != nil {
+		if !controllerutil.ContainsFinalizer(intents, KafkaACLsFinalizerName) {
+			logger.Infof("Adding finalizer %s", KafkaACLsFinalizerName)
+			controllerutil.AddFinalizer(intents, KafkaACLsFinalizerName)
+			if err := r.client.Update(ctx, intents); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	} else {
 		// The object is being deleted
-		if controllerutil.ContainsFinalizer(intents, FinalizerName) {
+		if controllerutil.ContainsFinalizer(intents, KafkaACLsFinalizerName) {
 			logger.Infof("Removing associated Acls")
 			if err := r.RemoveACLs(intents); err != nil {
 				r.RecordWarningEvent(intents, "could not remove Kafka ACLs", err.Error())
 				return ctrl.Result{}, err
 			}
 
-			controllerutil.RemoveFinalizer(intents, FinalizerName)
-			if err := r.Update(ctx, intents); err != nil {
+			controllerutil.RemoveFinalizer(intents, KafkaACLsFinalizerName)
+			if err := r.client.Update(ctx, intents); err != nil {
 				if k8serrors.IsConflict(err) {
 					return ctrl.Result{Requeue: true}, nil
 				}

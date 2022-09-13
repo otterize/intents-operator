@@ -25,6 +25,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/sirupsen/logrus"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
@@ -51,6 +52,15 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+func MustGetEnvVar(name string) string {
+	value := os.Getenv(name)
+	if value == "" {
+		logrus.Fatalf("%s environment variable is required", name)
+	}
+
+	return value
+}
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
@@ -74,6 +84,9 @@ func main() {
 		"Whether to automatically create network policies for external traffic")
 
 	flag.Parse()
+
+	podName := MustGetEnvVar("POD_NAME")
+	podNamespace := MustGetEnvVar("POD_NAMESPACE")
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
@@ -116,6 +129,7 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
+
 	kafkaServersStore := kafkaacls.NewServersStore()
 
 	endpointReconciler := external_traffic.NewEndpointReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic)
@@ -176,7 +190,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
 	}
 
-	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore)
+	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, podName, podNamespace)
 
 	if err = kafkaServerConfigReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")

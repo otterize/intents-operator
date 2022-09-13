@@ -5,10 +5,10 @@ metadata:
 spec:
   service:
     name: client
-    calls:
-      - type: Kafka
-        server: kafka
-        namespace: default
-        topics:
-          - name: orders
-            operation: all
+  calls:
+    - type: Kafka
+      name: kafka
+      namespace: default
+      topics:
+        - name: orders
+          operation: all

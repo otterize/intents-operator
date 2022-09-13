@@ -7,7 +7,7 @@ spec:
   template:
     metadata:
       annotations:
-        otterize/tls-secret-name: intents-operator-tls-controller-manager
+        spire-integration.otterize.com/tls-secret-name: intents-operator-tls-controller-manager
     spec:
       containers:
       - name: manager

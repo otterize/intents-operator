@@ -37,8 +37,18 @@ spec:
             properties:
               addr:
                 type: string
-              serverName:
-                type: string
+              noAutoCreateIntentsForOperator:
+                description: If Intents for network policies are enabled, and there
+                  are other Intents to this Kafka server, will automatically create
+                  an Intent so that the Intents Operator can connect.
+                type: boolean
+              service:
+                properties:
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
               tls:
                 properties:
                   certFile:

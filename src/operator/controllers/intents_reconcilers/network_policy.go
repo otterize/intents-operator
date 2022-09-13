@@ -22,9 +22,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const OtterizeNetworkPolicyNameTemplate = "access-to-%s-from-%s"
-
-const NetworkPolicyFinalizerName = "otterize-intents.policies/finalizer"
+const (
+	OtterizeNetworkPolicyNameTemplate = "access-to-%s-from-%s"
+	OtterizeNetworkPolicy             = "intents.otterize.com/network-policy"
+	NetworkPolicyFinalizerName        = "intents.otterize.com/network-policy-finalizer"
+)
 
 type NetworkPolicyReconciler struct {
 	client.Client
