@@ -3,7 +3,8 @@ kind: KafkaServerConfig
 metadata:
   name: kafkaserverconfig-sample
 spec:
-  serverName: kafka
+  service:
+    name: kafka
   addr: kafka-tls-0.kafka-tls-headless.default.svc.cluster.local:9092
   tls:
     certFile: /etc/tls/svid.pem
