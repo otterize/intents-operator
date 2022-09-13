@@ -37,7 +37,6 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
 
-	//s.ControllerManagerTestSuiteBase.SetupSuite([]string{"../../config/crd/bases"})
 	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 }
@@ -128,7 +127,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerRemoved() {
 		Namespace: s.TestNamespace, Name: "finalizer-intents",
 	}, intents)
 
-	// We expect an error to have occurred
 	s.Require().True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != NetworkPolicyFinalizerName)
 }
 
