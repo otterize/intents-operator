@@ -90,7 +90,9 @@ jobs:
   tag-latest:
     name: Tag latest
     if: github.ref == 'refs/heads/main'
-    needs: build
+    needs:
+      - build
+      - test
     runs-on: ubuntu-latest
 
     steps:
