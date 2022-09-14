@@ -1,11 +1,11 @@
 package main
 
 import (
-	"flag"
 	"github.com/bombsimon/logrusr/v3"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/watcher/reconcilers"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -26,24 +26,21 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
-	var configFile string
+	var watchedNamespaces []string
 
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	pflag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&configFile, "config", "",
-		"The controller will load its initial configuration from this file. "+
-			"Omit this flag to use the default configuration values. "+
-			"Command-line flags override configuration from this file.")
+	pflag.StringSliceVar(&watchedNamespaces, "watched-namespaces", nil,
+		"Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
 
-	flag.Parse()
+	pflag.Parse()
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
-	ctrlConfig := otterizev1alpha1.ProjectConfig{}
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -64,15 +61,9 @@ func main() {
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
 	}
-	if configFile != "" {
-		options, err = options.AndFrom(ctrl.ConfigFile().AtPath(configFile).OfKind(&ctrlConfig))
-		if err != nil {
-			logrus.WithError(err).Fatal("unable to load the config file")
-		}
-
-		if len(ctrlConfig.WatchNamespaces) != 0 {
-			options.NewCache = cache.MultiNamespacedCacheBuilder(ctrlConfig.WatchNamespaces)
-		}
+	if len(watchedNamespaces) != 0 {
+		options.NewCache = cache.MultiNamespacedCacheBuilder(watchedNamespaces)
+		logrus.Infof("Will only watch the following namespaces: %v", watchedNamespaces)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
