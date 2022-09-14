@@ -1,6 +1,6 @@
 name: Build
 concurrency:
-  group: "${{ github.repository}}${{ github.ref }}"
+  group: "${{ github.repository }}${{ github.ref }}-release"
 
 on:
   release:
@@ -12,9 +12,8 @@ env:
   REPOSITORY_NAME: otterize
 
 jobs:
-  tag-new-version:
+  push-dockerhub:
     name: Tag latest
-    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
     steps:
