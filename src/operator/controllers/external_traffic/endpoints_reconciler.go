@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/src/operator/controllers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
@@ -170,7 +169,7 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 
 		netpolList := &v1.NetworkPolicyList{}
 		// there's only ever one
-		err = r.List(ctx, netpolList, client.MatchingLabels{consts.OtterizeNetworkPolicy: serverLabel}, client.Limit(1))
+		err = r.List(ctx, netpolList, client.MatchingLabels{v1alpha1.OtterizeNetworkPolicy: serverLabel}, client.Limit(1))
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				// only act on pods affected by Otterize policies - if they were not created yet,

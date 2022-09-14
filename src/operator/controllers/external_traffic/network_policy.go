@@ -3,7 +3,6 @@ package external_traffic
 import (
 	"context"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/src/operator/controllers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -115,7 +114,7 @@ func buildNetworkPolicyObjectForService(
 			Name:      policyName,
 			Namespace: service.Namespace,
 			Labels: map[string]string{
-				consts.OtterizeNetworkPolicyExternalTraffic: otterizeServiceName,
+				v1alpha1.OtterizeNetworkPolicyExternalTraffic: otterizeServiceName,
 			},
 			Annotations: annotations,
 		},
