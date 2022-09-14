@@ -114,7 +114,7 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	// examine DeletionTimestamp to determine if object is under deletion
 	if intents.ObjectMeta.DeletionTimestamp.IsZero() {
-		if !controllerutil.ContainsFinalizer(intents, KafkaACLsFinalizerName) {
+		if !controllerutil.ContainsFinalizer(intents, KafkaACLsFinalizerName) && intents.HasKafkaTypeInCallList() {
 			logger.Infof("Adding finalizer %s", KafkaACLsFinalizerName)
 			controllerutil.AddFinalizer(intents, KafkaACLsFinalizerName)
 			if err := r.client.Update(ctx, intents); err != nil {
