@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/src/operator/controllers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
@@ -23,9 +22,10 @@ import (
 )
 
 const (
-	OtterizeNetworkPolicyNameTemplate = "access-to-%s-from-%s"
-	OtterizeNetworkPolicy             = "intents.otterize.com/network-policy"
-	NetworkPolicyFinalizerName        = "intents.otterize.com/network-policy-finalizer"
+	OtterizeNetworkPolicyNameTemplate    = "access-to-%s-from-%s"
+	OtterizeNetworkPolicy                = "intents.otterize.com/network-policy"
+	OtterizeNetworkPolicyExternalTraffic = "intents.otterize.com/network-policy-external-traffic"
+	NetworkPolicyFinalizerName           = "intents.otterize.com/network-policy-finalizer"
 )
 
 type NetworkPolicyReconciler struct {
@@ -262,8 +262,8 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 	// Remove network policies created by the external traffic reconcilers.
 	// Once no more Otterize network policies are present, there's no longer need for them.
 	externalPolicyList := &v1.NetworkPolicyList{}
-	serviceNameLabel := policy.Labels[consts.OtterizeNetworkPolicy]
-	err = r.List(ctx, externalPolicyList, client.MatchingLabels{consts.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
+	serviceNameLabel := policy.Labels[OtterizeNetworkPolicy]
+	err = r.List(ctx, externalPolicyList, client.MatchingLabels{OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
 		&client.ListOptions{Namespace: policy.Namespace})
 	if err != nil {
 		return err
@@ -290,7 +290,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 			Name:      policyName,
 			Namespace: intent.Namespace,
 			Labels: map[string]string{
-				consts.OtterizeNetworkPolicy: formattedTargetServer,
+				OtterizeNetworkPolicy: formattedTargetServer,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
