@@ -241,19 +241,19 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if err := r.ensureFinalizerRegistered(ctx, kafkaServerConfig); err != nil {
 		return ctrl.Result{}, err
 	}
-	//
-	//r.ServersStore.Add(kafkaServerConfig)
-	//
-	//kafkaIntentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.Service.Name, kafkaServerConfig.Namespace)
-	//if err != nil {
-	//	return ctrl.Result{}, err
-	//}
-	//defer kafkaIntentsAdmin.Close()
-	//
-	//if err := kafkaIntentsAdmin.ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics); err != nil {
-	//	r.RecordWarningEvent(kafkaServerConfig, "failed to apply server config to Kafka broker", err.Error())
-	//	return ctrl.Result{}, err
-	//}
+
+	r.ServersStore.Add(kafkaServerConfig)
+
+	kafkaIntentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.Service.Name, kafkaServerConfig.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	defer kafkaIntentsAdmin.Close()
+
+	if err := kafkaIntentsAdmin.ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics); err != nil {
+		r.RecordWarningEvent(kafkaServerConfig, "failed to apply server config to Kafka broker", err.Error())
+		return ctrl.Result{}, err
+	}
 
 	r.RecordNormalEvent(kafkaServerConfig, "successfully applied server config", "")
 	return ctrl.Result{}, nil
