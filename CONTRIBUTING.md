@@ -7,8 +7,8 @@ Reading and following these guidelines will help us make the contribution proces
 ## Quicklinks
 
 * [Getting started](#getting-started)
-    * [GitHub issues](#github-issues)
-    * [Pull requests](#pull-requests)
+* [GitHub issues](#github-issues)
+* [Pull requests](#pull-requests)
 * [Getting help](#getting-help)
 
 ## Getting Started
