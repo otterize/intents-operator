@@ -18,14 +18,14 @@ import (
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 
 type IngressReconciler struct {
-	client              client.Client
+	client.Client
 	Scheme              *runtime.Scheme
 	endpointsReconciler *EndpointsReconciler
 	injectablerecorder.InjectableRecorder
 }
 
 func NewIngressReconciler(client client.Client, scheme *runtime.Scheme, endpointsReconciler *EndpointsReconciler) *IngressReconciler {
-	return &IngressReconciler{client: client, Scheme: scheme, endpointsReconciler: endpointsReconciler}
+	return &IngressReconciler{Client: client, Scheme: scheme, endpointsReconciler: endpointsReconciler}
 }
 
 func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -43,7 +43,7 @@ func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // and managing the network policies accordingly.
 func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	ingress := &v1.Ingress{}
-	err := r.client.Get(ctx, req.NamespacedName, ingress)
+	err := r.Get(ctx, req.NamespacedName, ingress)
 	if k8serrors.IsNotFound(err) {
 		// delete is handled here - and we don't have state to retry
 		// this is fine, as the EndpointsReconciler will reconcile all endpoints (and as a result, services and ingresses)
@@ -69,7 +69,7 @@ func (r *IngressReconciler) getServicesReferencedByNetworkPoliciesCreatedForIngr
 	services := sets.NewString()
 
 	netpolList := &v1.NetworkPolicyList{}
-	err := r.client.List(ctx, netpolList, &client.MatchingFields{otterizev1alpha1.NetworkPoliciesByIngressNameIndexField: ingressName.Name},
+	err := r.List(ctx, netpolList, &client.MatchingFields{otterizev1alpha1.NetworkPoliciesByIngressNameIndexField: ingressName.Name},
 		&client.ListOptions{Namespace: ingressName.Namespace})
 	if err != nil {
 		return nil, err

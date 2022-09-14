@@ -22,9 +22,9 @@ const OtterizeNetworkPolicyNameTemplate = "external-access-to-%s"
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 
 type EndpointsReconciler struct {
-	client           client.Client
-	Scheme           *runtime.Scheme
-	netpolReconciler *NetworkPolicyCreator
+	client.Client
+	Scheme        *runtime.Scheme
+	netpolCreator *NetworkPolicyCreator
 	injectablerecorder.InjectableRecorder
 }
 
@@ -34,16 +34,16 @@ func (r *EndpointsReconciler) formatPolicyName(serviceName string) string {
 
 func NewEndpointReconciler(client client.Client, scheme *runtime.Scheme, enabled bool) *EndpointsReconciler {
 	return &EndpointsReconciler{
-		client:           client,
-		Scheme:           scheme,
-		netpolReconciler: NewNetworkPolicyCreator(client, enabled),
+		Client:        client,
+		Scheme:        scheme,
+		netpolCreator: NewNetworkPolicyCreator(client, scheme, enabled),
 	}
 }
 
 func (r *EndpointsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	recorder := mgr.GetEventRecorderFor("intents-operator")
 	r.InjectRecorder(recorder)
-	r.netpolReconciler.InjectRecorder(recorder)
+	r.netpolCreator.InjectRecorder(recorder)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Endpoints{}).
@@ -69,7 +69,7 @@ func (r *EndpointsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 //	deleted (if no intents network policies refer to the pods backing the service any longer).
 func (r *EndpointsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	endpoints := &corev1.Endpoints{}
-	err := r.client.Get(ctx, req.NamespacedName, endpoints)
+	err := r.Get(ctx, req.NamespacedName, endpoints)
 	if k8serrors.IsNotFound(err) {
 		// delete is handled by garbage collection - the service owns the network policy
 		return ctrl.Result{}, nil
@@ -80,7 +80,7 @@ func (r *EndpointsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	svc := &corev1.Service{}
-	err = r.client.Get(ctx, req.NamespacedName, svc)
+	err = r.Get(ctx, req.NamespacedName, svc)
 	if k8serrors.IsNotFound(err) {
 		// delete is handled by garbage collection - the service owns the network policy
 		return ctrl.Result{}, nil
@@ -109,7 +109,7 @@ func (r *EndpointsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 func (r *EndpointsReconciler) getIngressRefersToService(ctx context.Context, svc *corev1.Service) (*v1.IngressList, error) {
 	var endpointsList v1.IngressList
-	err := r.client.List(
+	err := r.List(
 		ctx, &endpointsList,
 		&client.MatchingFields{v1alpha1.IngressServiceNamesIndexField: svc.Name},
 		&client.ListOptions{Namespace: svc.Namespace})
@@ -154,7 +154,7 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 		}
 
 		pod := &corev1.Pod{}
-		err := r.client.Get(ctx, types.NamespacedName{Name: address.TargetRef.Name, Namespace: address.TargetRef.Namespace}, pod)
+		err := r.Get(ctx, types.NamespacedName{Name: address.TargetRef.Name, Namespace: address.TargetRef.Namespace}, pod)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				continue
@@ -170,7 +170,7 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 
 		netpolList := &v1.NetworkPolicyList{}
 		// there's only ever one
-		err = r.client.List(ctx, netpolList, client.MatchingLabels{consts.OtterizeNetworkPolicy: serverLabel}, client.Limit(1))
+		err = r.List(ctx, netpolList, client.MatchingLabels{consts.OtterizeNetworkPolicy: serverLabel}, client.Limit(1))
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				// only act on pods affected by Otterize policies - if they were not created yet,
@@ -209,7 +209,7 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 func (r *EndpointsReconciler) handlePolicyDelete(ctx context.Context, policyName string, policyNamespace string) (ctrl.Result, error) {
 
 	policy := &v1.NetworkPolicy{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: policyNamespace}, policy)
+	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: policyNamespace}, policy)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// nothing to do
@@ -219,7 +219,7 @@ func (r *EndpointsReconciler) handlePolicyDelete(ctx context.Context, policyName
 		return ctrl.Result{}, err
 	}
 
-	err = r.client.Delete(ctx, policy)
+	err = r.Delete(ctx, policy)
 	if err != nil {
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
@@ -231,12 +231,12 @@ func (r *EndpointsReconciler) handlePolicyDelete(ctx context.Context, policyName
 
 func (r *EndpointsReconciler) ReconcileServiceForOtterizeNetpol(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, netpol *v1.NetworkPolicy) (ctrl.Result, error) {
 	svc := &corev1.Service{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
+	err := r.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	err = r.netpolReconciler.handleNetworkPolicyCreationOrUpdate(ctx, endpoints, svc, otterizeServiceName, svc, netpol, ingressList, r.formatPolicyName(endpoints.Name))
+	err = r.netpolCreator.handleNetworkPolicyCreationOrUpdate(ctx, endpoints, svc, otterizeServiceName, svc, netpol, ingressList, r.formatPolicyName(endpoints.Name))
 	if err != nil {
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil

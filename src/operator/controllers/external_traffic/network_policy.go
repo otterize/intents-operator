@@ -11,21 +11,24 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
 )
 
 type NetworkPolicyCreator struct {
 	client client.Client
+	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
 	enabled bool
 }
 
-func NewNetworkPolicyCreator(client client.Client, enabled bool) *NetworkPolicyCreator {
-	return &NetworkPolicyCreator{client: client, enabled: enabled}
+func NewNetworkPolicyCreator(client client.Client, scheme *runtime.Scheme, enabled bool) *NetworkPolicyCreator {
+	return &NetworkPolicyCreator{client: client, scheme: scheme, enabled: enabled}
 }
 
 func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
@@ -34,13 +37,10 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 	existingPolicy := &v1.NetworkPolicy{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
 	newPolicy := buildNetworkPolicyObjectForService(endpoints, otterizeServiceName, netpol.Spec.PodSelector, ingressList, policyName)
-	apiVersion, kind := owner.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
-	newPolicy.SetOwnerReferences([]metav1.OwnerReference{{
-		APIVersion: apiVersion,
-		Kind:       kind,
-		Name:       owner.GetName(),
-		UID:        owner.GetUID(),
-	}})
+	err = controllerutil.SetOwnerReference(owner, newPolicy, r.scheme)
+	if err != nil {
+		return err
+	}
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(err) {
@@ -83,7 +83,10 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 	policyCopy.Labels = newPolicy.Labels
 	policyCopy.Annotations = newPolicy.Annotations
 	policyCopy.Spec = newPolicy.Spec
-	policyCopy.SetOwnerReferences(newPolicy.GetOwnerReferences())
+	err = controllerutil.SetOwnerReference(owner, policyCopy, r.scheme)
+	if err != nil {
+		return err
+	}
 
 	err = r.client.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 	if err != nil {
