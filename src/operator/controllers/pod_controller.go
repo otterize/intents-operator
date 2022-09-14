@@ -187,7 +187,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, "Successfully registered pod under SPIRE with entry ID '%s'", entryID)
 
-	hashStr, err := r.getEntryHash(pod.Namespace, serviceID, ttl, dnsNames)
+	hashStr, err := getEntryHash(pod.Namespace, serviceID, ttl, dnsNames)
 	if err != nil {
 		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Failed calculating SPIRE entry hash", err.Error())
 		return ctrl.Result{}, err
@@ -202,7 +202,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	return ctrl.Result{}, nil
 }
 
-func (r *PodReconciler) getEntryHash(namespace string, serviceName string, ttl int32, dnsNames []string) (string, error) {
+func getEntryHash(namespace string, serviceName string, ttl int32, dnsNames []string) (string, error) {
 	entryPropertiesHashMaker := fnv.New32a()
 	_, err := entryPropertiesHashMaker.Write([]byte(namespace + metadata.RegisteredServiceNameLabel + serviceName + string(ttl) + strings.Join(dnsNames, "")))
 	if err != nil {
@@ -233,7 +233,6 @@ func (r *PodReconciler) resolvePodToCertTTl(pod *corev1.Pod) (int32, error) {
 	}
 
 	ttl64, err := strconv.ParseInt(ttlString, 0, 32)
-
 	if err != nil {
 		return 0, fmt.Errorf("failed converting ttl: %s str to int. %w", ttlString, err)
 	}

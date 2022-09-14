@@ -55,7 +55,7 @@ func (m *TLSSecretMatcher) Matches(x interface{}) bool {
 		return false
 	}
 
-	if secret.Name != m.name && secret.Namespace != m.namespace {
+	if secret.Name != m.name || secret.Namespace != m.namespace {
 		return false
 	}
 
