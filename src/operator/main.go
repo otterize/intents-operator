@@ -68,6 +68,8 @@ func main() {
 	var selfSignedCert bool
 	var autoCreateNetworkPoliciesForExternalTraffic bool
 	var watchedNamespaces []string
+	var enableNetworkPolicyCreation bool
+	var enableKafkaACLCreation bool
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -80,6 +82,10 @@ func main() {
 		"Whether to automatically create network policies for external traffic")
 	pflag.StringSliceVar(&watchedNamespaces, "watched-namespaces", nil,
 		"Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
+	pflag.BoolVar(&enableNetworkPolicyCreation, "enable-network-policy-creation", true,
+		"Whether to disable Intents network policy creation")
+	pflag.BoolVar(&enableKafkaACLCreation, "enable-kafka-acl-creation", true,
+		"Whether to disable Intents Kafka ACL creation")
 
 	pflag.Parse()
 
@@ -142,7 +148,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler, watchedNamespaces)
+	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler, watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")

@@ -21,14 +21,15 @@ const (
 )
 
 type KafkaACLReconciler struct {
-	client            client.Client
-	scheme            *runtime.Scheme
-	KafkaServersStore *kafkaacls.ServersStore
+	client                 client.Client
+	scheme                 *runtime.Scheme
+	KafkaServersStore      *kafkaacls.ServersStore
+	enableKafkaACLCreation bool
 	injectablerecorder.InjectableRecorder
 }
 
-func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore) *KafkaACLReconciler {
-	return &KafkaACLReconciler{client: client, scheme: scheme, KafkaServersStore: serversStore}
+func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore, enableKafkaACLCreation bool) *KafkaACLReconciler {
+	return &KafkaACLReconciler{client: client, scheme: scheme, KafkaServersStore: serversStore, enableKafkaACLCreation: enableKafkaACLCreation}
 }
 
 func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Intent) map[types.NamespacedName][]otterizev1alpha1.Intent {
@@ -53,7 +54,7 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) 
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Calls)
 
 	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha1.KafkaServerConfig) error {
-		kafkaIntentsAdmin, err := kafkaacls.NewKafkaIntentsAdmin(*config)
+		kafkaIntentsAdmin, err := kafkaacls.NewKafkaIntentsAdmin(*config, r.enableKafkaACLCreation)
 		if err != nil {
 			err = fmt.Errorf("failed to connect to Kafka server %s: %w", serverName, err)
 			r.RecordWarningEventf(intents, "Kafka ACL reconcile failed", err.Error())
@@ -71,6 +72,10 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) 
 		return 0, err
 	}
 
+	if !r.enableKafkaACLCreation {
+		r.RecordNormalEvent(intents, "KafkaACLCreationDisabled", "Kafka ACL creation is disabled, creation skipped")
+	}
+
 	for serverName, _ := range intentsByServer {
 		if !r.KafkaServersStore.Exists(serverName.Name, serverName.Namespace) {
 			r.RecordWarningEventf(intents, "Kafka ACL reconcile failed", "broker %s not configured", serverName)
@@ -83,7 +88,7 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) 
 
 func (r *KafkaACLReconciler) RemoveACLs(intents *otterizev1alpha1.ClientIntents) error {
 	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha1.KafkaServerConfig) error {
-		kafkaIntentsAdmin, err := kafkaacls.NewKafkaIntentsAdmin(*config)
+		kafkaIntentsAdmin, err := kafkaacls.NewKafkaIntentsAdmin(*config, r.enableKafkaACLCreation)
 		if err != nil {
 			return err
 		}

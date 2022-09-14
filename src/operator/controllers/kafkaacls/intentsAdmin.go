@@ -30,9 +30,10 @@ var (
 )
 
 type KafkaIntentsAdmin struct {
-	kafkaServer      otterizev1alpha1.KafkaServerConfig
-	kafkaAdminClient sarama.ClusterAdmin
-	userNameMapping  string
+	kafkaServer            otterizev1alpha1.KafkaServerConfig
+	kafkaAdminClient       sarama.ClusterAdmin
+	userNameMapping        string
+	enableKafkaACLCreation bool
 }
 
 var (
@@ -109,7 +110,7 @@ func getUserPrincipalMapping(tlsCert tls.Certificate) (string, error) {
 
 }
 
-func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig) (*KafkaIntentsAdmin, error) {
+func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, enableKafkaACLCreation bool) (*KafkaIntentsAdmin, error) {
 	logger := logrus.WithField("addr", kafkaServer.Spec.Addr)
 	logger.Info("Connecting to kafka server")
 	addrs := []string{kafkaServer.Spec.Addr}
@@ -137,7 +138,7 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig) (*Kafk
 		return nil, err
 	}
 
-	return &KafkaIntentsAdmin{kafkaServer: kafkaServer, kafkaAdminClient: a, userNameMapping: usernameMapping}, nil
+	return &KafkaIntentsAdmin{kafkaServer: kafkaServer, kafkaAdminClient: a, userNameMapping: usernameMapping, enableKafkaACLCreation: enableKafkaACLCreation}, nil
 }
 
 func (a *KafkaIntentsAdmin) Close() {
@@ -335,8 +336,10 @@ func (a *KafkaIntentsAdmin) ApplyClientIntents(clientName string, clientNamespac
 			return fmt.Errorf("failed collecting ACLs for server: %w", err)
 		}
 		logger.Infof("Creating %d new ACLs", len(newAclRules))
-		if err := a.createACLs(topicToACLList); err != nil {
-			return fmt.Errorf("failed creating ACLs on server: %w", err)
+		if a.enableKafkaACLCreation {
+			if err := a.createACLs(topicToACLList); err != nil {
+				return fmt.Errorf("failed creating ACLs on server: %w", err)
+			}
 		}
 	}
 
