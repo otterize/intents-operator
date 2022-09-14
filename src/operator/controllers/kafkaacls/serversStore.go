@@ -11,12 +11,14 @@ var (
 )
 
 type ServersStore struct {
-	serversByName map[types.NamespacedName]*otterizev1alpha1.KafkaServerConfig
+	serversByName          map[types.NamespacedName]*otterizev1alpha1.KafkaServerConfig
+	enableKafkaACLCreation bool
 }
 
-func NewServersStore() *ServersStore {
+func NewServersStore(enableKafkaACLCreation bool) *ServersStore {
 	return &ServersStore{
-		serversByName: map[types.NamespacedName]*otterizev1alpha1.KafkaServerConfig{},
+		serversByName:          map[types.NamespacedName]*otterizev1alpha1.KafkaServerConfig{},
+		enableKafkaACLCreation: enableKafkaACLCreation,
 	}
 }
 func (s *ServersStore) Add(config *otterizev1alpha1.KafkaServerConfig) {
@@ -44,7 +46,7 @@ func (s *ServersStore) Get(serverName string, namespace string) (*KafkaIntentsAd
 		return nil, ServerSpecNotFound
 	}
 
-	return NewKafkaIntentsAdmin(*config)
+	return NewKafkaIntentsAdmin(*config, s.enableKafkaACLCreation)
 }
 
 func (s *ServersStore) MapErr(f func(types.NamespacedName, *otterizev1alpha1.KafkaServerConfig) error) error {
