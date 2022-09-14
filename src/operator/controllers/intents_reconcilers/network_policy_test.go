@@ -6,6 +6,7 @@ import (
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
@@ -48,7 +49,7 @@ func (s *NetworkPolicyReconcilerTestSuite) BeforeTest(_, testName string) {
 
 func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
-	s.Reconciler = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, []string{})
+	s.Reconciler = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{})
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	s.Reconciler.InjectRecorder(recorder)
 }
@@ -72,11 +73,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	intents = &otterizev1alpha1.ClientIntents{}
-	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: "finalizer-intents"}, intents)
-	s.Require().NoError(err)
-
-	s.Require().NotEmpty(intents.Finalizers)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: "finalizer-intents"}, intents)
+		assert.NoError(err)
+		assert.NotEmpty(intents.Finalizers)
+	})
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerRemoved() {
@@ -95,8 +97,23 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerRemoved() {
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 
-	additionalFinalizerIntents := intents.DeepCopy()
+	res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
 
+	s.Require().NoError(err)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: "finalizer-intents"}, intents)
+		assert.Equal(len(intents.Finalizers), 1)
+	})
+
+	additionalFinalizerIntents := intents.DeepCopy()
 	// We have to add another finalizer so the object won't actually be deleted after the netpol reconciler finishes
 	additionalFinalizerIntents.Finalizers = append(additionalFinalizerIntents.Finalizers, "finalizer-to-prevent-obj-deletion")
 	err = s.Mgr.GetClient().Patch(context.Background(), additionalFinalizerIntents, client.MergeFrom(intents))
@@ -122,12 +139,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerRemoved() {
 	}
 
 	intents = &otterizev1alpha1.ClientIntents{}
-	// Policy should have been deleted because intents were removed
-	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: "finalizer-intents",
-	}, intents)
-
-	s.Require().True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != NetworkPolicyFinalizerName)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: "finalizer-intents",
+		}, intents)
+		assert.True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != otterizev1alpha1.NetworkPolicyFinalizerName)
+	})
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreate() {
@@ -148,7 +165,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreate() {
 	s.Require().Empty(res)
 
 	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
 	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
 		Namespace: s.TestNamespace, Name: policyName,
 	}, &np)
@@ -179,7 +196,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace
 	s.Require().Empty(res)
 
 	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
 	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
 		Namespace: otherNamespace, Name: policyName,
 	}, &np)
@@ -204,7 +221,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
 	s.Require().Empty(res)
 
 	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
 	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
 		Namespace: s.TestNamespace, Name: policyName,
 	}, &np)
@@ -260,7 +277,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespac
 	s.Require().Empty(res)
 
 	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
 	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
 		Namespace: otherNamespace, Name: policyName,
 	}, &np)
@@ -285,13 +302,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespac
 	}
 
 	deletedPolicy := v1.NetworkPolicy{}
-	// Policy should have been deleted because intents were removed
-	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-		Namespace: otherNamespace, Name: policyName,
-	}, &deletedPolicy)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		// Policy should have been deleted because intents were removed
+		err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
+			Namespace: otherNamespace, Name: policyName,
+		}, &deletedPolicy)
 
-	// We expect an error to have occurred
-	s.Require().Error(err)
+		// We expect an error to have occurred
+		assert.Error(err)
+	})
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWithSameServer() {
@@ -315,7 +334,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	s.Require().Empty(res)
 
 	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
 	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
 		Namespace: s.TestNamespace, Name: policyName,
 	}, &np)
@@ -342,13 +361,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	}
 
 	np = v1.NetworkPolicy{}
-	// Policy should have been deleted because intents were removed
-	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: policyName,
-	}, &np)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		// Policy should have been deleted because intents were removed
+		err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: policyName,
+		}, &np)
 
-	// We expect an error to have occurred
-	s.Require().NoError(err)
+		// We expect an error to have occurred
+		assert.NoError(err)
+	})
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) initServerIndices(mgr manager.Manager) error {

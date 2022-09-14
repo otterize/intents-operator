@@ -40,7 +40,8 @@ spec:
               noAutoCreateIntentsForOperator:
                 description: If Intents for network policies are enabled, and there
                   are other Intents to this Kafka server, will automatically create
-                  an Intent so that the Intents Operator can connect.
+                  an Intent so that the Intents Operator can connect. Set to true
+                  to disable.
                 type: boolean
               service:
                 properties:
