@@ -6,6 +6,7 @@ import (
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -72,15 +73,17 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	s.Require().Empty(res)
 
 	pod := v1.Pod{}
-	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: fmt.Sprintf("%s-0", deploymentName)}, &pod)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(pod)
 	targetServerIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(
 		intentTargetServerName, s.TestNamespace)
 
 	accessLabel := fmt.Sprintf(otterizev1alpha1.OtterizeAccessLabelKey, targetServerIdentity)
-	s.Require().Contains(pod.Labels, accessLabel)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: fmt.Sprintf("%s-0", deploymentName)}, &pod)
+		assert.NoError(err)
+		assert.NotEmpty(pod)
+		assert.Contains(pod.Labels, accessLabel)
+	})
 }
 
 func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemoved() {
@@ -165,15 +168,17 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 	})
 	s.Require().NoError(err)
 
-	pod := v1.Pod{}
-	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: fmt.Sprintf("%s-0", deploymentName)}, &pod)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(pod)
 	targetServerIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(intentTargetServerName, s.TestNamespace)
 
 	originalAccessLabel := fmt.Sprintf(otterizev1alpha1.OtterizeAccessLabelKey, targetServerIdentity)
-	s.Require().Contains(pod.Labels, originalAccessLabel)
+	pod := v1.Pod{}
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: fmt.Sprintf("%s-0", deploymentName)}, &pod)
+		assert.NoError(err)
+		assert.NotEmpty(pod)
+		assert.Contains(pod.Labels, originalAccessLabel)
+	})
 
 	updatedIntents := intents.DeepCopy()
 	updatedIntents.Spec.Calls[0].Name = "test-server-new"
@@ -181,6 +186,13 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	s.Require().Empty(res)
+
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: "test-intents"}, intents)
+		assert.NoError(err)
+		assert.Equal(intents.Spec.Calls[0].Name, "test-server-new")
+	})
 
 	res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -196,12 +208,13 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 	newAccessLabel := fmt.Sprintf(otterizev1alpha1.OtterizeAccessLabelKey, newTargetSrvIdentity)
 
 	pod = v1.Pod{}
-	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: fmt.Sprintf("%s-0", deploymentName)}, &pod)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(pod)
-	s.Require().NotContains(pod.Labels, originalAccessLabel)
-	s.Require().Contains(pod.Labels, newAccessLabel)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: fmt.Sprintf("%s-0", deploymentName)}, &pod)
+		assert.NoError(err)
+		assert.NotContains(pod.Labels, originalAccessLabel)
+		assert.Contains(pod.Labels, newAccessLabel)
+	})
 }
 
 func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
@@ -213,7 +226,6 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
 		Type: otterizev1alpha1.IntentTypeHTTP, Name: intentTargetServerName,
 	},
 	})
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -225,10 +237,12 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
 	s.Require().Empty(res)
 
 	intents = &otterizev1alpha1.ClientIntents{}
-	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: "test-intents"}, intents)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(intents.Finalizers)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: "test-intents"}, intents)
+		assert.NoError(err)
+		assert.NotEmpty(intents.Finalizers)
+	})
 }
 
 func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
@@ -279,7 +293,7 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
 		Namespace: s.TestNamespace, Name: "finalizer-intents",
 	}, intents)
 
-	s.Require().True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != NetworkPolicyFinalizerName)
+	s.Require().True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != otterizev1alpha1.NetworkPolicyFinalizerName)
 }
 
 func TestPodLabelReconcilerTestSuite(t *testing.T) {

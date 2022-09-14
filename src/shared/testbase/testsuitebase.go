@@ -5,6 +5,7 @@ import (
 	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -19,11 +20,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"strings"
+	"testing"
 	"time"
 )
 
-const waitForCreationInterval = 200 * time.Millisecond
-const waitForCreationTimeout = 3 * time.Second
+const waitForCreationInterval = 20 * time.Millisecond
+const waitForCreationTimeout = 10 * time.Second
 const waitForDeletionTSTimeout = 3 * time.Second
 
 type ControllerManagerTestSuiteBase struct {
@@ -69,6 +71,22 @@ func (s *ControllerManagerTestSuiteBase) TearDownTest() {
 	s.mgrCtxCancelFunc()
 	err := s.K8sDirectClient.CoreV1().Namespaces().Delete(context.Background(), s.TestNamespace, metav1.DeleteOptions{})
 	s.Require().NoError(err)
+}
+
+type Condition func() bool
+
+func (s *ControllerManagerTestSuiteBase) WaitUntilCondition(cond func(assert *assert.Assertions)) {
+	err := wait.PollImmediate(waitForCreationInterval, waitForCreationTimeout, func() (done bool, err error) {
+		localT := &testing.T{}
+		asrt := assert.New(localT)
+		s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+		cond(asrt)
+		done = !localT.Failed()
+		return done, nil
+	})
+	if err != nil {
+		s.Require().NoError(err)
+	}
 }
 
 // waitForObjectToBeCreated tries to get an object multiple times until it is available in the k8s API server
