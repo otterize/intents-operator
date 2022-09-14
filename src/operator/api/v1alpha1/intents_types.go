@@ -56,6 +56,7 @@ const (
 	IntentTypeKafka IntentType = "Kafka"
 )
 
+// +kubebuilder:validation:Enum=all;consume;produce;create;alter;delete;describe;ClusterAction;DescribeConfigs;AlterConfigs;IdempotentWrite
 type KafkaOperation string
 
 const (
@@ -72,6 +73,20 @@ const (
 	KafkaOperationIdempotentWrite KafkaOperation = "IdempotentWrite"
 )
 
+// +kubebuilder:validation:Enum=GET;POST;PUT;DELETE;OPTIONS;TRACE;PATCH;CONNECT
+type HTTPMethod string
+
+const (
+	HTTPMethodGet     HTTPMethod = "GET"
+	HTTPMethodPost    HTTPMethod = "POST"
+	HTTPMethodPut     HTTPMethod = "PUT"
+	HTTPMethodDelete  HTTPMethod = "DELETE"
+	HTTPMethodOptions HTTPMethod = "OPTIONS"
+	HTTPMethodTrace   HTTPMethod = "TRACE"
+	HTTPMethodPatch   HTTPMethod = "PATCH"
+	HTTPMethodConnect HTTPMethod = "CONNECT"
+)
+
 // IntentsSpec defines the desired state of ClientIntents
 type IntentsSpec struct {
 	Service Service  `json:"service" yaml:"service"`
@@ -83,13 +98,22 @@ type Service struct {
 }
 
 type Intent struct {
+	Name string `json:"name" yaml:"name"`
+	//+optional
 	Type IntentType `json:"type" yaml:"type"`
-	Name string     `json:"name" yaml:"name"`
 
 	//+optional
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
 	//+optional
 	Topics []KafkaTopic `json:"topics,omitempty" yaml:"topics,omitempty"`
+
+	//+optional
+	HTTPResources []HTTPResource `json:"resources"`
+}
+
+type HTTPResource struct {
+	Path   string     `json:"path"`
+	Method HTTPMethod `json:"method"`
 }
 
 type KafkaTopic struct {
