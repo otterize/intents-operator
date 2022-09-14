@@ -13,7 +13,7 @@ env:
 
 jobs:
   push-dockerhub:
-    name: Tag latest
+    name: Push to Docker Hub
     runs-on: ubuntu-latest
 
     steps:
@@ -43,6 +43,9 @@ jobs:
           docker pull ${{ env.REGISTRY }}:watcher-${{ github.sha }}
           docker tag ${{ env.REGISTRY }}:intents-operator-${{ github.sha }} otterize/intents-operator:${{ github.ref_name }}
           docker tag ${{ env.REGISTRY }}:intents-operator-${{ github.sha }} otterize/intents-operator:latest
-          docker tag ${{ env.REGISTRY }}:watcher-${{ github.sha }} otterize/watcher:${{ github.ref_name }}
-          docker tag ${{ env.REGISTRY }}:watcher-${{ github.sha }} otterize/watcher:latest
-          docker push otterize/intents-operator:${{ github.ref_name }} otterize/watcher:${{ github.ref_name }} otterize/intents-operator:latest otterize/watcher:latest
+          docker tag ${{ env.REGISTRY }}:watcher-${{ github.sha }} otterize/intents-operator-pod-watcher:${{ github.ref_name }}
+          docker tag ${{ env.REGISTRY }}:watcher-${{ github.sha }} otterize/intents-operator-pod-watcher:latest
+          docker push otterize/intents-operator:${{ github.ref_name }}
+          docker push otterize/intents-operator-pod-watcher:${{ github.ref_name }}
+          docker push otterize/intents-operator:latest
+          docker push otterize/intents-operator-pod-watcher:latest
