@@ -19,9 +19,11 @@ package controllers
 import (
 	"context"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,11 +34,11 @@ type IntentsReconciler struct {
 	group *reconcilergroup.Group
 }
 
-func NewIntentsReconciler(client client.Client, scheme *runtime.Scheme, kafkaServerStore *kafkaacls.ServersStore, restrictToNamespaces []string) *IntentsReconciler {
+func NewIntentsReconciler(client client.Client, scheme *runtime.Scheme, kafkaServerStore *kafkaacls.ServersStore, endpointsReconciler *external_traffic.EndpointsReconciler, restrictToNamespaces []string) *IntentsReconciler {
 	return &IntentsReconciler{
 		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 			intents_reconcilers.NewPodLabelReconciler(client, scheme),
-			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, restrictToNamespaces),
+			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces),
 			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore),
 		)}
 }
@@ -84,6 +86,38 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 
 			for _, intent := range intents.GetCallsList() {
 				res = append(res, intent.Name)
+			}
+
+			return res
+		})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *IntentsReconciler) InitEndpointsPodNamesIndex(mgr ctrl.Manager) error {
+	err := mgr.GetCache().IndexField(
+		context.Background(),
+		&corev1.Endpoints{},
+		otterizev1alpha1.EndpointsPodNamesIndexField,
+		func(object client.Object) []string {
+			var res []string
+			endpoints := object.(*corev1.Endpoints)
+			addresses := make([]corev1.EndpointAddress, 0)
+			for _, subset := range endpoints.Subsets {
+				addresses = append(addresses, subset.Addresses...)
+				addresses = append(addresses, subset.NotReadyAddresses...)
+			}
+
+			for _, address := range addresses {
+				if address.TargetRef == nil || address.TargetRef.Kind != "Pod" {
+					continue
+				}
+
+				res = append(res, address.TargetRef.Name)
 			}
 
 			return res

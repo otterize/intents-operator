@@ -16,11 +16,11 @@ const (
 )
 
 type Resolver struct {
-	client.Client
+	client client.Client
 }
 
 func NewResolver(c client.Client) *Resolver {
-	return &Resolver{c}
+	return &Resolver{client: c}
 }
 
 func ResolvePodToServiceIdentityUsingAnnotationOnly(pod *corev1.Pod) (string, bool) {
@@ -47,7 +47,7 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 		ownerObj := &unstructured.Unstructured{}
 		ownerObj.SetAPIVersion(owner.APIVersion)
 		ownerObj.SetKind(owner.Kind)
-		err := r.Get(ctx, types.NamespacedName{Name: owner.Name, Namespace: obj.GetNamespace()}, ownerObj)
+		err := r.client.Get(ctx, types.NamespacedName{Name: owner.Name, Namespace: obj.GetNamespace()}, ownerObj)
 		if err != nil && errors.IsForbidden(err) {
 			// We don't have permissions for further resolving of the owner object,
 			// and so we treat it as the identity.

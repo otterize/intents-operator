@@ -4,37 +4,36 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const (
-	OtterizeNetworkPolicyNameTemplate = "access-to-%s-from-%s"
-	OtterizeNetworkPolicy             = "intents.otterize.com/network-policy"
-	NetworkPolicyFinalizerName        = "intents.otterize.com/network-policy-finalizer"
-)
-
 type NetworkPolicyReconciler struct {
 	client.Client
 	Scheme               *runtime.Scheme
+	endpointsReconciler  *external_traffic.EndpointsReconciler
 	RestrictToNamespaces []string
 	injectablerecorder.InjectableRecorder
 }
 
-func NewNetworkPolicyReconciler(c client.Client, s *runtime.Scheme, restrictToNamespaces []string) *NetworkPolicyReconciler {
+func NewNetworkPolicyReconciler(c client.Client, s *runtime.Scheme, endpointsReconciler *external_traffic.EndpointsReconciler, restrictToNamespaces []string) *NetworkPolicyReconciler {
 	return &NetworkPolicyReconciler{
 		Client:               c,
 		Scheme:               s,
+		endpointsReconciler:  endpointsReconciler,
 		RestrictToNamespaces: restrictToNamespaces,
 	}
 }
@@ -70,9 +69,9 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	if !controllerutil.ContainsFinalizer(intents, NetworkPolicyFinalizerName) {
-		logrus.WithField("namespacedName", req.String()).Infof("Adding finalizer %s", NetworkPolicyFinalizerName)
-		controllerutil.AddFinalizer(intents, NetworkPolicyFinalizerName)
+	if !controllerutil.ContainsFinalizer(intents, otterizev1alpha1.NetworkPolicyFinalizerName) {
+		logrus.WithField("namespacedName", req.String()).Infof("Adding finalizer %s", otterizev1alpha1.NetworkPolicyFinalizerName)
+		controllerutil.AddFinalizer(intents, otterizev1alpha1.NetworkPolicyFinalizerName)
 		if err := r.Update(ctx, intents); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -103,7 +102,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intent otterizev1alpha1.Intent, intentsObjNamespace string) error {
 
-	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Name, intentsObjNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, intent.Name, intentsObjNamespace)
 	existingPolicy := &v1.NetworkPolicy{}
 	newPolicy := r.buildNetworkPolicyObjectForIntent(intent, policyName, intentsObjNamespace)
 	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.Namespace}, existingPolicy)
@@ -116,6 +115,46 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		if err != nil {
 			return err
 		}
+
+		selector, err := metav1.LabelSelectorAsSelector(&newPolicy.Spec.PodSelector)
+		if err != nil {
+			return err
+		}
+		// Are any pods affected right now? If so, we need to request a Reconcile from the EndpointsReconciler, since
+		// it doesn't get notified on network policy changes.
+		podList := &corev1.PodList{}
+		err = r.List(ctx, podList,
+			&client.ListOptions{Namespace: newPolicy.Namespace},
+			client.MatchingLabelsSelector{Selector: selector})
+		if err != nil {
+			return err
+		}
+
+		affectedEndpointsList := sets.NewString()
+
+		// If so, check whether they belong to endpoints (= are used by a service), and send those to the EndpointsReconciler.
+		for _, pod := range podList.Items {
+			var endpointsList corev1.EndpointsList
+			err = r.List(
+				ctx, &endpointsList,
+				&client.MatchingFields{otterizev1alpha1.EndpointsPodNamesIndexField: pod.Name},
+				&client.ListOptions{Namespace: pod.Namespace})
+
+			if err != nil {
+				return err
+			}
+			for _, endpoints := range endpointsList.Items {
+				affectedEndpointsList.Insert(endpoints.Name)
+			}
+		}
+
+		for affectedEndpointsName := range affectedEndpointsList {
+			_, err := r.endpointsReconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: affectedEndpointsName, Namespace: newPolicy.Namespace}})
+			if err != nil {
+				return err
+			}
+		}
+
 		return nil
 
 	} else if err != nil {
@@ -126,6 +165,8 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	// Found network policy, check for diff
 	if !reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
 		policyCopy := existingPolicy.DeepCopy()
+		policyCopy.Labels = newPolicy.Labels
+		policyCopy.Annotations = newPolicy.Annotations
 		policyCopy.Spec = newPolicy.Spec
 
 		err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
@@ -144,7 +185,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 
 func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 	ctx context.Context, intents *otterizev1alpha1.ClientIntents) error {
-	if !controllerutil.ContainsFinalizer(intents, NetworkPolicyFinalizerName) {
+	if !controllerutil.ContainsFinalizer(intents, otterizev1alpha1.NetworkPolicyFinalizerName) {
 		return nil
 	}
 	logrus.Infof("Removing network policies for deleted intents for service: %s", intents.Spec.Service.Name)
@@ -159,7 +200,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 		}
 	}
 
-	controllerutil.RemoveFinalizer(intents, NetworkPolicyFinalizerName)
+	controllerutil.RemoveFinalizer(intents, otterizev1alpha1.NetworkPolicyFinalizerName)
 	if err := r.Update(ctx, intents); err != nil {
 		return err
 	}
@@ -200,19 +241,35 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 	intent otterizev1alpha1.Intent,
 	intentsObjNamespace string) error {
 
-	policyName := fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, intent.Name, intentsObjNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, intent.Name, intentsObjNamespace)
 	policy := &v1.NetworkPolicy{}
 	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.Namespace}, policy)
 
-	if k8serrors.IsNotFound(err) {
-		return nil
-	} else {
-		err := r.Delete(ctx, policy)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	// Remove network policies created by the external traffic reconcilers.
+	// Once no more Otterize network policies are present, there's no longer need for them.
+	externalPolicyList := &v1.NetworkPolicyList{}
+	serviceNameLabel := policy.Labels[otterizev1alpha1.OtterizeNetworkPolicy]
+	err = r.List(ctx, externalPolicyList, client.MatchingLabels{otterizev1alpha1.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
+		&client.ListOptions{Namespace: policy.Namespace})
+	if err != nil {
+		return err
+	}
+
+	for _, externalPolicy := range externalPolicyList.Items {
+		err := r.Delete(ctx, externalPolicy.DeepCopy())
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+
+	return r.Delete(ctx, policy)
 }
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
@@ -226,7 +283,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 			Name:      policyName,
 			Namespace: intent.Namespace,
 			Labels: map[string]string{
-				OtterizeNetworkPolicy: "true",
+				otterizev1alpha1.OtterizeNetworkPolicy: formattedTargetServer,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{

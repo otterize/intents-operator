@@ -2,6 +2,7 @@ package external_traffic
 
 import (
 	"context"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -9,72 +10,82 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strings"
 )
 
-type NetworkPolicyReconciler struct {
+type NetworkPolicyCreator struct {
 	client client.Client
+	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
 	enabled bool
 }
 
-func NewNetworkPolicyReconciler(client client.Client, enabled bool) *NetworkPolicyReconciler {
-	return &NetworkPolicyReconciler{client: client, enabled: enabled}
+func NewNetworkPolicyCreator(client client.Client, scheme *runtime.Scheme, enabled bool) *NetworkPolicyCreator {
+	return &NetworkPolicyCreator{client: client, scheme: scheme, enabled: enabled}
 }
 
-func (r *NetworkPolicyReconciler) handleNetworkPolicyCreationOrUpdate(
-	ctx context.Context, service *corev1.Service, policyOwner client.Object, policyName string) error {
+func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
+	ctx context.Context, endpoints *corev1.Endpoints, owner client.Object, otterizeServiceName string, eventsObject client.Object, netpol *v1.NetworkPolicy, ingressList *v1.IngressList, policyName string) error {
 
 	existingPolicy := &v1.NetworkPolicy{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: service.GetNamespace()}, existingPolicy)
-	newPolicy := buildNetworkPolicyObjectForService(service, policyName)
-	apiVersion, kind := policyOwner.GetObjectKind().GroupVersionKind().ToAPIVersionAndKind()
-	newPolicy.SetOwnerReferences([]metav1.OwnerReference{{
-		APIVersion: apiVersion,
-		Kind:       kind,
-		Name:       policyOwner.GetName(),
-		UID:        policyOwner.GetUID(),
-	}})
+	err := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
+	newPolicy := buildNetworkPolicyObjectForService(endpoints, otterizeServiceName, netpol.Spec.PodSelector, ingressList, policyName)
+	err = controllerutil.SetOwnerReference(owner, newPolicy, r.scheme)
+	if err != nil {
+		return err
+	}
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(err) {
 		if r.enabled {
 			logrus.Infof(
-				"Creating network policy to enable access from external traffic to load balancer service %s (ns %s)", service.GetName(), service.GetNamespace())
+				"Creating network policy to enable access from external traffic to load balancer service %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
 			err := r.client.Create(ctx, newPolicy)
 			if err != nil {
-				r.RecordWarningEvent(policyOwner, "failed to create external traffic network policy", err.Error())
+				r.RecordWarningEvent(eventsObject, "failed to create external traffic network policy", err.Error())
 				return err
 			}
+			r.RecordNormalEventf(eventsObject, "created external traffic network policy", "service '%s' refers to pods protected by network policy '%s'", endpoints.GetName(), netpol.GetName())
 		}
 		return nil
 	} else if err != nil {
-		r.RecordWarningEvent(policyOwner, "failed to get external traffic network policy", err.Error())
+		r.RecordWarningEvent(eventsObject, "failed to get external traffic network policy", err.Error())
 		return err
 	}
 
 	if !r.enabled {
-		r.RecordNormalEvent(policyOwner, "removing external traffic network policy", "reconciler was disabled")
+		r.RecordNormalEvent(eventsObject, "removing external traffic network policy", "reconciler was disabled")
 		err := r.client.Delete(ctx, existingPolicy)
 		if err != nil {
-			r.RecordWarningEvent(policyOwner, "failed removing external traffic network policy", err.Error())
+			r.RecordWarningEvent(eventsObject, "failed removing external traffic network policy", err.Error())
 			return err
 		}
-		r.RecordNormalEvent(policyOwner, "removed external traffic network policy", "success")
+		r.RecordNormalEvent(eventsObject, "removed external traffic network policy", "success")
 		return nil
 	}
 
 	// Found matching policy, is an update needed?
-	if reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
+	if reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) &&
+		reflect.DeepEqual(existingPolicy.Labels, newPolicy.Labels) &&
+		reflect.DeepEqual(existingPolicy.Annotations, newPolicy.Annotations) &&
+		reflect.DeepEqual(existingPolicy.OwnerReferences, newPolicy.OwnerReferences) {
 		return nil
 	}
 
 	policyCopy := existingPolicy.DeepCopy()
+	policyCopy.Labels = newPolicy.Labels
+	policyCopy.Annotations = newPolicy.Annotations
 	policyCopy.Spec = newPolicy.Spec
-	policyCopy.SetOwnerReferences(newPolicy.GetOwnerReferences())
+	err = controllerutil.SetOwnerReference(owner, policyCopy, r.scheme)
+	if err != nil {
+		return err
+	}
 
 	err = r.client.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 	if err != nil {
@@ -85,41 +96,48 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreationOrUpdate(
 }
 
 func buildNetworkPolicyObjectForService(
-	service *corev1.Service, policyName string) *v1.NetworkPolicy {
-	serviceSpecCopy := service.Spec.DeepCopy()
+	service *corev1.Endpoints, otterizeServiceName string, selector metav1.LabelSelector, ingressList *v1.IngressList, policyName string) *v1.NetworkPolicy {
+	serviceSpecCopy := service.Subsets
+
+	annotations := map[string]string{
+		v1alpha1.OtterizeCreatedForServiceAnnotation: service.GetName(),
+	}
+
+	if len(ingressList.Items) != 0 {
+		annotations[v1alpha1.OtterizeCreatedForIngressAnnotation] = strings.Join(lo.Map(ingressList.Items, func(ingress v1.Ingress, _ int) string {
+			return ingress.Name
+		}), ",")
+	}
 
 	netpol := &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
 			Namespace: service.Namespace,
 			Labels: map[string]string{
-				OtterizeNetworkPolicy: "true",
+				v1alpha1.OtterizeNetworkPolicyExternalTraffic: otterizeServiceName,
 			},
+			Annotations: annotations,
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: serviceSpecCopy.Selector,
-			},
+			PodSelector: selector,
 			Ingress: []v1.NetworkPolicyIngressRule{
 				{},
 			},
 		},
 	}
 
-	for _, port := range serviceSpecCopy.Ports {
-		netpolPort := v1.NetworkPolicyPort{
-			Port: lo.ToPtr(port.TargetPort),
-		}
+	for _, subsets := range serviceSpecCopy {
+		for _, port := range subsets.Ports {
+			netpolPort := v1.NetworkPolicyPort{
+				Port: lo.ToPtr(intstr.FromInt(int(port.Port))),
+			}
 
-		if port.TargetPort.IntVal == 0 && len(port.TargetPort.StrVal) == 0 {
-			netpolPort.Port = lo.ToPtr(intstr.FromInt(int(port.Port)))
+			if len(port.Protocol) != 0 {
+				netpolPort.Protocol = lo.ToPtr(port.Protocol)
+			}
+			netpol.Spec.Ingress[0].Ports = append(netpol.Spec.Ingress[0].Ports, netpolPort)
 		}
-
-		if len(port.Protocol) != 0 {
-			netpolPort.Protocol = lo.ToPtr(port.Protocol)
-		}
-		netpol.Spec.Ingress[0].Ports = append(netpol.Spec.Ingress[0].Ports, netpolPort)
 	}
 
 	return netpol
