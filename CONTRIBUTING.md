@@ -1,37 +1,50 @@
-# Contributing to the Otterize Codebase
+# Contributing to Auth0 projects
 
-Thanks for considering contributing to Otterize! This document outlines the procedure for contributing new features
-and bugfixes to Otterize. Following these steps will help ensure that your contribution gets merged quickly and
-efficiently.
+A big welcome and thank you for considering contributing to Auth0 open source projects! It’s people like you that make it a reality for users in our community.
 
-## Overview
+Reading and following these guidelines will help us make the contribution process easy and effective for everyone involved. It also communicates that you agree to respect the time of the developers managing and developing these open source projects. In return, we will reciprocate that respect by addressing your issue, assessing changes, and helping you finalize your pull requests.
 
-### Is this a new feature?
+## Quicklinks
 
-If you'd like to add a new feature, please first open an issue describing the desired functionality. A maintainer will work with you to come up with the correct design for the new feature. Once you've agreed on a design, you can then start contributing code to the relevant Otterize repositories using the development process described below.
+* [Getting Started](#getting-started)
+    * [Issues](#issues)
+    * [Pull Requests](#pull-requests)
+* [Getting Help](#getting-help)
 
-Remember, agreeing on a design in advance will greatly increase the chance that your PR will be accepted, and minimize the amount of time required for both you and your reviewer!
+## Getting Started
 
-### Is this a simple bug fix?
+Contributions are made to this repo via Issues and Pull Requests (PRs). A few general guidelines that cover both:
 
-Simple bug fixes can just be raised as a pull request. Make sure you describe the bug in the pull request description,
-and please try to reproduce the bug in a test. This will help ensure the bug stays fixed!
+- Search for existing Issues and PRs before creating your own.
+- We work hard to makes sure issues are handled in a timely manner but, depending on the impact, it could take a while to investigate the root cause. A friendly ping in the comment thread to the submitter or a contributor can help draw attention if your issue is blocking.
 
-### PR process
+### Issues
 
-Once you've agreed on a design for your bugfix or new feature, development should be done using the following steps:
+Issues should be used to report problems with the library, request a new feature, or to discuss potential changes before a PR is created. When you create a new Issue, a template will be loaded that will guide you through collecting and providing the information we need to investigate.
 
-1. [Create a personal fork][fork] of the repository.
-2. Pull the latest code from the **main** branch and create a feature branch off of this in your fork.
-3. Implement your feature. Commits are cheap in Git; try to split up your code into many. It makes reviewing easier as well as for saner merging.
-4. Make sure that existing tests are passing, and that you've written new tests for any new functionality. Each directory has its own suite of tests. 
-5. Push your feature branch to your fork on GitHub.
-6. [Create a pull request][pulls] using GitHub, from your fork and branch to the `main` branch.
-    1. Opening a pull request will automatically run your changes through our CI. Make sure all tests pass so that a maintainer can merge your contribution.
-7. Await review from a maintainer.
-8. When you receive feedback:
-    1. Address code review issues on your feature branch.
-    2. Push the changes to your fork's feature branch on GitHub. This automatically updates the pull request.
-    3. If necessary, make a top-level comment along the lines of “Please re-review”, notifying your reviewer, and repeat the above.
-    4. Once your PR has been approved and the commits have been squashed, your reviewer will merge the PR.
+If you find an Issue that addresses the problem you're having, please add your own reproduction information to the existing issue rather than creating a new one. Adding a [reaction](https://github.blog/2016-03-10-add-reactions-to-pull-requests-issues-and-comments/) can also help be indicating to our maintainers that a particular problem is affecting more than just the reporter.
 
+### Pull Requests
+
+PRs to our libraries are always welcome and can be a quick way to get your fix or improvement slated for the next release. In general, PRs should:
+
+- Only fix/add the functionality in question **OR** address wide-spread whitespace/style issues, not both.
+- Add unit or integration tests for fixed or changed functionality (if a test suite already exists).
+- Address a single concern in the least number of changed lines as possible.
+- Include documentation in the repo or on our [docs site](https://docs.otterize.com).
+- Be accompanied by a complete Pull Request template (loaded automatically when a PR is created).
+
+For changes that address core functionality or would require breaking changes (e.g. a major release), it's best to open an Issue to discuss your proposal first. This is not required but can save time creating and reviewing changes.
+
+In general, we follow the ["fork-and-pull" Git workflow](https://github.com/susam/gitpr)
+
+1. Fork the repository to your own Github account
+2. Clone the project to your machine
+3. Create a branch locally with a succinct but descriptive name
+4. Commit changes to the branch
+5. Following any formatting and testing guidelines specific to this repo
+6. Push changes to your fork
+7. Open a PR in our repository and follow the PR template so that we can efficiently review the changes.
+
+### Acknowledgements
+This contribution guidelines document is heavily based on Auth0's great contribution guidelines document.
