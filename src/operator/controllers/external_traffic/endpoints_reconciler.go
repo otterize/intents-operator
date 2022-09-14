@@ -31,7 +31,7 @@ func (r *EndpointsReconciler) formatPolicyName(serviceName string) string {
 	return fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, serviceName)
 }
 
-func NewEndpointReconciler(client client.Client, scheme *runtime.Scheme, enabled bool) *EndpointsReconciler {
+func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enabled bool) *EndpointsReconciler {
 	return &EndpointsReconciler{
 		Client:        client,
 		Scheme:        scheme,
