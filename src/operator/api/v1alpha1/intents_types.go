@@ -195,3 +195,12 @@ func (in *ClientIntents) BuildPodLabelSelector() (labels.Selector, error) {
 
 	return labelSelector, nil
 }
+
+func (in *ClientIntents) HasKafkaTypeInCallList() bool {
+	for _, intent := range in.GetCallsList() {
+		if intent.Type == IntentTypeKafka {
+			return true
+		}
+	}
+	return false
+}
