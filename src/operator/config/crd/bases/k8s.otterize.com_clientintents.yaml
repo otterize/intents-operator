@@ -42,12 +42,45 @@ spec:
                       type: string
                     namespace:
                       type: string
+                    resources:
+                      items:
+                        properties:
+                          method:
+                            enum:
+                            - GET
+                            - POST
+                            - PUT
+                            - DELETE
+                            - OPTIONS
+                            - TRACE
+                            - PATCH
+                            - CONNECT
+                            type: string
+                          path:
+                            type: string
+                        required:
+                        - method
+                        - path
+                        type: object
+                      type: array
                     topics:
                       items:
                         properties:
                           name:
                             type: string
                           operation:
+                            enum:
+                            - all
+                            - consume
+                            - produce
+                            - create
+                            - alter
+                            - delete
+                            - describe
+                            - ClusterAction
+                            - DescribeConfigs
+                            - AlterConfigs
+                            - IdempotentWrite
                             type: string
                         required:
                         - name
@@ -61,7 +94,6 @@ spec:
                       type: string
                   required:
                   - name
-                  - type
                   type: object
                 type: array
               service:
