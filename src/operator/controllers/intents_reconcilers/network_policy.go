@@ -23,18 +23,25 @@ import (
 
 type NetworkPolicyReconciler struct {
 	client.Client
-	Scheme               *runtime.Scheme
-	endpointsReconciler  *external_traffic.EndpointsReconciler
-	RestrictToNamespaces []string
+	Scheme                      *runtime.Scheme
+	endpointsReconciler         *external_traffic.EndpointsReconciler
+	RestrictToNamespaces        []string
+	enableNetworkPolicyCreation bool
 	injectablerecorder.InjectableRecorder
 }
 
-func NewNetworkPolicyReconciler(c client.Client, s *runtime.Scheme, endpointsReconciler *external_traffic.EndpointsReconciler, restrictToNamespaces []string) *NetworkPolicyReconciler {
+func NewNetworkPolicyReconciler(
+	c client.Client,
+	s *runtime.Scheme,
+	endpointsReconciler *external_traffic.EndpointsReconciler,
+	restrictToNamespaces []string,
+	enableNetworkPolicyCreation bool) *NetworkPolicyReconciler {
 	return &NetworkPolicyReconciler{
-		Client:               c,
-		Scheme:               s,
-		endpointsReconciler:  endpointsReconciler,
-		RestrictToNamespaces: restrictToNamespaces,
+		Client:                      c,
+		Scheme:                      s,
+		endpointsReconciler:         endpointsReconciler,
+		RestrictToNamespaces:        restrictToNamespaces,
+		enableNetworkPolicyCreation: enableNetworkPolicyCreation,
 	}
 }
 
@@ -86,7 +93,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			r.RecordWarningEventf(intents, "namespace not allowed", "namespace %s was specified in intent, but is not allowed by configuration", intent.Namespace)
 			continue
 		}
-		err := r.handleNetworkPolicyCreation(ctx, intent, req.Namespace)
+		err := r.handleNetworkPolicyCreation(ctx, intents, intent, req.Namespace)
 		if err != nil {
 			r.RecordWarningEvent(intents, "could not create network policies", err.Error())
 			return ctrl.Result{}, err
@@ -100,7 +107,11 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 }
 
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
-	ctx context.Context, intent otterizev1alpha1.Intent, intentsObjNamespace string) error {
+	ctx context.Context, intentsObj *otterizev1alpha1.ClientIntents, intent otterizev1alpha1.Intent, intentsObjNamespace string) error {
+	if !r.enableNetworkPolicyCreation {
+		r.RecordNormalEvent(intentsObj, "NetworkPolicyCreationDisabled", "Network policy creation is disabled, creation skipped")
+		return nil
+	}
 
 	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, intent.Name, intentsObjNamespace)
 	existingPolicy := &v1.NetworkPolicy{}

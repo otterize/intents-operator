@@ -18,13 +18,13 @@ package main
 
 import (
 	"context"
-	"flag"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 
@@ -65,25 +65,29 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
-	var configFile string
 	var selfSignedCert bool
 	var autoCreateNetworkPoliciesForExternalTraffic bool
+	var watchedNamespaces []string
+	var enableNetworkPolicyCreation bool
+	var enableKafkaACLCreation bool
 
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	pflag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.StringVar(&configFile, "config", "",
-		"The controller will load its initial configuration from this file. "+
-			"Omit this flag to use the default configuration values. "+
-			"Command-line flags override configuration from this file.")
-	flag.BoolVar(&selfSignedCert, "self-signed-cert", true,
+	pflag.BoolVar(&selfSignedCert, "self-signed-cert", true,
 		"Whether to generate and use a self signed cert as the CA for webhooks")
-	flag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", true,
+	pflag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", true,
 		"Whether to automatically create network policies for external traffic")
+	pflag.StringSliceVar(&watchedNamespaces, "watched-namespaces", nil,
+		"Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
+	pflag.BoolVar(&enableNetworkPolicyCreation, "enable-network-policy-creation", true,
+		"Whether to disable Intents network policy creation")
+	pflag.BoolVar(&enableKafkaACLCreation, "enable-kafka-acl-creation", true,
+		"Whether to disable Intents Kafka ACL creation")
 
-	flag.Parse()
+	pflag.Parse()
 
 	podName := MustGetEnvVar("POD_NAME")
 	podNamespace := MustGetEnvVar("POD_NAMESPACE")
@@ -92,7 +96,6 @@ func main() {
 
 	var err error
 	var certBundle webhooks.CertificateBundle
-	ctrlConfig := otterizev1alpha1.ProjectConfig{}
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -113,16 +116,10 @@ func main() {
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
 	}
-	if configFile != "" {
-		options, err = options.AndFrom(ctrl.ConfigFile().AtPath(configFile).OfKind(&ctrlConfig))
-		if err != nil {
-			logrus.WithError(err).Fatal("unable to load the config file")
-		}
 
-		if len(ctrlConfig.WatchNamespaces) != 0 {
-			options.NewCache = cache.MultiNamespacedCacheBuilder(ctrlConfig.WatchNamespaces)
-			logrus.Infof("Will only watch the following namespaces: %v", ctrlConfig.WatchNamespaces)
-		}
+	if len(watchedNamespaces) != 0 {
+		options.NewCache = cache.MultiNamespacedCacheBuilder(watchedNamespaces)
+		logrus.Infof("Will only watch the following namespaces: %v", watchedNamespaces)
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
@@ -130,7 +127,7 @@ func main() {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
 
-	kafkaServersStore := kafkaacls.NewServersStore()
+	kafkaServersStore := kafkaacls.NewServersStore(enableKafkaACLCreation)
 
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic)
 
@@ -151,7 +148,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler, ctrlConfig.WatchNamespaces)
+	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler, watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")

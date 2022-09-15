@@ -34,12 +34,19 @@ type IntentsReconciler struct {
 	group *reconcilergroup.Group
 }
 
-func NewIntentsReconciler(client client.Client, scheme *runtime.Scheme, kafkaServerStore *kafkaacls.ServersStore, endpointsReconciler *external_traffic.EndpointsReconciler, restrictToNamespaces []string) *IntentsReconciler {
+func NewIntentsReconciler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	kafkaServerStore *kafkaacls.ServersStore,
+	endpointsReconciler *external_traffic.EndpointsReconciler,
+	restrictToNamespaces []string,
+	enableNetworkPolicyCreation bool,
+	enableKafkaACLCreation bool) *IntentsReconciler {
 	return &IntentsReconciler{
 		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 			intents_reconcilers.NewPodLabelReconciler(client, scheme),
-			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces),
-			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore),
+			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enableNetworkPolicyCreation),
+			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enableKafkaACLCreation),
 		)}
 }
 
