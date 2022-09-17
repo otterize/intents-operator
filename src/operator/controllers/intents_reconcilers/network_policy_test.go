@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -28,7 +29,7 @@ type NetworkPolicyReconcilerTestSuite struct {
 func (s *NetworkPolicyReconcilerTestSuite) SetupSuite() {
 	s.TestEnv = &envtest.Environment{}
 	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{"../../config/crd/bases"}
+	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd", "bases")}
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
@@ -49,7 +50,7 @@ func (s *NetworkPolicyReconcilerTestSuite) BeforeTest(_, testName string) {
 
 func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
-	s.Reconciler = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{})
+	s.Reconciler = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true)
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	s.Reconciler.InjectRecorder(recorder)
 }
@@ -400,3 +401,5 @@ func (s *NetworkPolicyReconcilerTestSuite) initServerIndices(mgr manager.Manager
 func TestNetworkPolicyReconcilerTestSuite(t *testing.T) {
 	suite.Run(t, new(NetworkPolicyReconcilerTestSuite))
 }
+
+// TODO: Add test for flag being false and netpol not created
