@@ -1,4 +1,4 @@
-# Otterize Intents Operator
+# Otterize intents operator
 
 <img title="Otter Manning Helm" src="./otterhelm.png" width=200 />
 
