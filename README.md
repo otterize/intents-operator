@@ -1,6 +1,6 @@
 # Otterize SPIRE integration operator
 
-![Otter Manning Helm](./otterhelm.png)
+<img title="Otter Manning Helm" src="./otterhelm.png" width=200 />
 
 
 ![build](https://github.com/otterize/spire-integration-operator/actions/workflows/build.yaml/badge.svg)
