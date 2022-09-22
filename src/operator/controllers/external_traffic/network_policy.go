@@ -34,15 +34,15 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 	ctx context.Context, endpoints *corev1.Endpoints, owner client.Object, otterizeServiceName string, eventsObject client.Object, netpol *v1.NetworkPolicy, ingressList *v1.IngressList, policyName string) error {
 
 	existingPolicy := &v1.NetworkPolicy{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
+	errGetExistingPolicy := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
 	newPolicy := buildNetworkPolicyObjectForService(endpoints, otterizeServiceName, netpol.Spec.PodSelector, ingressList, policyName)
-	err = controllerutil.SetOwnerReference(owner, newPolicy, r.scheme)
+	err := controllerutil.SetOwnerReference(owner, newPolicy, r.scheme)
 	if err != nil {
 		return err
 	}
 
 	// No matching network policy found, create one
-	if k8serrors.IsNotFound(err) {
+	if k8serrors.IsNotFound(errGetExistingPolicy) {
 		if r.enabled {
 			logrus.Infof(
 				"Creating network policy to enable access from external traffic to load balancer service %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
@@ -54,9 +54,9 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 			r.RecordNormalEventf(eventsObject, "created external traffic network policy", "service '%s' refers to pods protected by network policy '%s'", endpoints.GetName(), netpol.GetName())
 		}
 		return nil
-	} else if err != nil {
+	} else if errGetExistingPolicy != nil {
 		r.RecordWarningEvent(eventsObject, "failed to get external traffic network policy", err.Error())
-		return err
+		return errGetExistingPolicy
 	}
 
 	if !r.enabled {
