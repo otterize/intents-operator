@@ -7,7 +7,7 @@
 ![go report](https://img.shields.io/static/v1?label=go%20report&message=A%2B&color=success)
 [![community](https://img.shields.io/badge/slack-Otterize_Slack-orange.svg?logo=slack)](https://join.slack.com/t/otterizeworkspace/shared_invite/zt-1fnbnl1lf-ub6wler4QrW6ZzIn2U9x1A)
 
-[About](#about) | [Quick tutorial](https://docs.otterize.com/documentation/quick-tutorials/network-mapper) | [How does the intents operator work?](#how-does-the-intents-operator-work) | [Contributing](#contributing) | [Slack](#slack)
+[About](#about) | [Quick tutorial](https://docs.otterize.com/quick-tutorials/k8s-network-policies) | [How does the intents operator work?](#how-does-the-intents-operator-work) | [Contributing](#contributing) | [Slack](#slack)
 
 ## About
 The Otterize intents operator is an open source Kubernetes operator for easily managing service-to-service authorization by declaring the calls each service needs to make, using [client intents files](https://otterize.com/ibac). The intents operator uses these files to configure network policies, Kafka ACLs, and other enforcement points (in the future) to allow just the intended calls. 
