@@ -10,6 +10,7 @@ require (
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
 	github.com/samber/lo v1.25.0
 	github.com/sirupsen/logrus v1.8.1
+	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.7.1
 	github.com/vishalkuo/bimap v0.0.0-20220726225509-e0b4f20de28b
 	k8s.io/api v0.24.0
@@ -77,7 +78,6 @@ require (
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.19.1 // indirect
