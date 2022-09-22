@@ -36,7 +36,10 @@ import (
 )
 
 const (
-	finalizerName = "intents.otterize.com/kafkaserverconfig-finalizer"
+	finalizerName                              = "intents.otterize.com/kafkaserverconfig-finalizer"
+	ReasonIntentsOperatorIdentityResolveFailed = "IntentsOperatorIdentityResolveFailed"
+	ReasonApplyingKafkaServerConfigFailed      = "ApplyingKafkaServerConfigFailed"
+	ReasonAppliedKafkaServerConfigFailed       = "AppliedKafkaServerConfigFailed"
 )
 
 // KafkaServerConfigReconciler reconciles a KafkaServerConfig object
@@ -167,7 +170,7 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 
 	annotatedServiceName, ok := serviceidresolver.ResolvePodToServiceIdentityUsingAnnotationOnly(operatorPod)
 	if !ok {
-		r.RecordWarningEventf(config, "IntentsOperatorIdentityResolveFailed", "failed resolving intents operator identity - service name annotation required")
+		r.RecordWarningEventf(config, ReasonIntentsOperatorIdentityResolveFailed, "failed resolving intents operator identity - service name annotation required")
 		return fmt.Errorf("failed resolving intents operator identity - service name annotation required")
 	}
 
@@ -251,11 +254,11 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	defer kafkaIntentsAdmin.Close()
 
 	if err := kafkaIntentsAdmin.ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics); err != nil {
-		r.RecordWarningEvent(kafkaServerConfig, "failed to apply server config to Kafka broker", err.Error())
+		r.RecordWarningEventf(kafkaServerConfig, ReasonApplyingKafkaServerConfigFailed, "failed to apply server config to Kafka broker: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
-	r.RecordNormalEvent(kafkaServerConfig, "successfully applied server config", "")
+	r.RecordNormalEvent(kafkaServerConfig, ReasonAppliedKafkaServerConfigFailed, "successfully applied server config")
 	return ctrl.Result{}, nil
 }
 
