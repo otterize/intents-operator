@@ -46,7 +46,7 @@ func (s *PodControllerSuite) SetupTest() {
 	serviceIdResolver := serviceidresolver.NewResolver(s.client)
 	eventRecorder := mock_record.NewMockEventRecorder(s.controller)
 	eventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
-	eventRecorder.EXPECT().Eventf(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	eventRecorder.EXPECT().Eventf(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))

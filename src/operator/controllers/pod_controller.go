@@ -23,8 +23,17 @@ import (
 )
 
 const (
-	refreshSecretsLoopTick       = time.Minute
-	cleanupOrphanEntriesLoopTick = 10 * time.Minute
+	refreshSecretsLoopTick                = time.Minute
+	cleanupOrphanEntriesLoopTick          = 10 * time.Minute
+	ReasonEnsuredPodTLS                   = "EnsuredPodTLS"
+	ReasonEnsuringPodTLSFailed            = "EnsuringPodTLSFailed"
+	ReasonPodOwnerResolutionFailed        = "PodOwnerResolutionFailed"
+	ReasonPodLabelUpdateFailed            = "PodLabelUpdateFailed"
+	ReasonCertDNSResolutionFailed         = "CertDNSResolutionFailed"
+	ReasonCertTTLError                    = "CertTTLError"
+	ReasonSPIREEntryRegistrationFailed    = "SPIREEntryRegistrationFailed"
+	ReasonPodRegistered                   = "PodRegistered"
+	ReasonSPIREEntryHashCalculationFailed = "SPIREEntryHashCalculationFailed"
 )
 
 // PodReconciler reconciles a Pod object
@@ -104,7 +113,7 @@ func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod,
 		return err
 	}
 
-	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, "Successfully ensured secret under name '%s'", secretName)
+	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, ReasonEnsuredPodTLS, "Successfully ensured secret under name '%s'", secretName)
 
 	return nil
 }
@@ -151,14 +160,14 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// resolve pod to otterize service name
 	serviceID, err := r.serviceIdResolver.ResolvePodToServiceIdentity(ctx, pod)
 	if err != nil {
-		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, "Pod owner resolving failed", "could not resolve pod to its owner: %s", err.Error())
+		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonPodOwnerResolutionFailed, "Could not resolve pod to its owner: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
 	// Ensure the RegisteredServiceNameLabel is set
 	result, err := r.updatePodLabel(ctx, pod, metadata.RegisteredServiceNameLabel, serviceID)
 	if err != nil {
-		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Pod label update failed", err.Error())
+		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonPodLabelUpdateFailed, "Pod label update failed: %s", err.Error())
 		return result, err
 	}
 	if result.Requeue {
@@ -168,13 +177,13 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	dnsNames, err := r.resolvePodToCertDNSNames(pod)
 	if err != nil {
 		err = fmt.Errorf("error resolving pod cert DNS names, will continue with an empty DNS names list: %w", err)
-		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Resolving cert DNS names failed", err.Error())
+		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonCertDNSResolutionFailed, "Resolving cert DNS names failed: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
 	ttl, err := r.resolvePodToCertTTl(pod)
 	if err != nil {
-		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Getting cert TTL failed", err.Error())
+		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonCertTTLError, "Getting cert TTL failed: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -182,20 +191,20 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	entryID, err := r.entriesRegistry.RegisterK8SPodEntry(ctx, pod.Namespace, metadata.RegisteredServiceNameLabel, serviceID, ttl, dnsNames)
 	if err != nil {
 		log.WithError(err).Error("failed registering SPIRE entry for pod")
-		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Failed registering SPIRE entry", err.Error())
+		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonSPIREEntryRegistrationFailed, "Failed registering SPIRE entry: %s", err.Error())
 		return ctrl.Result{}, err
 	}
-	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, "Successfully registered pod under SPIRE with entry ID '%s'", entryID)
+	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, ReasonPodRegistered, "Successfully registered pod under SPIRE with entry ID '%s'", entryID)
 
 	hashStr, err := getEntryHash(pod.Namespace, serviceID, ttl, dnsNames)
 	if err != nil {
-		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Failed calculating SPIRE entry hash", err.Error())
+		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonSPIREEntryHashCalculationFailed, "Failed calculating SPIRE entry hash: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
 	// generate TLS secret for pod
 	if err := r.ensurePodTLSSecret(ctx, pod, serviceID, entryID, hashStr); err != nil {
-		r.eventRecorder.Event(pod, corev1.EventTypeWarning, "Failed creating TLS secret for pod", err.Error())
+		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonEnsuringPodTLSFailed, "Failed creating TLS secret for pod: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
