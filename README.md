@@ -5,7 +5,7 @@
 
 ![build](https://github.com/otterize/intents-operator/actions/workflows/build.yaml/badge.svg)
 ![go report](https://img.shields.io/static/v1?label=go%20report&message=A%2B&color=success)
-[![community](https://img.shields.io/badge/slack-Otterize_Slack-orange.svg?logo=slack)](https://join.slack.com/t/otterizeworkspace/shared_invite/zt-1fnbnl1lf-ub6wler4QrW6ZzIn2U9x1A)
+[![community](https://img.shields.io/badge/slack-Otterize_Slack-orange.svg?logo=slack)](https://joinslack.otterize.com)
 
 [About](#about) | [Quick tutorial](https://docs.otterize.com/quick-tutorials/k8s-network-policies) | [How does the intents operator work?](#how-does-the-intents-operator-work) | [Contributing](#contributing) | [Slack](#slack)
 
@@ -75,4 +75,4 @@ the service name is combined with the namespace of the pod and hashed to form th
 2. In your pull request, please refer to an existing issue or open a new one.
 
 ## Slack
-[Join the Otterize Slack!](https://join.slack.com/t/otterizeworkspace/shared_invite/zt-1fnbnl1lf-ub6wler4QrW6ZzIn2U9x1A)
+[Join the Otterize Slack!](https://joinslack.otterize.com)
