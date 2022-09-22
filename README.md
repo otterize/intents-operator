@@ -1,4 +1,4 @@
-# Otterize intents operator
+# Otterize Intents Operator
 
 ![Otter Manning Helm](./otterhelm.png)
 
