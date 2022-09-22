@@ -100,7 +100,7 @@ type Service struct {
 type Intent struct {
 	Name string `json:"name" yaml:"name"`
 	//+optional
-	Type IntentType `json:"type" yaml:"type"`
+	Type IntentType `json:"type,omitempty" yaml:"type,omitempty"`
 
 	//+optional
 	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
