@@ -21,6 +21,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+const (
+	ReasonNetworkPolicyCreationDisabled = "NetworkPolicyCreationDisabled"
+	ReasonGettingNetworkPolicyFailed    = "GettingNetworkPolicyFailed"
+	ReasonRemovingNetworkPolicyFailed   = "RemovingNetworkPolicyFailed"
+	ReasonNamespaceNotAllowed           = "NamespaceNotAllowed"
+	ReasonCreatingNetworkPoliciesFailed = "CreatingNetworkPoliciesFailed"
+	ReasonCreatedNetworkPolicies        = "CreatedNetworkPolicies"
+)
+
 type NetworkPolicyReconciler struct {
 	client.Client
 	Scheme                      *runtime.Scheme
@@ -70,7 +79,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
-			r.RecordWarningEvent(intents, "could not remove network policies", err.Error())
+			r.RecordWarningEventf(intents, ReasonRemovingNetworkPolicyFailed, "could not remove network policies: %s", err.Error())
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -90,18 +99,18 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, intent.Namespace) {
 			// Namespace is not in list of namespaces we're allowed to act in, so drop it.
-			r.RecordWarningEventf(intents, "namespace not allowed", "namespace %s was specified in intent, but is not allowed by configuration", intent.Namespace)
+			r.RecordWarningEventf(intents, ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration", intent.Namespace)
 			continue
 		}
 		err := r.handleNetworkPolicyCreation(ctx, intents, intent, req.Namespace)
 		if err != nil {
-			r.RecordWarningEvent(intents, "could not create network policies", err.Error())
+			r.RecordWarningEventf(intents, ReasonCreatingNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
 			return ctrl.Result{}, err
 		}
 	}
 
 	if len(intents.GetCallsList()) > 0 {
-		r.RecordNormalEventf(intents, "NetworkPolicy reconcile complete", "Reconciled %d servers", len(intents.GetCallsList()))
+		r.RecordNormalEventf(intents, ReasonCreatedNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", len(intents.GetCallsList()))
 	}
 	return ctrl.Result{}, nil
 }
@@ -109,7 +118,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intentsObj *otterizev1alpha1.ClientIntents, intent otterizev1alpha1.Intent, intentsObjNamespace string) error {
 	if !r.enableNetworkPolicyCreation {
-		r.RecordNormalEvent(intentsObj, "NetworkPolicyCreationDisabled", "Network policy creation is disabled, creation skipped")
+		r.RecordNormalEvent(intentsObj, ReasonNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
 		return nil
 	}
 
@@ -169,7 +178,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		return nil
 
 	} else if err != nil {
-		r.RecordWarningEvent(existingPolicy, "failed to get network policy", err.Error())
+		r.RecordWarningEventf(existingPolicy, ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
 		return err
 	}
 
