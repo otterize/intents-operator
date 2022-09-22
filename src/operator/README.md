@@ -1,9 +1,3 @@
-# spire-integration-operator
-// TODO(user): Add simple overview of use/purpose
-
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
-
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
 **Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
@@ -41,9 +35,6 @@ UnDeploy the controller to the cluster:
 make undeploy
 ```
 
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
 ### How it works
 This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
 
@@ -51,13 +42,22 @@ It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controlle
 which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster 
 
 ### Test It Out
-1. Install the CRDs into the cluster:
+1. Install a SPIRE server. You can use the [SPIRE server from the helm-charts repository](https://github.com/otterize/helm-charts/tree/main/spire).
+
+2. If you are running this locally against a SPIRE server, and did not install it using the [Otterize all-in-one helm chart](https://github.com/otterize/helm-charts/tree/main/otterize-kubernetes), then you need to create a SPIRE server entry for the operator:
+```kubectl exec -n spire spire-server-0 -- /opt/spire/bin/spire-server entry create \
+    -spiffeID spiffe://example.org/ns/default/sa/default \
+    -parentID spiffe://example.org/ns/spire/sa/spire-agent \
+    -selector k8s:ns:spire-integration-operator-system -admin
+```
+
+2. Install the CRDs into the cluster:
 
 ```sh
 make install
 ```
 
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
+3. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
 
 ```sh
 make run
@@ -75,20 +75,3 @@ make manifests
 **NOTE:** Run `make --help` for more information on all potential `make` targets
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
-
-Copyright 2022.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
