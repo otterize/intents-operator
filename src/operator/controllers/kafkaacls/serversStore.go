@@ -10,36 +10,44 @@ var (
 	ServerSpecNotFound = errors.New("failed getting kafka server connection - server configuration specs not set")
 )
 
-type ServersStore struct {
+type ServersStore interface {
+	Add(config *otterizev1alpha1.KafkaServerConfig)
+	Remove(serverName string, namespace string)
+	Exists(serverName string, namespace string) bool
+	Get(serverName string, namespace string) (KafkaIntentsAdmin, error)
+	MapErr(f func(types.NamespacedName) error) error
+}
+
+type serversStore struct {
 	serversByName          map[types.NamespacedName]*otterizev1alpha1.KafkaServerConfig
 	enableKafkaACLCreation bool
 }
 
-func NewServersStore(enableKafkaACLCreation bool) *ServersStore {
-	return &ServersStore{
+func NewServersStore(enableKafkaACLCreation bool) ServersStore {
+	return &serversStore{
 		serversByName:          map[types.NamespacedName]*otterizev1alpha1.KafkaServerConfig{},
 		enableKafkaACLCreation: enableKafkaACLCreation,
 	}
 }
-func (s *ServersStore) Add(config *otterizev1alpha1.KafkaServerConfig) {
+func (s *serversStore) Add(config *otterizev1alpha1.KafkaServerConfig) {
 	name := types.NamespacedName{Name: config.Spec.Service.Name, Namespace: config.Namespace}
 	s.serversByName[name] = config
 }
 
-func (s *ServersStore) Remove(serverName string, namespace string) {
+func (s *serversStore) Remove(serverName string, namespace string) {
 	name := types.NamespacedName{Name: serverName, Namespace: namespace}
 	if _, ok := s.serversByName[name]; ok {
 		delete(s.serversByName, name)
 	}
 }
 
-func (s *ServersStore) Exists(serverName string, namespace string) bool {
+func (s *serversStore) Exists(serverName string, namespace string) bool {
 	name := types.NamespacedName{Name: serverName, Namespace: namespace}
 	_, ok := s.serversByName[name]
 	return ok
 }
 
-func (s *ServersStore) Get(serverName string, namespace string) (*KafkaIntentsAdmin, error) {
+func (s *serversStore) Get(serverName string, namespace string) (KafkaIntentsAdmin, error) {
 	name := types.NamespacedName{Name: serverName, Namespace: namespace}
 	config, ok := s.serversByName[name]
 	if !ok {
@@ -49,9 +57,9 @@ func (s *ServersStore) Get(serverName string, namespace string) (*KafkaIntentsAd
 	return NewKafkaIntentsAdmin(*config, s.enableKafkaACLCreation)
 }
 
-func (s *ServersStore) MapErr(f func(types.NamespacedName, *otterizev1alpha1.KafkaServerConfig) error) error {
-	for serverName, config := range s.serversByName {
-		if err := f(serverName, config); err != nil {
+func (s *serversStore) MapErr(f func(types.NamespacedName) error) error {
+	for serverName, _ := range s.serversByName {
+		if err := f(serverName); err != nil {
 			return err
 		}
 	}

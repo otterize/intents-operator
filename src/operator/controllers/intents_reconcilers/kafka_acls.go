@@ -30,12 +30,12 @@ const (
 type KafkaACLReconciler struct {
 	client                 client.Client
 	scheme                 *runtime.Scheme
-	KafkaServersStore      *kafkaacls.ServersStore
+	KafkaServersStore      kafkaacls.ServersStore
 	enableKafkaACLCreation bool
 	injectablerecorder.InjectableRecorder
 }
 
-func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore, enableKafkaACLCreation bool) *KafkaACLReconciler {
+func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, serversStore kafkaacls.ServersStore, enableKafkaACLCreation bool) *KafkaACLReconciler {
 	return &KafkaACLReconciler{client: client, scheme: scheme, KafkaServersStore: serversStore, enableKafkaACLCreation: enableKafkaACLCreation}
 }
 
@@ -60,8 +60,8 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Inte
 func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) (serverCount int, err error) {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Calls)
 
-	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha1.KafkaServerConfig) error {
-		kafkaIntentsAdmin, err := kafkaacls.NewKafkaIntentsAdmin(*config, r.enableKafkaACLCreation)
+	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName) error {
+		kafkaIntentsAdmin, err := r.KafkaServersStore.Get(serverName.Name, serverName.Namespace)
 		if err != nil {
 			err = fmt.Errorf("failed to connect to Kafka server %s: %w", serverName, err)
 			r.RecordWarningEventf(intents, ReasonCouldNotConnectToKafkaServer, "Kafka ACL reconcile failed: %s", err.Error())
@@ -94,8 +94,8 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) 
 }
 
 func (r *KafkaACLReconciler) RemoveACLs(intents *otterizev1alpha1.ClientIntents) error {
-	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha1.KafkaServerConfig) error {
-		kafkaIntentsAdmin, err := kafkaacls.NewKafkaIntentsAdmin(*config, r.enableKafkaACLCreation)
+	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName) error {
+		kafkaIntentsAdmin, err := r.KafkaServersStore.Get(serverName.Name, serverName.Namespace)
 		if err != nil {
 			return err
 		}

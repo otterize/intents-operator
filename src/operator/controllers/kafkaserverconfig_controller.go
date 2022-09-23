@@ -46,13 +46,13 @@ const (
 type KafkaServerConfigReconciler struct {
 	client.Client
 	Scheme               *runtime.Scheme
-	ServersStore         *kafkaacls.ServersStore
+	ServersStore         kafkaacls.ServersStore
 	operatorPodName      string
 	operatorPodNamespace string
 	injectablerecorder.InjectableRecorder
 }
 
-func NewKafkaServerConfigReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore,
+func NewKafkaServerConfigReconciler(client client.Client, scheme *runtime.Scheme, serversStore kafkaacls.ServersStore,
 	operatorPodName string, operatorPodNameSpace string) *KafkaServerConfigReconciler {
 	return &KafkaServerConfigReconciler{
 		Client:               client,

@@ -29,7 +29,15 @@ var (
 	namespaceRE   = regexp.MustCompile(`\$Namespace`)
 )
 
-type KafkaIntentsAdmin struct {
+type KafkaIntentsAdmin interface {
+	Close()
+	ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev1alpha1.Intent) error
+	RemoveClientIntents(clientName string, clientNamespace string) error
+	RemoveAllIntents() error
+	ApplyServerTopicsConf(topicsConf []otterizev1alpha1.TopicConfig) error
+}
+
+type kafkaIntentsAdmin struct {
 	kafkaServer            otterizev1alpha1.KafkaServerConfig
 	kafkaAdminClient       sarama.ClusterAdmin
 	userNameMapping        string
@@ -110,7 +118,7 @@ func getUserPrincipalMapping(tlsCert tls.Certificate) (string, error) {
 
 }
 
-func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, enableKafkaACLCreation bool) (*KafkaIntentsAdmin, error) {
+func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, enableKafkaACLCreation bool) (KafkaIntentsAdmin, error) {
 	logger := logrus.WithField("addr", kafkaServer.Spec.Addr)
 	logger.Info("Connecting to kafka server")
 	addrs := []string{kafkaServer.Spec.Addr}
@@ -138,23 +146,23 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, enable
 		return nil, err
 	}
 
-	return &KafkaIntentsAdmin{kafkaServer: kafkaServer, kafkaAdminClient: a, userNameMapping: usernameMapping, enableKafkaACLCreation: enableKafkaACLCreation}, nil
+	return &kafkaIntentsAdmin{kafkaServer: kafkaServer, kafkaAdminClient: a, userNameMapping: usernameMapping, enableKafkaACLCreation: enableKafkaACLCreation}, nil
 }
 
-func (a *KafkaIntentsAdmin) Close() {
+func (a *kafkaIntentsAdmin) Close() {
 	if err := a.kafkaAdminClient.Close(); err != nil {
 		logrus.WithError(err).Error("Error closing kafka admin client")
 	}
 }
 
-func (a *KafkaIntentsAdmin) formatPrincipal(clientName string, clientNamespace string) string {
+func (a *kafkaIntentsAdmin) formatPrincipal(clientName string, clientNamespace string) string {
 	username := a.userNameMapping
 	username = serviceNameRE.ReplaceAllString(username, clientName)
 	username = namespaceRE.ReplaceAllString(username, clientNamespace)
 	return fmt.Sprintf("User:%s", username)
 }
 
-func (a *KafkaIntentsAdmin) queryAppliedIntentKafkaTopics(principal string) ([]otterizev1alpha1.KafkaTopic, error) {
+func (a *kafkaIntentsAdmin) queryAppliedIntentKafkaTopics(principal string) ([]otterizev1alpha1.KafkaTopic, error) {
 	appliedKafkaTopics := make([]otterizev1alpha1.KafkaTopic, 0)
 	principalAcls, err := a.kafkaAdminClient.ListAcls(sarama.AclFilter{
 		ResourceType:              sarama.AclResourceTopic,
@@ -185,7 +193,7 @@ func (a *KafkaIntentsAdmin) queryAppliedIntentKafkaTopics(principal string) ([]o
 	return appliedKafkaTopics, nil
 }
 
-func (a *KafkaIntentsAdmin) collectTopicsToACLList(principal string, topics []otterizev1alpha1.KafkaTopic) (TopicToACLList, error) {
+func (a *kafkaIntentsAdmin) collectTopicsToACLList(principal string, topics []otterizev1alpha1.KafkaTopic) (TopicToACLList, error) {
 	topicToACLList := TopicToACLList{}
 
 	for _, topic := range topics {
@@ -207,7 +215,7 @@ func (a *KafkaIntentsAdmin) collectTopicsToACLList(principal string, topics []ot
 	return topicToACLList, nil
 }
 
-func (a *KafkaIntentsAdmin) createACLs(topicToACLList TopicToACLList) error {
+func (a *kafkaIntentsAdmin) createACLs(topicToACLList TopicToACLList) error {
 	resourceACLs := make([]*sarama.ResourceAcls, 0)
 	for topicName, aclList := range topicToACLList {
 		resource := sarama.Resource{
@@ -225,7 +233,7 @@ func (a *KafkaIntentsAdmin) createACLs(topicToACLList TopicToACLList) error {
 	return nil
 }
 
-func (a *KafkaIntentsAdmin) deleteACLsByPrincipal(principal string) (int, error) {
+func (a *kafkaIntentsAdmin) deleteACLsByPrincipal(principal string) (int, error) {
 	aclFilter := sarama.AclFilter{
 		ResourceType:              sarama.AclResourceTopic,
 		ResourcePatternTypeFilter: sarama.AclPatternAny,
@@ -243,7 +251,7 @@ func (a *KafkaIntentsAdmin) deleteACLsByPrincipal(principal string) (int, error)
 	return len(matchedAcls), nil
 }
 
-func (a *KafkaIntentsAdmin) deleteACLsByPrincipalAndTopics(principal string, topics []otterizev1alpha1.KafkaTopic) error {
+func (a *kafkaIntentsAdmin) deleteACLsByPrincipalAndTopics(principal string, topics []otterizev1alpha1.KafkaTopic) error {
 	for _, topic := range topics {
 		operation, ok := KafkaOperationToAclOperationBMap.Get(topic.Operation)
 		if !ok {
@@ -266,7 +274,7 @@ func (a *KafkaIntentsAdmin) deleteACLsByPrincipalAndTopics(principal string, top
 	return nil
 }
 
-func (a *KafkaIntentsAdmin) logACLs() error {
+func (a *kafkaIntentsAdmin) logACLs() error {
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"serverName":      a.kafkaServer.Spec.Service,
@@ -307,7 +315,7 @@ func (a *KafkaIntentsAdmin) logACLs() error {
 	return nil
 }
 
-func (a *KafkaIntentsAdmin) ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev1alpha1.Intent) error {
+func (a *kafkaIntentsAdmin) ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev1alpha1.Intent) error {
 	principal := a.formatPrincipal(clientName, clientNamespace)
 	logger := logrus.WithFields(
 		logrus.Fields{
@@ -359,7 +367,7 @@ func (a *KafkaIntentsAdmin) ApplyClientIntents(clientName string, clientNamespac
 	return nil
 }
 
-func (a *KafkaIntentsAdmin) RemoveClientIntents(clientName string, clientNamespace string) error {
+func (a *kafkaIntentsAdmin) RemoveClientIntents(clientName string, clientNamespace string) error {
 	principal := a.formatPrincipal(clientName, clientNamespace)
 	logger := logrus.WithFields(
 		logrus.Fields{
@@ -379,7 +387,7 @@ func (a *KafkaIntentsAdmin) RemoveClientIntents(clientName string, clientNamespa
 	return nil
 }
 
-func (a *KafkaIntentsAdmin) RemoveAllIntents() error {
+func (a *kafkaIntentsAdmin) RemoveAllIntents() error {
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"serverName":      a.kafkaServer.Spec.Service,
@@ -411,7 +419,7 @@ func (a *KafkaIntentsAdmin) RemoveAllIntents() error {
 	return nil
 }
 
-func (a *KafkaIntentsAdmin) getExpectedTopicsConfAcls(topicsConf []otterizev1alpha1.TopicConfig) map[sarama.Resource][]sarama.Acl {
+func (a *kafkaIntentsAdmin) getExpectedTopicsConfAcls(topicsConf []otterizev1alpha1.TopicConfig) map[sarama.Resource][]sarama.Acl {
 	if len(topicsConf) == 0 {
 		// default configuration
 		topicsConf = []otterizev1alpha1.TopicConfig{
@@ -459,7 +467,7 @@ func (a *KafkaIntentsAdmin) getExpectedTopicsConfAcls(topicsConf []otterizev1alp
 	return resourceToAcls
 }
 
-func (a *KafkaIntentsAdmin) getAppliedTopicsConfAcls() (map[sarama.Resource][]sarama.Acl, error) {
+func (a *kafkaIntentsAdmin) getAppliedTopicsConfAcls() (map[sarama.Resource][]sarama.Acl, error) {
 	resourceToAcls := map[sarama.Resource][]sarama.Acl{}
 	for _, principal := range []string{AnonymousUserPrincipalName, AnyUserPrincipalName} {
 		resourceAclsList, err := a.kafkaAdminClient.ListAcls(sarama.AclFilter{
@@ -486,7 +494,7 @@ func (a *KafkaIntentsAdmin) getAppliedTopicsConfAcls() (map[sarama.Resource][]sa
 	return resourceToAcls, nil
 }
 
-func (a *KafkaIntentsAdmin) kafkaResourceAclsDiff(expected map[sarama.Resource][]sarama.Acl, found map[sarama.Resource][]sarama.Acl) (
+func (a *kafkaIntentsAdmin) kafkaResourceAclsDiff(expected map[sarama.Resource][]sarama.Acl, found map[sarama.Resource][]sarama.Acl) (
 	resourceAclsToCreate []*sarama.ResourceAcls, resourceAclsToDelete []*sarama.ResourceAcls) {
 
 	// handle added / updated resources
@@ -526,7 +534,7 @@ func (a *KafkaIntentsAdmin) kafkaResourceAclsDiff(expected map[sarama.Resource][
 	return resourceAclsToCreate, resourceAclsToDelete
 }
 
-func (a *KafkaIntentsAdmin) deleteResourceAcls(resourceAclsToDelete []*sarama.ResourceAcls) error {
+func (a *kafkaIntentsAdmin) deleteResourceAcls(resourceAclsToDelete []*sarama.ResourceAcls) error {
 	for _, resourceAcls := range resourceAclsToDelete {
 		for _, acl := range resourceAcls.Acls {
 			if _, err := a.kafkaAdminClient.DeleteACL(sarama.AclFilter{
@@ -546,7 +554,7 @@ func (a *KafkaIntentsAdmin) deleteResourceAcls(resourceAclsToDelete []*sarama.Re
 	return nil
 }
 
-func (a *KafkaIntentsAdmin) ApplyServerTopicsConf(topicsConf []otterizev1alpha1.TopicConfig) error {
+func (a *kafkaIntentsAdmin) ApplyServerTopicsConf(topicsConf []otterizev1alpha1.TopicConfig) error {
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"serverName":      a.kafkaServer.Spec.Service,
@@ -596,7 +604,7 @@ func (a *KafkaIntentsAdmin) ApplyServerTopicsConf(topicsConf []otterizev1alpha1.
 	return nil
 }
 
-func (a *KafkaIntentsAdmin) ensureConsumerGroupWildcardACLs() error {
+func (a *kafkaIntentsAdmin) ensureConsumerGroupWildcardACLs() error {
 	// in order to use a consumer group, a consumer needs read and describe privileges on that group.
 	// although read and describe privileges on consumer group resource are required for fetching and committing offsets
 	// further topic level privileges should be granted as well: https://kafka.apache.org/documentation/#operations_resources_and_protocols
@@ -611,7 +619,7 @@ func (a *KafkaIntentsAdmin) ensureConsumerGroupWildcardACLs() error {
 	return nil
 }
 
-func (a *KafkaIntentsAdmin) deleteConsumerGroupWildcardACLs() (int, error) {
+func (a *kafkaIntentsAdmin) deleteConsumerGroupWildcardACLs() (int, error) {
 	matchingAclRules, err := a.kafkaAdminClient.DeleteACL(
 		sarama.AclFilter{
 			ResourceType:              sarama.AclResourceGroup,
