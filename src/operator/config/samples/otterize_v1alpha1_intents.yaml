@@ -6,7 +6,7 @@ spec:
   service:
     name: client
   calls:
-    - type: Kafka
+    - type: kafka
       name: kafka
       namespace: default
       topics:

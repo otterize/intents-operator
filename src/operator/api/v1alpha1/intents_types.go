@@ -48,12 +48,12 @@ const (
 	MaxNamespaceLength                     = 20
 )
 
-// +kubebuilder:validation:Enum=HTTP;Kafka
+// +kubebuilder:validation:Enum=http;kafka
 type IntentType string
 
 const (
-	IntentTypeHTTP  IntentType = "HTTP"
-	IntentTypeKafka IntentType = "Kafka"
+	IntentTypeHTTP  IntentType = "http"
+	IntentTypeKafka IntentType = "kafka"
 )
 
 // +kubebuilder:validation:Enum=all;consume;produce;create;alter;delete;describe;ClusterAction;DescribeConfigs;AlterConfigs;IdempotentWrite

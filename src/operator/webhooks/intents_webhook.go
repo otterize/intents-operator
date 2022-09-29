@@ -135,7 +135,7 @@ func (v *IntentsValidator) validateSpec(intents *otterizev1alpha1.ClientIntents)
 				return &field.Error{
 					Type:   field.ErrorTypeForbidden,
 					Field:  "topics",
-					Detail: "invalid intent format. type 'HTTP' cannot contain kafka topics",
+					Detail: fmt.Sprintf("invalid intent format. type %s cannot contain kafka topics", otterizev1alpha1.IntentTypeHTTP),
 				}
 			}
 		}
