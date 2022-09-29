@@ -1,15 +1,13 @@
 # Otterize intents operator
 
-![Otter Manning Helm](./otterhelm.png)
+<img title="Otter Manning Helm" src="./otterhelm.png" width=200 />
 
 
-![build](https://img.shields.io/static/v1?label=build&message=passing&color=success)
+![build](https://github.com/otterize/intents-operator/actions/workflows/build.yaml/badge.svg)
 ![go report](https://img.shields.io/static/v1?label=go%20report&message=A%2B&color=success)
-[![GoDoc reference example](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/nanomsg.org/go/mangos/v2)
-![openssf](https://img.shields.io/static/v1?label=openssf%20best%20practices&message=passing&color=success)
-![community](https://img.shields.io/badge/slack-Otterize_Slack-orange.svg?logo=slack)
+[![community](https://img.shields.io/badge/slack-Otterize_Slack-purple.svg?logo=slack)](https://joinslack.otterize.com)
 
-[About](#about) | [Quick tutorial](https://docs.otterize.com/documentation/quick-tutorials/network-mapper) | [How does the intents operator work?](#how-does-the-intents-operator-work) | [Contributing](#contributing) | [Slack](#slack)
+[About](#about) | [Quick tutorial](https://docs.otterize.com/quick-tutorials/k8s-network-policies) | [How does the intents operator work?](#how-does-the-intents-operator-work) | [Contributing](#contributing) | [Slack](#slack)
 
 ## About
 The Otterize intents operator is an open source Kubernetes operator for easily managing service-to-service authorization by declaring the calls each service needs to make, using [client intents files](https://otterize.com/ibac). The intents operator uses these files to configure network policies, Kafka ACLs, and other enforcement points (in the future) to allow just the intended calls. 
@@ -77,4 +75,4 @@ the service name is combined with the namespace of the pod and hashed to form th
 2. In your pull request, please refer to an existing issue or open a new one.
 
 ## Slack
-[Join the Otterize Slack!](https://join.slack.com/t/otterizeworkspace/shared_invite/zt-1fnbnl1lf-ub6wler4QrW6ZzIn2U9x1A)
+[Join the Otterize Slack!](https://joinslack.otterize.com)

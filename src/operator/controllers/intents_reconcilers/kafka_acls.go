@@ -17,7 +17,14 @@ import (
 )
 
 const (
-	KafkaACLsFinalizerName = "intents.otterize.com/kafka-finalizer"
+	KafkaACLsFinalizerName                  = "intents.otterize.com/kafka-finalizer"
+	ReasonCouldNotConnectToKafkaServer      = "CouldNotConnectToKafkaServer"
+	ReasonCouldNotApplyIntentsOnKafkaServer = "CouldNotApplyIntentsOnKafkaServer"
+	ReasonKafkaACLCreationDisabled          = "KafkaACLCreationDisabled"
+	ReasonKafkaServerNotConfigured          = "KafkaServerNotConfigured"
+	ReasonRemovingKafkaACLsFailed           = "RemovingKafkaACLsFailed"
+	ReasonApplyingKafkaACLsFailed           = "ApplyingKafkaACLsFailed"
+	ReasonAppliedKafkaACLs                  = "AppliedKafkaACLs"
 )
 
 type KafkaACLReconciler struct {
@@ -57,14 +64,14 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) 
 		kafkaIntentsAdmin, err := kafkaacls.NewKafkaIntentsAdmin(*config, r.enableKafkaACLCreation)
 		if err != nil {
 			err = fmt.Errorf("failed to connect to Kafka server %s: %w", serverName, err)
-			r.RecordWarningEventf(intents, "Kafka ACL reconcile failed", err.Error())
+			r.RecordWarningEventf(intents, ReasonCouldNotConnectToKafkaServer, "Kafka ACL reconcile failed: %s", err.Error())
 			return err
 		}
 		defer kafkaIntentsAdmin.Close()
 
 		intentsForServer := intentsByServer[serverName]
 		if err := kafkaIntentsAdmin.ApplyClientIntents(intents.Spec.Service.Name, intents.Namespace, intentsForServer); err != nil {
-			r.RecordWarningEventf(intents, "Kafka ACL reconcile failed", err.Error())
+			r.RecordWarningEventf(intents, ReasonCouldNotApplyIntentsOnKafkaServer, "Kafka ACL reconcile failed: %s", err.Error())
 			return fmt.Errorf("failed applying intents on kafka server %s: %w", serverName, err)
 		}
 		return nil
@@ -73,12 +80,12 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) 
 	}
 
 	if !r.enableKafkaACLCreation {
-		r.RecordNormalEvent(intents, "KafkaACLCreationDisabled", "Kafka ACL creation is disabled, creation skipped")
+		r.RecordNormalEvent(intents, ReasonKafkaACLCreationDisabled, "Kafka ACL creation is disabled, creation skipped")
 	}
 
 	for serverName, _ := range intentsByServer {
 		if !r.KafkaServersStore.Exists(serverName.Name, serverName.Namespace) {
-			r.RecordWarningEventf(intents, "Kafka ACL reconcile failed", "broker %s not configured", serverName)
+			r.RecordWarningEventf(intents, ReasonKafkaServerNotConfigured, "broker %s not configured", serverName)
 			logrus.WithField("server", serverName).Warning("Did not apply intents to server - no server configuration was defined")
 		}
 	}
@@ -131,7 +138,7 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if controllerutil.ContainsFinalizer(intents, KafkaACLsFinalizerName) {
 			logger.Infof("Removing associated Acls")
 			if err := r.RemoveACLs(intents); err != nil {
-				r.RecordWarningEvent(intents, "could not remove Kafka ACLs", err.Error())
+				r.RecordWarningEventf(intents, ReasonRemovingKafkaACLsFailed, "Could not remove Kafka ACLs: %s", err.Error())
 				return ctrl.Result{}, err
 			}
 
@@ -150,12 +157,12 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	logger.Info("Applying new ACLs")
 	serverCount, err := r.applyACLs(intents)
 	if err != nil {
-		r.RecordWarningEvent(intents, "could not apply Kafka ACLs", err.Error())
+		r.RecordWarningEventf(intents, ReasonApplyingKafkaACLsFailed, "could not apply Kafka ACLs: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
 	if serverCount > 0 {
-		r.RecordNormalEventf(intents, "Kafka ACL reconcile complete", "Reconciled %d Kafka brokers", serverCount)
+		r.RecordNormalEventf(intents, ReasonAppliedKafkaACLs, "Kafka ACL reconcile complete, reconciled %d Kafka brokers", serverCount)
 	}
 	return ctrl.Result{}, nil
 

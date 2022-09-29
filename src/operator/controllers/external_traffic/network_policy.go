@@ -19,6 +19,15 @@ import (
 	"strings"
 )
 
+const (
+	ReasonCreatingExternalTrafficPolicyFailed = "CreatingExternalTrafficPolicyFailed"
+	ReasonCreatedExternalTrafficPolicy        = "CreatedExternalTrafficPolicy"
+	ReasonGettingExternalTrafficPolicyFailed  = "GettingExternalTrafficPolicyFailed"
+	ReasonRemovingExternalTrafficPolicy       = "RemovingExternalTrafficPolicy"
+	ReasonRemovingExternalTrafficPolicyFailed = "RemovingExternalTrafficPolicyFailed"
+	ReasonRemovedExternalTrafficPolicy        = "RemovedExternalTrafficPolicy"
+)
+
 type NetworkPolicyCreator struct {
 	client client.Client
 	scheme *runtime.Scheme
@@ -34,39 +43,39 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 	ctx context.Context, endpoints *corev1.Endpoints, owner client.Object, otterizeServiceName string, eventsObject client.Object, netpol *v1.NetworkPolicy, ingressList *v1.IngressList, policyName string) error {
 
 	existingPolicy := &v1.NetworkPolicy{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
+	errGetExistingPolicy := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
 	newPolicy := buildNetworkPolicyObjectForService(endpoints, otterizeServiceName, netpol.Spec.PodSelector, ingressList, policyName)
-	err = controllerutil.SetOwnerReference(owner, newPolicy, r.scheme)
+	err := controllerutil.SetOwnerReference(owner, newPolicy, r.scheme)
 	if err != nil {
 		return err
 	}
 
 	// No matching network policy found, create one
-	if k8serrors.IsNotFound(err) {
+	if k8serrors.IsNotFound(errGetExistingPolicy) {
 		if r.enabled {
 			logrus.Infof(
 				"Creating network policy to enable access from external traffic to load balancer service %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
 			err := r.client.Create(ctx, newPolicy)
 			if err != nil {
-				r.RecordWarningEvent(eventsObject, "failed to create external traffic network policy", err.Error())
+				r.RecordWarningEventf(eventsObject, ReasonCreatingExternalTrafficPolicyFailed, "failed to create external traffic network policy: %s", err.Error())
 				return err
 			}
-			r.RecordNormalEventf(eventsObject, "created external traffic network policy", "service '%s' refers to pods protected by network policy '%s'", endpoints.GetName(), netpol.GetName())
+			r.RecordNormalEventf(eventsObject, ReasonCreatedExternalTrafficPolicy, "created external traffic network policy. service '%s' refers to pods protected by network policy '%s'", endpoints.GetName(), netpol.GetName())
 		}
 		return nil
-	} else if err != nil {
-		r.RecordWarningEvent(eventsObject, "failed to get external traffic network policy", err.Error())
-		return err
+	} else if errGetExistingPolicy != nil {
+		r.RecordWarningEventf(eventsObject, ReasonGettingExternalTrafficPolicyFailed, "failed to get external traffic network policy: %s", err.Error())
+		return errGetExistingPolicy
 	}
 
 	if !r.enabled {
-		r.RecordNormalEvent(eventsObject, "removing external traffic network policy", "reconciler was disabled")
+		r.RecordNormalEvent(eventsObject, ReasonRemovingExternalTrafficPolicy, "removing external traffic network policy, reconciler was disabled")
 		err := r.client.Delete(ctx, existingPolicy)
 		if err != nil {
-			r.RecordWarningEvent(eventsObject, "failed removing external traffic network policy", err.Error())
+			r.RecordWarningEventf(eventsObject, ReasonRemovingExternalTrafficPolicyFailed, "failed removing external traffic network policy: %s", err.Error())
 			return err
 		}
-		r.RecordNormalEvent(eventsObject, "removed external traffic network policy", "success")
+		r.RecordNormalEvent(eventsObject, ReasonRemovedExternalTrafficPolicy, "removed external traffic network policy, success")
 		return nil
 	}
 

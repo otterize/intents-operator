@@ -16,6 +16,12 @@ import (
 
 const PodLabelFinalizerName = "intents.otterize.com/pods-finalizer"
 
+const (
+	ReasonRemovingPodLabelsFailed = "RemovingPodLabelsFailed"
+	ReasonUpdatePodFailed         = "UpdatePodFailed"
+	ReasonListPodsFailed          = "ListPodsFailed"
+)
+
 type PodLabelReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -49,7 +55,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
-			r.RecordWarningEvent(intents, "could not remove pod labels", err.Error())
+			r.RecordWarningEventf(intents, ReasonRemovingPodLabelsFailed, "could not remove pod labels: %s", err.Error())
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -69,7 +75,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// List the pods in the namespace and update labels if required
 	labelSelector, err := intents.BuildPodLabelSelector()
 	if err != nil {
-		r.RecordWarningEvent(intents, "could not list pods", err.Error())
+		r.RecordWarningEventf(intents, ReasonListPodsFailed, "could not list pods: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -87,7 +93,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			updatedPod := otterizev1alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
-				r.RecordWarningEvent(intents, "could not update pod", err.Error())
+				r.RecordWarningEventf(intents, ReasonUpdatePodFailed, "could not update pod: %s", err.Error())
 				return ctrl.Result{}, err
 			}
 		}
