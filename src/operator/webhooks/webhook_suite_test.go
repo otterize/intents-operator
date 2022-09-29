@@ -18,8 +18,10 @@ package webhooks
 import (
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/shared/testbase"
+	"github.com/stretchr/testify/suite"
 	"k8s.io/client-go/kubernetes"
 	"path/filepath"
+	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
@@ -35,6 +37,9 @@ func (s *ValidationWebhookTestSuite) SetupSuite() {
 	s.TestEnv = &envtest.Environment{}
 	var err error
 	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd", "bases")}
+	s.TestEnv.WebhookInstallOptions = envtest.WebhookInstallOptions{
+		Paths: []string{filepath.Join("..", "config", "webhook")},
+	}
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
@@ -47,15 +52,12 @@ func (s *ValidationWebhookTestSuite) SetupSuite() {
 	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: false,
-		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "config", "webhook")},
-		},
-	}
-
 }
 
 func (s *ValidationWebhookTestSuite) SetupTest() {
+
+}
+
+func TestValidationWebhookTestSuite(t *testing.T) {
+	suite.Run(t, new(ValidationWebhookTestSuite))
 }
