@@ -1,0 +1,131 @@
+package intents_reconcilers
+
+import (
+	"context"
+	"fmt"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
+	"github.com/otterize/intents-operator/src/shared/testbase"
+	"github.com/otterize/intents-operator/src/watcher/reconcilers"
+	"github.com/stretchr/testify/suite"
+	v1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"path/filepath"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"testing"
+)
+
+type ExternalNetworkPolicyReconcilerTestSuite struct {
+	testbase.ControllerManagerTestSuiteBase
+	IngressReconciler       *external_traffic.IngressReconciler
+	endpointReconciler      *external_traffic.EndpointsReconciler
+	NetworkPolicyReconciler *NetworkPolicyReconciler
+	podWatcher              *reconcilers.PodWatcher
+}
+
+func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupSuite() {
+	s.TestEnv = &envtest.Environment{}
+	var err error
+	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd", "bases")}
+
+	s.RestConfig, err = s.TestEnv.Start()
+	s.Require().NoError(err)
+	s.Require().NotNil(s.RestConfig)
+
+	s.K8sDirectClient, err = kubernetes.NewForConfig(s.RestConfig)
+	s.Require().NoError(err)
+	s.Require().NotNil(s.K8sDirectClient)
+
+	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
+	s.Require().NoError(err)
+}
+
+func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
+	s.ControllerManagerTestSuiteBase.SetupTest()
+
+	s.NetworkPolicyReconciler = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true)
+	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
+	s.NetworkPolicyReconciler.InjectRecorder(recorder)
+
+	s.endpointReconciler = external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, true)
+	err := s.endpointReconciler.InitIngressReferencedServicesIndex(s.Mgr)
+	s.Require().NoError(err)
+	err = s.endpointReconciler.SetupWithManager(s.Mgr)
+	s.Require().NoError(err)
+
+	s.IngressReconciler = external_traffic.NewIngressReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, s.endpointReconciler)
+	s.IngressReconciler.InjectRecorder(recorder)
+	err = s.IngressReconciler.InitNetworkPoliciesByIngressNameIndex(s.Mgr)
+	s.Require().NoError(err)
+
+	s.podWatcher = reconcilers.NewPodWatcher(s.Mgr.GetClient())
+	err = s.podWatcher.InitIntentsClientIndices(s.Mgr)
+	s.Require().NoError(err)
+}
+
+// BeforeTest happens AFTER the SetupTest()
+func (s *ExternalNetworkPolicyReconcilerTestSuite) BeforeTest(_, testName string) {
+	s.ControllerManagerTestSuiteBase.BeforeTest("", testName)
+	println("k9s --kubeconfig " + s.ControllerManagerTestSuiteBase.TestEnv.ControlPlane.APIServer.CertDir + "/*.kubecfg")
+}
+
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIngress() {
+	intents := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
+		Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server",
+	},
+	})
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	// make sure the network policy was created between the two services based on the intents
+	np := &v1.NetworkPolicy{}
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(np)
+
+	serviceName := "test-server"
+	s.AddDeploymentWithService(serviceName, []string{"1.1.1.1"}, map[string]string{"app": "test"}, nil)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	// the ingress reconciler expect the pod watcher labels in order to work
+	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: "test-server-0"}})
+	s.Require().NoError(err)
+
+	// make sure the ingress network policy doesn't exist yet
+	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+	s.Require().True(errors.IsNotFound(err))
+
+	s.AddIngress(serviceName)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	res, err = s.IngressReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      serviceName + "-ingress",
+		},
+	})
+
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(np)
+}
+
+func TestExternalNetworkPolicyReconcilerTestSuite(t *testing.T) {
+	suite.Run(t, new(ExternalNetworkPolicyReconcilerTestSuite))
+}

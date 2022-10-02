@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const OtterizeNetworkPolicyNameTemplate = "external-access-to-%s"
+const OtterizeExternalNetworkPolicyNameTemplate = "external-access-to-%s"
 
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
@@ -28,7 +28,7 @@ type EndpointsReconciler struct {
 }
 
 func (r *EndpointsReconciler) formatPolicyName(serviceName string) string {
-	return fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, serviceName)
+	return fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 }
 
 func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enabled bool) *EndpointsReconciler {
@@ -103,7 +103,7 @@ func (r *EndpointsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 //func (r *ServiceReconciler) FormatPolicyName(serviceName string) string {
-//	return fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, serviceName)
+//	return fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 //}
 
 func (r *EndpointsReconciler) getIngressRefersToService(ctx context.Context, svc *corev1.Service) (*v1.IngressList, error) {
