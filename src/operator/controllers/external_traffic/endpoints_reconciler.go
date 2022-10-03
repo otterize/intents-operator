@@ -107,10 +107,6 @@ func (r *EndpointsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return r.reconcileEndpoints(ctx, endpoints, ingressList)
 }
 
-//func (r *ServiceReconciler) FormatPolicyName(serviceName string) string {
-//	return fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
-//}
-
 func (r *EndpointsReconciler) getIngressRefersToService(ctx context.Context, svc *corev1.Service) (*v1.IngressList, error) {
 	var endpointsList v1.IngressList
 	err := r.List(
