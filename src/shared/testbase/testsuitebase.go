@@ -238,7 +238,7 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 func (s *ControllerManagerTestSuiteBase) AddIntents(
 	objName,
 	clientName string,
-	callList []otterizev1alpha1.Intent) *otterizev1alpha1.ClientIntents {
+	callList []otterizev1alpha1.Intent) (*otterizev1alpha1.ClientIntents, error) {
 
 	intents := &otterizev1alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: s.TestNamespace},
@@ -248,8 +248,10 @@ func (s *ControllerManagerTestSuiteBase) AddIntents(
 		},
 	}
 	err := s.Mgr.GetClient().Create(context.Background(), intents)
-	s.Require().NoError(err)
+	if err != nil {
+		return nil, err
+	}
 	s.waitForObjectToBeCreated(intents)
 
-	return intents
+	return intents, nil
 }

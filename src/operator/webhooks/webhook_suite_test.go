@@ -36,9 +36,11 @@ type ValidationWebhookTestSuite struct {
 func (s *ValidationWebhookTestSuite) SetupSuite() {
 	s.TestEnv = &envtest.Environment{}
 	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd", "bases")}
+	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "config", "crd", "bases")}
 	s.TestEnv.WebhookInstallOptions = envtest.WebhookInstallOptions{
-		Paths: []string{filepath.Join("..", "config", "webhook")},
+		Paths:            []string{filepath.Join("..", "config", "webhook")},
+		LocalServingPort: 9443,
+		LocalServingHost: "localhost",
 	}
 
 	s.RestConfig, err = s.TestEnv.Start()
@@ -55,7 +57,32 @@ func (s *ValidationWebhookTestSuite) SetupSuite() {
 }
 
 func (s *ValidationWebhookTestSuite) SetupTest() {
+	s.ControllerManagerTestSuiteBase.SetupTest()
+	intentsValidator := NewIntentsValidator(s.Mgr.GetClient())
+	s.Require().NoError(intentsValidator.SetupWebhookWithManager(s.Mgr))
+	s.Mgr.GetWebhookServer().CertDir = s.TestEnv.WebhookInstallOptions.LocalServingCertDir
+	s.Mgr.GetWebhookServer().Host = s.TestEnv.WebhookInstallOptions.LocalServingHost
+}
 
+func (s *ValidationWebhookTestSuite) TestNoDuplicateClientsAllowed() {
+	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha1.Intent{})
+	s.Require().NoError(err)
+
+	_, err = s.AddIntents("intents2", "someclient", []otterizev1alpha1.Intent{})
+	s.Require().ErrorContains(err, "Intents for client someclient already exist in resource")
+}
+
+func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntents() {
+	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha1.Intent{
+		{
+			Type: otterizev1alpha1.IntentTypeHTTP,
+			Topics: []otterizev1alpha1.KafkaTopic{{
+				Name:      "sometopic",
+				Operation: otterizev1alpha1.KafkaOperationConsume,
+			}},
+		},
+	})
+	s.Require().ErrorContains(err, "type 'HTTP' cannot contain kafka topics")
 }
 
 func TestValidationWebhookTestSuite(t *testing.T) {
