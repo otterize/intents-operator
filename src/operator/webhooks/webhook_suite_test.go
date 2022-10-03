@@ -16,6 +16,7 @@
 package webhooks
 
 import (
+	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -82,7 +83,8 @@ func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntents() {
 			}},
 		},
 	})
-	s.Require().ErrorContains(err, "type 'HTTP' cannot contain kafka topics")
+	expectedErr := fmt.Sprintf("type %s cannot contain kafka topics", otterizev1alpha1.IntentTypeHTTP)
+	s.Require().ErrorContains(err, expectedErr)
 }
 
 func TestValidationWebhookTestSuite(t *testing.T) {
