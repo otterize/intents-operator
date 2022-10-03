@@ -46,14 +46,13 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupSuite() {
 func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
 
-	s.NetworkPolicyReconciler = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true)
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
+	s.NetworkPolicyReconciler = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true)
 	s.NetworkPolicyReconciler.InjectRecorder(recorder)
 
 	s.endpointReconciler = external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, true)
+	s.endpointReconciler.InjectRecorder(recorder)
 	err := s.endpointReconciler.InitIngressReferencedServicesIndex(s.Mgr)
-	s.Require().NoError(err)
-	err = s.endpointReconciler.SetupWithManager(s.Mgr)
 	s.Require().NoError(err)
 
 	s.IngressReconciler = external_traffic.NewIngressReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, s.endpointReconciler)
@@ -73,8 +72,9 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) BeforeTest(_, testName string
 }
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIngress() {
+	serviceName := "test-server-ingress-test"
 	intents := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
-		Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server",
+		Type: otterizev1alpha1.IntentTypeHTTP, Name: serviceName,
 	},
 	})
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
@@ -90,17 +90,16 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)
 
-	serviceName := "test-server"
 	s.AddDeploymentWithService(serviceName, []string{"1.1.1.1"}, map[string]string{"app": "test"}, nil)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	// the ingress reconciler expect the pod watcher labels in order to work
-	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: "test-server-0"}})
+	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
 	s.Require().NoError(err)
 
 	// make sure the ingress network policy doesn't exist yet
@@ -114,6 +113,120 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
 			Name:      serviceName + "-ingress",
+		},
+	})
+
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(np)
+}
+
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancer() {
+	serviceName := "test-server-load-balancer-test"
+	intents := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
+		Type: otterizev1alpha1.IntentTypeHTTP, Name: serviceName,
+	},
+	})
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	// make sure the network policy was created between the two services based on the intents
+	np := &v1.NetworkPolicy{}
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(np)
+
+	podIps := []string{"1.1.2.1"}
+	podLabels := map[string]string{"app": "test-load-balancer"}
+	s.AddDeploymentWithService(serviceName, podIps, podLabels, nil)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	// the ingress reconciler expect the pod watcher labels in order to work
+	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
+	s.Require().NoError(err)
+
+	// make sure the load balancer network policy doesn't exist yet
+	loadBalancerServiceName := serviceName + "-lb"
+	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+	s.Require().True(errors.IsNotFound(err))
+
+	s.AddLoadBalancerService(loadBalancerServiceName, podIps, podLabels)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	res, err = s.endpointReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      loadBalancerServiceName,
+		},
+	})
+
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(np)
+}
+
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNodePort() {
+	serviceName := "test-server-node-port-test"
+	intents := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
+		Type: otterizev1alpha1.IntentTypeHTTP, Name: serviceName,
+	},
+	})
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	// make sure the network policy was created between the two services based on the intents
+	np := &v1.NetworkPolicy{}
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(np)
+
+	podIps := []string{"1.1.2.1"}
+	podLabels := map[string]string{"app": "test-load-balancer"}
+	s.AddDeploymentWithService(serviceName, podIps, podLabels, nil)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	// the ingress reconciler expect the pod watcher labels in order to work
+	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
+	s.Require().NoError(err)
+
+	// make sure the load balancer network policy doesn't exist yet
+	nodePortServiceName := serviceName + "-np"
+	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+	s.Require().True(errors.IsNotFound(err))
+
+	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	res, err = s.endpointReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      nodePortServiceName,
 		},
 	})
 

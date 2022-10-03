@@ -10,6 +10,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -42,11 +43,15 @@ func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enable
 func (r *EndpointsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	recorder := mgr.GetEventRecorderFor("intents-operator")
 	r.InjectRecorder(recorder)
-	r.netpolCreator.InjectRecorder(recorder)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Endpoints{}).
 		Complete(r)
+}
+
+func (r *EndpointsReconciler) InjectRecorder(recorder record.EventRecorder) {
+	r.Recorder = recorder
+	r.netpolCreator.InjectRecorder(recorder)
 }
 
 // Reconcile handles three cases:

@@ -317,6 +317,40 @@ func (s *ControllerManagerTestSuiteBase) AddIngress(serviceName string) *network
 	return ingress
 }
 
+func (s *ControllerManagerTestSuiteBase) AddLoadBalancerService(name string, podIps []string, selector map[string]string) *corev1.Service {
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},
+		Spec: corev1.ServiceSpec{Selector: selector,
+			Ports: []corev1.ServicePort{{Name: "someport", Port: 8080, Protocol: corev1.ProtocolTCP}},
+			Type:  corev1.ServiceTypeLoadBalancer,
+		},
+	}
+	err := s.Mgr.GetClient().Create(context.Background(), service)
+	s.Require().NoError(err)
+
+	s.waitForObjectToBeCreated(service)
+
+	s.AddEndpoints(name, podIps)
+	return service
+}
+
+func (s *ControllerManagerTestSuiteBase) AddNodePortService(name string, podIps []string, selector map[string]string) *corev1.Service {
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},
+		Spec: corev1.ServiceSpec{Selector: selector,
+			Ports: []corev1.ServicePort{{Name: "someport", Port: 8080, Protocol: corev1.ProtocolTCP}},
+			Type:  corev1.ServiceTypeNodePort,
+		},
+	}
+	err := s.Mgr.GetClient().Create(context.Background(), service)
+	s.Require().NoError(err)
+
+	s.waitForObjectToBeCreated(service)
+
+	s.AddEndpoints(name, podIps)
+	return service
+}
+
 func (s *ControllerManagerTestSuiteBase) AddDeploymentWithService(name string, podIps []string, podLabels map[string]string, podAnnotations map[string]string) (*appsv1.Deployment, *corev1.Service) {
 	deployment := s.AddDeployment(name, podIps, podLabels, podAnnotations)
 	service := s.AddService(name, podIps, podLabels)
