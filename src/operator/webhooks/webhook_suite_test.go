@@ -16,120 +16,77 @@
 package webhooks
 
 import (
-	"context"
-	"crypto/tls"
 	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
-	"net"
+	"github.com/otterize/intents-operator/src/shared/testbase"
+	"github.com/stretchr/testify/suite"
+	"k8s.io/client-go/kubernetes"
 	"path/filepath"
 	"testing"
-	"time"
 
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-
-	admissionv1beta1 "k8s.io/api/admission/v1beta1"
-	//+kubebuilder:scaffold:imports
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var conf *rest.Config
-var k8sClient client.Client
-var testEnv *envtest.Environment
-var ctx context.Context
-var cancel context.CancelFunc
-
-func TestAPIs(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Webhook Suite",
-		[]Reporter{printer.NewlineReporter{}})
+type ValidationWebhookTestSuite struct {
+	testbase.ControllerManagerTestSuiteBase
 }
 
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	ctx, cancel = context.WithCancel(context.TODO())
-
-	By("bootstrapping test environment")
-	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: false,
-		WebhookInstallOptions: envtest.WebhookInstallOptions{
-			Paths: []string{filepath.Join("..", "config", "webhook")},
-		},
+func (s *ValidationWebhookTestSuite) SetupSuite() {
+	s.TestEnv = &envtest.Environment{}
+	var err error
+	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "config", "crd", "bases")}
+	s.TestEnv.WebhookInstallOptions = envtest.WebhookInstallOptions{
+		Paths:            []string{filepath.Join("..", "config", "webhook")},
+		LocalServingPort: 9443,
+		LocalServingHost: "localhost",
 	}
 
-	var err error
-	// conf is defined in this file globally.
-	conf, err = testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(conf).NotTo(BeNil())
+	s.RestConfig, err = s.TestEnv.Start()
+	s.Require().NoError(err)
+	s.Require().NotNil(s.RestConfig)
 
-	scheme := runtime.NewScheme()
-	err = otterizev1alpha1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
+	s.K8sDirectClient, err = kubernetes.NewForConfig(s.RestConfig)
+	s.Require().NoError(err)
+	s.Require().NotNil(s.K8sDirectClient)
 
-	err = admissionv1beta1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
+	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
+	s.Require().NoError(err)
 
-	//+kubebuilder:scaffold:scheme
+}
 
-	k8sClient, err = client.New(conf, client.Options{Scheme: scheme})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+func (s *ValidationWebhookTestSuite) SetupTest() {
+	s.ControllerManagerTestSuiteBase.SetupTest()
+	intentsValidator := NewIntentsValidator(s.Mgr.GetClient())
+	s.Require().NoError(intentsValidator.SetupWebhookWithManager(s.Mgr))
+	s.Mgr.GetWebhookServer().CertDir = s.TestEnv.WebhookInstallOptions.LocalServingCertDir
+	s.Mgr.GetWebhookServer().Host = s.TestEnv.WebhookInstallOptions.LocalServingHost
+}
 
-	// start webhook server using Manager
-	webhookInstallOptions := &testEnv.WebhookInstallOptions
-	mgr, err := ctrl.NewManager(conf, ctrl.Options{
-		Scheme:             scheme,
-		Host:               webhookInstallOptions.LocalServingHost,
-		Port:               webhookInstallOptions.LocalServingPort,
-		CertDir:            webhookInstallOptions.LocalServingCertDir,
-		LeaderElection:     false,
-		MetricsBindAddress: "0",
+func (s *ValidationWebhookTestSuite) TestNoDuplicateClientsAllowed() {
+	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha1.Intent{})
+	s.Require().NoError(err)
+
+	_, err = s.AddIntents("intents2", "someclient", []otterizev1alpha1.Intent{})
+	s.Require().ErrorContains(err, "Intents for client someclient already exist in resource")
+}
+
+func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntents() {
+	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha1.Intent{
+		{
+			Type: otterizev1alpha1.IntentTypeHTTP,
+			Topics: []otterizev1alpha1.KafkaTopic{{
+				Name:      "sometopic",
+				Operation: otterizev1alpha1.KafkaOperationConsume,
+			}},
+		},
 	})
-	Expect(err).NotTo(HaveOccurred())
+	expectedErr := fmt.Sprintf("type %s cannot contain kafka topics", otterizev1alpha1.IntentTypeHTTP)
+	s.Require().ErrorContains(err, expectedErr)
+}
 
-	err = (&IntentsValidator{mgr.GetClient()}).SetupWebhookWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
-	//+kubebuilder:scaffold:webhook
-
-	go func() {
-		defer GinkgoRecover()
-		err = mgr.Start(ctx)
-		Expect(err).NotTo(HaveOccurred())
-	}()
-
-	// wait for the webhook server to get ready
-	dialer := &net.Dialer{Timeout: time.Second}
-	addrPort := fmt.Sprintf("%s:%d", webhookInstallOptions.LocalServingHost, webhookInstallOptions.LocalServingPort)
-	Eventually(func() error {
-		conn, err := tls.DialWithDialer(dialer, "tcp", addrPort, &tls.Config{InsecureSkipVerify: true})
-		if err != nil {
-			return err
-		}
-		conn.Close()
-		return nil
-	}).Should(Succeed())
-
-}, 60)
-
-var _ = AfterSuite(func() {
-	cancel()
-	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
-})
+func TestValidationWebhookTestSuite(t *testing.T) {
+	suite.Run(t, new(ValidationWebhookTestSuite))
+}

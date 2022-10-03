@@ -56,10 +56,11 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
-	intents := s.AddIntents("finalizer-intents", "test-client", []otterizev1alpha1.Intent{{
+	intents, err := s.AddIntents("finalizer-intents", "test-client", []otterizev1alpha1.Intent{{
 		Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server",
 	},
 	})
+	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
@@ -83,10 +84,10 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerRemoved() {
-	intents := s.AddIntents(
+	intents, err := s.AddIntents(
 		"finalizer-intents", "test-client", []otterizev1alpha1.Intent{{
 			Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server"}})
-
+	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -149,10 +150,11 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerRemoved() {
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreate() {
-	intents := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
 		Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server",
 	},
 	})
+	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
@@ -182,8 +184,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace
 		ObjectMeta: metav1.ObjectMeta{Name: otherNamespace}}, metav1.CreateOptions{})
 	s.Require().NoError(err)
 
-	intents := s.AddIntents("cross-ns-test-intents", "test-client", []otterizev1alpha1.Intent{{
+	intents, err := s.AddIntents("cross-ns-test-intents", "test-client", []otterizev1alpha1.Intent{{
 		Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server", Namespace: otherNamespace}})
+	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
@@ -206,11 +209,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
-	intents := s.AddIntents(
+	intents, err := s.AddIntents(
 		"cleanup-test", "test-client", []otterizev1alpha1.Intent{{
 			Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server"}})
-
+	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
 	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
@@ -262,11 +266,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespac
 		ObjectMeta: metav1.ObjectMeta{Name: otherNamespace}}, metav1.CreateOptions{})
 	s.Require().NoError(err)
 
-	intents := s.AddIntents(
+	intents, err := s.AddIntents(
 		"cross-ns-cleanup-test", "test-client", []otterizev1alpha1.Intent{{
 			Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server", Namespace: otherNamespace}})
-
+	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
 	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
@@ -315,14 +320,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespac
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWithSameServer() {
-	_ = s.AddIntents(
+	_, err := s.AddIntents(
 		"no-cleanup-test", "test-client", []otterizev1alpha1.Intent{{
 			Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server"}})
+	s.Require().NoError(err)
 
-	intents := s.AddIntents(
+	intents, err := s.AddIntents(
 		"other-no-cleanup-test", "test-client-2", []otterizev1alpha1.Intent{{
 			Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server"}})
-
+	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{

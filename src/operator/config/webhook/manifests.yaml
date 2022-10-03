@@ -11,9 +11,9 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-otterize-com-v1alpha1-intents
+      path: /validate-k8s-otterize-com-v1alpha1-clientintents
   failurePolicy: Fail
-  name: vintents.kb.io
+  name: clientintents.kb.io
   rules:
   - apiGroups:
     - k8s.otterize.com
@@ -23,5 +23,5 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - intents
+    - clientintents
   sideEffects: None
