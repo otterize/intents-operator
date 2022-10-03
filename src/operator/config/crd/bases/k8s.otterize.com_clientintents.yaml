@@ -89,8 +89,8 @@ spec:
                       type: array
                     type:
                       enum:
-                      - HTTP
-                      - Kafka
+                      - http
+                      - kafka
                       type: string
                   required:
                   - name
