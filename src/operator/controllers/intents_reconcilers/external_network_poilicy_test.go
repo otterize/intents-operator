@@ -68,7 +68,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 // BeforeTest happens AFTER the SetupTest()
 func (s *ExternalNetworkPolicyReconcilerTestSuite) BeforeTest(_, testName string) {
 	s.ControllerManagerTestSuiteBase.BeforeTest("", testName)
-	println("k9s --kubeconfig " + s.ControllerManagerTestSuiteBase.TestEnv.ControlPlane.APIServer.CertDir + "/*.kubecfg")
 }
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIngress() {
