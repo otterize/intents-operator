@@ -110,7 +110,7 @@ func getUserPrincipalMapping(tlsCert tls.Certificate) (string, error) {
 
 }
 
-func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, enableKafkaACLCreation bool) (*KafkaIntentsAdmin, error) {
+func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, defaultTls otterizev1alpha1.TLSSource, enableKafkaACLCreation bool) (*KafkaIntentsAdmin, error) {
 	logger := logrus.WithField("addr", kafkaServer.Spec.Addr)
 	logger.Info("Connecting to kafka server")
 	addrs := []string{kafkaServer.Spec.Addr}
@@ -118,7 +118,16 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, enable
 	config := sarama.NewConfig()
 	config.Version = sarama.V2_0_0_0
 
-	tlsConfig, err := getTLSConfig(kafkaServer.Spec.TLS)
+	var tlsSource otterizev1alpha1.TLSSource
+	if lo.IsEmpty(kafkaServer.Spec.TLS) {
+		tlsSource = defaultTls
+		logger.Info("Using TLS configuration from default")
+	} else {
+		tlsSource = kafkaServer.Spec.TLS
+		logger.Info("Using TLS configuration from KafkaServerConfig")
+	}
+
+	tlsConfig, err := getTLSConfig(tlsSource)
 	if err != nil {
 		return nil, err
 	}
