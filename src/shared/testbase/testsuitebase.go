@@ -9,9 +9,11 @@ import (
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -233,6 +235,126 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 	s.waitForObjectToBeCreated(replicaSet)
 
 	return deployment
+}
+
+func (s *ControllerManagerTestSuiteBase) AddEndpoints(name string, podIps []string) *corev1.Endpoints {
+	podIpsSet := sets.NewString(podIps...)
+	podList := &corev1.PodList{}
+	err := s.Mgr.GetClient().List(context.Background(), podList, client.InNamespace(s.TestNamespace))
+	s.Require().NoError(err)
+
+	addresses := lo.FilterMap(podList.Items, func(pod corev1.Pod, _ int) (corev1.EndpointAddress, bool) {
+		if !podIpsSet.Has(pod.Status.PodIP) {
+			return corev1.EndpointAddress{}, false
+		}
+		return corev1.EndpointAddress{
+			IP: pod.Status.PodIP,
+			TargetRef: &corev1.ObjectReference{
+				Kind:            "Pod",
+				Name:            pod.Name,
+				Namespace:       pod.Namespace,
+				UID:             pod.UID,
+				ResourceVersion: pod.ResourceVersion,
+			},
+		}, true
+	})
+
+	endpoints := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},
+		Subsets:    []corev1.EndpointSubset{{Addresses: addresses, Ports: []corev1.EndpointPort{{Name: "someport", Port: 8080, Protocol: corev1.ProtocolTCP}}}},
+	}
+
+	err = s.Mgr.GetClient().Create(context.Background(), endpoints)
+	s.Require().NoError(err)
+
+	s.waitForObjectToBeCreated(endpoints)
+	return endpoints
+}
+
+func (s *ControllerManagerTestSuiteBase) AddService(name string, podIps []string, selector map[string]string) *corev1.Service {
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},
+		Spec: corev1.ServiceSpec{Selector: selector,
+			Ports: []corev1.ServicePort{{Name: "someport", Port: 8080, Protocol: corev1.ProtocolTCP}},
+			Type:  corev1.ServiceTypeClusterIP,
+		},
+	}
+	err := s.Mgr.GetClient().Create(context.Background(), service)
+	s.Require().NoError(err)
+
+	s.waitForObjectToBeCreated(service)
+
+	s.AddEndpoints(name, podIps)
+	return service
+}
+
+func (s *ControllerManagerTestSuiteBase) AddIngress(serviceName string) *networkingv1.Ingress {
+	ingress := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{Name: serviceName + "-ingress", Namespace: s.TestNamespace},
+		Spec: networkingv1.IngressSpec{
+			Rules: []networkingv1.IngressRule{
+				{
+					Host: serviceName + ".test.domain",
+					IngressRuleValue: networkingv1.IngressRuleValue{
+						HTTP: &networkingv1.HTTPIngressRuleValue{
+							Paths: []networkingv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: lo.ToPtr(networkingv1.PathTypePrefix),
+									Backend:  networkingv1.IngressBackend{Service: &networkingv1.IngressServiceBackend{Name: serviceName, Port: networkingv1.ServiceBackendPort{Number: 80}}},
+								}},
+						},
+					},
+				},
+			},
+		},
+	}
+	err := s.Mgr.GetClient().Create(context.Background(), ingress)
+	s.Require().NoError(err)
+
+	s.waitForObjectToBeCreated(ingress)
+
+	return ingress
+}
+
+func (s *ControllerManagerTestSuiteBase) AddLoadBalancerService(name string, podIps []string, selector map[string]string) *corev1.Service {
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},
+		Spec: corev1.ServiceSpec{Selector: selector,
+			Ports: []corev1.ServicePort{{Name: "someport", Port: 8080, Protocol: corev1.ProtocolTCP}},
+			Type:  corev1.ServiceTypeLoadBalancer,
+		},
+	}
+	err := s.Mgr.GetClient().Create(context.Background(), service)
+	s.Require().NoError(err)
+
+	s.waitForObjectToBeCreated(service)
+
+	s.AddEndpoints(name, podIps)
+	return service
+}
+
+func (s *ControllerManagerTestSuiteBase) AddNodePortService(name string, podIps []string, selector map[string]string) *corev1.Service {
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},
+		Spec: corev1.ServiceSpec{Selector: selector,
+			Ports: []corev1.ServicePort{{Name: "someport", Port: 8080, Protocol: corev1.ProtocolTCP}},
+			Type:  corev1.ServiceTypeNodePort,
+		},
+	}
+	err := s.Mgr.GetClient().Create(context.Background(), service)
+	s.Require().NoError(err)
+
+	s.waitForObjectToBeCreated(service)
+
+	s.AddEndpoints(name, podIps)
+	return service
+}
+
+func (s *ControllerManagerTestSuiteBase) AddDeploymentWithService(name string, podIps []string, podLabels map[string]string, podAnnotations map[string]string) (*appsv1.Deployment, *corev1.Service) {
+	deployment := s.AddDeployment(name, podIps, podLabels, podAnnotations)
+	service := s.AddService(name, podIps, podLabels)
+	return deployment, service
 }
 
 func (s *ControllerManagerTestSuiteBase) AddIntents(

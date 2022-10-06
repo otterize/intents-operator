@@ -10,11 +10,12 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const OtterizeNetworkPolicyNameTemplate = "external-access-to-%s"
+const OtterizeExternalNetworkPolicyNameTemplate = "external-access-to-%s"
 
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
@@ -28,7 +29,7 @@ type EndpointsReconciler struct {
 }
 
 func (r *EndpointsReconciler) formatPolicyName(serviceName string) string {
-	return fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, serviceName)
+	return fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 }
 
 func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enabled bool) *EndpointsReconciler {
@@ -42,11 +43,15 @@ func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enable
 func (r *EndpointsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	recorder := mgr.GetEventRecorderFor("intents-operator")
 	r.InjectRecorder(recorder)
-	r.netpolCreator.InjectRecorder(recorder)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Endpoints{}).
 		Complete(r)
+}
+
+func (r *EndpointsReconciler) InjectRecorder(recorder record.EventRecorder) {
+	r.Recorder = recorder
+	r.netpolCreator.InjectRecorder(recorder)
 }
 
 // Reconcile handles three cases:
@@ -101,10 +106,6 @@ func (r *EndpointsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	return r.reconcileEndpoints(ctx, endpoints, ingressList)
 }
-
-//func (r *ServiceReconciler) FormatPolicyName(serviceName string) string {
-//	return fmt.Sprintf(OtterizeNetworkPolicyNameTemplate, serviceName)
-//}
 
 func (r *EndpointsReconciler) getIngressRefersToService(ctx context.Context, svc *corev1.Service) (*v1.IngressList, error) {
 	var endpointsList v1.IngressList

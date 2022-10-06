@@ -54,7 +54,7 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 	if k8serrors.IsNotFound(errGetExistingPolicy) {
 		if r.enabled {
 			logrus.Infof(
-				"Creating network policy to enable access from external traffic to load balancer service %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
+				"Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
 			err := r.client.Create(ctx, newPolicy)
 			if err != nil {
 				r.RecordWarningEventf(eventsObject, ReasonCreatingExternalTrafficPolicyFailed, "failed to create external traffic network policy: %s", err.Error())

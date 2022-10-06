@@ -74,8 +74,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		&client.ListOptions{Namespace: pod.Namespace})
 
 	if err != nil {
-		logrus.Errorln("Failed listing intents", "Service name",
-			serviceID, "Namespace", pod.Namespace)
+		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
 		return ctrl.Result{}, err
 	}
 
