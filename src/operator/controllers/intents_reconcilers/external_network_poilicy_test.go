@@ -72,10 +72,12 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) BeforeTest(_, testName string
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIngress() {
 	serviceName := "test-server-ingress-test"
-	intents := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
 		Type: otterizev1alpha1.IntentTypeHTTP, Name: serviceName,
 	},
 	})
+	s.Require().NoError(err)
+
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
@@ -126,10 +128,11 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancer() {
 	serviceName := "test-server-load-balancer-test"
-	intents := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
 		Type: otterizev1alpha1.IntentTypeHTTP, Name: serviceName,
 	},
 	})
+	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
@@ -183,10 +186,11 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNodePort() {
 	serviceName := "test-server-node-port-test"
-	intents := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
 		Type: otterizev1alpha1.IntentTypeHTTP, Name: serviceName,
 	},
 	})
+	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{

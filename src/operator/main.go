@@ -166,7 +166,7 @@ func main() {
 	if selfSignedCert == true {
 		logrus.Infoln("Creating self signing certs")
 		certBundle, err =
-			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", "intents-operator-system")
+			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
 		if err != nil {
 			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
 		}
