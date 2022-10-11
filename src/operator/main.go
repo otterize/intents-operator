@@ -175,7 +175,7 @@ func main() {
 			logrus.WithError(err).Fatal("failed writing certs to file system")
 		}
 		err = webhooks.UpdateWebHookCA(context.Background(),
-			"intents-operator-validating-webhook-configuration", certBundle.CertPem)
+			"validating-webhook-configuration", certBundle.CertPem)
 		if err != nil {
 			logrus.WithError(err).Fatal("updating webhook certificate failed")
 		}
