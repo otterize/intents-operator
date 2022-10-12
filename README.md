@@ -38,6 +38,10 @@ spec:
 ```
 In this example the developers of **"checkoutservice"** chose to declare more granular information about the calls they'll make, allowing tighter enforcement of authorization.
 
+## Try out the intents operator!
+Check out [the quick tutorial for using the intents operator to manage network policies](https://docs.otterize.com/quick-tutorials/k8s-network-policies).
+
+
 Developers create and maintain these intents file for each service alongside its code. The intents are expressed in terms they're used to -- services accessing services, not pod labels and such -- without worrying about how access is controlled. 
 With this [intent-based access control](https://otterize.com/ibac) approach, you can implement a zero-trust Kubernetes cluster with minimal developer friction.
 
