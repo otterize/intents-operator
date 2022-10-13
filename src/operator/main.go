@@ -71,9 +71,13 @@ func main() {
 	var enableNetworkPolicyCreation bool
 	var enableKafkaACLCreation bool
 	var disableWebhookServer bool
+	var tlsSource otterizev1alpha1.TLSSource
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	pflag.StringVar(&tlsSource.CertFile, "kafka-server-tls-cert", "", "name of tls certificate file")
+	pflag.StringVar(&tlsSource.KeyFile, "kafka-server-tls-key", "", "name of tls private key file")
+	pflag.StringVar(&tlsSource.RootCAFile, "kafka-server-tls-ca", "", "name of tls ca file")
 	pflag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -130,7 +134,7 @@ func main() {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
 
-	kafkaServersStore := kafkaacls.NewServersStore(enableKafkaACLCreation)
+	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enableKafkaACLCreation)
 
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic)
 

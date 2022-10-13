@@ -32,6 +32,9 @@ spec:
         - /manager
         args:
         - --leader-elect
+        - --kafka-server-tls-cert=/etc/tls/svid.pem
+        - --kafka-server-tls-key=/etc/tls/key.pem
+        - --kafka-server-tls-ca=/etc/tls/bundle.pem
         image: controller:latest
         name: manager
         imagePullPolicy: Always
