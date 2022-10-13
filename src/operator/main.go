@@ -70,6 +70,7 @@ func main() {
 	var watchedNamespaces []string
 	var enableNetworkPolicyCreation bool
 	var enableKafkaACLCreation bool
+	var disableWebhookServer bool
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -78,6 +79,8 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	pflag.BoolVar(&selfSignedCert, "self-signed-cert", true,
 		"Whether to generate and use a self signed cert as the CA for webhooks")
+	pflag.BoolVar(&disableWebhookServer, "disable-webhook-server", false,
+		"Disable webhook validator server")
 	pflag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", true,
 		"Whether to automatically create network policies for external traffic")
 	pflag.StringSliceVar(&watchedNamespaces, "watched-namespaces", nil,
@@ -181,10 +184,12 @@ func main() {
 		}
 	}
 
-	intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
+	if !disableWebhookServer {
+		intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
 
-	if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
+		if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
+		}
 	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, podName, podNamespace)
