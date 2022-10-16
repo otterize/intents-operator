@@ -22,6 +22,7 @@ import (
 	"fmt"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"strings"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -112,13 +113,22 @@ type Intent struct {
 }
 
 type HTTPResource struct {
-	Path   string     `json:"path"`
-	Method HTTPMethod `json:"method"`
+	Path    string       `json:"path"`
+	Methods []HTTPMethod `json:"methods" yaml:"methods"`
 }
 
 type KafkaTopic struct {
-	Name      string         `json:"name" yaml:"name"`
-	Operation KafkaOperation `json:"operation" yaml:"operation"`
+	Name       string           `json:"name" yaml:"name"`
+	Operations []KafkaOperation `json:"operations" yaml:"operations"`
+}
+
+func (in KafkaTopic) AsComparableString() string {
+	builder := strings.Builder{}
+	builder.WriteString(in.Name)
+	for _, operation := range in.Operations {
+		builder.WriteString(string(operation))
+	}
+	return builder.String()
 }
 
 // IntentsStatus defines the observed state of ClientIntents
