@@ -334,8 +334,8 @@ func DifferenceAsComparableString[T AsComparableString](list1 []T, list2 []T) ([
 	left := []T{}
 	right := []T{}
 
-	seenLeft := map[any]T{}
-	seenRight := map[any]T{}
+	seenLeft := map[string]T{}
+	seenRight := map[string]T{}
 
 	for _, elem := range list1 {
 		seenLeft[elem.AsComparableString()] = elem
