@@ -33,7 +33,7 @@ Service name resolution is performed one of two ways:
 The value resulting from this process forms the value of the label `spire-integration.otterize.com/service-name`.
 
 ## Contributing
-1. Feel free to fork and open a pull request! Include tests and document your code in [Godoc style](https://go.dev/blog/godoc)
+1. Feel free to fork and open a pull request! Include tests and document your code in [Godoc style](https://go.dev/blog/godoc).
 2. In your pull request, please refer to an existing issue or open a new one.
 3. For instructions on developing for the operator, see the [README for that section](src/operator/README.md).
 4. See our [Contributor License Agreement](https://github.com/otterize/cla/).
