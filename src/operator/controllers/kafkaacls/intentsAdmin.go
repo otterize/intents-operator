@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-type TopicToACLList map[string][]*sarama.Acl
+type TopicToACLList map[sarama.Resource][]sarama.Acl
 
 const (
 	AnonymousUserPrincipalName = "User:ANONYMOUS"
@@ -198,6 +198,12 @@ func (a *KafkaIntentsAdmin) collectTopicsToACLList(principal string, topics []ot
 	topicToACLList := TopicToACLList{}
 
 	for _, topic := range topics {
+		resource := sarama.Resource{
+			ResourceType:        sarama.AclResourceTopic,
+			ResourceName:        topic.Name,
+			ResourcePatternType: sarama.AclPatternLiteral,
+		}
+		acls := make([]sarama.Acl, 0)
 		for _, operation := range topic.Operations {
 			operation, ok := KafkaOperationToAclOperationBMap.Get(operation)
 			if !ok {
@@ -210,30 +216,12 @@ func (a *KafkaIntentsAdmin) collectTopicsToACLList(principal string, topics []ot
 				Operation:      operation,
 				PermissionType: sarama.AclPermissionAllow,
 			}
-
-			topicToACLList[topic.Name] = append(topicToACLList[topic.Name], &acl)
+			acls = append(acls, acl)
 		}
+		topicToACLList[resource] = acls
 	}
 
 	return topicToACLList, nil
-}
-
-func (a *KafkaIntentsAdmin) createACLs(topicToACLList TopicToACLList) error {
-	resourceACLs := make([]*sarama.ResourceAcls, 0)
-	for topicName, aclList := range topicToACLList {
-		resource := sarama.Resource{
-			ResourceType:        sarama.AclResourceTopic,
-			ResourceName:        topicName,
-			ResourcePatternType: sarama.AclPatternLiteral,
-		}
-		resourceACLs = append(resourceACLs, &sarama.ResourceAcls{Resource: resource, Acls: aclList})
-	}
-
-	if err := a.kafkaAdminClient.CreateACLs(resourceACLs); err != nil {
-		return fmt.Errorf("failed applying ACLs to server: %w", err)
-	}
-
-	return nil
 }
 
 func (a *KafkaIntentsAdmin) deleteACLsByPrincipal(principal string) (int, error) {
@@ -252,31 +240,6 @@ func (a *KafkaIntentsAdmin) deleteACLsByPrincipal(principal string) (int, error)
 	}
 
 	return len(matchedAcls), nil
-}
-
-func (a *KafkaIntentsAdmin) deleteACLsByPrincipalAndTopics(principal string, topics []otterizev1alpha1.KafkaTopic) error {
-	for _, topic := range topics {
-		for _, operation := range topic.Operations {
-			operation, ok := KafkaOperationToAclOperationBMap.Get(operation)
-			if !ok {
-				return fmt.Errorf("unknown operation '%v'", operation)
-			}
-			_, err := a.kafkaAdminClient.DeleteACL(
-				sarama.AclFilter{
-					ResourceType:              sarama.AclResourceTopic,
-					ResourceName:              &topic.Name,
-					ResourcePatternTypeFilter: sarama.AclPatternLiteral,
-					Principal:                 &principal,
-					Operation:                 operation,
-					PermissionType:            sarama.AclPermissionAllow,
-				}, true)
-			if err != nil {
-				return fmt.Errorf("failed deleting ACL rules from server: %w", err)
-			}
-		}
-	}
-
-	return nil
 }
 
 func (a *KafkaIntentsAdmin) logACLs() error {
@@ -320,43 +283,6 @@ func (a *KafkaIntentsAdmin) logACLs() error {
 	return nil
 }
 
-type AsComparableString interface {
-	AsComparableString() string
-}
-
-// Difference returns the difference between two collections, even when they don't implement `comparable`, as long as they implement `AsComparableString`.
-// The first value is the collection of element absent of list2.
-// The second value is the collection of element absent of list1.
-func DifferenceAsComparableString[T AsComparableString](list1 []T, list2 []T) ([]T, []T) {
-	left := []T{}
-	right := []T{}
-
-	seenLeft := map[string]T{}
-	seenRight := map[string]T{}
-
-	for _, elem := range list1 {
-		seenLeft[elem.AsComparableString()] = elem
-	}
-
-	for _, elem := range list2 {
-		seenRight[elem.AsComparableString()] = elem
-	}
-
-	for _, elem := range list1 {
-		if _, ok := seenRight[elem.AsComparableString()]; !ok {
-			left = append(left, elem)
-		}
-	}
-
-	for _, elem := range list2 {
-		if _, ok := seenLeft[elem.AsComparableString()]; !ok {
-			right = append(right, elem)
-		}
-	}
-
-	return left, right
-}
-
 func (a *KafkaIntentsAdmin) ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev1alpha1.Intent) error {
 	principal := a.formatPrincipal(clientName, clientNamespace)
 	logger := logrus.WithFields(
@@ -371,33 +297,31 @@ func (a *KafkaIntentsAdmin) ApplyClientIntents(clientName string, clientNamespac
 		return fmt.Errorf("failed getting applied ACL rules %w", err)
 	}
 
+	appliedIntentKafkaAcls, err := a.collectTopicsToACLList(principal, appliedIntentKafkaTopics)
 	expectedIntentKafkaTopics := lo.Flatten(
 		lo.Map(intents, func(intent otterizev1alpha1.Intent, _ int) []otterizev1alpha1.KafkaTopic {
 			return intent.Topics
 		}),
 	)
-	newAclRules, AclRulesToDelete := DifferenceAsComparableString(expectedIntentKafkaTopics, appliedIntentKafkaTopics)
+	expectedIntentsKafkaTopicsAcls, err := a.collectTopicsToACLList(principal, expectedIntentKafkaTopics)
+	resourceAclsCreate, resourceAclsDelete := a.kafkaResourceAclsDiff(expectedIntentsKafkaTopicsAcls, appliedIntentKafkaAcls)
 
-	if len(newAclRules) == 0 {
+	if len(resourceAclsCreate) == 0 {
 		logger.Info("No new ACLs found to apply on server")
 	} else {
-		topicToACLList, err := a.collectTopicsToACLList(principal, newAclRules)
-		if err != nil {
-			return fmt.Errorf("failed collecting ACLs for server: %w", err)
-		}
-		logger.Infof("Creating %d new ACLs", len(newAclRules))
+		logger.Infof("Creating %d new ACLs", len(resourceAclsCreate))
 		if a.enableKafkaACLCreation {
-			if err := a.createACLs(topicToACLList); err != nil {
-				return fmt.Errorf("failed creating ACLs on server: %w", err)
+			if err := a.kafkaAdminClient.CreateACLs(resourceAclsCreate); err != nil {
+				return fmt.Errorf("failed applying ACLs to server: %w", err)
 			}
 		}
 	}
 
-	if len(AclRulesToDelete) == 0 {
+	if len(resourceAclsDelete) == 0 {
 		logger.Info("No ACL rules to delete")
 	} else {
-		logger.Infof("deleting %d ACL rules", len(AclRulesToDelete))
-		if err := a.deleteACLsByPrincipalAndTopics(principal, AclRulesToDelete); err != nil {
+		logger.Infof("deleting %d ACL rules", len(resourceAclsDelete))
+		if err := a.deleteResourceAcls(resourceAclsDelete); err != nil {
 			return fmt.Errorf("failed deleting ACLs on server: %w", err)
 		}
 	}
