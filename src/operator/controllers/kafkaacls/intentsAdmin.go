@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/lox"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/vishalkuo/bimap"
@@ -174,27 +175,23 @@ func (a *KafkaIntentsAdmin) queryAppliedIntentKafkaTopics(principal string) ([]o
 		return nil, fmt.Errorf("failed listing ACLs on server: %w", err)
 	}
 
-	topicsByResourceName := make(map[string]*otterizev1alpha1.KafkaTopic)
-	for _, resourceAcls := range principalAcls {
-		for _, acl := range resourceAcls.Acls {
+	resourceAppliedKafkaTopics, err := lox.MapErr(principalAcls, func(acls sarama.ResourceAcls, _ int) (otterizev1alpha1.KafkaTopic, error) {
+		operations := make([]otterizev1alpha1.KafkaOperation, 0)
+		for _, acl := range acls.Acls {
 			operation, ok := KafkaOperationToAclOperationBMap.GetInverse(acl.Operation)
 			if !ok {
-				return nil, fmt.Errorf("unknown operation %v", acl.Operation)
+				return otterizev1alpha1.KafkaTopic{}, fmt.Errorf("unknown operation %v", acl.Operation)
 			}
-			if _, ok := topicsByResourceName[resourceAcls.ResourceName]; !ok {
-				topicsByResourceName[resourceAcls.ResourceName] = &otterizev1alpha1.KafkaTopic{Name: resourceAcls.ResourceName}
-			}
-			topicsByResourceName[resourceAcls.ResourceName].Operations = append(topicsByResourceName[resourceAcls.ResourceName].Operations, operation)
+			operations = append(operations, operation)
 		}
-		if err != nil {
-			return nil, err
-		}
+		return otterizev1alpha1.KafkaTopic{Name: acls.ResourceName, Operations: operations}, nil
+	})
 
+	if err != nil {
+		return nil, err
 	}
 
-	return lo.MapToSlice(topicsByResourceName, func(_ string, topic *otterizev1alpha1.KafkaTopic) otterizev1alpha1.KafkaTopic {
-		return *topic
-	}), nil
+	return resourceAppliedKafkaTopics, nil
 }
 
 func (a *KafkaIntentsAdmin) collectTopicsToACLList(principal string, topics []otterizev1alpha1.KafkaTopic) (TopicToACLList, error) {
