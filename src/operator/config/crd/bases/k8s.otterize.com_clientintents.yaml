@@ -45,21 +45,23 @@ spec:
                     resources:
                       items:
                         properties:
-                          method:
-                            enum:
-                            - GET
-                            - POST
-                            - PUT
-                            - DELETE
-                            - OPTIONS
-                            - TRACE
-                            - PATCH
-                            - CONNECT
-                            type: string
+                          methods:
+                            items:
+                              enum:
+                              - GET
+                              - POST
+                              - PUT
+                              - DELETE
+                              - OPTIONS
+                              - TRACE
+                              - PATCH
+                              - CONNECT
+                              type: string
+                            type: array
                           path:
                             type: string
                         required:
-                        - method
+                        - methods
                         - path
                         type: object
                       type: array
@@ -68,23 +70,25 @@ spec:
                         properties:
                           name:
                             type: string
-                          operation:
-                            enum:
-                            - all
-                            - consume
-                            - produce
-                            - create
-                            - alter
-                            - delete
-                            - describe
-                            - ClusterAction
-                            - DescribeConfigs
-                            - AlterConfigs
-                            - IdempotentWrite
-                            type: string
+                          operations:
+                            items:
+                              enum:
+                              - all
+                              - consume
+                              - produce
+                              - create
+                              - alter
+                              - delete
+                              - describe
+                              - ClusterAction
+                              - DescribeConfigs
+                              - AlterConfigs
+                              - IdempotentWrite
+                              type: string
+                            type: array
                         required:
                         - name
-                        - operation
+                        - operations
                         type: object
                       type: array
                     type:
