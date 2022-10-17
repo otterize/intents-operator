@@ -20,8 +20,10 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"sort"
 	"strings"
 )
 
@@ -125,7 +127,11 @@ type KafkaTopic struct {
 func (in KafkaTopic) AsComparableString() string {
 	builder := strings.Builder{}
 	builder.WriteString(in.Name)
-	for _, operation := range in.Operations {
+	opSliceStr := lo.Map(in.Operations, func(item KafkaOperation, _ int) string {
+		return string(item)
+	})
+	sort.Strings(opSliceStr)
+	for _, operation := range opSliceStr {
 		builder.WriteString(string(operation))
 	}
 	return builder.String()
