@@ -20,11 +20,8 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sort"
-	"strings"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -122,19 +119,6 @@ type HTTPResource struct {
 type KafkaTopic struct {
 	Name       string           `json:"name" yaml:"name"`
 	Operations []KafkaOperation `json:"operations" yaml:"operations"`
-}
-
-func (in KafkaTopic) AsComparableString() string {
-	builder := strings.Builder{}
-	builder.WriteString(in.Name)
-	opSliceStr := lo.Map(in.Operations, func(item KafkaOperation, _ int) string {
-		return string(item)
-	})
-	sort.Strings(opSliceStr)
-	for _, operation := range opSliceStr {
-		builder.WriteString(operation)
-	}
-	return builder.String()
 }
 
 // IntentsStatus defines the observed state of ClientIntents
