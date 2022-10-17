@@ -132,7 +132,7 @@ func (in KafkaTopic) AsComparableString() string {
 	})
 	sort.Strings(opSliceStr)
 	for _, operation := range opSliceStr {
-		builder.WriteString(string(operation))
+		builder.WriteString(operation)
 	}
 	return builder.String()
 }
