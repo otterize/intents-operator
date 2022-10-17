@@ -30,7 +30,7 @@ PRs to our code are always welcome and can be a quick way to get your fix or imp
 
 - Only fix/add the functionality in question **or** address wide-spread whitespace/style issues, not both.
 - Add unit or integration tests for fixed or changed functionality (if a test suite already exists).
-- Address a single concern in the least number of changed lines as possible.
+- Address a single concern.
 - Include documentation in the repo or on our [docs site](https://docs.otterize.com).
 - Be accompanied by a complete Pull Request template (loaded automatically when a PR is created).
 
