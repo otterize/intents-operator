@@ -31,10 +31,13 @@ spec:
       - command:
         - /manager
         args:
-        - --leader-elect
+        - --leader-elect=true
+        - --client-id=123
+        - --client-secret=abc
+        - --disable-webhook-server=true
         image: controller:latest
         name: manager
-        imagePullPolicy: Always
+        imagePullPolicy: Never
         env:
           - name: POD_NAME
             valueFrom:

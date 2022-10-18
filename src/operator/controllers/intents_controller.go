@@ -40,14 +40,21 @@ func NewIntentsReconciler(
 	kafkaServerStore *kafkaacls.ServersStore,
 	endpointsReconciler *external_traffic.EndpointsReconciler,
 	restrictToNamespaces []string,
-	enableNetworkPolicyCreation bool,
-	enableKafkaACLCreation bool) *IntentsReconciler {
-	return &IntentsReconciler{
+	enableNetworkPolicyCreation, enableKafkaACLCreation bool,
+	otterizeClientID, otterizeClientSecret string) *IntentsReconciler {
+	intentsReconciler := &IntentsReconciler{
 		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 			intents_reconcilers.NewPodLabelReconciler(client, scheme),
 			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enableNetworkPolicyCreation),
 			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enableKafkaACLCreation),
 		)}
+
+	if otterizeClientID != "" && otterizeClientSecret != "" {
+		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClientID, otterizeClientSecret)
+		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
+	}
+
+	return intentsReconciler
 }
 
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents,verbs=get;list;watch;create;update;patch;delete
