@@ -111,7 +111,7 @@ deploy: manifests helm-dependency
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$helm uninstall -n otterize-system otterize $(OTTERIZE_HELM_CHART_DIR)/otterize-kubernetes/
+	helm uninstall -n otterize-system otterize
 
 ##@ Build Dependencies
 
