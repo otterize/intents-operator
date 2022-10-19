@@ -23,9 +23,12 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 type TLSSource struct {
-	CertFile   string `json:"certFile,omitempty" yaml:"certFile,omitempty"`
-	KeyFile    string `json:"keyFile,omitempty" yaml:"keyFile,omitempty"`
-	RootCAFile string `json:"rootCAFile,omitempty" yaml:"rootCAFile,omitempty"`
+	// +kubebuilder:validation:Required
+	CertFile string `json:"certFile" yaml:"certFile"`
+	// +kubebuilder:validation:Required
+	KeyFile string `json:"keyFile" yaml:"keyFile"`
+	// +kubebuilder:validation:Required
+	RootCAFile string `json:"rootCAFile" yaml:"rootCAFile"`
 }
 
 type ResourcePatternType string
@@ -50,10 +53,11 @@ type KafkaServerConfigSpec struct {
 	Service Service `json:"service,omitempty" yaml:"service,omitempty"`
 	// If Intents for network policies are enabled, and there are other Intents to this Kafka server,
 	// will automatically create an Intent so that the Intents Operator can connect. Set to true to disable.
-	NoAutoCreateIntentsForOperator bool          `json:"noAutoCreateIntentsForOperator,omitempty" yaml:"noAutoCreateIntentsForOperator,omitempty"`
-	Addr                           string        `json:"addr,omitempty" yaml:"addr,omitempty"`
-	TLS                            TLSSource     `json:"tls" yaml:"tls"`
-	Topics                         []TopicConfig `json:"topics,omitempty" yaml:"topics,omitempty"`
+	NoAutoCreateIntentsForOperator bool   `json:"noAutoCreateIntentsForOperator,omitempty" yaml:"noAutoCreateIntentsForOperator,omitempty"`
+	Addr                           string `json:"addr,omitempty" yaml:"addr,omitempty"`
+	// +kubebuilder:validation:Optional
+	TLS    TLSSource     `json:"tls,omitempty" yaml:"tls,omitempty"`
+	Topics []TopicConfig `json:"topics,omitempty" yaml:"topics,omitempty"`
 }
 
 // KafkaServerConfigStatus defines the observed state of KafkaServerConfig

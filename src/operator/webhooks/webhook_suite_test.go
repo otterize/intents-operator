@@ -78,8 +78,8 @@ func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntents() {
 		{
 			Type: otterizev1alpha1.IntentTypeHTTP,
 			Topics: []otterizev1alpha1.KafkaTopic{{
-				Name:      "sometopic",
-				Operation: otterizev1alpha1.KafkaOperationConsume,
+				Name:       "sometopic",
+				Operations: []otterizev1alpha1.KafkaOperation{otterizev1alpha1.KafkaOperationConsume},
 			}},
 		},
 	})

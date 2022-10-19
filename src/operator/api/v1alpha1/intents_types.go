@@ -112,13 +112,13 @@ type Intent struct {
 }
 
 type HTTPResource struct {
-	Path   string     `json:"path"`
-	Method HTTPMethod `json:"method"`
+	Path    string       `json:"path"`
+	Methods []HTTPMethod `json:"methods" yaml:"methods"`
 }
 
 type KafkaTopic struct {
-	Name      string         `json:"name" yaml:"name"`
-	Operation KafkaOperation `json:"operation" yaml:"operation"`
+	Name       string           `json:"name" yaml:"name"`
+	Operations []KafkaOperation `json:"operations" yaml:"operations"`
 }
 
 // IntentsStatus defines the observed state of ClientIntents

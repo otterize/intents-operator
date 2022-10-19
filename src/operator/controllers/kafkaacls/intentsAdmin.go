@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-type TopicToACLList map[string][]*sarama.Acl
+type TopicToACLList map[sarama.Resource][]sarama.Acl
 
 const (
 	AnonymousUserPrincipalName = "User:ANONYMOUS"
@@ -110,7 +110,7 @@ func getUserPrincipalMapping(tlsCert tls.Certificate) (string, error) {
 
 }
 
-func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, enableKafkaACLCreation bool) (*KafkaIntentsAdmin, error) {
+func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, defaultTls otterizev1alpha1.TLSSource, enableKafkaACLCreation bool) (*KafkaIntentsAdmin, error) {
 	logger := logrus.WithField("addr", kafkaServer.Spec.Addr)
 	logger.Info("Connecting to kafka server")
 	addrs := []string{kafkaServer.Spec.Addr}
@@ -118,7 +118,16 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, enable
 	config := sarama.NewConfig()
 	config.Version = sarama.V2_0_0_0
 
-	tlsConfig, err := getTLSConfig(kafkaServer.Spec.TLS)
+	var tlsSource otterizev1alpha1.TLSSource
+	if lo.IsEmpty(kafkaServer.Spec.TLS) {
+		tlsSource = defaultTls
+		logger.Info("Using TLS configuration from default")
+	} else {
+		tlsSource = kafkaServer.Spec.TLS
+		logger.Info("Using TLS configuration from KafkaServerConfig")
+	}
+
+	tlsConfig, err := getTLSConfig(tlsSource)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +164,6 @@ func (a *KafkaIntentsAdmin) formatPrincipal(clientName string, clientNamespace s
 }
 
 func (a *KafkaIntentsAdmin) queryAppliedIntentKafkaTopics(principal string) ([]otterizev1alpha1.KafkaTopic, error) {
-	appliedKafkaTopics := make([]otterizev1alpha1.KafkaTopic, 0)
 	principalAcls, err := a.kafkaAdminClient.ListAcls(sarama.AclFilter{
 		ResourceType:              sarama.AclResourceTopic,
 		Principal:                 &principal,
@@ -167,62 +175,53 @@ func (a *KafkaIntentsAdmin) queryAppliedIntentKafkaTopics(principal string) ([]o
 		return nil, fmt.Errorf("failed listing ACLs on server: %w", err)
 	}
 
-	for _, resourceAcls := range principalAcls {
-		resourceAppliedKafkaTopics, err := lox.MapErr(resourceAcls.Acls, func(acl *sarama.Acl, _ int) (otterizev1alpha1.KafkaTopic, error) {
+	resourceAppliedKafkaTopics, err := lox.MapErr(principalAcls, func(acls sarama.ResourceAcls, _ int) (otterizev1alpha1.KafkaTopic, error) {
+		operations := make([]otterizev1alpha1.KafkaOperation, 0)
+		for _, acl := range acls.Acls {
 			operation, ok := KafkaOperationToAclOperationBMap.GetInverse(acl.Operation)
 			if !ok {
 				return otterizev1alpha1.KafkaTopic{}, fmt.Errorf("unknown operation %v", acl.Operation)
 			}
-			return otterizev1alpha1.KafkaTopic{Name: resourceAcls.ResourceName, Operation: operation}, nil
-		})
-		if err != nil {
-			return nil, err
+			operations = append(operations, operation)
 		}
+		return otterizev1alpha1.KafkaTopic{Name: acls.ResourceName, Operations: operations}, nil
+	})
 
-		appliedKafkaTopics = append(appliedKafkaTopics, resourceAppliedKafkaTopics...)
+	if err != nil {
+		return nil, err
 	}
 
-	return appliedKafkaTopics, nil
+	return resourceAppliedKafkaTopics, nil
 }
 
 func (a *KafkaIntentsAdmin) collectTopicsToACLList(principal string, topics []otterizev1alpha1.KafkaTopic) (TopicToACLList, error) {
 	topicToACLList := TopicToACLList{}
 
 	for _, topic := range topics {
-		operation, ok := KafkaOperationToAclOperationBMap.Get(topic.Operation)
-		if !ok {
-			return nil, fmt.Errorf("unknown operation %s", topic.Operation)
+		resource := sarama.Resource{
+			ResourceType:        sarama.AclResourceTopic,
+			ResourceName:        topic.Name,
+			ResourcePatternType: sarama.AclPatternLiteral,
 		}
+		acls := make([]sarama.Acl, 0)
+		for _, operation := range topic.Operations {
+			operation, ok := KafkaOperationToAclOperationBMap.Get(operation)
+			if !ok {
+				return nil, fmt.Errorf("unknown operation '%v'", operation)
+			}
 
-		acl := sarama.Acl{
-			Principal:      principal,
-			Host:           "*",
-			Operation:      operation,
-			PermissionType: sarama.AclPermissionAllow,
+			acl := sarama.Acl{
+				Principal:      principal,
+				Host:           "*",
+				Operation:      operation,
+				PermissionType: sarama.AclPermissionAllow,
+			}
+			acls = append(acls, acl)
 		}
-
-		topicToACLList[topic.Name] = append(topicToACLList[topic.Name], &acl)
+		topicToACLList[resource] = acls
 	}
 
 	return topicToACLList, nil
-}
-
-func (a *KafkaIntentsAdmin) createACLs(topicToACLList TopicToACLList) error {
-	resourceACLs := make([]*sarama.ResourceAcls, 0)
-	for topicName, aclList := range topicToACLList {
-		resource := sarama.Resource{
-			ResourceType:        sarama.AclResourceTopic,
-			ResourceName:        topicName,
-			ResourcePatternType: sarama.AclPatternLiteral,
-		}
-		resourceACLs = append(resourceACLs, &sarama.ResourceAcls{Resource: resource, Acls: aclList})
-	}
-
-	if err := a.kafkaAdminClient.CreateACLs(resourceACLs); err != nil {
-		return fmt.Errorf("failed applying ACLs to server: %w", err)
-	}
-
-	return nil
 }
 
 func (a *KafkaIntentsAdmin) deleteACLsByPrincipal(principal string) (int, error) {
@@ -241,29 +240,6 @@ func (a *KafkaIntentsAdmin) deleteACLsByPrincipal(principal string) (int, error)
 	}
 
 	return len(matchedAcls), nil
-}
-
-func (a *KafkaIntentsAdmin) deleteACLsByPrincipalAndTopics(principal string, topics []otterizev1alpha1.KafkaTopic) error {
-	for _, topic := range topics {
-		operation, ok := KafkaOperationToAclOperationBMap.Get(topic.Operation)
-		if !ok {
-			return fmt.Errorf("unknown operation %s", topic.Operation)
-		}
-		_, err := a.kafkaAdminClient.DeleteACL(
-			sarama.AclFilter{
-				ResourceType:              sarama.AclResourceTopic,
-				ResourceName:              &topic.Name,
-				ResourcePatternTypeFilter: sarama.AclPatternLiteral,
-				Principal:                 &principal,
-				Operation:                 operation,
-				PermissionType:            sarama.AclPermissionAllow,
-			}, true)
-		if err != nil {
-			return fmt.Errorf("failed deleting ACL rules from server: %w", err)
-		}
-	}
-
-	return nil
 }
 
 func (a *KafkaIntentsAdmin) logACLs() error {
@@ -321,33 +297,31 @@ func (a *KafkaIntentsAdmin) ApplyClientIntents(clientName string, clientNamespac
 		return fmt.Errorf("failed getting applied ACL rules %w", err)
 	}
 
+	appliedIntentKafkaAcls, err := a.collectTopicsToACLList(principal, appliedIntentKafkaTopics)
 	expectedIntentKafkaTopics := lo.Flatten(
 		lo.Map(intents, func(intent otterizev1alpha1.Intent, _ int) []otterizev1alpha1.KafkaTopic {
 			return intent.Topics
 		}),
 	)
-	newAclRules, AclRulesToDelete := lo.Difference(expectedIntentKafkaTopics, appliedIntentKafkaTopics)
+	expectedIntentsKafkaTopicsAcls, err := a.collectTopicsToACLList(principal, expectedIntentKafkaTopics)
+	resourceAclsCreate, resourceAclsDelete := a.kafkaResourceAclsDiff(expectedIntentsKafkaTopicsAcls, appliedIntentKafkaAcls)
 
-	if len(newAclRules) == 0 {
+	if len(resourceAclsCreate) == 0 {
 		logger.Info("No new ACLs found to apply on server")
 	} else {
-		topicToACLList, err := a.collectTopicsToACLList(principal, newAclRules)
-		if err != nil {
-			return fmt.Errorf("failed collecting ACLs for server: %w", err)
-		}
-		logger.Infof("Creating %d new ACLs", len(newAclRules))
+		logger.Infof("Creating %d new ACLs", len(resourceAclsCreate))
 		if a.enableKafkaACLCreation {
-			if err := a.createACLs(topicToACLList); err != nil {
-				return fmt.Errorf("failed creating ACLs on server: %w", err)
+			if err := a.kafkaAdminClient.CreateACLs(resourceAclsCreate); err != nil {
+				return fmt.Errorf("failed applying ACLs to server: %w", err)
 			}
 		}
 	}
 
-	if len(AclRulesToDelete) == 0 {
+	if len(resourceAclsDelete) == 0 {
 		logger.Info("No ACL rules to delete")
 	} else {
-		logger.Infof("deleting %d ACL rules", len(AclRulesToDelete))
-		if err := a.deleteACLsByPrincipalAndTopics(principal, AclRulesToDelete); err != nil {
+		logger.Infof("deleting %d ACL rules", len(resourceAclsDelete))
+		if err := a.deleteResourceAcls(resourceAclsDelete); err != nil {
 			return fmt.Errorf("failed deleting ACLs on server: %w", err)
 		}
 	}

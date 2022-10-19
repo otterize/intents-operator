@@ -13,12 +13,14 @@ var (
 type ServersStore struct {
 	serversByName          map[types.NamespacedName]*otterizev1alpha1.KafkaServerConfig
 	enableKafkaACLCreation bool
+	tlsSourceFiles         otterizev1alpha1.TLSSource
 }
 
-func NewServersStore(enableKafkaACLCreation bool) *ServersStore {
+func NewServersStore(tlsSourceFiles otterizev1alpha1.TLSSource, enableKafkaACLCreation bool) *ServersStore {
 	return &ServersStore{
 		serversByName:          map[types.NamespacedName]*otterizev1alpha1.KafkaServerConfig{},
 		enableKafkaACLCreation: enableKafkaACLCreation,
+		tlsSourceFiles:         tlsSourceFiles,
 	}
 }
 func (s *ServersStore) Add(config *otterizev1alpha1.KafkaServerConfig) {
@@ -46,12 +48,12 @@ func (s *ServersStore) Get(serverName string, namespace string) (*KafkaIntentsAd
 		return nil, ServerSpecNotFound
 	}
 
-	return NewKafkaIntentsAdmin(*config, s.enableKafkaACLCreation)
+	return NewKafkaIntentsAdmin(*config, s.tlsSourceFiles, s.enableKafkaACLCreation)
 }
 
-func (s *ServersStore) MapErr(f func(types.NamespacedName, *otterizev1alpha1.KafkaServerConfig) error) error {
+func (s *ServersStore) MapErr(f func(types.NamespacedName, *otterizev1alpha1.KafkaServerConfig, otterizev1alpha1.TLSSource) error) error {
 	for serverName, config := range s.serversByName {
-		if err := f(serverName, config); err != nil {
+		if err := f(serverName, config, s.tlsSourceFiles); err != nil {
 			return err
 		}
 	}
