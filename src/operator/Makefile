@@ -54,7 +54,8 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=manager-role crd webhook paths="../..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=intents-operator-manager-role crd webhook paths="../..."
+
 
 .PHONY: generate
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
@@ -105,8 +106,13 @@ $(OTTERIZE_HELM_CHART_DIR):
 helm-dependency: $(OTTERIZE_HELM_CHART_DIR)
 	cd $(OTTERIZE_HELM_CHART_DIR) && helm dependency build
 
+.PHONY: copy-manifests-to-helm
+copy-manifests-to-helm: manifests
+	kubectl kustomize  ./config/webhook | sed -e "s/[']//g" > ./config/webhook/manifests-patched
+	./copy-manifests-to-helm.sh
+
 .PHONY: deploy
-deploy: manifests helm-dependency
+deploy: manifests copy-manifests-to-helm helm-dependency
 	helm upgrade --install -n otterize-system --create-namespace otterize $(OTTERIZE_HELM_CHART_DIR)
 
 .PHONY: undeploy

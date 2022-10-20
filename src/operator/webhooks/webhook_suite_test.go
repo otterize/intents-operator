@@ -37,7 +37,7 @@ type ValidationWebhookTestSuite struct {
 func (s *ValidationWebhookTestSuite) SetupSuite() {
 	s.TestEnv = &envtest.Environment{}
 	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "config", "crd", "bases")}
+	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "config", "crd")}
 	s.TestEnv.WebhookInstallOptions = envtest.WebhookInstallOptions{
 		Paths:            []string{filepath.Join("..", "config", "webhook")},
 		LocalServingPort: 9443,

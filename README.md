@@ -74,10 +74,17 @@ Client intents files use service names to refer to client and server services. H
 Pods are then labeled with values derived from service names. For example, 
 the service name is combined with the namespace of the pod and hashed to form the value of the label `intents.otterize.com/server`. This label is then used as a selector for network policies. Another label, `intents.otterize.com/access-server-<servicename>-<servicehash>`, is applied to client pods which have declared their intent to access the server. This label is used as the selector to determine which client pods are allowed to access the server pod.
 
+## Development
+Inside src/operator directory you may run make command.
+Most useful command:
+* `make build` to compile the go code
+* `make deploy` to generate Kubernetes object deploy the project to your local cluster
+
 ## Contributing
 1. Feel free to fork and open a pull request! Include tests and document your code in [Godoc style](https://go.dev/blog/godoc)
 2. In your pull request, please refer to an existing issue or open a new one.
-3. See our [Contributor License Agreement](https://github.com/otterize/cla/).
+3. Changes to Kubernetes objects will generate changes in `helm-charts` sub-repo, so you'll need to open PR to this repository too
+4. See our [Contributor License Agreement](https://github.com/otterize/cla/).
 
 ## Slack
 [Join the Otterize Slack!](https://joinslack.otterize.com)
