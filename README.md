@@ -83,7 +83,7 @@ Most useful command:
 ## Contributing
 1. Feel free to fork and open a pull request! Include tests and document your code in [Godoc style](https://go.dev/blog/godoc)
 2. In your pull request, please refer to an existing issue or open a new one.
-3. Changes to Kubernetes objects will generate changes in `helm-charts` sub-repo, so you'll need to open PR to this repository too
+3. Changes to Kubernetes objects will make changes to the Helm chart in the [helm-charts repo](https://github.com/otterize/helm-charts), which is a submodule in this repository, so you'll need to open a PR there as well.
 4. See our [Contributor License Agreement](https://github.com/otterize/cla/).
 
 ## Slack
