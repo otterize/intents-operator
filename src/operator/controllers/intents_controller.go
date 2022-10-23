@@ -53,7 +53,6 @@ func NewIntentsReconciler(
 		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClientID, otterizeClientSecret)
 		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
 	}
-
 	return intentsReconciler
 }
 
