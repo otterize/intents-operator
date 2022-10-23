@@ -29,7 +29,7 @@ type ExternalNetworkPolicyReconcilerTestSuite struct {
 func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupSuite() {
 	s.TestEnv = &envtest.Environment{}
 	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd", "bases")}
+	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd")}
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
