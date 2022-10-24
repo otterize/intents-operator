@@ -100,6 +100,7 @@ func main() {
 
 	podName := MustGetEnvVar("POD_NAME")
 	podNamespace := MustGetEnvVar("POD_NAMESPACE")
+	cloudAddr := os.Getenv("OTTERIZE_API_ADDRESS") // we use Getenv because empty string is viable
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
@@ -159,7 +160,8 @@ func main() {
 
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler,
-		watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation, otterizeClientID, otterizeClientSecret)
+		watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation,
+		otterizeClientID, otterizeClientSecret, cloudAddr)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")

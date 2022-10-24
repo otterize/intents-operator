@@ -41,7 +41,7 @@ func NewIntentsReconciler(
 	endpointsReconciler *external_traffic.EndpointsReconciler,
 	restrictToNamespaces []string,
 	enableNetworkPolicyCreation, enableKafkaACLCreation bool,
-	otterizeClientID, otterizeClientSecret string) *IntentsReconciler {
+	otterizeClientID, otterizeClientSecret, cloudAddr string) *IntentsReconciler {
 	intentsReconciler := &IntentsReconciler{
 		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 			intents_reconcilers.NewPodLabelReconciler(client, scheme),
@@ -50,7 +50,8 @@ func NewIntentsReconciler(
 		)}
 
 	if otterizeClientID != "" && otterizeClientSecret != "" {
-		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClientID, otterizeClientSecret)
+		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(
+			client, scheme, otterizeClientID, otterizeClientSecret, cloudAddr)
 		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
 	}
 	return intentsReconciler
