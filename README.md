@@ -12,7 +12,7 @@
 ## About
 The Otterize intents operator is an open source Kubernetes operator for easily managing service-to-service authorization by declaring the calls each service needs to make, using [client intents files](https://otterize.com/ibac). The intents operator uses these files to configure network policies, Kafka ACLs, and other enforcement points (in the future) to allow just the intended calls. 
 
-The Otterize intents operator is a part of [Otterize OSS](https://otterize.com/oss) and works within a single Kubernetes cluster.
+The Otterize intents operator is a part of [Otterize OSS](https://otterize.com/open-source) and works within a single Kubernetes cluster.
 
 Here's an example of an intents file, as a Kubernetes custom resource YAML, for a service called **"checkoutservice"**, which intends to call **"ecomm-events"** (a Kafka cluster) and **"shippingervice"** (an HTTP server):
 ```yaml
