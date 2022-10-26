@@ -5,6 +5,8 @@ import (
 	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -17,10 +19,32 @@ import (
 
 type NamespaceWatcher struct {
 	client.Client
+	tokenSrc  oauth2.TokenSource
+	cloudAddr string
 }
 
 func NewNamespaceWatcher(c client.Client) *NamespaceWatcher {
-	return &NamespaceWatcher{c}
+	return &NamespaceWatcher{Client: c}
+}
+
+func NewNamespaceWatcherWithToken(
+	c client.Client,
+	otterizeClientID,
+	otterizeClientSecret,
+	cloudAddr string) *NamespaceWatcher {
+
+	cfg := clientcredentials.Config{
+		ClientID:     otterizeClientID,
+		ClientSecret: otterizeClientSecret,
+		TokenURL:     fmt.Sprintf("%s/auth/tokens/token", cloudAddr),
+		AuthStyle:    oauth2.AuthStyleInParams,
+	}
+
+	return &NamespaceWatcher{
+		Client:    c,
+		tokenSrc:  cfg.TokenSource(context.Background()),
+		cloudAddr: cloudAddr,
+	}
 }
 
 func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -45,6 +69,10 @@ func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
+	}
+
+	if ns.tokenSrc != nil {
+
 	}
 
 	return ctrl.Result{}, nil

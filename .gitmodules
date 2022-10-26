@@ -1,3 +1,6 @@
 [submodule "helm-charts"]
 	path = helm-charts
 	url = https://github.com/otterize/helm-charts.git
+[submodule "api"]
+	path = api
+	url = https://github.com/otterize/api

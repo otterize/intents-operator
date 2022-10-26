@@ -21,6 +21,7 @@ import (
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	corev1 "k8s.io/api/core/v1"
@@ -50,7 +51,7 @@ func NewIntentsReconciler(
 		)}
 
 	if otterizeClientID != "" && otterizeClientSecret != "" {
-		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(
+		otterizeCloudReconciler := otterize_cloud.NewOtterizeCloudReconciler(
 			client, scheme, otterizeClientID, otterizeClientSecret, cloudAddr)
 		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
 	}

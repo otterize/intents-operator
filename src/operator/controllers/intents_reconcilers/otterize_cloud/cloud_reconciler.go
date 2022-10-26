@@ -1,4 +1,4 @@
-package intents_reconcilers
+package otterize_cloud
 
 import (
 	"context"
@@ -46,7 +46,6 @@ func NewOtterizeCloudReconciler(
 
 func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	intentsList := otterizev1alpha1.ClientIntentsList{}
-
 	err := r.List(ctx, &intentsList, &client.ListOptions{Namespace: req.Namespace})
 	if err != nil {
 		return ctrl.Result{}, err
