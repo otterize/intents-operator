@@ -1,29 +1,3 @@
-fragment IntentsFields on Intent {
-    id
-    type
-    client
-    server
-    kafkaResources {
-        operation
-        topic
-    }
-    httpResources {
-        method
-        path
-    }
-    fullyQualifiedServiceName
-}
-
-#fragment IntentEnvFields on Intent {
-#    environment {
-#        id
-#        name
-#    }
-#}
-
 mutation ApplyIntents($env: EnvSelector!, $source: String!, $intents: [IntentInput!]!) {
-    applySourcedIntents(env: $env, intents: $intents, source: $source) {
-        ...IntentsFields
-    }
+    applySourcedIntents(env: $env, intents: $intents, source: $source)
 }
-

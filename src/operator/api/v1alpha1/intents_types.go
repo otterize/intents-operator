@@ -19,9 +19,12 @@ package v1alpha1
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	intents_model "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud/graphql_clients/intents"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"strings"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -150,6 +153,45 @@ type ClientIntentsList struct {
 
 func init() {
 	SchemeBuilder.Register(&ClientIntents{}, &ClientIntentsList{})
+}
+
+func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]intents_model.IntentInput, error) {
+	otterizeIntents := make([]intents_model.IntentInput, 0)
+	for _, clientIntents := range in.Items {
+		for _, intent := range clientIntents.GetCallsList() {
+			b, err := json.Marshal(intent)
+			if err != nil {
+				return nil, err
+			}
+
+			intentBody := &intents_model.IntentBody{}
+			if err = json.Unmarshal(b, intentBody); err != nil {
+				return nil, err
+			}
+
+			otterizeIntents = append(otterizeIntents, intents_model.IntentInput{
+				Client: clientIntents.GetServiceName(),
+				Server: intent.Name,
+				Body:   *intentBody,
+			})
+		}
+	}
+	return otterizeIntents, nil
+}
+
+// Convert intent type from Kubernetes to Otterize (e.g. GQL generated intents_model)
+func (t IntentType) asOtterizeType() intents_model.IntentType {
+	intent := strings.ToTitle(string(t))
+	switch intent {
+	case string(intents_model.IntentTypeHttp):
+		return intents_model.IntentTypeHttp
+	case string(intents_model.IntentTypeKafka):
+		return intents_model.IntentTypeKafka
+	case string(intents_model.IntentTypeGrpc):
+		return intents_model.IntentTypeGrpc
+	default:
+		panic("unknown intent type " + intent)
+	}
 }
 
 func (in *ClientIntents) GetServiceName() string {
