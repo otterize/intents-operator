@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/Khan/genqlient/graphql"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
-	intents_model "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud/graphql_clients/intents"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud/graphql_clients/intents"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
@@ -46,6 +46,11 @@ func NewOtterizeCloudReconciler(
 }
 
 func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
+	// Skip this reconciliation, no client id/secret provided
+	if r.tokenSrc == nil {
+		return ctrl.Result{}, nil
+	}
+
 	intentsList := otterizev1alpha1.ClientIntentsList{}
 	err := r.List(ctx, &intentsList, &client.ListOptions{Namespace: req.Namespace})
 	if err != nil {
@@ -57,7 +62,7 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.ApplyIntentsToCloud(ctx, otterizeIntents)
+	_, err = r.ApplyIntentsToCloud(ctx, otterizeIntents, ns)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -71,10 +76,15 @@ func (r *OtterizeCloudReconciler) newClientForURI(ctx context.Context, uri strin
 		oauth2.NewClient(ctx, r.tokenSrc))
 }
 
-func (r *OtterizeCloudReconciler) ApplyIntentsToCloud(ctx context.Context, intents []intents_model.IntentInput) (ctrl.Result, error) {
+func (r *OtterizeCloudReconciler) ApplyIntentsToCloud(
+	ctx context.Context,
+	intentsInput []intents.IntentInput,
+	ns string) (ctrl.Result, error) {
+
 	fmt.Println("yalla intents")
-	for _, i := range intents {
-		fmt.Println(i)
-	}
+	c := r.newClientForURI(ctx, "intents/query")
+
+	intents.ApplyIntents(ctx, c, intents.EnvSelector{Name: ns}, source)
+
 	return ctrl.Result{}, nil
 }

@@ -91,15 +91,15 @@ const (
 )
 
 type KafkaConfigInput struct {
-	Topic     string         `json:"topic"`
-	Operation KafkaOperation `json:"operation"`
+	Name       string           `json:"name"`
+	Operations []KafkaOperation `json:"operations"`
 }
 
-// GetTopic returns KafkaConfigInput.Topic, and is useful for accessing the field via an interface.
-func (v *KafkaConfigInput) GetTopic() string { return v.Topic }
+// GetName returns KafkaConfigInput.Name, and is useful for accessing the field via an interface.
+func (v *KafkaConfigInput) GetName() string { return v.Name }
 
-// GetOperation returns KafkaConfigInput.Operation, and is useful for accessing the field via an interface.
-func (v *KafkaConfigInput) GetOperation() KafkaOperation { return v.Operation }
+// GetOperations returns KafkaConfigInput.Operations, and is useful for accessing the field via an interface.
+func (v *KafkaConfigInput) GetOperations() []KafkaOperation { return v.Operations }
 
 type KafkaOperation string
 
