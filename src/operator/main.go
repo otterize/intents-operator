@@ -17,10 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"os"
@@ -105,7 +107,7 @@ func main() {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
-	//var certBundle webhooks.CertificateBundle
+	var certBundle webhooks.CertificateBundle
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -173,34 +175,33 @@ func main() {
 
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
-
 	}
 
-	//if selfSignedCert == true {
-	//	logrus.Infoln("Creating self signing certs")
-	//	certBundle, err =
-	//		webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
-	//	if err != nil {
-	//		logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
-	//	}
-	//	err = webhooks.WriteCertToFiles(certBundle)
-	//	if err != nil {
-	//		logrus.WithError(err).Fatal("failed writing certs to file system")
-	//	}
-	//	err = webhooks.UpdateWebHookCA(context.Background(),
-	//		"validating-webhook-configuration", certBundle.CertPem)
-	//	if err != nil {
-	//		logrus.WithError(err).Fatal("updating webhook certificate failed")
-	//	}
-	//}
-	//
-	//if !disableWebhookServer {
-	//	intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
-	//
-	//	if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
-	//		logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
-	//	}
-	//}
+	if selfSignedCert == true {
+		logrus.Infoln("Creating self signing certs")
+		certBundle, err =
+			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
+		}
+		err = webhooks.WriteCertToFiles(certBundle)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed writing certs to file system")
+		}
+		err = webhooks.UpdateWebHookCA(context.Background(),
+			"validating-webhook-configuration", certBundle.CertPem)
+		if err != nil {
+			logrus.WithError(err).Fatal("updating webhook certificate failed")
+		}
+	}
+
+	if !disableWebhookServer {
+		intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
+
+		if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
+		}
+	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, podName, podNamespace)
 

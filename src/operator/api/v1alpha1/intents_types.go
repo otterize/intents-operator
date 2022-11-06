@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud/graphql_clients/intents"
+	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -154,8 +155,8 @@ func init() {
 	SchemeBuilder.Register(&ClientIntents{}, &ClientIntentsList{})
 }
 
-func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]intents.IntentInput, error) {
-	otterizeIntents := make([]intents.IntentInput, 0)
+func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*intents.IntentInput, error) {
+	otterizeIntents := make([]*intents.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
 			b, err := json.Marshal(intent)
@@ -168,10 +169,10 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]intents.IntentInput, e
 				return nil, err
 			}
 
-			otterizeIntents = append(otterizeIntents, intents.IntentInput{
-				Client: clientIntents.GetServiceName(),
-				Server: intent.Name,
-				Body:   *intentBody,
+			otterizeIntents = append(otterizeIntents, &intents.IntentInput{
+				Client: lo.ToPtr(clientIntents.GetServiceName()),
+				Server: lo.ToPtr(intent.Name),
+				Body:   intentBody,
 			})
 		}
 	}

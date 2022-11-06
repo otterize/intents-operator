@@ -7,6 +7,8 @@ import (
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud/graphql_clients/intents"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -62,8 +64,9 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.ApplyIntentsToCloud(ctx, otterizeIntents, ns)
+	_, err = r.ApplyIntentsToCloud(ctx, otterizeIntents, req.Namespace)
 	if err != nil {
+		// TODO: Record event on err. Consider requeueing
 		return ctrl.Result{}, err
 	}
 
@@ -78,13 +81,18 @@ func (r *OtterizeCloudReconciler) newClientForURI(ctx context.Context, uri strin
 
 func (r *OtterizeCloudReconciler) ApplyIntentsToCloud(
 	ctx context.Context,
-	intentsInput []intents.IntentInput,
+	intentsInput []*intents.IntentInput,
 	ns string) (ctrl.Result, error) {
 
 	fmt.Println("yalla intents")
 	c := r.newClientForURI(ctx, "intents/query")
 
-	intents.ApplyIntents(ctx, c, intents.EnvSelector{Name: ns}, source)
+	// TODO: Change this intents source to be meaningful. Consider using integration name
+	_, err := intents.ApplyIntents(ctx, c, &intents.EnvSelector{Name: lo.ToPtr(ns)}, lo.ToPtr("intents-operator"), intentsInput)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	logrus.Infof("Successfuly reported intents to Otterize cloud. count for namespace %s: %d", ns, len(intentsInput))
 
 	return ctrl.Result{}, nil
 }

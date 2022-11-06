@@ -1,3 +1,4 @@
+# @genqlient(pointer: true)
 mutation ApplyIntents($env: EnvSelector!, $source: String!, $intents: [IntentInput!]!) {
     applySourcedIntents(env: $env, intents: $intents, source: $source)
 }

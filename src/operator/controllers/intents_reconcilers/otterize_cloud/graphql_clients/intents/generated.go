@@ -10,33 +10,33 @@ import (
 
 // ApplyIntentsResponse is returned by ApplyIntents on success.
 type ApplyIntentsResponse struct {
-	ApplySourcedIntents bool `json:"applySourcedIntents"`
+	ApplySourcedIntents *bool `json:"applySourcedIntents"`
 }
 
 // GetApplySourcedIntents returns ApplyIntentsResponse.ApplySourcedIntents, and is useful for accessing the field via an interface.
-func (v *ApplyIntentsResponse) GetApplySourcedIntents() bool { return v.ApplySourcedIntents }
+func (v *ApplyIntentsResponse) GetApplySourcedIntents() *bool { return v.ApplySourcedIntents }
 
 type EnvSelector struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
+	Id   *string `json:"id"`
+	Name *string `json:"name"`
 }
 
 // GetId returns EnvSelector.Id, and is useful for accessing the field via an interface.
-func (v *EnvSelector) GetId() string { return v.Id }
+func (v *EnvSelector) GetId() *string { return v.Id }
 
 // GetName returns EnvSelector.Name, and is useful for accessing the field via an interface.
-func (v *EnvSelector) GetName() string { return v.Name }
+func (v *EnvSelector) GetName() *string { return v.Name }
 
 type HTTPConfigInput struct {
-	Path   string     `json:"path"`
-	Method HTTPMethod `json:"method"`
+	Path   *string     `json:"path"`
+	Method *HTTPMethod `json:"method"`
 }
 
 // GetPath returns HTTPConfigInput.Path, and is useful for accessing the field via an interface.
-func (v *HTTPConfigInput) GetPath() string { return v.Path }
+func (v *HTTPConfigInput) GetPath() *string { return v.Path }
 
 // GetMethod returns HTTPConfigInput.Method, and is useful for accessing the field via an interface.
-func (v *HTTPConfigInput) GetMethod() HTTPMethod { return v.Method }
+func (v *HTTPConfigInput) GetMethod() *HTTPMethod { return v.Method }
 
 type HTTPMethod string
 
@@ -52,34 +52,34 @@ const (
 )
 
 type IntentBody struct {
-	Type      IntentType         `json:"type"`
-	Topics    []KafkaConfigInput `json:"topics"`
-	Resources []HTTPConfigInput  `json:"resources"`
+	Type      *IntentType         `json:"type"`
+	Topics    []*KafkaConfigInput `json:"topics"`
+	Resources []*HTTPConfigInput  `json:"resources"`
 }
 
 // GetType returns IntentBody.Type, and is useful for accessing the field via an interface.
-func (v *IntentBody) GetType() IntentType { return v.Type }
+func (v *IntentBody) GetType() *IntentType { return v.Type }
 
 // GetTopics returns IntentBody.Topics, and is useful for accessing the field via an interface.
-func (v *IntentBody) GetTopics() []KafkaConfigInput { return v.Topics }
+func (v *IntentBody) GetTopics() []*KafkaConfigInput { return v.Topics }
 
 // GetResources returns IntentBody.Resources, and is useful for accessing the field via an interface.
-func (v *IntentBody) GetResources() []HTTPConfigInput { return v.Resources }
+func (v *IntentBody) GetResources() []*HTTPConfigInput { return v.Resources }
 
 type IntentInput struct {
-	Client string     `json:"client"`
-	Server string     `json:"server"`
-	Body   IntentBody `json:"body"`
+	Client *string     `json:"client"`
+	Server *string     `json:"server"`
+	Body   *IntentBody `json:"body"`
 }
 
 // GetClient returns IntentInput.Client, and is useful for accessing the field via an interface.
-func (v *IntentInput) GetClient() string { return v.Client }
+func (v *IntentInput) GetClient() *string { return v.Client }
 
 // GetServer returns IntentInput.Server, and is useful for accessing the field via an interface.
-func (v *IntentInput) GetServer() string { return v.Server }
+func (v *IntentInput) GetServer() *string { return v.Server }
 
 // GetBody returns IntentInput.Body, and is useful for accessing the field via an interface.
-func (v *IntentInput) GetBody() IntentBody { return v.Body }
+func (v *IntentInput) GetBody() *IntentBody { return v.Body }
 
 type IntentType string
 
@@ -91,15 +91,15 @@ const (
 )
 
 type KafkaConfigInput struct {
-	Name       string           `json:"name"`
-	Operations []KafkaOperation `json:"operations"`
+	Name       *string           `json:"name"`
+	Operations []*KafkaOperation `json:"operations"`
 }
 
 // GetName returns KafkaConfigInput.Name, and is useful for accessing the field via an interface.
-func (v *KafkaConfigInput) GetName() string { return v.Name }
+func (v *KafkaConfigInput) GetName() *string { return v.Name }
 
 // GetOperations returns KafkaConfigInput.Operations, and is useful for accessing the field via an interface.
-func (v *KafkaConfigInput) GetOperations() []KafkaOperation { return v.Operations }
+func (v *KafkaConfigInput) GetOperations() []*KafkaOperation { return v.Operations }
 
 type KafkaOperation string
 
@@ -118,26 +118,26 @@ const (
 
 // __ApplyIntentsInput is used internally by genqlient
 type __ApplyIntentsInput struct {
-	Env     EnvSelector   `json:"env"`
-	Source  string        `json:"source"`
-	Intents []IntentInput `json:"intents"`
+	Env     *EnvSelector   `json:"env"`
+	Source  *string        `json:"source"`
+	Intents []*IntentInput `json:"intents"`
 }
 
 // GetEnv returns __ApplyIntentsInput.Env, and is useful for accessing the field via an interface.
-func (v *__ApplyIntentsInput) GetEnv() EnvSelector { return v.Env }
+func (v *__ApplyIntentsInput) GetEnv() *EnvSelector { return v.Env }
 
 // GetSource returns __ApplyIntentsInput.Source, and is useful for accessing the field via an interface.
-func (v *__ApplyIntentsInput) GetSource() string { return v.Source }
+func (v *__ApplyIntentsInput) GetSource() *string { return v.Source }
 
 // GetIntents returns __ApplyIntentsInput.Intents, and is useful for accessing the field via an interface.
-func (v *__ApplyIntentsInput) GetIntents() []IntentInput { return v.Intents }
+func (v *__ApplyIntentsInput) GetIntents() []*IntentInput { return v.Intents }
 
 func ApplyIntents(
 	ctx context.Context,
 	client graphql.Client,
-	env EnvSelector,
-	source string,
-	intents []IntentInput,
+	env *EnvSelector,
+	source *string,
+	intents []*IntentInput,
 ) (*ApplyIntentsResponse, error) {
 	__input := __ApplyIntentsInput{
 		Env:     env,
