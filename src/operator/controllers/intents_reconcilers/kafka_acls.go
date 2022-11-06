@@ -42,13 +42,13 @@ func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, servers
 func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Intent) map[types.NamespacedName][]otterizev1alpha1.Intent {
 	intentsByServer := map[types.NamespacedName][]otterizev1alpha1.Intent{}
 	for _, intent := range intents {
+		if intent.Type != otterizev1alpha1.IntentTypeKafka {
+			continue
+		}
+
 		serverName := types.NamespacedName{
 			Name:      intent.Name,
 			Namespace: lo.Ternary(intent.Namespace != "", intent.Namespace, defaultNamespace),
-		}
-
-		if intent.Type != otterizev1alpha1.IntentTypeKafka {
-			continue
 		}
 
 		intentsByServer[serverName] = append(intentsByServer[serverName], intent)
@@ -124,36 +124,29 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	// examine DeletionTimestamp to determine if object is under deletion
-	if intents.ObjectMeta.DeletionTimestamp.IsZero() {
-		if !controllerutil.ContainsFinalizer(intents, KafkaACLsFinalizerName) && intents.HasKafkaTypeInCallList() {
-			logger.Infof("Adding finalizer %s", KafkaACLsFinalizerName)
-			controllerutil.AddFinalizer(intents, KafkaACLsFinalizerName)
-			if err := r.client.Update(ctx, intents); err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	} else {
-		// The object is being deleted
-		if controllerutil.ContainsFinalizer(intents, KafkaACLsFinalizerName) {
-			logger.Infof("Removing associated Acls")
-			if err := r.RemoveACLs(intents); err != nil {
-				r.RecordWarningEventf(intents, ReasonRemovingKafkaACLsFailed, "Could not remove Kafka ACLs: %s", err.Error())
-				return ctrl.Result{}, err
-			}
-
-			controllerutil.RemoveFinalizer(intents, KafkaACLsFinalizerName)
-			if err := r.client.Update(ctx, intents); err != nil {
-				if k8serrors.IsConflict(err) {
-					return ctrl.Result{Requeue: true}, nil
-				}
-				return ctrl.Result{}, err
-			}
-		}
-
-		return ctrl.Result{}, nil
+	if r.intentsObjectUnderDeletion(intents) {
+		return r.handleIntentsDeletion(ctx, intents, logger)
 	}
 
+	if r.isMissingKafkaFinalizer(intents) {
+		logger.Infof("Adding finalizer %s", KafkaACLsFinalizerName)
+		controllerutil.AddFinalizer(intents, KafkaACLsFinalizerName)
+		if err := r.client.Update(ctx, intents); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	var result ctrl.Result
+	result, err = r.applyAcls(logger, err, intents)
+	if err != nil {
+		return result, err
+	}
+
+	return ctrl.Result{}, nil
+
+}
+
+func (r *KafkaACLReconciler) applyAcls(logger *logrus.Entry, err error, intents *otterizev1alpha1.ClientIntents) (ctrl.Result, error) {
 	logger.Info("Applying new ACLs")
 	serverCount, err := r.applyACLs(intents)
 	if err != nil {
@@ -165,5 +158,32 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		r.RecordNormalEventf(intents, ReasonAppliedKafkaACLs, "Kafka ACL reconcile complete, reconciled %d Kafka brokers", serverCount)
 	}
 	return ctrl.Result{}, nil
+}
 
+func (r *KafkaACLReconciler) isMissingKafkaFinalizer(intents *otterizev1alpha1.ClientIntents) bool {
+	return !controllerutil.ContainsFinalizer(intents, KafkaACLsFinalizerName) && intents.HasKafkaTypeInCallList()
+}
+
+func (r *KafkaACLReconciler) intentsObjectUnderDeletion(intents *otterizev1alpha1.ClientIntents) bool {
+	return !intents.ObjectMeta.DeletionTimestamp.IsZero()
+}
+
+func (r *KafkaACLReconciler) handleIntentsDeletion(ctx context.Context, intents *otterizev1alpha1.ClientIntents, logger *logrus.Entry) (ctrl.Result, error) {
+	if controllerutil.ContainsFinalizer(intents, KafkaACLsFinalizerName) {
+		logger.Infof("Removing associated Acls")
+		if err := r.RemoveACLs(intents); err != nil {
+			r.RecordWarningEventf(intents, ReasonRemovingKafkaACLsFailed, "Could not remove Kafka ACLs: %s", err.Error())
+			return ctrl.Result{}, err
+		}
+
+		controllerutil.RemoveFinalizer(intents, KafkaACLsFinalizerName)
+		if err := r.client.Update(ctx, intents); err != nil {
+			if k8serrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, err
+		}
+	}
+
+	return ctrl.Result{}, nil
 }
