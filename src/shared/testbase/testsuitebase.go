@@ -222,7 +222,6 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 	s.waitForObjectToBeCreated(deployment)
 
 	replicaSet := s.AddReplicaSet(name, podIps, podLabels, annotations)
-	s.waitForObjectToBeCreated(replicaSet)
 	replicaSet.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
 		{
 			APIVersion:         "apps/v1",
