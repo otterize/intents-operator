@@ -7,6 +7,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/otterize/intents-operator/src/watcher/reconcilers"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -79,7 +80,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 	s.Require().NoError(err)
 
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
 	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
@@ -110,6 +110,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 
 	s.AddIngress(serviceName)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
 	res, err = s.IngressReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
@@ -121,9 +122,11 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 	s.Require().Empty(res)
 
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(np)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+		assert.NoError(err)
+		assert.NotEmpty(np)
+	})
 }
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancer() {
@@ -179,9 +182,11 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	s.Require().Empty(res)
 
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(np)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+		assert.NoError(err)
+		assert.NotEmpty(np)
+	})
 }
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNodePort() {
@@ -235,11 +240,12 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNod
 
 	s.Require().NoError(err)
 	s.Require().Empty(res)
-
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(np)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+		assert.NoError(err)
+		assert.NotEmpty(np)
+	})
 }
 
 func TestExternalNetworkPolicyReconcilerTestSuite(t *testing.T) {

@@ -184,8 +184,10 @@ func (s *ControllerManagerTestSuiteBase) AddReplicaSet(
 				UID:                replicaSet.UID,
 			},
 		}
-		err := s.Mgr.GetClient().Update(context.Background(), pod)
-		s.Require().NoError(err)
+		s.WaitUntilCondition(func(assert *assert.Assertions) {
+			err = s.Mgr.GetClient().Update(context.Background(), pod)
+			assert.NoError(err)
+		})
 	}
 
 	return replicaSet
@@ -220,6 +222,7 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 	s.waitForObjectToBeCreated(deployment)
 
 	replicaSet := s.AddReplicaSet(name, podIps, podLabels, annotations)
+	s.waitForObjectToBeCreated(replicaSet)
 	replicaSet.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
 		{
 			APIVersion:         "apps/v1",
@@ -230,9 +233,14 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 			UID:                deployment.UID,
 		},
 	}
-	err = s.Mgr.GetClient().Update(context.Background(), replicaSet)
-	s.Require().NoError(err)
-	s.waitForObjectToBeCreated(replicaSet)
+
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		rs := &appsv1.ReplicaSet{}
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: fmt.Sprintf(replicaSet.GetName())}, rs)
+		assert.NoError(err)
+		assert.NotEmpty(replicaSet.OwnerReferences)
+	})
 
 	return deployment
 }
