@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud/graphql_clients/intents"
 	"github.com/samber/lo"
@@ -159,21 +158,7 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*intents.IntentInput, 
 	otterizeIntents := make([]*intents.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
-			b, err := json.Marshal(intent)
-			if err != nil {
-				return nil, err
-			}
-
-			intentBody := &intents.IntentBody{}
-			if err = json.Unmarshal(b, intentBody); err != nil {
-				return nil, err
-			}
-
-			otterizeIntents = append(otterizeIntents, &intents.IntentInput{
-				Client: lo.ToPtr(clientIntents.GetServiceName()),
-				Server: lo.ToPtr(intent.Name),
-				Body:   intentBody,
-			})
+			otterizeIntents = append(otterizeIntents, intent.ConvertToCloudFormat(lo.ToPtr(clientIntents.GetServiceName())))
 		}
 	}
 	return otterizeIntents, nil
@@ -254,4 +239,24 @@ func (in *ClientIntents) HasKafkaTypeInCallList() bool {
 		}
 	}
 	return false
+}
+
+func (in *Intent) ConvertToCloudFormat(clientName *string) *intents.IntentInput {
+	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) *intents.KafkaConfigInput {
+		return &intents.KafkaConfigInput{
+			Name: lo.ToPtr(topic.Name),
+			Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) *intents.KafkaOperation {
+				return lo.ToPtr(intents.KafkaOperation(op))
+			}),
+		}
+	})
+
+	return &intents.IntentInput{
+		Client: clientName,
+		Server: lo.ToPtr(in.Name),
+		Body: &intents.IntentBody{
+			Type:   lo.ToPtr(intents.IntentType(in.Type)),
+			Topics: otterizeTopics,
+		},
+	}
 }
