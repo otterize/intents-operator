@@ -9,7 +9,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 )
@@ -28,8 +27,6 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var watchedNamespaces []string
-	var otterizeClientID string
-	var otterizeClientSecret string
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":7070", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":7071", "The address the probe endpoint binds to.")
@@ -38,15 +35,12 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	pflag.StringSliceVar(&watchedNamespaces, "watched-namespaces", nil,
 		"Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
-	pflag.StringVar(&otterizeClientID, "client-id", "", "Otterize cloud Kubernetes integration client id")
-	pflag.StringVar(&otterizeClientSecret, "client-secret", "", "Otterize cloud Kubernetes integration client secret")
 
 	pflag.Parse()
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
-	cloudAddr := os.Getenv("OTTERIZE_API_ADDRESS") // we use Getenv because empty string is viable
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -79,12 +73,7 @@ func main() {
 
 	podWatcher := reconcilers.NewPodWatcher(mgr.GetClient())
 
-	var nsWatcher *reconcilers.NamespaceWatcher
-	if otterizeClientID != "" && otterizeClientSecret != "" {
-		nsWatcher = reconcilers.NewNamespaceWatcherWithToken(mgr.GetClient(), otterizeClientID, otterizeClientSecret, cloudAddr)
-	} else {
-		nsWatcher = reconcilers.NewNamespaceWatcher(mgr.GetClient())
-	}
+	nsWatcher := reconcilers.NewNamespaceWatcher(mgr.GetClient())
 
 	err = podWatcher.InitIntentsClientIndices(mgr)
 	if err != nil {
