@@ -377,3 +377,38 @@ func (s *ControllerManagerTestSuiteBase) AddIntents(
 
 	return intents, nil
 }
+
+func (s *ControllerManagerTestSuiteBase) UpdateIntents(
+	objName string,
+	callList []otterizev1alpha1.Intent) error {
+
+	intents := &otterizev1alpha1.ClientIntents{}
+	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
+	s.Require().NoError(err)
+
+	intents.Spec.Calls = callList
+
+	err = s.Mgr.GetClient().Update(context.Background(), intents)
+	s.Require().NoError(err)
+
+	return nil
+}
+
+func (s *ControllerManagerTestSuiteBase) RemoveIntents(
+	objName string) error {
+
+	intents := &otterizev1alpha1.ClientIntents{}
+	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
+	if err != nil {
+		return err
+	}
+
+	err = s.Mgr.GetClient().Delete(context.Background(), intents)
+	if err != nil {
+		return err
+	}
+
+	s.WaitForDeletionToBeMarked(intents)
+
+	return nil
+}

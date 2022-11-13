@@ -5,8 +5,10 @@ go 1.18
 require (
 	github.com/Shopify/sarama v1.34.1
 	github.com/bombsimon/logrusr/v3 v3.0.0
+	github.com/golang/mock v1.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
+	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/pflag v1.0.5
@@ -69,7 +71,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nxadm/tail v1.4.8 // indirect
-	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd // indirect
 	github.com/pierrec/lz4/v4 v4.1.14 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
