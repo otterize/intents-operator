@@ -53,6 +53,9 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, nil
 	}
 
+	// Bootstrap env
+
+	// Send intents to the cloud
 	intentsList := otterizev1alpha1.ClientIntentsList{}
 	err := r.List(ctx, &intentsList, &client.ListOptions{Namespace: req.Namespace})
 	if err != nil {
