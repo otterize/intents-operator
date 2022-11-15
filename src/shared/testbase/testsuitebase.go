@@ -174,24 +174,24 @@ func (s *ControllerManagerTestSuiteBase) AddReplicaSet(
 	for i, ip := range podIps {
 		podName := fmt.Sprintf("%s-%d", name, i)
 		s.AddPod(podName, ip, podLabels, annotations)
-		pod := corev1.Pod{}
-		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: podName, Namespace: s.TestNamespace}, &pod)
-		s.Require().NoError(err)
+		s.WaitUntilCondition(func(assert *assert.Assertions) {
+			pod := corev1.Pod{}
+			err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: podName, Namespace: s.TestNamespace}, &pod)
+			s.Require().NoError(err)
 
-		pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
-			{
-				APIVersion:         "apps/v1",
-				Kind:               "ReplicaSet",
-				BlockOwnerDeletion: lo.ToPtr(true),
-				Controller:         lo.ToPtr(true),
-				Name:               replicaSet.Name,
-				UID:                replicaSet.UID,
-			},
-		}
-		//s.WaitUntilCondition(func(assert *assert.Assertions) {
-		err = s.Mgr.GetClient().Update(context.Background(), &pod)
-		s.Require().NoError(err)
-		//})
+			pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+				{
+					APIVersion:         "apps/v1",
+					Kind:               "ReplicaSet",
+					BlockOwnerDeletion: lo.ToPtr(true),
+					Controller:         lo.ToPtr(true),
+					Name:               replicaSet.Name,
+					UID:                replicaSet.UID,
+				},
+			}
+			err = s.Mgr.GetClient().Update(context.Background(), &pod)
+			assert.NoError(err)
+		})
 	}
 
 	return replicaSet
