@@ -87,7 +87,6 @@ func (r *OtterizeCloudReconciler) ApplyIntentsToCloud(
 	intentsInput []*intents.IntentInput,
 	ns string) (ctrl.Result, error) {
 
-	fmt.Println("yalla intents")
 	c := r.newClientForURI(ctx, "intents/query")
 
 	// TODO: Change this intents source to be meaningful. Consider using integration name
