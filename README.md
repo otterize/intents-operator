@@ -22,13 +22,13 @@
 
 ## About
 The Otterize intents operator is a tool used to easily automate the creation of network policies and Kafka ACLs
-in a kubernetes cluster using a human-readable format via a custom resource.
+in a Kubernetes cluster using a human-readable format, via a custom resource.
 
-Users declare which client intends to access which server (represented as the kind `ClientIntents`) and the operator automatically labels the relevant pods accordingly, and creates the relevant network policies and Kafka ACLs.
+Users declare each client's intents to access specific servers (represented as the kind `ClientIntents`); 
+the operator automatically labels the relevant pods accordingly, 
+and creates the corresponding network policies and Kafka ACLs.
 
-
-An example of a `ClientIntents` resource enabling traffic from 
-`my-client` to `web-server` and `kafka-server`:
+Here is an example of a `ClientIntents` resource enabling traffic from `my-client` to `web-server` and `kafka-server`:
 ```yaml
 apiVersion: k8s.otterize.com/v1alpha1
 kind: ClientIntents
@@ -47,8 +47,9 @@ spec:
 ## How does the intents operator work?
 
 ### Network policies
-The intents operator automatically creates, updates and deletes network policies, and automatically labels client and server pods, to match declarations in client intents files.
-The policies created are `Ingress` based, so source pods are labeled with a `can-access-<target>=true` 
+The intents operator automatically creates, updates and deletes network policies, and automatically labels client and server pods, 
+to match declarations in client intents files.
+The policies created are `Ingress`-based, so source pods are labeled with a `can-access-<target>=true` 
 while destination pods are labeled with `has-identity=<target>`.
 
 The example above results in the following network policy being created: 
@@ -92,31 +93,32 @@ spec:
 Read more about it in the [secure kafka access tutorial](https://docs.otterize.com/quick-tutorials/k8s-kafka-mtls).
 
 ### Identities
-Pods in the cluster are dynamically labeled with their owner's identity. If a `ReplicaSet` named `myclient` owns 5 pods
-and a `Deployment` named `myserver` owns 3 pods, and we enable `myclient -> myserver` access via `ClientIntents`, all 5
+Pods in the cluster are dynamically labeled with their owner's identity. If a `ReplicaSet` named `my-client` owns 5 pods
+and a `Deployment` named `my-server` owns 3 pods, and we enable `my-client` &rarr; `my-server` access via `ClientIntents`, all 5
 source pods would be able to access all 3 target pods.
 
-Pod identities can be overridden using the custom annotation `intents.otterize.com/service-name`
-mentioning the desired service name in the value. This is useful, for example, for owner-less pods.
+Pod identities can be overridden by setting the value of the custom annotation `intents.otterize.com/service-name`
+to the desired service name. This is useful, for example, for pods without any owner.
 
 
 ## Bootstrapping
 To bootstrap client intents files for the services running in your cluster, you can use the [Otterize network 
-mapper](https://github.com/otterize/network-mapper) to automatically detect pod-to-pod calls.
+mapper](https://github.com/otterize/network-mapper), which automatically detects pod-to-pod calls.
 
 ## Read more
-The Otterize intents operator is a part of [Otterize OSS](https://otterize.com/open-source) and is an implementation of [intent-based access control](https://otterize.com/ibac).
+The Otterize intents operator is a part of [Otterize OSS](https://otterize.com/open-source) 
+and is an implementation of [intent-based access control](https://otterize.com/ibac).
 
 ## Development
-Inside src/operator directory you may run make command.
-Most useful command:
-* `make build` to compile the go code
-* `make deploy` to generate Kubernetes object deploy the project to your local cluster
+Run the `make` command inside `src/operator` directory. Some useful commands are:
+* `make build` to compile the go code.
+* `make deploy` to generate Kubernetes Deployment object which deploys the project to your local cluster.
 
 ## Contributing
 1. Feel free to fork and open a pull request! Include tests and document your code in [Godoc style](https://go.dev/blog/godoc)
 2. In your pull request, please refer to an existing issue or open a new one.
-3. Changes to Kubernetes objects will make changes to the Helm chart in the [helm-charts repo](https://github.com/otterize/helm-charts), which is a submodule in this repository, so you'll need to open a PR there as well.
+3. Changes to Kubernetes objects will make changes to the Helm chart in the [helm-charts repo](https://github.com/otterize/helm-charts), 
+which is a submodule in this repository, so you'll need to open a PR there as well.
 4. See our [Contributor License Agreement](https://github.com/otterize/cla/).
 
 ## Slack
