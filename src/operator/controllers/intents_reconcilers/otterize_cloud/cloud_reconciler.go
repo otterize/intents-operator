@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"github.com/Khan/genqlient/graphql"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud/graphql_clients/intents"
+	intents_model "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud/graphql_clients/intents"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,11 +54,15 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, nil
 	}
 
-	// Bootstrap env
+	clientIntents := otterizev1alpha1.ClientIntents{}
+	err := r.Get(ctx, req.NamespacedName, &clientIntents)
+	if !k8serrors.IsNotFound(err) {
+		// Bootstrap env here
+	}
 
 	// Send intents to the cloud
 	intentsList := otterizev1alpha1.ClientIntentsList{}
-	err := r.List(ctx, &intentsList, &client.ListOptions{Namespace: req.Namespace})
+	err = r.List(ctx, &intentsList, &client.ListOptions{Namespace: req.Namespace})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -84,13 +89,13 @@ func (r *OtterizeCloudReconciler) newClientForURI(ctx context.Context, uri strin
 
 func (r *OtterizeCloudReconciler) ApplyIntentsToCloud(
 	ctx context.Context,
-	intentsInput []*intents.IntentInput,
+	intentsInput []*intents_model.IntentInput,
 	ns string) (ctrl.Result, error) {
 
 	c := r.newClientForURI(ctx, "intents/query")
 
 	// TODO: Change this intents source to be meaningful. Consider using integration name
-	_, err := intents.ApplyIntents(ctx, c, &intents.EnvSelector{Name: lo.ToPtr(ns)}, lo.ToPtr("intents-operator"), intentsInput)
+	_, err := intents_model.ApplyIntents(ctx, c, &intents_model.EnvSelector{Name: lo.ToPtr(ns)}, lo.ToPtr("intents-operator"), intentsInput)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
