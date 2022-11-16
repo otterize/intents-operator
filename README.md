@@ -122,4 +122,6 @@ which is a submodule in this repository, so you'll need to open a PR there as we
 4. See our [Contributor License Agreement](https://github.com/otterize/cla/).
 
 ## Slack
-[Join the Otterize Slack!](https://joinslack.otterize.com)
+To join the conversation, ask questions, and engage with other users, join the Otterize Slack!
+
+[![button](https://i.ibb.co/vwRP6xK/Group-3090-2.png)](https://joinslack.otterize.com)
