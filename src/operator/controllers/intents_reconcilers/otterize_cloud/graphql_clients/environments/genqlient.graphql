@@ -1,0 +1,26 @@
+mutation CreateKubernetesEnvironment {
+    me {
+        createKubernetesEnvironment {
+            name
+            id
+        }
+    }
+}
+
+mutation AddNamespacesToEnv($id: ID!, $namespaces: [String!]) {
+    addEnvironmentNamespaces(id: $id, namespaces: $namespaces) {
+        id
+        name
+    }
+}
+
+
+query KubernetesEnvironment {
+    me {
+        kubernetesEnvironment {
+            name
+            id
+        }
+    }
+}
+

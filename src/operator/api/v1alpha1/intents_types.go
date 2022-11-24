@@ -20,8 +20,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud/graphql_clients/intents"
-	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -154,15 +152,15 @@ func init() {
 	SchemeBuilder.Register(&ClientIntents{}, &ClientIntentsList{})
 }
 
-func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*intents.IntentInput, error) {
-	otterizeIntents := make([]*intents.IntentInput, 0)
-	for _, clientIntents := range in.Items {
-		for _, intent := range clientIntents.GetCallsList() {
-			otterizeIntents = append(otterizeIntents, intent.ConvertToCloudFormat(lo.ToPtr(clientIntents.GetServiceName())))
-		}
-	}
-	return otterizeIntents, nil
-}
+//func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*environments.IntentInput, error) {
+//	otterizeIntents := make([]*environments.IntentInput, 0)
+//	for _, clientIntents := range in.Items {
+//		for _, intent := range clientIntents.GetCallsList() {
+//			otterizeIntents = append(otterizeIntents, intent.ConvertToCloudFormat(lo.ToPtr(clientIntents.GetServiceName())))
+//		}
+//	}
+//	return otterizeIntents, nil
+//}
 
 func (in *ClientIntents) GetServiceName() string {
 	return in.Spec.Service.Name
@@ -241,22 +239,23 @@ func (in *ClientIntents) HasKafkaTypeInCallList() bool {
 	return false
 }
 
-func (in *Intent) ConvertToCloudFormat(clientName *string) *intents.IntentInput {
-	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) *intents.KafkaConfigInput {
-		return &intents.KafkaConfigInput{
-			Name: lo.ToPtr(topic.Name),
-			Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) *intents.KafkaOperation {
-				return lo.ToPtr(intents.KafkaOperation(op))
-			}),
-		}
-	})
-
-	return &intents.IntentInput{
-		Client: clientName,
-		Server: lo.ToPtr(in.Name),
-		Body: &intents.IntentBody{
-			Type:   lo.ToPtr(intents.IntentType(in.Type)),
-			Topics: otterizeTopics,
-		},
-	}
-}
+//func (in *Intent) ConvertToCloudFormat(clientName *string) *environments.IntentInput {
+//	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) *environments.KafkaConfigInput {
+//		return &environments.KafkaConfigInput{
+//			Name: lo.ToPtr(topic.Name),
+//			Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) *environments.KafkaOperation {
+//				return lo.ToPtr(environments.KafkaOperation(op))
+//			}),
+//		}
+//	})
+//
+//	return &environments.IntentInput{
+//		Client: clientName,
+//		Server: lo.ToPtr(in.Name),
+//		Body: &environments.IntentBody{
+//			Type:   lo.ToPtr(environments.IntentType(in.Type)),
+//			Topics: otterizeTopics,
+//		},
+//	}
+//}
+//

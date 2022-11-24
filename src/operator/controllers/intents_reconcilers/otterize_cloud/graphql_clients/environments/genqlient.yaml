@@ -1,8 +1,8 @@
 # genqlient config; for full documentation see:
 # https://github.com/Khan/genqlient/blob/main/docs/genqlient.yaml
 schema:
-  - ../../../../../../../gra/root.graphql
-  - ../../../../../../../api/intents/*.graphql
+  - ../../../../../../../graphql/root.graphql
+  - ../../../../../../../graphql/environments.graphql
 operations:
   - genqlient.graphql
 generated: generated.go
