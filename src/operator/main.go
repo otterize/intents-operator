@@ -72,6 +72,7 @@ func main() {
 	var tlsSource otterizev1alpha1.TLSSource
 	var otterizeClientID string
 	var otterizeClientSecret string
+	var cloudAddr string
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":7070", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":7071", "The address the probe endpoint binds to.")
@@ -95,12 +96,12 @@ func main() {
 		"Whether to disable Intents Kafka ACL creation")
 	pflag.StringVar(&otterizeClientID, "client-id", "", "Otterize cloud Kubernetes integration client id")
 	pflag.StringVar(&otterizeClientSecret, "client-secret", "", "Otterize cloud Kubernetes integration client secret")
+	pflag.StringVar(&cloudAddr, "cloud-address", "", "Otterize cloud address")
 
 	pflag.Parse()
 
 	podName := MustGetEnvVar("POD_NAME")
 	podNamespace := MustGetEnvVar("POD_NAMESPACE")
-	cloudAddr := os.Getenv("OTTERIZE_API_ADDRESS") // we use Getenv because empty string is viable
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 

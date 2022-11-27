@@ -18,15 +18,13 @@ import (
 	"strings"
 )
 
-const EnvironmentsURI = "accounts/query"
 const ErrEnvNotFound = "environment not found"
 
 type OtterizeCloudReconciler struct {
 	client.Client
-	Scheme    *runtime.Scheme
-	tokenSrc  oauth2.TokenSource
-	cloudAddr string
-
+	Scheme         *runtime.Scheme
+	tokenSrc       oauth2.TokenSource
+	otterizeClient graphql.Client
 	injectablerecorder.InjectableRecorder
 }
 
@@ -43,12 +41,16 @@ func NewOtterizeCloudReconciler(
 		TokenURL:     fmt.Sprintf("%s/auth/tokens/token", cloudAddr),
 		AuthStyle:    oauth2.AuthStyleInParams,
 	}
+	ctx := context.Background()
+	otterizeClient := graphql.NewClient(
+		fmt.Sprintf("%s/api/graphql/v1", cloudAddr),
+		oauth2.NewClient(ctx, cfg.TokenSource(ctx)))
 
 	return &OtterizeCloudReconciler{
-		Client:    client,
-		Scheme:    scheme,
-		tokenSrc:  cfg.TokenSource(context.Background()),
-		cloudAddr: cloudAddr,
+		Client:         client,
+		Scheme:         scheme,
+		tokenSrc:       cfg.TokenSource(context.Background()),
+		otterizeClient: otterizeClient,
 	}
 }
 
@@ -67,7 +69,7 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	clientIntents := otterizev1alpha1.ClientIntents{}
 	err = r.Get(ctx, req.NamespacedName, &clientIntents)
-	// In case of "Not found" k8s errors, we update intents and environment normally
+	// In case of "Not found" k8s error, we update intents and environment normally
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	}
@@ -77,40 +79,15 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, err
 	}
 
-	// Send intents to the cloud
-	intentsList := otterizev1alpha1.ClientIntentsList{}
-	err = r.List(ctx, &intentsList, &client.ListOptions{Namespace: req.Namespace})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	//otterizeIntents, err := intentsList.FormatAsOtterizeIntents()
-	//if err != nil {
-	//	return ctrl.Result{}, err
-	//}
-
-	//_, err = r.ApplyIntentsToCloud(ctx, otterizeIntents, req.Namespace)
-	if err != nil {
-		// TODO: Record event on err. Consider requeueing
-		return ctrl.Result{}, err
-	}
-
 	return ctrl.Result{}, nil
 }
 
-func (r *OtterizeCloudReconciler) newClientForURI(ctx context.Context, uri string) graphql.Client {
-	return graphql.NewClient(
-		fmt.Sprintf("%s/%s", r.cloudAddr, uri),
-		oauth2.NewClient(ctx, r.tokenSrc))
-}
-
 func (r *OtterizeCloudReconciler) getOrCreateOtterizeEnv(ctx context.Context) (string, error) {
-	envsClient := r.newClientForURI(ctx, EnvironmentsURI)
-	env, err := environments.KubernetesEnvironment(ctx, envsClient)
+	env, err := environments.KubernetesEnvironment(ctx, r.otterizeClient)
 	if err != nil {
 		if strings.Contains(err.Error(), ErrEnvNotFound) {
 			logrus.Infof("No environment found associated with token. Creating new environment")
-			env, err := environments.CreateKubernetesEnvironment(ctx, envsClient)
+			env, err := environments.CreateKubernetesEnvironment(ctx, r.otterizeClient)
 			if err != nil {
 				return "", err
 			}
@@ -123,9 +100,8 @@ func (r *OtterizeCloudReconciler) getOrCreateOtterizeEnv(ctx context.Context) (s
 }
 
 func (r *OtterizeCloudReconciler) updateOtterizeEnvWithNamespace(ctx context.Context, envID, namespace string) error {
-	envsClient := r.newClientForURI(ctx, EnvironmentsURI)
 	// The field "Cluster" in type NamespaceInput is set in the cloud, and the integration name that sent the req is used
-	env, err := environments.AddNamespacesToEnv(ctx, envsClient, envID, []string{namespace})
+	env, err := environments.AddNamespacesToEnv(ctx, r.otterizeClient, envID, []string{namespace})
 	if err != nil {
 		return err
 	}
