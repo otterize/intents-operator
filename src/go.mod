@@ -6,6 +6,7 @@ require (
 	github.com/Khan/genqlient v0.4.0
 	github.com/Shopify/sarama v1.34.1
 	github.com/bombsimon/logrusr/v3 v3.0.0
+	github.com/golang/mock v1.5.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd

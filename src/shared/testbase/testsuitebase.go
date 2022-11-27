@@ -119,7 +119,7 @@ func (s *ControllerManagerTestSuiteBase) WaitForDeletionToBeMarked(obj client.Ob
 	}))
 }
 
-func (s *ControllerManagerTestSuiteBase) AddPod(name string, podIp string, labels, annotations map[string]string) *corev1.Pod {
+func (s *ControllerManagerTestSuiteBase) AddPod(name string, podIp string, labels, annotations map[string]string) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace, Labels: labels, Annotations: annotations},
 		Spec: corev1.PodSpec{Containers: []corev1.Container{
@@ -133,6 +133,7 @@ func (s *ControllerManagerTestSuiteBase) AddPod(name string, podIp string, label
 	}
 	err := s.Mgr.GetClient().Create(context.Background(), pod)
 	s.Require().NoError(err)
+	s.waitForObjectToBeCreated(pod)
 
 	if podIp != "" {
 		pod.Status.PodIP = podIp
@@ -140,8 +141,6 @@ func (s *ControllerManagerTestSuiteBase) AddPod(name string, podIp string, label
 		pod, err = s.K8sDirectClient.CoreV1().Pods(s.TestNamespace).UpdateStatus(context.Background(), pod, metav1.UpdateOptions{})
 		s.Require().NoError(err)
 	}
-	s.waitForObjectToBeCreated(pod)
-	return pod
 }
 
 func (s *ControllerManagerTestSuiteBase) AddReplicaSet(
@@ -173,19 +172,26 @@ func (s *ControllerManagerTestSuiteBase) AddReplicaSet(
 	s.waitForObjectToBeCreated(replicaSet)
 
 	for i, ip := range podIps {
-		pod := s.AddPod(fmt.Sprintf("%s-%d", name, i), ip, podLabels, annotations)
-		pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
-			{
-				APIVersion:         "apps/v1",
-				Kind:               "ReplicaSet",
-				BlockOwnerDeletion: lo.ToPtr(true),
-				Controller:         lo.ToPtr(true),
-				Name:               replicaSet.Name,
-				UID:                replicaSet.UID,
-			},
-		}
-		err := s.Mgr.GetClient().Update(context.Background(), pod)
-		s.Require().NoError(err)
+		podName := fmt.Sprintf("%s-%d", name, i)
+		s.AddPod(podName, ip, podLabels, annotations)
+		s.WaitUntilCondition(func(assert *assert.Assertions) {
+			pod := corev1.Pod{}
+			err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: podName, Namespace: s.TestNamespace}, &pod)
+			s.Require().NoError(err)
+
+			pod.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
+				{
+					APIVersion:         "apps/v1",
+					Kind:               "ReplicaSet",
+					BlockOwnerDeletion: lo.ToPtr(true),
+					Controller:         lo.ToPtr(true),
+					Name:               replicaSet.Name,
+					UID:                replicaSet.UID,
+				},
+			}
+			err = s.Mgr.GetClient().Update(context.Background(), &pod)
+			assert.NoError(err)
+		})
 	}
 
 	return replicaSet
@@ -230,9 +236,14 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 			UID:                deployment.UID,
 		},
 	}
-	err = s.Mgr.GetClient().Update(context.Background(), replicaSet)
-	s.Require().NoError(err)
-	s.waitForObjectToBeCreated(replicaSet)
+
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		rs := &appsv1.ReplicaSet{}
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: fmt.Sprintf(replicaSet.GetName())}, rs)
+		assert.NoError(err)
+		assert.NotEmpty(replicaSet.OwnerReferences)
+	})
 
 	return deployment
 }
@@ -376,4 +387,39 @@ func (s *ControllerManagerTestSuiteBase) AddIntents(
 	s.waitForObjectToBeCreated(intents)
 
 	return intents, nil
+}
+
+func (s *ControllerManagerTestSuiteBase) UpdateIntents(
+	objName string,
+	callList []otterizev1alpha1.Intent) error {
+
+	intents := &otterizev1alpha1.ClientIntents{}
+	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
+	s.Require().NoError(err)
+
+	intents.Spec.Calls = callList
+
+	err = s.Mgr.GetClient().Update(context.Background(), intents)
+	s.Require().NoError(err)
+
+	return nil
+}
+
+func (s *ControllerManagerTestSuiteBase) RemoveIntents(
+	objName string) error {
+
+	intents := &otterizev1alpha1.ClientIntents{}
+	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
+	if err != nil {
+		return err
+	}
+
+	err = s.Mgr.GetClient().Delete(context.Background(), intents)
+	if err != nil {
+		return err
+	}
+
+	s.WaitForDeletionToBeMarked(intents)
+
+	return nil
 }

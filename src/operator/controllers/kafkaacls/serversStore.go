@@ -41,7 +41,7 @@ func (s *ServersStore) Exists(serverName string, namespace string) bool {
 	return ok
 }
 
-func (s *ServersStore) Get(serverName string, namespace string) (*KafkaIntentsAdmin, error) {
+func (s *ServersStore) Get(serverName string, namespace string) (KafkaIntentsAdmin, error) {
 	name := types.NamespacedName{Name: serverName, Namespace: namespace}
 	config, ok := s.serversByName[name]
 	if !ok {
