@@ -31,8 +31,8 @@ const (
 	// TrustStoreFileNameAnnotation holds the name of the file in the secret data, that stores the certificate's trust store file
 	// (for jks certificate type). Defaults to "truststore.jks".
 	TrustStoreFileNameAnnotation = "spire-integration.otterize.com/truststore-file-name"
-	// JksPasswordAnnotation is the jks certificate password (for jks certificate type). Defaults to "password".
-	JksPasswordAnnotation = "spire-integration.otterize.com/jks-password"
+	// JKSPasswordAnnotation is the jks certificate password (for jks certificate type). Defaults to "password".
+	JKSPasswordAnnotation = "spire-integration.otterize.com/jks-password"
 )
 
 // Internal use annotations, used by the operator to store data on top of generated k8s secrets.

@@ -26,7 +26,7 @@ type RegistrySuite struct {
 	controller  *gomock.Controller
 	spireClient *mock_spireclient.MockServerClient
 	entryClient *mock_entryv1.MockEntryClient
-	registry    Registry
+	registry    *spireRegistry
 }
 
 func (s *RegistrySuite) SetupTest() {
@@ -37,7 +37,7 @@ func (s *RegistrySuite) SetupTest() {
 	s.Require().NoError(err)
 	s.spireClient.EXPECT().GetSpiffeID().Return(clientSpiffeID)
 	s.spireClient.EXPECT().NewEntryClient().Return(s.entryClient)
-	s.registry = NewEntriesRegistry(s.spireClient)
+	s.registry = NewSpireRegistry(s.spireClient)
 }
 
 func (s *RegistrySuite) TearDownTest() {
@@ -88,7 +88,7 @@ func (s *RegistrySuite) TestRegistry_RegisterK8SPodEntry() {
 				s.entryClient.EXPECT().BatchUpdateEntry(gomock.Any(), gomock.Any()).Return(&updateResponse, nil)
 			}
 
-			entryId, err := s.registry.RegisterK8SPodEntry(context.Background(),
+			entryId, err := s.registry.RegisterK8SPod(context.Background(),
 				namespace,
 				serviceNameLabel,
 				serviceName,
@@ -159,7 +159,7 @@ func (s *RegistrySuite) TestRegistry_RegisterK8SPodEntry_DedupDnsNames() {
 
 	// defaultCommonName appears in extraDnsNames input arg and should be deduplicated
 	inputDnsNames := append(extraDnsNames, defaultCommonName)
-	entryId, err := s.registry.RegisterK8SPodEntry(context.Background(),
+	entryId, err := s.registry.RegisterK8SPod(context.Background(),
 		namespace,
 		serviceNameLabel,
 		serviceName,

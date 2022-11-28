@@ -15,24 +15,19 @@ import (
 	"strings"
 )
 
-type Registry interface {
-	RegisterK8SPodEntry(ctx context.Context, namespace string, serviceNameLabel string, serviceName string, ttl int32, dnsNames []string) (string, error)
-	CleanupOrphanK8SPodEntries(ctx context.Context, serviceNameLabel string, existingServicesByNamespace map[string]*goset.Set[string]) error
-}
-
-type registryImpl struct {
+type spireRegistry struct {
 	parentSpiffeID spiffeid.ID
 	entryClient    entryv1.EntryClient
 }
 
-func NewEntriesRegistry(spireClient spireclient.ServerClient) Registry {
-	return &registryImpl{
+func NewSpireRegistry(spireClient spireclient.ServerClient) *spireRegistry {
+	return &spireRegistry{
 		parentSpiffeID: spireClient.GetSpiffeID(),
 		entryClient:    spireClient.NewEntryClient(),
 	}
 }
 
-func (r *registryImpl) RegisterK8SPodEntry(ctx context.Context, namespace string, serviceNameLabel string, serviceName string, ttl int32, extraDnsNames []string) (string, error) {
+func (r *spireRegistry) RegisterK8SPod(ctx context.Context, namespace string, serviceNameLabel string, serviceName string, ttl int32, extraDnsNames []string) (string, error) {
 	log := logrus.WithFields(logrus.Fields{"namespace": namespace, "service_name": serviceName})
 
 	trustDomain := r.parentSpiffeID.TrustDomain()
@@ -101,7 +96,7 @@ func (r *registryImpl) RegisterK8SPodEntry(ctx context.Context, namespace string
 	return result.Entry.Id, nil
 }
 
-func (r *registryImpl) updateSpireEntry(ctx context.Context, entry *types.Entry) (string, error) {
+func (r *spireRegistry) updateSpireEntry(ctx context.Context, entry *types.Entry) (string, error) {
 	batchUpdateEntryRequest := entryv1.BatchUpdateEntryRequest{Entries: []*types.Entry{entry}}
 	updateResp, err := r.entryClient.BatchUpdateEntry(ctx, &batchUpdateEntryRequest)
 	if err != nil {
@@ -116,7 +111,7 @@ func shouldUpdateEntry(createResultEntry *types.Entry, desiredEntry *types.Entry
 	return createResultEntry.Ttl != desiredEntry.Ttl || !slices.Equal(createResultEntry.DnsNames, desiredEntry.DnsNames)
 }
 
-func (r *registryImpl) paginatedListEntries(ctx context.Context, pageToken string) ([]*types.Entry, string, error) {
+func (r *spireRegistry) paginatedListEntries(ctx context.Context, pageToken string) ([]*types.Entry, string, error) {
 	trustDomain := r.parentSpiffeID.TrustDomain()
 	parentSpiffeIDPath := r.parentSpiffeID.Path()
 
@@ -165,7 +160,7 @@ func extractServiceFromEntry(entry *types.Entry, serviceNameLabel string) (names
 	return namespace, serviceName, true
 }
 
-func (r *registryImpl) deleteEntries(ctx context.Context, entryIDs []string) error {
+func (r *spireRegistry) deleteEntries(ctx context.Context, entryIDs []string) error {
 	batchDeleteEntriesRequest := entryv1.BatchDeleteEntryRequest{
 		Ids: entryIDs,
 	}
@@ -195,7 +190,7 @@ func (r *registryImpl) deleteEntries(ctx context.Context, entryIDs []string) err
 	return nil
 }
 
-func (r *registryImpl) CleanupOrphanK8SPodEntries(ctx context.Context, serviceNameLabel string, existingServicesByNamespace map[string]*goset.Set[string]) error {
+func (r *spireRegistry) CleanupOrphanK8SPodEntries(ctx context.Context, serviceNameLabel string, existingServicesByNamespace map[string]*goset.Set[string]) error {
 	log := logrus.StandardLogger()
 	pageToken := ""
 	pages := 0

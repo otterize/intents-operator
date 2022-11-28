@@ -1,4 +1,4 @@
-package secrets
+package spirecertgen
 
 import (
 	"bytes"
@@ -16,11 +16,11 @@ import (
 const certificateEnd = "-----END CERTIFICATE-----\n"
 
 func svidToKeyStore(svid svids.EncodedX509SVID, password string) ([]byte, error) {
-	notEmptyCertPems := lo.Filter(bytes.SplitAfter(svid.SVIDPEM, []byte(certificateEnd)), func(pem []byte, _ int) bool { return len(pem) != 0 })
-	certChain := lo.Map(notEmptyCertPems, func(certPem []byte, _ int) keystore.Certificate {
+	notEmptyCertPEMs := lo.Filter(bytes.SplitAfter(svid.SVIDPEM, []byte(certificateEnd)), func(pem []byte, _ int) bool { return len(pem) != 0 })
+	certChain := lo.Map(notEmptyCertPEMs, func(certPEM []byte, _ int) keystore.Certificate {
 		return keystore.Certificate{
 			Type:    "X509",
-			Content: certPem,
+			Content: certPEM,
 		}
 	})
 
@@ -59,8 +59,8 @@ func svidToKeyStore(svid svids.EncodedX509SVID, password string) ([]byte, error)
 
 func trustBundleToTrustStore(trustBundle bundles.EncodedTrustBundle, password string) ([]byte, error) {
 	trustStore := keystore.New()
-	notEmptyCaPems := lo.Filter(bytes.SplitAfter(trustBundle.BundlePEM, []byte(certificateEnd)), func(pem []byte, _ int) bool { return len(pem) != 0 })
-	for i, caPEM := range notEmptyCaPems {
+	notEmptyCaPEMs := lo.Filter(bytes.SplitAfter(trustBundle.BundlePEM, []byte(certificateEnd)), func(pem []byte, _ int) bool { return len(pem) != 0 })
+	for i, caPEM := range notEmptyCaPEMs {
 		ca := keystore.TrustedCertificateEntry{
 			CreationTime: time.Now(),
 			Certificate: keystore.Certificate{

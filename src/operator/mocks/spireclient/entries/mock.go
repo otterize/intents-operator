@@ -50,9 +50,9 @@ func (mr *MockRegistryMockRecorder) CleanupOrphanK8SPodEntries(arg0, arg1, arg2 
 }
 
 // RegisterK8SPodEntry mocks base method.
-func (m *MockRegistry) RegisterK8SPodEntry(arg0 context.Context, arg1, arg2, arg3 string, arg4 int32, arg5 []string) (string, error) {
+func (m *MockRegistry) RegisterK8SPod(arg0 context.Context, arg1, arg2, arg3 string, arg4 int32, arg5 []string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterK8SPodEntry", arg0, arg1, arg2, arg3, arg4, arg5)
+	ret := m.ctrl.Call(m, "RegisterK8SPod", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -61,5 +61,5 @@ func (m *MockRegistry) RegisterK8SPodEntry(arg0 context.Context, arg1, arg2, arg
 // RegisterK8SPodEntry indicates an expected call of RegisterK8SPodEntry.
 func (mr *MockRegistryMockRecorder) RegisterK8SPodEntry(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterK8SPodEntry", reflect.TypeOf((*MockRegistry)(nil).RegisterK8SPodEntry), arg0, arg1, arg2, arg3, arg4, arg5)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterK8SPod", reflect.TypeOf((*MockRegistry)(nil).RegisterK8SPod), arg0, arg1, arg2, arg3, arg4, arg5)
 }

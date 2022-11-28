@@ -22,6 +22,7 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/spire-integration-operator/src/controllers"
+	"github.com/otterize/spire-integration-operator/src/controllers/certificates/spirecertgen"
 	"github.com/otterize/spire-integration-operator/src/controllers/secrets"
 	"github.com/otterize/spire-integration-operator/src/controllers/spireclient"
 	"github.com/otterize/spire-integration-operator/src/controllers/spireclient/bundles"
@@ -111,8 +112,9 @@ func main() {
 
 	bundlesStore := bundles.NewBundlesStore(spireClient)
 	svidsStore := svids.NewSVIDsStore(spireClient)
-	entriesRegistry := entries.NewEntriesRegistry(spireClient)
-	secretsManager := secrets.NewSecretsManager(mgr.GetClient(), bundlesStore, svidsStore)
+	entriesRegistry := entries.NewSpireRegistry(spireClient)
+	certGenerator := spirecertgen.NewSpireCertificateDataGenerator(bundlesStore, svidsStore)
+	secretsManager := secrets.NewSecretManager(mgr.GetClient(), certGenerator)
 	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
 	eventRecorder := mgr.GetEventRecorderFor("spire-integration-operator")
 	podReconciler := controllers.NewPodReconciler(mgr.GetClient(), mgr.GetScheme(), entriesRegistry, secretsManager,

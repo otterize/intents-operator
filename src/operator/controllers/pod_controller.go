@@ -7,12 +7,13 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/spire-integration-operator/src/controllers/metadata"
-	"github.com/otterize/spire-integration-operator/src/controllers/secrets"
-	"github.com/otterize/spire-integration-operator/src/controllers/spireclient/entries"
+	"github.com/otterize/spire-integration-operator/src/controllers/secrets/types"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"hash/fnv"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,12 +37,22 @@ const (
 	ReasonSPIREEntryHashCalculationFailed = "SPIREEntryHashCalculationFailed"
 )
 
+type workloadRegistry interface {
+	RegisterK8SPod(ctx context.Context, namespace string, serviceNameLabel string, serviceName string, ttl int32, dnsNames []string) (string, error)
+	CleanupOrphanK8SPodEntries(ctx context.Context, serviceNameLabel string, existingServicesByNamespace map[string]*goset.Set[string]) error
+}
+
+type secretsManager interface {
+	EnsureTLSSecret(ctx context.Context, config secretstypes.SecretConfig, owner metav1.Object) error
+	RefreshTLSSecrets(ctx context.Context) error
+}
+
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
 	scheme            *runtime.Scheme
-	entriesRegistry   entries.Registry
-	secretsManager    secrets.Manager
+	workloadRegistry  workloadRegistry
+	secretsManager    secretsManager
 	serviceIdResolver *serviceidresolver.Resolver
 	eventRecorder     record.EventRecorder
 }
@@ -51,12 +62,12 @@ type PodReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=replicasets;daemonsets;statefulsets;deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;update;patch;list;watch;create
 
-func NewPodReconciler(client client.Client, scheme *runtime.Scheme, entriesRegistry entries.Registry,
-	secretsManager secrets.Manager, serviceIdResolver *serviceidresolver.Resolver, eventRecorder record.EventRecorder) *PodReconciler {
+func NewPodReconciler(client client.Client, scheme *runtime.Scheme, workloadRegistry workloadRegistry,
+	secretsManager secretsManager, serviceIdResolver *serviceidresolver.Resolver, eventRecorder record.EventRecorder) *PodReconciler {
 	return &PodReconciler{
 		Client:            client,
 		scheme:            scheme,
-		entriesRegistry:   entriesRegistry,
+		workloadRegistry:  workloadRegistry,
 		secretsManager:    secretsManager,
 		serviceIdResolver: serviceIdResolver,
 		eventRecorder:     eventRecorder,
@@ -105,9 +116,12 @@ func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod,
 	}
 
 	secretName := pod.Annotations[metadata.TLSSecretNameAnnotation]
-	certConfig := certConfigFromPod(pod)
+	certConfig, err := certConfigFromPod(pod)
+	if err != nil {
+		return fmt.Errorf("failed parsing annotations: %w", err)
+	}
 	log.WithFields(logrus.Fields{"secret_name": secretName, "cert_config": certConfig}).Info("ensuring TLS secret")
-	secretConfig := secrets.NewSecretConfig(entryID, entryHash, secretName, pod.Namespace, serviceName, certConfig)
+	secretConfig := secretstypes.NewSecretConfig(entryID, entryHash, secretName, pod.Namespace, serviceName, certConfig)
 	if err := r.secretsManager.EnsureTLSSecret(ctx, secretConfig, pod); err != nil {
 		log.WithError(err).Error("failed creating TLS secret")
 		return err
@@ -118,25 +132,29 @@ func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod,
 	return nil
 }
 
-func certConfigFromPod(pod *corev1.Pod) secrets.CertConfig {
-	certType := secrets.StrToCertType(pod.Annotations[metadata.CertTypeAnnotation])
-	certConfig := secrets.CertConfig{CertType: certType}
+func certConfigFromPod(pod *corev1.Pod) (secretstypes.CertConfig, error) {
+	certTypeStr, _ := lo.Coalesce(pod.Annotations[metadata.CertTypeAnnotation], "pem")
+	certType, err := secretstypes.StrToCertType(certTypeStr)
+	if err != nil {
+		return secretstypes.CertConfig{}, err
+	}
+	certConfig := secretstypes.CertConfig{CertType: certType}
 	switch certType {
-	case secrets.PemCertType:
-		certConfig.PemConfig = secrets.NewPemConfig(
+	case secretstypes.PEMCertType:
+		certConfig.PEMConfig = secretstypes.NewPEMConfig(
 			pod.Annotations[metadata.SVIDFileNameAnnotation],
 			pod.Annotations[metadata.BundleFileNameAnnotation],
 			pod.Annotations[metadata.KeyFileNameAnnotation],
 		)
-	case secrets.JksCertType:
-		certConfig.JksConfig = secrets.NewJksConfig(
+	case secretstypes.JKSCertType:
+		certConfig.JKSConfig = secretstypes.NewJKSConfig(
 			pod.Annotations[metadata.KeyStoreFileNameAnnotation],
 			pod.Annotations[metadata.TrustStoreFileNameAnnotation],
-			pod.Annotations[metadata.JksPasswordAnnotation],
+			pod.Annotations[metadata.JKSPasswordAnnotation],
 		)
 
 	}
-	return certConfig
+	return certConfig, nil
 }
 
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -187,18 +205,18 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	// Add spire-server entry for pod
-	entryID, err := r.entriesRegistry.RegisterK8SPodEntry(ctx, pod.Namespace, metadata.RegisteredServiceNameLabel, serviceID, ttl, dnsNames)
+	// Add workload entry for pod
+	entryID, err := r.workloadRegistry.RegisterK8SPod(ctx, pod.Namespace, metadata.RegisteredServiceNameLabel, serviceID, ttl, dnsNames)
 	if err != nil {
 		log.WithError(err).Error("failed registering SPIRE entry for pod")
-		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonSPIREEntryRegistrationFailed, "Failed registering SPIRE entry: %s", err.Error())
+		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonSPIREEntryRegistrationFailed, "Failed registering workload entry: %s", err.Error())
 		return ctrl.Result{}, err
 	}
-	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, ReasonPodRegistered, "Successfully registered pod under SPIRE with entry ID '%s'", entryID)
+	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, ReasonPodRegistered, "Successfully registered pod under workload with entry ID '%s'", entryID)
 
 	hashStr, err := getEntryHash(pod.Namespace, serviceID, ttl, dnsNames)
 	if err != nil {
-		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonSPIREEntryHashCalculationFailed, "Failed calculating SPIRE entry hash: %s", err.Error())
+		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonSPIREEntryHashCalculationFailed, "Failed calculating workload entry hash: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
@@ -215,7 +233,7 @@ func getEntryHash(namespace string, serviceName string, ttl int32, dnsNames []st
 	entryPropertiesHashMaker := fnv.New32a()
 	_, err := entryPropertiesHashMaker.Write([]byte(namespace + metadata.RegisteredServiceNameLabel + serviceName + string(ttl) + strings.Join(dnsNames, "")))
 	if err != nil {
-		return "", fmt.Errorf("failed hashing SPIRE entry properties %w", err)
+		return "", fmt.Errorf("failed hashing workload entry properties %w", err)
 	}
 	hashStr := strconv.Itoa(int(entryPropertiesHashMaker.Sum32()))
 	return hashStr, nil
@@ -271,7 +289,7 @@ func (r *PodReconciler) cleanupOrphanEntries(ctx context.Context) error {
 		existingServicesByNamespace[pod.Namespace].Add(pod.Labels[metadata.RegisteredServiceNameLabel])
 	}
 
-	if err := r.entriesRegistry.CleanupOrphanK8SPodEntries(ctx, metadata.RegisteredServiceNameLabel, existingServicesByNamespace); err != nil {
+	if err := r.workloadRegistry.CleanupOrphanK8SPodEntries(ctx, metadata.RegisteredServiceNameLabel, existingServicesByNamespace); err != nil {
 		return fmt.Errorf("error cleaning up orphan entries: %w", err)
 	}
 
