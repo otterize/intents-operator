@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -49,17 +50,19 @@ type KafkaServerConfigReconciler struct {
 	ServersStore         *kafkaacls.ServersStore
 	operatorPodName      string
 	operatorPodNamespace string
+	otterizeClient       otterize_cloud.CloudClient
 	injectablerecorder.InjectableRecorder
 }
 
 func NewKafkaServerConfigReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore,
-	operatorPodName string, operatorPodNameSpace string) *KafkaServerConfigReconciler {
+	operatorPodName string, operatorPodNameSpace string, otterizeCloudClient otterize_cloud.CloudClient) *KafkaServerConfigReconciler {
 	return &KafkaServerConfigReconciler{
 		Client:               client,
 		Scheme:               scheme,
 		ServersStore:         serversStore,
 		operatorPodName:      operatorPodName,
 		operatorPodNamespace: operatorPodNameSpace,
+		otterizeClient:       otterizeCloudClient,
 	}
 }
 
@@ -258,8 +261,27 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	r.uploadKafkaServerConfig(ctx, kafkaServerConfig)
+
 	r.RecordNormalEvent(kafkaServerConfig, ReasonAppliedKafkaServerConfigFailed, "successfully applied server config")
 	return ctrl.Result{}, nil
+}
+
+func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Context, kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) {
+	if r.otterizeClient == nil {
+		return
+	}
+
+	envId, err := r.otterizeClient.GetOrCreateOtterizeEnv(ctx)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to get env, skip uploading")
+		return
+	}
+
+	err = r.otterizeClient.ReportKafkaServerConfig(ctx, envId, kafkaServerConfig.Namespace, kafkaServerConfig)
+	if err != nil {
+		logrus.WithError(err).Error("KafkaServerConfig upload failed")
+	}
 }
 
 // SetupWithManager sets up the controller with the Manager.

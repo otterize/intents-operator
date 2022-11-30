@@ -20,6 +20,7 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -159,10 +160,11 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
+	otterizeCloudClient := otterize_cloud.NewClient(otterizeClientID, otterizeClientSecret, cloudAddr)
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler,
 		watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation,
-		otterizeClientID, otterizeClientSecret, cloudAddr)
+		otterizeCloudClient)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
@@ -202,7 +204,7 @@ func main() {
 	//	}
 	//}
 
-	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, podName, podNamespace)
+	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, podName, podNamespace, otterizeCloudClient)
 
 	if err = kafkaServerConfigReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")

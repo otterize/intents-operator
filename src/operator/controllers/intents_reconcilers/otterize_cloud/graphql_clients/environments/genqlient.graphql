@@ -24,3 +24,6 @@ query KubernetesEnvironment {
     }
 }
 
+mutation ReportKafkaServerConfig($environment: ID!, $source: [String!], $servers: [KafkaServerConfigInput!]!) {
+    reportKafkaServerConfig(environment: ID!, source: String!, servers: [KafkaServerConfigInput!]!): Boolean!
+}
