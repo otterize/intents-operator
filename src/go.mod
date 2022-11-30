@@ -3,10 +3,10 @@ module github.com/otterize/intents-operator/src
 go 1.18
 
 require (
-	github.com/Khan/genqlient v0.4.0
+	github.com/Khan/genqlient v0.5.0
 	github.com/Shopify/sarama v1.34.1
 	github.com/bombsimon/logrusr/v3 v3.0.0
-	github.com/golang/mock v1.5.0
+	github.com/golang/mock v1.6.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
@@ -32,7 +32,7 @@ require (
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
-	github.com/agnivade/levenshtein v1.1.0 // indirect
+	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/alexflint/go-arg v1.4.2 // indirect
 	github.com/alexflint/go-scalar v1.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect

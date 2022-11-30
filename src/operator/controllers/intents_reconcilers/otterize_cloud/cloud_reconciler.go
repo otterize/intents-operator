@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/Khan/genqlient/graphql"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud/graphql_clients/environments"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterize_cloud/graphql_clients/kubernetes"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
@@ -15,7 +15,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"strings"
 )
 
 const ErrEnvNotFound = "environment not found"
@@ -38,7 +37,7 @@ func NewOtterizeCloudReconciler(
 	cfg := clientcredentials.Config{
 		ClientID:     otterizeClientID,
 		ClientSecret: otterizeClientSecret,
-		TokenURL:     fmt.Sprintf("%s/auth/tokens/token", cloudAddr),
+		TokenURL:     fmt.Sprintf("%s/api/auth/tokens/token", cloudAddr),
 		AuthStyle:    oauth2.AuthStyleInParams,
 	}
 	ctx := context.Background()
@@ -60,52 +59,28 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, nil
 	}
 
-	// Bootstrap Otterize environment
-	logrus.Infof("Querying environment ID for Otterize Kubernetes integration")
-	envID, err := r.getOrCreateOtterizeEnv(ctx)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	clientIntents := otterizev1alpha1.ClientIntents{}
-	err = r.Get(ctx, req.NamespacedName, &clientIntents)
-	// In case of "Not found" k8s error, we update intents and environment normally
+	err := r.Get(ctx, req.NamespacedName, &clientIntents)
+	// In case of "Not found" k8s error, we report intents and namespace normally
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return ctrl.Result{}, err
 	}
 
-	err = r.updateOtterizeEnvWithNamespace(ctx, envID, req.Namespace)
-	if err != nil {
+	if err = r.reportNamespace(ctx, req.Namespace); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *OtterizeCloudReconciler) getOrCreateOtterizeEnv(ctx context.Context) (string, error) {
-	env, err := environments.KubernetesEnvironment(ctx, r.otterizeClient)
-	if err != nil {
-		if strings.Contains(err.Error(), ErrEnvNotFound) {
-			logrus.Infof("No environment found associated with token. Creating new environment")
-			env, err := environments.CreateKubernetesEnvironment(ctx, r.otterizeClient)
-			if err != nil {
-				return "", err
-			}
-			return env.Me.CreateKubernetesEnvironment.GetId(), nil
-		} else {
-			return "", err
-		}
-	}
-	return env.Me.KubernetesEnvironment.GetId(), nil
-}
-
-func (r *OtterizeCloudReconciler) updateOtterizeEnvWithNamespace(ctx context.Context, envID, namespace string) error {
-	// The field "Cluster" in type NamespaceInput is set in the cloud, and the integration name that sent the req is used
-	env, err := environments.AddNamespacesToEnv(ctx, r.otterizeClient, envID, []string{namespace})
+func (r *OtterizeCloudReconciler) reportNamespace(ctx context.Context, namespace string) error {
+	res, err := kubernetes.ReportKubernetesNamespace(ctx, r.otterizeClient, namespace)
 	if err != nil {
 		return err
 	}
-
-	logrus.Infof("Added namespace %s to Otterize env %s", namespace, env.AddEnvironmentNamespaces.GetName())
+	// Return value is bool - returns true if anything was updated in the DB
+	if res.ReportKubernetesNamespace {
+		logrus.Infof("Successfully reported namespace # %s # to Otterize cloud", namespace)
+	}
 	return nil
 }
