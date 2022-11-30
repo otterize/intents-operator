@@ -20,7 +20,7 @@ type NamespaceWatcher struct {
 }
 
 func NewNamespaceWatcher(c client.Client) *NamespaceWatcher {
-	return &NamespaceWatcher{Client: c}
+	return &NamespaceWatcher{c}
 }
 
 func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

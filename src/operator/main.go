@@ -76,8 +76,8 @@ func main() {
 	var otterizeClientSecret string
 	var cloudAddr string
 
-	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":7070", "The address the metric endpoint binds to.")
-	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":7071", "The address the probe endpoint binds to.")
+	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	pflag.StringVar(&tlsSource.CertFile, "kafka-server-tls-cert", "", "name of tls certificate file")
 	pflag.StringVar(&tlsSource.KeyFile, "kafka-server-tls-key", "", "name of tls private key file")
 	pflag.StringVar(&tlsSource.RootCAFile, "kafka-server-tls-ca", "", "name of tls ca file")
