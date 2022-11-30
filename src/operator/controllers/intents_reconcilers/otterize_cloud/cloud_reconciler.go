@@ -17,8 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const ErrEnvNotFound = "environment not found"
-
 type OtterizeCloudReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
