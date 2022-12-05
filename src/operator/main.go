@@ -21,6 +21,7 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/sirupsen/logrus"
@@ -72,9 +73,8 @@ func main() {
 	var enableKafkaACLCreation bool
 	var disableWebhookServer bool
 	var tlsSource otterizev1alpha1.TLSSource
-	var otterizeClientID string
-	var otterizeClientSecret string
-	var cloudAddr string
+	var otterizeCloudClient otterizecloud.CloudApi
+	var ok bool
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -96,9 +96,6 @@ func main() {
 		"Whether to disable Intents network policy creation")
 	pflag.BoolVar(&enableKafkaACLCreation, "enable-kafka-acl-creation", true,
 		"Whether to disable Intents Kafka ACL creation")
-	pflag.StringVar(&otterizeClientID, "client-id", "", "Otterize cloud Kubernetes integration client id")
-	pflag.StringVar(&otterizeClientSecret, "client-secret", "", "Otterize cloud Kubernetes integration client secret")
-	pflag.StringVar(&cloudAddr, "cloud-address", "", "Otterize cloud address")
 
 	pflag.Parse()
 
@@ -161,10 +158,18 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
+	otterizeCloudClient, ok, err = otterizecloud.NewClient(context.Background())
+	if err != nil {
+		logrus.WithError(err).Fatal("Failed to create otterize cloud client")
+	}
+	if !ok {
+		logrus.Info("missing configuration for cloud integration, disabling cloud communication")
+	}
+
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler,
 		watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation,
-		otterizeClientID, otterizeClientSecret, cloudAddr)
+		otterizeCloudClient)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
