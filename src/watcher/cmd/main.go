@@ -72,6 +72,7 @@ func main() {
 	}
 
 	podWatcher := reconcilers.NewPodWatcher(mgr.GetClient())
+
 	nsWatcher := reconcilers.NewNamespaceWatcher(mgr.GetClient())
 
 	err = podWatcher.InitIntentsClientIndices(mgr)

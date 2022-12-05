@@ -72,6 +72,9 @@ func main() {
 	var enableKafkaACLCreation bool
 	var disableWebhookServer bool
 	var tlsSource otterizev1alpha1.TLSSource
+	var otterizeClientID string
+	var otterizeClientSecret string
+	var cloudAddr string
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -93,6 +96,9 @@ func main() {
 		"Whether to disable Intents network policy creation")
 	pflag.BoolVar(&enableKafkaACLCreation, "enable-kafka-acl-creation", true,
 		"Whether to disable Intents Kafka ACL creation")
+	pflag.StringVar(&otterizeClientID, "client-id", "", "Otterize cloud Kubernetes integration client id")
+	pflag.StringVar(&otterizeClientSecret, "client-secret", "", "Otterize cloud Kubernetes integration client secret")
+	pflag.StringVar(&cloudAddr, "cloud-address", "", "Otterize cloud address")
 
 	pflag.Parse()
 
@@ -155,7 +161,10 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler, watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation)
+	intentsReconciler := controllers.NewIntentsReconciler(
+		mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler,
+		watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation,
+		otterizeClientID, otterizeClientSecret, cloudAddr)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
@@ -167,7 +176,6 @@ func main() {
 
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
-
 	}
 
 	if selfSignedCert == true {

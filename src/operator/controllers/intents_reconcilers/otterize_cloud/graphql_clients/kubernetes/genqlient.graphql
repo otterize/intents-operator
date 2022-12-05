@@ -1,0 +1,3 @@
+mutation ReportKubernetesNamespace($namespace: String!) {
+    reportKubernetesNamespace(namespace: $namespace)
+}
