@@ -42,12 +42,13 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 	if err = r.otterizeClient.ReportKubernetesNamespace(ctx, req.Namespace); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// Report Applied intents in the namespace
 	clientIntentsList := otterizev1alpha1.ClientIntentsList{}
 	if err = r.List(ctx, &clientIntentsList); err != nil {
 		return ctrl.Result{}, nil
 	}
 
-	// Report Applied intents
 	if err = r.otterizeClient.ReportAppliedIntents(ctx, req.Namespace, clientIntentsList); err != nil {
 		return ctrl.Result{}, nil
 	}
