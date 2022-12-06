@@ -1,9 +1,9 @@
 # genqlient config; for full documentation see:
 # https://github.com/Khan/genqlient/blob/main/docs/genqlient.yaml
 schema:
-  - ../../../../../../../graphql/root.graphql
-  - ../../../../../../../graphql/kubernetes.graphql
-  - ../../../../../../../graphql/federation/federation-directives.graphql
+  - ../../../../../../graphql/root.graphql
+  - ../../../../../../graphql/kubernetes.graphql
+  - ../../../../../../graphql/federation/federation-directives.graphql
 operations:
   - genqlient.graphql
 generated: generated.go
