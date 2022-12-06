@@ -56,7 +56,7 @@ func (s *KafkaACLReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
 }
 
-func (s *KafkaACLReconcilerTestSuite) setupServerStore(serviceName string) *kafkaacls.ServersStore {
+func (s *KafkaACLReconcilerTestSuite) setupServerStore(serviceName string) *kafkaacls.ServersStoreImpl {
 	serverConfig := &otterizev1alpha1.KafkaServerConfig{
 		Spec: otterizev1alpha1.KafkaServerConfigSpec{
 			Service: otterizev1alpha1.Service{
@@ -74,7 +74,7 @@ func (s *KafkaACLReconcilerTestSuite) setupServerStore(serviceName string) *kafk
 
 	serverConfig.SetNamespace(s.TestNamespace)
 	emptyTls := otterizev1alpha1.TLSSource{}
-	kafkaServersStore := kafkaacls.NewServersStore(emptyTls, true)
+	kafkaServersStore := kafkaacls.NewServersStore(emptyTls, true, kafkaacls.NewKafkaIntentsAdmin)
 	kafkaServersStore.Add(serverConfig)
 	return kafkaServersStore
 }

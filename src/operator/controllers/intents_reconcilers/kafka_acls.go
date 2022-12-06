@@ -30,13 +30,13 @@ const (
 type KafkaACLReconciler struct {
 	client                  client.Client
 	scheme                  *runtime.Scheme
-	KafkaServersStore       *kafkaacls.ServersStore
+	KafkaServersStore       kafkaacls.ServersStore
 	enableKafkaACLCreation  bool
 	getNewKafkaIntentsAdmin kafkaacls.IntentsAdminFactoryFunction
 	injectablerecorder.InjectableRecorder
 }
 
-func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore, enableKafkaACLCreation bool, factoryFunc kafkaacls.IntentsAdminFactoryFunction) *KafkaACLReconciler {
+func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, serversStore kafkaacls.ServersStore, enableKafkaACLCreation bool, factoryFunc kafkaacls.IntentsAdminFactoryFunction) *KafkaACLReconciler {
 	return &KafkaACLReconciler{client: client, scheme: scheme, KafkaServersStore: serversStore, enableKafkaACLCreation: enableKafkaACLCreation, getNewKafkaIntentsAdmin: factoryFunc}
 }
 

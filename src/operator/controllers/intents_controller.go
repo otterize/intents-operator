@@ -38,7 +38,7 @@ type IntentsReconciler struct {
 func NewIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	kafkaServerStore *kafkaacls.ServersStore,
+	kafkaServerStore kafkaacls.ServersStore,
 	endpointsReconciler *external_traffic.EndpointsReconciler,
 	restrictToNamespaces []string,
 	enableNetworkPolicyCreation, enableKafkaACLCreation bool,
