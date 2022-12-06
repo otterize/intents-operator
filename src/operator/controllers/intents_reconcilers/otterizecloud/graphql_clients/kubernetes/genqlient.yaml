@@ -3,6 +3,7 @@
 schema:
   - ../../../../../../../graphql/root.graphql
   - ../../../../../../../graphql/kubernetes.graphql
+  - ../../../../../../../graphql/intents.graphql
   - ../../../../../../../graphql/federation/federation-directives.graphql
 operations:
   - genqlient.graphql

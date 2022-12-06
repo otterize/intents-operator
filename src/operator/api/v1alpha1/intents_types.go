@@ -20,6 +20,8 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud/graphql_clients/kubernetes"
+	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -180,6 +182,39 @@ func (in *Intent) ResolveIntentNamespace(intentsObjNamespace string) string {
 	}
 
 	return intentsObjNamespace
+}
+
+func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]kubernetes.IntentInput, error) {
+	otterizeIntents := make([]kubernetes.IntentInput, 0)
+	for _, clientIntents := range in.Items {
+		for _, intent := range clientIntents.GetCallsList() {
+			otterizeIntents = append(otterizeIntents, intent.ConvertToCloudFormat(clientIntents.GetServiceName()))
+		}
+	}
+	return otterizeIntents, nil
+}
+
+func (in *Intent) ConvertToCloudFormat(clientName string) kubernetes.IntentInput {
+	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) kubernetes.KafkaConfigInput {
+		return kubernetes.KafkaConfigInput{
+			Name: topic.Name,
+			Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) kubernetes.KafkaOperation {
+				return kubernetes.KafkaOperation(op)
+			}),
+		}
+	})
+	intentInput := kubernetes.IntentInput{
+		Client: clientName,
+		Server: in.Name,
+		Body: kubernetes.IntentBody{
+			Type: kubernetes.IntentType(in.Type),
+		},
+	}
+	if len(otterizeTopics) != 0 {
+		intentInput.Body.Topics = otterizeTopics
+	}
+
+	return intentInput
 }
 
 // GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)

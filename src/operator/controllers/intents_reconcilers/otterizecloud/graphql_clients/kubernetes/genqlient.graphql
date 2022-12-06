@@ -1,3 +1,7 @@
 mutation ReportKubernetesNamespace($namespace: String!) {
     reportKubernetesNamespace(namespace: $namespace)
 }
+
+mutation ReportAppliedKubernetesIntents($namespace: String!, $intents: [IntentInput!]!) {
+    reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents)
+}

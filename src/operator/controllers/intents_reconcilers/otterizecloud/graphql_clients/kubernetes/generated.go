@@ -8,6 +8,105 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+type HTTPConfigInput struct {
+	Path   string     `json:"path"`
+	Method HTTPMethod `json:"method"`
+}
+
+// GetPath returns HTTPConfigInput.Path, and is useful for accessing the field via an interface.
+func (v *HTTPConfigInput) GetPath() string { return v.Path }
+
+// GetMethod returns HTTPConfigInput.Method, and is useful for accessing the field via an interface.
+func (v *HTTPConfigInput) GetMethod() HTTPMethod { return v.Method }
+
+type HTTPMethod string
+
+const (
+	HTTPMethodGet     HTTPMethod = "GET"
+	HTTPMethodPost    HTTPMethod = "POST"
+	HTTPMethodPut     HTTPMethod = "PUT"
+	HTTPMethodDelete  HTTPMethod = "DELETE"
+	HTTPMethodOptions HTTPMethod = "OPTIONS"
+	HTTPMethodTrace   HTTPMethod = "TRACE"
+	HTTPMethodPatch   HTTPMethod = "PATCH"
+	HTTPMethodConnect HTTPMethod = "CONNECT"
+)
+
+type IntentBody struct {
+	Type      IntentType         `json:"type"`
+	Topics    []KafkaConfigInput `json:"topics"`
+	Resources []HTTPConfigInput  `json:"resources"`
+}
+
+// GetType returns IntentBody.Type, and is useful for accessing the field via an interface.
+func (v *IntentBody) GetType() IntentType { return v.Type }
+
+// GetTopics returns IntentBody.Topics, and is useful for accessing the field via an interface.
+func (v *IntentBody) GetTopics() []KafkaConfigInput { return v.Topics }
+
+// GetResources returns IntentBody.Resources, and is useful for accessing the field via an interface.
+func (v *IntentBody) GetResources() []HTTPConfigInput { return v.Resources }
+
+type IntentInput struct {
+	Client string     `json:"client"`
+	Server string     `json:"server"`
+	Body   IntentBody `json:"body"`
+}
+
+// GetClient returns IntentInput.Client, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetClient() string { return v.Client }
+
+// GetServer returns IntentInput.Server, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetServer() string { return v.Server }
+
+// GetBody returns IntentInput.Body, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetBody() IntentBody { return v.Body }
+
+type IntentType string
+
+const (
+	IntentTypeHttp  IntentType = "HTTP"
+	IntentTypeKafka IntentType = "Kafka"
+	IntentTypeGrpc  IntentType = "gRPC"
+	IntentTypeRedis IntentType = "Redis"
+)
+
+type KafkaConfigInput struct {
+	Name       string           `json:"name"`
+	Operations []KafkaOperation `json:"operations"`
+}
+
+// GetName returns KafkaConfigInput.Name, and is useful for accessing the field via an interface.
+func (v *KafkaConfigInput) GetName() string { return v.Name }
+
+// GetOperations returns KafkaConfigInput.Operations, and is useful for accessing the field via an interface.
+func (v *KafkaConfigInput) GetOperations() []KafkaOperation { return v.Operations }
+
+type KafkaOperation string
+
+const (
+	KafkaOperationConsume         KafkaOperation = "consume"
+	KafkaOperationProduce         KafkaOperation = "produce"
+	KafkaOperationCreate          KafkaOperation = "create"
+	KafkaOperationAlter           KafkaOperation = "alter"
+	KafkaOperationDelete          KafkaOperation = "delete"
+	KafkaOperationDescribe        KafkaOperation = "describe"
+	KafkaOperationClusteraction   KafkaOperation = "ClusterAction"
+	KafkaOperationDescribeconfigs KafkaOperation = "DescribeConfigs"
+	KafkaOperationAlterconfigs    KafkaOperation = "AlterConfigs"
+	KafkaOperationIdempotentwrite KafkaOperation = "IdempotentWrite"
+)
+
+// ReportAppliedKubernetesIntentsResponse is returned by ReportAppliedKubernetesIntents on success.
+type ReportAppliedKubernetesIntentsResponse struct {
+	ReportAppliedKubernetesIntents bool `json:"reportAppliedKubernetesIntents"`
+}
+
+// GetReportAppliedKubernetesIntents returns ReportAppliedKubernetesIntentsResponse.ReportAppliedKubernetesIntents, and is useful for accessing the field via an interface.
+func (v *ReportAppliedKubernetesIntentsResponse) GetReportAppliedKubernetesIntents() bool {
+	return v.ReportAppliedKubernetesIntents
+}
+
 // ReportKubernetesNamespaceResponse is returned by ReportKubernetesNamespace on success.
 type ReportKubernetesNamespaceResponse struct {
 	ReportKubernetesNamespace bool `json:"reportKubernetesNamespace"`
@@ -18,6 +117,18 @@ func (v *ReportKubernetesNamespaceResponse) GetReportKubernetesNamespace() bool 
 	return v.ReportKubernetesNamespace
 }
 
+// __ReportAppliedKubernetesIntentsInput is used internally by genqlient
+type __ReportAppliedKubernetesIntentsInput struct {
+	Namespace string        `json:"namespace"`
+	Intents   []IntentInput `json:"intents"`
+}
+
+// GetNamespace returns __ReportAppliedKubernetesIntentsInput.Namespace, and is useful for accessing the field via an interface.
+func (v *__ReportAppliedKubernetesIntentsInput) GetNamespace() string { return v.Namespace }
+
+// GetIntents returns __ReportAppliedKubernetesIntentsInput.Intents, and is useful for accessing the field via an interface.
+func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []IntentInput { return v.Intents }
+
 // __ReportKubernetesNamespaceInput is used internally by genqlient
 type __ReportKubernetesNamespaceInput struct {
 	Namespace string `json:"namespace"`
@@ -25,6 +136,38 @@ type __ReportKubernetesNamespaceInput struct {
 
 // GetNamespace returns __ReportKubernetesNamespaceInput.Namespace, and is useful for accessing the field via an interface.
 func (v *__ReportKubernetesNamespaceInput) GetNamespace() string { return v.Namespace }
+
+func ReportAppliedKubernetesIntents(
+	ctx context.Context,
+	client graphql.Client,
+	namespace string,
+	intents []IntentInput,
+) (*ReportAppliedKubernetesIntentsResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportAppliedKubernetesIntents",
+		Query: `
+mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentInput!]!) {
+	reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents)
+}
+`,
+		Variables: &__ReportAppliedKubernetesIntentsInput{
+			Namespace: namespace,
+			Intents:   intents,
+		},
+	}
+	var err error
+
+	var data ReportAppliedKubernetesIntentsResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
 
 func ReportKubernetesNamespace(
 	ctx context.Context,
