@@ -51,7 +51,7 @@ func (c *CloudApiImpl) ReportAppliedIntents(
 		return err
 	}
 
-	logrus.Infoln("Updating new intents counts", "Namespace", namespace, "Count", len(intentsInput))
+	logrus.Infoln("Updating new intents count", "Namespace", namespace, "Count", len(intentsInput))
 	_, err = kubernetes.ReportAppliedKubernetesIntents(ctx, c.client, namespace, intentsInput)
 	if err != nil {
 		return err
