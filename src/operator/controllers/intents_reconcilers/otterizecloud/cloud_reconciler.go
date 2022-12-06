@@ -9,12 +9,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sync"
 )
 
 type OtterizeCloudReconciler struct {
 	client.Client
-	Scheme         *runtime.Scheme
-	otterizeClient CloudApi
+	Scheme             *runtime.Scheme
+	otterizeClient     CloudApi
+	reportedNamespaces sync.Map
 	injectablerecorder.InjectableRecorder
 }
 
@@ -38,12 +40,16 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, err
 	}
 
-	// Report Namespace
-	if err = r.otterizeClient.ReportKubernetesNamespace(ctx, req.Namespace); err != nil {
-		return ctrl.Result{}, err
+	// Report namespace if not in cache
+	if _, ok := r.reportedNamespaces.Load(req.Namespace); !ok {
+		// Namespace is not in cache, report it to Otterize cloud
+		if err = r.otterizeClient.ReportKubernetesNamespace(ctx, req.Namespace); err != nil {
+			return ctrl.Result{}, err
+		}
+		r.reportedNamespaces.Store(req.Namespace, true)
 	}
 
-	// Report Applied intents in the namespace
+	// Report Applied intents from namespace
 	clientIntentsList := otterizev1alpha1.ClientIntentsList{}
 	if err = r.List(ctx, &clientIntentsList); err != nil {
 		return ctrl.Result{}, nil
