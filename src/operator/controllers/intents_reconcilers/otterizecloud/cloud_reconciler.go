@@ -14,14 +14,14 @@ import (
 type OtterizeCloudReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
-	otterizeClient CloudApi
+	otterizeClient CloudClient
 	injectablerecorder.InjectableRecorder
 }
 
 func NewOtterizeCloudReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	cloudClient CloudApi) *OtterizeCloudReconciler {
+	cloudClient CloudClient) *OtterizeCloudReconciler {
 
 	return &OtterizeCloudReconciler{
 		Client:         client,
