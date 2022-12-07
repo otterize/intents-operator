@@ -3,7 +3,7 @@ package otterizecloud
 import (
 	"context"
 	"github.com/Khan/genqlient/graphql"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud/graphql_clients/kubernetes"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloudclient"
 	"github.com/sirupsen/logrus"
 )
@@ -28,7 +28,7 @@ func NewClient(ctx context.Context) (CloudApi, bool, error) {
 }
 
 func (c *CloudApiImpl) ReportKubernetesNamespace(ctx context.Context, namespace string) error {
-	res, err := kubernetes.ReportKubernetesNamespace(ctx, c.client, namespace)
+	res, err := graphqlclient.ReportKubernetesNamespace(ctx, c.client, namespace)
 	if err != nil {
 		return err
 	}
