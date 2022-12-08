@@ -74,7 +74,6 @@ func main() {
 	var disableWebhookServer bool
 	var tlsSource otterizev1alpha1.TLSSource
 	var otterizeCloudClient otterizecloud.CloudApi
-	var ok bool
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -158,7 +157,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	otterizeCloudClient, ok, err = otterizecloud.NewClient(context.Background())
+	otterizeCloudClient, ok, err := otterizecloud.NewClient(context.Background())
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to create otterize cloud client")
 	}

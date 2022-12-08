@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/Khan/genqlient/graphql"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud/graphql_clients/kubernetes"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloudclient"
 	"github.com/sirupsen/logrus"
 )
@@ -30,7 +30,7 @@ func NewClient(ctx context.Context) (*CloudApiImpl, bool, error) {
 }
 
 func (c *CloudApiImpl) ReportKubernetesNamespace(ctx context.Context, namespace string) error {
-	res, err := kubernetes.ReportKubernetesNamespace(ctx, c.client, namespace)
+	res, err := graphqlclient.ReportKubernetesNamespace(ctx, c.client, namespace)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (c *CloudApiImpl) ReportAppliedIntents(
 	}
 
 	logrus.Infof("New intents count for namespace %s: %d", namespace, len(intentsInput))
-	_, err = kubernetes.ReportAppliedKubernetesIntents(ctx, c.client, namespace, intentsInput)
+	_, err = graphqlclient.ReportAppliedKubernetesIntents(ctx, c.client, namespace, intentsInput)
 	if err != nil {
 		return err
 	}
