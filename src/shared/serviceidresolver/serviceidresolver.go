@@ -33,13 +33,20 @@ func ResolvePodToServiceIdentityUsingAnnotationOnly(pod *corev1.Pod) (string, bo
 // In case the pod is annotated with an "intents.otterize.com/service-name" annotation, that annotation's value will override
 // any owner reference name as the service name.
 func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (string, error) {
-	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace})
-
 	annotatedServiceName, ok := ResolvePodToServiceIdentityUsingAnnotationOnly(pod)
 	if ok {
 		return annotatedServiceName, nil
 	}
+	ownerObj, err := r.getOwnerObject(ctx, pod)
+	if err != nil {
+		return "", err
+	}
 
+	return ownerObj.GetName(), nil
+}
+
+func (r *Resolver) getOwnerObject(ctx context.Context, pod *corev1.Pod) (client.Object, error) {
+	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace})
 	var obj client.Object
 	obj = pod
 	for len(obj.GetOwnerReferences()) > 0 {
@@ -54,9 +61,10 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 			log.WithFields(logrus.Fields{"owner": owner.Name, "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Warning(
 				"permission error resolving owner, will use owner object as service identifier",
 			)
-			return owner.Name, nil
+			ownerObj.SetName(owner.Name)
+			return ownerObj, nil
 		} else if err != nil {
-			return "", fmt.Errorf("error querying owner reference: %w", err)
+			return nil, fmt.Errorf("error querying owner reference: %w", err)
 		}
 
 		// recurse parent owner reference
@@ -64,5 +72,5 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 	}
 
 	log.WithFields(logrus.Fields{"owner": obj.GetName(), "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Debug("pod resolved to owner name")
-	return obj.GetName(), nil
+	return obj, nil
 }
