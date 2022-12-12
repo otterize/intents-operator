@@ -29,7 +29,7 @@ func ResolvePodToServiceIdentityUsingAnnotationOnly(pod *corev1.Pod) (string, bo
 }
 
 // ResolvePodToServiceIdentity resolves a pod object to its otterize service ID, referenced in intents objects.
-// It calls getOwnerObject to recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference.
+// It calls GetOwnerObject to recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference.
 // In case the pod is annotated with an "intents.otterize.com/service-name" annotation, that annotation's value will override
 // any owner reference name as the service name.
 func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (string, error) {
@@ -37,7 +37,7 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 	if ok {
 		return annotatedServiceName, nil
 	}
-	ownerObj, err := r.getOwnerObject(ctx, pod)
+	ownerObj, err := r.GetOwnerObject(ctx, pod)
 	if err != nil {
 		return "", err
 	}
@@ -45,9 +45,9 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 	return ownerObj.GetName(), nil
 }
 
-// getOwnerObject recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference
+// GetOwnerObject recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference
 // and returns it.
-func (r *Resolver) getOwnerObject(ctx context.Context, pod *corev1.Pod) (client.Object, error) {
+func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.Object, error) {
 	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace})
 	var obj client.Object
 	obj = pod
