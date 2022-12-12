@@ -8,6 +8,50 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+type KafkaServerConfigInput struct {
+	Name    string            `json:"name"`
+	Address string            `json:"address"`
+	Topics  []KafkaTopicInput `json:"topics"`
+}
+
+// GetName returns KafkaServerConfigInput.Name, and is useful for accessing the field via an interface.
+func (v *KafkaServerConfigInput) GetName() string { return v.Name }
+
+// GetAddress returns KafkaServerConfigInput.Address, and is useful for accessing the field via an interface.
+func (v *KafkaServerConfigInput) GetAddress() string { return v.Address }
+
+// GetTopics returns KafkaServerConfigInput.Topics, and is useful for accessing the field via an interface.
+func (v *KafkaServerConfigInput) GetTopics() []KafkaTopicInput { return v.Topics }
+
+type KafkaTopicInput struct {
+	ClientIdentityRequired bool   `json:"clientIdentityRequired"`
+	IntentsRequired        bool   `json:"intentsRequired"`
+	Pattern                string `json:"pattern"`
+	Topic                  string `json:"topic"`
+}
+
+// GetClientIdentityRequired returns KafkaTopicInput.ClientIdentityRequired, and is useful for accessing the field via an interface.
+func (v *KafkaTopicInput) GetClientIdentityRequired() bool { return v.ClientIdentityRequired }
+
+// GetIntentsRequired returns KafkaTopicInput.IntentsRequired, and is useful for accessing the field via an interface.
+func (v *KafkaTopicInput) GetIntentsRequired() bool { return v.IntentsRequired }
+
+// GetPattern returns KafkaTopicInput.Pattern, and is useful for accessing the field via an interface.
+func (v *KafkaTopicInput) GetPattern() string { return v.Pattern }
+
+// GetTopic returns KafkaTopicInput.Topic, and is useful for accessing the field via an interface.
+func (v *KafkaTopicInput) GetTopic() string { return v.Topic }
+
+// ReportKafkaServerConfigResponse is returned by ReportKafkaServerConfig on success.
+type ReportKafkaServerConfigResponse struct {
+	ReportKafkaServerConfig bool `json:"reportKafkaServerConfig"`
+}
+
+// GetReportKafkaServerConfig returns ReportKafkaServerConfigResponse.ReportKafkaServerConfig, and is useful for accessing the field via an interface.
+func (v *ReportKafkaServerConfigResponse) GetReportKafkaServerConfig() bool {
+	return v.ReportKafkaServerConfig
+}
+
 // ReportKubernetesNamespaceResponse is returned by ReportKubernetesNamespace on success.
 type ReportKubernetesNamespaceResponse struct {
 	ReportKubernetesNamespace bool `json:"reportKubernetesNamespace"`
@@ -18,6 +62,22 @@ func (v *ReportKubernetesNamespaceResponse) GetReportKubernetesNamespace() bool 
 	return v.ReportKubernetesNamespace
 }
 
+// __ReportKafkaServerConfigInput is used internally by genqlient
+type __ReportKafkaServerConfigInput struct {
+	Namespace string                 `json:"namespace"`
+	Source    string                 `json:"source"`
+	Server    KafkaServerConfigInput `json:"server"`
+}
+
+// GetNamespace returns __ReportKafkaServerConfigInput.Namespace, and is useful for accessing the field via an interface.
+func (v *__ReportKafkaServerConfigInput) GetNamespace() string { return v.Namespace }
+
+// GetSource returns __ReportKafkaServerConfigInput.Source, and is useful for accessing the field via an interface.
+func (v *__ReportKafkaServerConfigInput) GetSource() string { return v.Source }
+
+// GetServer returns __ReportKafkaServerConfigInput.Server, and is useful for accessing the field via an interface.
+func (v *__ReportKafkaServerConfigInput) GetServer() KafkaServerConfigInput { return v.Server }
+
 // __ReportKubernetesNamespaceInput is used internally by genqlient
 type __ReportKubernetesNamespaceInput struct {
 	Namespace string `json:"namespace"`
@@ -25,6 +85,40 @@ type __ReportKubernetesNamespaceInput struct {
 
 // GetNamespace returns __ReportKubernetesNamespaceInput.Namespace, and is useful for accessing the field via an interface.
 func (v *__ReportKubernetesNamespaceInput) GetNamespace() string { return v.Namespace }
+
+func ReportKafkaServerConfig(
+	ctx context.Context,
+	client graphql.Client,
+	namespace string,
+	source string,
+	server KafkaServerConfigInput,
+) (*ReportKafkaServerConfigResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportKafkaServerConfig",
+		Query: `
+mutation ReportKafkaServerConfig ($namespace: String!, $source: String!, $server: KafkaServerConfigInput!) {
+	reportKafkaServerConfig(namespace: $namespace, source: $source, serverConfig: $server)
+}
+`,
+		Variables: &__ReportKafkaServerConfigInput{
+			Namespace: namespace,
+			Source:    source,
+			Server:    server,
+		},
+	}
+	var err error
+
+	var data ReportKafkaServerConfigResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
 
 func ReportKubernetesNamespace(
 	ctx context.Context,

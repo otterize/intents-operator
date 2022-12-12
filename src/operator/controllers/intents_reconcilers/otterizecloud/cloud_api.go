@@ -8,15 +8,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type CloudApi interface {
+type CloudClient interface {
 	ReportKubernetesNamespace(ctx context.Context, namespace string) error
+	ReportKafkaServerConfig(ctx context.Context, namespace string, source string, server graphqlclient.KafkaServerConfigInput) error
 }
 
-type CloudApiImpl struct {
+type CloudClientImpl struct {
 	client graphql.Client
 }
 
-func NewClient(ctx context.Context) (CloudApi, bool, error) {
+func NewClient(ctx context.Context) (CloudClient, bool, error) {
 	client, ok, err := otterizecloudclient.NewClient(ctx)
 	if !ok {
 		return nil, false, nil
@@ -24,10 +25,10 @@ func NewClient(ctx context.Context) (CloudApi, bool, error) {
 		return nil, true, err
 	}
 
-	return &CloudApiImpl{client: client}, true, nil
+	return &CloudClientImpl{client: client}, true, nil
 }
 
-func (c *CloudApiImpl) ReportKubernetesNamespace(ctx context.Context, namespace string) error {
+func (c *CloudClientImpl) ReportKubernetesNamespace(ctx context.Context, namespace string) error {
 	res, err := graphqlclient.ReportKubernetesNamespace(ctx, c.client, namespace)
 	if err != nil {
 		return err
@@ -36,5 +37,16 @@ func (c *CloudApiImpl) ReportKubernetesNamespace(ctx context.Context, namespace 
 	if res.ReportKubernetesNamespace {
 		logrus.Infof("Successfully reported namespace # %s # to Otterize cloud", namespace)
 	}
+	return nil
+}
+
+func (c *CloudClientImpl) ReportKafkaServerConfig(ctx context.Context, namespace string, source string, server graphqlclient.KafkaServerConfigInput) error {
+	_, err := graphqlclient.ReportKafkaServerConfig(ctx, c.client, namespace, source, server)
+	if err != nil {
+		return err
+	}
+
+	logrus.Infof("Successfully reported KafkaServerConfig # %+v # to Otterize cloud", server)
+
 	return nil
 }
