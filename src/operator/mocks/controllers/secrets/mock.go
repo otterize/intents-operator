@@ -7,10 +7,10 @@ package mock_secrets
 import (
 	context "context"
 	"github.com/otterize/spire-integration-operator/src/controllers/secrets/types"
+	corev1 "k8s.io/api/core/v1"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MockManager is a mock of Manager interface.
@@ -37,7 +37,7 @@ func (m *MockManager) EXPECT() *MockManagerMockRecorder {
 }
 
 // EnsureTLSSecret mocks base method.
-func (m *MockManager) EnsureTLSSecret(arg0 context.Context, arg1 secretstypes.SecretConfig, arg2 v1.Object) error {
+func (m *MockManager) EnsureTLSSecret(arg0 context.Context, arg1 secretstypes.SecretConfig, arg2 *corev1.Pod) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EnsureTLSSecret", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)

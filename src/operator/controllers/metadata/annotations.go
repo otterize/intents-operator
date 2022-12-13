@@ -15,6 +15,10 @@ const (
 	// CertTypeAnnotation is the requested certificate type - pem (default) or jks.
 	CertTypeAnnotation = "spire-integration.otterize.com/cert-type"
 
+	// ShouldRestartOnRenewalAnnotation - After a certificate is being renewed, pods with this annotation set to "true"
+	// will be restarted. Defaults to "false"
+	ShouldRestartOnRenewalAnnotation = "spire-integration.otterize.com/restart-pod-on-certificate-renewal"
+
 	// SVIDFileNameAnnotation holds the name of the file in the secret data, that stores the certificate's SVID file
 	// (for pem certificate type). Defaults to "svid.pem".
 	SVIDFileNameAnnotation = "spire-integration.otterize.com/svid-file-name"
@@ -47,4 +51,6 @@ const (
 	// TLSSecretSVIDExpiryAnnotation is the expiry time of the encoded svid, used to determine when this secret's data
 	// should be refreshed.
 	TLSSecretSVIDExpiryAnnotation = "spire-integration.otterize.com/svid-expires-at"
+	// TLSRestartTimeAfterRenewal is the last time the owner's pods were restarted due to a secret being refrshed
+	TLSRestartTimeAfterRenewal = "spire-integration.otterize.com/restart-time-after-renewal"
 )

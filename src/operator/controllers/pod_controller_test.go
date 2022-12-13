@@ -128,6 +128,7 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 			namespace,
 			servicename,
 			certConf,
+			false,
 		),
 		&ObjectNameMatcher{name: podname, namespace: namespace}).Return(nil)
 

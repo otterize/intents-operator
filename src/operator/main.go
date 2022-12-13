@@ -78,8 +78,8 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var spireServerAddr string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":7071", "The address the metric endpoint binds to.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":7072", "The address the probe endpoint binds to.")
 	flag.StringVar(&spireServerAddr, "spire-server-address", "spire-server.spire:8081", "SPIRE server API address.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
@@ -114,9 +114,9 @@ func main() {
 	svidsStore := svids.NewSVIDsStore(spireClient)
 	entriesRegistry := entries.NewSpireRegistry(spireClient)
 	certGenerator := spirecertgen.NewSpireCertificateDataGenerator(bundlesStore, svidsStore)
-	secretsManager := secrets.NewSecretManager(mgr.GetClient(), certGenerator)
 	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
 	eventRecorder := mgr.GetEventRecorderFor("spire-integration-operator")
+	secretsManager := secrets.NewSecretManager(mgr.GetClient(), certGenerator, serviceIdResolver, eventRecorder)
 	podReconciler := controllers.NewPodReconciler(mgr.GetClient(), mgr.GetScheme(), entriesRegistry, secretsManager,
 		serviceIdResolver, eventRecorder)
 

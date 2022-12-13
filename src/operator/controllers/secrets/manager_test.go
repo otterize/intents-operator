@@ -8,11 +8,15 @@ import (
 	"github.com/otterize/spire-integration-operator/src/controllers/secrets/types"
 	mock_certificates "github.com/otterize/spire-integration-operator/src/mocks/certificates"
 	mock_client "github.com/otterize/spire-integration-operator/src/mocks/controller-runtime/client"
+	mock_record "github.com/otterize/spire-integration-operator/src/mocks/eventrecorder"
+	mock_serviceidresolver "github.com/otterize/spire-integration-operator/src/mocks/serviceidresolver"
 	"github.com/otterize/spire-integration-operator/src/testdata"
 	"github.com/stretchr/testify/suite"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"reflect"
@@ -23,17 +27,21 @@ import (
 
 type ManagerSuite struct {
 	suite.Suite
-	controller  *gomock.Controller
-	client      *mock_client.MockClient
-	mockCertGen *mock_certificates.MockCertificateDataGenerator
-	manager     *KubernetesSecretsManager
+	controller        *gomock.Controller
+	client            *mock_client.MockClient
+	mockCertGen       *mock_certificates.MockCertificateDataGenerator
+	eventRecorder     *mock_record.MockEventRecorder
+	serviceIdResolver *mock_serviceidresolver.MockServiceIdResolver
+	manager           *KubernetesSecretsManager
 }
 
 func (s *ManagerSuite) SetupTest() {
 	s.controller = gomock.NewController(s.T())
 	s.client = mock_client.NewMockClient(s.controller)
 	s.mockCertGen = mock_certificates.NewMockCertificateDataGenerator(s.controller)
-	s.manager = NewSecretManager(s.client, s.mockCertGen)
+	s.eventRecorder = mock_record.NewMockEventRecorder(s.controller)
+	s.serviceIdResolver = mock_serviceidresolver.NewMockServiceIdResolver(s.controller)
+	s.manager = NewSecretManager(s.client, s.mockCertGen, s.serviceIdResolver, s.eventRecorder)
 
 	s.client.EXPECT().Scheme().AnyTimes()
 }
@@ -87,7 +95,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_NoExistingSecret() {
 	certType, err := secretstypes.StrToCertType("pem")
 	s.Require().NoError(err)
 	certConfig := secretstypes.CertConfig{CertType: certType, PEMConfig: secretstypes.NewPEMConfig("", "", "")}
-	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
+	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig, false)
 
 	certData := secretstypes.CertificateData{Files: map[string][]byte{
 		certConfig.PEMConfig.BundleFileName: testData.BundlePEM,
@@ -145,7 +153,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NeedsRefr
 	certType, err := secretstypes.StrToCertType("pem")
 	s.Require().NoError(err)
 	certConfig := secretstypes.CertConfig{CertType: certType, PEMConfig: secretstypes.NewPEMConfig("", "", "")}
-	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
+	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig, false)
 
 	certData := secretstypes.CertificateData{Files: map[string][]byte{
 		certConfig.PEMConfig.BundleFileName: testData.BundlePEM,
@@ -201,18 +209,10 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NoRefresh
 		}
 	})
 
-	s.client.EXPECT().Update(
-		gomock.Any(),
-		&TLSSecretMatcher{
-			namespace: namespace,
-			name:      secretName,
-		},
-	).Return(nil)
-
 	certType, err := secretstypes.StrToCertType("pem")
 	s.Require().NoError(err)
 	certConfig := secretstypes.CertConfig{CertType: certType, PEMConfig: secretstypes.NewPEMConfig("", "", "")}
-	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
+	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig, false)
 
 	err = s.manager.EnsureTLSSecret(context.Background(), secretConf, nil)
 	s.Require().NoError(err)
@@ -257,7 +257,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 	s.Require().NoError(err)
 	certConfig := secretstypes.CertConfig{CertType: certType, PEMConfig: newSecrets}
 
-	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
+	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig, false)
 
 	pem := secretstypes.PEMCert{Key: testData.KeyPEM, Bundle: testData.BundlePEM, SVID: testData.SVIDPEM}
 	s.mockCertGen.EXPECT().GeneratePEM(gomock.Any(), secretConf.EntryID).Return(pem, nil)
@@ -317,7 +317,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 	certConfig := secretstypes.CertConfig{CertType: certType, PEMConfig: secretFileNames}
 
 	newEntryHash := "New-Hash"
-	secretConf := secretstypes.NewSecretConfig(entryId, newEntryHash, secretName, namespace, serviceName, certConfig)
+	secretConf := secretstypes.NewSecretConfig(entryId, newEntryHash, secretName, namespace, serviceName, certConfig, false)
 
 	pem := secretstypes.PEMCert{Key: testData.KeyPEM, Bundle: testData.BundlePEM, SVID: testData.SVIDPEM}
 	s.mockCertGen.EXPECT().GeneratePEM(gomock.Any(), secretConf.EntryID).Return(pem, nil)
@@ -376,7 +376,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 	certType, err := secretstypes.StrToCertType(newCertType)
 	s.Require().NoError(err)
 	certConfig := secretstypes.CertConfig{CertType: certType, PEMConfig: secretstypes.NewPEMConfig("", "", "")}
-	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
+	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig, false)
 
 	certData := secretstypes.CertificateData{Files: map[string][]byte{
 		certConfig.PEMConfig.BundleFileName: testData.BundlePEM,
@@ -433,7 +433,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 	certType, err := secretstypes.StrToCertType(newCertType)
 	s.Require().NoError(err)
 	certConfig := secretstypes.CertConfig{CertType: certType, JKSConfig: secretstypes.NewJKSConfig("", "", "")}
-	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
+	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig, false)
 
 	jks := secretstypes.JKSCert{KeyStore: []byte("test1234"), TrustStore: []byte("testy-test")}
 	certData := secretstypes.CertificateData{Files: map[string][]byte{
@@ -455,7 +455,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 	s.Require().NoError(err)
 }
 
-func (s *ManagerSuite) TestManager_RefreshTLSSecrets_RefreshNeeded() {
+func (s *ManagerSuite) TestManager_RefreshTLSSecrets_RefreshNeeded_NOT_ShouldRestartPod() {
 	namespace := "test_namespace"
 	secretName := "test_secretname"
 	serviceName := "test_servicename"
@@ -493,7 +493,7 @@ func (s *ManagerSuite) TestManager_RefreshTLSSecrets_RefreshNeeded() {
 	certType, err := secretstypes.StrToCertType(certTypeStr)
 	s.Require().NoError(err)
 	certConfig := secretstypes.CertConfig{CertType: certType, PEMConfig: secretFileNames}
-	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig)
+	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig, false)
 
 	pem := secretstypes.PEMCert{Key: testData.KeyPEM, Bundle: testData.BundlePEM, SVID: testData.SVIDPEM}
 	s.mockCertGen.EXPECT().GeneratePEM(gomock.Any(), secretConf.EntryID).Return(pem, nil)
@@ -511,8 +511,128 @@ func (s *ManagerSuite) TestManager_RefreshTLSSecrets_RefreshNeeded() {
 		},
 	).Return(nil)
 
+	pod := corev1.Pod{}
+
+	s.client.EXPECT().List(
+		gomock.Any(),
+		gomock.AssignableToTypeOf(&corev1.PodList{}),
+		gomock.AssignableToTypeOf(&client.ListOptions{}),
+	).Do(func(ctx context.Context, list *corev1.PodList, opts ...client.ListOption) {
+		*list = corev1.PodList{
+			Items: []corev1.Pod{pod},
+		}
+	})
+
 	err = s.manager.RefreshTLSSecrets(context.Background())
 	s.Require().NoError(err)
+}
+
+func (s *ManagerSuite) TestManager_RefreshTLSSecrets_RefreshNeeded_ShouldRestartPod() {
+	namespace := "test_namespace"
+	secretName := "test_secretname"
+	serviceName := "test_servicename"
+	entryId := "/test"
+	secretFileNames := secretstypes.NewPEMConfig("", "", "")
+	certTypeStr := "pem"
+
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: namespace,
+			Annotations: map[string]string{
+				metadata.TLSSecretSVIDExpiryAnnotation:            time.Now().Format(time.RFC3339),
+				metadata.TLSSecretRegisteredServiceNameAnnotation: serviceName,
+				metadata.TLSSecretEntryIDAnnotation:               entryId,
+				metadata.SVIDFileNameAnnotation:                   secretFileNames.SVIDFileName,
+				metadata.BundleFileNameAnnotation:                 secretFileNames.BundleFileName,
+				metadata.KeyFileNameAnnotation:                    secretFileNames.KeyFileName,
+				metadata.CertTypeAnnotation:                       certTypeStr,
+			},
+		},
+	}
+	s.client.EXPECT().List(
+		gomock.Any(),
+		gomock.AssignableToTypeOf(&corev1.SecretList{}),
+		gomock.AssignableToTypeOf(&client.MatchingLabels{}),
+	).Do(func(ctx context.Context, list *corev1.SecretList, opts ...client.ListOption) {
+		*list = corev1.SecretList{
+			Items: []corev1.Secret{secret},
+		}
+	})
+
+	testData, err := testdata.LoadTestData()
+	s.Require().NoError(err)
+	certType, err := secretstypes.StrToCertType(certTypeStr)
+	s.Require().NoError(err)
+	certConfig := secretstypes.CertConfig{CertType: certType, PEMConfig: secretFileNames}
+	secretConf := secretstypes.NewSecretConfig(entryId, "", secretName, namespace, serviceName, certConfig, false)
+
+	pem := secretstypes.PEMCert{Key: testData.KeyPEM, Bundle: testData.BundlePEM, SVID: testData.SVIDPEM}
+	s.mockCertGen.EXPECT().GeneratePEM(gomock.Any(), secretConf.EntryID).Return(pem, nil)
+
+	s.client.EXPECT().Update(
+		gomock.Any(),
+		&TLSSecretMatcher{
+			namespace: namespace,
+			name:      secretName,
+			tlsData: &map[string][]byte{
+				secretFileNames.BundleFileName: testData.BundlePEM,
+				secretFileNames.KeyFileName:    testData.KeyPEM,
+				secretFileNames.SVIDFileName:   testData.SVIDPEM,
+			},
+		},
+	).Return(nil)
+
+	pod := corev1.Pod{}
+	pod.Annotations = map[string]string{metadata.ShouldRestartOnRenewalAnnotation: "Yap"}
+
+	s.client.EXPECT().List(
+		gomock.Any(),
+		gomock.AssignableToTypeOf(&corev1.PodList{}),
+		gomock.AssignableToTypeOf(&client.ListOptions{}),
+	).Do(func(ctx context.Context, list *corev1.PodList, opts ...client.ListOption) {
+		*list = corev1.PodList{
+			Items: []corev1.Pod{pod},
+		}
+	})
+	uu := unstructured.Unstructured{}
+	uu.SetKind("Deployment")
+	uu.SetName("name")
+	uu.SetNamespace(namespace)
+	s.serviceIdResolver.EXPECT().GetOwnerObject(
+		gomock.Any(),
+		gomock.AssignableToTypeOf(&corev1.Pod{}),
+	).Return(&uu, nil)
+
+	// expect get according to 'uu' name, namespace and kind
+	s.client.EXPECT().Get(
+		gomock.Any(),
+		gomock.Eq(types.NamespacedName{Name: "name", Namespace: namespace}),
+		gomock.AssignableToTypeOf(&v1.Deployment{}),
+	)
+
+	// expect update deployment
+	s.client.EXPECT().Update(
+		gomock.Any(),
+		gomock.AssignableToTypeOf(&v1.Deployment{}),
+	).Do(func(_ any, d *v1.Deployment, options ...any) {
+		// Check that the Owner's pod template annotation was updated
+		_, ok := d.Spec.Template.Annotations[metadata.TLSRestartTimeAfterRenewal]
+		s.Require().True(ok)
+	})
+
+	// expect event to be sent
+	s.eventRecorder.EXPECT().Eventf(
+		gomock.AssignableToTypeOf(&v1.Deployment{}),
+		gomock.Eq(corev1.EventTypeNormal),
+		gomock.Eq(CertRenewReason),
+		gomock.Any(),
+		gomock.Eq(secretName),
+	)
+
+	err = s.manager.RefreshTLSSecrets(context.Background())
+	s.Require().NoError(err)
+
 }
 
 func (s *ManagerSuite) TestManager_RefreshTLSSecrets_NoRefreshNeeded() {

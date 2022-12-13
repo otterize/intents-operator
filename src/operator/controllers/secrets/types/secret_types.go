@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/samber/lo"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
 )
 
@@ -80,26 +81,33 @@ type CertConfig struct {
 }
 
 type SecretConfig struct {
-	EntryID     string
-	EntryHash   string
-	SecretName  string
-	Namespace   string
-	ServiceName string
-	CertConfig  CertConfig
+	EntryID                   string
+	EntryHash                 string
+	SecretName                string
+	Namespace                 string
+	ServiceName               string
+	ShouldRestartPodOnRenewal bool
+	CertConfig                CertConfig
 }
 
-func NewSecretConfig(entryID string, entryHash string, secretName string, namespace string, serviceName string, certConfig CertConfig) SecretConfig {
+func NewSecretConfig(entryID string, entryHash string, secretName string, namespace string, serviceName string, certConfig CertConfig, ShouldRestartPodOnRenewal bool) SecretConfig {
 	return SecretConfig{
-		EntryID:     entryID,
-		EntryHash:   entryHash,
-		SecretName:  secretName,
-		Namespace:   namespace,
-		ServiceName: serviceName,
-		CertConfig:  certConfig,
+		EntryID:                   entryID,
+		EntryHash:                 entryHash,
+		SecretName:                secretName,
+		Namespace:                 namespace,
+		ServiceName:               serviceName,
+		CertConfig:                certConfig,
+		ShouldRestartPodOnRenewal: ShouldRestartPodOnRenewal,
 	}
 }
 
 type CertificateDataGenerator interface {
 	GenerateJKS(ctx context.Context, entryID string, password string) (JKSCert, error)
 	GeneratePEM(ctx context.Context, entryID string) (PEMCert, error)
+}
+
+type PodOwnerIdentifier struct {
+	Name             string
+	GroupVersionKind schema.GroupVersionKind
 }

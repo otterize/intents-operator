@@ -8,10 +8,13 @@ import (
 	"github.com/otterize/spire-integration-operator/src/controllers/secrets/types"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
@@ -19,15 +22,18 @@ import (
 
 const (
 	secretExpiryDelta = 10 * time.Minute
+	CertRenewReason   = "CertificateRenewed"
 )
 
 func SecretConfigFromExistingSecret(secret *corev1.Secret) secretstypes.SecretConfig {
+	_, shouldRestartOnRenewalBool := secret.Annotations[metadata.ShouldRestartOnRenewalAnnotation]
 	return secretstypes.SecretConfig{
-		SecretName:  secret.Name,
-		ServiceName: secret.Annotations[metadata.TLSSecretRegisteredServiceNameAnnotation],
-		EntryID:     secret.Annotations[metadata.TLSSecretEntryIDAnnotation],
-		EntryHash:   secret.Annotations[metadata.TLSSecretEntryHashAnnotation],
-		Namespace:   secret.Namespace,
+		SecretName:                secret.Name,
+		ServiceName:               secret.Annotations[metadata.TLSSecretRegisteredServiceNameAnnotation],
+		EntryID:                   secret.Annotations[metadata.TLSSecretEntryIDAnnotation],
+		EntryHash:                 secret.Annotations[metadata.TLSSecretEntryHashAnnotation],
+		Namespace:                 secret.Namespace,
+		ShouldRestartPodOnRenewal: shouldRestartOnRenewalBool,
 		CertConfig: secretstypes.CertConfig{
 			CertType: secretstypes.CertType(secret.Annotations[metadata.CertTypeAnnotation]),
 			PEMConfig: secretstypes.PEMConfig{
@@ -46,11 +52,17 @@ func SecretConfigFromExistingSecret(secret *corev1.Secret) secretstypes.SecretCo
 
 type KubernetesSecretsManager struct {
 	client.Client
+	eventRecorder            record.EventRecorder
 	certificateDataGenerator secretstypes.CertificateDataGenerator
+	serviceIdResolver        secretstypes.ServiceIdResolver
 }
 
-func NewSecretManager(c client.Client, tlsSecretUpdater secretstypes.CertificateDataGenerator) *KubernetesSecretsManager {
-	return &KubernetesSecretsManager{Client: c, certificateDataGenerator: tlsSecretUpdater}
+func NewSecretManager(
+	c client.Client,
+	tlsSecretUpdater secretstypes.CertificateDataGenerator,
+	serviceIdResolver secretstypes.ServiceIdResolver,
+	eventRecorder record.EventRecorder) *KubernetesSecretsManager {
+	return &KubernetesSecretsManager{Client: c, certificateDataGenerator: tlsSecretUpdater, serviceIdResolver: serviceIdResolver, eventRecorder: eventRecorder}
 }
 
 func (m *KubernetesSecretsManager) isRefreshNeeded(secret *corev1.Secret) bool {
@@ -115,6 +127,7 @@ func (m *KubernetesSecretsManager) getCertificateData(ctx context.Context, entry
 				certConfig.PEMConfig.KeyFileName:    pemCert.Key,
 				certConfig.PEMConfig.SVIDFileName:   pemCert.SVID,
 			},
+			ExpiryStr: pemCert.Expiry,
 		}, nil
 	default:
 		return secretstypes.CertificateData{}, fmt.Errorf("failed generating secret data. unsupported cert type %s", certConfig.CertType)
@@ -144,12 +157,16 @@ func (m *KubernetesSecretsManager) updateTLSSecret(ctx context.Context, config s
 		metadata.JKSPasswordAnnotation:                    config.CertConfig.JKSConfig.Password,
 		metadata.CertTypeAnnotation:                       string(config.CertConfig.CertType),
 	}
+	if config.ShouldRestartPodOnRenewal {
+		// it only has to exist, we don't check the value
+		secret.Annotations[metadata.ShouldRestartOnRenewalAnnotation] = ""
+	}
 
 	secret.Data = certificateData.Files
 	return nil
 }
 
-func (m *KubernetesSecretsManager) EnsureTLSSecret(ctx context.Context, config secretstypes.SecretConfig, owner metav1.Object) error {
+func (m *KubernetesSecretsManager) EnsureTLSSecret(ctx context.Context, config secretstypes.SecretConfig, pod *corev1.Pod) error {
 	log := logrus.WithFields(logrus.Fields{"secret.namespace": config.Namespace, "secret.name": config.SecretName})
 
 	existingSecret, isExistingSecret, err := m.getExistingSecret(ctx, config.Namespace, config.SecretName)
@@ -159,6 +176,8 @@ func (m *KubernetesSecretsManager) EnsureTLSSecret(ctx context.Context, config s
 	}
 
 	var secret *corev1.Secret
+	shouldUpdate := false
+
 	if isExistingSecret {
 		secret = existingSecret
 	} else {
@@ -177,20 +196,29 @@ func (m *KubernetesSecretsManager) EnsureTLSSecret(ctx context.Context, config s
 			log.WithError(err).Error("failed updating TLS secret config")
 			return err
 		}
+		shouldUpdate = true
 	}
 
-	if owner != nil {
-		if err := controllerutil.SetOwnerReference(owner, secret, m.Scheme()); err != nil {
+	ownerCount := len(secret.OwnerReferences)
+	if pod != nil {
+		podOwner, err := m.serviceIdResolver.GetOwnerObject(ctx, pod)
+		if err != nil {
+			return err
+		}
+		if err := controllerutil.SetOwnerReference(podOwner, secret, m.Scheme()); err != nil {
 			log.WithError(err).Error("failed setting pod as owner reference")
 			return err
 		}
+		shouldUpdate = shouldUpdate || len(secret.OwnerReferences) != ownerCount
 	}
 
 	if isExistingSecret {
-		log.Info("Updating existing secret")
-		if err := m.Update(ctx, secret); err != nil {
-			logrus.WithError(err).Error("failed updating existing secret")
-			return err
+		if shouldUpdate {
+			log.Info("Updating existing secret")
+			if err := m.Update(ctx, secret); err != nil {
+				logrus.WithError(err).Error("failed updating existing secret")
+				return err
+			}
 		}
 	} else {
 		log.Info("Creating a new secret")
@@ -245,6 +273,9 @@ func (m *KubernetesSecretsManager) RefreshTLSSecrets(ctx context.Context) error 
 		if err := m.refreshTLSSecret(ctx, &secret); err != nil {
 			log.WithError(err).Error("failed refreshing TLS secret")
 		}
+		if err := m.handlePodRestarts(ctx, &secret); err != nil {
+			log.WithError(err).Error("failed restarting pods after secret refresh")
+		}
 	}
 
 	log.Info("finished refreshing secrets")
@@ -257,4 +288,102 @@ func (m *KubernetesSecretsManager) isUpdateNeeded(existingSecretConfig secretsty
 	log.Infof("needs update: %v", needsUpdate)
 
 	return needsUpdate
+}
+
+func (m *KubernetesSecretsManager) handlePodRestarts(ctx context.Context, secret *corev1.Secret) error {
+	podList := corev1.PodList{}
+	labelSelector, err := labels.Parse(fmt.Sprintf("%s=%s", metadata.RegisteredServiceNameLabel, secret.Annotations[metadata.RegisteredServiceNameLabel]))
+	if err != nil {
+		return err
+	}
+
+	err = m.List(ctx, &podList, &client.ListOptions{
+		LabelSelector: labelSelector,
+		Namespace:     secret.Namespace,
+	})
+	if err != nil {
+		return err
+	}
+	// create unique owner list
+	owners := make(map[secretstypes.PodOwnerIdentifier]client.Object)
+	for _, pod := range podList.Items {
+		if _, ok := pod.Annotations[metadata.ShouldRestartOnRenewalAnnotation]; ok {
+			owner, err := m.serviceIdResolver.GetOwnerObject(ctx, &pod)
+			if err != nil {
+				return err
+			}
+			owners[secretstypes.PodOwnerIdentifier{Name: owner.GetName(), GroupVersionKind: owner.GetObjectKind().GroupVersionKind()}] = owner
+		}
+	}
+	for _, owner := range owners {
+		logrus.Infof("Restarting pods for owner %s of type %s after certificate renewal",
+			owner.GetName(), owner.GetObjectKind().GroupVersionKind().Kind)
+		err = m.TriggerPodRestarts(ctx, owner, secret)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// TriggerPodRestarts edits the pod owner's template spec with an annotation about the secret's expiry date
+// If the secret is refreshed, its expiry will be updated in the pod owner's spec which will trigger the pods to restart
+func (m *KubernetesSecretsManager) TriggerPodRestarts(ctx context.Context, owner client.Object, secret *corev1.Secret) error {
+	kind := owner.GetObjectKind().GroupVersionKind().Kind
+	switch kind {
+	case "Deployment":
+		deployment := v1.Deployment{}
+		if err := m.Get(ctx, types.NamespacedName{Namespace: secret.Namespace, Name: owner.GetName()}, &deployment); err != nil {
+			return err
+		}
+		deployment.Spec.Template = m.updatePodTemplateSpec(deployment.Spec.Template)
+		if err := m.Update(ctx, &deployment); err != nil {
+			return err
+		}
+		m.eventRecorder.Eventf(&deployment, corev1.EventTypeNormal, CertRenewReason, "Successfully restarted Deployment after secret '%s' renewal", secret.Name)
+	case "ReplicaSet":
+		replicaSet := v1.ReplicaSet{}
+		if err := m.Get(ctx, types.NamespacedName{Namespace: secret.Namespace, Name: owner.GetName()}, &replicaSet); err != nil {
+			return err
+		}
+		replicaSet.Spec.Template = m.updatePodTemplateSpec(replicaSet.Spec.Template)
+		if err := m.Update(ctx, &replicaSet); err != nil {
+			return err
+		}
+		m.eventRecorder.Eventf(&replicaSet, corev1.EventTypeNormal, CertRenewReason, "Successfully restarted ReplicaSet after secret '%s' renewal", secret.Name)
+	case "StatefulSet":
+		statefulSet := v1.StatefulSet{}
+		if err := m.Get(ctx, types.NamespacedName{Namespace: secret.Namespace, Name: owner.GetName()}, &statefulSet); err != nil {
+			return err
+		}
+		statefulSet.Spec.Template = m.updatePodTemplateSpec(statefulSet.Spec.Template)
+		if err := m.Update(ctx, &statefulSet); err != nil {
+			return err
+		}
+		m.eventRecorder.Eventf(&statefulSet, corev1.EventTypeNormal, CertRenewReason, "Successfully restarted StatefulSet after secret '%s' renewal", secret.Name)
+
+	case "DaemonSet":
+		daemonSet := v1.DaemonSet{}
+		if err := m.Get(ctx, types.NamespacedName{Namespace: secret.Namespace, Name: owner.GetName()}, &daemonSet); err != nil {
+			return err
+		}
+		daemonSet.Spec.Template = m.updatePodTemplateSpec(daemonSet.Spec.Template)
+		if err := m.Update(ctx, &daemonSet); err != nil {
+			return err
+		}
+		m.eventRecorder.Eventf(&daemonSet, corev1.EventTypeNormal, CertRenewReason, "Successfully restarted DaemonSet after secret '%s' renewal", secret.Name)
+
+	default:
+		return fmt.Errorf("unsupported owner type: %s", kind)
+	}
+	return nil
+}
+
+func (m *KubernetesSecretsManager) updatePodTemplateSpec(podTemplateSpec corev1.PodTemplateSpec) corev1.PodTemplateSpec {
+	if podTemplateSpec.Annotations == nil {
+		podTemplateSpec.Annotations = map[string]string{}
+	}
+	podTemplateSpec.Annotations[metadata.TLSRestartTimeAfterRenewal] = time.Now().String()
+	return podTemplateSpec
 }
