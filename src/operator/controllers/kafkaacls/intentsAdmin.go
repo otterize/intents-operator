@@ -314,6 +314,12 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 	appliedIntentKafkaAcls, err := a.collectTopicsToACLList(principal, appliedIntentKafkaTopics)
 	expectedIntentKafkaTopics := lo.Flatten(
 		lo.Map(intents, func(intent otterizev1alpha1.Intent, _ int) []otterizev1alpha1.KafkaTopic {
+			// If no topics, then consider intent to apply to all topics.
+			if len(intent.Topics) == 0 {
+				return []otterizev1alpha1.KafkaTopic{
+					{Name: "*", Operations: []otterizev1alpha1.KafkaOperation{otterizev1alpha1.KafkaOperationAll}},
+				}
+			}
 			return intent.Topics
 		}),
 	)
