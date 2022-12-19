@@ -29,6 +29,7 @@ import (
 const waitForCreationInterval = 20 * time.Millisecond
 const waitForCreationTimeout = 10 * time.Second
 const waitForDeletionTSTimeout = 3 * time.Second
+const maxNamespaceLength = 63
 
 type ControllerManagerTestSuiteBase struct {
 	suite.Suite
@@ -61,7 +62,7 @@ func (s *ControllerManagerTestSuiteBase) BeforeTest(_, testName string) {
 		s.Require().NoError(err)
 	}()
 
-	s.TestNamespace = strings.ToLower(fmt.Sprintf("%s-%s", testName, time.Now().Format("20060102150405")))
+	s.TestNamespace = strings.ToLower(fmt.Sprintf("%s-%s", testName, time.Now().Format("20060102150405")))[:maxNamespaceLength]
 	testNamespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: s.TestNamespace},
 	}
