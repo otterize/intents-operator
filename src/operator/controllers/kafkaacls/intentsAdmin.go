@@ -218,6 +218,9 @@ func (a *KafkaIntentsAdminImpl) collectTopicsToACLList(principal string, topics 
 			ResourcePatternType: sarama.AclPatternLiteral,
 		}
 		acls := make([]sarama.Acl, 0)
+		if len(topic.Operations) == 0 {
+			topic.Operations = append(topic.Operations, otterizev1alpha1.KafkaOperationAll)
+		}
 		for _, operation := range topic.Operations {
 			operation, ok := KafkaOperationToAclOperationBMap.Get(operation)
 			if !ok {

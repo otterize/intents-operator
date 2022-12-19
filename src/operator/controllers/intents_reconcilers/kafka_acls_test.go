@@ -202,6 +202,55 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 	s.reconcile(namespacedName)
 }
 
+func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreateByIntentWithTopicButNoOperationsCreatesACLForAllOperations() {
+	// Expected Acl for consume operation
+	resource := sarama.Resource{
+		ResourceType:        sarama.AclResourceTopic,
+		ResourceName:        kafkaTopicName,
+		ResourcePatternType: sarama.AclPatternLiteral,
+	}
+
+	createAclOperation := sarama.Acl{
+		Principal:      s.principal(),
+		Host:           "*",
+		Operation:      sarama.AclOperationAll,
+		PermissionType: sarama.AclPermissionAllow,
+	}
+
+	createACL := sarama.ResourceAcls{
+		Resource: resource,
+		Acls:     []*sarama.Acl{&createAclOperation},
+	}
+
+	aclForAll := []*sarama.ResourceAcls{&createACL}
+
+	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(1)
+	s.mockKafkaAdmin.EXPECT().CreateACLs(MatchSaramaResource(aclForAll)).Return(nil)
+	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{createACL}, nil).Times(1)
+	s.mockKafkaAdmin.EXPECT().Close().Times(1)
+
+	// Create intents object with Consume operation
+	intents := []otterizev1alpha1.Intent{{
+		Name:      kafkaServiceName,
+		Type:      otterizev1alpha1.IntentTypeKafka,
+		Namespace: s.TestNamespace,
+		Topics:    []otterizev1alpha1.KafkaTopic{{Name: kafkaTopicName}},
+	},
+	}
+
+	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
+	s.Require().NoError(err)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	namespacedName := types.NamespacedName{
+		Namespace: s.TestNamespace,
+		Name:      clientIntents.Name,
+	}
+
+	s.reconcile(namespacedName)
+
+}
+
 func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreateByIntentWithNoResourcesCreatesACLForAllTopics() {
 	// Expected Acl for consume operation
 	resource := sarama.Resource{
