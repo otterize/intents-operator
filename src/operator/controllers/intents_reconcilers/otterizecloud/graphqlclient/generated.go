@@ -65,10 +65,10 @@ func (v *IntentInput) GetBody() IntentBody { return v.Body }
 type IntentType string
 
 const (
-	IntentTypeHttp  IntentType = "HTTP"
-	IntentTypeKafka IntentType = "Kafka"
-	IntentTypeGrpc  IntentType = "gRPC"
-	IntentTypeRedis IntentType = "Redis"
+	IntentTypeHttp  IntentType = "http"
+	IntentTypeKafka IntentType = "kafka"
+	IntentTypeGrpc  IntentType = "grpc"
+	IntentTypeRedis IntentType = "redis"
 )
 
 type KafkaConfigInput struct {

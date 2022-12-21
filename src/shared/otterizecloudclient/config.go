@@ -9,7 +9,7 @@ const (
 	ApiClientIdKey            = "client-id"
 	ApiClientSecretKey        = "client-secret"
 	OtterizeAPIAddressKey     = "api-address"
-	OtterizeAPIAddressDefault = "https://app.otterize.com/api"
+	OtterizeAPIAddressDefault = "https://app.otterize.com"
 	EnvPrefix                 = "OTTERIZE"
 )
 

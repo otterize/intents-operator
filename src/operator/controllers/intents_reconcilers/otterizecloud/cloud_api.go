@@ -51,10 +51,10 @@ func (c *CloudApiImpl) ReportAppliedIntents(
 		return err
 	}
 
-	logrus.Infof("New intents count for namespace %s: %d", namespace, len(intentsInput))
 	_, err = graphqlclient.ReportAppliedKubernetesIntents(ctx, c.client, namespace, intentsInput)
 	if err != nil {
 		return err
 	}
+	logrus.Infof("New intents count for namespace %s: %d", namespace, len(intentsInput))
 	return nil
 }
