@@ -38,11 +38,11 @@ type IntentsReconciler struct {
 func NewIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	kafkaServerStore *kafkaacls.ServersStore,
+	kafkaServerStore kafkaacls.ServersStore,
 	endpointsReconciler *external_traffic.EndpointsReconciler,
 	restrictToNamespaces []string,
 	enableNetworkPolicyCreation, enableKafkaACLCreation bool,
-	otterizeClient otterizecloud.CloudApi) *IntentsReconciler {
+	otterizeClient otterizecloud.CloudClient) *IntentsReconciler {
 	intentsReconciler := &IntentsReconciler{
 		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 			intents_reconcilers.NewPodLabelReconciler(client, scheme),

@@ -368,6 +368,24 @@ func (s *ControllerManagerTestSuiteBase) AddDeploymentWithService(name string, p
 	return deployment, service
 }
 
+func (s *ControllerManagerTestSuiteBase) AddKafkaServerConfig(kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) {
+	err := s.Mgr.GetClient().Create(context.Background(), kafkaServerConfig)
+	s.Require().NoError(err)
+
+	s.waitForObjectToBeCreated(kafkaServerConfig)
+}
+
+func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string) {
+	kafkaServerConfig := &otterizev1alpha1.KafkaServerConfig{}
+	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, kafkaServerConfig)
+	s.Require().NoError(err)
+
+	err = s.Mgr.GetClient().Delete(context.Background(), kafkaServerConfig)
+	s.Require().NoError(err)
+
+	s.WaitForDeletionToBeMarked(kafkaServerConfig)
+}
+
 func (s *ControllerManagerTestSuiteBase) AddIntents(
 	objName,
 	clientName string,

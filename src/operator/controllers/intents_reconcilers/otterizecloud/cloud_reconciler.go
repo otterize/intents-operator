@@ -15,7 +15,7 @@ import (
 type OtterizeCloudReconciler struct {
 	client.Client
 	Scheme             *runtime.Scheme
-	otterizeClient     CloudApi
+	otterizeClient     CloudClient
 	reportedNamespaces sync.Map
 	injectablerecorder.InjectableRecorder
 }
@@ -23,7 +23,7 @@ type OtterizeCloudReconciler struct {
 func NewOtterizeCloudReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	cloudClient CloudApi) *OtterizeCloudReconciler {
+	cloudClient CloudClient) *OtterizeCloudReconciler {
 
 	return &OtterizeCloudReconciler{
 		Client:         client,
