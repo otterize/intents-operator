@@ -24,12 +24,12 @@ func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 	cfg := clientcredentials.Config{
 		ClientID:     clientID,
 		ClientSecret: secret,
-		TokenURL:     fmt.Sprintf("%s/api/auth/tokens/token", apiAddress),
+		TokenURL:     fmt.Sprintf("%s/auth/tokens/token", apiAddress),
 		AuthStyle:    oauth2.AuthStyleInParams,
 	}
 
 	tokenSrc := cfg.TokenSource(ctx)
-	graphqlUrl := fmt.Sprintf("%s/api/graphql/v1", apiAddress)
+	graphqlUrl := fmt.Sprintf("%s/graphql/v1", apiAddress)
 	httpClient := oauth2.NewClient(ctx, tokenSrc)
 
 	return graphql.NewClient(graphqlUrl, httpClient), true, nil
