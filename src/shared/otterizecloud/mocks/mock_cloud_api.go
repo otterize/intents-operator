@@ -6,11 +6,11 @@ package otterizecloudmocks
 
 import (
 	context "context"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
 	v1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
-	graphqlclient "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud/graphqlclient"
 )
 
 // MockCloudClient is a mock of CloudClient interface.

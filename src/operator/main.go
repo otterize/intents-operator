@@ -21,9 +21,9 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"os"
@@ -104,7 +104,6 @@ func main() {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
-	var certBundle webhooks.CertificateBundle
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -184,7 +183,7 @@ func main() {
 
 	if selfSignedCert == true {
 		logrus.Infoln("Creating self signing certs")
-		certBundle, err =
+		certBundle, err :=
 			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
 		if err != nil {
 			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")

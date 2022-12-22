@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/Khan/genqlient/graphql"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud/graphqlclient"
-	"github.com/otterize/intents-operator/src/shared/otterizecloudclient"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/sirupsen/logrus"
 )
 

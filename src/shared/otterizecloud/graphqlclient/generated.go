@@ -176,8 +176,8 @@ func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []IntentInput { ret
 // __ReportKafkaServerConfigInput is used internally by genqlient
 type __ReportKafkaServerConfigInput struct {
 	Namespace string                 `json:"namespace"`
-	Source    string                 `json:"source"`
-	Server    KafkaServerConfigInput `json:"server"`
+	Source string                 `json:"source"`
+	Server KafkaServerConfigInput `json:"server"`
 }
 
 // GetNamespace returns __ReportKafkaServerConfigInput.Namespace, and is useful for accessing the field via an interface.
