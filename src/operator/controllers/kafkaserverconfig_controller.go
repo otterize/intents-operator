@@ -303,7 +303,7 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Contex
 		}),
 	}
 
-	err = r.otterizeClient.ReportKafkaServerConfig(ctx, kafkaServerConfig.Namespace, IntentsOperatorSource, input)
+	err = r.otterizeClient.ReportKafkaServerConfig(ctx, kafkaServerConfig.Namespace, input)
 	if err != nil {
 		return err
 	}

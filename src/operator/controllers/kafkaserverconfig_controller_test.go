@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"strings"
 	"testing"
 )
 
@@ -134,6 +135,10 @@ func (s *KafkaServerConfigReconcilerTestSuite) reconcile(namespacedName types.Na
 		res, err = s.reconciler.Reconcile(context.Background(), ctrl.Request{
 			NamespacedName: namespacedName,
 		})
+
+		if err != nil && strings.Contains(err.Error(), "the object has been modified; please apply your changes to the latest version and try again") {
+			res.Requeue = true
+		}
 	}
 
 	s.Require().NoError(err)
@@ -149,7 +154,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {
 
 	// Set go mock expectations
 	s.mockCloudClient.EXPECT().ReportKubernetesNamespace(gomock.Any(), s.TestNamespace).Return(nil)
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(nil)
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, gomock.Any()).Return(nil)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil)
 	s.mockIntentsAdmin.EXPECT().Close()
 
@@ -165,22 +170,21 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestReUploadKafkaServerConfigOnFa
 	kafkaServerConfig.SetNamespace(s.TestNamespace)
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
-	// Set go mock expectations for failure
+	// Set go mock expectations for ReportKubernetesNamespace failure
+	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockCloudClient.EXPECT().ReportKubernetesNamespace(gomock.Any(), s.TestNamespace).Return(errors.New("failed to report namespace")).Times(1)
-	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close()
-
-	// Set go mock expectations for failure
+	// Set go mock expectations for ReportKafkaServerConfig failure
+	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockCloudClient.EXPECT().ReportKubernetesNamespace(gomock.Any(), s.TestNamespace).Return(nil)
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(errors.New("failed to upload kafka server config"))
-	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, gomock.Any()).Return(errors.New("failed to upload kafka server config"))
 	s.mockIntentsAdmin.EXPECT().Close()
-
-	// Set go mock expectations
-	s.mockCloudClient.EXPECT().ReportKubernetesNamespace(gomock.Any(), s.TestNamespace).Return(nil).Times(1)
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(nil).Times(1)
+	// Set go mock expectations	for success
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
+	s.mockCloudClient.EXPECT().ReportKubernetesNamespace(gomock.Any(), s.TestNamespace).Return(nil).Times(1)
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, gomock.Any()).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close().Times(1)
+	// Set go mock expectations for failure
 
 	s.reconcile(types.NamespacedName{
 		Name:      kafkaServiceName,
@@ -197,7 +201,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 
 	// Set go mock expectations
 	s.mockCloudClient.EXPECT().ReportKubernetesNamespace(gomock.Any(), s.TestNamespace).Return(nil).Times(1)
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(nil).Times(1)
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, gomock.Any()).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close().Times(1)
 
