@@ -204,8 +204,8 @@ func (in *Intent) ConvertToCloudFormat(clientName string) graphqlclient.IntentIn
 		}
 	})
 	intentInput := graphqlclient.IntentInput{
-		Client: clientName,
-		Server: in.Name,
+		ClientName: clientName,
+		ServerName: in.Name,
 		Body: graphqlclient.IntentBody{
 			Type: graphqlclient.IntentType(in.Type),
 		},

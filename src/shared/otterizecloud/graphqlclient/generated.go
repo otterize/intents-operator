@@ -48,16 +48,24 @@ func (v *IntentBody) GetTopics() []KafkaConfigInput { return v.Topics }
 func (v *IntentBody) GetResources() []HTTPConfigInput { return v.Resources }
 
 type IntentInput struct {
-	Client string     `json:"client"`
-	Server string     `json:"server"`
-	Body   IntentBody `json:"body"`
+	Namespace       string     `json:"namespace"`
+	ClientName      string     `json:"clientName"`
+	ServerName      string     `json:"serverName"`
+	ServerNamespace string     `json:"serverNamespace"`
+	Body            IntentBody `json:"body"`
 }
 
-// GetClient returns IntentInput.Client, and is useful for accessing the field via an interface.
-func (v *IntentInput) GetClient() string { return v.Client }
+// GetNamespace returns IntentInput.Namespace, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetNamespace() string { return v.Namespace }
 
-// GetServer returns IntentInput.Server, and is useful for accessing the field via an interface.
-func (v *IntentInput) GetServer() string { return v.Server }
+// GetClientName returns IntentInput.ClientName, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetClientName() string { return v.ClientName }
+
+// GetServerName returns IntentInput.ServerName, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetServerName() string { return v.ServerName }
+
+// GetServerNamespace returns IntentInput.ServerNamespace, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetServerNamespace() string { return v.ServerNamespace }
 
 // GetBody returns IntentInput.Body, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetBody() IntentBody { return v.Body }
@@ -176,8 +184,8 @@ func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []IntentInput { ret
 // __ReportKafkaServerConfigInput is used internally by genqlient
 type __ReportKafkaServerConfigInput struct {
 	Namespace string                 `json:"namespace"`
-	Source string                 `json:"source"`
-	Server KafkaServerConfigInput `json:"server"`
+	Source    string                 `json:"source"`
+	Server    KafkaServerConfigInput `json:"server"`
 }
 
 // GetNamespace returns __ReportKafkaServerConfigInput.Namespace, and is useful for accessing the field via an interface.
