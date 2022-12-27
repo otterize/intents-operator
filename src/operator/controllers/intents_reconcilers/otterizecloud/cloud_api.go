@@ -10,7 +10,7 @@ import (
 
 type CloudClient interface {
 	ReportKubernetesNamespace(ctx context.Context, namespace string) error
-	ReportKafkaServerConfig(ctx context.Context, namespace string, server graphqlclient.KafkaServerConfigInput) error
+	ReportKafkaServerConfig(ctx context.Context, server graphqlclient.KafkaServerConfigInput) error
 }
 
 type CloudClientImpl struct {
@@ -40,8 +40,8 @@ func (c *CloudClientImpl) ReportKubernetesNamespace(ctx context.Context, namespa
 	return nil
 }
 
-func (c *CloudClientImpl) ReportKafkaServerConfig(ctx context.Context, namespace string, server graphqlclient.KafkaServerConfigInput) error {
-	_, err := graphqlclient.ReportKafkaServerConfig(ctx, c.client, namespace, server)
+func (c *CloudClientImpl) ReportKafkaServerConfig(ctx context.Context, server graphqlclient.KafkaServerConfigInput) error {
+	_, err := graphqlclient.ReportKafkaServerConfig(ctx, c.client, server)
 	if err != nil {
 		return err
 	}

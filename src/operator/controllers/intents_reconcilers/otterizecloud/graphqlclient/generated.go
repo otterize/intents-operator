@@ -9,13 +9,17 @@ import (
 )
 
 type KafkaServerConfigInput struct {
-	Name    string            `json:"name"`
-	Address string            `json:"address"`
-	Topics  []KafkaTopicInput `json:"topics"`
+	Name      string            `json:"name"`
+	Namespace string            `json:"namespace"`
+	Address   string            `json:"address"`
+	Topics    []KafkaTopicInput `json:"topics"`
 }
 
 // GetName returns KafkaServerConfigInput.Name, and is useful for accessing the field via an interface.
 func (v *KafkaServerConfigInput) GetName() string { return v.Name }
+
+// GetNamespace returns KafkaServerConfigInput.Namespace, and is useful for accessing the field via an interface.
+func (v *KafkaServerConfigInput) GetNamespace() string { return v.Namespace }
 
 // GetAddress returns KafkaServerConfigInput.Address, and is useful for accessing the field via an interface.
 func (v *KafkaServerConfigInput) GetAddress() string { return v.Address }
@@ -64,12 +68,8 @@ func (v *ReportKubernetesNamespaceResponse) GetReportKubernetesNamespace() bool 
 
 // __ReportKafkaServerConfigInput is used internally by genqlient
 type __ReportKafkaServerConfigInput struct {
-	Namespace string                 `json:"namespace"`
-	Server    KafkaServerConfigInput `json:"server"`
+	Server KafkaServerConfigInput `json:"server"`
 }
-
-// GetNamespace returns __ReportKafkaServerConfigInput.Namespace, and is useful for accessing the field via an interface.
-func (v *__ReportKafkaServerConfigInput) GetNamespace() string { return v.Namespace }
 
 // GetServer returns __ReportKafkaServerConfigInput.Server, and is useful for accessing the field via an interface.
 func (v *__ReportKafkaServerConfigInput) GetServer() KafkaServerConfigInput { return v.Server }
@@ -85,19 +85,17 @@ func (v *__ReportKubernetesNamespaceInput) GetNamespace() string { return v.Name
 func ReportKafkaServerConfig(
 	ctx context.Context,
 	client graphql.Client,
-	namespace string,
 	server KafkaServerConfigInput,
 ) (*ReportKafkaServerConfigResponse, error) {
 	req := &graphql.Request{
 		OpName: "ReportKafkaServerConfig",
 		Query: `
-mutation ReportKafkaServerConfig ($namespace: String!, $server: KafkaServerConfigInput!) {
-	reportKafkaServerConfig(namespace: $namespace, serverConfig: $server)
+mutation ReportKafkaServerConfig ($server: KafkaServerConfigInput!) {
+	reportKafkaServerConfig(serverConfig: $server)
 }
 `,
 		Variables: &__ReportKafkaServerConfigInput{
-			Namespace: namespace,
-			Server:    server,
+			Server: server,
 		},
 	}
 	var err error
