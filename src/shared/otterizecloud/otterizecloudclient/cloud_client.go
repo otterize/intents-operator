@@ -11,12 +11,9 @@ import (
 )
 
 func NewClient(ctx context.Context) (graphql.Client, bool, error) {
-	apiAddress := viper.GetString(OtterizeAPIAddressKey)
 	clientID := viper.GetString(ApiClientIdKey)
 	secret := viper.GetString(ApiClientSecretKey)
-	if clientID == "" && secret == "" {
-		return nil, false, nil
-	}
+	apiAddress := viper.GetString(OtterizeAPIAddressKey)
 	if clientID == "" {
 		return nil, true, errors.New("missing cloud integration client ID")
 	}
@@ -32,7 +29,7 @@ func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 	}
 
 	tokenSrc := cfg.TokenSource(ctx)
-	graphqlUrl := fmt.Sprintf("%s/api/graphql/v1", apiAddress)
+	graphqlUrl := fmt.Sprintf("%s/graphql/v1", apiAddress)
 	httpClient := oauth2.NewClient(ctx, tokenSrc)
 
 	return graphql.NewClient(graphqlUrl, httpClient), true, nil
