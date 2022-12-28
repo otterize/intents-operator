@@ -74,7 +74,6 @@ func main() {
 	var disableWebhookServer bool
 	var tlsSource otterizev1alpha1.TLSSource
 	var otterizeCloudClient otterizecloud.CloudClient
-	var ok bool
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -105,7 +104,6 @@ func main() {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
-	var certBundle webhooks.CertificateBundle
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -158,7 +156,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	otterizeCloudClient, ok, err = otterizecloud.NewClient(context.Background())
+	otterizeCloudClient, ok, err := otterizecloud.NewClient(context.Background())
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to create otterize cloud client")
 	}
@@ -185,7 +183,7 @@ func main() {
 
 	if selfSignedCert == true {
 		logrus.Infoln("Creating self signing certs")
-		certBundle, err =
+		certBundle, err :=
 			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
 		if err != nil {
 			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
