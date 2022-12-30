@@ -218,9 +218,6 @@ func (a *KafkaIntentsAdminImpl) collectTopicsToACLList(principal string, topics 
 			ResourcePatternType: sarama.AclPatternLiteral,
 		}
 		acls := make([]sarama.Acl, 0)
-		if len(topic.Operations) == 0 {
-			topic.Operations = append(topic.Operations, otterizev1alpha1.KafkaOperationAll)
-		}
 		for _, operation := range topic.Operations {
 			operation, ok := KafkaOperationToAclOperationBMap.Get(operation)
 			if !ok {
@@ -317,12 +314,6 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 	appliedIntentKafkaAcls, err := a.collectTopicsToACLList(principal, appliedIntentKafkaTopics)
 	expectedIntentKafkaTopics := lo.Flatten(
 		lo.Map(intents, func(intent otterizev1alpha1.Intent, _ int) []otterizev1alpha1.KafkaTopic {
-			// If no topics, then consider intent to apply to all topics.
-			if len(intent.Topics) == 0 {
-				return []otterizev1alpha1.KafkaTopic{
-					{Name: "*", Operations: []otterizev1alpha1.KafkaOperation{otterizev1alpha1.KafkaOperationAll}},
-				}
-			}
 			return intent.Topics
 		}),
 	)
