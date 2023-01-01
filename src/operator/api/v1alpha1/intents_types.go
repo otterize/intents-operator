@@ -117,8 +117,7 @@ type HTTPResource struct {
 }
 
 type KafkaTopic struct {
-	Name string `json:"name" yaml:"name"`
-	//+optional
+	Name       string           `json:"name" yaml:"name"`
 	Operations []KafkaOperation `json:"operations" yaml:"operations"`
 }
 
