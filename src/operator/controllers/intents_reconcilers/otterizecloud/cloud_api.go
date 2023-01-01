@@ -10,7 +10,6 @@ import (
 )
 
 type CloudClient interface {
-	ReportKubernetesNamespace(ctx context.Context, namespace string) error
 	ReportKafkaServerConfig(ctx context.Context, namespace string, source string, server graphqlclient.KafkaServerConfigInput) error
 	ReportAppliedIntents(ctx context.Context, namespace string, clientIntentsList otterizev1alpha1.ClientIntentsList) error
 }
@@ -28,18 +27,6 @@ func NewClient(ctx context.Context) (CloudClient, bool, error) {
 	}
 
 	return &CloudClientImpl{client: client}, true, nil
-}
-
-func (c *CloudClientImpl) ReportKubernetesNamespace(ctx context.Context, namespace string) error {
-	res, err := graphqlclient.ReportKubernetesNamespace(ctx, c.client, namespace)
-	if err != nil {
-		return err
-	}
-	// Return value is bool - returns true if anything was updated in the DB
-	if res.ReportKubernetesNamespace {
-		logrus.Infof("Successfully reported namespace # %s # to Otterize cloud", namespace)
-	}
-	return nil
 }
 
 func (c *CloudClientImpl) ReportKafkaServerConfig(ctx context.Context, namespace string, source string, server graphqlclient.KafkaServerConfigInput) error {

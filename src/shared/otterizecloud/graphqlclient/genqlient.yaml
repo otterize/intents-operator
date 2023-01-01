@@ -3,7 +3,8 @@
 schema:
   - ../../../../graphql/root.graphql
   - ../../../../graphql/kafkaserverconfig.graphql
-  - ../../../../graphql/kubernetes.graphql
+  - ../../../../graphql/namespaces.graphql
+  - ../../../../graphql/clusters.graphql
   - ../../../../graphql/intents.graphql
   - ../../../../graphql/federation/federation-directives.graphql
 operations:
