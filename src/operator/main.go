@@ -21,6 +21,7 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/sirupsen/logrus"
@@ -72,6 +73,7 @@ func main() {
 	var enableKafkaACLCreation bool
 	var disableWebhookServer bool
 	var tlsSource otterizev1alpha1.TLSSource
+	var otterizeCloudClient otterizecloud.CloudClient
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -102,7 +104,6 @@ func main() {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
-	var certBundle webhooks.CertificateBundle
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -134,7 +135,7 @@ func main() {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
 
-	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enableKafkaACLCreation)
+	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enableKafkaACLCreation, kafkaacls.NewKafkaIntentsAdmin)
 
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic)
 
@@ -155,7 +156,18 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler, watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation)
+	otterizeCloudClient, ok, err := otterizecloud.NewClient(context.Background())
+	if err != nil {
+		logrus.WithError(err).Fatal("Failed to create otterize cloud client")
+	}
+	if !ok {
+		logrus.Info("missing configuration for cloud integration, disabling cloud communication")
+	}
+
+	intentsReconciler := controllers.NewIntentsReconciler(
+		mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler,
+		watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation,
+		otterizeCloudClient)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
@@ -167,12 +179,11 @@ func main() {
 
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
-
 	}
 
 	if selfSignedCert == true {
 		logrus.Infoln("Creating self signing certs")
-		certBundle, err =
+		certBundle, err :=
 			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
 		if err != nil {
 			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
@@ -196,7 +207,7 @@ func main() {
 		}
 	}
 
-	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, podName, podNamespace)
+	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, podName, podNamespace, otterizeCloudClient)
 
 	if err = kafkaServerConfigReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")

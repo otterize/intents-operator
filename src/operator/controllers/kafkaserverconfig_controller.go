@@ -21,9 +21,12 @@ import (
 	"errors"
 	"fmt"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +36,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"time"
 )
 
 const (
@@ -40,26 +44,35 @@ const (
 	ReasonIntentsOperatorIdentityResolveFailed = "IntentsOperatorIdentityResolveFailed"
 	ReasonApplyingKafkaServerConfigFailed      = "ApplyingKafkaServerConfigFailed"
 	ReasonAppliedKafkaServerConfigFailed       = "AppliedKafkaServerConfigFailed"
+	IntentsOperatorSource                      = "intents-operator"
 )
 
 // KafkaServerConfigReconciler reconciles a KafkaServerConfig object
 type KafkaServerConfigReconciler struct {
 	client.Client
 	Scheme               *runtime.Scheme
-	ServersStore         *kafkaacls.ServersStore
+	ServersStore         kafkaacls.ServersStore
 	operatorPodName      string
 	operatorPodNamespace string
+	otterizeClient       otterizecloud.CloudClient
 	injectablerecorder.InjectableRecorder
 }
 
-func NewKafkaServerConfigReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore,
-	operatorPodName string, operatorPodNameSpace string) *KafkaServerConfigReconciler {
+func NewKafkaServerConfigReconciler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	serversStore kafkaacls.ServersStore,
+	operatorPodName string,
+	operatorPodNameSpace string,
+	cloudClient otterizecloud.CloudClient,
+) *KafkaServerConfigReconciler {
 	return &KafkaServerConfigReconciler{
 		Client:               client,
 		Scheme:               scheme,
 		ServersStore:         serversStore,
 		operatorPodName:      operatorPodName,
 		operatorPodNamespace: operatorPodNameSpace,
+		otterizeClient:       cloudClient,
 	}
 }
 
@@ -258,8 +271,44 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	if err := r.uploadKafkaServerConfig(ctx, kafkaServerConfig); err != nil {
+		logrus.WithError(err).Error("failed to upload KafkaServerConfig to cloud")
+		return ctrl.Result{RequeueAfter: time.Minute}, err
+	}
+
 	r.RecordNormalEvent(kafkaServerConfig, ReasonAppliedKafkaServerConfigFailed, "successfully applied server config")
 	return ctrl.Result{}, nil
+}
+
+func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Context, kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) error {
+	if r.otterizeClient == nil {
+		return nil
+	}
+
+	err := r.otterizeClient.ReportKubernetesNamespace(ctx, kafkaServerConfig.Namespace)
+	if err != nil {
+		return err
+	}
+
+	input := graphqlclient.KafkaServerConfigInput{
+		Name:    kafkaServerConfig.Spec.Service.Name,
+		Address: kafkaServerConfig.Spec.Addr,
+		Topics: lo.Map(kafkaServerConfig.Spec.Topics, func(topic otterizev1alpha1.TopicConfig, _ int) graphqlclient.KafkaTopicInput {
+			return graphqlclient.KafkaTopicInput{
+				ClientIdentityRequired: topic.ClientIdentityRequired,
+				IntentsRequired:        topic.IntentsRequired,
+				Pattern:                string(topic.Pattern),
+				Topic:                  topic.Topic,
+			}
+		}),
+	}
+
+	err = r.otterizeClient.ReportKafkaServerConfig(ctx, kafkaServerConfig.Namespace, IntentsOperatorSource, input)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
