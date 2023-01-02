@@ -129,7 +129,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NeedsRefr
 		gomock.Any(),
 		types.NamespacedName{Name: secretName, Namespace: namespace},
 		gomock.Any(),
-	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret) {
+	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret, opt ...any) {
 		*found = corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
@@ -188,7 +188,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NoRefresh
 		gomock.Any(),
 		types.NamespacedName{Name: secretName, Namespace: namespace},
 		gomock.Any(),
-	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret) {
+	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret, opt ...any) {
 		*found = corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
@@ -228,7 +228,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 		gomock.Any(),
 		types.NamespacedName{Name: secretName, Namespace: namespace},
 		gomock.Any(),
-	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret) {
+	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret, opt ...any) {
 		*found = corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
@@ -289,7 +289,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 		gomock.Any(),
 		types.NamespacedName{Name: secretName, Namespace: namespace},
 		gomock.Any(),
-	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret) {
+	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret, opt ...any) {
 		*found = corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
@@ -349,7 +349,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 		gomock.Any(),
 		types.NamespacedName{Name: secretName, Namespace: namespace},
 		gomock.Any(),
-	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret) {
+	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret, opt ...any) {
 		*found = corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,
@@ -409,7 +409,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 		gomock.Any(),
 		types.NamespacedName{Name: secretName, Namespace: namespace},
 		gomock.Any(),
-	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret) {
+	).Return(nil).Do(func(ctx context.Context, key client.ObjectKey, found *corev1.Secret, opt ...any) {
 		*found = corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secretName,

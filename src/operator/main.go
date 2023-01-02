@@ -22,7 +22,9 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/spire-integration-operator/src/controllers"
+	"github.com/otterize/spire-integration-operator/src/controllers/certificates/otterizecertgen"
 	"github.com/otterize/spire-integration-operator/src/controllers/certificates/spirecertgen"
+	"github.com/otterize/spire-integration-operator/src/controllers/otterizeclient"
 	"github.com/otterize/spire-integration-operator/src/controllers/secrets"
 	"github.com/otterize/spire-integration-operator/src/controllers/spireclient"
 	"github.com/otterize/spire-integration-operator/src/controllers/spireclient/bundles"
@@ -78,9 +80,13 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var spireServerAddr string
+	var useOtterizeCloud bool
+	var secretsManager controllers.SecretsManager
+	var workloadRegistry controllers.WorkloadRegistry
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":7071", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":7072", "The address the probe endpoint binds to.")
 	flag.StringVar(&spireServerAddr, "spire-server-address", "spire-server.spire:8081", "SPIRE server API address.")
+	flag.BoolVar(&useOtterizeCloud, "use-otterize-cloud", false, "Should use otterize cloud instead of spire.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -103,21 +109,34 @@ func main() {
 
 	ctx := ctrl.SetupSignalHandler()
 
-	spireClient, err := initSpireClient(ctx, spireServerAddr)
-	if err != nil {
-		logrus.WithError(err).Error("failed to connect to spire server")
-		os.Exit(1)
-	}
-	defer spireClient.Close()
-
-	bundlesStore := bundles.NewBundlesStore(spireClient)
-	svidsStore := svids.NewSVIDsStore(spireClient)
-	entriesRegistry := entries.NewSpireRegistry(spireClient)
-	certGenerator := spirecertgen.NewSpireCertificateDataGenerator(bundlesStore, svidsStore)
 	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
 	eventRecorder := mgr.GetEventRecorderFor("spire-integration-operator")
-	secretsManager := secrets.NewSecretManager(mgr.GetClient(), certGenerator, serviceIdResolver, eventRecorder)
-	podReconciler := controllers.NewPodReconciler(mgr.GetClient(), mgr.GetScheme(), entriesRegistry, secretsManager,
+
+	if useOtterizeCloud {
+		otterizeCloudClient, err := otterizeclient.NewCloudClient(ctx)
+		if err != nil {
+			logrus.WithError(err).Error("failed to connect to otterize cloud")
+			os.Exit(1)
+		}
+		workloadRegistry = otterizeCloudClient
+		otterizeCertManager := otterizecertgen.NewOtterizeCertificateGenerator(otterizeCloudClient)
+		secretsManager = secrets.NewSecretManager(mgr.GetClient(), otterizeCertManager, serviceIdResolver, eventRecorder)
+	} else {
+		spireClient, err := initSpireClient(ctx, spireServerAddr)
+		if err != nil {
+			logrus.WithError(err).Error("failed to connect to spire server")
+			os.Exit(1)
+		}
+		defer spireClient.Close()
+
+		bundlesStore := bundles.NewBundlesStore(spireClient)
+		svidsStore := svids.NewSVIDsStore(spireClient)
+		certGenerator := spirecertgen.NewSpireCertificateDataGenerator(bundlesStore, svidsStore)
+		secretsManager = secrets.NewSecretManager(mgr.GetClient(), certGenerator, serviceIdResolver, eventRecorder)
+		workloadRegistry = entries.NewSpireRegistry(spireClient)
+	}
+
+	podReconciler := controllers.NewPodReconciler(mgr.GetClient(), mgr.GetScheme(), workloadRegistry, secretsManager,
 		serviceIdResolver, eventRecorder)
 
 	if err = podReconciler.SetupWithManager(mgr); err != nil {

@@ -36,12 +36,12 @@ const (
 	ReasonSPIREEntryHashCalculationFailed = "SPIREEntryHashCalculationFailed"
 )
 
-type workloadRegistry interface {
+type WorkloadRegistry interface {
 	RegisterK8SPod(ctx context.Context, namespace string, serviceNameLabel string, serviceName string, ttl int32, dnsNames []string) (string, error)
 	CleanupOrphanK8SPodEntries(ctx context.Context, serviceNameLabel string, existingServicesByNamespace map[string]*goset.Set[string]) error
 }
 
-type secretsManager interface {
+type SecretsManager interface {
 	EnsureTLSSecret(ctx context.Context, config secretstypes.SecretConfig, pod *corev1.Pod) error
 	RefreshTLSSecrets(ctx context.Context) error
 }
@@ -50,8 +50,8 @@ type secretsManager interface {
 type PodReconciler struct {
 	client.Client
 	scheme            *runtime.Scheme
-	workloadRegistry  workloadRegistry
-	secretsManager    secretsManager
+	workloadRegistry  WorkloadRegistry
+	secretsManager    SecretsManager
 	serviceIdResolver *serviceidresolver.Resolver
 	eventRecorder     record.EventRecorder
 }
@@ -61,8 +61,8 @@ type PodReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=replicasets;daemonsets;statefulsets;deployments,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;update;patch;list;watch;create
 
-func NewPodReconciler(client client.Client, scheme *runtime.Scheme, workloadRegistry workloadRegistry,
-	secretsManager secretsManager, serviceIdResolver *serviceidresolver.Resolver, eventRecorder record.EventRecorder) *PodReconciler {
+func NewPodReconciler(client client.Client, scheme *runtime.Scheme, workloadRegistry WorkloadRegistry,
+	secretsManager SecretsManager, serviceIdResolver *serviceidresolver.Resolver, eventRecorder record.EventRecorder) *PodReconciler {
 	return &PodReconciler{
 		Client:            client,
 		scheme:            scheme,
@@ -172,7 +172,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	log.Info("updating SPIRE entries & secrets for pod")
+	log.Info("updating workload entries & secrets for pod")
 
 	// resolve pod to otterize service name
 	serviceID, err := r.serviceIdResolver.ResolvePodToServiceIdentity(ctx, pod)
@@ -207,7 +207,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// Add workload entry for pod
 	entryID, err := r.workloadRegistry.RegisterK8SPod(ctx, pod.Namespace, metadata.RegisteredServiceNameLabel, serviceID, ttl, dnsNames)
 	if err != nil {
-		log.WithError(err).Error("failed registering SPIRE entry for pod")
+		log.WithError(err).Error("failed registering workload entry for pod")
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonSPIREEntryRegistrationFailed, "Failed registering workload entry: %s", err.Error())
 		return ctrl.Result{}, err
 	}

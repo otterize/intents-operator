@@ -99,7 +99,7 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 		types.NamespacedName{Namespace: namespace, Name: podname},
 		gomock.AssignableToTypeOf(&corev1.Pod{}),
 	).Return(nil).Do(
-		func(ctx context.Context, key client.ObjectKey, returnedPod *corev1.Pod) {
+		func(ctx context.Context, key client.ObjectKey, returnedPod *corev1.Pod, opts ...any) {
 			*returnedPod = pod
 		})
 

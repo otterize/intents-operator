@@ -1,0 +1,31 @@
+fragment TLSKeyPair on KeyPair {
+    keyPEM
+    certPEM
+    caPEM
+    rootCAPEM
+    expiresAt
+}
+
+mutation ReportKubernetesWorkload($namespace: String!, $podOwnerName: String!) {
+    reportKubernetesWorkload(namespace: $namespace, podOwnerName: $podOwnerName)
+    {
+        id
+    }
+}
+
+#query GetTLSKeyPair ($serviceID: ID!, $certificateCustomizations: CertificateCustomization) {
+#    service(id: $serviceID) {
+#        tlsKeyPair(certificateCustomization: $certificateCustomizations) {
+#            ...TLSKeyPair
+#        }
+#    }
+#}
+
+# @genqlient(pointer: true)
+query GetTLSKeyPair ($id: ID!, $name: String!, $namespace: String!, $certificateCustomizations: CertificateCustomization) {
+    mockService(id: $id, name: $name, namespace: $namespace) {
+        tlsKeyPair(certificateCustomization: $certificateCustomizations) {
+            ...TLSKeyPair
+        }
+    }
+}
