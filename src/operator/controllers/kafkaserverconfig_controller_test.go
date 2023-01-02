@@ -136,7 +136,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) reconcile(namespacedName types.Na
 			NamespacedName: namespacedName,
 		})
 
-		if err != nil && strings.Contains(err.Error(), "the object has been modified; please apply your changes to the latest version and try again") {
+		if k8serrors.IsConflict(err) {
 			res.Requeue = true
 		}
 	}
