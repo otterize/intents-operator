@@ -32,7 +32,6 @@ type KafkaACLReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
 	Reconciler     *KafkaACLReconciler
 	mockKafkaAdmin *kafkaaclsmocks.MockClusterAdmin
-	clientName     string
 }
 
 func (s *KafkaACLReconcilerTestSuite) SetupSuite() {
