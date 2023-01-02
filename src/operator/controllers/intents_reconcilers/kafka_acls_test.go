@@ -88,13 +88,13 @@ func (s *KafkaACLReconcilerTestSuite) BeforeTest(_, testName string) {
 	controller := gomock.NewController(s.T())
 	s.mockKafkaAdmin = kafkaaclsmocks.NewMockClusterAdmin(controller)
 
-	s.initKafkaIntentsAdmin(true)
+	s.initKafkaIntentsAdmin(true, true)
 }
 
-func (s *KafkaACLReconcilerTestSuite) initKafkaIntentsAdmin(enableAclCreation bool) {
+func (s *KafkaACLReconcilerTestSuite) initKafkaIntentsAdmin(enableAclCreation bool, enforcementEnabledGlobally bool) {
 	kafkaServersStore := s.setupServerStore(kafkaServiceName)
 	newTestKafkaIntentsAdmin := getMockIntentsAdminFactory(s.mockKafkaAdmin, usernameMapping)
-	s.Reconciler = NewKafkaACLReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, kafkaServersStore, enableAclCreation, newTestKafkaIntentsAdmin, true)
+	s.Reconciler = NewKafkaACLReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, kafkaServersStore, enableAclCreation, newTestKafkaIntentsAdmin, enforcementEnabledGlobally)
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	s.Reconciler.InjectRecorder(recorder)
 }
@@ -273,7 +273,31 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 
 func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreationDisabled() {
 	// Override the default reconciler with ACL creation disabled
-	s.initKafkaIntentsAdmin(false)
+	s.initKafkaIntentsAdmin(false, true)
+
+	// Expect only to check the ACL list and close, with not creation
+	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(2)
+	s.mockKafkaAdmin.EXPECT().Close().Times(1)
+
+	// Create intents object with Consume operation
+	intentsConfig := s.generateIntents(otterizev1alpha1.KafkaOperationConsume)
+	intents := []otterizev1alpha1.Intent{intentsConfig}
+
+	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
+	s.Require().NoError(err)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	namespacedName := types.NamespacedName{
+		Namespace: s.TestNamespace,
+		Name:      clientIntents.Name,
+	}
+
+	s.reconcile(namespacedName)
+}
+
+func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() {
+	// Override the default reconciler with ACL creation disabled
+	s.initKafkaIntentsAdmin(true, false)
 
 	// Expect only to check the ACL list and close, with not creation
 	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(2)

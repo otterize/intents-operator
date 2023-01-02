@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -24,6 +25,7 @@ import (
 type NetworkPolicyReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
 	Reconciler *NetworkPolicyReconciler
+	//ReconcilerWithEnforcementDisabled *NetworkPolicyReconciler
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) SetupSuite() {
@@ -53,6 +55,9 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.Reconciler = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, true)
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	s.Reconciler.InjectRecorder(recorder)
+
+	//s.ReconcilerWithEnforcementDisabled = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, false)
+	//s.ReconcilerWithEnforcementDisabled.InjectRecorder(recorder)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
@@ -174,6 +179,35 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreate() {
 	}, &np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDisabled() {
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
+		Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server",
+	},
+	})
+	s.Require().NoError(err)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	reconciler := NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, false)
+	reconciler.InjectRecorder(s.Mgr.GetEventRecorderFor("intents-operator"))
+	res, err := reconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
+
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	np := v1.NetworkPolicy{}
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
+	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
+		Namespace: s.TestNamespace, Name: policyName,
+	}, &np)
+	// verify network policy not created when enforcement is globally disabled
+	s.Require().True(k8serrors.IsNotFound(err))
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace() {
