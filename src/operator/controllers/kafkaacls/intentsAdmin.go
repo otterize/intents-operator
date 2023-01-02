@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-type IntentsAdminFactoryFunction func(serverConfig otterizev1alpha1.KafkaServerConfig, _ otterizev1alpha1.TLSSource, enableKafkaACLCreation bool) (KafkaIntentsAdmin, error)
+type IntentsAdminFactoryFunction func(serverConfig otterizev1alpha1.KafkaServerConfig, _ otterizev1alpha1.TLSSource, enableKafkaACLCreation bool, globalEnforceSetting bool) (KafkaIntentsAdmin, error)
 
 type TopicToACLList map[sarama.Resource][]sarama.Acl
 
@@ -44,6 +44,7 @@ type KafkaIntentsAdminImpl struct {
 	kafkaAdminClient       sarama.ClusterAdmin
 	userNameMapping        string
 	enableKafkaACLCreation bool
+	globalEnforceSetting   bool
 }
 
 var (
@@ -120,7 +121,7 @@ func getUserPrincipalMapping(tlsCert tls.Certificate) (string, error) {
 
 }
 
-func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, defaultTls otterizev1alpha1.TLSSource, enableKafkaACLCreation bool) (KafkaIntentsAdmin, error) {
+func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, defaultTls otterizev1alpha1.TLSSource, enableKafkaACLCreation bool, globalEnforceSetting bool) (KafkaIntentsAdmin, error) {
 	logger := logrus.WithField("addr", kafkaServer.Spec.Addr)
 	logger.Info("Connecting to kafka server")
 	addrs := []string{kafkaServer.Spec.Addr}
@@ -157,11 +158,11 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha1.KafkaServerConfig, defaul
 		return nil, err
 	}
 
-	return NewKafkaIntentsAdminImpl(kafkaServer, a, usernameMapping, enableKafkaACLCreation), nil
+	return NewKafkaIntentsAdminImpl(kafkaServer, a, usernameMapping, enableKafkaACLCreation, globalEnforceSetting), nil
 }
 
-func NewKafkaIntentsAdminImpl(kafkaServer otterizev1alpha1.KafkaServerConfig, a sarama.ClusterAdmin, usernameMapping string, enableKafkaACLCreation bool) KafkaIntentsAdmin {
-	return &KafkaIntentsAdminImpl{kafkaServer: kafkaServer, kafkaAdminClient: a, userNameMapping: usernameMapping, enableKafkaACLCreation: enableKafkaACLCreation}
+func NewKafkaIntentsAdminImpl(kafkaServer otterizev1alpha1.KafkaServerConfig, a sarama.ClusterAdmin, usernameMapping string, enableKafkaACLCreation bool, globalEnforceSetting bool) KafkaIntentsAdmin {
+	return &KafkaIntentsAdminImpl{kafkaServer: kafkaServer, kafkaAdminClient: a, userNameMapping: usernameMapping, enableKafkaACLCreation: enableKafkaACLCreation, globalEnforceSetting: globalEnforceSetting}
 }
 
 func (a *KafkaIntentsAdminImpl) Close() {
@@ -323,11 +324,15 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 	if len(resourceAclsCreate) == 0 {
 		logger.Info("No new ACLs found to apply on server")
 	} else {
-		logger.Infof("Creating %d new ACLs", len(resourceAclsCreate))
-		if a.enableKafkaACLCreation {
+		if a.globalEnforceSetting && a.enableKafkaACLCreation {
+			logger.Infof("Creating %d new ACLs", len(resourceAclsCreate))
 			if err := a.kafkaAdminClient.CreateACLs(resourceAclsCreate); err != nil {
 				return fmt.Errorf("failed applying ACLs to server: %w", err)
 			}
+		} else if !a.enableKafkaACLCreation {
+			logger.Infof("Skipped creation of %d new ACLs because Kafka ACL Creation is disabled", len(resourceAclsCreate))
+		} else if !a.globalEnforceSetting {
+			logger.Infof("Skipped creation of %d new enforcement is globally disabled", len(resourceAclsCreate))
 		}
 	}
 

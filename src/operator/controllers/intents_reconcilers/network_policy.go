@@ -22,6 +22,7 @@ import (
 )
 
 const (
+	ReasonEnforcementGloballyDisabled   = "EnforcementGloballyDisabled"
 	ReasonNetworkPolicyCreationDisabled = "NetworkPolicyCreationDisabled"
 	ReasonGettingNetworkPolicyFailed    = "GettingNetworkPolicyFailed"
 	ReasonRemovingNetworkPolicyFailed   = "RemovingNetworkPolicyFailed"
@@ -36,6 +37,7 @@ type NetworkPolicyReconciler struct {
 	endpointsReconciler         *external_traffic.EndpointsReconciler
 	RestrictToNamespaces        []string
 	enableNetworkPolicyCreation bool
+	globalEnforceSetting        bool
 	injectablerecorder.InjectableRecorder
 }
 
@@ -44,13 +46,15 @@ func NewNetworkPolicyReconciler(
 	s *runtime.Scheme,
 	endpointsReconciler *external_traffic.EndpointsReconciler,
 	restrictToNamespaces []string,
-	enableNetworkPolicyCreation bool) *NetworkPolicyReconciler {
+	enableNetworkPolicyCreation bool,
+	globalEnforceSetting bool) *NetworkPolicyReconciler {
 	return &NetworkPolicyReconciler{
 		Client:                      c,
 		Scheme:                      s,
 		endpointsReconciler:         endpointsReconciler,
 		RestrictToNamespaces:        restrictToNamespaces,
 		enableNetworkPolicyCreation: enableNetworkPolicyCreation,
+		globalEnforceSetting:        globalEnforceSetting,
 	}
 }
 
@@ -117,6 +121,10 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intentsObj *otterizev1alpha1.ClientIntents, intent otterizev1alpha1.Intent, intentsObjNamespace string) error {
+	if !r.globalEnforceSetting {
+		r.RecordNormalEvent(intentsObj, ReasonEnforcementGloballyDisabled, "Enforcement is disabled globally, network policy creation skipped")
+		return nil
+	}
 	if !r.enableNetworkPolicyCreation {
 		r.RecordNormalEvent(intentsObj, ReasonNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
 		return nil

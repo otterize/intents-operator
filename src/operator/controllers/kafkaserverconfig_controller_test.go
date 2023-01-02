@@ -10,6 +10,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -77,7 +78,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) setupServerStore(serviceName stri
 	emptyTls := otterizev1alpha1.TLSSource{}
 	s.mockIntentsAdmin = kafkaaclsmocks.NewMockKafkaIntentsAdmin(controller)
 	factory := getMockIntentsAdminFactory(s.mockIntentsAdmin)
-	kafkaServersStore := kafkaacls.NewServersStore(emptyTls, false, factory)
+	kafkaServersStore := kafkaacls.NewServersStore(emptyTls, false, factory, true)
 	kafkaServersStore.Add(serverConfig)
 	return kafkaServersStore
 }
@@ -99,7 +100,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) BeforeTest(_, testName string) {
 }
 
 func getMockIntentsAdminFactory(mockIntentsAdmin *kafkaaclsmocks.MockKafkaIntentsAdmin) kafkaacls.IntentsAdminFactoryFunction {
-	return func(kafkaServer otterizev1alpha1.KafkaServerConfig, _ otterizev1alpha1.TLSSource, enableKafkaACLCreation bool) (kafkaacls.KafkaIntentsAdmin, error) {
+	return func(kafkaServer otterizev1alpha1.KafkaServerConfig, _ otterizev1alpha1.TLSSource, enableKafkaACLCreation bool, globalEnforceSetting bool) (kafkaacls.KafkaIntentsAdmin, error) {
 		return mockIntentsAdmin, nil
 	}
 }
@@ -134,6 +135,9 @@ func (s *KafkaServerConfigReconcilerTestSuite) reconcile(namespacedName types.Na
 		res, err = s.reconciler.Reconcile(context.Background(), ctrl.Request{
 			NamespacedName: namespacedName,
 		})
+		if k8serrors.IsConflict(err) {
+			res.Requeue = true
+		}
 	}
 
 	s.Require().NoError(err)
