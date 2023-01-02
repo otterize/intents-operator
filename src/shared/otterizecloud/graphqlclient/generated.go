@@ -106,13 +106,17 @@ const (
 )
 
 type KafkaServerConfigInput struct {
-	Name    string            `json:"name"`
-	Address string            `json:"address"`
-	Topics  []KafkaTopicInput `json:"topics"`
+	Name      string            `json:"name"`
+	Namespace string            `json:"namespace"`
+	Address   string            `json:"address"`
+	Topics    []KafkaTopicInput `json:"topics"`
 }
 
 // GetName returns KafkaServerConfigInput.Name, and is useful for accessing the field via an interface.
 func (v *KafkaServerConfigInput) GetName() string { return v.Name }
+
+// GetNamespace returns KafkaServerConfigInput.Namespace, and is useful for accessing the field via an interface.
+func (v *KafkaServerConfigInput) GetNamespace() string { return v.Namespace }
 
 // GetAddress returns KafkaServerConfigInput.Address, and is useful for accessing the field via an interface.
 func (v *KafkaServerConfigInput) GetAddress() string { return v.Address }
@@ -159,16 +163,6 @@ func (v *ReportKafkaServerConfigResponse) GetReportKafkaServerConfig() bool {
 	return v.ReportKafkaServerConfig
 }
 
-// ReportKubernetesNamespaceResponse is returned by ReportKubernetesNamespace on success.
-type ReportKubernetesNamespaceResponse struct {
-	ReportKubernetesNamespace bool `json:"reportKubernetesNamespace"`
-}
-
-// GetReportKubernetesNamespace returns ReportKubernetesNamespaceResponse.ReportKubernetesNamespace, and is useful for accessing the field via an interface.
-func (v *ReportKubernetesNamespaceResponse) GetReportKubernetesNamespace() bool {
-	return v.ReportKubernetesNamespace
-}
-
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
 type __ReportAppliedKubernetesIntentsInput struct {
 	Namespace string        `json:"namespace"`
@@ -183,27 +177,11 @@ func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []IntentInput { ret
 
 // __ReportKafkaServerConfigInput is used internally by genqlient
 type __ReportKafkaServerConfigInput struct {
-	Namespace string                 `json:"namespace"`
-	Source    string                 `json:"source"`
-	Server    KafkaServerConfigInput `json:"server"`
+	Server KafkaServerConfigInput `json:"server"`
 }
-
-// GetNamespace returns __ReportKafkaServerConfigInput.Namespace, and is useful for accessing the field via an interface.
-func (v *__ReportKafkaServerConfigInput) GetNamespace() string { return v.Namespace }
-
-// GetSource returns __ReportKafkaServerConfigInput.Source, and is useful for accessing the field via an interface.
-func (v *__ReportKafkaServerConfigInput) GetSource() string { return v.Source }
 
 // GetServer returns __ReportKafkaServerConfigInput.Server, and is useful for accessing the field via an interface.
 func (v *__ReportKafkaServerConfigInput) GetServer() KafkaServerConfigInput { return v.Server }
-
-// __ReportKubernetesNamespaceInput is used internally by genqlient
-type __ReportKubernetesNamespaceInput struct {
-	Namespace string `json:"namespace"`
-}
-
-// GetNamespace returns __ReportKubernetesNamespaceInput.Namespace, and is useful for accessing the field via an interface.
-func (v *__ReportKubernetesNamespaceInput) GetNamespace() string { return v.Namespace }
 
 func ReportAppliedKubernetesIntents(
 	ctx context.Context,
@@ -240,56 +218,22 @@ mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentI
 func ReportKafkaServerConfig(
 	ctx context.Context,
 	client graphql.Client,
-	namespace string,
-	source string,
 	server KafkaServerConfigInput,
 ) (*ReportKafkaServerConfigResponse, error) {
 	req := &graphql.Request{
 		OpName: "ReportKafkaServerConfig",
 		Query: `
-mutation ReportKafkaServerConfig ($namespace: String!, $source: String!, $server: KafkaServerConfigInput!) {
-	reportKafkaServerConfig(namespace: $namespace, source: $source, serverConfig: $server)
+mutation ReportKafkaServerConfig ($server: KafkaServerConfigInput!) {
+	reportKafkaServerConfig(serverConfig: $server)
 }
 `,
 		Variables: &__ReportKafkaServerConfigInput{
-			Namespace: namespace,
-			Source:    source,
-			Server:    server,
+			Server: server,
 		},
 	}
 	var err error
 
 	var data ReportKafkaServerConfigResponse
-	resp := &graphql.Response{Data: &data}
-
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
-	)
-
-	return &data, err
-}
-
-func ReportKubernetesNamespace(
-	ctx context.Context,
-	client graphql.Client,
-	namespace string,
-) (*ReportKubernetesNamespaceResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportKubernetesNamespace",
-		Query: `
-mutation ReportKubernetesNamespace ($namespace: String!) {
-	reportKubernetesNamespace(namespace: $namespace)
-}
-`,
-		Variables: &__ReportKubernetesNamespaceInput{
-			Namespace: namespace,
-		},
-	}
-	var err error
-
-	var data ReportKubernetesNamespaceResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

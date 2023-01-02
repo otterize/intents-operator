@@ -1,7 +1,3 @@
-mutation ReportKubernetesNamespace($namespace: String!) {
-    reportKubernetesNamespace(namespace: $namespace)
-}
-
 mutation ReportKafkaServerConfig($server: KafkaServerConfigInput!) {
     reportKafkaServerConfig(serverConfig: $server)
 }
