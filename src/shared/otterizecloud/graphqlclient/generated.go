@@ -159,16 +159,6 @@ func (v *ReportKafkaServerConfigResponse) GetReportKafkaServerConfig() bool {
 	return v.ReportKafkaServerConfig
 }
 
-// ReportKubernetesNamespaceResponse is returned by ReportKubernetesNamespace on success.
-type ReportKubernetesNamespaceResponse struct {
-	ReportKubernetesNamespace bool `json:"reportKubernetesNamespace"`
-}
-
-// GetReportKubernetesNamespace returns ReportKubernetesNamespaceResponse.ReportKubernetesNamespace, and is useful for accessing the field via an interface.
-func (v *ReportKubernetesNamespaceResponse) GetReportKubernetesNamespace() bool {
-	return v.ReportKubernetesNamespace
-}
-
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
 type __ReportAppliedKubernetesIntentsInput struct {
 	Namespace string        `json:"namespace"`
@@ -196,14 +186,6 @@ func (v *__ReportKafkaServerConfigInput) GetSource() string { return v.Source }
 
 // GetServer returns __ReportKafkaServerConfigInput.Server, and is useful for accessing the field via an interface.
 func (v *__ReportKafkaServerConfigInput) GetServer() KafkaServerConfigInput { return v.Server }
-
-// __ReportKubernetesNamespaceInput is used internally by genqlient
-type __ReportKubernetesNamespaceInput struct {
-	Namespace string `json:"namespace"`
-}
-
-// GetNamespace returns __ReportKubernetesNamespaceInput.Namespace, and is useful for accessing the field via an interface.
-func (v *__ReportKubernetesNamespaceInput) GetNamespace() string { return v.Namespace }
 
 func ReportAppliedKubernetesIntents(
 	ctx context.Context,
@@ -260,36 +242,6 @@ mutation ReportKafkaServerConfig ($namespace: String!, $source: String!, $server
 	var err error
 
 	var data ReportKafkaServerConfigResponse
-	resp := &graphql.Response{Data: &data}
-
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
-	)
-
-	return &data, err
-}
-
-func ReportKubernetesNamespace(
-	ctx context.Context,
-	client graphql.Client,
-	namespace string,
-) (*ReportKubernetesNamespaceResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportKubernetesNamespace",
-		Query: `
-mutation ReportKubernetesNamespace ($namespace: String!) {
-	reportKubernetesNamespace(namespace: $namespace)
-}
-`,
-		Variables: &__ReportKubernetesNamespaceInput{
-			Namespace: namespace,
-		},
-	}
-	var err error
-
-	var data ReportKubernetesNamespaceResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(
