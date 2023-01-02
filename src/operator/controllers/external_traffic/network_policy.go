@@ -32,12 +32,12 @@ type NetworkPolicyCreator struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	enabled              bool
-	globalEnforceSetting bool
+	enabled                    bool
+	enforcementEnabledGlobally bool
 }
 
-func NewNetworkPolicyCreator(client client.Client, scheme *runtime.Scheme, enabled bool, globalEnforceSetting bool) *NetworkPolicyCreator {
-	return &NetworkPolicyCreator{client: client, scheme: scheme, enabled: enabled, globalEnforceSetting: globalEnforceSetting}
+func NewNetworkPolicyCreator(client client.Client, scheme *runtime.Scheme, enabled bool, enforcementEnabledGlobally bool) *NetworkPolicyCreator {
+	return &NetworkPolicyCreator{client: client, scheme: scheme, enabled: enabled, enforcementEnabledGlobally: enforcementEnabledGlobally}
 }
 
 func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
@@ -53,7 +53,7 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(errGetExistingPolicy) {
-		if r.globalEnforceSetting && r.enabled {
+		if r.enforcementEnabledGlobally && r.enabled {
 			logrus.Infof(
 				"Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
 			err := r.client.Create(ctx, newPolicy)
@@ -69,7 +69,7 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 		return errGetExistingPolicy
 	}
 
-	if !r.globalEnforceSetting || !r.enabled {
+	if !r.enforcementEnabledGlobally || !r.enabled {
 		r.RecordNormalEvent(eventsObject, ReasonRemovingExternalTrafficPolicy, "removing external traffic network policy, reconciler was disabled")
 		err := r.client.Delete(ctx, existingPolicy)
 		if err != nil {

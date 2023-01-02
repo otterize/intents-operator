@@ -67,7 +67,7 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var selfSignedCert bool
-	var globalEnforceSetting bool
+	var enforcementEnabledGlobally bool
 	var autoCreateNetworkPoliciesForExternalTraffic bool
 	var watchedNamespaces []string
 	var enableNetworkPolicyCreation bool
@@ -88,7 +88,7 @@ func main() {
 		"Whether to generate and use a self signed cert as the CA for webhooks")
 	pflag.BoolVar(&disableWebhookServer, "disable-webhook-server", false,
 		"Disable webhook validator server")
-	pflag.BoolVar(&globalEnforceSetting, "globalEnforceSetting", true,
+	pflag.BoolVar(&enforcementEnabledGlobally, "enable-enforcement", true,
 		"If set to false disables the enforcement globally, superior to the other flags")
 	pflag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", true,
 		"Whether to automatically create network policies for external traffic")
@@ -138,9 +138,9 @@ func main() {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
 
-	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enableKafkaACLCreation, kafkaacls.NewKafkaIntentsAdmin, globalEnforceSetting)
+	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enableKafkaACLCreation, kafkaacls.NewKafkaIntentsAdmin, enforcementEnabledGlobally)
 
-	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, globalEnforceSetting)
+	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, enforcementEnabledGlobally)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
@@ -169,7 +169,7 @@ func main() {
 
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler,
-		watchedNamespaces, globalEnforceSetting, enableNetworkPolicyCreation, enableKafkaACLCreation,
+		watchedNamespaces, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation,
 		otterizeCloudClient)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {

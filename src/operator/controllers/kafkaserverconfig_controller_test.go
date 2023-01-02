@@ -99,7 +99,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) BeforeTest(_, testName string) {
 }
 
 func getMockIntentsAdminFactory(mockIntentsAdmin *kafkaaclsmocks.MockKafkaIntentsAdmin) kafkaacls.IntentsAdminFactoryFunction {
-	return func(kafkaServer otterizev1alpha1.KafkaServerConfig, _ otterizev1alpha1.TLSSource, enableKafkaACLCreation bool, globalEnforceSetting bool) (kafkaacls.KafkaIntentsAdmin, error) {
+	return func(kafkaServer otterizev1alpha1.KafkaServerConfig, _ otterizev1alpha1.TLSSource, enableKafkaACLCreation bool, enforcementEnabledGlobally bool) (kafkaacls.KafkaIntentsAdmin, error) {
 		return mockIntentsAdmin, nil
 	}
 }
@@ -167,16 +167,12 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestReUploadKafkaServerConfigOnFa
 	kafkaServerConfig.SetNamespace(s.TestNamespace)
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
-	// Set go mock expectations for failure
-	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
-	s.mockIntentsAdmin.EXPECT().Close()
-
-	// Set go mock expectations for failure
+	// Make the mock return error to the reconciler, so it thinks the report failed
 	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(errors.New("failed to upload kafka server config"))
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close()
 
-	// Set go mock expectations
+	// We expect the reconciler to retry to report, this time we don't return an error, simulating success
 	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close().Times(1)
