@@ -43,9 +43,7 @@ func (s *ServersStoreImpl) Add(config *otterizev1alpha1.KafkaServerConfig) {
 
 func (s *ServersStoreImpl) Remove(serverName string, namespace string) {
 	name := types.NamespacedName{Name: serverName, Namespace: namespace}
-	if _, ok := s.serversByName[name]; ok {
-		delete(s.serversByName, name)
-	}
+	delete(s.serversByName, name)
 }
 
 func (s *ServersStoreImpl) Exists(serverName string, namespace string) bool {

@@ -63,17 +63,3 @@ func (mr *MockCloudClientMockRecorder) ReportKafkaServerConfig(ctx, namespace, s
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportKafkaServerConfig", reflect.TypeOf((*MockCloudClient)(nil).ReportKafkaServerConfig), ctx, namespace, source, server)
 }
-
-// ReportKubernetesNamespace mocks base method.
-func (m *MockCloudClient) ReportKubernetesNamespace(ctx context.Context, namespace string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportKubernetesNamespace", ctx, namespace)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ReportKubernetesNamespace indicates an expected call of ReportKubernetesNamespace.
-func (mr *MockCloudClientMockRecorder) ReportKubernetesNamespace(ctx, namespace interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportKubernetesNamespace", reflect.TypeOf((*MockCloudClient)(nil).ReportKubernetesNamespace), ctx, namespace)
-}

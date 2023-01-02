@@ -184,7 +184,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
 	}
 
-	if selfSignedCert == true {
+	if selfSignedCert {
 		logrus.Infoln("Creating self signing certs")
 		certBundle, err :=
 			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)

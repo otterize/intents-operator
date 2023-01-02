@@ -285,11 +285,6 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Contex
 		return nil
 	}
 
-	err := r.otterizeClient.ReportKubernetesNamespace(ctx, kafkaServerConfig.Namespace)
-	if err != nil {
-		return err
-	}
-
 	input := graphqlclient.KafkaServerConfigInput{
 		Name:    kafkaServerConfig.Spec.Service.Name,
 		Address: kafkaServerConfig.Spec.Addr,
@@ -303,7 +298,7 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Contex
 		}),
 	}
 
-	err = r.otterizeClient.ReportKafkaServerConfig(ctx, kafkaServerConfig.Namespace, IntentsOperatorSource, input)
+	err := r.otterizeClient.ReportKafkaServerConfig(ctx, kafkaServerConfig.Namespace, IntentsOperatorSource, input)
 	if err != nil {
 		return err
 	}

@@ -96,7 +96,7 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) 
 		r.RecordNormalEvent(intents, ReasonKafkaACLCreationDisabled, "Kafka ACL creation is disabled, creation skipped")
 	}
 
-	for serverName, _ := range intentsByServer {
+	for serverName := range intentsByServer {
 		if !r.KafkaServersStore.Exists(serverName.Name, serverName.Namespace) {
 			r.RecordWarningEventf(intents, ReasonKafkaServerNotConfigured, "broker %s not configured", serverName)
 			logrus.WithField("server", serverName).Warning("Did not apply intents to server - no server configuration was defined")
@@ -150,7 +150,7 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	var result ctrl.Result
-	result, err = r.applyAcls(logger, err, intents)
+	result, err = r.applyAcls(logger, intents)
 	if err != nil {
 		return result, err
 	}
@@ -159,7 +159,7 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 }
 
-func (r *KafkaACLReconciler) applyAcls(logger *logrus.Entry, err error, intents *otterizev1alpha1.ClientIntents) (ctrl.Result, error) {
+func (r *KafkaACLReconciler) applyAcls(logger *logrus.Entry, intents *otterizev1alpha1.ClientIntents) (ctrl.Result, error) {
 	logger.Info("Applying new ACLs")
 	serverCount, err := r.applyACLs(intents)
 	if err != nil {

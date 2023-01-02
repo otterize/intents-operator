@@ -99,7 +99,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerRemoved() {
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 
-	res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
+	_, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
 			Name:      intents.Name,

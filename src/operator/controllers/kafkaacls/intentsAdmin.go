@@ -313,12 +313,20 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 	}
 
 	appliedIntentKafkaAcls, err := a.collectTopicsToACLList(principal, appliedIntentKafkaTopics)
+	if err != nil {
+		return fmt.Errorf("failed collecting topics to ACL list %w", err)
+	}
+
 	expectedIntentKafkaTopics := lo.Flatten(
 		lo.Map(intents, func(intent otterizev1alpha1.Intent, _ int) []otterizev1alpha1.KafkaTopic {
 			return intent.Topics
 		}),
 	)
 	expectedIntentsKafkaTopicsAcls, err := a.collectTopicsToACLList(principal, expectedIntentKafkaTopics)
+	if err != nil {
+		return fmt.Errorf("failed collecting topics to ACL list %w", err)
+	}
+	
 	resourceAclsCreate, resourceAclsDelete := a.kafkaResourceAclsDiff(expectedIntentsKafkaTopicsAcls, appliedIntentKafkaAcls)
 
 	if len(resourceAclsCreate) == 0 {

@@ -34,7 +34,6 @@ type KafkaServerConfigReconcilerTestSuite struct {
 	reconciler       *KafkaServerConfigReconciler
 	mockCloudClient  *otterizecloudmocks.MockCloudClient
 	mockIntentsAdmin *kafkaaclsmocks.MockKafkaIntentsAdmin
-	clientName       string
 }
 
 func (s *KafkaServerConfigReconcilerTestSuite) SetupSuite() {
@@ -152,7 +151,6 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Set go mock expectations
-	s.mockCloudClient.EXPECT().ReportKubernetesNamespace(gomock.Any(), s.TestNamespace).Return(nil)
 	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(nil)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil)
 	s.mockIntentsAdmin.EXPECT().Close()
@@ -170,18 +168,15 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestReUploadKafkaServerConfigOnFa
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Set go mock expectations for failure
-	s.mockCloudClient.EXPECT().ReportKubernetesNamespace(gomock.Any(), s.TestNamespace).Return(errors.New("failed to report namespace")).Times(1)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close()
 
 	// Set go mock expectations for failure
-	s.mockCloudClient.EXPECT().ReportKubernetesNamespace(gomock.Any(), s.TestNamespace).Return(nil)
 	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(errors.New("failed to upload kafka server config"))
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close()
 
 	// Set go mock expectations
-	s.mockCloudClient.EXPECT().ReportKubernetesNamespace(gomock.Any(), s.TestNamespace).Return(nil).Times(1)
 	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close().Times(1)
@@ -200,7 +195,6 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Set go mock expectations
-	s.mockCloudClient.EXPECT().ReportKubernetesNamespace(gomock.Any(), s.TestNamespace).Return(nil).Times(1)
 	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close().Times(1)
