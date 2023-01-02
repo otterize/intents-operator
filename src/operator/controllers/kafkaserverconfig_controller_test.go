@@ -33,7 +33,6 @@ type KafkaServerConfigReconcilerTestSuite struct {
 	reconciler       *KafkaServerConfigReconciler
 	mockCloudClient  *otterizecloudmocks.MockCloudClient
 	mockIntentsAdmin *kafkaaclsmocks.MockKafkaIntentsAdmin
-	clientName       string
 }
 
 func (s *KafkaServerConfigReconcilerTestSuite) SetupSuite() {
