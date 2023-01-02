@@ -124,7 +124,7 @@ func (m *batchCreateEntryRequestMatcher) Matches(x interface{}) bool {
 }
 
 func (m *batchCreateEntryRequestMatcher) String() string {
-	return fmt.Sprintf("is a BatchCreateEntryRequest")
+	return "is a BatchCreateEntryRequest"
 }
 
 func (s *RegistrySuite) TestRegistry_RegisterK8SPodEntry_DedupDnsNames() {
@@ -226,7 +226,7 @@ func (m *batchDeleteEntryRequestMatcher) Matches(x interface{}) bool {
 }
 
 func (m *batchDeleteEntryRequestMatcher) String() string {
-	return fmt.Sprintf("is a BatchDeleteEntryRequest")
+	return "is a BatchDeleteEntryRequest"
 }
 
 func (s *RegistrySuite) TestRegistry_DeleteK8SPodEntry() {
