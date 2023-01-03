@@ -20,6 +20,7 @@ import (
 )
 
 const (
+	ReasonEnforcementGloballyDisabled         = "EnforcementGloballyDisabled"
 	ReasonCreatingExternalTrafficPolicyFailed = "CreatingExternalTrafficPolicyFailed"
 	ReasonCreatedExternalTrafficPolicy        = "CreatedExternalTrafficPolicy"
 	ReasonGettingExternalTrafficPolicyFailed  = "GettingExternalTrafficPolicyFailed"
@@ -53,7 +54,9 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(errGetExistingPolicy) {
-		if r.enforcementEnabledGlobally && r.enabled {
+		if !r.enforcementEnabledGlobally {
+			r.RecordNormalEventf(eventsObject, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
+		} else if r.enabled {
 			logrus.Infof(
 				"Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
 			err := r.client.Create(ctx, newPolicy)

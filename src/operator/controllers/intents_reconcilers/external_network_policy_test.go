@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -246,6 +247,73 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNod
 		assert.NoError(err)
 		assert.NotEmpty(np)
 	})
+}
+
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerEnforcementDisabled() {
+	serviceName := "test-endpoints-reconciler-enforcement-disabled"
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
+		Type: otterizev1alpha1.IntentTypeHTTP, Name: serviceName,
+	},
+	})
+	s.Require().NoError(err)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	// make sure the network policy was created between the two services based on the intents
+	np := &v1.NetworkPolicy{}
+	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(np)
+
+	podIps := []string{"1.1.2.1"}
+	podLabels := map[string]string{"app": "test-load-balancer"}
+	s.AddDeploymentWithService(serviceName, podIps, podLabels, nil)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	// the ingress reconciler expect the pod watcher labels in order to work
+	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
+	s.Require().NoError(err)
+
+	// make sure the load balancer network policy doesn't exist yet
+	nodePortServiceName := serviceName + "-np"
+	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+	s.Require().True(errors.IsNotFound(err))
+
+	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, false)
+	recorder := record.NewFakeRecorder(10)
+	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)
+
+	res, err = endpointReconcilerWithEnforcementDisabled.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      nodePortServiceName,
+		},
+	})
+
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+	s.Require().True(errors.IsNotFound(err))
+	select {
+	case event := <-recorder.Events:
+		s.Require().Contains(event, external_traffic.ReasonEnforcementGloballyDisabled)
+	default:
+		s.Fail("event not raised")
+	}
 }
 
 func TestExternalNetworkPolicyReconcilerTestSuite(t *testing.T) {

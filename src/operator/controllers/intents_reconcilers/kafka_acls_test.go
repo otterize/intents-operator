@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -32,6 +33,7 @@ type KafkaACLReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
 	Reconciler     *KafkaACLReconciler
 	mockKafkaAdmin *kafkaaclsmocks.MockClusterAdmin
+	recorder       *record.FakeRecorder
 }
 
 func (s *KafkaACLReconcilerTestSuite) SetupSuite() {
@@ -95,8 +97,8 @@ func (s *KafkaACLReconcilerTestSuite) initKafkaIntentsAdmin(enableAclCreation bo
 	kafkaServersStore := s.setupServerStore(kafkaServiceName)
 	newTestKafkaIntentsAdmin := getMockIntentsAdminFactory(s.mockKafkaAdmin, usernameMapping)
 	s.Reconciler = NewKafkaACLReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, kafkaServersStore, enableAclCreation, newTestKafkaIntentsAdmin, enforcementEnabledGlobally)
-	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
-	s.Reconciler.InjectRecorder(recorder)
+	s.recorder = record.NewFakeRecorder(100)
+	s.Reconciler.InjectRecorder(s.recorder)
 }
 
 func (s *KafkaACLReconcilerTestSuite) principal() string {
@@ -317,6 +319,13 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() 
 	}
 
 	s.reconcile(namespacedName)
+	// the actual test is that there are not unexpected calls to the mockKafkaAdmin
+	select {
+	case event := <-s.recorder.Events:
+		s.Require().Contains(event, ReasonEnforcementGloballyDisabled)
+	default:
+		s.Fail("event not raised")
+	}
 }
 
 func (s *KafkaACLReconcilerTestSuite) reconcile(namespacedName types.NamespacedName) {

@@ -20,7 +20,6 @@ const (
 	KafkaACLsFinalizerName                  = "intents.otterize.com/kafka-finalizer"
 	ReasonCouldNotConnectToKafkaServer      = "CouldNotConnectToKafkaServer"
 	ReasonCouldNotApplyIntentsOnKafkaServer = "CouldNotApplyIntentsOnKafkaServer"
-	ReasonEnforcementDisabledGlobally       = "EnforcementDisabledGlobally"
 	ReasonKafkaACLCreationDisabled          = "KafkaACLCreationDisabled"
 	ReasonKafkaServerNotConfigured          = "KafkaServerNotConfigured"
 	ReasonRemovingKafkaACLsFailed           = "RemovingKafkaACLsFailed"

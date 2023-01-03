@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -55,9 +56,6 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.Reconciler = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, true)
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	s.Reconciler.InjectRecorder(recorder)
-
-	//s.ReconcilerWithEnforcementDisabled = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, false)
-	//s.ReconcilerWithEnforcementDisabled.InjectRecorder(recorder)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
@@ -190,7 +188,8 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDis
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	reconciler := NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, false)
-	reconciler.InjectRecorder(s.Mgr.GetEventRecorderFor("intents-operator"))
+	recorder := record.NewFakeRecorder(100)
+	reconciler.InjectRecorder(recorder)
 	res, err := reconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
@@ -208,6 +207,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDis
 	}, &np)
 	// verify network policy not created when enforcement is globally disabled
 	s.Require().True(k8serrors.IsNotFound(err))
+	select {
+	case event := <-recorder.Events:
+		s.Require().Contains(event, ReasonEnforcementGloballyDisabled)
+	default:
+		s.Fail("event not raised")
+	}
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace() {
