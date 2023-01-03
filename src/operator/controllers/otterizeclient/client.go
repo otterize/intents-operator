@@ -64,11 +64,11 @@ func (c *CloudClient) GetTLSKeyPair(ctx context.Context, serviceId string) (otte
 	if !ok {
 		return otterizegraphql.TLSKeyPair{}, fmt.Errorf("service id not registered: %s", serviceId)
 	}
-	res, err := otterizegraphql.GetTLSKeyPair(ctx, c.graphqlClient, &serviceId, &cachedDetails.serviceName, &cachedDetails.serviceName, &cachedDetails.certCustomization)
+	res, err := otterizegraphql.GetTLSKeyPair(ctx, c.graphqlClient, &serviceId, &cachedDetails.certCustomization)
 	if err != nil {
 		return otterizegraphql.TLSKeyPair{}, err
 	}
-	return res.MockService.TlsKeyPair.TLSKeyPair, nil
+	return res.Service.TlsKeyPair.TLSKeyPair, nil
 }
 
 func (c *CloudClient) RegisterK8SPod(ctx context.Context, namespace string, _ string, serviceName string, ttl int32, dnsNames []string) (string, error) {

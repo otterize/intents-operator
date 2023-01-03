@@ -20,47 +20,54 @@ func (v *CertificateCustomization) GetDnsNames() []*string { return v.DnsNames }
 // GetTtl returns CertificateCustomization.Ttl, and is useful for accessing the field via an interface.
 func (v *CertificateCustomization) GetTtl() *int { return v.Ttl }
 
-// GetTLSKeyPairMockService includes the requested fields of the GraphQL type Service.
-type GetTLSKeyPairMockService struct {
-	TlsKeyPair *GetTLSKeyPairMockServiceTlsKeyPair `json:"tlsKeyPair"`
+// GetTLSKeyPairResponse is returned by GetTLSKeyPair on success.
+type GetTLSKeyPairResponse struct {
+	// Get service
+	Service *GetTLSKeyPairService `json:"service"`
 }
 
-// GetTlsKeyPair returns GetTLSKeyPairMockService.TlsKeyPair, and is useful for accessing the field via an interface.
-func (v *GetTLSKeyPairMockService) GetTlsKeyPair() *GetTLSKeyPairMockServiceTlsKeyPair {
-	return v.TlsKeyPair
+// GetService returns GetTLSKeyPairResponse.Service, and is useful for accessing the field via an interface.
+func (v *GetTLSKeyPairResponse) GetService() *GetTLSKeyPairService { return v.Service }
+
+// GetTLSKeyPairService includes the requested fields of the GraphQL type Service.
+type GetTLSKeyPairService struct {
+	TlsKeyPair *GetTLSKeyPairServiceTlsKeyPair `json:"tlsKeyPair"`
 }
 
-// GetTLSKeyPairMockServiceTlsKeyPair includes the requested fields of the GraphQL type KeyPair.
-type GetTLSKeyPairMockServiceTlsKeyPair struct {
+// GetTlsKeyPair returns GetTLSKeyPairService.TlsKeyPair, and is useful for accessing the field via an interface.
+func (v *GetTLSKeyPairService) GetTlsKeyPair() *GetTLSKeyPairServiceTlsKeyPair { return v.TlsKeyPair }
+
+// GetTLSKeyPairServiceTlsKeyPair includes the requested fields of the GraphQL type KeyPair.
+type GetTLSKeyPairServiceTlsKeyPair struct {
 	TLSKeyPair `json:"-"`
 }
 
-// GetKeyPEM returns GetTLSKeyPairMockServiceTlsKeyPair.KeyPEM, and is useful for accessing the field via an interface.
-func (v *GetTLSKeyPairMockServiceTlsKeyPair) GetKeyPEM() string { return v.TLSKeyPair.KeyPEM }
+// GetKeyPEM returns GetTLSKeyPairServiceTlsKeyPair.KeyPEM, and is useful for accessing the field via an interface.
+func (v *GetTLSKeyPairServiceTlsKeyPair) GetKeyPEM() string { return v.TLSKeyPair.KeyPEM }
 
-// GetCertPEM returns GetTLSKeyPairMockServiceTlsKeyPair.CertPEM, and is useful for accessing the field via an interface.
-func (v *GetTLSKeyPairMockServiceTlsKeyPair) GetCertPEM() string { return v.TLSKeyPair.CertPEM }
+// GetCertPEM returns GetTLSKeyPairServiceTlsKeyPair.CertPEM, and is useful for accessing the field via an interface.
+func (v *GetTLSKeyPairServiceTlsKeyPair) GetCertPEM() string { return v.TLSKeyPair.CertPEM }
 
-// GetCaPEM returns GetTLSKeyPairMockServiceTlsKeyPair.CaPEM, and is useful for accessing the field via an interface.
-func (v *GetTLSKeyPairMockServiceTlsKeyPair) GetCaPEM() string { return v.TLSKeyPair.CaPEM }
+// GetCaPEM returns GetTLSKeyPairServiceTlsKeyPair.CaPEM, and is useful for accessing the field via an interface.
+func (v *GetTLSKeyPairServiceTlsKeyPair) GetCaPEM() string { return v.TLSKeyPair.CaPEM }
 
-// GetRootCAPEM returns GetTLSKeyPairMockServiceTlsKeyPair.RootCAPEM, and is useful for accessing the field via an interface.
-func (v *GetTLSKeyPairMockServiceTlsKeyPair) GetRootCAPEM() string { return v.TLSKeyPair.RootCAPEM }
+// GetRootCAPEM returns GetTLSKeyPairServiceTlsKeyPair.RootCAPEM, and is useful for accessing the field via an interface.
+func (v *GetTLSKeyPairServiceTlsKeyPair) GetRootCAPEM() string { return v.TLSKeyPair.RootCAPEM }
 
-// GetExpiresAt returns GetTLSKeyPairMockServiceTlsKeyPair.ExpiresAt, and is useful for accessing the field via an interface.
-func (v *GetTLSKeyPairMockServiceTlsKeyPair) GetExpiresAt() int { return v.TLSKeyPair.ExpiresAt }
+// GetExpiresAt returns GetTLSKeyPairServiceTlsKeyPair.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *GetTLSKeyPairServiceTlsKeyPair) GetExpiresAt() int { return v.TLSKeyPair.ExpiresAt }
 
-func (v *GetTLSKeyPairMockServiceTlsKeyPair) UnmarshalJSON(b []byte) error {
+func (v *GetTLSKeyPairServiceTlsKeyPair) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*GetTLSKeyPairMockServiceTlsKeyPair
+		*GetTLSKeyPairServiceTlsKeyPair
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.GetTLSKeyPairMockServiceTlsKeyPair = v
+	firstPass.GetTLSKeyPairServiceTlsKeyPair = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -75,7 +82,7 @@ func (v *GetTLSKeyPairMockServiceTlsKeyPair) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalGetTLSKeyPairMockServiceTlsKeyPair struct {
+type __premarshalGetTLSKeyPairServiceTlsKeyPair struct {
 	KeyPEM string `json:"keyPEM"`
 
 	CertPEM string `json:"certPEM"`
@@ -87,7 +94,7 @@ type __premarshalGetTLSKeyPairMockServiceTlsKeyPair struct {
 	ExpiresAt int `json:"expiresAt"`
 }
 
-func (v *GetTLSKeyPairMockServiceTlsKeyPair) MarshalJSON() ([]byte, error) {
+func (v *GetTLSKeyPairServiceTlsKeyPair) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -95,8 +102,8 @@ func (v *GetTLSKeyPairMockServiceTlsKeyPair) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *GetTLSKeyPairMockServiceTlsKeyPair) __premarshalJSON() (*__premarshalGetTLSKeyPairMockServiceTlsKeyPair, error) {
-	var retval __premarshalGetTLSKeyPairMockServiceTlsKeyPair
+func (v *GetTLSKeyPairServiceTlsKeyPair) __premarshalJSON() (*__premarshalGetTLSKeyPairServiceTlsKeyPair, error) {
+	var retval __premarshalGetTLSKeyPairServiceTlsKeyPair
 
 	retval.KeyPEM = v.TLSKeyPair.KeyPEM
 	retval.CertPEM = v.TLSKeyPair.CertPEM
@@ -105,14 +112,6 @@ func (v *GetTLSKeyPairMockServiceTlsKeyPair) __premarshalJSON() (*__premarshalGe
 	retval.ExpiresAt = v.TLSKeyPair.ExpiresAt
 	return &retval, nil
 }
-
-// GetTLSKeyPairResponse is returned by GetTLSKeyPair on success.
-type GetTLSKeyPairResponse struct {
-	MockService *GetTLSKeyPairMockService `json:"mockService"`
-}
-
-// GetMockService returns GetTLSKeyPairResponse.MockService, and is useful for accessing the field via an interface.
-func (v *GetTLSKeyPairResponse) GetMockService() *GetTLSKeyPairMockService { return v.MockService }
 
 // ReportKubernetesWorkloadReportKubernetesWorkloadService includes the requested fields of the GraphQL type Service.
 type ReportKubernetesWorkloadReportKubernetesWorkloadService struct {
@@ -159,19 +158,11 @@ func (v *TLSKeyPair) GetExpiresAt() int { return v.ExpiresAt }
 // __GetTLSKeyPairInput is used internally by genqlient
 type __GetTLSKeyPairInput struct {
 	Id                        *string                   `json:"id"`
-	Name                      *string                   `json:"name"`
-	Namespace                 *string                   `json:"namespace"`
 	CertificateCustomizations *CertificateCustomization `json:"certificateCustomizations"`
 }
 
 // GetId returns __GetTLSKeyPairInput.Id, and is useful for accessing the field via an interface.
 func (v *__GetTLSKeyPairInput) GetId() *string { return v.Id }
-
-// GetName returns __GetTLSKeyPairInput.Name, and is useful for accessing the field via an interface.
-func (v *__GetTLSKeyPairInput) GetName() *string { return v.Name }
-
-// GetNamespace returns __GetTLSKeyPairInput.Namespace, and is useful for accessing the field via an interface.
-func (v *__GetTLSKeyPairInput) GetNamespace() *string { return v.Namespace }
 
 // GetCertificateCustomizations returns __GetTLSKeyPairInput.CertificateCustomizations, and is useful for accessing the field via an interface.
 func (v *__GetTLSKeyPairInput) GetCertificateCustomizations() *CertificateCustomization {
@@ -194,15 +185,13 @@ func GetTLSKeyPair(
 	ctx context.Context,
 	client graphql.Client,
 	id *string,
-	name *string,
-	namespace *string,
 	certificateCustomizations *CertificateCustomization,
 ) (*GetTLSKeyPairResponse, error) {
 	req := &graphql.Request{
 		OpName: "GetTLSKeyPair",
 		Query: `
-query GetTLSKeyPair ($id: ID!, $name: String!, $namespace: String!, $certificateCustomizations: CertificateCustomization) {
-	mockService(id: $id, name: $name, namespace: $namespace) {
+query GetTLSKeyPair ($id: ID!, $certificateCustomizations: CertificateCustomization) {
+	service(id: $id) {
 		tlsKeyPair(certificateCustomization: $certificateCustomizations) {
 			... TLSKeyPair
 		}
@@ -218,8 +207,6 @@ fragment TLSKeyPair on KeyPair {
 `,
 		Variables: &__GetTLSKeyPairInput{
 			Id:                        id,
-			Name:                      name,
-			Namespace:                 namespace,
 			CertificateCustomizations: certificateCustomizations,
 		},
 	}

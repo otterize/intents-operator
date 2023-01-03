@@ -13,17 +13,9 @@ mutation ReportKubernetesWorkload($namespace: String!, $podOwnerName: String!) {
     }
 }
 
-#query GetTLSKeyPair ($serviceID: ID!, $certificateCustomizations: CertificateCustomization) {
-#    service(id: $serviceID) {
-#        tlsKeyPair(certificateCustomization: $certificateCustomizations) {
-#            ...TLSKeyPair
-#        }
-#    }
-#}
-
 # @genqlient(pointer: true)
-query GetTLSKeyPair ($id: ID!, $name: String!, $namespace: String!, $certificateCustomizations: CertificateCustomization) {
-    mockService(id: $id, name: $name, namespace: $namespace) {
+query GetTLSKeyPair ($id: ID!, $certificateCustomizations: CertificateCustomization) {
+    service(id: $id) {
         tlsKeyPair(certificateCustomization: $certificateCustomizations) {
             ...TLSKeyPair
         }
