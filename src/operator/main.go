@@ -46,6 +46,8 @@ var (
 	scheme = runtime.NewScheme()
 )
 
+const enableEnforcementKey = "enable-enforcement"
+
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
@@ -88,7 +90,7 @@ func main() {
 		"Whether to generate and use a self signed cert as the CA for webhooks")
 	pflag.BoolVar(&disableWebhookServer, "disable-webhook-server", false,
 		"Disable webhook validator server")
-	pflag.BoolVar(&enforcementEnabledGlobally, "enable-enforcement", true,
+	pflag.BoolVar(&enforcementEnabledGlobally, enableEnforcementKey, true,
 		"If set to false disables the enforcement globally, superior to the other flags")
 	pflag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", true,
 		"Whether to automatically create network policies for external traffic")
@@ -222,6 +224,10 @@ func main() {
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		logrus.WithError(err).Fatal("unable to set up ready check")
+	}
+
+	if !enforcementEnabledGlobally {
+		logrus.Info("Running with %s=false, won't perform any enforcement", enableEnforcementKey)
 	}
 
 	logrus.Info("starting manager")
