@@ -151,7 +151,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Set go mock expectations
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(nil)
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), gomock.Any()).Return(nil)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil)
 	s.mockIntentsAdmin.EXPECT().Close()
 
@@ -168,13 +168,13 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestReUploadKafkaServerConfigOnFa
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Make the mock return error to the reconciler, so it thinks the report failed
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(errors.New("failed to upload kafka server config"))
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), gomock.Any()).Return(errors.New("failed to upload kafka server config"))
 	s.mockIntentsAdmin.EXPECT().Close()
 
 	// We expect the reconciler to retry to report, this time we don't return an error, simulating success
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close().Times(1)
 
 	s.reconcile(types.NamespacedName{
@@ -191,7 +191,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Set go mock expectations
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(nil).Times(1)
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), gomock.Any()).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close().Times(1)
 

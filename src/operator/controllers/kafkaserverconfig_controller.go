@@ -286,8 +286,9 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Contex
 	}
 
 	input := graphqlclient.KafkaServerConfigInput{
-		Name:    kafkaServerConfig.Spec.Service.Name,
-		Address: kafkaServerConfig.Spec.Addr,
+		Name:      kafkaServerConfig.Spec.Service.Name,
+		Namespace: kafkaServerConfig.Namespace,
+		Address:   kafkaServerConfig.Spec.Addr,
 		Topics: lo.Map(kafkaServerConfig.Spec.Topics, func(topic otterizev1alpha1.TopicConfig, _ int) graphqlclient.KafkaTopicInput {
 			return graphqlclient.KafkaTopicInput{
 				ClientIdentityRequired: topic.ClientIdentityRequired,
@@ -298,7 +299,7 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Contex
 		}),
 	}
 
-	err := r.otterizeClient.ReportKafkaServerConfig(ctx, kafkaServerConfig.Namespace, IntentsOperatorSource, input)
+	err := r.otterizeClient.ReportKafkaServerConfig(ctx, input)
 	if err != nil {
 		return err
 	}

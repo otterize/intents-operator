@@ -1,5 +1,5 @@
-mutation ReportKafkaServerConfig($namespace: String!, $source: String!, $server: KafkaServerConfigInput!) {
-    reportKafkaServerConfig(namespace: $namespace, source: $source, serverConfig: $server)
+mutation ReportKafkaServerConfig($server: KafkaServerConfigInput!) {
+    reportKafkaServerConfig(serverConfig: $server)
 }
 
 mutation ReportAppliedKubernetesIntents($namespace: String!,$intents: [IntentInput!]!) {

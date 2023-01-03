@@ -10,7 +10,7 @@ import (
 )
 
 type CloudClient interface {
-	ReportKafkaServerConfig(ctx context.Context, namespace string, source string, server graphqlclient.KafkaServerConfigInput) error
+	ReportKafkaServerConfig(ctx context.Context, server graphqlclient.KafkaServerConfigInput) error
 	ReportAppliedIntents(ctx context.Context, namespace string, clientIntentsList otterizev1alpha1.ClientIntentsList) error
 }
 
@@ -29,8 +29,8 @@ func NewClient(ctx context.Context) (CloudClient, bool, error) {
 	return &CloudClientImpl{client: client}, true, nil
 }
 
-func (c *CloudClientImpl) ReportKafkaServerConfig(ctx context.Context, namespace string, source string, server graphqlclient.KafkaServerConfigInput) error {
-	_, err := graphqlclient.ReportKafkaServerConfig(ctx, c.client, namespace, source, server)
+func (c *CloudClientImpl) ReportKafkaServerConfig(ctx context.Context, server graphqlclient.KafkaServerConfigInput) error {
+	_, err := graphqlclient.ReportKafkaServerConfig(ctx, c.client, server)
 	if err != nil {
 		return err
 	}
