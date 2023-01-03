@@ -106,13 +106,17 @@ const (
 )
 
 type KafkaServerConfigInput struct {
-	Name    string            `json:"name"`
-	Address string            `json:"address"`
-	Topics  []KafkaTopicInput `json:"topics"`
+	Name      string            `json:"name"`
+	Namespace string            `json:"namespace"`
+	Address   string            `json:"address"`
+	Topics    []KafkaTopicInput `json:"topics"`
 }
 
 // GetName returns KafkaServerConfigInput.Name, and is useful for accessing the field via an interface.
 func (v *KafkaServerConfigInput) GetName() string { return v.Name }
+
+// GetNamespace returns KafkaServerConfigInput.Namespace, and is useful for accessing the field via an interface.
+func (v *KafkaServerConfigInput) GetNamespace() string { return v.Namespace }
 
 // GetAddress returns KafkaServerConfigInput.Address, and is useful for accessing the field via an interface.
 func (v *KafkaServerConfigInput) GetAddress() string { return v.Address }
@@ -173,16 +177,8 @@ func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []IntentInput { ret
 
 // __ReportKafkaServerConfigInput is used internally by genqlient
 type __ReportKafkaServerConfigInput struct {
-	Namespace string                 `json:"namespace"`
-	Source    string                 `json:"source"`
-	Server    KafkaServerConfigInput `json:"server"`
+	Server KafkaServerConfigInput `json:"server"`
 }
-
-// GetNamespace returns __ReportKafkaServerConfigInput.Namespace, and is useful for accessing the field via an interface.
-func (v *__ReportKafkaServerConfigInput) GetNamespace() string { return v.Namespace }
-
-// GetSource returns __ReportKafkaServerConfigInput.Source, and is useful for accessing the field via an interface.
-func (v *__ReportKafkaServerConfigInput) GetSource() string { return v.Source }
 
 // GetServer returns __ReportKafkaServerConfigInput.Server, and is useful for accessing the field via an interface.
 func (v *__ReportKafkaServerConfigInput) GetServer() KafkaServerConfigInput { return v.Server }
@@ -222,21 +218,17 @@ mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentI
 func ReportKafkaServerConfig(
 	ctx context.Context,
 	client graphql.Client,
-	namespace string,
-	source string,
 	server KafkaServerConfigInput,
 ) (*ReportKafkaServerConfigResponse, error) {
 	req := &graphql.Request{
 		OpName: "ReportKafkaServerConfig",
 		Query: `
-mutation ReportKafkaServerConfig ($namespace: String!, $source: String!, $server: KafkaServerConfigInput!) {
-	reportKafkaServerConfig(namespace: $namespace, source: $source, serverConfig: $server)
+mutation ReportKafkaServerConfig ($server: KafkaServerConfigInput!) {
+	reportKafkaServerConfig(serverConfig: $server)
 }
 `,
 		Variables: &__ReportKafkaServerConfigInput{
-			Namespace: namespace,
-			Source:    source,
-			Server:    server,
+			Server: server,
 		},
 	}
 	var err error
