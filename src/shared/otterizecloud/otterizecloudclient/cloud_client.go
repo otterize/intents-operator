@@ -14,6 +14,9 @@ func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 	clientID := viper.GetString(ApiClientIdKey)
 	secret := viper.GetString(ApiClientSecretKey)
 	apiAddress := viper.GetString(OtterizeAPIAddressKey)
+	if clientID == "" && secret == "" {
+		return nil, false, nil
+	}
 	if clientID == "" {
 		return nil, true, errors.New("missing cloud integration client ID")
 	}
