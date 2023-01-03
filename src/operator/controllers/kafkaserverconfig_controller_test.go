@@ -10,6 +10,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -133,6 +134,10 @@ func (s *KafkaServerConfigReconcilerTestSuite) reconcile(namespacedName types.Na
 		res, err = s.reconciler.Reconcile(context.Background(), ctrl.Request{
 			NamespacedName: namespacedName,
 		})
+
+		if k8serrors.IsConflict(err) {
+			res.Requeue = true
+		}
 	}
 
 	s.Require().NoError(err)
@@ -162,10 +167,6 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestReUploadKafkaServerConfigOnFa
 	kafkaServerConfig := s.generateKafkaServerConfig()
 	kafkaServerConfig.SetNamespace(s.TestNamespace)
 	s.AddKafkaServerConfig(&kafkaServerConfig)
-
-	// Set go mock expectations for failure
-	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
-	s.mockIntentsAdmin.EXPECT().Close()
 
 	// Set go mock expectations for failure
 	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, IntentsOperatorSource, gomock.Any()).Return(errors.New("failed to upload kafka server config"))

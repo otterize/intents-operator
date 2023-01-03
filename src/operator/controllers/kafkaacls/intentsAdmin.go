@@ -325,7 +325,7 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 	if err != nil {
 		return fmt.Errorf("failed collecting topics to ACL list %w", err)
 	}
-	
+
 	resourceAclsCreate, resourceAclsDelete := a.kafkaResourceAclsDiff(expectedIntentsKafkaTopicsAcls, appliedIntentKafkaAcls)
 
 	if len(resourceAclsCreate) == 0 {
