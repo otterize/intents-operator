@@ -23,14 +23,16 @@ type ServersStoreImpl struct {
 	enableKafkaACLCreation      bool
 	tlsSourceFiles              otterizev1alpha1.TLSSource
 	IntentsAdminFactoryFunction IntentsAdminFactoryFunction
+	enforcementEnabledGlobally  bool
 }
 
-func NewServersStore(tlsSourceFiles otterizev1alpha1.TLSSource, enableKafkaACLCreation bool, factoryFunc IntentsAdminFactoryFunction) *ServersStoreImpl {
+func NewServersStore(tlsSourceFiles otterizev1alpha1.TLSSource, enableKafkaACLCreation bool, factoryFunc IntentsAdminFactoryFunction, enforcementEnabledGlobally bool) *ServersStoreImpl {
 	return &ServersStoreImpl{
 		serversByName:               map[types.NamespacedName]*otterizev1alpha1.KafkaServerConfig{},
 		enableKafkaACLCreation:      enableKafkaACLCreation,
 		tlsSourceFiles:              tlsSourceFiles,
 		IntentsAdminFactoryFunction: factoryFunc,
+		enforcementEnabledGlobally:  enforcementEnabledGlobally,
 	}
 }
 
@@ -57,7 +59,7 @@ func (s *ServersStoreImpl) Get(serverName string, namespace string) (KafkaIntent
 		return nil, ServerSpecNotFound
 	}
 
-	return s.IntentsAdminFactoryFunction(*config, s.tlsSourceFiles, s.enableKafkaACLCreation)
+	return s.IntentsAdminFactoryFunction(*config, s.tlsSourceFiles, s.enableKafkaACLCreation, s.enforcementEnabledGlobally)
 }
 
 func (s *ServersStoreImpl) MapErr(f func(types.NamespacedName, *otterizev1alpha1.KafkaServerConfig, otterizev1alpha1.TLSSource) error) error {

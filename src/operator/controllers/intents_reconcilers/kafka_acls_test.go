@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/record"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -32,6 +33,7 @@ type KafkaACLReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
 	Reconciler     *KafkaACLReconciler
 	mockKafkaAdmin *kafkaaclsmocks.MockClusterAdmin
+	recorder       *record.FakeRecorder
 }
 
 func (s *KafkaACLReconcilerTestSuite) SetupSuite() {
@@ -73,7 +75,7 @@ func (s *KafkaACLReconcilerTestSuite) setupServerStore(serviceName string) *kafk
 
 	serverConfig.SetNamespace(s.TestNamespace)
 	emptyTls := otterizev1alpha1.TLSSource{}
-	kafkaServersStore := kafkaacls.NewServersStore(emptyTls, true, kafkaacls.NewKafkaIntentsAdmin)
+	kafkaServersStore := kafkaacls.NewServersStore(emptyTls, true, kafkaacls.NewKafkaIntentsAdmin, true)
 	kafkaServersStore.Add(serverConfig)
 	return kafkaServersStore
 }
@@ -88,15 +90,15 @@ func (s *KafkaACLReconcilerTestSuite) BeforeTest(_, testName string) {
 	controller := gomock.NewController(s.T())
 	s.mockKafkaAdmin = kafkaaclsmocks.NewMockClusterAdmin(controller)
 
-	s.initKafkaIntentsAdmin(true)
+	s.initKafkaIntentsAdmin(true, true)
 }
 
-func (s *KafkaACLReconcilerTestSuite) initKafkaIntentsAdmin(enableAclCreation bool) {
+func (s *KafkaACLReconcilerTestSuite) initKafkaIntentsAdmin(enableAclCreation bool, enforcementEnabledGlobally bool) {
 	kafkaServersStore := s.setupServerStore(kafkaServiceName)
 	newTestKafkaIntentsAdmin := getMockIntentsAdminFactory(s.mockKafkaAdmin, usernameMapping)
-	s.Reconciler = NewKafkaACLReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, kafkaServersStore, enableAclCreation, newTestKafkaIntentsAdmin)
-	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
-	s.Reconciler.InjectRecorder(recorder)
+	s.Reconciler = NewKafkaACLReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, kafkaServersStore, enableAclCreation, newTestKafkaIntentsAdmin, enforcementEnabledGlobally)
+	s.recorder = record.NewFakeRecorder(100)
+	s.Reconciler.InjectRecorder(s.recorder)
 }
 
 func (s *KafkaACLReconcilerTestSuite) principal() string {
@@ -104,8 +106,8 @@ func (s *KafkaACLReconcilerTestSuite) principal() string {
 }
 
 func getMockIntentsAdminFactory(clusterAdmin sarama.ClusterAdmin, usernameMapping string) kafkaacls.IntentsAdminFactoryFunction {
-	return func(kafkaServer otterizev1alpha1.KafkaServerConfig, _ otterizev1alpha1.TLSSource, enableKafkaACLCreation bool) (kafkaacls.KafkaIntentsAdmin, error) {
-		return kafkaacls.NewKafkaIntentsAdminImpl(kafkaServer, clusterAdmin, usernameMapping, enableKafkaACLCreation), nil
+	return func(kafkaServer otterizev1alpha1.KafkaServerConfig, _ otterizev1alpha1.TLSSource, enableKafkaACLCreation bool, enforcementEnabledGlobally bool) (kafkaacls.KafkaIntentsAdmin, error) {
+		return kafkaacls.NewKafkaIntentsAdminImpl(kafkaServer, clusterAdmin, usernameMapping, enableKafkaACLCreation, enforcementEnabledGlobally), nil
 	}
 }
 
@@ -273,7 +275,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 
 func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreationDisabled() {
 	// Override the default reconciler with ACL creation disabled
-	s.initKafkaIntentsAdmin(false)
+	s.initKafkaIntentsAdmin(false, true)
 
 	// Expect only to check the ACL list and close, with not creation
 	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(2)
@@ -293,6 +295,37 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreationDisabled() {
 	}
 
 	s.reconcile(namespacedName)
+}
+
+func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() {
+	// Override the default reconciler with ACL creation disabled
+	s.initKafkaIntentsAdmin(true, false)
+
+	// Expect only to check the ACL list and close, with not creation
+	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(2)
+	s.mockKafkaAdmin.EXPECT().Close().Times(1)
+
+	// Create intents object with Consume operation
+	intentsConfig := s.generateIntents(otterizev1alpha1.KafkaOperationConsume)
+	intents := []otterizev1alpha1.Intent{intentsConfig}
+
+	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
+	s.Require().NoError(err)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	namespacedName := types.NamespacedName{
+		Namespace: s.TestNamespace,
+		Name:      clientIntents.Name,
+	}
+
+	s.reconcile(namespacedName)
+	// the actual test is that there are not unexpected calls to the mockKafkaAdmin
+	select {
+	case event := <-s.recorder.Events:
+		s.Require().Contains(event, ReasonEnforcementGloballyDisabled)
+	default:
+		s.Fail("event not raised")
+	}
 }
 
 func (s *KafkaACLReconcilerTestSuite) reconcile(namespacedName types.NamespacedName) {
