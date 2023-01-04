@@ -227,7 +227,7 @@ func main() {
 	}
 
 	if !enforcementEnabledGlobally {
-		logrus.Info("Running with %s=false, won't perform any enforcement", enableEnforcementKey)
+		logrus.Infof("Running with %s=false, won't perform any enforcement", enableEnforcementKey)
 	}
 
 	logrus.Info("starting manager")
