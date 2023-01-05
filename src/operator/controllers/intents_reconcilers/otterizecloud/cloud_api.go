@@ -12,6 +12,7 @@ import (
 type CloudClient interface {
 	ReportKafkaServerConfig(ctx context.Context, server graphqlclient.KafkaServerConfigInput) error
 	ReportAppliedIntents(ctx context.Context, namespace string, clientIntentsList otterizev1alpha1.ClientIntentsList) error
+	ReportIntentsOperatorConfiguration(ctx context.Context, enableEnforcement bool) error
 }
 
 type CloudClientImpl struct {
@@ -55,5 +56,18 @@ func (c *CloudClientImpl) ReportAppliedIntents(
 		return err
 	}
 	logrus.Infof("New intents count for namespace %s: %d", namespace, len(intentsInput))
+	return nil
+}
+
+func (c *CloudClientImpl) ReportIntentsOperatorConfiguration(
+	ctx context.Context,
+	enableEnforcement bool) error {
+	_, err := graphqlclient.ReportIntentsOperatorConfiguration(ctx, c.client, graphqlclient.IntentsOperatorConfigurationInput{
+		EnableEnforcement: enableEnforcement,
+	})
+	if err != nil {
+		return err
+	}
+	logrus.Infof("Intents operator configuration reported to cloud successfully")
 	return nil
 }
