@@ -12,6 +12,7 @@ import (
 type CloudClient interface {
 	ReportKafkaServerConfig(ctx context.Context, server graphqlclient.KafkaServerConfigInput) error
 	ReportAppliedIntents(ctx context.Context, namespace string, clientIntentsList otterizev1alpha1.ClientIntentsList) error
+	ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType)
 }
 
 type CloudClientImpl struct {
@@ -56,4 +57,12 @@ func (c *CloudClientImpl) ReportAppliedIntents(
 	}
 	logrus.Infof("New intents count for namespace %s: %d", namespace, len(intentsInput))
 	return nil
+}
+
+func (c *CloudClientImpl) ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType) {
+	_, err := graphqlclient.ReportComponentStatus(ctx, c.client, component)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to reported component status Otterize cloud")
+		return
+	}
 }

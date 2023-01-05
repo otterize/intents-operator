@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"github.com/bombsimon/logrusr/v3"
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
@@ -28,8 +29,6 @@ import (
 	"github.com/spf13/pflag"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -167,6 +166,8 @@ func main() {
 	}
 	if !ok {
 		logrus.Info("missing configuration for cloud integration, disabling cloud communication")
+	} else {
+		otterizecloud.PeriodicallyReportConnectionToCloud(otterizeCloudClient)
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(
