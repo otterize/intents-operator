@@ -191,7 +191,7 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 	case IntentTypeKafka:
 		return graphqlclient.IntentTypeKafka
 	default:
-		return ""
+		panic("Not supposed to reach here")
 	}
 }
 
@@ -214,6 +214,7 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace, clientName string) gra
 			}),
 		}
 	})
+
 	intentInput := graphqlclient.IntentInput{
 		ClientName:      clientName,
 		ServerName:      in.Name,
@@ -222,11 +223,9 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace, clientName string) gra
 	}
 
 	if in.Type != "" {
-		intentType := in.typeAsGQLType()
 		intentInput.Body = graphqlclient.IntentBody{
-			Type: intentType,
+			Type: in.typeAsGQLType(),
 		}
-
 		if len(otterizeTopics) != 0 {
 			intentInput.Body.Topics = otterizeTopics
 		}
