@@ -46,6 +46,8 @@ var (
 	scheme = runtime.NewScheme()
 )
 
+const enableEnforcementKey = "enable-enforcement"
+
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
@@ -67,6 +69,7 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var selfSignedCert bool
+	var enforcementEnabledGlobally bool
 	var autoCreateNetworkPoliciesForExternalTraffic bool
 	var watchedNamespaces []string
 	var enableNetworkPolicyCreation bool
@@ -87,6 +90,8 @@ func main() {
 		"Whether to generate and use a self signed cert as the CA for webhooks")
 	pflag.BoolVar(&disableWebhookServer, "disable-webhook-server", false,
 		"Disable webhook validator server")
+	pflag.BoolVar(&enforcementEnabledGlobally, enableEnforcementKey, true,
+		"If set to false disables the enforcement globally, superior to the other flags")
 	pflag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", true,
 		"Whether to automatically create network policies for external traffic")
 	pflag.StringSliceVar(&watchedNamespaces, "watched-namespaces", nil,
@@ -135,9 +140,9 @@ func main() {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
 
-	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enableKafkaACLCreation, kafkaacls.NewKafkaIntentsAdmin)
+	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enableKafkaACLCreation, kafkaacls.NewKafkaIntentsAdmin, enforcementEnabledGlobally)
 
-	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic)
+	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, enforcementEnabledGlobally)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
@@ -166,7 +171,7 @@ func main() {
 
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler,
-		watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation,
+		watchedNamespaces, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation,
 		otterizeCloudClient)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
@@ -181,7 +186,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
 	}
 
-	if selfSignedCert == true {
+	if selfSignedCert {
 		logrus.Infoln("Creating self signing certs")
 		certBundle, err :=
 			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
@@ -219,6 +224,10 @@ func main() {
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		logrus.WithError(err).Fatal("unable to set up ready check")
+	}
+
+	if !enforcementEnabledGlobally {
+		logrus.Infof("Running with %s=false, won't perform any enforcement", enableEnforcementKey)
 	}
 
 	logrus.Info("starting manager")
