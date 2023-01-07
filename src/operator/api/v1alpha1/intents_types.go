@@ -24,7 +24,6 @@ import (
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"strings"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -186,7 +185,14 @@ func (in *Intent) ResolveServerNamespace(intentsObjNamespace string) string {
 }
 
 func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
-	return graphqlclient.IntentType(strings.ToUpper(string(in.Type)))
+	switch in.Type {
+	case IntentTypeHTTP:
+		return graphqlclient.IntentTypeHttp
+	case IntentTypeKafka:
+		return graphqlclient.IntentTypeKafka
+	default:
+		return ""
+	}
 }
 
 func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]graphqlclient.IntentInput, error) {
@@ -213,12 +219,17 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace, clientName string) gra
 		ServerName:      in.Name,
 		Namespace:       resourceNamespace,
 		ServerNamespace: in.ResolveServerNamespace(resourceNamespace),
-		Body: graphqlclient.IntentBody{
-			Type: in.typeAsGQLType(),
-		},
 	}
-	if len(otterizeTopics) != 0 {
-		intentInput.Body.Topics = otterizeTopics
+
+	if in.Type != "" {
+		intentType := in.typeAsGQLType()
+		intentInput.Body = graphqlclient.IntentBody{
+			Type: intentType,
+		}
+
+		if len(otterizeTopics) != 0 {
+			intentInput.Body.Topics = otterizeTopics
+		}
 	}
 
 	return intentInput
