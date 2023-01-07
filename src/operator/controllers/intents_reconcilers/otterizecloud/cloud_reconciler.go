@@ -4,7 +4,6 @@ import (
 	"context"
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,20 +30,13 @@ func NewOtterizeCloudReconciler(
 }
 
 func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
-	clientIntents := otterizev1alpha1.ClientIntents{}
-	err := r.Get(ctx, req.NamespacedName, &clientIntents)
-	// In case of "Not found" k8s error, we report intents and namespace normally
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return ctrl.Result{}, err
-	}
-
 	// Report Applied intents from namespace
 	clientIntentsList := otterizev1alpha1.ClientIntentsList{}
-	if err = r.List(ctx, &clientIntentsList); err != nil {
+	if err := r.List(ctx, &clientIntentsList, &client.ListOptions{Namespace: req.Namespace}); err != nil {
 		return ctrl.Result{}, nil
 	}
 
-	if err = r.otterizeClient.ReportAppliedIntents(ctx, req.Namespace, clientIntentsList); err != nil {
+	if err := r.otterizeClient.ReportAppliedIntents(ctx, req.Namespace, clientIntentsList); err != nil {
 		return ctrl.Result{}, err
 	}
 
