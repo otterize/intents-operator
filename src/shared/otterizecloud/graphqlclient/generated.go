@@ -17,15 +17,15 @@ const (
 )
 
 type HTTPConfigInput struct {
-	Path   string     `json:"path"`
-	Method HTTPMethod `json:"method"`
+	Path   *string     `json:"path"`
+	Method *HTTPMethod `json:"method"`
 }
 
 // GetPath returns HTTPConfigInput.Path, and is useful for accessing the field via an interface.
-func (v *HTTPConfigInput) GetPath() string { return v.Path }
+func (v *HTTPConfigInput) GetPath() *string { return v.Path }
 
 // GetMethod returns HTTPConfigInput.Method, and is useful for accessing the field via an interface.
-func (v *HTTPConfigInput) GetMethod() HTTPMethod { return v.Method }
+func (v *HTTPConfigInput) GetMethod() *HTTPMethod { return v.Method }
 
 type HTTPMethod string
 
@@ -41,42 +41,42 @@ const (
 )
 
 type IntentBody struct {
-	Type      IntentType         `json:"type"`
-	Topics    []KafkaConfigInput `json:"topics"`
-	Resources []HTTPConfigInput  `json:"resources"`
+	Type      *IntentType         `json:"type"`
+	Topics    []*KafkaConfigInput `json:"topics"`
+	Resources []*HTTPConfigInput  `json:"resources"`
 }
 
 // GetType returns IntentBody.Type, and is useful for accessing the field via an interface.
-func (v *IntentBody) GetType() IntentType { return v.Type }
+func (v *IntentBody) GetType() *IntentType { return v.Type }
 
 // GetTopics returns IntentBody.Topics, and is useful for accessing the field via an interface.
-func (v *IntentBody) GetTopics() []KafkaConfigInput { return v.Topics }
+func (v *IntentBody) GetTopics() []*KafkaConfigInput { return v.Topics }
 
 // GetResources returns IntentBody.Resources, and is useful for accessing the field via an interface.
-func (v *IntentBody) GetResources() []HTTPConfigInput { return v.Resources }
+func (v *IntentBody) GetResources() []*HTTPConfigInput { return v.Resources }
 
 type IntentInput struct {
-	Namespace       string     `json:"namespace"`
-	ClientName      string     `json:"clientName"`
-	ServerName      string     `json:"serverName"`
-	ServerNamespace string     `json:"serverNamespace"`
-	Body            IntentBody `json:"body"`
+	Namespace       *string     `json:"namespace"`
+	ClientName      *string     `json:"clientName"`
+	ServerName      *string     `json:"serverName"`
+	ServerNamespace *string     `json:"serverNamespace"`
+	Body            *IntentBody `json:"body"`
 }
 
 // GetNamespace returns IntentInput.Namespace, and is useful for accessing the field via an interface.
-func (v *IntentInput) GetNamespace() string { return v.Namespace }
+func (v *IntentInput) GetNamespace() *string { return v.Namespace }
 
 // GetClientName returns IntentInput.ClientName, and is useful for accessing the field via an interface.
-func (v *IntentInput) GetClientName() string { return v.ClientName }
+func (v *IntentInput) GetClientName() *string { return v.ClientName }
 
 // GetServerName returns IntentInput.ServerName, and is useful for accessing the field via an interface.
-func (v *IntentInput) GetServerName() string { return v.ServerName }
+func (v *IntentInput) GetServerName() *string { return v.ServerName }
 
 // GetServerNamespace returns IntentInput.ServerNamespace, and is useful for accessing the field via an interface.
-func (v *IntentInput) GetServerNamespace() string { return v.ServerNamespace }
+func (v *IntentInput) GetServerNamespace() *string { return v.ServerNamespace }
 
 // GetBody returns IntentInput.Body, and is useful for accessing the field via an interface.
-func (v *IntentInput) GetBody() IntentBody { return v.Body }
+func (v *IntentInput) GetBody() *IntentBody { return v.Body }
 
 type IntentType string
 
@@ -88,15 +88,15 @@ const (
 )
 
 type KafkaConfigInput struct {
-	Name       string           `json:"name"`
-	Operations []KafkaOperation `json:"operations"`
+	Name       *string           `json:"name"`
+	Operations []*KafkaOperation `json:"operations"`
 }
 
 // GetName returns KafkaConfigInput.Name, and is useful for accessing the field via an interface.
-func (v *KafkaConfigInput) GetName() string { return v.Name }
+func (v *KafkaConfigInput) GetName() *string { return v.Name }
 
 // GetOperations returns KafkaConfigInput.Operations, and is useful for accessing the field via an interface.
-func (v *KafkaConfigInput) GetOperations() []KafkaOperation { return v.Operations }
+func (v *KafkaConfigInput) GetOperations() []*KafkaOperation { return v.Operations }
 
 type KafkaOperation string
 
@@ -153,11 +153,11 @@ func (v *KafkaTopicInput) GetTopic() string { return v.Topic }
 
 // ReportAppliedKubernetesIntentsResponse is returned by ReportAppliedKubernetesIntents on success.
 type ReportAppliedKubernetesIntentsResponse struct {
-	ReportAppliedKubernetesIntents bool `json:"reportAppliedKubernetesIntents"`
+	ReportAppliedKubernetesIntents *bool `json:"reportAppliedKubernetesIntents"`
 }
 
 // GetReportAppliedKubernetesIntents returns ReportAppliedKubernetesIntentsResponse.ReportAppliedKubernetesIntents, and is useful for accessing the field via an interface.
-func (v *ReportAppliedKubernetesIntentsResponse) GetReportAppliedKubernetesIntents() bool {
+func (v *ReportAppliedKubernetesIntentsResponse) GetReportAppliedKubernetesIntents() *bool {
 	return v.ReportAppliedKubernetesIntents
 }
 
@@ -183,15 +183,15 @@ func (v *ReportKafkaServerConfigResponse) GetReportKafkaServerConfig() bool {
 
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
 type __ReportAppliedKubernetesIntentsInput struct {
-	Namespace string        `json:"namespace"`
-	Intents   []IntentInput `json:"intents"`
+	Namespace *string        `json:"namespace"`
+	Intents   []*IntentInput `json:"intents"`
 }
 
 // GetNamespace returns __ReportAppliedKubernetesIntentsInput.Namespace, and is useful for accessing the field via an interface.
-func (v *__ReportAppliedKubernetesIntentsInput) GetNamespace() string { return v.Namespace }
+func (v *__ReportAppliedKubernetesIntentsInput) GetNamespace() *string { return v.Namespace }
 
 // GetIntents returns __ReportAppliedKubernetesIntentsInput.Intents, and is useful for accessing the field via an interface.
-func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []IntentInput { return v.Intents }
+func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []*IntentInput { return v.Intents }
 
 // __ReportComponentStatusInput is used internally by genqlient
 type __ReportComponentStatusInput struct {
@@ -212,8 +212,8 @@ func (v *__ReportKafkaServerConfigInput) GetServer() KafkaServerConfigInput { re
 func ReportAppliedKubernetesIntents(
 	ctx context.Context,
 	client graphql.Client,
-	namespace string,
-	intents []IntentInput,
+	namespace *string,
+	intents []*IntentInput,
 ) (*ReportAppliedKubernetesIntentsResponse, error) {
 	req := &graphql.Request{
 		OpName: "ReportAppliedKubernetesIntents",

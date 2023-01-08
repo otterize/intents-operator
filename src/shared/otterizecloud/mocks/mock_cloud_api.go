@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	graphqlclient "github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 )
 
@@ -37,17 +36,29 @@ func (m *MockCloudClient) EXPECT() *MockCloudClientMockRecorder {
 }
 
 // ReportAppliedIntents mocks base method.
-func (m *MockCloudClient) ReportAppliedIntents(ctx context.Context, namespace string, clientIntentsList v1alpha1.ClientIntentsList) error {
+func (m *MockCloudClient) ReportAppliedIntents(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportAppliedIntents", ctx, namespace, clientIntentsList)
+	ret := m.ctrl.Call(m, "ReportAppliedIntents", ctx, namespace, intents)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReportAppliedIntents indicates an expected call of ReportAppliedIntents.
-func (mr *MockCloudClientMockRecorder) ReportAppliedIntents(ctx, namespace, clientIntentsList interface{}) *gomock.Call {
+func (mr *MockCloudClientMockRecorder) ReportAppliedIntents(ctx, namespace, intents interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportAppliedIntents", reflect.TypeOf((*MockCloudClient)(nil).ReportAppliedIntents), ctx, namespace, clientIntentsList)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportAppliedIntents", reflect.TypeOf((*MockCloudClient)(nil).ReportAppliedIntents), ctx, namespace, intents)
+}
+
+// ReportComponentStatus mocks base method.
+func (m *MockCloudClient) ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ReportComponentStatus", ctx, component)
+}
+
+// ReportComponentStatus indicates an expected call of ReportComponentStatus.
+func (mr *MockCloudClientMockRecorder) ReportComponentStatus(ctx, component interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportComponentStatus", reflect.TypeOf((*MockCloudClient)(nil).ReportComponentStatus), ctx, component)
 }
 
 // ReportKafkaServerConfig mocks base method.

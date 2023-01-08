@@ -184,31 +184,47 @@ func (in *Intent) ResolveIntentNamespace(intentsObjNamespace string) string {
 	return intentsObjNamespace
 }
 
-func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]graphqlclient.IntentInput, error) {
-	otterizeIntents := make([]graphqlclient.IntentInput, 0)
+func (in *ClientIntentsList) FormatAsOtterizeIntents(intentsObjNamespace string) ([]*graphqlclient.IntentInput, error) {
+	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
-			otterizeIntents = append(otterizeIntents, intent.ConvertToCloudFormat(clientIntents.GetServiceName()))
+			input := intent.ConvertToCloudFormat(clientIntents.GetServiceName(), intentsObjNamespace)
+			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
 		}
 	}
 	return otterizeIntents, nil
 }
 
-func (in *Intent) ConvertToCloudFormat(clientName string) graphqlclient.IntentInput {
-	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) graphqlclient.KafkaConfigInput {
-		return graphqlclient.KafkaConfigInput{
-			Name: topic.Name,
-			Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) graphqlclient.KafkaOperation {
-				return graphqlclient.KafkaOperation(op)
+func toPtrOrNil(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return lo.ToPtr(s)
+}
+
+func (in *Intent) ConvertToCloudFormat(clientName string, requestNamespace string) graphqlclient.IntentInput {
+	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) *graphqlclient.KafkaConfigInput {
+		return lo.ToPtr(graphqlclient.KafkaConfigInput{
+			Name: lo.ToPtr(topic.Name),
+			Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) *graphqlclient.KafkaOperation {
+				return lo.ToPtr(graphqlclient.KafkaOperation(op))
 			}),
-		}
+		})
 	})
+
+	var body *graphqlclient.IntentBody
+	if in.Type != "" {
+		body = lo.ToPtr(graphqlclient.IntentBody{
+			Type: lo.ToPtr(graphqlclient.IntentType(in.Type)),
+		})
+	}
+
 	intentInput := graphqlclient.IntentInput{
-		ClientName: clientName,
-		ServerName: in.Name,
-		Body: graphqlclient.IntentBody{
-			Type: graphqlclient.IntentType(in.Type),
-		},
+		ClientName:      toPtrOrNil(clientName),
+		Namespace:       toPtrOrNil(requestNamespace),
+		ServerName:      toPtrOrNil(in.Name),
+		ServerNamespace: toPtrOrNil(in.Namespace),
+		Body:            body,
 	}
 	if len(otterizeTopics) != 0 {
 		intentInput.Body.Topics = otterizeTopics
