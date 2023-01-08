@@ -223,12 +223,11 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace, clientName string) gra
 	}
 
 	if in.Type != "" {
-		intentInput.Body = graphqlclient.IntentBody{
-			Type: in.typeAsGQLType(),
-		}
-		if len(otterizeTopics) != 0 {
-			intentInput.Body.Topics = otterizeTopics
-		}
+		intentInput.Type = in.typeAsGQLType()
+	}
+
+	if len(otterizeTopics) != 0 {
+		intentInput.Topics = otterizeTopics
 	}
 
 	return intentInput
