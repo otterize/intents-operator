@@ -21,3 +21,7 @@ query GetTLSKeyPair ($id: ID!, $certificateCustomizations: CertificateCustomizat
         }
     }
 }
+
+mutation ReportComponentStatus($component: ComponentType!) {
+    reportComponentStatus(component: $component)
+}

@@ -9,6 +9,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/spire-integration-operator/src/controllers/otterizeclient/otterizegraphql"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
@@ -87,4 +88,11 @@ func (c *CloudClient) RegisterK8SPod(ctx context.Context, namespace string, _ st
 
 func (c *CloudClient) CleanupOrphanK8SPodEntries(_ context.Context, _ string, _ map[string]*goset.Set[string]) error {
 	return nil
+}
+
+func (c *CloudClient) ReportComponentStatus(ctx context.Context) {
+	_, err := otterizegraphql.ReportComponentStatus(ctx, c.graphqlClient, otterizegraphql.ComponentTypeCredentialsOperator)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to report component status Otterize cloud")
+	}
 }

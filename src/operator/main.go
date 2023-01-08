@@ -119,6 +119,7 @@ func main() {
 			os.Exit(1)
 		}
 		workloadRegistry = otterizeCloudClient
+		otterizeclient.PeriodicallyReportConnectionToCloud(otterizeCloudClient)
 		otterizeCertManager := otterizecertgen.NewOtterizeCertificateGenerator(otterizeCloudClient)
 		secretsManager = secrets.NewSecretManager(mgr.GetClient(), otterizeCertManager, serviceIdResolver, eventRecorder)
 	} else {

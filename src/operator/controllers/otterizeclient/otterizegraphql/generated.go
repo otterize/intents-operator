@@ -20,6 +20,14 @@ func (v *CertificateCustomization) GetDnsNames() []*string { return v.DnsNames }
 // GetTtl returns CertificateCustomization.Ttl, and is useful for accessing the field via an interface.
 func (v *CertificateCustomization) GetTtl() *int { return v.Ttl }
 
+type ComponentType string
+
+const (
+	ComponentTypeIntentsOperator     ComponentType = "INTENTS_OPERATOR"
+	ComponentTypeCredentialsOperator ComponentType = "CREDENTIALS_OPERATOR"
+	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
+)
+
 // GetTLSKeyPairResponse is returned by GetTLSKeyPair on success.
 type GetTLSKeyPairResponse struct {
 	// Get service
@@ -113,6 +121,16 @@ func (v *GetTLSKeyPairServiceTlsKeyPair) __premarshalJSON() (*__premarshalGetTLS
 	return &retval, nil
 }
 
+// ReportComponentStatusResponse is returned by ReportComponentStatus on success.
+type ReportComponentStatusResponse struct {
+	ReportComponentStatus string `json:"reportComponentStatus"`
+}
+
+// GetReportComponentStatus returns ReportComponentStatusResponse.ReportComponentStatus, and is useful for accessing the field via an interface.
+func (v *ReportComponentStatusResponse) GetReportComponentStatus() string {
+	return v.ReportComponentStatus
+}
+
 // ReportKubernetesWorkloadReportKubernetesWorkloadService includes the requested fields of the GraphQL type Service.
 type ReportKubernetesWorkloadReportKubernetesWorkloadService struct {
 	Id string `json:"id"`
@@ -169,6 +187,14 @@ func (v *__GetTLSKeyPairInput) GetCertificateCustomizations() *CertificateCustom
 	return v.CertificateCustomizations
 }
 
+// __ReportComponentStatusInput is used internally by genqlient
+type __ReportComponentStatusInput struct {
+	Component ComponentType `json:"component"`
+}
+
+// GetComponent returns __ReportComponentStatusInput.Component, and is useful for accessing the field via an interface.
+func (v *__ReportComponentStatusInput) GetComponent() ComponentType { return v.Component }
+
 // __ReportKubernetesWorkloadInput is used internally by genqlient
 type __ReportKubernetesWorkloadInput struct {
 	Namespace    string `json:"namespace"`
@@ -213,6 +239,36 @@ fragment TLSKeyPair on KeyPair {
 	var err error
 
 	var data GetTLSKeyPairResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func ReportComponentStatus(
+	ctx context.Context,
+	client graphql.Client,
+	component ComponentType,
+) (*ReportComponentStatusResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportComponentStatus",
+		Query: `
+mutation ReportComponentStatus ($component: ComponentType!) {
+	reportComponentStatus(component: $component)
+}
+`,
+		Variables: &__ReportComponentStatusInput{
+			Component: component,
+		},
+	}
+	var err error
+
+	var data ReportComponentStatusResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(
