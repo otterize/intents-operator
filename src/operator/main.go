@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/pflag"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"time"
 
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -226,6 +227,18 @@ func main() {
 		logrus.WithError(err).Fatal("unable to set up ready check")
 	}
 
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelFunc()
+	cloudClient, connectedToCloud, err := otterizecloud.NewClient(ctx)
+	if err != nil {
+		logrus.WithError(err).Warning("Failed to connect to Otterize cloud")
+	}
+	if connectedToCloud {
+		err := cloudClient.ReportIntentsOperatorConfiguration(ctx, enforcementEnabledGlobally)
+		if err != nil {
+			logrus.WithError(err).Warning("Failed to report configuration to the cloud")
+		}
+	}
 	if !enforcementEnabledGlobally {
 		logrus.Infof("Running with %s=false, won't perform any enforcement", enableEnforcementKey)
 	}
