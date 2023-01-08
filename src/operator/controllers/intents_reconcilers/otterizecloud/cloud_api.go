@@ -68,6 +68,6 @@ func (c *CloudClientImpl) ReportIntentsOperatorConfiguration(
 	if err != nil {
 		return err
 	}
-	logrus.Infof("Intents operator configuration reported to cloud successfully")
+	logrus.Info("Intents operator configuration reported to cloud successfully")
 	return nil
 }
