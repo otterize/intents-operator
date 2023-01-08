@@ -93,7 +93,7 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	// Declare mock expectations for ReportAppliedIntents
-	expectedIntent := intentInput(clientName, s.TestNamespace, server, "", nil)
+	expectedIntent := intentInput(clientName, s.TestNamespace, server, s.TestNamespace, &graphqlclient.IntentBody{})
 
 	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
 	expectedNamespace := lo.ToPtr(s.TestNamespace)

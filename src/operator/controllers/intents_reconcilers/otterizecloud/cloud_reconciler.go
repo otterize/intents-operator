@@ -37,7 +37,7 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, nil
 	}
 
-	intentsInput, err := clientIntentsList.FormatAsOtterizeIntents(req.Namespace)
+	intentsInput, err := clientIntentsList.FormatAsOtterizeIntents()
 	if err != nil {
 		return ctrl.Result{}, err
 	}

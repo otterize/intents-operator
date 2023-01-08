@@ -195,11 +195,12 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 	}
 }
 
-func (in *ClientIntentsList) FormatAsOtterizeIntents(intentsObjNamespace string) ([]graphqlclient.IntentInput, error) {
+func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentInput, error) {
 	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
-			otterizeIntents = append(otterizeIntents, intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName()))
+			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
+			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
 		}
 	}
 	return otterizeIntents, nil
