@@ -93,7 +93,7 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	// Declare mock expectations for ReportAppliedIntents
-	expectedIntent := intentInput(clientName, s.TestNamespace, server, s.TestNamespace, &graphqlclient.IntentBody{})
+	expectedIntent := intentInput(clientName, s.TestNamespace, server, s.TestNamespace)
 
 	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
 	expectedNamespace := lo.ToPtr(s.TestNamespace)
@@ -105,7 +105,7 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 	})
 }
 
-func intentInput(clientName string, namespace string, serverName string, serverNamespace string, bodyPtr *graphqlclient.IntentBody) graphqlclient.IntentInput {
+func intentInput(clientName string, namespace string, serverName string, serverNamespace string) graphqlclient.IntentInput {
 	nilIfEmpty := func(s string) *string {
 		if s == "" {
 			return nil
@@ -118,7 +118,6 @@ func intentInput(clientName string, namespace string, serverName string, serverN
 		ServerName:      nilIfEmpty(serverName),
 		Namespace:       nilIfEmpty(namespace),
 		ServerNamespace: nilIfEmpty(serverNamespace),
-		Body:            bodyPtr,
 	}
 }
 
