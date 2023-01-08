@@ -2,9 +2,11 @@
 # https://github.com/Khan/genqlient/blob/main/docs/genqlient.yaml
 schema:
   - ../../../../../graphql/root.graphql
-  - ../../../../../graphql/kubernetes.graphql
   - ../../../../../graphql/credentials.graphql
   - ../../../../../graphql/services.graphql
+  - ../../../../../graphql/namespaces.graphql
+  - ../../../../../graphql/clusters.graphql
+  - ../../../../../graphql/kafkaserverconfig.graphql
   - ../../../../../graphql/federation/federation-directives.graphql
 operations:
   - genqlient.graphql

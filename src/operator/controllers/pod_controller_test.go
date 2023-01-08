@@ -10,9 +10,9 @@ import (
 	"github.com/otterize/spire-integration-operator/src/controllers/secrets/types"
 	"github.com/otterize/spire-integration-operator/src/mocks/controller-runtime/client"
 	mock_secrets "github.com/otterize/spire-integration-operator/src/mocks/controllers/secrets"
+	mock_entries "github.com/otterize/spire-integration-operator/src/mocks/entries"
 	mock_record "github.com/otterize/spire-integration-operator/src/mocks/eventrecorder"
 	mock_spireclient "github.com/otterize/spire-integration-operator/src/mocks/spireclient"
-	mock_entries "github.com/otterize/spire-integration-operator/src/mocks/spireclient/entries"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
@@ -32,8 +32,8 @@ type PodControllerSuite struct {
 	controller      *gomock.Controller
 	client          *mock_client.MockClient
 	spireClient     *mock_spireclient.MockServerClient
-	entriesRegistry *mock_entries.MockRegistry
-	secretsManager  *mock_secrets.MockManager
+	entriesRegistry *mock_entries.MockWorkloadRegistry
+	secretsManager  *mock_secrets.MockSecretsManager
 	podReconciler   *PodReconciler
 }
 
@@ -41,8 +41,8 @@ func (s *PodControllerSuite) SetupTest() {
 	s.controller = gomock.NewController(s.T())
 	s.client = mock_client.NewMockClient(s.controller)
 	s.spireClient = mock_spireclient.NewMockServerClient(s.controller)
-	s.entriesRegistry = mock_entries.NewMockRegistry(s.controller)
-	s.secretsManager = mock_secrets.NewMockManager(s.controller)
+	s.entriesRegistry = mock_entries.NewMockWorkloadRegistry(s.controller)
+	s.secretsManager = mock_secrets.NewMockSecretsManager(s.controller)
 	serviceIdResolver := serviceidresolver.NewResolver(s.client)
 	eventRecorder := mock_record.NewMockEventRecorder(s.controller)
 	eventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
@@ -111,7 +111,7 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 	})
 
 	// expect spire entry registration
-	s.entriesRegistry.EXPECT().RegisterK8SPodEntry(gomock.Any(), namespace, metadata.RegisteredServiceNameLabel, servicename, ttl, extraDnsNames).
+	s.entriesRegistry.EXPECT().RegisterK8SPod(gomock.Any(), namespace, metadata.RegisteredServiceNameLabel, servicename, ttl, extraDnsNames).
 		Return(entryID, nil)
 
 	// expect TLS secret creation
