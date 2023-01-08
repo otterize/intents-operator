@@ -20,6 +20,8 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
+	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -164,7 +166,7 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 	otterizeAccessLabels := map[string]string{}
 
 	for _, intent := range in.GetCallsList() {
-		ns := intent.ResolveIntentNamespace(requestNamespace)
+		ns := intent.ResolveServerNamespace(requestNamespace)
 		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.Name, ns)
 		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)] = "true"
 	}
@@ -172,14 +174,64 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 	return otterizeAccessLabels
 }
 
-// ResolveIntentNamespace returns target namespace for intent if exists
+// ResolveServerNamespace returns target namespace for intent if exists
 // or the entire resource's namespace if the specific intent has no target namespace, as it's optional
-func (in *Intent) ResolveIntentNamespace(intentsObjNamespace string) string {
+func (in *Intent) ResolveServerNamespace(intentsObjNamespace string) string {
 	if in.Namespace != "" {
 		return in.Namespace
 	}
 
 	return intentsObjNamespace
+}
+
+func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
+	switch in.Type {
+	case IntentTypeHTTP:
+		return graphqlclient.IntentTypeHttp
+	case IntentTypeKafka:
+		return graphqlclient.IntentTypeKafka
+	default:
+		panic("Not supposed to reach here")
+	}
+}
+
+func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]graphqlclient.IntentInput, error) {
+	otterizeIntents := make([]graphqlclient.IntentInput, 0)
+	for _, clientIntents := range in.Items {
+		for _, intent := range clientIntents.GetCallsList() {
+			otterizeIntents = append(otterizeIntents, intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName()))
+		}
+	}
+	return otterizeIntents, nil
+}
+
+func (in *Intent) ConvertToCloudFormat(resourceNamespace, clientName string) graphqlclient.IntentInput {
+	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) graphqlclient.KafkaConfigInput {
+		return graphqlclient.KafkaConfigInput{
+			Name: topic.Name,
+			Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) graphqlclient.KafkaOperation {
+				return graphqlclient.KafkaOperation(op)
+			}),
+		}
+	})
+
+	intentInput := graphqlclient.IntentInput{
+		ClientName:      clientName,
+		ServerName:      in.Name,
+		Namespace:       resourceNamespace,
+		ServerNamespace: in.ResolveServerNamespace(resourceNamespace),
+	}
+
+	if in.Type != "" {
+		intentInput.Body = graphqlclient.IntentBody{
+			Type: in.typeAsGQLType(),
+		}
+		if len(otterizeTopics) != 0 {
+			intentInput.Body.Topics = otterizeTopics
+		}
+	}
+
+	return intentInput
 }
 
 // GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)

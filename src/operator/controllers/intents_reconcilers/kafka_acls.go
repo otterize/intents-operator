@@ -28,16 +28,24 @@ const (
 )
 
 type KafkaACLReconciler struct {
-	client                  client.Client
-	scheme                  *runtime.Scheme
-	KafkaServersStore       *kafkaacls.ServersStore
-	enableKafkaACLCreation  bool
-	getNewKafkaIntentsAdmin kafkaacls.IntentsAdminFactoryFunction
+	client                     client.Client
+	scheme                     *runtime.Scheme
+	KafkaServersStore          kafkaacls.ServersStore
+	enforcementEnabledGlobally bool
+	enableKafkaACLCreation     bool
+	getNewKafkaIntentsAdmin    kafkaacls.IntentsAdminFactoryFunction
 	injectablerecorder.InjectableRecorder
 }
 
-func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, serversStore *kafkaacls.ServersStore, enableKafkaACLCreation bool, factoryFunc kafkaacls.IntentsAdminFactoryFunction) *KafkaACLReconciler {
-	return &KafkaACLReconciler{client: client, scheme: scheme, KafkaServersStore: serversStore, enableKafkaACLCreation: enableKafkaACLCreation, getNewKafkaIntentsAdmin: factoryFunc}
+func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, serversStore kafkaacls.ServersStore, enableKafkaACLCreation bool, factoryFunc kafkaacls.IntentsAdminFactoryFunction, enforcementEnabledGlobally bool) *KafkaACLReconciler {
+	return &KafkaACLReconciler{
+		client:                     client,
+		scheme:                     scheme,
+		KafkaServersStore:          serversStore,
+		enableKafkaACLCreation:     enableKafkaACLCreation,
+		getNewKafkaIntentsAdmin:    factoryFunc,
+		enforcementEnabledGlobally: enforcementEnabledGlobally,
+	}
 }
 
 func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Intent) map[types.NamespacedName][]otterizev1alpha1.Intent {
@@ -62,7 +70,7 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) 
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Calls)
 
 	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha1.KafkaServerConfig, tls otterizev1alpha1.TLSSource) error {
-		kafkaIntentsAdmin, err := r.getNewKafkaIntentsAdmin(*config, tls, r.enableKafkaACLCreation)
+		kafkaIntentsAdmin, err := r.getNewKafkaIntentsAdmin(*config, tls, r.enableKafkaACLCreation, r.enforcementEnabledGlobally)
 		if err != nil {
 			err = fmt.Errorf("failed to connect to Kafka server %s: %w", serverName, err)
 			r.RecordWarningEventf(intents, ReasonCouldNotConnectToKafkaServer, "Kafka ACL reconcile failed: %s", err.Error())
@@ -80,11 +88,14 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) 
 		return 0, err
 	}
 
+	if !r.enforcementEnabledGlobally {
+		r.RecordNormalEvent(intents, ReasonEnforcementGloballyDisabled, "Enforcement is disabled globally, Kafka ACL creation skipped")
+	}
 	if !r.enableKafkaACLCreation {
 		r.RecordNormalEvent(intents, ReasonKafkaACLCreationDisabled, "Kafka ACL creation is disabled, creation skipped")
 	}
 
-	for serverName, _ := range intentsByServer {
+	for serverName := range intentsByServer {
 		if !r.KafkaServersStore.Exists(serverName.Name, serverName.Namespace) {
 			r.RecordWarningEventf(intents, ReasonKafkaServerNotConfigured, "broker %s not configured", serverName)
 			logrus.WithField("server", serverName).Warning("Did not apply intents to server - no server configuration was defined")
@@ -96,7 +107,7 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha1.ClientIntents) 
 
 func (r *KafkaACLReconciler) RemoveACLs(intents *otterizev1alpha1.ClientIntents) error {
 	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha1.KafkaServerConfig, tls otterizev1alpha1.TLSSource) error {
-		kafkaIntentsAdmin, err := r.getNewKafkaIntentsAdmin(*config, tls, r.enableKafkaACLCreation)
+		kafkaIntentsAdmin, err := r.getNewKafkaIntentsAdmin(*config, tls, r.enableKafkaACLCreation, r.enforcementEnabledGlobally)
 		if err != nil {
 			return err
 		}
@@ -138,7 +149,7 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	var result ctrl.Result
-	result, err = r.applyAcls(logger, err, intents)
+	result, err = r.applyAcls(logger, intents)
 	if err != nil {
 		return result, err
 	}
@@ -147,7 +158,7 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 }
 
-func (r *KafkaACLReconciler) applyAcls(logger *logrus.Entry, err error, intents *otterizev1alpha1.ClientIntents) (ctrl.Result, error) {
+func (r *KafkaACLReconciler) applyAcls(logger *logrus.Entry, intents *otterizev1alpha1.ClientIntents) (ctrl.Result, error) {
 	logger.Info("Applying new ACLs")
 	serverCount, err := r.applyACLs(intents)
 	if err != nil {

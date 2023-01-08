@@ -38,7 +38,7 @@ func HasOtterizeServerLabel(pod *v1.Pod, labelValue string) bool {
 }
 
 func cleanupOtterizeLabelsAndAnnotations(pod *v1.Pod) *v1.Pod {
-	for k, _ := range pod.Labels {
+	for k := range pod.Labels {
 		if isOtterizeAccessLabel(k) {
 			delete(pod.Labels, k)
 		}
@@ -50,10 +50,7 @@ func cleanupOtterizeLabelsAndAnnotations(pod *v1.Pod) *v1.Pod {
 }
 
 func isOtterizeAccessLabel(s string) bool {
-	if strings.HasPrefix(s, OtterizeAccessLabelPrefix) {
-		return true
-	}
-	return false
+	return strings.HasPrefix(s, OtterizeAccessLabelPrefix)
 }
 
 func GetOtterizeLabelsFromPod(pod *v1.Pod) map[string]string {
