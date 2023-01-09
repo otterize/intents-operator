@@ -61,6 +61,20 @@ func (mr *MockCloudClientMockRecorder) ReportComponentStatus(ctx, component inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportComponentStatus", reflect.TypeOf((*MockCloudClient)(nil).ReportComponentStatus), ctx, component)
 }
 
+// ReportIntentsOperatorConfiguration mocks base method.
+func (m *MockCloudClient) ReportIntentsOperatorConfiguration(ctx context.Context, enableEnforcement bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReportIntentsOperatorConfiguration", ctx, enableEnforcement)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReportIntentsOperatorConfiguration indicates an expected call of ReportIntentsOperatorConfiguration.
+func (mr *MockCloudClientMockRecorder) ReportIntentsOperatorConfiguration(ctx, enableEnforcement interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportIntentsOperatorConfiguration", reflect.TypeOf((*MockCloudClient)(nil).ReportIntentsOperatorConfiguration), ctx, enableEnforcement)
+}
+
 // ReportKafkaServerConfig mocks base method.
 func (m *MockCloudClient) ReportKafkaServerConfig(ctx context.Context, server graphqlclient.KafkaServerConfigInput) error {
 	m.ctrl.T.Helper()

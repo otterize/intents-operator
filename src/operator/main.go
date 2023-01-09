@@ -38,6 +38,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"time"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -167,7 +168,7 @@ func main() {
 	if !ok {
 		logrus.Info("missing configuration for cloud integration, disabling cloud communication")
 	} else {
-		otterizecloud.PeriodicallyReportConnectionToCloud(otterizeCloudClient)
+		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient)
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(
@@ -227,6 +228,18 @@ func main() {
 		logrus.WithError(err).Fatal("unable to set up ready check")
 	}
 
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelFunc()
+	cloudClient, connectedToCloud, err := otterizecloud.NewClient(ctx)
+	if err != nil {
+		logrus.WithError(err).Warning("Failed to connect to Otterize cloud")
+	}
+	if connectedToCloud {
+		err := cloudClient.ReportIntentsOperatorConfiguration(ctx, enforcementEnabledGlobally)
+		if err != nil {
+			logrus.WithError(err).Warning("Failed to report configuration to the cloud")
+		}
+	}
 	if !enforcementEnabledGlobally {
 		logrus.Infof("Running with %s=false, won't perform any enforcement", enableEnforcementKey)
 	}

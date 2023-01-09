@@ -78,6 +78,13 @@ const (
 	IntentTypeKafka IntentType = "KAFKA"
 )
 
+type IntentsOperatorConfigurationInput struct {
+	EnableEnforcement bool `json:"enableEnforcement"`
+}
+
+// GetEnableEnforcement returns IntentsOperatorConfigurationInput.EnableEnforcement, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetEnableEnforcement() bool { return v.EnableEnforcement }
+
 type KafkaConfigInput struct {
 	Name       *string           `json:"name"`
 	Operations []*KafkaOperation `json:"operations"`
@@ -162,6 +169,16 @@ func (v *ReportComponentStatusResponse) GetReportComponentStatus() string {
 	return v.ReportComponentStatus
 }
 
+// ReportIntentsOperatorConfigurationResponse is returned by ReportIntentsOperatorConfiguration on success.
+type ReportIntentsOperatorConfigurationResponse struct {
+	ReportIntentsOperatorConfiguration string `json:"reportIntentsOperatorConfiguration"`
+}
+
+// GetReportIntentsOperatorConfiguration returns ReportIntentsOperatorConfigurationResponse.ReportIntentsOperatorConfiguration, and is useful for accessing the field via an interface.
+func (v *ReportIntentsOperatorConfigurationResponse) GetReportIntentsOperatorConfiguration() string {
+	return v.ReportIntentsOperatorConfiguration
+}
+
 // ReportKafkaServerConfigResponse is returned by ReportKafkaServerConfig on success.
 type ReportKafkaServerConfigResponse struct {
 	ReportKafkaServerConfig bool `json:"reportKafkaServerConfig"`
@@ -191,6 +208,16 @@ type __ReportComponentStatusInput struct {
 
 // GetComponent returns __ReportComponentStatusInput.Component, and is useful for accessing the field via an interface.
 func (v *__ReportComponentStatusInput) GetComponent() ComponentType { return v.Component }
+
+// __ReportIntentsOperatorConfigurationInput is used internally by genqlient
+type __ReportIntentsOperatorConfigurationInput struct {
+	Configuration IntentsOperatorConfigurationInput `json:"configuration"`
+}
+
+// GetConfiguration returns __ReportIntentsOperatorConfigurationInput.Configuration, and is useful for accessing the field via an interface.
+func (v *__ReportIntentsOperatorConfigurationInput) GetConfiguration() IntentsOperatorConfigurationInput {
+	return v.Configuration
+}
 
 // __ReportKafkaServerConfigInput is used internally by genqlient
 type __ReportKafkaServerConfigInput struct {
@@ -251,6 +278,36 @@ mutation ReportComponentStatus ($component: ComponentType!) {
 	var err error
 
 	var data ReportComponentStatusResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func ReportIntentsOperatorConfiguration(
+	ctx context.Context,
+	client graphql.Client,
+	configuration IntentsOperatorConfigurationInput,
+) (*ReportIntentsOperatorConfigurationResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportIntentsOperatorConfiguration",
+		Query: `
+mutation ReportIntentsOperatorConfiguration ($configuration: IntentsOperatorConfigurationInput!) {
+	reportIntentsOperatorConfiguration(configuration: $configuration)
+}
+`,
+		Variables: &__ReportIntentsOperatorConfigurationInput{
+			Configuration: configuration,
+		},
+	}
+	var err error
+
+	var data ReportIntentsOperatorConfigurationResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(
