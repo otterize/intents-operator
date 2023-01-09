@@ -50,6 +50,18 @@ func (mr *MockCloudClientMockRecorder) ReportAppliedIntents(ctx, namespace, clie
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportAppliedIntents", reflect.TypeOf((*MockCloudClient)(nil).ReportAppliedIntents), ctx, namespace, clientIntentsList)
 }
 
+// ReportComponentStatus mocks base method.
+func (m *MockCloudClient) ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ReportComponentStatus", ctx, component)
+}
+
+// ReportComponentStatus indicates an expected call of ReportComponentStatus.
+func (mr *MockCloudClientMockRecorder) ReportComponentStatus(ctx, component interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportComponentStatus", reflect.TypeOf((*MockCloudClient)(nil).ReportComponentStatus), ctx, component)
+}
+
 // ReportIntentsOperatorConfiguration mocks base method.
 func (m *MockCloudClient) ReportIntentsOperatorConfiguration(ctx context.Context, enableEnforcement bool) error {
 	m.ctrl.T.Helper()

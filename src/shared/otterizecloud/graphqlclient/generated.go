@@ -8,6 +8,14 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+type ComponentType string
+
+const (
+	ComponentTypeIntentsOperator     ComponentType = "INTENTS_OPERATOR"
+	ComponentTypeCredentialsOperator ComponentType = "CREDENTIALS_OPERATOR"
+	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
+)
+
 type HTTPConfigInput struct {
 	Path   string     `json:"path"`
 	Method HTTPMethod `json:"method"`
@@ -151,6 +159,16 @@ func (v *ReportAppliedKubernetesIntentsResponse) GetReportAppliedKubernetesInten
 	return v.ReportAppliedKubernetesIntents
 }
 
+// ReportComponentStatusResponse is returned by ReportComponentStatus on success.
+type ReportComponentStatusResponse struct {
+	ReportComponentStatus string `json:"reportComponentStatus"`
+}
+
+// GetReportComponentStatus returns ReportComponentStatusResponse.ReportComponentStatus, and is useful for accessing the field via an interface.
+func (v *ReportComponentStatusResponse) GetReportComponentStatus() string {
+	return v.ReportComponentStatus
+}
+
 // ReportIntentsOperatorConfigurationResponse is returned by ReportIntentsOperatorConfiguration on success.
 type ReportIntentsOperatorConfigurationResponse struct {
 	ReportIntentsOperatorConfiguration string `json:"reportIntentsOperatorConfiguration"`
@@ -182,6 +200,14 @@ func (v *__ReportAppliedKubernetesIntentsInput) GetNamespace() string { return v
 
 // GetIntents returns __ReportAppliedKubernetesIntentsInput.Intents, and is useful for accessing the field via an interface.
 func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []IntentInput { return v.Intents }
+
+// __ReportComponentStatusInput is used internally by genqlient
+type __ReportComponentStatusInput struct {
+	Component ComponentType `json:"component"`
+}
+
+// GetComponent returns __ReportComponentStatusInput.Component, and is useful for accessing the field via an interface.
+func (v *__ReportComponentStatusInput) GetComponent() ComponentType { return v.Component }
 
 // __ReportIntentsOperatorConfigurationInput is used internally by genqlient
 type __ReportIntentsOperatorConfigurationInput struct {
@@ -222,6 +248,36 @@ mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentI
 	var err error
 
 	var data ReportAppliedKubernetesIntentsResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func ReportComponentStatus(
+	ctx context.Context,
+	client graphql.Client,
+	component ComponentType,
+) (*ReportComponentStatusResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportComponentStatus",
+		Query: `
+mutation ReportComponentStatus ($component: ComponentType!) {
+	reportComponentStatus(component: $component)
+}
+`,
+		Variables: &__ReportComponentStatusInput{
+			Component: component,
+		},
+	}
+	var err error
+
+	var data ReportComponentStatusResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

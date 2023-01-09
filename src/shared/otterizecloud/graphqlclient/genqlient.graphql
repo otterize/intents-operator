@@ -9,3 +9,7 @@ mutation ReportAppliedKubernetesIntents($namespace: String!,$intents: [IntentInp
 mutation ReportIntentsOperatorConfiguration($configuration: IntentsOperatorConfigurationInput!) {
     reportIntentsOperatorConfiguration(configuration: $configuration)
 }
+
+mutation ReportComponentStatus($component: ComponentType!) {
+    reportComponentStatus(component: $component)
+}
