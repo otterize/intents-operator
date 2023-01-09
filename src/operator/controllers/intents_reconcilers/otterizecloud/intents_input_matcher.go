@@ -58,9 +58,9 @@ func (m IntentsMatcher) String() string {
 func prettyPrint(m IntentsMatcher) string {
 	expected := m.expected
 	var result string
-	itemFormat := "IntentInput{ClientName: %s, ServerName: %s, Namespace: %s, ServerNamespace: %s},"
+	itemFormat := "IntentInput{ClientName: %s, ServerName: %s, Namespace: %s, ServerNamespace: %s, Type: %s},"
 	for _, intent := range expected {
-		var clientName, namespace, serverName, serverNamespace string
+		var clientName, namespace, serverName, serverNamespace, intentType string
 		if intent.ClientName != nil {
 			clientName = *intent.ClientName
 		}
@@ -73,7 +73,10 @@ func prettyPrint(m IntentsMatcher) string {
 		if intent.ServerNamespace != nil {
 			serverNamespace = *intent.ServerNamespace
 		}
-		result += fmt.Sprintf(itemFormat, clientName, serverName, namespace, serverNamespace)
+		if intent.Type != nil {
+			intentType = *intent.ServerNamespace
+		}
+		result += fmt.Sprintf(itemFormat, clientName, serverName, namespace, serverNamespace, intentType)
 	}
 
 	return result

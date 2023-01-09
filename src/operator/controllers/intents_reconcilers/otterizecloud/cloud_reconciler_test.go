@@ -83,7 +83,6 @@ func (s *CloudReconcilerTestSuite) reconcile(namespacedName types.NamespacedName
 }
 
 func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
-	// add intents
 	server := "test-server"
 	_, err := s.AddIntents(intentsObjectName, clientName, []otterizev1alpha1.Intent{{
 		Name: server,
@@ -92,7 +91,6 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
-	// Declare mock expectations for ReportAppliedIntents
 	expectedIntent := intentInput(clientName, s.TestNamespace, server, s.TestNamespace)
 
 	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
