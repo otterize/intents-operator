@@ -169,7 +169,7 @@ func main() {
 	if !ok {
 		logrus.Info("missing configuration for cloud integration, disabling cloud communication")
 	} else {
-		otterizecloud.PeriodicallyReportConnectionToCloud(otterizeCloudClient)
+		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient)
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(

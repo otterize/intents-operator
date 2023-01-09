@@ -76,7 +76,7 @@ func (c *CloudClientImpl) ReportIntentsOperatorConfiguration(
 func (c *CloudClientImpl) ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType) {
 	_, err := graphqlclient.ReportComponentStatus(ctx, c.client, component)
 	if err != nil {
-		logrus.WithError(err).Error("Failed to reported component status Otterize cloud")
+		logrus.WithError(err).Error("failed to reported component status Otterize cloud")
 		return
 	}
 }
