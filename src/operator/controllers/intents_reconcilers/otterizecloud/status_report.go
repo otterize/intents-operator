@@ -1,23 +1,22 @@
 package otterizecloud
 
 import (
+	"context"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"time"
 )
 
-func StartPeriodicallyReportConnectionToCloud(client CloudClient) {
+func StartPeriodicallyReportConnectionToCloud(client CloudClient, ctx context.Context) {
 	interval := viper.GetInt(otterizecloudclient.ComponentReportIntervalKey)
 	go func() {
-		runPeriodicReportConnection(interval, client)
+		runPeriodicReportConnection(interval, client, ctx)
 	}()
 }
 
-func runPeriodicReportConnection(interval int, client CloudClient) {
-	ctx := ctrl.SetupSignalHandler()
+func runPeriodicReportConnection(interval int, client CloudClient, ctx context.Context) {
 	cloudUploadTicker := time.NewTicker(time.Second * time.Duration(interval))
 
 	logrus.Info("Starting cloud connection ticker")
