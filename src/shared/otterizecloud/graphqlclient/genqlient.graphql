@@ -5,3 +5,11 @@ mutation ReportKafkaServerConfig($server: KafkaServerConfigInput!) {
 mutation ReportAppliedKubernetesIntents($namespace: String!,$intents: [IntentInput!]!) {
     reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents)
 }
+
+mutation ReportIntentsOperatorConfiguration($configuration: IntentsOperatorConfigurationInput!) {
+    reportIntentsOperatorConfiguration(configuration: $configuration)
+}
+
+mutation ReportComponentStatus($component: ComponentType!) {
+    reportComponentStatus(component: $component)
+}
