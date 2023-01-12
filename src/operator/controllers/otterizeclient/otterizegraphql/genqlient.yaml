@@ -1,15 +1,8 @@
 # genqlient config; for full documentation see:
 # https://github.com/Khan/genqlient/blob/main/docs/genqlient.yaml
 schema:
-  - ../../../../../graphql/root.graphql
-  - ../../../../../graphql/credentials.graphql
-  - ../../../../../graphql/credentialstypes.graphql
-  - ../../../../../graphql/services.graphql
-  - ../../../../../graphql/certificate_information.graphql
-  - ../../../../../graphql/namespaces.graphql
-  - ../../../../../graphql/clusters.graphql
-  - ../../../../../graphql/kafkaserverconfig.graphql
-  - ../../../../../graphql/federation/federation-directives.graphql
+  - ../../../../../graphql/*.graphql
+  - ../../../../../graphql/federation/*.graphql
 operations:
   - genqlient.graphql
 generated: generated.go

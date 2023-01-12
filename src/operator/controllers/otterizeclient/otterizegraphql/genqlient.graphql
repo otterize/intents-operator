@@ -23,5 +23,5 @@ query GetTLSKeyPair ($id: ID!) {
 }
 
 mutation ReportComponentStatus($component: ComponentType!) {
-    reportComponentStatus(component: $component)
+    reportIntegrationComponentStatus(component: $component)
 }
