@@ -6,17 +6,17 @@ fragment TLSKeyPair on KeyPair {
     expiresAt
 }
 
-mutation ReportKubernetesWorkload($namespace: String!, $podOwnerName: String!) {
-    reportKubernetesWorkload(namespace: $namespace, podOwnerName: $podOwnerName)
+mutation RegisterKubernetesPodOwnerCertificateRequest($namespace: String!, $podOwnerName: String!, $certificateCustomizations: CertificateCustomization) {
+    registerKubernetesPodOwnerCertificateRequest(namespace: $namespace, podOwnerName: $podOwnerName, certificateCustomization: $certificateCustomizations)
     {
         id
     }
 }
 
 # @genqlient(pointer: true)
-query GetTLSKeyPair ($id: ID!, $certificateCustomizations: CertificateCustomization) {
+query GetTLSKeyPair ($id: ID!) {
     service(id: $id) {
-        tlsKeyPair(certificateCustomization: $certificateCustomizations) {
+        tlsKeyPair {
             ...TLSKeyPair
         }
     }

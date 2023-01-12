@@ -8,23 +8,15 @@ import (
 	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/spire-integration-operator/src/controllers/otterizeclient/otterizegraphql"
-	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-type cachedServiceDetails struct {
-	serviceName       string
-	namesSpace        string
-	certCustomization otterizegraphql.CertificateCustomization
-}
-
 type CloudClient struct {
 	graphqlClient graphql.Client
 	injectablerecorder.InjectableRecorder
-	serviceCache map[string]cachedServiceDetails
 }
 
 func newGraphqlClient(ctx context.Context) (graphql.Client, error) {
@@ -58,14 +50,10 @@ func NewCloudClient(ctx context.Context) (*CloudClient, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &CloudClient{graphqlClient: gql, serviceCache: map[string]cachedServiceDetails{}}, err
+	return &CloudClient{graphqlClient: gql}, err
 }
 func (c *CloudClient) GetTLSKeyPair(ctx context.Context, serviceId string) (otterizegraphql.TLSKeyPair, error) {
-	cachedDetails, ok := c.serviceCache[serviceId]
-	if !ok {
-		return otterizegraphql.TLSKeyPair{}, fmt.Errorf("service id not registered: %s", serviceId)
-	}
-	res, err := otterizegraphql.GetTLSKeyPair(ctx, c.graphqlClient, &serviceId, &cachedDetails.certCustomization)
+	res, err := otterizegraphql.GetTLSKeyPair(ctx, c.graphqlClient, &serviceId)
 	if err != nil {
 		return otterizegraphql.TLSKeyPair{}, err
 	}
@@ -73,17 +61,12 @@ func (c *CloudClient) GetTLSKeyPair(ctx context.Context, serviceId string) (otte
 }
 
 func (c *CloudClient) RegisterK8SPod(ctx context.Context, namespace string, _ string, serviceName string, ttl int32, dnsNames []string) (string, error) {
-	res, err := otterizegraphql.ReportKubernetesWorkload(ctx, c.graphqlClient, namespace, serviceName)
+	certCustomization := otterizegraphql.CertificateCustomization{DnsNames: dnsNames, Ttl: int(ttl)}
+	res, err := otterizegraphql.RegisterKubernetesPodOwnerCertificateRequest(ctx, c.graphqlClient, namespace, serviceName, certCustomization)
 	if err != nil {
 		return "", err
 	}
-	certCustomization := otterizegraphql.CertificateCustomization{DnsNames: lo.ToSlicePtr(dnsNames)}
-	if ttl != 0 {
-		ttlInt := int(ttl)
-		certCustomization.Ttl = &ttlInt
-	}
-	c.serviceCache[res.ReportKubernetesWorkload.Id] = cachedServiceDetails{serviceName: serviceName, namesSpace: namespace, certCustomization: certCustomization}
-	return res.ReportKubernetesWorkload.Id, nil
+	return res.RegisterKubernetesPodOwnerCertificateRequest.Id, nil
 }
 
 func (c *CloudClient) CleanupOrphanK8SPodEntries(_ context.Context, _ string, _ map[string]*goset.Set[string]) error {

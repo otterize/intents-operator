@@ -3,7 +3,9 @@
 schema:
   - ../../../../../graphql/root.graphql
   - ../../../../../graphql/credentials.graphql
+  - ../../../../../graphql/credentialstypes.graphql
   - ../../../../../graphql/services.graphql
+  - ../../../../../graphql/certificate_information.graphql
   - ../../../../../graphql/namespaces.graphql
   - ../../../../../graphql/clusters.graphql
   - ../../../../../graphql/kafkaserverconfig.graphql

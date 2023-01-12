@@ -10,15 +10,15 @@ import (
 )
 
 type CertificateCustomization struct {
-	DnsNames []*string `json:"dnsNames"`
-	Ttl      *int      `json:"ttl"`
+	DnsNames []string `json:"dnsNames"`
+	Ttl      int      `json:"ttl"`
 }
 
 // GetDnsNames returns CertificateCustomization.DnsNames, and is useful for accessing the field via an interface.
-func (v *CertificateCustomization) GetDnsNames() []*string { return v.DnsNames }
+func (v *CertificateCustomization) GetDnsNames() []string { return v.DnsNames }
 
 // GetTtl returns CertificateCustomization.Ttl, and is useful for accessing the field via an interface.
-func (v *CertificateCustomization) GetTtl() *int { return v.Ttl }
+func (v *CertificateCustomization) GetTtl() int { return v.Ttl }
 
 type ComponentType string
 
@@ -121,6 +121,27 @@ func (v *GetTLSKeyPairServiceTlsKeyPair) __premarshalJSON() (*__premarshalGetTLS
 	return &retval, nil
 }
 
+// RegisterKubernetesPodOwnerCertificateRequestRegisterKubernetesPodOwnerCertificateRequestService includes the requested fields of the GraphQL type Service.
+type RegisterKubernetesPodOwnerCertificateRequestRegisterKubernetesPodOwnerCertificateRequestService struct {
+	Id string `json:"id"`
+}
+
+// GetId returns RegisterKubernetesPodOwnerCertificateRequestRegisterKubernetesPodOwnerCertificateRequestService.Id, and is useful for accessing the field via an interface.
+func (v *RegisterKubernetesPodOwnerCertificateRequestRegisterKubernetesPodOwnerCertificateRequestService) GetId() string {
+	return v.Id
+}
+
+// RegisterKubernetesPodOwnerCertificateRequestResponse is returned by RegisterKubernetesPodOwnerCertificateRequest on success.
+type RegisterKubernetesPodOwnerCertificateRequestResponse struct {
+	// Register certificate-request details for kubernetes pod owner, returns the service associated with this pod owner
+	RegisterKubernetesPodOwnerCertificateRequest RegisterKubernetesPodOwnerCertificateRequestRegisterKubernetesPodOwnerCertificateRequestService `json:"registerKubernetesPodOwnerCertificateRequest"`
+}
+
+// GetRegisterKubernetesPodOwnerCertificateRequest returns RegisterKubernetesPodOwnerCertificateRequestResponse.RegisterKubernetesPodOwnerCertificateRequest, and is useful for accessing the field via an interface.
+func (v *RegisterKubernetesPodOwnerCertificateRequestResponse) GetRegisterKubernetesPodOwnerCertificateRequest() RegisterKubernetesPodOwnerCertificateRequestRegisterKubernetesPodOwnerCertificateRequestService {
+	return v.RegisterKubernetesPodOwnerCertificateRequest
+}
+
 // ReportComponentStatusResponse is returned by ReportComponentStatus on success.
 type ReportComponentStatusResponse struct {
 	ReportComponentStatus string `json:"reportComponentStatus"`
@@ -129,24 +150,6 @@ type ReportComponentStatusResponse struct {
 // GetReportComponentStatus returns ReportComponentStatusResponse.ReportComponentStatus, and is useful for accessing the field via an interface.
 func (v *ReportComponentStatusResponse) GetReportComponentStatus() string {
 	return v.ReportComponentStatus
-}
-
-// ReportKubernetesWorkloadReportKubernetesWorkloadService includes the requested fields of the GraphQL type Service.
-type ReportKubernetesWorkloadReportKubernetesWorkloadService struct {
-	Id string `json:"id"`
-}
-
-// GetId returns ReportKubernetesWorkloadReportKubernetesWorkloadService.Id, and is useful for accessing the field via an interface.
-func (v *ReportKubernetesWorkloadReportKubernetesWorkloadService) GetId() string { return v.Id }
-
-// ReportKubernetesWorkloadResponse is returned by ReportKubernetesWorkload on success.
-type ReportKubernetesWorkloadResponse struct {
-	ReportKubernetesWorkload ReportKubernetesWorkloadReportKubernetesWorkloadService `json:"reportKubernetesWorkload"`
-}
-
-// GetReportKubernetesWorkload returns ReportKubernetesWorkloadResponse.ReportKubernetesWorkload, and is useful for accessing the field via an interface.
-func (v *ReportKubernetesWorkloadResponse) GetReportKubernetesWorkload() ReportKubernetesWorkloadReportKubernetesWorkloadService {
-	return v.ReportKubernetesWorkload
 }
 
 // TLSKeyPair includes the GraphQL fields of KeyPair requested by the fragment TLSKeyPair.
@@ -175,15 +178,31 @@ func (v *TLSKeyPair) GetExpiresAt() int { return v.ExpiresAt }
 
 // __GetTLSKeyPairInput is used internally by genqlient
 type __GetTLSKeyPairInput struct {
-	Id                        *string                   `json:"id"`
-	CertificateCustomizations *CertificateCustomization `json:"certificateCustomizations"`
+	Id *string `json:"id"`
 }
 
 // GetId returns __GetTLSKeyPairInput.Id, and is useful for accessing the field via an interface.
 func (v *__GetTLSKeyPairInput) GetId() *string { return v.Id }
 
-// GetCertificateCustomizations returns __GetTLSKeyPairInput.CertificateCustomizations, and is useful for accessing the field via an interface.
-func (v *__GetTLSKeyPairInput) GetCertificateCustomizations() *CertificateCustomization {
+// __RegisterKubernetesPodOwnerCertificateRequestInput is used internally by genqlient
+type __RegisterKubernetesPodOwnerCertificateRequestInput struct {
+	Namespace                 string                   `json:"namespace"`
+	PodOwnerName              string                   `json:"podOwnerName"`
+	CertificateCustomizations CertificateCustomization `json:"certificateCustomizations"`
+}
+
+// GetNamespace returns __RegisterKubernetesPodOwnerCertificateRequestInput.Namespace, and is useful for accessing the field via an interface.
+func (v *__RegisterKubernetesPodOwnerCertificateRequestInput) GetNamespace() string {
+	return v.Namespace
+}
+
+// GetPodOwnerName returns __RegisterKubernetesPodOwnerCertificateRequestInput.PodOwnerName, and is useful for accessing the field via an interface.
+func (v *__RegisterKubernetesPodOwnerCertificateRequestInput) GetPodOwnerName() string {
+	return v.PodOwnerName
+}
+
+// GetCertificateCustomizations returns __RegisterKubernetesPodOwnerCertificateRequestInput.CertificateCustomizations, and is useful for accessing the field via an interface.
+func (v *__RegisterKubernetesPodOwnerCertificateRequestInput) GetCertificateCustomizations() CertificateCustomization {
 	return v.CertificateCustomizations
 }
 
@@ -195,30 +214,17 @@ type __ReportComponentStatusInput struct {
 // GetComponent returns __ReportComponentStatusInput.Component, and is useful for accessing the field via an interface.
 func (v *__ReportComponentStatusInput) GetComponent() ComponentType { return v.Component }
 
-// __ReportKubernetesWorkloadInput is used internally by genqlient
-type __ReportKubernetesWorkloadInput struct {
-	Namespace    string `json:"namespace"`
-	PodOwnerName string `json:"podOwnerName"`
-}
-
-// GetNamespace returns __ReportKubernetesWorkloadInput.Namespace, and is useful for accessing the field via an interface.
-func (v *__ReportKubernetesWorkloadInput) GetNamespace() string { return v.Namespace }
-
-// GetPodOwnerName returns __ReportKubernetesWorkloadInput.PodOwnerName, and is useful for accessing the field via an interface.
-func (v *__ReportKubernetesWorkloadInput) GetPodOwnerName() string { return v.PodOwnerName }
-
 func GetTLSKeyPair(
 	ctx context.Context,
 	client graphql.Client,
 	id *string,
-	certificateCustomizations *CertificateCustomization,
 ) (*GetTLSKeyPairResponse, error) {
 	req := &graphql.Request{
 		OpName: "GetTLSKeyPair",
 		Query: `
-query GetTLSKeyPair ($id: ID!, $certificateCustomizations: CertificateCustomization) {
+query GetTLSKeyPair ($id: ID!) {
 	service(id: $id) {
-		tlsKeyPair(certificateCustomization: $certificateCustomizations) {
+		tlsKeyPair {
 			... TLSKeyPair
 		}
 	}
@@ -232,13 +238,48 @@ fragment TLSKeyPair on KeyPair {
 }
 `,
 		Variables: &__GetTLSKeyPairInput{
-			Id:                        id,
-			CertificateCustomizations: certificateCustomizations,
+			Id: id,
 		},
 	}
 	var err error
 
 	var data GetTLSKeyPairResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func RegisterKubernetesPodOwnerCertificateRequest(
+	ctx context.Context,
+	client graphql.Client,
+	namespace string,
+	podOwnerName string,
+	certificateCustomizations CertificateCustomization,
+) (*RegisterKubernetesPodOwnerCertificateRequestResponse, error) {
+	req := &graphql.Request{
+		OpName: "RegisterKubernetesPodOwnerCertificateRequest",
+		Query: `
+mutation RegisterKubernetesPodOwnerCertificateRequest ($namespace: String!, $podOwnerName: String!, $certificateCustomizations: CertificateCustomization) {
+	registerKubernetesPodOwnerCertificateRequest(namespace: $namespace, podOwnerName: $podOwnerName, certificateCustomization: $certificateCustomizations) {
+		id
+	}
+}
+`,
+		Variables: &__RegisterKubernetesPodOwnerCertificateRequestInput{
+			Namespace:                 namespace,
+			PodOwnerName:              podOwnerName,
+			CertificateCustomizations: certificateCustomizations,
+		},
+	}
+	var err error
+
+	var data RegisterKubernetesPodOwnerCertificateRequestResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(
@@ -269,40 +310,6 @@ mutation ReportComponentStatus ($component: ComponentType!) {
 	var err error
 
 	var data ReportComponentStatusResponse
-	resp := &graphql.Response{Data: &data}
-
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
-	)
-
-	return &data, err
-}
-
-func ReportKubernetesWorkload(
-	ctx context.Context,
-	client graphql.Client,
-	namespace string,
-	podOwnerName string,
-) (*ReportKubernetesWorkloadResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportKubernetesWorkload",
-		Query: `
-mutation ReportKubernetesWorkload ($namespace: String!, $podOwnerName: String!) {
-	reportKubernetesWorkload(namespace: $namespace, podOwnerName: $podOwnerName) {
-		id
-	}
-}
-`,
-		Variables: &__ReportKubernetesWorkloadInput{
-			Namespace:    namespace,
-			PodOwnerName: podOwnerName,
-		},
-	}
-	var err error
-
-	var data ReportKubernetesWorkloadResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(
