@@ -20,6 +20,8 @@ func runPeriodicReportConnection(interval int, client CloudClient, ctx context.C
 	cloudUploadTicker := time.NewTicker(time.Second * time.Duration(interval))
 
 	logrus.Info("Starting cloud connection ticker")
+	client.ReportComponentStatus(ctx, graphqlclient.ComponentTypeIntentsOperator)
+
 	for {
 		select {
 		case <-cloudUploadTicker.C:
