@@ -4,6 +4,9 @@ schema:
   - ../../../../graphql/root.graphql
   - ../../../../graphql/kafkaserverconfig.graphql
   - ../../../../graphql/integrations.graphql
+  - ../../../../graphql/integrations_components.configuration.graphql
+  - ../../../../graphql/integrations_components.status.graphql
+  - ../../../../graphql/integrations_components.shared.graphql
   - ../../../../graphql/namespaces.graphql
   - ../../../../graphql/clusters.graphql
   - ../../../../graphql/intents.graphql
