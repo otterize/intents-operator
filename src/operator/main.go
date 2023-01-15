@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"github.com/bombsimon/logrusr/v3"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
@@ -29,6 +28,9 @@ import (
 	"github.com/spf13/pflag"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"time"
+
+	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -38,7 +40,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"time"
 	//+kubebuilder:scaffold:imports
 )
 
