@@ -11,5 +11,5 @@ mutation ReportIntentsOperatorConfiguration($configuration: IntentsOperatorConfi
 }
 
 mutation ReportComponentStatus($component: ComponentType!) {
-    reportComponentStatus(component: $component)
+    reportIntegrationComponentStatus(component: $component)
 }
