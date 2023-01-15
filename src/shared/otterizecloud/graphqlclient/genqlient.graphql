@@ -2,6 +2,7 @@ mutation ReportKafkaServerConfig($server: KafkaServerConfigInput!) {
     reportKafkaServerConfig(serverConfig: $server)
 }
 
+# @genqlient(pointer: true)
 mutation ReportAppliedKubernetesIntents($namespace: String!,$intents: [IntentInput!]!) {
     reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents)
 }

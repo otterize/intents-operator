@@ -195,35 +195,43 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 	}
 }
 
-func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]graphqlclient.IntentInput, error) {
-	otterizeIntents := make([]graphqlclient.IntentInput, 0)
+func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentInput, error) {
+	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
-			otterizeIntents = append(otterizeIntents, intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName()))
+			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
+			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
 		}
 	}
 	return otterizeIntents, nil
 }
 
-func (in *Intent) ConvertToCloudFormat(resourceNamespace, clientName string) graphqlclient.IntentInput {
-	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) graphqlclient.KafkaConfigInput {
-		return graphqlclient.KafkaConfigInput{
-			Name: topic.Name,
-			Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) graphqlclient.KafkaOperation {
-				return graphqlclient.KafkaOperation(op)
+func toPtrOrNil(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return lo.ToPtr(s)
+}
+
+func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName string) graphqlclient.IntentInput {
+	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) *graphqlclient.KafkaConfigInput {
+		return lo.ToPtr(graphqlclient.KafkaConfigInput{
+			Name: lo.ToPtr(topic.Name),
+			Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) *graphqlclient.KafkaOperation {
+				return lo.ToPtr(graphqlclient.KafkaOperation(op))
 			}),
-		}
+		})
 	})
 
 	intentInput := graphqlclient.IntentInput{
-		ClientName:      clientName,
-		ServerName:      in.Name,
-		Namespace:       resourceNamespace,
-		ServerNamespace: in.ResolveServerNamespace(resourceNamespace),
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr(in.Name),
+		Namespace:       lo.ToPtr(resourceNamespace),
+		ServerNamespace: toPtrOrNil(in.ResolveServerNamespace(resourceNamespace)),
 	}
 
 	if in.Type != "" {
-		intentInput.Type = in.typeAsGQLType()
+		intentInput.Type = lo.ToPtr(in.typeAsGQLType())
 	}
 
 	if len(otterizeTopics) != 0 {
