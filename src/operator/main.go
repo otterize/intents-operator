@@ -21,12 +21,14 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"time"
 
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -44,6 +46,8 @@ import (
 var (
 	scheme = runtime.NewScheme()
 )
+
+const enableEnforcementKey = "enable-enforcement"
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -66,12 +70,14 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var selfSignedCert bool
+	var enforcementEnabledGlobally bool
 	var autoCreateNetworkPoliciesForExternalTraffic bool
 	var watchedNamespaces []string
 	var enableNetworkPolicyCreation bool
 	var enableKafkaACLCreation bool
 	var disableWebhookServer bool
 	var tlsSource otterizev1alpha1.TLSSource
+	var otterizeCloudClient otterizecloud.CloudClient
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -85,6 +91,8 @@ func main() {
 		"Whether to generate and use a self signed cert as the CA for webhooks")
 	pflag.BoolVar(&disableWebhookServer, "disable-webhook-server", false,
 		"Disable webhook validator server")
+	pflag.BoolVar(&enforcementEnabledGlobally, enableEnforcementKey, true,
+		"If set to false disables the enforcement globally, superior to the other flags")
 	pflag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", true,
 		"Whether to automatically create network policies for external traffic")
 	pflag.StringSliceVar(&watchedNamespaces, "watched-namespaces", nil,
@@ -102,7 +110,6 @@ func main() {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	var err error
-	var certBundle webhooks.CertificateBundle
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -134,9 +141,9 @@ func main() {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
 
-	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enableKafkaACLCreation)
+	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enableKafkaACLCreation, kafkaacls.NewKafkaIntentsAdmin, enforcementEnabledGlobally)
 
-	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic)
+	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, enforcementEnabledGlobally)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
@@ -155,7 +162,21 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	intentsReconciler := controllers.NewIntentsReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler, watchedNamespaces, enableNetworkPolicyCreation, enableKafkaACLCreation)
+	signalHandlerCtx := ctrl.SetupSignalHandler()
+	otterizeCloudClient, ok, err := otterizecloud.NewClient(context.Background())
+	if err != nil {
+		logrus.WithError(err).Fatal("Failed to create otterize cloud client")
+	}
+	if !ok {
+		logrus.Info("missing configuration for cloud integration, disabling cloud communication")
+	} else {
+		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
+	}
+
+	intentsReconciler := controllers.NewIntentsReconciler(
+		mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler,
+		watchedNamespaces, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation,
+		otterizeCloudClient)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
@@ -167,12 +188,11 @@ func main() {
 
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
-
 	}
 
-	if selfSignedCert == true {
+	if selfSignedCert {
 		logrus.Infoln("Creating self signing certs")
-		certBundle, err =
+		certBundle, err :=
 			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
 		if err != nil {
 			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
@@ -196,7 +216,7 @@ func main() {
 		}
 	}
 
-	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, podName, podNamespace)
+	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, podName, podNamespace, otterizeCloudClient)
 
 	if err = kafkaServerConfigReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
@@ -210,8 +230,24 @@ func main() {
 		logrus.WithError(err).Fatal("unable to set up ready check")
 	}
 
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelFunc()
+	cloudClient, connectedToCloud, err := otterizecloud.NewClient(ctx)
+	if err != nil {
+		logrus.WithError(err).Warning("Failed to connect to Otterize cloud")
+	}
+	if connectedToCloud {
+		err := cloudClient.ReportIntentsOperatorConfiguration(ctx, enforcementEnabledGlobally)
+		if err != nil {
+			logrus.WithError(err).Warning("Failed to report configuration to the cloud")
+		}
+	}
+	if !enforcementEnabledGlobally {
+		logrus.Infof("Running with %s=false, won't perform any enforcement", enableEnforcementKey)
+	}
+
 	logrus.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Fatal("problem running manager")
 	}
 }

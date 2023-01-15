@@ -137,8 +137,8 @@ func (s *ControllerManagerTestSuiteBase) AddPod(name string, podIp string, label
 
 	if podIp != "" {
 		pod.Status.PodIP = podIp
-		pod.Status.PodIPs = []corev1.PodIP{{podIp}}
-		pod, err = s.K8sDirectClient.CoreV1().Pods(s.TestNamespace).UpdateStatus(context.Background(), pod, metav1.UpdateOptions{})
+		pod.Status.PodIPs = []corev1.PodIP{{IP: podIp}}
+		_, err = s.K8sDirectClient.CoreV1().Pods(s.TestNamespace).UpdateStatus(context.Background(), pod, metav1.UpdateOptions{})
 		s.Require().NoError(err)
 	}
 }
@@ -240,7 +240,7 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		rs := &appsv1.ReplicaSet{}
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
-			Namespace: s.TestNamespace, Name: fmt.Sprintf(replicaSet.GetName())}, rs)
+			Namespace: s.TestNamespace, Name: replicaSet.GetName()}, rs)
 		assert.NoError(err)
 		assert.NotEmpty(replicaSet.OwnerReferences)
 	})
@@ -366,6 +366,24 @@ func (s *ControllerManagerTestSuiteBase) AddDeploymentWithService(name string, p
 	deployment := s.AddDeployment(name, podIps, podLabels, podAnnotations)
 	service := s.AddService(name, podIps, podLabels)
 	return deployment, service
+}
+
+func (s *ControllerManagerTestSuiteBase) AddKafkaServerConfig(kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) {
+	err := s.Mgr.GetClient().Create(context.Background(), kafkaServerConfig)
+	s.Require().NoError(err)
+
+	s.waitForObjectToBeCreated(kafkaServerConfig)
+}
+
+func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string) {
+	kafkaServerConfig := &otterizev1alpha1.KafkaServerConfig{}
+	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, kafkaServerConfig)
+	s.Require().NoError(err)
+
+	err = s.Mgr.GetClient().Delete(context.Background(), kafkaServerConfig)
+	s.Require().NoError(err)
+
+	s.WaitForDeletionToBeMarked(kafkaServerConfig)
 }
 
 func (s *ControllerManagerTestSuiteBase) AddIntents(
