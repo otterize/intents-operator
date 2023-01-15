@@ -32,11 +32,11 @@ func (r *EndpointsReconciler) formatPolicyName(serviceName string) string {
 	return fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 }
 
-func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enabled bool, enforcementEnabledGlobally bool) *EndpointsReconciler {
+func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enabled bool) *EndpointsReconciler {
 	return &EndpointsReconciler{
 		Client:        client,
 		Scheme:        scheme,
-		netpolCreator: NewNetworkPolicyCreator(client, scheme, enabled, enforcementEnabledGlobally),
+		netpolCreator: NewNetworkPolicyCreator(client, scheme, enabled),
 	}
 }
 

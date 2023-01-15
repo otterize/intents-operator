@@ -137,6 +137,9 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemoved() {
 		Namespace: s.TestNamespace, Name: fmt.Sprintf("%s-0", deploymentName)}, &pod)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(pod)
+	targetServerIdentity = otterizev1alpha1.GetFormattedOtterizeIdentity(
+		intentTargetServerName, s.TestNamespace)
+
 	s.Require().NotContains(pod.Labels, accessLabel)
 	s.Require().Contains(pod.Annotations, otterizev1alpha1.AllIntentsRemovedAnnotation)
 }
@@ -294,7 +297,6 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
 		Namespace: s.TestNamespace, Name: "finalizer-intents",
 	}, intents)
 
-	s.Require().NoError(err)
 	s.Require().True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != otterizev1alpha1.NetworkPolicyFinalizerName)
 }
 

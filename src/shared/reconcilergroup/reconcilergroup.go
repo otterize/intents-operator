@@ -27,10 +27,6 @@ func NewGroup(name string, client client.Client, scheme *runtime.Scheme, reconci
 	return &Group{reconcilers: reconcilers, name: name, client: client, scheme: scheme}
 }
 
-func (g *Group) AddToGroup(reconciler ReconcilerWithEvents) {
-	g.reconcilers = append(g.reconcilers, reconciler)
-}
-
 func (g *Group) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	logrus.Infof("## Starting reconciliation group cycle for %s", g.name)
 	for _, reconciler := range g.reconcilers {

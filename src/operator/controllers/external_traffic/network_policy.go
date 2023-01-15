@@ -20,7 +20,6 @@ import (
 )
 
 const (
-	ReasonEnforcementGloballyDisabled         = "EnforcementGloballyDisabled"
 	ReasonCreatingExternalTrafficPolicyFailed = "CreatingExternalTrafficPolicyFailed"
 	ReasonCreatedExternalTrafficPolicy        = "CreatedExternalTrafficPolicy"
 	ReasonGettingExternalTrafficPolicyFailed  = "GettingExternalTrafficPolicyFailed"
@@ -33,12 +32,11 @@ type NetworkPolicyCreator struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	enabled                    bool
-	enforcementEnabledGlobally bool
+	enabled bool
 }
 
-func NewNetworkPolicyCreator(client client.Client, scheme *runtime.Scheme, enabled bool, enforcementEnabledGlobally bool) *NetworkPolicyCreator {
-	return &NetworkPolicyCreator{client: client, scheme: scheme, enabled: enabled, enforcementEnabledGlobally: enforcementEnabledGlobally}
+func NewNetworkPolicyCreator(client client.Client, scheme *runtime.Scheme, enabled bool) *NetworkPolicyCreator {
+	return &NetworkPolicyCreator{client: client, scheme: scheme, enabled: enabled}
 }
 
 func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
@@ -54,9 +52,7 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(errGetExistingPolicy) {
-		if !r.enforcementEnabledGlobally {
-			r.RecordNormalEventf(eventsObject, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
-		} else if r.enabled {
+		if r.enabled {
 			logrus.Infof(
 				"Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
 			err := r.client.Create(ctx, newPolicy)
@@ -72,7 +68,7 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 		return errGetExistingPolicy
 	}
 
-	if !r.enforcementEnabledGlobally || !r.enabled {
+	if !r.enabled {
 		r.RecordNormalEvent(eventsObject, ReasonRemovingExternalTrafficPolicy, "removing external traffic network policy, reconciler was disabled")
 		err := r.client.Delete(ctx, existingPolicy)
 		if err != nil {
