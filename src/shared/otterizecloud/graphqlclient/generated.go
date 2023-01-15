@@ -161,12 +161,12 @@ func (v *ReportAppliedKubernetesIntentsResponse) GetReportAppliedKubernetesInten
 
 // ReportComponentStatusResponse is returned by ReportComponentStatus on success.
 type ReportComponentStatusResponse struct {
-	ReportComponentStatus string `json:"reportComponentStatus"`
+	ReportIntegrationComponentStatus bool `json:"reportIntegrationComponentStatus"`
 }
 
-// GetReportComponentStatus returns ReportComponentStatusResponse.ReportComponentStatus, and is useful for accessing the field via an interface.
-func (v *ReportComponentStatusResponse) GetReportComponentStatus() string {
-	return v.ReportComponentStatus
+// GetReportIntegrationComponentStatus returns ReportComponentStatusResponse.ReportIntegrationComponentStatus, and is useful for accessing the field via an interface.
+func (v *ReportComponentStatusResponse) GetReportIntegrationComponentStatus() bool {
+	return v.ReportIntegrationComponentStatus
 }
 
 // ReportIntentsOperatorConfigurationResponse is returned by ReportIntentsOperatorConfiguration on success.
@@ -268,7 +268,7 @@ func ReportComponentStatus(
 		OpName: "ReportComponentStatus",
 		Query: `
 mutation ReportComponentStatus ($component: ComponentType!) {
-	reportComponentStatus(component: $component)
+	reportIntegrationComponentStatus(component: $component)
 }
 `,
 		Variables: &__ReportComponentStatusInput{

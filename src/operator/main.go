@@ -161,6 +161,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
+	signalHandlerCtx := ctrl.SetupSignalHandler()
 	otterizeCloudClient, ok, err := otterizecloud.NewClient(context.Background())
 	if err != nil {
 		logrus.WithError(err).Fatal("Failed to create otterize cloud client")
@@ -168,7 +169,7 @@ func main() {
 	if !ok {
 		logrus.Info("missing configuration for cloud integration, disabling cloud communication")
 	} else {
-		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient)
+		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(
@@ -245,7 +246,7 @@ func main() {
 	}
 
 	logrus.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Fatal("problem running manager")
 	}
 }
