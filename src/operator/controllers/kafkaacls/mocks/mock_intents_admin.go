@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	v1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 )
 
 // MockKafkaIntentsAdmin is a mock of KafkaIntentsAdmin interface.
@@ -35,7 +35,7 @@ func (m *MockKafkaIntentsAdmin) EXPECT() *MockKafkaIntentsAdminMockRecorder {
 }
 
 // ApplyClientIntents mocks base method.
-func (m *MockKafkaIntentsAdmin) ApplyClientIntents(clientName, clientNamespace string, intents []v1alpha1.Intent) error {
+func (m *MockKafkaIntentsAdmin) ApplyClientIntents(clientName, clientNamespace string, intents []v1alpha2.Intent) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplyClientIntents", clientName, clientNamespace, intents)
 	ret0, _ := ret[0].(error)
@@ -49,7 +49,7 @@ func (mr *MockKafkaIntentsAdminMockRecorder) ApplyClientIntents(clientName, clie
 }
 
 // ApplyServerTopicsConf mocks base method.
-func (m *MockKafkaIntentsAdmin) ApplyServerTopicsConf(topicsConf []v1alpha1.TopicConfig) error {
+func (m *MockKafkaIntentsAdmin) ApplyServerTopicsConf(topicsConf []v1alpha2.TopicConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplyServerTopicsConf", topicsConf)
 	ret0, _ := ret[0].(error)

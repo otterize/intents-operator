@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	v1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	v1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	graphqlclient "github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 )
 
@@ -37,7 +37,7 @@ func (m *MockCloudClient) EXPECT() *MockCloudClientMockRecorder {
 }
 
 // ReportAppliedIntents mocks base method.
-func (m *MockCloudClient) ReportAppliedIntents(ctx context.Context, namespace string, clientIntentsList v1alpha1.ClientIntentsList) error {
+func (m *MockCloudClient) ReportAppliedIntents(ctx context.Context, namespace string, clientIntentsList v1alpha2.ClientIntentsList) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReportAppliedIntents", ctx, namespace, clientIntentsList)
 	ret0, _ := ret[0].(error)

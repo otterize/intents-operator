@@ -20,7 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -81,7 +81,7 @@ func NewKafkaServerConfigReconciler(
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=kafkaserverconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=kafkaserverconfigs/finalizers,verbs=update
 
-func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) error {
+func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConfig *otterizev1alpha2.KafkaServerConfig) error {
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"name":      kafkaServerConfig.Name,
@@ -109,14 +109,14 @@ func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConf
 	return nil
 }
 
-func (r *KafkaServerConfigReconciler) ensureFinalizerRunForOperatorIntents(ctx context.Context, config *otterizev1alpha1.KafkaServerConfig) error {
+func (r *KafkaServerConfigReconciler) ensureFinalizerRunForOperatorIntents(ctx context.Context, config *otterizev1alpha2.KafkaServerConfig) error {
 	operatorPod := &v1.Pod{}
 	err := r.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, operatorPod)
 	if err != nil {
 		return err
 	}
 	operatorIntentsName := formatIntentsName(config)
-	intents := &otterizev1alpha1.ClientIntents{}
+	intents := &otterizev1alpha2.ClientIntents{}
 	err = r.Get(ctx, types.NamespacedName{Name: operatorIntentsName, Namespace: operatorPod.Namespace}, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -128,7 +128,7 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRunForOperatorIntents(ctx c
 	return r.Delete(ctx, intents)
 }
 
-func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) (ctrl.Result, error) {
+func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, kafkaServerConfig *otterizev1alpha2.KafkaServerConfig) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(kafkaServerConfig, finalizerName) {
 		return ctrl.Result{}, nil
 	}
@@ -153,7 +153,7 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, ka
 }
 
 func (r *KafkaServerConfigReconciler) ensureFinalizerRegistered(
-	ctx context.Context, kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) error {
+	ctx context.Context, kafkaServerConfig *otterizev1alpha2.KafkaServerConfig) error {
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"name":      kafkaServerConfig.Name,
@@ -174,7 +174,7 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRegistered(
 	return nil
 }
 
-func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx context.Context, config *otterizev1alpha1.KafkaServerConfig) error {
+func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx context.Context, config *otterizev1alpha2.KafkaServerConfig) error {
 	operatorPod := &v1.Pod{}
 	err := r.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, operatorPod)
 	if err != nil {
@@ -187,25 +187,25 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 		return fmt.Errorf("failed resolving intents operator identity - service name annotation required")
 	}
 
-	newIntents := &otterizev1alpha1.ClientIntents{
+	newIntents := &otterizev1alpha2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      formatIntentsName(config),
 			Namespace: operatorPod.Namespace,
 		},
-		Spec: &otterizev1alpha1.IntentsSpec{
-			Service: otterizev1alpha1.Service{
+		Spec: &otterizev1alpha2.IntentsSpec{
+			Service: otterizev1alpha2.Service{
 				Name: annotatedServiceName,
 			},
-			Calls: []otterizev1alpha1.Intent{{
+			Calls: []otterizev1alpha2.Intent{{
 				// HTTP is used here to indicate that this should only apply network policies.
 				// In the future, should be updated as declaring type HTTP becomes unnecessary.
-				Type: otterizev1alpha1.IntentTypeHTTP,
+				Type: otterizev1alpha2.IntentTypeHTTP,
 				Name: fmt.Sprintf("%s.%s", config.Spec.Service.Name, config.Namespace),
 			}},
 		},
 	}
 
-	existingIntents := &otterizev1alpha1.ClientIntents{}
+	existingIntents := &otterizev1alpha2.ClientIntents{}
 	err = r.Get(ctx, types.NamespacedName{Name: newIntents.Name, Namespace: newIntents.Namespace}, existingIntents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -231,7 +231,7 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logrus.WithField("namespaced_name", req.NamespacedName.String())
 
-	kafkaServerConfig := &otterizev1alpha1.KafkaServerConfig{}
+	kafkaServerConfig := &otterizev1alpha2.KafkaServerConfig{}
 
 	err := r.Get(ctx, req.NamespacedName, kafkaServerConfig)
 	if err != nil && k8serrors.IsNotFound(err) {
@@ -279,7 +279,7 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return ctrl.Result{}, nil
 }
 
-func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Context, kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) error {
+func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Context, kafkaServerConfig *otterizev1alpha2.KafkaServerConfig) error {
 	if r.otterizeClient == nil {
 		return nil
 	}
@@ -288,7 +288,7 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Contex
 		Name:      kafkaServerConfig.Spec.Service.Name,
 		Namespace: kafkaServerConfig.Namespace,
 		Address:   kafkaServerConfig.Spec.Addr,
-		Topics: lo.Map(kafkaServerConfig.Spec.Topics, func(topic otterizev1alpha1.TopicConfig, _ int) graphqlclient.KafkaTopicInput {
+		Topics: lo.Map(kafkaServerConfig.Spec.Topics, func(topic otterizev1alpha2.TopicConfig, _ int) graphqlclient.KafkaTopicInput {
 			return graphqlclient.KafkaTopicInput{
 				ClientIdentityRequired: topic.ClientIdentityRequired,
 				IntentsRequired:        topic.IntentsRequired,
@@ -310,7 +310,7 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Contex
 func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&otterizev1alpha1.KafkaServerConfig{}).
+		For(&otterizev1alpha2.KafkaServerConfig{}).
 		Complete(r)
 	if err != nil {
 		return err
@@ -320,6 +320,6 @@ func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
-func formatIntentsName(conf *otterizev1alpha1.KafkaServerConfig) string {
+func formatIntentsName(conf *otterizev1alpha2.KafkaServerConfig) string {
 	return fmt.Sprintf("operator-to-kafkaserverconfig-%s-namespace-%s", conf.Name, conf.Namespace)
 }

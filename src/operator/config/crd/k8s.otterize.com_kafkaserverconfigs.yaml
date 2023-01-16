@@ -15,7 +15,7 @@ spec:
     singular: kafkaserverconfig
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - name: v1alpha2
     schema:
       openAPIV3Schema:
         description: KafkaServerConfig is the Schema for the kafkaserverconfigs API

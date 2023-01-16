@@ -125,7 +125,7 @@ require (
 )
 
 replace (
-	github.com/otterize/intents-operator/operator/api/v1alpha1 => ./operator/api/v1alpha1
+	github.com/otterize/intents-operator/operator/api/v1alpha2 => ./operator/api/v1alpha2
 	github.com/otterize/intents-operator/operator/controllers => ./operator/controllers
 	github.com/otterize/intents-operator/operator/webhooks => ./operator/webhooks
 	github.com/otterize/intents-operator/shared/reconcilergroup => ./shared/reconcilergroup

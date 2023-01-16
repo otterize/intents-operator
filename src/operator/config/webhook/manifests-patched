@@ -10,14 +10,14 @@ webhooks:
     service:
       name: intents-operator-webhook-service
       namespace: {{ .Release.Namespace }}
-      path: /validate-k8s-otterize-com-v1alpha1-clientintents
+      path: /validate-k8s-otterize-com-v1alpha2-clientintents
   failurePolicy: Fail
   name: clientintents.kb.io
   rules:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
-    - v1alpha1
+    - v1alpha2
     operations:
     - CREATE
     - UPDATE

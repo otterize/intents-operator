@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/otterize/intents-operator/src/watcher/reconcilers"
@@ -41,7 +41,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
 
-	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
+	err = otterizev1alpha2.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 }
 
@@ -74,8 +74,8 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) BeforeTest(_, testName string
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIngress() {
 	serviceName := "test-server-ingress-test"
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
-		Type: otterizev1alpha1.IntentTypeHTTP, Name: serviceName,
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
+		Type: otterizev1alpha2.IntentTypeHTTP, Name: serviceName,
 	},
 	})
 	s.Require().NoError(err)
@@ -92,7 +92,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)
@@ -132,8 +132,8 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancer() {
 	serviceName := "test-server-load-balancer-test"
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
-		Type: otterizev1alpha1.IntentTypeHTTP, Name: serviceName,
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
+		Type: otterizev1alpha2.IntentTypeHTTP, Name: serviceName,
 	},
 	})
 	s.Require().NoError(err)
@@ -150,7 +150,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)
@@ -192,8 +192,8 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNodePort() {
 	serviceName := "test-server-node-port-test"
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
-		Type: otterizev1alpha1.IntentTypeHTTP, Name: serviceName,
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
+		Type: otterizev1alpha2.IntentTypeHTTP, Name: serviceName,
 	},
 	})
 	s.Require().NoError(err)
@@ -210,7 +210,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNod
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)
@@ -251,8 +251,8 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNod
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerEnforcementDisabled() {
 	serviceName := "test-endpoints-reconciler-enforcement-disabled"
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha1.Intent{{
-		Type: otterizev1alpha1.IntentTypeHTTP, Name: serviceName,
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
+		Type: otterizev1alpha2.IntentTypeHTTP, Name: serviceName,
 	},
 	})
 	s.Require().NoError(err)
@@ -269,7 +269,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerEnforc
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha1.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)
