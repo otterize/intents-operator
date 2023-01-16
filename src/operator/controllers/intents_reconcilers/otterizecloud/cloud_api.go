@@ -3,7 +3,6 @@ package otterizecloud
 import (
 	"context"
 	"github.com/Khan/genqlient/graphql"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/sirupsen/logrus"
@@ -11,7 +10,7 @@ import (
 
 type CloudClient interface {
 	ReportKafkaServerConfig(ctx context.Context, server graphqlclient.KafkaServerConfigInput) error
-	ReportAppliedIntents(ctx context.Context, namespace string, clientIntentsList otterizev1alpha2.ClientIntentsList) error
+	ReportAppliedIntents(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error
 	ReportIntentsOperatorConfiguration(ctx context.Context, enableEnforcement bool) error
 	ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType)
 }
@@ -44,19 +43,15 @@ func (c *CloudClientImpl) ReportKafkaServerConfig(ctx context.Context, server gr
 
 func (c *CloudClientImpl) ReportAppliedIntents(
 	ctx context.Context,
-	namespace string,
-	clientIntentsList otterizev1alpha2.ClientIntentsList) error {
+	namespace *string,
+	intents []*graphqlclient.IntentInput) error {
 
-	intentsInput, err := clientIntentsList.FormatAsOtterizeIntents()
+	_, err := graphqlclient.ReportAppliedKubernetesIntents(ctx, c.client, namespace, intents)
 	if err != nil {
 		return err
 	}
 
-	_, err = graphqlclient.ReportAppliedKubernetesIntents(ctx, c.client, namespace, intentsInput)
-	if err != nil {
-		return err
-	}
-	logrus.Infof("New intents count for namespace %s: %d", namespace, len(intentsInput))
+	logrus.Infof("New intents count for namespace %s: %d", *namespace, len(intents))
 	return nil
 }
 

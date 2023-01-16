@@ -4,6 +4,7 @@ import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,7 +37,12 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.otterizeClient.ReportAppliedIntents(ctx, req.Namespace, clientIntentsList); err != nil {
+	intentsInput, err := clientIntentsList.FormatAsOtterizeIntents()
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.otterizeClient.ReportAppliedIntents(ctx, lo.ToPtr(req.Namespace), intentsInput); err != nil {
 		return ctrl.Result{}, err
 	}
 
