@@ -224,7 +224,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace
 	s.Require().NoError(err)
 
 	intents, err := s.AddIntents("cross-ns-test-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server", Namespace: otherNamespace}})
+		Type: otterizev1alpha2.IntentTypeHTTP, Name: fmt.Sprintf("%s.%s", "test-server", otherNamespace)}})
 	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
@@ -307,7 +307,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespac
 
 	intents, err := s.AddIntents(
 		"cross-ns-cleanup-test", "test-client", []otterizev1alpha2.Intent{{
-			Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server", Namespace: otherNamespace}})
+			Type: otterizev1alpha2.IntentTypeHTTP, Name: fmt.Sprintf("%s.%s", "test-server", otherNamespace)}})
 	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 

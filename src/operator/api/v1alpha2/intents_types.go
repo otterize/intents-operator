@@ -166,17 +166,17 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 	otterizeAccessLabels := map[string]string{}
 
 	for _, intent := range in.GetCallsList() {
-		ns := intent.ResolveServerNamespace(requestNamespace)
-		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.Name, ns)
+		ns := intent.GetServerNamespace(requestNamespace)
+		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.GetServerName(), ns)
 		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)] = "true"
 	}
 
 	return otterizeAccessLabels
 }
 
-// ResolveServerNamespace returns target namespace for intent if exists
+// GetServerNamespace returns target namespace for intent if exists
 // or the entire resource's namespace if the specific intent has no target namespace, as it's optional
-func (in *Intent) ResolveServerNamespace(intentsObjNamespace string) string {
+func (in *Intent) GetServerNamespace(intentsObjNamespace string) string {
 	nameWithNamespace := strings.Split(in.Name, ".")
 	if len(nameWithNamespace) == 1 {
 		return intentsObjNamespace
@@ -184,6 +184,17 @@ func (in *Intent) ResolveServerNamespace(intentsObjNamespace string) string {
 
 	// serverName.namespace --> "namespace"
 	return nameWithNamespace[1]
+}
+
+// GetServerNamespace returns target namespace for intent if exists
+// or the entire resource's namespace if the specific intent has no target namespace, as it's optional
+func (in *Intent) GetServerName() string {
+	nameWithNamespace := strings.Split(in.Name, ".")
+	if len(nameWithNamespace) == 1 {
+		return in.Name
+	}
+
+	return nameWithNamespace[0]
 }
 
 func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
@@ -229,7 +240,7 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		ClientName:      lo.ToPtr(clientName),
 		ServerName:      lo.ToPtr(in.Name),
 		Namespace:       lo.ToPtr(resourceNamespace),
-		ServerNamespace: toPtrOrNil(in.ResolveServerNamespace(resourceNamespace)),
+		ServerNamespace: toPtrOrNil(in.GetServerNamespace(resourceNamespace)),
 	}
 
 	if in.Type != "" {

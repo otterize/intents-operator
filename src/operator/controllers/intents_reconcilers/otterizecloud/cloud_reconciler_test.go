@@ -3,7 +3,7 @@ package otterizecloud
 import (
 	"context"
 	"github.com/golang/mock/gomock"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -42,7 +42,7 @@ func (s *CloudReconcilerTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
 
-	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
+	err = otterizev1alpha2.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 }
 
@@ -84,7 +84,7 @@ func (s *CloudReconcilerTestSuite) reconcile(namespacedName types.NamespacedName
 
 func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 	server := "test-server"
-	_, err := s.AddIntents(intentsObjectName, clientName, []otterizev1alpha1.Intent{{
+	_, err := s.AddIntents(intentsObjectName, clientName, []otterizev1alpha2.Intent{{
 		Name: server,
 	},
 	})
