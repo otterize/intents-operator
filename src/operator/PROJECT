@@ -14,8 +14,8 @@ resources:
   domain: k8s.otterize.com
   group: otterize
   kind: ClientIntents
-  path: github.com/otterize/intents-operator/api/v1alpha1
-  version: v1alpha1
+  path: github.com/otterize/intents-operator/api/v1alpha2
+  version: v1alpha2
 - api:
     crdVersion: v1
     namespaced: true
@@ -23,7 +23,7 @@ resources:
   domain: k8s.otterize.com
   group: otterize
   kind: KafkaServerConfig
-  path: github.com/otterize/intents-operator/api/v1alpha1
+  path: github.com/otterize/intents-operator/api/v1alpha2
   version: v1alpha1
   webhooks:
     validation: true

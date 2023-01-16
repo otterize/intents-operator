@@ -6,7 +6,6 @@ import (
 	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -57,7 +56,7 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha1.Inte
 
 		serverName := types.NamespacedName{
 			Name:      intent.Name,
-			Namespace: lo.Ternary(intent.Namespace != "", intent.Namespace, defaultNamespace),
+			Namespace: intent.ResolveServerNamespace(defaultNamespace),
 		}
 
 		intentsByServer[serverName] = append(intentsByServer[serverName], intent)
