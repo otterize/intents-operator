@@ -76,15 +76,15 @@ func (mr *MockCloudClientMockRecorder) ReportIntentsOperatorConfiguration(ctx, e
 }
 
 // ReportKafkaServerConfig mocks base method.
-func (m *MockCloudClient) ReportKafkaServerConfig(ctx context.Context, server graphqlclient.KafkaServerConfigInput) error {
+func (m *MockCloudClient) ReportKafkaServerConfig(ctx context.Context, namespace string, servers []graphqlclient.KafkaServerConfigInput) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportKafkaServerConfig", ctx, server)
+	ret := m.ctrl.Call(m, "ReportKafkaServerConfig", ctx, namespace, servers)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReportKafkaServerConfig indicates an expected call of ReportKafkaServerConfig.
-func (mr *MockCloudClientMockRecorder) ReportKafkaServerConfig(ctx, server interface{}) *gomock.Call {
+func (mr *MockCloudClientMockRecorder) ReportKafkaServerConfig(ctx, namespace, servers interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportKafkaServerConfig", reflect.TypeOf((*MockCloudClient)(nil).ReportKafkaServerConfig), ctx, server)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportKafkaServerConfig", reflect.TypeOf((*MockCloudClient)(nil).ReportKafkaServerConfig), ctx, namespace, servers)
 }

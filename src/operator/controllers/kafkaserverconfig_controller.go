@@ -242,6 +242,20 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
+	result, err := r.reconcileObject(ctx, kafkaServerConfig)
+	if err != nil {
+		return result, err
+	}
+
+	if err := r.uploadKafkaServerConfigs(ctx, req.Namespace); err != nil {
+		logrus.WithError(err).Error("failed to upload KafkaServerConfig to cloud")
+		return ctrl.Result{RequeueAfter: time.Minute}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *KafkaServerConfigReconciler) reconcileObject(ctx context.Context, kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) (ctrl.Result, error) {
 	if !kafkaServerConfig.Spec.NoAutoCreateIntentsForOperator {
 		err := r.createIntentsFromOperatorToKafkaServer(ctx, kafkaServerConfig)
 		if err != nil {
@@ -271,20 +285,35 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	if err := r.uploadKafkaServerConfig(ctx, kafkaServerConfig); err != nil {
-		logrus.WithError(err).Error("failed to upload KafkaServerConfig to cloud")
-		return ctrl.Result{RequeueAfter: time.Minute}, err
-	}
-
 	r.RecordNormalEvent(kafkaServerConfig, ReasonAppliedKafkaServerConfigFailed, "successfully applied server config")
 	return ctrl.Result{}, nil
 }
 
-func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Context, kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) error {
+func (r *KafkaServerConfigReconciler) uploadKafkaServerConfigs(ctx context.Context, namespace string) error {
 	if r.otterizeClient == nil {
 		return nil
 	}
 
+	kafkaServerConfigs := &otterizev1alpha1.KafkaServerConfigList{}
+	err := r.List(ctx, kafkaServerConfigs, client.InNamespace(namespace), &client.ListOptions{Namespace: namespace})
+	if err != nil {
+		return err
+	}
+
+	inputs := make([]graphqlclient.KafkaServerConfigInput, 0)
+	for _, kafkaServerConfig := range kafkaServerConfigs.Items {
+		if kafkaServerConfig.DeletionTimestamp != nil {
+			continue
+		}
+		input := kafkaServerConfigCRDToCloudModel(kafkaServerConfig)
+
+		inputs = append(inputs, input)
+	}
+
+	return r.otterizeClient.ReportKafkaServerConfig(ctx, namespace, inputs)
+}
+
+func kafkaServerConfigCRDToCloudModel(kafkaServerConfig otterizev1alpha1.KafkaServerConfig) graphqlclient.KafkaServerConfigInput {
 	input := graphqlclient.KafkaServerConfigInput{
 		Name:      kafkaServerConfig.Spec.Service.Name,
 		Namespace: kafkaServerConfig.Namespace,
@@ -298,13 +327,7 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Contex
 			}
 		}),
 	}
-
-	err := r.otterizeClient.ReportKafkaServerConfig(ctx, input)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return input
 }
 
 // SetupWithManager sets up the controller with the Manager.

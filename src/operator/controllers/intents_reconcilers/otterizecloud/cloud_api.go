@@ -9,7 +9,7 @@ import (
 )
 
 type CloudClient interface {
-	ReportKafkaServerConfig(ctx context.Context, server graphqlclient.KafkaServerConfigInput) error
+	ReportKafkaServerConfig(ctx context.Context, namespace string, servers []graphqlclient.KafkaServerConfigInput) error
 	ReportAppliedIntents(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error
 	ReportIntentsOperatorConfiguration(ctx context.Context, enableEnforcement bool) error
 	ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType)
@@ -30,13 +30,13 @@ func NewClient(ctx context.Context) (CloudClient, bool, error) {
 	return &CloudClientImpl{client: client}, true, nil
 }
 
-func (c *CloudClientImpl) ReportKafkaServerConfig(ctx context.Context, server graphqlclient.KafkaServerConfigInput) error {
-	_, err := graphqlclient.ReportKafkaServerConfig(ctx, c.client, server)
+func (c *CloudClientImpl) ReportKafkaServerConfig(ctx context.Context, namespace string, servers []graphqlclient.KafkaServerConfigInput) error {
+	_, err := graphqlclient.ReportKafkaServerConfig(ctx, c.client, namespace, servers)
 	if err != nil {
 		return err
 	}
 
-	logrus.Infof("Successfully reported KafkaServerConfig # %+v # to Otterize cloud", server)
+	logrus.Infof("Successfully reported KafkaServerConfig, count: %d", len(servers))
 
 	return nil
 }

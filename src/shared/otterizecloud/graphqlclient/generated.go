@@ -171,22 +171,22 @@ func (v *ReportComponentStatusResponse) GetReportIntegrationComponentStatus() bo
 
 // ReportIntentsOperatorConfigurationResponse is returned by ReportIntentsOperatorConfiguration on success.
 type ReportIntentsOperatorConfigurationResponse struct {
-	ReportIntentsOperatorConfiguration string `json:"reportIntentsOperatorConfiguration"`
+	ReportIntentsOperatorConfiguration bool `json:"reportIntentsOperatorConfiguration"`
 }
 
 // GetReportIntentsOperatorConfiguration returns ReportIntentsOperatorConfigurationResponse.ReportIntentsOperatorConfiguration, and is useful for accessing the field via an interface.
-func (v *ReportIntentsOperatorConfigurationResponse) GetReportIntentsOperatorConfiguration() string {
+func (v *ReportIntentsOperatorConfigurationResponse) GetReportIntentsOperatorConfiguration() bool {
 	return v.ReportIntentsOperatorConfiguration
 }
 
 // ReportKafkaServerConfigResponse is returned by ReportKafkaServerConfig on success.
 type ReportKafkaServerConfigResponse struct {
-	ReportKafkaServerConfig bool `json:"reportKafkaServerConfig"`
+	ReportKafkaServerConfigs bool `json:"reportKafkaServerConfigs"`
 }
 
-// GetReportKafkaServerConfig returns ReportKafkaServerConfigResponse.ReportKafkaServerConfig, and is useful for accessing the field via an interface.
-func (v *ReportKafkaServerConfigResponse) GetReportKafkaServerConfig() bool {
-	return v.ReportKafkaServerConfig
+// GetReportKafkaServerConfigs returns ReportKafkaServerConfigResponse.ReportKafkaServerConfigs, and is useful for accessing the field via an interface.
+func (v *ReportKafkaServerConfigResponse) GetReportKafkaServerConfigs() bool {
+	return v.ReportKafkaServerConfigs
 }
 
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
@@ -221,11 +221,17 @@ func (v *__ReportIntentsOperatorConfigurationInput) GetConfiguration() IntentsOp
 
 // __ReportKafkaServerConfigInput is used internally by genqlient
 type __ReportKafkaServerConfigInput struct {
-	Server KafkaServerConfigInput `json:"server"`
+	Namespace          string                   `json:"namespace"`
+	KafkaServerConfigs []KafkaServerConfigInput `json:"kafkaServerConfigs"`
 }
 
-// GetServer returns __ReportKafkaServerConfigInput.Server, and is useful for accessing the field via an interface.
-func (v *__ReportKafkaServerConfigInput) GetServer() KafkaServerConfigInput { return v.Server }
+// GetNamespace returns __ReportKafkaServerConfigInput.Namespace, and is useful for accessing the field via an interface.
+func (v *__ReportKafkaServerConfigInput) GetNamespace() string { return v.Namespace }
+
+// GetKafkaServerConfigs returns __ReportKafkaServerConfigInput.KafkaServerConfigs, and is useful for accessing the field via an interface.
+func (v *__ReportKafkaServerConfigInput) GetKafkaServerConfigs() []KafkaServerConfigInput {
+	return v.KafkaServerConfigs
+}
 
 func ReportAppliedKubernetesIntents(
 	ctx context.Context,
@@ -322,17 +328,19 @@ mutation ReportIntentsOperatorConfiguration ($configuration: IntentsOperatorConf
 func ReportKafkaServerConfig(
 	ctx context.Context,
 	client graphql.Client,
-	server KafkaServerConfigInput,
+	namespace string,
+	kafkaServerConfigs []KafkaServerConfigInput,
 ) (*ReportKafkaServerConfigResponse, error) {
 	req := &graphql.Request{
 		OpName: "ReportKafkaServerConfig",
 		Query: `
-mutation ReportKafkaServerConfig ($server: KafkaServerConfigInput!) {
-	reportKafkaServerConfig(serverConfig: $server)
+mutation ReportKafkaServerConfig ($namespace: String!, $kafkaServerConfigs: [KafkaServerConfigInput!]!) {
+	reportKafkaServerConfigs(namespace: $namespace, serverConfigs: $kafkaServerConfigs)
 }
 `,
 		Variables: &__ReportKafkaServerConfigInput{
-			Server: server,
+			Namespace:          namespace,
+			KafkaServerConfigs: kafkaServerConfigs,
 		},
 	}
 	var err error
