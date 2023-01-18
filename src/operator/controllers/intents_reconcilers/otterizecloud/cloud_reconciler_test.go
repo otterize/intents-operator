@@ -103,6 +103,25 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 	})
 }
 
+func (s *CloudReconcilerTestSuite) TestNamespaceParseSuccess() {
+	serverName := "server.other-namespace"
+	intent := &otterizev1alpha2.Intent{Name: serverName}
+
+	cloudIntent := intent.ConvertToCloudFormat(s.TestNamespace, clientName)
+
+	s.Require().Equal(lo.FromPtr(cloudIntent.Namespace), s.TestNamespace)
+	s.Require().Equal(lo.FromPtr(cloudIntent.ClientName), clientName)
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerName), "server")
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), "other-namespace")
+}
+
+func (s *CloudReconcilerTestSuite) TestTargetNamespaceAsSourceNamespace() {
+	serverName := "server"
+	intent := &otterizev1alpha2.Intent{Name: serverName}
+	cloudIntent := intent.ConvertToCloudFormat(s.TestNamespace, clientName)
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), s.TestNamespace)
+}
+
 func intentInput(clientName string, namespace string, serverName string, serverNamespace string) graphqlclient.IntentInput {
 	nilIfEmpty := func(s string) *string {
 		if s == "" {

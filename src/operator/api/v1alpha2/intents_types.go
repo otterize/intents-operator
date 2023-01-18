@@ -238,7 +238,7 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 
 	intentInput := graphqlclient.IntentInput{
 		ClientName:      lo.ToPtr(clientName),
-		ServerName:      lo.ToPtr(in.Name),
+		ServerName:      lo.ToPtr(in.GetServerName()),
 		Namespace:       lo.ToPtr(resourceNamespace),
 		ServerNamespace: toPtrOrNil(in.GetServerNamespace(resourceNamespace)),
 	}
