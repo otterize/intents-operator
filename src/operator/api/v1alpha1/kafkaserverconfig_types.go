@@ -31,6 +31,7 @@ type TLSSource struct {
 	RootCAFile string `json:"rootCAFile" yaml:"rootCAFile"`
 }
 
+// +kubebuilder:validation:Enum=literal;prefix
 type ResourcePatternType string
 
 const (

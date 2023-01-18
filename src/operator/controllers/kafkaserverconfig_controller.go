@@ -26,7 +26,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -285,26 +284,52 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfig(ctx context.Contex
 		return nil
 	}
 
-	input := graphqlclient.KafkaServerConfigInput{
-		Name:      kafkaServerConfig.Spec.Service.Name,
-		Namespace: kafkaServerConfig.Namespace,
-		Address:   kafkaServerConfig.Spec.Addr,
-		Topics: lo.Map(kafkaServerConfig.Spec.Topics, func(topic otterizev1alpha1.TopicConfig, _ int) graphqlclient.KafkaTopicInput {
-			return graphqlclient.KafkaTopicInput{
-				ClientIdentityRequired: topic.ClientIdentityRequired,
-				IntentsRequired:        topic.IntentsRequired,
-				Pattern:                string(topic.Pattern),
-				Topic:                  topic.Topic,
-			}
-		}),
-	}
-
-	err := r.otterizeClient.ReportKafkaServerConfig(ctx, input)
+	input, err := kafkaServerConfigCRDToCloud(kafkaServerConfig)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return r.otterizeClient.ReportKafkaServerConfig(ctx, input)
+}
+
+func kafkaServerConfigCRDToCloud(kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) (graphqlclient.KafkaServerConfigInput, error) {
+	var topics []graphqlclient.KafkaTopicInput
+	for _, topic := range kafkaServerConfig.Spec.Topics {
+		pattern, err := crdPatternToCloudPattern(topic.Pattern)
+		if err != nil {
+			return graphqlclient.KafkaServerConfigInput{}, err
+		}
+
+		topics = append(topics, graphqlclient.KafkaTopicInput{
+			ClientIdentityRequired: topic.ClientIdentityRequired,
+			IntentsRequired:        topic.IntentsRequired,
+			Pattern:                pattern,
+			Topic:                  topic.Topic,
+		})
+	}
+
+	input := graphqlclient.KafkaServerConfigInput{
+		Name:      kafkaServerConfig.Spec.Service.Name,
+		Namespace: kafkaServerConfig.Namespace,
+		Address:   kafkaServerConfig.Spec.Addr,
+		Topics:    topics,
+	}
+
+	return input, nil
+}
+
+func crdPatternToCloudPattern(pattern otterizev1alpha1.ResourcePatternType) (graphqlclient.KafkaTopicPattern, error) {
+	var result graphqlclient.KafkaTopicPattern
+	switch pattern {
+	case otterizev1alpha1.ResourcePatternTypePrefix:
+		result = graphqlclient.KafkaTopicPatternPrefix
+	case otterizev1alpha1.ResourcePatternTypeLiteral:
+		result = graphqlclient.KafkaTopicPatternLiteral
+	default:
+		return "", fmt.Errorf("unknown pattern type: %s", pattern)
+	}
+
+	return result, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
