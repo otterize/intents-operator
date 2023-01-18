@@ -27,6 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"strings"
 )
 
 type IntentsValidator struct {
@@ -137,6 +138,13 @@ func (v *IntentsValidator) validateSpec(intents *otterizev1alpha2.ClientIntents)
 					Field:  "topics",
 					Detail: fmt.Sprintf("invalid intent format. type %s cannot contain kafka topics", otterizev1alpha2.IntentTypeHTTP),
 				}
+			}
+		}
+		if strings.Count(intent.Name, ".") > 1 {
+			return &field.Error{
+				Type:   field.ErrorTypeForbidden,
+				Field:  "Name",
+				Detail: fmt.Sprintf("Target server name should not contain more than one '.' character"),
 			}
 		}
 	}
