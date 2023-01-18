@@ -154,10 +154,10 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 	}
 
 	// Expected arguments sent to sarama for the produce-write
-	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).AnyTimes()
-	s.mockKafkaAdmin.EXPECT().CreateACLs(MatchSaramaResource(aclForProduce)).Return(nil).AnyTimes()
-	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{writeAcl}, nil).AnyTimes()
-	s.mockKafkaAdmin.EXPECT().Close().AnyTimes()
+	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(1)
+	s.mockKafkaAdmin.EXPECT().CreateACLs(MatchSaramaResource(aclForProduce)).Return(nil).Times(1)
+	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{writeAcl}, nil).Times(1)
+	s.mockKafkaAdmin.EXPECT().Close().Times(1)
 
 	// Generate intents for produce and reconcile
 	intentsConfig := s.generateIntents(otterizev1alpha2.KafkaOperationProduce)
@@ -181,10 +181,10 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 	})
 
 	// Expected arguments sent to sarama for the consume-read
-	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{writeAcl}, nil).AnyTimes()
-	s.mockKafkaAdmin.EXPECT().CreateACLs(MatchSaramaResource(aclForConsume)).Return(nil).AnyTimes()
-	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{aclFullList}, nil).AnyTimes()
-	s.mockKafkaAdmin.EXPECT().Close().AnyTimes()
+	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{writeAcl}, nil).Times(1)
+	s.mockKafkaAdmin.EXPECT().CreateACLs(MatchSaramaResource(aclForConsume)).Return(nil).Times(1)
+	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{aclFullList}, nil).Times(1)
+	s.mockKafkaAdmin.EXPECT().Close()
 
 	// Add consume operation to intents object
 	intentsConfigCopy := *intentsConfig.DeepCopy()
@@ -225,10 +225,10 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 
 	aclForConsume := []*sarama.ResourceAcls{&createACL}
 
-	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).AnyTimes()
-	s.mockKafkaAdmin.EXPECT().CreateACLs(MatchSaramaResource(aclForConsume)).Return(nil).AnyTimes()
-	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{createACL}, nil).AnyTimes()
-	s.mockKafkaAdmin.EXPECT().Close().AnyTimes()
+	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(1)
+	s.mockKafkaAdmin.EXPECT().CreateACLs(MatchSaramaResource(aclForConsume)).Return(nil)
+	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{createACL}, nil).Times(1)
+	s.mockKafkaAdmin.EXPECT().Close().Times(1)
 
 	// Create intents object with Consume operation
 	intentsConfig := s.generateIntents(otterizev1alpha2.KafkaOperationConsume)
@@ -253,7 +253,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 		Acl:      *createACL.Acls[0],
 	}}
 
-	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{createACL}, nil).AnyTimes()
+	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{createACL}, nil).Times(1)
 	s.mockKafkaAdmin.EXPECT().DeleteACL(sarama.AclFilter{
 		ResourceType:              sarama.AclResourceTopic,
 		ResourcePatternTypeFilter: sarama.AclPatternAny,
@@ -261,9 +261,9 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 		Operation:                 sarama.AclOperationAny,
 		Principal:                 lo.ToPtr(s.principal()),
 		Host:                      lo.ToPtr("*"),
-	}, true).Return(deleteResult, nil).AnyTimes()
+	}, true).Return(deleteResult, nil)
 
-	s.mockKafkaAdmin.EXPECT().Close().AnyTimes()
+	s.mockKafkaAdmin.EXPECT().Close().Times(1)
 
 	// Remove the intents object
 	err = s.RemoveIntents(intentsObjectName)
@@ -345,7 +345,7 @@ func (s *KafkaACLReconcilerTestSuite) reconcile(namespacedName types.NamespacedN
 
 func (s *KafkaACLReconcilerTestSuite) generateIntents(operation otterizev1alpha2.KafkaOperation) otterizev1alpha2.Intent {
 	intentsConfig := otterizev1alpha2.Intent{
-		Name: fmt.Sprintf("%s.%s", kafkaServiceName, s.TestNamespace),
+		Name: kafkaServiceName,
 		Type: otterizev1alpha2.IntentTypeKafka,
 		Topics: []otterizev1alpha2.KafkaTopic{{
 			Name:       kafkaTopicName,
