@@ -144,7 +144,7 @@ func (v *IntentsValidator) validateSpec(intents *otterizev1alpha2.ClientIntents)
 			return &field.Error{
 				Type:   field.ErrorTypeForbidden,
 				Field:  "Name",
-				Detail: fmt.Sprintf("Target server name should not contain more than one '.' character"),
+				Detail: "Target server name should not contain more than one '.' character",
 			}
 		}
 	}
