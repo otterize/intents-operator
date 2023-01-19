@@ -3,7 +3,7 @@ package external_traffic
 import (
 	"context"
 	"fmt"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
@@ -111,7 +111,7 @@ func (r *EndpointsReconciler) getIngressRefersToService(ctx context.Context, svc
 	var endpointsList v1.IngressList
 	err := r.List(
 		ctx, &endpointsList,
-		&client.MatchingFields{v1alpha1.IngressServiceNamesIndexField: svc.Name},
+		&client.MatchingFields{v1alpha2.IngressServiceNamesIndexField: svc.Name},
 		&client.ListOptions{Namespace: svc.Namespace})
 
 	if err != nil {
@@ -125,7 +125,7 @@ func (r *EndpointsReconciler) InitIngressReferencedServicesIndex(mgr ctrl.Manage
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&v1.Ingress{},
-		v1alpha1.IngressServiceNamesIndexField,
+		v1alpha2.IngressServiceNamesIndexField,
 		func(object client.Object) []string {
 			ingress := object.(*v1.Ingress)
 			return serviceNamesFromIngress(ingress).List()
@@ -162,7 +162,7 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 			return ctrl.Result{}, err
 		}
 
-		serverLabel, ok := pod.Labels[v1alpha1.OtterizeServerLabelKey]
+		serverLabel, ok := pod.Labels[v1alpha2.OtterizeServerLabelKey]
 		if !ok {
 			// only act on pods affected by Otterize policies
 			return ctrl.Result{}, nil
@@ -170,7 +170,7 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 
 		netpolList := &v1.NetworkPolicyList{}
 		// there's only ever one
-		err = r.List(ctx, netpolList, client.MatchingLabels{v1alpha1.OtterizeNetworkPolicy: serverLabel}, client.Limit(1))
+		err = r.List(ctx, netpolList, client.MatchingLabels{v1alpha2.OtterizeNetworkPolicy: serverLabel}, client.Limit(1))
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				// only act on pods affected by Otterize policies - if they were not created yet,

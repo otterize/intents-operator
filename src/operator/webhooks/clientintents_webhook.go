@@ -19,7 +19,7 @@ package webhooks
 import (
 	"context"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,6 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"strings"
 )
 
 type IntentsValidator struct {
@@ -35,7 +36,7 @@ type IntentsValidator struct {
 
 func (v *IntentsValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&otterizev1alpha1.ClientIntents{}).
+		For(&otterizev1alpha2.ClientIntents{}).
 		WithValidator(v).
 		Complete()
 }
@@ -46,15 +47,15 @@ func NewIntentsValidator(c client.Client) *IntentsValidator {
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha1-clientintents,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=clientintents,verbs=create;update,versions=v1alpha1,name=clientintents.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha2-clientintents,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=clientintents,verbs=create;update,versions=v1alpha2,name=clientintents.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &IntentsValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *IntentsValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	var allErrs field.ErrorList
-	intentsObj := obj.(*otterizev1alpha1.ClientIntents)
-	intentsList := &otterizev1alpha1.ClientIntentsList{}
+	intentsObj := obj.(*otterizev1alpha2.ClientIntents)
+	intentsList := &otterizev1alpha2.ClientIntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
 		return err
 	}
@@ -79,8 +80,8 @@ func (v *IntentsValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *IntentsValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
 	var allErrs field.ErrorList
-	intentsObj := oldObj.(*otterizev1alpha1.ClientIntents)
-	intentsList := &otterizev1alpha1.ClientIntentsList{}
+	intentsObj := oldObj.(*otterizev1alpha2.ClientIntents)
+	intentsList := &otterizev1alpha2.ClientIntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
 		return err
 	}
@@ -108,8 +109,8 @@ func (v *IntentsValidator) ValidateDelete(ctx context.Context, obj runtime.Objec
 }
 
 func (v *IntentsValidator) validateNoDuplicateClients(
-	intentsObj *otterizev1alpha1.ClientIntents,
-	intentsList *otterizev1alpha1.ClientIntentsList) *field.Error {
+	intentsObj *otterizev1alpha2.ClientIntents,
+	intentsList *otterizev1alpha2.ClientIntentsList) *field.Error {
 
 	desiredClientName := intentsObj.GetServiceName()
 	for _, existingIntent := range intentsList.Items {
@@ -128,15 +129,22 @@ func (v *IntentsValidator) validateNoDuplicateClients(
 }
 
 // validateSpec
-func (v *IntentsValidator) validateSpec(intents *otterizev1alpha1.ClientIntents) *field.Error {
+func (v *IntentsValidator) validateSpec(intents *otterizev1alpha2.ClientIntents) *field.Error {
 	for _, intent := range intents.GetCallsList() {
-		if intent.Type == otterizev1alpha1.IntentTypeHTTP {
+		if intent.Type == otterizev1alpha2.IntentTypeHTTP {
 			if intent.Topics != nil {
 				return &field.Error{
 					Type:   field.ErrorTypeForbidden,
 					Field:  "topics",
-					Detail: fmt.Sprintf("invalid intent format. type %s cannot contain kafka topics", otterizev1alpha1.IntentTypeHTTP),
+					Detail: fmt.Sprintf("invalid intent format. type %s cannot contain kafka topics", otterizev1alpha2.IntentTypeHTTP),
 				}
+			}
+		}
+		if strings.Count(intent.Name, ".") > 1 {
+			return &field.Error{
+				Type:   field.ErrorTypeForbidden,
+				Field:  "Name",
+				Detail: "Target server name should not contain more than one '.' character",
 			}
 		}
 	}

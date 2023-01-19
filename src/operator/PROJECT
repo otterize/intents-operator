@@ -8,23 +8,23 @@ projectName: intents-operator
 repo: github.com/otterize/intents-operator
 resources:
 - api:
-    crdVersion: v1
+    crdVersion: v2
     namespaced: true
   controller: true
   domain: k8s.otterize.com
   group: otterize
   kind: ClientIntents
-  path: github.com/otterize/intents-operator/api/v1alpha1
-  version: v1alpha1
+  path: github.com/otterize/intents-operator/api/v1alpha2
+  version: v1alpha2
 - api:
-    crdVersion: v1
+    crdVersion: v2
     namespaced: true
   controller: true
   domain: k8s.otterize.com
   group: otterize
   kind: KafkaServerConfig
-  path: github.com/otterize/intents-operator/api/v1alpha1
-  version: v1alpha1
+  path: github.com/otterize/intents-operator/api/v1alpha2
+  version: v1alpha2
   webhooks:
     validation: true
     webhookVersion: v1

@@ -3,7 +3,7 @@ package testbase
 import (
 	"context"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -368,7 +368,7 @@ func (s *ControllerManagerTestSuiteBase) AddDeploymentWithService(name string, p
 	return deployment, service
 }
 
-func (s *ControllerManagerTestSuiteBase) AddKafkaServerConfig(kafkaServerConfig *otterizev1alpha1.KafkaServerConfig) {
+func (s *ControllerManagerTestSuiteBase) AddKafkaServerConfig(kafkaServerConfig *otterizev1alpha2.KafkaServerConfig) {
 	err := s.Mgr.GetClient().Create(context.Background(), kafkaServerConfig)
 	s.Require().NoError(err)
 
@@ -376,7 +376,7 @@ func (s *ControllerManagerTestSuiteBase) AddKafkaServerConfig(kafkaServerConfig 
 }
 
 func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string) {
-	kafkaServerConfig := &otterizev1alpha1.KafkaServerConfig{}
+	kafkaServerConfig := &otterizev1alpha2.KafkaServerConfig{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, kafkaServerConfig)
 	s.Require().NoError(err)
 
@@ -389,12 +389,12 @@ func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string)
 func (s *ControllerManagerTestSuiteBase) AddIntents(
 	objName,
 	clientName string,
-	callList []otterizev1alpha1.Intent) (*otterizev1alpha1.ClientIntents, error) {
+	callList []otterizev1alpha2.Intent) (*otterizev1alpha2.ClientIntents, error) {
 
-	intents := &otterizev1alpha1.ClientIntents{
+	intents := &otterizev1alpha2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: s.TestNamespace},
-		Spec: &otterizev1alpha1.IntentsSpec{
-			Service: otterizev1alpha1.Service{Name: clientName},
+		Spec: &otterizev1alpha2.IntentsSpec{
+			Service: otterizev1alpha2.Service{Name: clientName},
 			Calls:   callList,
 		},
 	}
@@ -409,9 +409,9 @@ func (s *ControllerManagerTestSuiteBase) AddIntents(
 
 func (s *ControllerManagerTestSuiteBase) UpdateIntents(
 	objName string,
-	callList []otterizev1alpha1.Intent) error {
+	callList []otterizev1alpha2.Intent) error {
 
-	intents := &otterizev1alpha1.ClientIntents{}
+	intents := &otterizev1alpha2.ClientIntents{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
 	s.Require().NoError(err)
 
@@ -426,7 +426,7 @@ func (s *ControllerManagerTestSuiteBase) UpdateIntents(
 func (s *ControllerManagerTestSuiteBase) RemoveIntents(
 	objName string) error {
 
-	intents := &otterizev1alpha1.ClientIntents{}
+	intents := &otterizev1alpha2.ClientIntents{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
 	if err != nil {
 		return err

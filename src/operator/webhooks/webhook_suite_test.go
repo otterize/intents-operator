@@ -17,7 +17,7 @@ package webhooks
 
 import (
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	"k8s.io/client-go/kubernetes"
@@ -52,7 +52,7 @@ func (s *ValidationWebhookTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
 
-	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
+	err = otterizev1alpha2.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 
 }
@@ -66,24 +66,24 @@ func (s *ValidationWebhookTestSuite) SetupTest() {
 }
 
 func (s *ValidationWebhookTestSuite) TestNoDuplicateClientsAllowed() {
-	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha1.Intent{})
+	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha2.Intent{})
 	s.Require().NoError(err)
 
-	_, err = s.AddIntents("intents2", "someclient", []otterizev1alpha1.Intent{})
+	_, err = s.AddIntents("intents2", "someclient", []otterizev1alpha2.Intent{})
 	s.Require().ErrorContains(err, "Intents for client someclient already exist in resource")
 }
 
 func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntents() {
-	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha1.Intent{
+	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha2.Intent{
 		{
-			Type: otterizev1alpha1.IntentTypeHTTP,
-			Topics: []otterizev1alpha1.KafkaTopic{{
+			Type: otterizev1alpha2.IntentTypeHTTP,
+			Topics: []otterizev1alpha2.KafkaTopic{{
 				Name:       "sometopic",
-				Operations: []otterizev1alpha1.KafkaOperation{otterizev1alpha1.KafkaOperationConsume},
+				Operations: []otterizev1alpha2.KafkaOperation{otterizev1alpha2.KafkaOperationConsume},
 			}},
 		},
 	})
-	expectedErr := fmt.Sprintf("type %s cannot contain kafka topics", otterizev1alpha1.IntentTypeHTTP)
+	expectedErr := fmt.Sprintf("type %s cannot contain kafka topics", otterizev1alpha2.IntentTypeHTTP)
 	s.Require().ErrorContains(err, expectedErr)
 }
 

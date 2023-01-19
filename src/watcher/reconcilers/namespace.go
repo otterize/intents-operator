@@ -3,7 +3,7 @@ package reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -39,7 +39,7 @@ func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if !ns.hasOtterizeLabel(namespace) {
 		// Add Otterize namespace label so this namespace is a viable selector in network policies
 		updatedNS := namespace.DeepCopy()
-		updatedNS.Labels[otterizev1alpha1.OtterizeNamespaceLabelKey] = req.Name
+		updatedNS.Labels[otterizev1alpha2.OtterizeNamespaceLabelKey] = req.Name
 		err := ns.Patch(ctx, updatedNS, client.MergeFrom(namespace))
 		if err != nil {
 			return ctrl.Result{}, err
@@ -51,7 +51,7 @@ func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (ns *NamespaceWatcher) hasOtterizeLabel(namespace *v1.Namespace) bool {
-	_, exists := namespace.Labels[otterizev1alpha1.OtterizeNamespaceLabelKey]
+	_, exists := namespace.Labels[otterizev1alpha2.OtterizeNamespaceLabelKey]
 	return exists
 }
 
