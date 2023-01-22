@@ -69,7 +69,21 @@ func (c *CloudClient) RegisterK8SPod(ctx context.Context, namespace string, _ st
 	return res.RegisterKubernetesPodOwnerCertificateRequest.Id, nil
 }
 
-func (c *CloudClient) CleanupOrphanK8SPodEntries(_ context.Context, _ string, _ map[string]*goset.Set[string]) error {
+func (c *CloudClient) CleanupOrphanK8SPodEntries(ctx context.Context, _ string, existingServicesByNamespace map[string]*goset.Set[string]) error {
+	var namespacedPodOwners []otterizegraphql.NamespacedPodOwner
+	for namespace, podOwnerNames := range existingServicesByNamespace {
+		for _, podOwner := range podOwnerNames.Items() {
+			namespacedPodOwners = append(namespacedPodOwners, otterizegraphql.NamespacedPodOwner{Namespace: namespace, Name: podOwner})
+		}
+	}
+	res, err := otterizegraphql.ReportActiveCertificateRequesters(ctx, c.graphqlClient, namespacedPodOwners)
+	if err != nil {
+		return fmt.Errorf("failed removing orphan entries: %w", err)
+	}
+	if !res.ReportActiveCertificateRequesters {
+		return fmt.Errorf("failed removing orphan entries")
+	}
+
 	return nil
 }
 

@@ -121,6 +121,17 @@ func (v *GetTLSKeyPairServiceTlsKeyPair) __premarshalJSON() (*__premarshalGetTLS
 	return &retval, nil
 }
 
+type NamespacedPodOwner struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
+
+// GetName returns NamespacedPodOwner.Name, and is useful for accessing the field via an interface.
+func (v *NamespacedPodOwner) GetName() string { return v.Name }
+
+// GetNamespace returns NamespacedPodOwner.Namespace, and is useful for accessing the field via an interface.
+func (v *NamespacedPodOwner) GetNamespace() string { return v.Namespace }
+
 // RegisterKubernetesPodOwnerCertificateRequestRegisterKubernetesPodOwnerCertificateRequestService includes the requested fields of the GraphQL type Service.
 type RegisterKubernetesPodOwnerCertificateRequestRegisterKubernetesPodOwnerCertificateRequestService struct {
 	Id string `json:"id"`
@@ -140,6 +151,17 @@ type RegisterKubernetesPodOwnerCertificateRequestResponse struct {
 // GetRegisterKubernetesPodOwnerCertificateRequest returns RegisterKubernetesPodOwnerCertificateRequestResponse.RegisterKubernetesPodOwnerCertificateRequest, and is useful for accessing the field via an interface.
 func (v *RegisterKubernetesPodOwnerCertificateRequestResponse) GetRegisterKubernetesPodOwnerCertificateRequest() RegisterKubernetesPodOwnerCertificateRequestRegisterKubernetesPodOwnerCertificateRequestService {
 	return v.RegisterKubernetesPodOwnerCertificateRequest
+}
+
+// ReportActiveCertificateRequestersResponse is returned by ReportActiveCertificateRequesters on success.
+type ReportActiveCertificateRequestersResponse struct {
+	// Report active pod owners to the cloud, as a result the cloud removes certificate requests of inactive pod owners
+	ReportActiveCertificateRequesters bool `json:"reportActiveCertificateRequesters"`
+}
+
+// GetReportActiveCertificateRequesters returns ReportActiveCertificateRequestersResponse.ReportActiveCertificateRequesters, and is useful for accessing the field via an interface.
+func (v *ReportActiveCertificateRequestersResponse) GetReportActiveCertificateRequesters() bool {
+	return v.ReportActiveCertificateRequesters
 }
 
 // ReportComponentStatusResponse is returned by ReportComponentStatus on success.
@@ -206,6 +228,16 @@ func (v *__RegisterKubernetesPodOwnerCertificateRequestInput) GetCertificateCust
 	return v.CertificateCustomizations
 }
 
+// __ReportActiveCertificateRequestersInput is used internally by genqlient
+type __ReportActiveCertificateRequestersInput struct {
+	ExistingPodOwners []NamespacedPodOwner `json:"existingPodOwners"`
+}
+
+// GetExistingPodOwners returns __ReportActiveCertificateRequestersInput.ExistingPodOwners, and is useful for accessing the field via an interface.
+func (v *__ReportActiveCertificateRequestersInput) GetExistingPodOwners() []NamespacedPodOwner {
+	return v.ExistingPodOwners
+}
+
 // __ReportComponentStatusInput is used internally by genqlient
 type __ReportComponentStatusInput struct {
 	Component ComponentType `json:"component"`
@@ -266,7 +298,7 @@ func RegisterKubernetesPodOwnerCertificateRequest(
 		OpName: "RegisterKubernetesPodOwnerCertificateRequest",
 		Query: `
 mutation RegisterKubernetesPodOwnerCertificateRequest ($namespace: String!, $podOwnerName: String!, $certificateCustomizations: CertificateCustomization) {
-	registerKubernetesPodOwnerCertificateRequest(namespace: $namespace, podOwnerName: $podOwnerName, certificateCustomization: $certificateCustomizations) {
+	registerKubernetesPodOwnerCertificateRequest(podOwner: {name:$podOwnerName,namespace:$namespace}, certificateCustomization: $certificateCustomizations) {
 		id
 	}
 }
@@ -280,6 +312,36 @@ mutation RegisterKubernetesPodOwnerCertificateRequest ($namespace: String!, $pod
 	var err error
 
 	var data RegisterKubernetesPodOwnerCertificateRequestResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func ReportActiveCertificateRequesters(
+	ctx context.Context,
+	client graphql.Client,
+	existingPodOwners []NamespacedPodOwner,
+) (*ReportActiveCertificateRequestersResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportActiveCertificateRequesters",
+		Query: `
+mutation ReportActiveCertificateRequesters ($existingPodOwners: [NamespacedPodOwner!]!) {
+	reportActiveCertificateRequesters(activePodOwners: $existingPodOwners)
+}
+`,
+		Variables: &__ReportActiveCertificateRequestersInput{
+			ExistingPodOwners: existingPodOwners,
+		},
+	}
+	var err error
+
+	var data ReportActiveCertificateRequestersResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

@@ -7,7 +7,7 @@ fragment TLSKeyPair on KeyPair {
 }
 
 mutation RegisterKubernetesPodOwnerCertificateRequest($namespace: String!, $podOwnerName: String!, $certificateCustomizations: CertificateCustomization) {
-    registerKubernetesPodOwnerCertificateRequest(namespace: $namespace, podOwnerName: $podOwnerName, certificateCustomization: $certificateCustomizations)
+    registerKubernetesPodOwnerCertificateRequest(podOwner: {name: $podOwnerName, namespace: $namespace}, certificateCustomization: $certificateCustomizations)
     {
         id
     }
@@ -24,4 +24,8 @@ query GetTLSKeyPair ($id: ID!) {
 
 mutation ReportComponentStatus($component: ComponentType!) {
     reportIntegrationComponentStatus(component: $component)
+}
+
+mutation ReportActiveCertificateRequesters($existingPodOwners: [NamespacedPodOwner!]!) {
+    reportActiveCertificateRequesters(activePodOwners: $existingPodOwners)
 }
