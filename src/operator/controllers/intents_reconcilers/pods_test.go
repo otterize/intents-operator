@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -36,7 +36,7 @@ func (s *PodLabelReconcilerTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
 
-	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
+	err = otterizev1alpha2.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 }
 
@@ -50,16 +50,16 @@ func (s *PodLabelReconcilerTestSuite) SetupTest() {
 func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	deploymentName := "whocares"
 	intentTargetServerName := "test-server"
-	otterizeSvcIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(deploymentName, s.TestNamespace)
+	otterizeSvcIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(deploymentName, s.TestNamespace)
 	// We add the otterize/server label here, to mock the watcher's behaviour
 	s.AddDeployment(
 		"whocares",
 		[]string{"1.1.1.1"},
-		map[string]string{otterizev1alpha1.OtterizeServerLabelKey: otterizeSvcIdentity},
+		map[string]string{otterizev1alpha2.OtterizeServerLabelKey: otterizeSvcIdentity},
 		map[string]string{})
 
-	intents, err := s.AddIntents("test-intents", deploymentName, []otterizev1alpha1.Intent{{
-		Type: otterizev1alpha1.IntentTypeHTTP, Name: intentTargetServerName,
+	intents, err := s.AddIntents("test-intents", deploymentName, []otterizev1alpha2.Intent{{
+		Type: otterizev1alpha2.IntentTypeHTTP, Name: intentTargetServerName,
 	},
 	})
 	s.Require().NoError(err)
@@ -75,10 +75,10 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	s.Require().Empty(res)
 
 	pod := v1.Pod{}
-	targetServerIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(
+	targetServerIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
 		intentTargetServerName, s.TestNamespace)
 
-	accessLabel := fmt.Sprintf(otterizev1alpha1.OtterizeAccessLabelKey, targetServerIdentity)
+	accessLabel := fmt.Sprintf(otterizev1alpha2.OtterizeAccessLabelKey, targetServerIdentity)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
 			Namespace: s.TestNamespace, Name: fmt.Sprintf("%s-0", deploymentName)}, &pod)
@@ -92,18 +92,18 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemoved() {
 	// Tests for removal of intents for client + marking annotations of "All intents removed"
 	deploymentName := "whocares"
 	intentTargetServerName := "test-server"
-	otterizeSvcIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(deploymentName, s.TestNamespace)
-	targetServerIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(
+	otterizeSvcIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(deploymentName, s.TestNamespace)
+	targetServerIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
 		intentTargetServerName, s.TestNamespace)
-	accessLabel := fmt.Sprintf(otterizev1alpha1.OtterizeAccessLabelKey, targetServerIdentity)
+	accessLabel := fmt.Sprintf(otterizev1alpha2.OtterizeAccessLabelKey, targetServerIdentity)
 
-	intents, err := s.AddIntents("test-intents", deploymentName, []otterizev1alpha1.Intent{{
-		Type: otterizev1alpha1.IntentTypeHTTP, Name: intentTargetServerName,
+	intents, err := s.AddIntents("test-intents", deploymentName, []otterizev1alpha2.Intent{{
+		Type: otterizev1alpha2.IntentTypeHTTP, Name: intentTargetServerName,
 	},
 	})
 	s.Require().NoError(err)
 	s.AddDeployment(deploymentName, []string{"1.1.1.1"}, map[string]string{
-		otterizev1alpha1.OtterizeServerLabelKey: otterizeSvcIdentity,
+		otterizev1alpha2.OtterizeServerLabelKey: otterizeSvcIdentity,
 		accessLabel:                             "true"},
 		map[string]string{"a": "b"},
 	)
@@ -138,23 +138,23 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemoved() {
 	s.Require().NoError(err)
 	s.Require().NotEmpty(pod)
 	s.Require().NotContains(pod.Labels, accessLabel)
-	s.Require().Contains(pod.Annotations, otterizev1alpha1.AllIntentsRemovedAnnotation)
+	s.Require().Contains(pod.Annotations, otterizev1alpha2.AllIntentsRemovedAnnotation)
 }
 
 func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 	deploymentName := "whocares"
 	intentTargetServerName := "test-server"
-	otterizeSvcIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(deploymentName, s.TestNamespace)
+	otterizeSvcIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(deploymentName, s.TestNamespace)
 
 	// We add the otterize/server label here, to mock the watcher's behaviour
 	s.AddDeployment(
 		"whocares",
 		[]string{"1.1.1.1"},
-		map[string]string{otterizev1alpha1.OtterizeServerLabelKey: otterizeSvcIdentity},
+		map[string]string{otterizev1alpha2.OtterizeServerLabelKey: otterizeSvcIdentity},
 		map[string]string{})
 
-	intents, err := s.AddIntents("test-intents", deploymentName, []otterizev1alpha1.Intent{{
-		Type: otterizev1alpha1.IntentTypeHTTP, Name: intentTargetServerName,
+	intents, err := s.AddIntents("test-intents", deploymentName, []otterizev1alpha2.Intent{{
+		Type: otterizev1alpha2.IntentTypeHTTP, Name: intentTargetServerName,
 	},
 	})
 	s.Require().NoError(err)
@@ -168,9 +168,9 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 	})
 	s.Require().NoError(err)
 
-	targetServerIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(intentTargetServerName, s.TestNamespace)
+	targetServerIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(intentTargetServerName, s.TestNamespace)
 
-	originalAccessLabel := fmt.Sprintf(otterizev1alpha1.OtterizeAccessLabelKey, targetServerIdentity)
+	originalAccessLabel := fmt.Sprintf(otterizev1alpha2.OtterizeAccessLabelKey, targetServerIdentity)
 	pod := v1.Pod{}
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
@@ -203,9 +203,9 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 
-	newTargetSrvIdentity := otterizev1alpha1.GetFormattedOtterizeIdentity(
+	newTargetSrvIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
 		"test-server-new", s.TestNamespace)
-	newAccessLabel := fmt.Sprintf(otterizev1alpha1.OtterizeAccessLabelKey, newTargetSrvIdentity)
+	newAccessLabel := fmt.Sprintf(otterizev1alpha2.OtterizeAccessLabelKey, newTargetSrvIdentity)
 
 	pod = v1.Pod{}
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
@@ -222,8 +222,8 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
 	// We add the otterize/server label here, to mock the watcher's behaviour
 	s.AddDeployment("whocares", []string{"1.1.1.1"}, map[string]string{"A": "b"}, map[string]string{})
 
-	intents, err := s.AddIntents("test-intents", "abc", []otterizev1alpha1.Intent{{
-		Type: otterizev1alpha1.IntentTypeHTTP, Name: intentTargetServerName,
+	intents, err := s.AddIntents("test-intents", "abc", []otterizev1alpha2.Intent{{
+		Type: otterizev1alpha2.IntentTypeHTTP, Name: intentTargetServerName,
 	},
 	})
 	s.Require().NoError(err)
@@ -236,7 +236,7 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 
-	intents = &otterizev1alpha1.ClientIntents{}
+	intents = &otterizev1alpha2.ClientIntents{}
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
 			Namespace: s.TestNamespace, Name: "test-intents"}, intents)
@@ -247,8 +247,8 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
 
 func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
 	intents, err := s.AddIntents(
-		"finalizer-intents", "test-client", []otterizev1alpha1.Intent{{
-			Type: otterizev1alpha1.IntentTypeHTTP, Name: "test-server"}})
+		"finalizer-intents", "test-client", []otterizev1alpha2.Intent{{
+			Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server"}})
 	s.Require().NoError(err)
 
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
@@ -288,14 +288,14 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
 		s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	}
 
-	intents = &otterizev1alpha1.ClientIntents{}
+	intents = &otterizev1alpha2.ClientIntents{}
 	// Policy should have been deleted because intents were removed
 	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
 		Namespace: s.TestNamespace, Name: "finalizer-intents",
 	}, intents)
 
 	s.Require().NoError(err)
-	s.Require().True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != otterizev1alpha1.NetworkPolicyFinalizerName)
+	s.Require().True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != otterizev1alpha2.NetworkPolicyFinalizerName)
 }
 
 func TestPodLabelReconcilerTestSuite(t *testing.T) {

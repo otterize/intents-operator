@@ -18,7 +18,7 @@ package controllers
 
 import (
 	"context"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
@@ -75,7 +75,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev1alpha1.ClientIntents{}).
+		For(&otterizev1alpha2.ClientIntents{}).
 		Complete(r)
 	if err != nil {
 		return err
@@ -91,11 +91,11 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha1.ClientIntents{},
-		otterizev1alpha1.OtterizeTargetServerIndexField,
+		&otterizev1alpha2.ClientIntents{},
+		otterizev1alpha2.OtterizeTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
-			intents := object.(*otterizev1alpha1.ClientIntents)
+			intents := object.(*otterizev1alpha2.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}
@@ -118,7 +118,7 @@ func (r *IntentsReconciler) InitEndpointsPodNamesIndex(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&corev1.Endpoints{},
-		otterizev1alpha1.EndpointsPodNamesIndexField,
+		otterizev1alpha2.EndpointsPodNamesIndexField,
 		func(object client.Object) []string {
 			var res []string
 			endpoints := object.(*corev1.Endpoints)

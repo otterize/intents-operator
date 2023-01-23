@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"time"
 
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -52,7 +52,7 @@ const enableEnforcementKey = "enable-enforcement"
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(otterizev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(otterizev1alpha2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -76,7 +76,7 @@ func main() {
 	var enableNetworkPolicyCreation bool
 	var enableKafkaACLCreation bool
 	var disableWebhookServer bool
-	var tlsSource otterizev1alpha1.TLSSource
+	var tlsSource otterizev1alpha2.TLSSource
 	var otterizeCloudClient otterizecloud.CloudClient
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
