@@ -3,7 +3,7 @@ package otterizecloud
 import (
 	"context"
 	"github.com/golang/mock/gomock"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -42,7 +42,7 @@ func (s *CloudReconcilerTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
 
-	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
+	err = otterizev1alpha2.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 }
 
@@ -84,7 +84,7 @@ func (s *CloudReconcilerTestSuite) reconcile(namespacedName types.NamespacedName
 
 func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 	server := "test-server"
-	_, err := s.AddIntents(intentsObjectName, clientName, []otterizev1alpha1.Intent{{
+	_, err := s.AddIntents(intentsObjectName, clientName, []otterizev1alpha2.Intent{{
 		Name: server,
 	},
 	})
@@ -101,6 +101,25 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 		Namespace: s.TestNamespace,
 		Name:      intentsObjectName,
 	})
+}
+
+func (s *CloudReconcilerTestSuite) TestNamespaceParseSuccess() {
+	serverName := "server.other-namespace"
+	intent := &otterizev1alpha2.Intent{Name: serverName}
+
+	cloudIntent := intent.ConvertToCloudFormat(s.TestNamespace, clientName)
+
+	s.Require().Equal(lo.FromPtr(cloudIntent.Namespace), s.TestNamespace)
+	s.Require().Equal(lo.FromPtr(cloudIntent.ClientName), clientName)
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerName), "server")
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), "other-namespace")
+}
+
+func (s *CloudReconcilerTestSuite) TestTargetNamespaceAsSourceNamespace() {
+	serverName := "server"
+	intent := &otterizev1alpha2.Intent{Name: serverName}
+	cloudIntent := intent.ConvertToCloudFormat(s.TestNamespace, clientName)
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), s.TestNamespace)
 }
 
 func intentInput(clientName string, namespace string, serverName string, serverNamespace string) graphqlclient.IntentInput {

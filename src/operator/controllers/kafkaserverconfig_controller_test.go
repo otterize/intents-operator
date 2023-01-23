@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/golang/mock/gomock"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
@@ -50,7 +50,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
 
-	err = otterizev1alpha1.AddToScheme(s.TestEnv.Scheme)
+	err = otterizev1alpha2.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 }
 
@@ -59,14 +59,14 @@ func (s *KafkaServerConfigReconcilerTestSuite) SetupTest() {
 }
 
 func (s *KafkaServerConfigReconcilerTestSuite) setupServerStore(serviceName string, controller *gomock.Controller) kafkaacls.ServersStore {
-	serverConfig := &otterizev1alpha1.KafkaServerConfig{
-		Spec: otterizev1alpha1.KafkaServerConfigSpec{
-			Service: otterizev1alpha1.Service{
+	serverConfig := &otterizev1alpha2.KafkaServerConfig{
+		Spec: otterizev1alpha2.KafkaServerConfigSpec{
+			Service: otterizev1alpha2.Service{
 				Name: serviceName,
 			},
-			Topics: []otterizev1alpha1.TopicConfig{{
+			Topics: []otterizev1alpha2.TopicConfig{{
 				Topic:                  "*",
-				Pattern:                otterizev1alpha1.ResourcePatternTypePrefix,
+				Pattern:                otterizev1alpha2.ResourcePatternTypePrefix,
 				ClientIdentityRequired: false,
 				IntentsRequired:        false,
 			},
@@ -75,7 +75,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) setupServerStore(serviceName stri
 	}
 
 	serverConfig.SetNamespace(s.TestNamespace)
-	emptyTls := otterizev1alpha1.TLSSource{}
+	emptyTls := otterizev1alpha2.TLSSource{}
 	s.mockIntentsAdmin = kafkaaclsmocks.NewMockKafkaIntentsAdmin(controller)
 	factory := getMockIntentsAdminFactory(s.mockIntentsAdmin)
 	kafkaServersStore := kafkaacls.NewServersStore(emptyTls, false, factory, true)
@@ -100,26 +100,26 @@ func (s *KafkaServerConfigReconcilerTestSuite) BeforeTest(_, testName string) {
 }
 
 func getMockIntentsAdminFactory(mockIntentsAdmin *kafkaaclsmocks.MockKafkaIntentsAdmin) kafkaacls.IntentsAdminFactoryFunction {
-	return func(kafkaServer otterizev1alpha1.KafkaServerConfig, _ otterizev1alpha1.TLSSource, enableKafkaACLCreation bool, enforcementEnabledGlobally bool) (kafkaacls.KafkaIntentsAdmin, error) {
+	return func(kafkaServer otterizev1alpha2.KafkaServerConfig, _ otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementEnabledGlobally bool) (kafkaacls.KafkaIntentsAdmin, error) {
 		return mockIntentsAdmin, nil
 	}
 }
 
-func (s *KafkaServerConfigReconcilerTestSuite) generateKafkaServerConfig() otterizev1alpha1.KafkaServerConfig {
-	return otterizev1alpha1.KafkaServerConfig{
+func (s *KafkaServerConfigReconcilerTestSuite) generateKafkaServerConfig() otterizev1alpha2.KafkaServerConfig {
+	return otterizev1alpha2.KafkaServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kafkaServiceName,
 			Namespace: s.TestNamespace,
 		},
-		Spec: otterizev1alpha1.KafkaServerConfigSpec{
+		Spec: otterizev1alpha2.KafkaServerConfigSpec{
 			NoAutoCreateIntentsForOperator: true,
-			Service: otterizev1alpha1.Service{
+			Service: otterizev1alpha2.Service{
 				Name: kafkaServiceName,
 			},
-			Topics: []otterizev1alpha1.TopicConfig{
+			Topics: []otterizev1alpha2.TopicConfig{
 				{
 					Topic:                  kafkaTopicName,
-					Pattern:                otterizev1alpha1.ResourcePatternTypeLiteral,
+					Pattern:                otterizev1alpha2.ResourcePatternTypeLiteral,
 					ClientIdentityRequired: true,
 					IntentsRequired:        true,
 				},
@@ -152,7 +152,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Set go mock expectations
-	expectedConfigs := getExpectedKafkaServerConfigs(kafkaServerConfig)
+	expectedConfigs := s.getExpectedKafkaServerConfigs(kafkaServerConfig)
 	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, gomock.Eq(expectedConfigs)).Return(nil)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil)
 	s.mockIntentsAdmin.EXPECT().Close()
@@ -163,8 +163,11 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {
 	})
 }
 
-func getExpectedKafkaServerConfigs(kafkaServerConfig otterizev1alpha1.KafkaServerConfig) []graphqlclient.KafkaServerConfigInput {
-	return []graphqlclient.KafkaServerConfigInput{kafkaServerConfigCRDToCloudModel(kafkaServerConfig)}
+func (s *KafkaServerConfigReconcilerTestSuite) getExpectedKafkaServerConfigs(kafkaServerConfig otterizev1alpha2.KafkaServerConfig) []graphqlclient.KafkaServerConfigInput {
+	ksc, err := kafkaServerConfigCRDToCloudModel(kafkaServerConfig)
+	s.Require().NoError(err)
+
+	return []graphqlclient.KafkaServerConfigInput{ksc}
 }
 
 func (s *KafkaServerConfigReconcilerTestSuite) TestReUploadKafkaServerConfigOnFailure() {
@@ -174,7 +177,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestReUploadKafkaServerConfigOnFa
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Make the mock return error to the reconciler, so it thinks the report failed
-	expectedConfigs := getExpectedKafkaServerConfigs(kafkaServerConfig)
+	expectedConfigs := s.getExpectedKafkaServerConfigs(kafkaServerConfig)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
 	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(
 		gomock.Any(),
@@ -207,7 +210,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Set go mock expectations
-	expectedConfigs := getExpectedKafkaServerConfigs(kafkaServerConfig)
+	expectedConfigs := s.getExpectedKafkaServerConfigs(kafkaServerConfig)
 
 	gomock.InOrder(
 		s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, gomock.Eq(expectedConfigs)).Return(nil),

@@ -2,7 +2,7 @@ package external_traffic
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -113,11 +113,11 @@ func buildNetworkPolicyObjectForService(
 	serviceSpecCopy := service.Subsets
 
 	annotations := map[string]string{
-		v1alpha1.OtterizeCreatedForServiceAnnotation: service.GetName(),
+		v1alpha2.OtterizeCreatedForServiceAnnotation: service.GetName(),
 	}
 
 	if len(ingressList.Items) != 0 {
-		annotations[v1alpha1.OtterizeCreatedForIngressAnnotation] = strings.Join(lo.Map(ingressList.Items, func(ingress v1.Ingress, _ int) string {
+		annotations[v1alpha2.OtterizeCreatedForIngressAnnotation] = strings.Join(lo.Map(ingressList.Items, func(ingress v1.Ingress, _ int) string {
 			return ingress.Name
 		}), ",")
 	}
@@ -127,7 +127,7 @@ func buildNetworkPolicyObjectForService(
 			Name:      policyName,
 			Namespace: service.Namespace,
 			Labels: map[string]string{
-				v1alpha1.OtterizeNetworkPolicyExternalTraffic: otterizeServiceName,
+				v1alpha2.OtterizeNetworkPolicyExternalTraffic: otterizeServiceName,
 			},
 			Annotations: annotations,
 		},

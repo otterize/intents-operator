@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/bombsimon/logrusr/v3"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/watcher/reconcilers"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -19,7 +19,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(otterizev1alpha1.AddToScheme(scheme))
+	utilruntime.Must(otterizev1alpha2.AddToScheme(scheme))
 }
 
 func main() {

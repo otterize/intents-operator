@@ -2,7 +2,7 @@ package external_traffic
 
 import (
 	"context"
-	otterizev1alpha1 "github.com/otterize/intents-operator/src/operator/api/v1alpha1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -69,14 +69,14 @@ func (r *IngressReconciler) getServicesReferencedByNetworkPoliciesCreatedForIngr
 	services := sets.NewString()
 
 	netpolList := &v1.NetworkPolicyList{}
-	err := r.List(ctx, netpolList, &client.MatchingFields{otterizev1alpha1.NetworkPoliciesByIngressNameIndexField: ingressName.Name},
+	err := r.List(ctx, netpolList, &client.MatchingFields{otterizev1alpha2.NetworkPoliciesByIngressNameIndexField: ingressName.Name},
 		&client.ListOptions{Namespace: ingressName.Namespace})
 	if err != nil {
 		return nil, err
 	}
 
 	for _, netpol := range netpolList.Items {
-		serviceName, ok := netpol.Annotations[otterizev1alpha1.OtterizeCreatedForServiceAnnotation]
+		serviceName, ok := netpol.Annotations[otterizev1alpha2.OtterizeCreatedForServiceAnnotation]
 		if !ok {
 			continue
 		}
@@ -110,10 +110,10 @@ func (r *IngressReconciler) InitNetworkPoliciesByIngressNameIndex(mgr ctrl.Manag
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&v1.NetworkPolicy{},
-		otterizev1alpha1.NetworkPoliciesByIngressNameIndexField,
+		otterizev1alpha2.NetworkPoliciesByIngressNameIndexField,
 		func(object client.Object) []string {
 			netpol := object.(*v1.NetworkPolicy)
-			value, ok := netpol.Annotations[otterizev1alpha1.OtterizeCreatedForIngressAnnotation]
+			value, ok := netpol.Annotations[otterizev1alpha2.OtterizeCreatedForIngressAnnotation]
 			if !ok {
 				return nil
 			}
