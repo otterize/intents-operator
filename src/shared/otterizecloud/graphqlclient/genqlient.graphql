@@ -1,5 +1,5 @@
-mutation ReportKafkaServerConfig($server: KafkaServerConfigInput!) {
-    reportKafkaServerConfig(serverConfig: $server)
+mutation ReportKafkaServerConfig($namespace: String!, $kafkaServerConfigs: [KafkaServerConfigInput!]!) {
+    reportKafkaServerConfigs(namespace: $namespace, serverConfigs:$kafkaServerConfigs)
 }
 
 # @genqlient(pointer: true)

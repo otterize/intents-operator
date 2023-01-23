@@ -7,6 +7,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -151,7 +152,8 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Set go mock expectations
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), gomock.Any()).Return(nil)
+	expectedConfigs := s.getExpectedKafkaServerConfigs(kafkaServerConfig)
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, gomock.Eq(expectedConfigs)).Return(nil)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil)
 	s.mockIntentsAdmin.EXPECT().Close()
 
@@ -161,6 +163,13 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {
 	})
 }
 
+func (s *KafkaServerConfigReconcilerTestSuite) getExpectedKafkaServerConfigs(kafkaServerConfig otterizev1alpha2.KafkaServerConfig) []graphqlclient.KafkaServerConfigInput {
+	ksc, err := kafkaServerConfigCRDToCloudModel(kafkaServerConfig)
+	s.Require().NoError(err)
+
+	return []graphqlclient.KafkaServerConfigInput{ksc}
+}
+
 func (s *KafkaServerConfigReconcilerTestSuite) TestReUploadKafkaServerConfigOnFailure() {
 	// Create kafka server config resource
 	kafkaServerConfig := s.generateKafkaServerConfig()
@@ -168,13 +177,23 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestReUploadKafkaServerConfigOnFa
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Make the mock return error to the reconciler, so it thinks the report failed
+	expectedConfigs := s.getExpectedKafkaServerConfigs(kafkaServerConfig)
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), gomock.Any()).Return(errors.New("failed to upload kafka server config"))
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(
+		gomock.Any(),
+		s.TestNamespace,
+		gomock.Eq(expectedConfigs),
+	).Return(errors.New("failed to upload kafka server config"))
+
 	s.mockIntentsAdmin.EXPECT().Close()
 
 	// We expect the reconciler to retry to report, this time we don't return an error, simulating success
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(
+		gomock.Any(),
+		s.TestNamespace,
+		gomock.Eq(expectedConfigs),
+	).Return(nil).Times(1)
 	s.mockIntentsAdmin.EXPECT().Close().Times(1)
 
 	s.reconcile(types.NamespacedName{
@@ -191,9 +210,19 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 	s.AddKafkaServerConfig(&kafkaServerConfig)
 
 	// Set go mock expectations
-	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1)
-	s.mockIntentsAdmin.EXPECT().Close().Times(1)
+	expectedConfigs := s.getExpectedKafkaServerConfigs(kafkaServerConfig)
+
+	gomock.InOrder(
+		s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, gomock.Eq(expectedConfigs)).Return(nil),
+		s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, gomock.Eq([]graphqlclient.KafkaServerConfigInput{})).Return(nil),
+	)
+
+	gomock.InOrder(
+		s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil).Times(1),
+		s.mockIntentsAdmin.EXPECT().Close().Times(1),
+		s.mockIntentsAdmin.EXPECT().RemoveAllIntents().Return(nil).Times(1),
+		s.mockIntentsAdmin.EXPECT().Close().Times(1),
+	)
 
 	s.reconcile(types.NamespacedName{
 		Name:      kafkaServerConfig.Name,
@@ -204,8 +233,6 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 	s.RemoveKafkaServerConfig(kafkaServerConfig.Name)
 
 	// Set go mock expectations
-	s.mockIntentsAdmin.EXPECT().RemoveAllIntents().Return(nil).Times(1)
-	s.mockIntentsAdmin.EXPECT().Close().Times(1)
 
 	s.reconcile(types.NamespacedName{
 		Name:      kafkaServiceName,
