@@ -226,12 +226,42 @@ func toPtrOrNil(s string) *string {
 	return lo.ToPtr(s)
 }
 
+func kafkaOperationK8sToCloud(op KafkaOperation) graphqlclient.KafkaOperation {
+	switch op {
+	case KafkaOperationAll:
+		return graphqlclient.KafkaOperationAll
+	case KafkaOperationConsume:
+		return graphqlclient.KafkaOperationConsume
+	case KafkaOperationProduce:
+		return graphqlclient.KafkaOperationProduce
+	case KafkaOperationCreate:
+		return graphqlclient.KafkaOperationCreate
+	case KafkaOperationAlter:
+		return graphqlclient.KafkaOperationAlter
+	case KafkaOperationDelete:
+		return graphqlclient.KafkaOperationDelete
+	case KafkaOperationDescribe:
+		return graphqlclient.KafkaOperationDescribe
+	case KafkaOperationClusterAction:
+		return graphqlclient.KafkaOperationClusterAction
+	case KafkaOperationDescribeConfigs:
+		return graphqlclient.KafkaOperationDescribeConfigs
+	case KafkaOperationAlterConfigs:
+		return graphqlclient.KafkaOperationAlterConfigs
+	case KafkaOperationIdempotentWrite:
+		return graphqlclient.KafkaOperationIdempotentWrite
+	default:
+		panic(fmt.Sprintf("Unknown KafkaOperation: %s", op))
+	}
+}
+
 func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName string) graphqlclient.IntentInput {
 	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) *graphqlclient.KafkaConfigInput {
 		return lo.ToPtr(graphqlclient.KafkaConfigInput{
 			Name: lo.ToPtr(topic.Name),
 			Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) *graphqlclient.KafkaOperation {
-				return lo.ToPtr(graphqlclient.KafkaOperation(op))
+				operation := kafkaOperationK8sToCloud(op)
+				return &operation
 			}),
 		})
 	})
