@@ -131,10 +131,10 @@ func (v *KafkaServerConfigInput) GetAddress() string { return v.Address }
 func (v *KafkaServerConfigInput) GetTopics() []KafkaTopicInput { return v.Topics }
 
 type KafkaTopicInput struct {
-	ClientIdentityRequired bool   `json:"clientIdentityRequired"`
-	IntentsRequired        bool   `json:"intentsRequired"`
-	Pattern                string `json:"pattern"`
-	Topic                  string `json:"topic"`
+	ClientIdentityRequired bool              `json:"clientIdentityRequired"`
+	IntentsRequired        bool              `json:"intentsRequired"`
+	Pattern                KafkaTopicPattern `json:"pattern"`
+	Topic                  string            `json:"topic"`
 }
 
 // GetClientIdentityRequired returns KafkaTopicInput.ClientIdentityRequired, and is useful for accessing the field via an interface.
@@ -144,10 +144,17 @@ func (v *KafkaTopicInput) GetClientIdentityRequired() bool { return v.ClientIden
 func (v *KafkaTopicInput) GetIntentsRequired() bool { return v.IntentsRequired }
 
 // GetPattern returns KafkaTopicInput.Pattern, and is useful for accessing the field via an interface.
-func (v *KafkaTopicInput) GetPattern() string { return v.Pattern }
+func (v *KafkaTopicInput) GetPattern() KafkaTopicPattern { return v.Pattern }
 
 // GetTopic returns KafkaTopicInput.Topic, and is useful for accessing the field via an interface.
 func (v *KafkaTopicInput) GetTopic() string { return v.Topic }
+
+type KafkaTopicPattern string
+
+const (
+	KafkaTopicPatternLiteral KafkaTopicPattern = "LITERAL"
+	KafkaTopicPatternPrefix  KafkaTopicPattern = "PREFIX"
+)
 
 // ReportAppliedKubernetesIntentsResponse is returned by ReportAppliedKubernetesIntents on success.
 type ReportAppliedKubernetesIntentsResponse struct {
@@ -171,11 +178,11 @@ func (v *ReportComponentStatusResponse) GetReportIntegrationComponentStatus() bo
 
 // ReportIntentsOperatorConfigurationResponse is returned by ReportIntentsOperatorConfiguration on success.
 type ReportIntentsOperatorConfigurationResponse struct {
-	ReportIntentsOperatorConfiguration string `json:"reportIntentsOperatorConfiguration"`
+	ReportIntentsOperatorConfiguration bool `json:"reportIntentsOperatorConfiguration"`
 }
 
 // GetReportIntentsOperatorConfiguration returns ReportIntentsOperatorConfigurationResponse.ReportIntentsOperatorConfiguration, and is useful for accessing the field via an interface.
-func (v *ReportIntentsOperatorConfigurationResponse) GetReportIntentsOperatorConfiguration() string {
+func (v *ReportIntentsOperatorConfigurationResponse) GetReportIntentsOperatorConfiguration() bool {
 	return v.ReportIntentsOperatorConfiguration
 }
 

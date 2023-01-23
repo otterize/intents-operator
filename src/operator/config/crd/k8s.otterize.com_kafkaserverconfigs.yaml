@@ -71,6 +71,9 @@ spec:
                     intentsRequired:
                       type: boolean
                     pattern:
+                      enum:
+                      - literal
+                      - prefix
                       type: string
                     topic:
                       type: string
