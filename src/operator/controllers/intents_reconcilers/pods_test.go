@@ -88,7 +88,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	})
 }
 
-func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemoved() {
+func (s *PodLabelReconcilerTestSuite) testClientAccessLabelRemovedWithParams(podAnnotations map[string]string) {
 	// Tests for removal of intents for client + marking annotations of "All intents removed"
 	deploymentName := "whocares"
 	intentTargetServerName := "test-server"
@@ -105,7 +105,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemoved() {
 	s.AddDeployment(deploymentName, []string{"1.1.1.1"}, map[string]string{
 		otterizev1alpha2.OtterizeServerLabelKey: otterizeSvcIdentity,
 		accessLabel:                             "true"},
-		map[string]string{"a": "b"},
+		podAnnotations,
 	)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
@@ -139,6 +139,14 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemoved() {
 	s.Require().NotEmpty(pod)
 	s.Require().NotContains(pod.Labels, accessLabel)
 	s.Require().Contains(pod.Annotations, otterizev1alpha2.AllIntentsRemovedAnnotation)
+}
+
+func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemoved() {
+	s.testClientAccessLabelRemovedWithParams(map[string]string{"a": "b"})
+}
+
+func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemovedNoPodAnnotations() {
+	s.testClientAccessLabelRemovedWithParams(nil)
 }
 
 func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {

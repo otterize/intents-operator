@@ -126,6 +126,9 @@ func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
 	// Remove the access label for each intent, for every pod in the list
 	for _, pod := range podList.Items {
 		updatedPod := pod.DeepCopy()
+		if updatedPod.Annotations == nil {
+			updatedPod.Annotations = make(map[string]string)
+		}
 		updatedPod.Annotations[otterizev1alpha2.AllIntentsRemovedAnnotation] = "true"
 		for _, intent := range intents.GetCallsList() {
 			targetServerIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
