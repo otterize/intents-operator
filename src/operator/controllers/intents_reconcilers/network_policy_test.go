@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"strings"
 	"testing"
 )
 
@@ -218,13 +219,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDis
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace() {
 	// Create namespace
 	otherNamespace := "test-cross-ns-create"
+	serverName := "test-server"
 
 	_, err := s.K8sDirectClient.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: otherNamespace}}, metav1.CreateOptions{})
 	s.Require().NoError(err)
 
 	intents, err := s.AddIntents("cross-ns-test-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: fmt.Sprintf("%s.%s", "test-server", otherNamespace)}})
+		Type: otterizev1alpha2.IntentTypeHTTP, Name: fmt.Sprintf("%s.%s", serverName, otherNamespace)}})
 	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
@@ -239,12 +241,17 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace
 	s.Require().Empty(res)
 
 	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, serverName, s.TestNamespace)
 	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
 		Namespace: otherNamespace, Name: policyName,
 	}, &np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)
+	key := lo.Keys(np.Spec.Ingress[0].From[0].PodSelector.MatchLabels)[0]
+	index := strings.LastIndex(key, "-")
+	label := key[:index]
+	s.Require().Equal(fmt.Sprintf("intents.otterize.com/access-%s-%s", serverName, otherNamespace), label)
+
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {

@@ -301,7 +301,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 	intent otterizev1alpha2.Intent, policyName, intentsObjNamespace string) *v1.NetworkPolicy {
 	targetNamespace := intent.GetServerNamespace(intentsObjNamespace)
 	// The intent's target server made of name + namespace + hash
-	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.Name, targetNamespace)
+	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), targetNamespace)
 
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
