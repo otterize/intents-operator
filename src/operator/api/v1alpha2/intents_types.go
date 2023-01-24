@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"strings"
@@ -251,7 +252,8 @@ func kafkaOperationK8sToCloud(op KafkaOperation) graphqlclient.KafkaOperation {
 	case KafkaOperationIdempotentWrite:
 		return graphqlclient.KafkaOperationIdempotentWrite
 	default:
-		panic(fmt.Sprintf("Unknown KafkaOperation: %s", op))
+		logrus.Panic("Unknown KafkaOperation: %s", op)
+		return "" // We won't reach here
 	}
 }
 
