@@ -52,7 +52,7 @@ func (s *PodControllerSuite) SetupTest() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	s.client.EXPECT().Scheme().Return(scheme).AnyTimes()
 	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, s.secretsManager,
-		serviceIdResolver, eventRecorder)
+		serviceIdResolver, eventRecorder, false)
 }
 
 type ObjectNameMatcher struct {
@@ -137,6 +137,33 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 	s.Require().NoError(err)
 	s.Require().True(result.IsZero())
 	s.Require().Equal(update.Labels[metadata.RegisteredServiceNameLabel], servicename)
+}
+
+func (s *PodControllerSuite) TestController_Reconcile_RegisterOnlyAnnotatedPods() {
+	namespace := "test_namespace"
+	podname := "test_podname"
+	s.podReconciler.registerOnlyPodsWithSecretAnnotation = true
+	pod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:   namespace,
+			Name:        podname,
+			Annotations: map[string]string{},
+		},
+	}
+
+	s.client.EXPECT().Get(
+		gomock.Any(),
+		types.NamespacedName{Namespace: namespace, Name: podname},
+		gomock.AssignableToTypeOf(&corev1.Pod{}),
+	).Return(nil).Do(
+		func(ctx context.Context, key client.ObjectKey, returnedPod *corev1.Pod, opts ...any) {
+			*returnedPod = pod
+		})
+
+	request := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: namespace, Name: podname}}
+	result, err := s.podReconciler.Reconcile(context.Background(), request)
+	s.Require().NoError(err)
+	s.Require().True(result.IsZero())
 }
 
 func (s *PodControllerSuite) TestController_cleanupOrphanEntries() {

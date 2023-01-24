@@ -138,7 +138,7 @@ func main() {
 	}
 
 	podReconciler := controllers.NewPodReconciler(mgr.GetClient(), mgr.GetScheme(), workloadRegistry, secretsManager,
-		serviceIdResolver, eventRecorder)
+		serviceIdResolver, eventRecorder, useOtterizeCloud)
 
 	if err = podReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithField("controller", "Pod").WithError(err).Error("unable to create controller")
