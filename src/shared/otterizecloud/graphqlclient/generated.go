@@ -99,6 +99,7 @@ func (v *KafkaConfigInput) GetOperations() []*KafkaOperation { return v.Operatio
 type KafkaOperation string
 
 const (
+	KafkaOperationAll             KafkaOperation = "ALL"
 	KafkaOperationConsume         KafkaOperation = "CONSUME"
 	KafkaOperationProduce         KafkaOperation = "PRODUCE"
 	KafkaOperationCreate          KafkaOperation = "CREATE"
