@@ -252,7 +252,7 @@ func kafkaOperationK8sToCloud(op KafkaOperation) graphqlclient.KafkaOperation {
 	case KafkaOperationIdempotentWrite:
 		return graphqlclient.KafkaOperationIdempotentWrite
 	default:
-		logrus.Panic("Unknown KafkaOperation: %s", op)
+		logrus.Panic(fmt.Sprintf("Unknown KafkaOperation: %s", op))
 		return "" // We won't reach here
 	}
 }
