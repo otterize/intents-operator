@@ -86,13 +86,29 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 	server := "test-server"
 	_, err := s.AddIntents(intentsObjectName, clientName, []otterizev1alpha2.Intent{{
 		Name: server,
+		Type: otterizev1alpha2.IntentTypeKafka,
+		Topics: []otterizev1alpha2.KafkaTopic{{
+			Name: "test-topic",
+			Operations: []otterizev1alpha2.KafkaOperation{
+				otterizev1alpha2.KafkaOperationCreate,
+				otterizev1alpha2.KafkaOperationDelete,
+			},
+		}},
 	},
 	})
 	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	expectedIntent := intentInput(clientName, s.TestNamespace, server, s.TestNamespace)
-
+	expectedIntent.Type = lo.ToPtr(graphqlclient.IntentTypeKafka)
+	kafkaConfigInput := graphqlclient.KafkaConfigInput{
+		Name: lo.ToPtr("test-topic"),
+		Operations: []*graphqlclient.KafkaOperation{
+			lo.ToPtr(graphqlclient.KafkaOperationDelete),
+			lo.ToPtr(graphqlclient.KafkaOperationCreate),
+		},
+	}
+	expectedIntent.Topics = []*graphqlclient.KafkaConfigInput{&kafkaConfigInput}
 	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
 	expectedNamespace := lo.ToPtr(s.TestNamespace)
 	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, GetMatcher(expectedIntents)).Return(nil).Times(1)
