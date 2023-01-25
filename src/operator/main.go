@@ -222,12 +222,16 @@ func main() {
 	defer cancelFunc()
 	otterizeCloudClient, connectedToCloud, err := otterizecloud.NewClient(timeoutCtx)
 	if err != nil {
-		logrus.WithError(err).Fatal("Failed to initialize Otterize Cloud client")
+		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
-		err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation)
+		err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, otterizecloud.IntentsOperatorConfigurationInput{
+			GlobalEnforcementEnabled:        enforcementEnabledGlobally,
+			NetworkPolicyEnforcementEnabled: enableNetworkPolicyCreation,
+			KafkaACLEnforcementEnabled:      enableKafkaACLCreation,
+		})
 		if err != nil {
-			logrus.WithError(err).Fatal("Failed to report configuration to the cloud")
+			logrus.WithError(err).Error("Failed to report configuration to the cloud")
 		}
 		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
 	} else {
