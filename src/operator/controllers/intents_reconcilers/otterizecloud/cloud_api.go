@@ -11,7 +11,7 @@ import (
 type CloudClient interface {
 	ReportKafkaServerConfig(ctx context.Context, namespace string, servers []graphqlclient.KafkaServerConfigInput) error
 	ReportAppliedIntents(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error
-	ReportIntentsOperatorConfiguration(ctx context.Context, enableEnforcement bool) error
+	ReportIntentsOperatorConfiguration(ctx context.Context, globalEnforcementEnabled bool, networkPolicyEnforcementEnabled bool, kafkaACLEnforcementEnabled bool) error
 	ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType)
 }
 
@@ -57,9 +57,13 @@ func (c *CloudClientImpl) ReportAppliedIntents(
 
 func (c *CloudClientImpl) ReportIntentsOperatorConfiguration(
 	ctx context.Context,
-	enableEnforcement bool) error {
+	globalEnforcementEnabled bool,
+	networkPolicyEnforcementEnabled bool,
+	kafkaACLEnforcementEnabled bool) error {
 	_, err := graphqlclient.ReportIntentsOperatorConfiguration(ctx, c.client, graphqlclient.IntentsOperatorConfigurationInput{
-		EnableEnforcement: enableEnforcement,
+		GlobalEnforcementEnabled:        globalEnforcementEnabled,
+		NetworkPolicyEnforcementEnabled: networkPolicyEnforcementEnabled,
+		KafkaACLEnforcementEnabled:      kafkaACLEnforcementEnabled,
 	})
 	if err != nil {
 		return err

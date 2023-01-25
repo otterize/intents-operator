@@ -47,8 +47,6 @@ var (
 	scheme = runtime.NewScheme()
 )
 
-const enableEnforcementKey = "enable-enforcement"
-
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
@@ -91,7 +89,7 @@ func main() {
 		"Whether to generate and use a self signed cert as the CA for webhooks")
 	pflag.BoolVar(&disableWebhookServer, "disable-webhook-server", false,
 		"Disable webhook validator server")
-	pflag.BoolVar(&enforcementEnabledGlobally, enableEnforcementKey, true,
+	pflag.BoolVar(&enforcementEnabledGlobally, "enable-enforcement", true,
 		"If set to false disables the enforcement globally, superior to the other flags")
 	pflag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", true,
 		"Whether to automatically create network policies for external traffic")
@@ -234,16 +232,16 @@ func main() {
 	defer cancelFunc()
 	cloudClient, connectedToCloud, err := otterizecloud.NewClient(ctx)
 	if err != nil {
-		logrus.WithError(err).Warning("Failed to connect to Otterize cloud")
+		logrus.WithError(err).Fatal("Failed to connect to Otterize cloud")
 	}
 	if connectedToCloud {
-		err := cloudClient.ReportIntentsOperatorConfiguration(ctx, enforcementEnabledGlobally)
+		err := cloudClient.ReportIntentsOperatorConfiguration(ctx, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation)
 		if err != nil {
-			logrus.WithError(err).Warning("Failed to report configuration to the cloud")
+			logrus.WithError(err).Fatal("Failed to report configuration to the cloud")
 		}
 	}
 	if !enforcementEnabledGlobally {
-		logrus.Infof("Running with %s=false, won't perform any enforcement", enableEnforcementKey)
+		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
 
 	logrus.Info("starting manager")
