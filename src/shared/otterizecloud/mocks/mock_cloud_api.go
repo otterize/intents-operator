@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	otterizecloud "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	graphqlclient "github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 )
 
@@ -63,7 +62,7 @@ func (mr *MockCloudClientMockRecorder) ReportComponentStatus(ctx, component inte
 }
 
 // ReportIntentsOperatorConfiguration mocks base method.
-func (m *MockCloudClient) ReportIntentsOperatorConfiguration(ctx context.Context, config otterizecloud.IntentsOperatorConfigurationInput) error {
+func (m *MockCloudClient) ReportIntentsOperatorConfiguration(ctx context.Context, config graphqlclient.IntentsOperatorConfigurationInput) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReportIntentsOperatorConfiguration", ctx, config)
 	ret0, _ := ret[0].(error)

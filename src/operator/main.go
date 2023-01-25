@@ -24,6 +24,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"os"
@@ -225,7 +226,7 @@ func main() {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
-		err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, otterizecloud.IntentsOperatorConfigurationInput{
+		err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
 			GlobalEnforcementEnabled:        enforcementEnabledGlobally,
 			NetworkPolicyEnforcementEnabled: enableNetworkPolicyCreation,
 			KafkaACLEnforcementEnabled:      enableKafkaACLCreation,
