@@ -79,11 +79,25 @@ const (
 )
 
 type IntentsOperatorConfigurationInput struct {
-	EnableEnforcement bool `json:"enableEnforcement"`
+	GlobalEnforcementEnabled        bool `json:"globalEnforcementEnabled"`
+	NetworkPolicyEnforcementEnabled bool `json:"networkPolicyEnforcementEnabled"`
+	KafkaACLEnforcementEnabled      bool `json:"kafkaACLEnforcementEnabled"`
 }
 
-// GetEnableEnforcement returns IntentsOperatorConfigurationInput.EnableEnforcement, and is useful for accessing the field via an interface.
-func (v *IntentsOperatorConfigurationInput) GetEnableEnforcement() bool { return v.EnableEnforcement }
+// GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetGlobalEnforcementEnabled() bool {
+	return v.GlobalEnforcementEnabled
+}
+
+// GetNetworkPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.NetworkPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetNetworkPolicyEnforcementEnabled() bool {
+	return v.NetworkPolicyEnforcementEnabled
+}
+
+// GetKafkaACLEnforcementEnabled returns IntentsOperatorConfigurationInput.KafkaACLEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetKafkaACLEnforcementEnabled() bool {
+	return v.KafkaACLEnforcementEnabled
+}
 
 type KafkaConfigInput struct {
 	Name       *string           `json:"name"`
