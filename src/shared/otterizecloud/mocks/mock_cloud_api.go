@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	otterizecloud "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	graphqlclient "github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 )
 
@@ -62,17 +63,17 @@ func (mr *MockCloudClientMockRecorder) ReportComponentStatus(ctx, component inte
 }
 
 // ReportIntentsOperatorConfiguration mocks base method.
-func (m *MockCloudClient) ReportIntentsOperatorConfiguration(ctx context.Context, globalEnforcementEnabled, networkPolicyEnforcementEnabled, kafkaACLEnforcementEnabled bool) error {
+func (m *MockCloudClient) ReportIntentsOperatorConfiguration(ctx context.Context, config otterizecloud.IntentsOperatorConfigurationInput) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportIntentsOperatorConfiguration", ctx, globalEnforcementEnabled, networkPolicyEnforcementEnabled, kafkaACLEnforcementEnabled)
+	ret := m.ctrl.Call(m, "ReportIntentsOperatorConfiguration", ctx, config)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReportIntentsOperatorConfiguration indicates an expected call of ReportIntentsOperatorConfiguration.
-func (mr *MockCloudClientMockRecorder) ReportIntentsOperatorConfiguration(ctx, globalEnforcementEnabled, networkPolicyEnforcementEnabled, kafkaACLEnforcementEnabled interface{}) *gomock.Call {
+func (mr *MockCloudClientMockRecorder) ReportIntentsOperatorConfiguration(ctx, config interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportIntentsOperatorConfiguration", reflect.TypeOf((*MockCloudClient)(nil).ReportIntentsOperatorConfiguration), ctx, globalEnforcementEnabled, networkPolicyEnforcementEnabled, kafkaACLEnforcementEnabled)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportIntentsOperatorConfiguration", reflect.TypeOf((*MockCloudClient)(nil).ReportIntentsOperatorConfiguration), ctx, config)
 }
 
 // ReportKafkaServerConfig mocks base method.
