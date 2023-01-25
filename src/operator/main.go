@@ -160,17 +160,6 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	signalHandlerCtx := ctrl.SetupSignalHandler()
-	otterizeCloudClient, ok, err := otterizecloud.NewClient(context.Background())
-	if err != nil {
-		logrus.WithError(err).Fatal("Failed to create otterize cloud client")
-	}
-	if !ok {
-		logrus.Info("missing configuration for cloud integration, disabling cloud communication")
-	} else {
-		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
-	}
-
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler,
 		watchedNamespaces, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation,
@@ -228,17 +217,21 @@ func main() {
 		logrus.WithError(err).Fatal("unable to set up ready check")
 	}
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
+	signalHandlerCtx := ctrl.SetupSignalHandler()
+	timeoutCtx, cancelFunc := context.WithTimeout(signalHandlerCtx, 10*time.Second)
 	defer cancelFunc()
-	cloudClient, connectedToCloud, err := otterizecloud.NewClient(ctx)
+	otterizeCloudClient, connectedToCloud, err := otterizecloud.NewClient(timeoutCtx)
 	if err != nil {
-		logrus.WithError(err).Fatal("Failed to connect to Otterize cloud")
+		logrus.WithError(err).Fatal("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
-		err := cloudClient.ReportIntentsOperatorConfiguration(ctx, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation)
+		err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation)
 		if err != nil {
 			logrus.WithError(err).Fatal("Failed to report configuration to the cloud")
 		}
+		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
+	} else {
+		logrus.Info("Not configured for cloud integration")
 	}
 	if !enforcementEnabledGlobally {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
