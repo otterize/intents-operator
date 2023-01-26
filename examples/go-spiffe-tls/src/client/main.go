@@ -33,7 +33,7 @@ func dial() {
 	serverID := spiffeid.RequireFromString(serverID)
 
 	// Create a TLS connection.
-	// The client expects the server to present an SVID with the spiffeID: 'spiffe://example.org/server'
+	// The client expects the server to present an Certificate with the spiffeID: 'spiffe://example.org/server'
 	//
 	// An alternative when creating Dial is using `spiffetls.Dial` that uses environment variable `SPIFFE_ENDPOINT_SOCKET`
 	svid := utils.NewLocalSVIDSource(certFilePath, keyFilePath)

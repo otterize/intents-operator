@@ -37,7 +37,11 @@ type PodControllerSuite struct {
 	podReconciler   *PodReconciler
 }
 
-func (s *PodControllerSuite) SetupTest() {
+type PodControllerSuiteWithoutEventRecorder struct {
+	PodControllerSuite
+}
+
+func (s *PodControllerSuiteWithoutEventRecorder) SetupTest() {
 	s.controller = gomock.NewController(s.T())
 	s.client = mock_client.NewMockClient(s.controller)
 	s.spireClient = mock_spireclient.NewMockServerClient(s.controller)
@@ -73,7 +77,7 @@ func (m *ObjectNameMatcher) String() string {
 	return fmt.Sprintf("%T(name=%s, namespace=%s)", m, m.name, m.namespace)
 }
 
-func (s *PodControllerSuite) TestController_Reconcile() {
+func (s *PodControllerSuiteWithoutEventRecorder) TestController_Reconcile() {
 	namespace := "test_namespace"
 	podname := "test_podname"
 	servicename := "test_servicename"
@@ -139,7 +143,7 @@ func (s *PodControllerSuite) TestController_Reconcile() {
 	s.Require().Equal(update.Labels[metadata.RegisteredServiceNameLabel], servicename)
 }
 
-func (s *PodControllerSuite) TestController_Reconcile_RegisterOnlyAnnotatedPods() {
+func (s *PodControllerSuiteWithoutEventRecorder) TestController_Reconcile_RegisterOnlyAnnotatedPods() {
 	namespace := "test_namespace"
 	podname := "test_podname"
 	s.podReconciler.registerOnlyPodsWithSecretAnnotation = true
@@ -166,7 +170,7 @@ func (s *PodControllerSuite) TestController_Reconcile_RegisterOnlyAnnotatedPods(
 	s.Require().True(result.IsZero())
 }
 
-func (s *PodControllerSuite) TestController_cleanupOrphanEntries() {
+func (s *PodControllerSuiteWithoutEventRecorder) TestController_cleanupOrphanEntries() {
 	existingPods := corev1.PodList{
 		Items: []corev1.Pod{
 			{
@@ -232,5 +236,100 @@ func (s *PodControllerSuite) TestController_cleanupOrphanEntries() {
 }
 
 func TestRunPodControllerSuite(t *testing.T) {
-	suite.Run(t, new(PodControllerSuite))
+	suite.Run(t, new(PodControllerSuiteWithoutEventRecorder))
+}
+
+type PodControllerSuiteWithEventRecorder struct {
+	PodControllerSuite
+	eventRecorder *mock_record.MockEventRecorder
+}
+
+func (s *PodControllerSuiteWithEventRecorder) SetupTest() {
+	s.controller = gomock.NewController(s.T())
+	s.client = mock_client.NewMockClient(s.controller)
+	s.spireClient = mock_spireclient.NewMockServerClient(s.controller)
+	s.entriesRegistry = mock_entries.NewMockWorkloadRegistry(s.controller)
+	s.secretsManager = mock_secrets.NewMockSecretsManager(s.controller)
+	serviceIdResolver := serviceidresolver.NewResolver(s.client)
+	s.eventRecorder = mock_record.NewMockEventRecorder(s.controller)
+
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	s.client.EXPECT().Scheme().Return(scheme).AnyTimes()
+	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, s.secretsManager,
+		serviceIdResolver, s.eventRecorder, false)
+}
+
+func (s *PodControllerSuiteWithEventRecorder) TestController_Reconcile_DeprecatedAnnotations() {
+	namespace := "test_namespace"
+	podname := "test_podname"
+	servicename := "test_servicename"
+	secretname := "test_secretname"
+	entryID := "test"
+	ttl := int32(99999)
+	extraDnsNames := []string{"asd.com", "bla.org"}
+
+	s.eventRecorder.EXPECT().Event(gomock.Any(), gomock.Eq(corev1.EventTypeWarning), gomock.Eq(ReasonUsingDeprecatedAnnotations), gomock.Eq("This pod using deprecated otterize-credentials annotations. Please check the documentation at https://docs.otterize.com/components/credentials-operator"))
+	s.eventRecorder.EXPECT().Eventf(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+
+	pod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      podname,
+			Annotations: map[string]string{
+				serviceidresolver.ServiceNameAnnotation:    servicename,
+				metadata.TLSSecretNameAnnotationDeprecated: secretname,
+				metadata.CertTTLAnnotation:                 fmt.Sprintf("%d", ttl),
+				metadata.DNSNamesAnnotation:                strings.Join(extraDnsNames, ","),
+			},
+		},
+	}
+
+	s.client.EXPECT().Get(
+		gomock.Any(),
+		types.NamespacedName{Namespace: namespace, Name: podname},
+		gomock.AssignableToTypeOf(&corev1.Pod{}),
+	).Return(nil).Do(
+		func(ctx context.Context, key client.ObjectKey, returnedPod *corev1.Pod, opts ...any) {
+			*returnedPod = pod
+		})
+
+	// expect update pod labels
+	var update *corev1.Pod
+	s.client.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Pod{})).
+		Return(nil).Do(func(ctx context.Context, pod *corev1.Pod, opts ...client.UpdateOption) {
+		update = pod
+	})
+
+	// expect spire entry registration
+	s.entriesRegistry.EXPECT().RegisterK8SPod(gomock.Any(), namespace, metadata.RegisteredServiceNameLabel, servicename, ttl, extraDnsNames).
+		Return(entryID, nil)
+
+	// expect TLS secret creation
+	entryHash, err := getEntryHash(namespace, servicename, ttl, extraDnsNames)
+	s.NoError(err)
+	certConf, err := certConfigFromPod(&pod)
+	s.NoError(err)
+	s.secretsManager.EXPECT().EnsureTLSSecret(
+		gomock.Any(),
+		secretstypes.NewSecretConfig(
+			entryID,
+			entryHash,
+			secretname,
+			namespace,
+			servicename,
+			certConf,
+			false,
+		),
+		&ObjectNameMatcher{name: podname, namespace: namespace}).Return(nil)
+
+	request := ctrl.Request{NamespacedName: types.NamespacedName{Namespace: namespace, Name: podname}}
+	result, err := s.podReconciler.Reconcile(context.Background(), request)
+	s.Require().NoError(err)
+	s.Require().True(result.IsZero())
+	s.Require().Equal(update.Labels[metadata.RegisteredServiceNameLabel], servicename)
+}
+
+func TestRunPodControllerWithRecorderSuite(t *testing.T) {
+	suite.Run(t, new(PodControllerSuiteWithEventRecorder))
 }

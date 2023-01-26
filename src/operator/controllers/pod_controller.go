@@ -34,6 +34,7 @@ const (
 	ReasonEntryRegistrationFailed    = "EntryRegistrationFailed"
 	ReasonPodRegistered              = "PodRegistered"
 	ReasonEntryHashCalculationFailed = "EntryHashCalculationFailed"
+	ReasonUsingDeprecatedAnnotations = "UsingDeprecatedAnnotations"
 )
 
 type WorkloadRegistry interface {
@@ -112,7 +113,7 @@ func (r *PodReconciler) updatePodLabel(ctx context.Context, pod *corev1.Pod, lab
 
 func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod, serviceName string, entryID string, entryHash string, shouldRestartPodOnRenewal bool) error {
 	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace})
-	secretName := pod.Annotations[metadata.TLSSecretNameAnnotation]
+	secretName := metadata.GetAnnotationValue(pod.Annotations, metadata.TLSSecretNameAnnotation)
 	certConfig, err := certConfigFromPod(pod)
 	if err != nil {
 		return fmt.Errorf("failed parsing annotations: %w", err)
@@ -130,7 +131,8 @@ func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod,
 }
 
 func certConfigFromPod(pod *corev1.Pod) (secretstypes.CertConfig, error) {
-	certTypeStr, _ := lo.Coalesce(pod.Annotations[metadata.CertTypeAnnotation], "pem")
+	certTypeStr := metadata.GetAnnotationValue(pod.Annotations, metadata.CertTypeAnnotation)
+	certTypeStr, _ = lo.Coalesce(certTypeStr, "pem")
 	certType, err := secretstypes.StrToCertType(certTypeStr)
 	if err != nil {
 		return secretstypes.CertConfig{}, err
@@ -139,15 +141,15 @@ func certConfigFromPod(pod *corev1.Pod) (secretstypes.CertConfig, error) {
 	switch certType {
 	case secretstypes.PEMCertType:
 		certConfig.PEMConfig = secretstypes.NewPEMConfig(
-			pod.Annotations[metadata.SVIDFileNameAnnotation],
-			pod.Annotations[metadata.BundleFileNameAnnotation],
-			pod.Annotations[metadata.KeyFileNameAnnotation],
+			metadata.GetAnnotationValue(pod.Annotations, metadata.CertFileNameAnnotation),
+			metadata.GetAnnotationValue(pod.Annotations, metadata.CAFileNameAnnotation),
+			metadata.GetAnnotationValue(pod.Annotations, metadata.KeyFileNameAnnotation),
 		)
 	case secretstypes.JKSCertType:
 		certConfig.JKSConfig = secretstypes.NewJKSConfig(
-			pod.Annotations[metadata.KeyStoreFileNameAnnotation],
-			pod.Annotations[metadata.TrustStoreFileNameAnnotation],
-			pod.Annotations[metadata.JKSPasswordAnnotation],
+			metadata.GetAnnotationValue(pod.Annotations, metadata.KeyStoreFileNameAnnotation),
+			metadata.GetAnnotationValue(pod.Annotations, metadata.TrustStoreFileNameAnnotation),
+			metadata.GetAnnotationValue(pod.Annotations, metadata.JKSPasswordAnnotation),
 		)
 
 	}
@@ -177,6 +179,10 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	if !r.shouldRegisterEntryForPod(pod) {
 		return ctrl.Result{}, nil
+	}
+
+	if metadata.HasDeprecatedAnnotations(pod.Annotations) {
+		r.eventRecorder.Event(pod, corev1.EventTypeWarning, ReasonUsingDeprecatedAnnotations, "This pod using deprecated otterize-credentials annotations. Please check the documentation at https://docs.otterize.com/components/credentials-operator")
 	}
 
 	log.Info("updating workload entries & secrets for pod")
@@ -252,11 +258,12 @@ func getEntryHash(namespace string, serviceName string, ttl int32, dnsNames []st
 }
 
 func (r *PodReconciler) resolvePodToCertDNSNames(pod *corev1.Pod) ([]string, error) {
-	if len(pod.Annotations[metadata.DNSNamesAnnotation]) == 0 {
+	dnsNamesStr := metadata.GetAnnotationValue(pod.Annotations, metadata.DNSNamesAnnotation)
+	if len(dnsNamesStr) == 0 {
 		return nil, nil
 	}
 
-	dnsNames := strings.Split(pod.Annotations[metadata.DNSNamesAnnotation], ",")
+	dnsNames := strings.Split(dnsNamesStr, ",")
 	for _, name := range dnsNames {
 		if !govalidator.IsDNSName(name) {
 			return nil, fmt.Errorf("invalid DNS name: %s", name)
@@ -266,7 +273,7 @@ func (r *PodReconciler) resolvePodToCertDNSNames(pod *corev1.Pod) ([]string, err
 }
 
 func (r *PodReconciler) resolvePodToCertTTl(pod *corev1.Pod) (int32, error) {
-	ttlString := pod.Annotations[metadata.CertTTLAnnotation]
+	ttlString := metadata.GetAnnotationValue(pod.Annotations, metadata.CertTTLAnnotation)
 	if len(ttlString) == 0 {
 		return 0, nil
 	}
@@ -280,7 +287,8 @@ func (r *PodReconciler) resolvePodToCertTTl(pod *corev1.Pod) (int32, error) {
 }
 
 func (r *PodReconciler) shouldCreateSecretForPod(pod *corev1.Pod) bool {
-	return pod.Annotations != nil && pod.Annotations[metadata.TLSSecretNameAnnotation] != ""
+	return pod.Annotations != nil &&
+		len(metadata.GetAnnotationValue(pod.Annotations, metadata.TLSSecretNameAnnotation)) != 0
 }
 
 func (r *PodReconciler) shouldRegisterEntryForPod(pod *corev1.Pod) bool {
@@ -288,8 +296,7 @@ func (r *PodReconciler) shouldRegisterEntryForPod(pod *corev1.Pod) bool {
 }
 
 func (r *PodReconciler) resolvePodToShouldRestartOnRenewal(pod *corev1.Pod) bool {
-	_, ok := pod.Annotations[metadata.ShouldRestartOnRenewalAnnotation]
-	return ok
+	return metadata.AnnotationExists(pod.Annotations, metadata.ShouldRestartOnRenewalAnnotation)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -339,7 +346,7 @@ func (r *PodReconciler) MaintenanceLoop(ctx context.Context) {
 			go func() {
 				err := r.cleanupOrphanEntries(ctx)
 				if err != nil {
-					logrus.WithError(err).Error("failed cleaning up orphan SPIRE entries")
+					logrus.WithError(err).Error("failed cleaning up orphan entries")
 				}
 				logrus.Info("successfully cleaned up entries of inactive pods")
 			}()

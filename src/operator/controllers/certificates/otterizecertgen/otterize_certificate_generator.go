@@ -37,7 +37,7 @@ func (m *OtterizeCertificateDataGenerator) GeneratePEM(ctx context.Context, serv
 	certCAChain := lo.Map([]string{keyPair.CaPEM, keyPair.RootCAPEM}, func(cert string, _ int) []byte { return []byte(cert) })
 	CaPoolPem := bytes.Join(certCAChain, []byte("\n"))
 
-	return secretstypes.PEMCert{Key: []byte(keyPair.KeyPEM), SVID: []byte(keyPair.CertPEM), Bundle: CaPoolPem, Expiry: expiryStr}, nil
+	return secretstypes.PEMCert{Key: []byte(keyPair.KeyPEM), Certificate: []byte(keyPair.CertPEM), CA: CaPoolPem, Expiry: expiryStr}, nil
 }
 
 func (m *OtterizeCertificateDataGenerator) GenerateJKS(ctx context.Context, serviceId string, password string) (secretstypes.JKSCert, error) {

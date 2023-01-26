@@ -19,7 +19,9 @@ spec:
       labels:
         app: client
       annotations:
-        spire-integration.otterize.com/tls-secret-name: go-spiffe-tls-client-tls-secret
+        credentials-operator.otterize.com/tls-secret-name: go-spiffe-tls-client-tls-secret
+        credentials-operator.otterize.com/cert-file-name: svid.pem
+        credentials-operator.otterize.com/ca-file-name: bundle.pem
     spec:
       containers:
         - name: client
@@ -50,7 +52,9 @@ spec:
       labels:
         app: server
       annotations:
-        spire-integration.otterize.com/tls-secret-name: go-spiffe-tls-server-tls-secret
+        credentials-operator.otterize.com/tls-secret-name: go-spiffe-tls-server-tls-secret
+        credentials-operator.otterize.com/cert-file-name: svid.pem
+        credentials-operator.otterize.com/ca-file-name: bundle.pem
     spec:
       containers:
         - name: server

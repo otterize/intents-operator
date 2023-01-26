@@ -15,14 +15,14 @@ import (
 )
 
 const (
-	kafkaAddr  = "kafka-tls-0.kafka-tls-headless.default.svc.cluster.local:9092"
+	kafkaAddr  = "kafka-0.kafka-headless.default.svc.cluster.local:9092"
 	tlsEnabled = true
 	//kafkaAddr     = "kafka-tls2.default.svc.cluster.local:9095"
 	//tlsEnabled    = false
 	testTopicName = "orders"
-	certFile      = "/etc/spire-integration/svid.pem"
+	certFile      = "/etc/spire-integration/cert.pem"
 	keyFile       = "/etc/spire-integration/key.pem"
-	rootCAFile    = "/etc/spire-integration/bundle.pem"
+	rootCAFile    = "/etc/spire-integration/ca.pem"
 )
 
 func getTLSConfig() (*tls.Config, error) {
@@ -111,7 +111,7 @@ func main() {
 
 	if err := ensureKafkaTopic(a, testTopicName); err != nil {
 		logrus.WithError(err).Panic()
-	}	
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()

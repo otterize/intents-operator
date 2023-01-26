@@ -19,7 +19,7 @@ spec:
       labels:
         app: client
       annotations:
-        spire-integration.otterize.com/tls-secret-name: kafka-mtls-client-tls-secret
+        credentials-operator.otterize.com/tls-secret-name: kafka-mtls-client-tls-secret
     spec:
       containers:
         - name: client

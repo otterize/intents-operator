@@ -20,6 +20,6 @@ func (s LocalSVIDSource) GetX509SVID() (*x509svid.SVID, error) {
 		logrus.WithError(err).Error("error loading svid")
 		return nil, err
 	}
-	logrus.WithField("spiffeid", svid.ID.String()).Info("SVID Loaded")
+	logrus.WithField("spiffeid", svid.ID.String()).Info("Certificate Loaded")
 	return svid, nil
 }

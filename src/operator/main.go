@@ -61,7 +61,7 @@ func init() {
 }
 
 func initSpireClient(ctx context.Context, spireServerAddr string) (spireclient.ServerClient, error) {
-	// fetch SVID & bundle through spire-agent API
+	// fetch Certificate & bundle through spire-agent API
 	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath), workloadapi.WithLogger(logrus.StandardLogger())))
 	if err != nil {
 		return nil, err
