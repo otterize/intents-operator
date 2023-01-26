@@ -76,7 +76,6 @@ func main() {
 	var enableKafkaACLCreation bool
 	var disableWebhookServer bool
 	var tlsSource otterizev1alpha2.TLSSource
-	var otterizeCloudClient otterizecloud.CloudClient
 
 	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -161,6 +160,30 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
+	signalHandlerCtx := ctrl.SetupSignalHandler()
+	timeoutCtx, cancelFunc := context.WithTimeout(signalHandlerCtx, 10*time.Second)
+	defer cancelFunc()
+	otterizeCloudClient, connectedToCloud, err := otterizecloud.NewClient(timeoutCtx)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
+	}
+	if connectedToCloud {
+		err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
+			GlobalEnforcementEnabled:        enforcementEnabledGlobally,
+			NetworkPolicyEnforcementEnabled: enableNetworkPolicyCreation,
+			KafkaACLEnforcementEnabled:      enableKafkaACLCreation,
+		})
+		if err != nil {
+			logrus.WithError(err).Error("Failed to report configuration to the cloud")
+		}
+		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
+	} else {
+		logrus.Info("Not configured for cloud integration")
+	}
+	if !enforcementEnabledGlobally {
+		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
+	}
+
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler,
 		watchedNamespaces, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation,
@@ -216,30 +239,6 @@ func main() {
 	}
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		logrus.WithError(err).Fatal("unable to set up ready check")
-	}
-
-	signalHandlerCtx := ctrl.SetupSignalHandler()
-	timeoutCtx, cancelFunc := context.WithTimeout(signalHandlerCtx, 10*time.Second)
-	defer cancelFunc()
-	otterizeCloudClient, connectedToCloud, err := otterizecloud.NewClient(timeoutCtx)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
-	}
-	if connectedToCloud {
-		err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
-			GlobalEnforcementEnabled:        enforcementEnabledGlobally,
-			NetworkPolicyEnforcementEnabled: enableNetworkPolicyCreation,
-			KafkaACLEnforcementEnabled:      enableKafkaACLCreation,
-		})
-		if err != nil {
-			logrus.WithError(err).Error("Failed to report configuration to the cloud")
-		}
-		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
-	} else {
-		logrus.Info("Not configured for cloud integration")
-	}
-	if !enforcementEnabledGlobally {
-		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
 
 	logrus.Info("starting manager")
