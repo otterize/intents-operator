@@ -80,7 +80,7 @@ func (v *IntentsValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *IntentsValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
 	var allErrs field.ErrorList
-	intentsObj := oldObj.(*otterizev1alpha2.ClientIntents)
+	intentsObj := newObj.(*otterizev1alpha2.ClientIntents)
 	intentsList := &otterizev1alpha2.ClientIntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
 		return err

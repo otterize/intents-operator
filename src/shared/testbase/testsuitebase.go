@@ -417,10 +417,7 @@ func (s *ControllerManagerTestSuiteBase) UpdateIntents(
 
 	intents.Spec.Calls = callList
 
-	err = s.Mgr.GetClient().Update(context.Background(), intents)
-	s.Require().NoError(err)
-
-	return nil
+	return s.Mgr.GetClient().Update(context.Background(), intents)
 }
 
 func (s *ControllerManagerTestSuiteBase) RemoveIntents(
