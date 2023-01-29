@@ -71,7 +71,7 @@ func (s *storeImpl) GetX509SVID(ctx context.Context, entryID string, privateKey 
 	})
 
 	if err != nil {
-		return EncodedX509SVID{}, fmt.Errorf("unable to mint SVID: %w", err)
+		return EncodedX509SVID{}, fmt.Errorf("unable to mint Certificate: %w", err)
 	}
 
 	svidPEM := new(bytes.Buffer)

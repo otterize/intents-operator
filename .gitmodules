@@ -1,0 +1,3 @@
+[submodule "graphql"]
+	path = graphql
+	url = https://github.com/otterize/graphql.git

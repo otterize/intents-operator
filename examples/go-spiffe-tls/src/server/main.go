@@ -34,7 +34,7 @@ func main() {
 	bundle := utils.NewLocalBundleSource(bundlePath)
 
 	// Creates a TLS listener
-	// The server expects the client to present an SVID with the spiffeID: 'spiffe://example.org/client'
+	// The server expects the client to present an Certificate with the spiffeID: 'spiffe://example.org/client'
 	//
 	// An alternative when creating Listen is using `spiffetls.Listen` that uses environment variable `SPIFFE_ENDPOINT_SOCKET`
 	listener, err := spiffetls.ListenWithMode(ctx, "tcp", serverAddress,

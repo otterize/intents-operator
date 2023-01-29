@@ -34,16 +34,16 @@ type CertificateData struct {
 }
 
 type PEMConfig struct {
-	SVIDFileName   string
-	BundleFileName string
-	KeyFileName    string
+	CertFileName string
+	CAFileName   string
+	KeyFileName  string
 }
 
-func NewPEMConfig(svidFileName string, bundleFileName string, keyFileName string) PEMConfig {
+func NewPEMConfig(certFileName string, caFileName string, keyFileName string) PEMConfig {
 	newFileNames := PEMConfig{}
-	newFileNames.SVIDFileName, _ = lo.Coalesce(svidFileName, "svid.pem")
+	newFileNames.CertFileName, _ = lo.Coalesce(certFileName, "cert.pem")
 	newFileNames.KeyFileName, _ = lo.Coalesce(keyFileName, "key.pem")
-	newFileNames.BundleFileName, _ = lo.Coalesce(bundleFileName, "bundle.pem")
+	newFileNames.CAFileName, _ = lo.Coalesce(caFileName, "ca.pem")
 	return newFileNames
 }
 
@@ -68,10 +68,10 @@ type JKSCert struct {
 }
 
 type PEMCert struct {
-	SVID   []byte
-	Bundle []byte
-	Key    []byte
-	Expiry string
+	Certificate []byte
+	CA          []byte
+	Key         []byte
+	Expiry      string
 }
 
 type CertConfig struct {

@@ -23,25 +23,26 @@ import (
 )
 
 const (
-	refreshSecretsLoopTick                = time.Minute
-	cleanupOrphanEntriesLoopTick          = 10 * time.Minute
-	ReasonEnsuredPodTLS                   = "EnsuredPodTLS"
-	ReasonEnsuringPodTLSFailed            = "EnsuringPodTLSFailed"
-	ReasonPodOwnerResolutionFailed        = "PodOwnerResolutionFailed"
-	ReasonPodLabelUpdateFailed            = "PodLabelUpdateFailed"
-	ReasonCertDNSResolutionFailed         = "CertDNSResolutionFailed"
-	ReasonCertTTLError                    = "CertTTLError"
-	ReasonSPIREEntryRegistrationFailed    = "SPIREEntryRegistrationFailed"
-	ReasonPodRegistered                   = "PodRegistered"
-	ReasonSPIREEntryHashCalculationFailed = "SPIREEntryHashCalculationFailed"
+	refreshSecretsLoopTick           = time.Minute
+	cleanupOrphanEntriesLoopTick     = 10 * time.Minute
+	ReasonEnsuredPodTLS              = "EnsuredPodTLS"
+	ReasonEnsuringPodTLSFailed       = "EnsuringPodTLSFailed"
+	ReasonPodOwnerResolutionFailed   = "PodOwnerResolutionFailed"
+	ReasonPodLabelUpdateFailed       = "PodLabelUpdateFailed"
+	ReasonCertDNSResolutionFailed    = "CertDNSResolutionFailed"
+	ReasonCertTTLError               = "CertTTLError"
+	ReasonEntryRegistrationFailed    = "EntryRegistrationFailed"
+	ReasonPodRegistered              = "PodRegistered"
+	ReasonEntryHashCalculationFailed = "EntryHashCalculationFailed"
+	ReasonUsingDeprecatedAnnotations = "UsingDeprecatedAnnotations"
 )
 
-type workloadRegistry interface {
+type WorkloadRegistry interface {
 	RegisterK8SPod(ctx context.Context, namespace string, serviceNameLabel string, serviceName string, ttl int32, dnsNames []string) (string, error)
 	CleanupOrphanK8SPodEntries(ctx context.Context, serviceNameLabel string, existingServicesByNamespace map[string]*goset.Set[string]) error
 }
 
-type secretsManager interface {
+type SecretsManager interface {
 	EnsureTLSSecret(ctx context.Context, config secretstypes.SecretConfig, pod *corev1.Pod) error
 	RefreshTLSSecrets(ctx context.Context) error
 }
@@ -49,11 +50,12 @@ type secretsManager interface {
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
-	scheme            *runtime.Scheme
-	workloadRegistry  workloadRegistry
-	secretsManager    secretsManager
-	serviceIdResolver *serviceidresolver.Resolver
-	eventRecorder     record.EventRecorder
+	scheme                               *runtime.Scheme
+	workloadRegistry                     WorkloadRegistry
+	secretsManager                       SecretsManager
+	serviceIdResolver                    *serviceidresolver.Resolver
+	eventRecorder                        record.EventRecorder
+	registerOnlyPodsWithSecretAnnotation bool
 }
 
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;update;patch
@@ -61,15 +63,17 @@ type PodReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=replicasets;daemonsets;statefulsets;deployments,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;update;patch;list;watch;create
 
-func NewPodReconciler(client client.Client, scheme *runtime.Scheme, workloadRegistry workloadRegistry,
-	secretsManager secretsManager, serviceIdResolver *serviceidresolver.Resolver, eventRecorder record.EventRecorder) *PodReconciler {
+func NewPodReconciler(client client.Client, scheme *runtime.Scheme, workloadRegistry WorkloadRegistry,
+	secretsManager SecretsManager, serviceIdResolver *serviceidresolver.Resolver, eventRecorder record.EventRecorder,
+	registerOnlyPodsWithSecretAnnotation bool) *PodReconciler {
 	return &PodReconciler{
-		Client:            client,
-		scheme:            scheme,
-		workloadRegistry:  workloadRegistry,
-		secretsManager:    secretsManager,
-		serviceIdResolver: serviceIdResolver,
-		eventRecorder:     eventRecorder,
+		Client:                               client,
+		scheme:                               scheme,
+		workloadRegistry:                     workloadRegistry,
+		secretsManager:                       secretsManager,
+		serviceIdResolver:                    serviceIdResolver,
+		eventRecorder:                        eventRecorder,
+		registerOnlyPodsWithSecretAnnotation: registerOnlyPodsWithSecretAnnotation,
 	}
 }
 
@@ -109,12 +113,7 @@ func (r *PodReconciler) updatePodLabel(ctx context.Context, pod *corev1.Pod, lab
 
 func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod, serviceName string, entryID string, entryHash string, shouldRestartPodOnRenewal bool) error {
 	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace})
-	if pod.Annotations == nil || pod.Annotations[metadata.TLSSecretNameAnnotation] == "" {
-		log.WithField("annotation.key", metadata.TLSSecretNameAnnotation).Info("skipping TLS secrets creation - annotation not found")
-		return nil
-	}
-
-	secretName := pod.Annotations[metadata.TLSSecretNameAnnotation]
+	secretName := metadata.GetAnnotationValue(pod.Annotations, metadata.TLSSecretNameAnnotation)
 	certConfig, err := certConfigFromPod(pod)
 	if err != nil {
 		return fmt.Errorf("failed parsing annotations: %w", err)
@@ -132,7 +131,8 @@ func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod,
 }
 
 func certConfigFromPod(pod *corev1.Pod) (secretstypes.CertConfig, error) {
-	certTypeStr, _ := lo.Coalesce(pod.Annotations[metadata.CertTypeAnnotation], "pem")
+	certTypeStr := metadata.GetAnnotationValue(pod.Annotations, metadata.CertTypeAnnotation)
+	certTypeStr, _ = lo.Coalesce(certTypeStr, "pem")
 	certType, err := secretstypes.StrToCertType(certTypeStr)
 	if err != nil {
 		return secretstypes.CertConfig{}, err
@@ -141,15 +141,15 @@ func certConfigFromPod(pod *corev1.Pod) (secretstypes.CertConfig, error) {
 	switch certType {
 	case secretstypes.PEMCertType:
 		certConfig.PEMConfig = secretstypes.NewPEMConfig(
-			pod.Annotations[metadata.SVIDFileNameAnnotation],
-			pod.Annotations[metadata.BundleFileNameAnnotation],
-			pod.Annotations[metadata.KeyFileNameAnnotation],
+			metadata.GetAnnotationValue(pod.Annotations, metadata.CertFileNameAnnotation),
+			metadata.GetAnnotationValue(pod.Annotations, metadata.CAFileNameAnnotation),
+			metadata.GetAnnotationValue(pod.Annotations, metadata.KeyFileNameAnnotation),
 		)
 	case secretstypes.JKSCertType:
 		certConfig.JKSConfig = secretstypes.NewJKSConfig(
-			pod.Annotations[metadata.KeyStoreFileNameAnnotation],
-			pod.Annotations[metadata.TrustStoreFileNameAnnotation],
-			pod.Annotations[metadata.JKSPasswordAnnotation],
+			metadata.GetAnnotationValue(pod.Annotations, metadata.KeyStoreFileNameAnnotation),
+			metadata.GetAnnotationValue(pod.Annotations, metadata.TrustStoreFileNameAnnotation),
+			metadata.GetAnnotationValue(pod.Annotations, metadata.JKSPasswordAnnotation),
 		)
 
 	}
@@ -172,7 +172,20 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 
-	log.Info("updating SPIRE entries & secrets for pod")
+	// nothing to reconcile on deletions
+	if !pod.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
+	if !r.shouldRegisterEntryForPod(pod) {
+		return ctrl.Result{}, nil
+	}
+
+	if metadata.HasDeprecatedAnnotations(pod.Annotations) {
+		r.eventRecorder.Event(pod, corev1.EventTypeWarning, ReasonUsingDeprecatedAnnotations, "This pod using deprecated otterize-credentials annotations. Please check the documentation at https://docs.otterize.com/components/credentials-operator")
+	}
+
+	log.Info("updating workload entries & secrets for pod")
 
 	// resolve pod to otterize service name
 	serviceID, err := r.serviceIdResolver.ResolvePodToServiceIdentity(ctx, pod)
@@ -207,20 +220,24 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// Add workload entry for pod
 	entryID, err := r.workloadRegistry.RegisterK8SPod(ctx, pod.Namespace, metadata.RegisteredServiceNameLabel, serviceID, ttl, dnsNames)
 	if err != nil {
-		log.WithError(err).Error("failed registering SPIRE entry for pod")
-		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonSPIREEntryRegistrationFailed, "Failed registering workload entry: %s", err.Error())
+		log.WithError(err).Error("failed registering workload entry for pod")
+		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonEntryRegistrationFailed, "Failed registering workload entry: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, ReasonPodRegistered, "Successfully registered pod under workload with entry ID '%s'", entryID)
 
 	hashStr, err := getEntryHash(pod.Namespace, serviceID, ttl, dnsNames)
 	if err != nil {
-		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonSPIREEntryHashCalculationFailed, "Failed calculating workload entry hash: %s", err.Error())
+		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonEntryHashCalculationFailed, "Failed calculating workload entry hash: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
 	shouldRestartPodOnRenewal := r.resolvePodToShouldRestartOnRenewal(pod)
 
+	if !r.shouldCreateSecretForPod(pod) {
+		log.WithField("annotation.key", metadata.TLSSecretNameAnnotation).Info("skipping TLS secrets creation - annotation not found")
+		return ctrl.Result{}, err
+	}
 	// generate TLS secret for pod
 	if err := r.ensurePodTLSSecret(ctx, pod, serviceID, entryID, hashStr, shouldRestartPodOnRenewal); err != nil {
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonEnsuringPodTLSFailed, "Failed creating TLS secret for pod: %s", err.Error())
@@ -241,11 +258,12 @@ func getEntryHash(namespace string, serviceName string, ttl int32, dnsNames []st
 }
 
 func (r *PodReconciler) resolvePodToCertDNSNames(pod *corev1.Pod) ([]string, error) {
-	if len(pod.Annotations[metadata.DNSNamesAnnotation]) == 0 {
+	dnsNamesStr := metadata.GetAnnotationValue(pod.Annotations, metadata.DNSNamesAnnotation)
+	if len(dnsNamesStr) == 0 {
 		return nil, nil
 	}
 
-	dnsNames := strings.Split(pod.Annotations[metadata.DNSNamesAnnotation], ",")
+	dnsNames := strings.Split(dnsNamesStr, ",")
 	for _, name := range dnsNames {
 		if !govalidator.IsDNSName(name) {
 			return nil, fmt.Errorf("invalid DNS name: %s", name)
@@ -255,7 +273,7 @@ func (r *PodReconciler) resolvePodToCertDNSNames(pod *corev1.Pod) ([]string, err
 }
 
 func (r *PodReconciler) resolvePodToCertTTl(pod *corev1.Pod) (int32, error) {
-	ttlString := pod.Annotations[metadata.CertTTLAnnotation]
+	ttlString := metadata.GetAnnotationValue(pod.Annotations, metadata.CertTTLAnnotation)
 	if len(ttlString) == 0 {
 		return 0, nil
 	}
@@ -268,9 +286,17 @@ func (r *PodReconciler) resolvePodToCertTTl(pod *corev1.Pod) (int32, error) {
 	return int32(ttl64), nil
 }
 
+func (r *PodReconciler) shouldCreateSecretForPod(pod *corev1.Pod) bool {
+	return pod.Annotations != nil &&
+		len(metadata.GetAnnotationValue(pod.Annotations, metadata.TLSSecretNameAnnotation)) != 0
+}
+
+func (r *PodReconciler) shouldRegisterEntryForPod(pod *corev1.Pod) bool {
+	return !r.registerOnlyPodsWithSecretAnnotation || r.shouldCreateSecretForPod(pod)
+}
+
 func (r *PodReconciler) resolvePodToShouldRestartOnRenewal(pod *corev1.Pod) bool {
-	_, ok := pod.Annotations[metadata.ShouldRestartOnRenewalAnnotation]
-	return ok
+	return metadata.AnnotationExists(pod.Annotations, metadata.ShouldRestartOnRenewalAnnotation)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -292,7 +318,9 @@ func (r *PodReconciler) cleanupOrphanEntries(ctx context.Context) error {
 			existingServicesByNamespace[pod.Namespace] = goset.NewSet[string]()
 		}
 
-		existingServicesByNamespace[pod.Namespace].Add(pod.Labels[metadata.RegisteredServiceNameLabel])
+		if r.shouldRegisterEntryForPod(&pod) {
+			existingServicesByNamespace[pod.Namespace].Add(pod.Labels[metadata.RegisteredServiceNameLabel])
+		}
 	}
 
 	if err := r.workloadRegistry.CleanupOrphanK8SPodEntries(ctx, metadata.RegisteredServiceNameLabel, existingServicesByNamespace); err != nil {
@@ -318,8 +346,9 @@ func (r *PodReconciler) MaintenanceLoop(ctx context.Context) {
 			go func() {
 				err := r.cleanupOrphanEntries(ctx)
 				if err != nil {
-					logrus.WithError(err).Error("failed cleaning up orphan SPIRE entries")
+					logrus.WithError(err).Error("failed cleaning up orphan entries")
 				}
+				logrus.Info("successfully cleaned up entries of inactive pods")
 			}()
 		case <-ctx.Done():
 			return

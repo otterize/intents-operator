@@ -8,5 +8,5 @@ Run the build script
 
 ## Deploy
 ```shell
-kubectl apply -f helm/go-spiffe-tls-deployment.yaml
+kubectl apply -f helm/kafka-mtls-client-deployment.yaml
 ```

@@ -74,8 +74,8 @@ func (m *SpireCertificateDataGenerator) GeneratePEM(ctx context.Context, entryID
 	}
 
 	return secretstypes.PEMCert{
-		SVID:   spireCertificate.SVID.SVIDPEM,
-		Key:    spireCertificate.SVID.KeyPEM,
-		Bundle: spireCertificate.TrustBundle.BundlePEM,
-		Expiry: spireCertificate.Expiry}, nil
+		Certificate: spireCertificate.SVID.SVIDPEM,
+		Key:         spireCertificate.SVID.KeyPEM,
+		CA:          spireCertificate.TrustBundle.BundlePEM,
+		Expiry:      spireCertificate.Expiry}, nil
 }

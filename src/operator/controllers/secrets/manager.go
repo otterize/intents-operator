@@ -37,9 +37,9 @@ func SecretConfigFromExistingSecret(secret *corev1.Secret) secretstypes.SecretCo
 		CertConfig: secretstypes.CertConfig{
 			CertType: secretstypes.CertType(secret.Annotations[metadata.CertTypeAnnotation]),
 			PEMConfig: secretstypes.PEMConfig{
-				SVIDFileName:   secret.Annotations[metadata.SVIDFileNameAnnotation],
-				BundleFileName: secret.Annotations[metadata.BundleFileNameAnnotation],
-				KeyFileName:    secret.Annotations[metadata.KeyFileNameAnnotation],
+				CertFileName: secret.Annotations[metadata.CertFileNameAnnotation],
+				CAFileName:   secret.Annotations[metadata.CAFileNameAnnotation],
+				KeyFileName:  secret.Annotations[metadata.KeyFileNameAnnotation],
 			},
 			JKSConfig: secretstypes.JKSConfig{
 				KeyStoreFileName:   secret.Annotations[metadata.KeyStoreFileNameAnnotation],
@@ -68,7 +68,7 @@ func NewSecretManager(
 func (m *KubernetesSecretsManager) isRefreshNeeded(secret *corev1.Secret) bool {
 	log := logrus.WithFields(logrus.Fields{"secret.namespace": secret.Namespace, "secret.name": secret.Name})
 	expiryBaseline := time.Now().Add(secretExpiryDelta)
-	expiryStr, ok := secret.Annotations[metadata.TLSSecretSVIDExpiryAnnotation]
+	expiryStr, ok := secret.Annotations[metadata.TLSSecretExpiryAnnotation]
 	if !ok {
 		log.Warn("secret missing expiry annotation, will re-create it")
 		return true
@@ -123,9 +123,9 @@ func (m *KubernetesSecretsManager) getCertificateData(ctx context.Context, entry
 		}
 		return secretstypes.CertificateData{
 			Files: map[string][]byte{
-				certConfig.PEMConfig.BundleFileName: pemCert.Bundle,
-				certConfig.PEMConfig.KeyFileName:    pemCert.Key,
-				certConfig.PEMConfig.SVIDFileName:   pemCert.SVID,
+				certConfig.PEMConfig.CAFileName:   pemCert.CA,
+				certConfig.PEMConfig.KeyFileName:  pemCert.Key,
+				certConfig.PEMConfig.CertFileName: pemCert.Certificate,
 			},
 			ExpiryStr: pemCert.Expiry,
 		}, nil
@@ -145,12 +145,12 @@ func (m *KubernetesSecretsManager) updateTLSSecret(ctx context.Context, config s
 	}
 
 	secret.Annotations = map[string]string{
-		metadata.TLSSecretSVIDExpiryAnnotation:            certificateData.ExpiryStr,
+		metadata.TLSSecretExpiryAnnotation:                certificateData.ExpiryStr,
 		metadata.TLSSecretRegisteredServiceNameAnnotation: config.ServiceName,
 		metadata.TLSSecretEntryIDAnnotation:               config.EntryID,
 		metadata.TLSSecretEntryHashAnnotation:             config.EntryHash,
-		metadata.SVIDFileNameAnnotation:                   config.CertConfig.PEMConfig.SVIDFileName,
-		metadata.BundleFileNameAnnotation:                 config.CertConfig.PEMConfig.BundleFileName,
+		metadata.CertFileNameAnnotation:                   config.CertConfig.PEMConfig.CertFileName,
+		metadata.CAFileNameAnnotation:                     config.CertConfig.PEMConfig.CAFileName,
 		metadata.KeyFileNameAnnotation:                    config.CertConfig.PEMConfig.KeyFileName,
 		metadata.KeyStoreFileNameAnnotation:               config.CertConfig.JKSConfig.KeyStoreFileName,
 		metadata.TrustStoreFileNameAnnotation:             config.CertConfig.JKSConfig.TrustStoreFileName,
@@ -307,7 +307,7 @@ func (m *KubernetesSecretsManager) handlePodRestarts(ctx context.Context, secret
 	// create unique owner list
 	owners := make(map[secretstypes.PodOwnerIdentifier]client.Object)
 	for _, pod := range podList.Items {
-		if _, ok := pod.Annotations[metadata.ShouldRestartOnRenewalAnnotation]; ok {
+		if ok := metadata.AnnotationExists(pod.Annotations, metadata.ShouldRestartOnRenewalAnnotation); ok {
 			owner, err := m.serviceIdResolver.GetOwnerObject(ctx, &pod)
 			if err != nil {
 				return err

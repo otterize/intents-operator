@@ -1,0 +1,31 @@
+fragment TLSKeyPair on KeyPair {
+    keyPEM
+    certPEM
+    caPEM
+    rootCAPEM
+    expiresAt
+}
+
+mutation RegisterKubernetesPodOwnerCertificateRequest($namespace: String!, $podOwnerName: String!, $certificateCustomizations: CertificateCustomization) {
+    registerKubernetesPodOwnerCertificateRequest(podOwner: {name: $podOwnerName, namespace: $namespace}, certificateCustomization: $certificateCustomizations)
+    {
+        id
+    }
+}
+
+# @genqlient(pointer: true)
+query GetTLSKeyPair ($id: ID!) {
+    service(id: $id) {
+        tlsKeyPair {
+            ...TLSKeyPair
+        }
+    }
+}
+
+mutation ReportComponentStatus($component: ComponentType!) {
+    reportIntegrationComponentStatus(component: $component)
+}
+
+mutation ReportActiveCertificateRequesters($existingPodOwners: [NamespacedPodOwner!]!) {
+    reportActiveCertificateRequesters(activePodOwners: $existingPodOwners)
+}
