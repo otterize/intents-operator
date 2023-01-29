@@ -170,8 +170,8 @@ func main() {
 	if connectedToCloud {
 		err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
 			GlobalEnforcementEnabled:        enforcementEnabledGlobally,
-			NetworkPolicyEnforcementEnabled: enableNetworkPolicyCreation,
-			KafkaACLEnforcementEnabled:      enableKafkaACLCreation,
+			NetworkPolicyEnforcementEnabled: enforcementEnabledGlobally && enableNetworkPolicyCreation,
+			KafkaACLEnforcementEnabled:      enforcementEnabledGlobally && enableKafkaACLCreation,
 		})
 		if err != nil {
 			logrus.WithError(err).Error("Failed to report configuration to the cloud")
