@@ -40,7 +40,7 @@ jobs:
       - name: Push to Docker Hub
         run: |-
           docker pull ${{ env.REGISTRY }}:credentials-operator-${{ github.sha }}
-          docker tag ${{ env.REGISTRY }}:credentials-operator-${{ github.sha }} otterize/spire-integration-operator:${{ github.ref_name }}
-          docker tag ${{ env.REGISTRY }}:credentials-operator-${{ github.sha }} otterize/spire-integration-operator:latest
+          docker tag ${{ env.REGISTRY }}:credentials-operator-${{ github.sha }} otterize/credentials-operator:${{ github.ref_name }}
+          docker tag ${{ env.REGISTRY }}:credentials-operator-${{ github.sha }} otterize/credentials-operator:latest
           docker push otterize/credentials-operator:${{ github.ref_name }}
           docker push otterize/credentials-operator:latest
