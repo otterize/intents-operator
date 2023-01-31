@@ -9,7 +9,7 @@ const (
 	ApiClientIdKey                 = "client-id"
 	ApiClientSecretKey             = "client-secret"
 	OtterizeAPIAddressKey          = "api-address"
-	OtterizeAPIAddressDefault      = "https://app.otterize.com"
+	OtterizeAPIAddressDefault      = "https://app.otterize.com/api"
 	EnvPrefix                      = "OTTERIZE"
 	ComponentReportIntervalKey     = "component-report-interval"
 	ComponentReportIntervalDefault = 60
