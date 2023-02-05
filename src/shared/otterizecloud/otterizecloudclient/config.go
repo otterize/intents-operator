@@ -9,6 +9,8 @@ const (
 	ApiClientIdKey                 = "client-id"
 	ApiClientSecretKey             = "client-secret"
 	OtterizeAPIAddressKey          = "api-address"
+	CloudClientTimeoutKey          = "cloud-client-timeout"
+	CloudClientTimeoutDefault      = "30s"
 	OtterizeAPIAddressDefault      = "https://app.otterize.com/api"
 	ComponentReportIntervalKey     = "component-report-interval"
 	ComponentReportIntervalDefault = 60
@@ -18,6 +20,7 @@ const (
 func init() {
 	viper.SetDefault(OtterizeAPIAddressKey, OtterizeAPIAddressDefault)
 	viper.SetDefault(ComponentReportIntervalKey, ComponentReportIntervalDefault)
+	viper.SetDefault(CloudClientTimeoutKey, CloudClientTimeoutDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()

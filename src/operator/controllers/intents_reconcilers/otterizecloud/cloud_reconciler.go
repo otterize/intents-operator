@@ -5,6 +5,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,8 +44,11 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 	}
 
 	if err = r.otterizeClient.ReportAppliedIntents(ctx, lo.ToPtr(req.Namespace), intentsInput); err != nil {
+		logrus.WithError(err).Error("failed to report applied intents")
 		return ctrl.Result{}, err
 	}
+
+	logrus.Infof("successfully reported applied intents %d", len(clientIntentsList.Items))
 
 	return ctrl.Result{}, nil
 }

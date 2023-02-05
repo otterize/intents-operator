@@ -8,12 +8,14 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
+	"net/http"
 )
 
 func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 	clientID := viper.GetString(ApiClientIdKey)
 	secret := viper.GetString(ApiClientSecretKey)
 	apiAddress := viper.GetString(OtterizeAPIAddressKey)
+	clientTimeout := viper.GetDuration(CloudClientTimeoutKey)
 	if clientID == "" && secret == "" {
 		return nil, false, nil
 	}
@@ -31,9 +33,13 @@ func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 		AuthStyle:    oauth2.AuthStyleInParams,
 	}
 
-	tokenSrc := cfg.TokenSource(ctx)
-	graphqlUrl := fmt.Sprintf("%s/graphql/v1beta", apiAddress)
-	httpClient := oauth2.NewClient(ctx, tokenSrc)
+	// Timeout for oauth token acquisition is set using the http client passed to the token source context
+	clientWithTimeout := &http.Client{Timeout: clientTimeout}
+	ctxWithClient := context.WithValue(ctx, oauth2.HTTPClient, clientWithTimeout)
 
+	tokenSrc := cfg.TokenSource(ctxWithClient)
+	graphqlUrl := fmt.Sprintf("%s/graphql/v1beta", apiAddress)
+	httpClient := oauth2.NewClient(ctxWithClient, tokenSrc)
+	httpClient.Timeout = clientTimeout
 	return graphql.NewClient(graphqlUrl, httpClient), true, nil
 }
