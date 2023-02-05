@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"github.com/bombsimon/logrusr/v3"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
@@ -29,9 +30,6 @@ import (
 	"github.com/spf13/pflag"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"time"
-
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -161,14 +159,12 @@ func main() {
 	}
 
 	signalHandlerCtx := ctrl.SetupSignalHandler()
-	timeoutCtx, cancelFunc := context.WithTimeout(signalHandlerCtx, 10*time.Second)
-	defer cancelFunc()
-	otterizeCloudClient, connectedToCloud, err := otterizecloud.NewClient(timeoutCtx)
+	otterizeCloudClient, connectedToCloud, err := otterizecloud.NewClient(signalHandlerCtx)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
-		err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
+		err := otterizeCloudClient.ReportIntentsOperatorConfiguration(signalHandlerCtx, graphqlclient.IntentsOperatorConfigurationInput{
 			GlobalEnforcementEnabled:        enforcementEnabledGlobally,
 			NetworkPolicyEnforcementEnabled: enforcementEnabledGlobally && enableNetworkPolicyCreation,
 			KafkaACLEnforcementEnabled:      enforcementEnabledGlobally && enableKafkaACLCreation,
