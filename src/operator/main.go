@@ -26,8 +26,10 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -164,18 +166,12 @@ func main() {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
-		err := otterizeCloudClient.ReportIntentsOperatorConfiguration(signalHandlerCtx, graphqlclient.IntentsOperatorConfigurationInput{
-			GlobalEnforcementEnabled:        enforcementEnabledGlobally,
-			NetworkPolicyEnforcementEnabled: enforcementEnabledGlobally && enableNetworkPolicyCreation,
-			KafkaACLEnforcementEnabled:      enforcementEnabledGlobally && enableKafkaACLCreation,
-		})
-		if err != nil {
-			logrus.WithError(err).Error("Failed to report configuration to the cloud")
-		}
+		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation)
 		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
 	} else {
 		logrus.Info("Not configured for cloud integration")
 	}
+
 	if !enforcementEnabledGlobally {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
@@ -240,5 +236,19 @@ func main() {
 	logrus.Info("starting manager")
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Fatal("problem running manager")
+	}
+}
+
+func uploadConfiguration(ctx context.Context, otterizeCloudClient otterizecloud.CloudClient, enforcementEnabledGlobally bool, enableNetworkPolicyCreation bool, enableKafkaACLCreation bool) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutDefault))
+	defer cancel()
+
+	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
+		GlobalEnforcementEnabled:        enforcementEnabledGlobally,
+		NetworkPolicyEnforcementEnabled: enforcementEnabledGlobally && enableNetworkPolicyCreation,
+		KafkaACLEnforcementEnabled:      enforcementEnabledGlobally && enableKafkaACLCreation,
+	})
+	if err != nil {
+		logrus.WithError(err).Error("Failed to report configuration to the cloud")
 	}
 }

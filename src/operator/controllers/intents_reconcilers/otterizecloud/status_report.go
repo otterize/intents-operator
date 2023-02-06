@@ -20,16 +20,23 @@ func runPeriodicReportConnection(interval int, client CloudClient, ctx context.C
 	cloudUploadTicker := time.NewTicker(time.Second * time.Duration(interval))
 
 	logrus.Info("Starting cloud connection ticker")
-	client.ReportComponentStatus(ctx, graphqlclient.ComponentTypeIntentsOperator)
+	reportStatus(ctx, client)
 
 	for {
 		select {
 		case <-cloudUploadTicker.C:
-			client.ReportComponentStatus(ctx, graphqlclient.ComponentTypeIntentsOperator)
+			reportStatus(ctx, client)
 
 		case <-ctx.Done():
 			logrus.Info("Periodic upload exit")
 			return
 		}
 	}
+}
+
+func reportStatus(ctx context.Context, client CloudClient) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutDefault))
+	defer cancel()
+
+	client.ReportComponentStatus(timeoutCtx, graphqlclient.ComponentTypeIntentsOperator)
 }

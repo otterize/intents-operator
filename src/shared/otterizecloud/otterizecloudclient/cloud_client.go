@@ -42,13 +42,5 @@ func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 	graphqlUrl := fmt.Sprintf("%s/graphql/v1beta", apiAddress)
 	httpClient := oauth2.NewClient(ctxWithClient, tokenSrc)
 
-	// Timeout in context isn't used in the client itself
-	// as mentioned in https://pkg.go.dev/golang.org/x/oauth2#NewClient:
-	//
-	// 		"Note that if a custom *http.Client is provided via the
-	//		Context it is used only for token acquisition and is not
-	//		used to configure the *http.Client returned from NewClient"
-	httpClient.Timeout = clientTimeout
-
 	return graphql.NewClient(graphqlUrl, httpClient), true, nil
 }
