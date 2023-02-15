@@ -45,7 +45,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	otterizeServerLabelValue := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID, pod.Namespace)
+	otterizeServerLabelValue := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
 	if !otterizev1alpha2.HasOtterizeServerLabel(&pod, otterizeServerLabelValue) {
 		// Label pods as destination servers
 		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, serviceID)
@@ -70,7 +70,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	var intents otterizev1alpha2.ClientIntentsList
 	err = p.List(
 		ctx, &intents,
-		&client.MatchingFields{OtterizeClientNameIndexField: serviceID},
+		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
 		&client.ListOptions{Namespace: pod.Namespace})
 
 	if err != nil {

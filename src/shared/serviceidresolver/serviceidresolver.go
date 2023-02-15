@@ -28,21 +28,27 @@ func ResolvePodToServiceIdentityUsingAnnotationOnly(pod *corev1.Pod) (string, bo
 	return annotation, ok
 }
 
+type ServiceIdentity struct {
+	Name string
+	// OwnerObject used to resolve the service name. May be nil if service name was resolved using annotation.
+	OwnerObject client.Object
+}
+
 // ResolvePodToServiceIdentity resolves a pod object to its otterize service ID, referenced in intents objects.
 // It calls GetOwnerObject to recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference.
 // In case the pod is annotated with an "intents.otterize.com/service-name" annotation, that annotation's value will override
 // any owner reference name as the service name.
-func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (string, error) {
+func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (ServiceIdentity, error) {
 	annotatedServiceName, ok := ResolvePodToServiceIdentityUsingAnnotationOnly(pod)
 	if ok {
-		return annotatedServiceName, nil
+		return ServiceIdentity{Name: annotatedServiceName}, nil
 	}
 	ownerObj, err := r.GetOwnerObject(ctx, pod)
 	if err != nil {
-		return "", err
+		return ServiceIdentity{}, err
 	}
 
-	return ownerObj.GetName(), nil
+	return ServiceIdentity{Name: ownerObj.GetName(), OwnerObject: ownerObj}, nil
 }
 
 // GetOwnerObject recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference
