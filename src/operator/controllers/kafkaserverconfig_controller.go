@@ -313,7 +313,7 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfigs(ctx context.Conte
 		inputs = append(inputs, input)
 	}
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutDefault))
+	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
 
 	return r.otterizeClient.ReportKafkaServerConfig(timeoutCtx, namespace, inputs)
