@@ -35,7 +35,7 @@ func runPeriodicReportConnection(interval int, client CloudClient, ctx context.C
 }
 
 func reportStatus(ctx context.Context, client CloudClient) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutDefault))
+	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
 
 	client.ReportComponentStatus(timeoutCtx, graphqlclient.ComponentTypeIntentsOperator)

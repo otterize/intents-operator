@@ -240,7 +240,7 @@ func main() {
 }
 
 func uploadConfiguration(ctx context.Context, otterizeCloudClient otterizecloud.CloudClient, enforcementEnabledGlobally bool, enableNetworkPolicyCreation bool, enableKafkaACLCreation bool) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutDefault))
+	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
 
 	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
