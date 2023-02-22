@@ -48,6 +48,7 @@ func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 		cert, err := os.ReadFile(path)
 		if err != nil {
 			logrus.Errorf("Error loading cert PEM file at '%s', trying to continue without it: %s", path, err)
+			continue
 		}
 
 		if ok := rootCAs.AppendCertsFromPEM(cert); !ok {
