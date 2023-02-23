@@ -195,7 +195,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Ensure the RegisteredServiceNameLabel is set
-	result, err := r.updatePodLabel(ctx, pod, metadata.RegisteredServiceNameLabel, serviceID)
+	result, err := r.updatePodLabel(ctx, pod, metadata.RegisteredServiceNameLabel, serviceID.Name)
 	if err != nil {
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonPodLabelUpdateFailed, "Pod label update failed: %s", err.Error())
 		return result, err
@@ -218,7 +218,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Add workload entry for pod
-	entryID, err := r.workloadRegistry.RegisterK8SPod(ctx, pod.Namespace, metadata.RegisteredServiceNameLabel, serviceID, ttl, dnsNames)
+	entryID, err := r.workloadRegistry.RegisterK8SPod(ctx, pod.Namespace, metadata.RegisteredServiceNameLabel, serviceID.Name, ttl, dnsNames)
 	if err != nil {
 		log.WithError(err).Error("failed registering workload entry for pod")
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonEntryRegistrationFailed, "Failed registering workload entry: %s", err.Error())
@@ -226,7 +226,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, ReasonPodRegistered, "Successfully registered pod under workload with entry ID '%s'", entryID)
 
-	hashStr, err := getEntryHash(pod.Namespace, serviceID, ttl, dnsNames)
+	hashStr, err := getEntryHash(pod.Namespace, serviceID.Name, ttl, dnsNames)
 	if err != nil {
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonEntryHashCalculationFailed, "Failed calculating workload entry hash: %s", err.Error())
 		return ctrl.Result{}, err
@@ -239,7 +239,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, err
 	}
 	// generate TLS secret for pod
-	if err := r.ensurePodTLSSecret(ctx, pod, serviceID, entryID, hashStr, shouldRestartPodOnRenewal); err != nil {
+	if err := r.ensurePodTLSSecret(ctx, pod, serviceID.Name, entryID, hashStr, shouldRestartPodOnRenewal); err != nil {
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonEnsuringPodTLSFailed, "Failed creating TLS secret for pod: %s", err.Error())
 		return ctrl.Result{}, err
 	}
