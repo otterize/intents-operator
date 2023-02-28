@@ -49,6 +49,7 @@ func NewIntentsReconciler(
 			intents_reconcilers.NewPodLabelReconciler(client, scheme),
 			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enableNetworkPolicyCreation, enforcementEnabledGlobally),
 			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enableKafkaACLCreation, kafkaacls.NewKafkaIntentsAdmin, enforcementEnabledGlobally),
+			intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enableNetworkPolicyCreation, enforcementEnabledGlobally),
 		)}
 
 	if otterizeClient != nil {
