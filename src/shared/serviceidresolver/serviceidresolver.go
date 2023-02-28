@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -49,6 +50,28 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 	}
 
 	return ServiceIdentity{Name: ownerObj.GetName(), OwnerObject: ownerObj}, nil
+}
+
+func (r *Resolver) ResolveServiceNameToServiceAccountName(ctx context.Context, otterizeServiceName string, namespace string) (string, error) {
+	// Search for pods with service name annotation
+	podsList := &corev1.PodList{}
+	err := r.client.List(ctx, podsList, client.MatchingLabels{ServiceNameAnnotation: otterizeServiceName})
+	if err != nil && !errors.IsNotFound(err) {
+		return "", err
+	}
+
+	if len(podsList.Items) > 0 {
+		return podsList.Items[0].Spec.ServiceAccountName, nil
+	}
+
+	// TODO: Search for any pod owner object with the same name as the service name
+	deployment := &v1.Deployment{}
+	err = r.client.Get(ctx, types.NamespacedName{Name: otterizeServiceName, Namespace: namespace}, deployment)
+	if err != nil {
+		return "", err
+	}
+
+	return deployment.Spec.Template.Spec.ServiceAccountName, nil
 }
 
 // GetOwnerObject recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference

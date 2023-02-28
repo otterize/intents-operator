@@ -52,6 +52,14 @@ rules:
   - patch
   - update
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - k8s.otterize.com
   resources:
   - clientintents
@@ -115,6 +123,18 @@ rules:
   - networking.k8s.io
   resources:
   - networkpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - security.istio.io
+  resources:
+  - authorizationpolicies
   verbs:
   - create
   - delete
