@@ -135,62 +135,19 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		Namespace: intent.GetServerNamespace(intentsObjNamespace)},
 		existingPolicy)
 
-	// No matching network policy found, create one
-	if k8serrors.IsNotFound(err) {
-		logrus.Infof(
-			"Creating network policy to enable access from namespace %s to %s", intentsObjNamespace, intent.Name)
-		err := r.Create(ctx, newPolicy)
-		if err != nil {
-			return err
-		}
-
-		selector, err := metav1.LabelSelectorAsSelector(&newPolicy.Spec.PodSelector)
-		if err != nil {
-			return err
-		}
-		// Are any pods affected right now? If so, we need to request a Reconcile from the EndpointsReconciler, since
-		// it doesn't get notified on network policy changes.
-		podList := &corev1.PodList{}
-		err = r.List(ctx, podList,
-			&client.ListOptions{Namespace: newPolicy.Namespace},
-			client.MatchingLabelsSelector{Selector: selector})
-		if err != nil {
-			return err
-		}
-
-		affectedEndpointsList := sets.NewString()
-
-		// If so, check whether they belong to endpoints (= are used by a service), and send those to the EndpointsReconciler.
-		for _, pod := range podList.Items {
-			var endpointsList corev1.EndpointsList
-			err = r.List(
-				ctx, &endpointsList,
-				&client.MatchingFields{otterizev1alpha2.EndpointsPodNamesIndexField: pod.Name},
-				&client.ListOptions{Namespace: pod.Namespace})
-
-			if err != nil {
-				return err
-			}
-			for _, endpoints := range endpointsList.Items {
-				affectedEndpointsList.Insert(endpoints.Name)
-			}
-		}
-
-		for affectedEndpointsName := range affectedEndpointsList {
-			_, err := r.endpointsReconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: affectedEndpointsName, Namespace: newPolicy.Namespace}})
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-
-	} else if err != nil {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
 		return err
 	}
 
-	// Found network policy, check for diff
+	if k8serrors.IsNotFound(err) {
+		return r.CreateNetworkPolicy(ctx, intentsObjNamespace, intent, newPolicy)
+	}
+
+	return r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, err, intent, intentsObjNamespace)
+}
+
+func (r *NetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, err error, intent otterizev1alpha2.Intent, intentsObjNamespace string) error {
 	if !reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
 		policyCopy := existingPolicy.DeepCopy()
 		policyCopy.Labels = newPolicy.Labels
@@ -203,6 +160,56 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		}
 
 		err = r.handleNetworkPolicyRemoval(ctx, intent, intentsObjNamespace)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *NetworkPolicyReconciler) CreateNetworkPolicy(ctx context.Context, intentsObjNamespace string, intent otterizev1alpha2.Intent, newPolicy *v1.NetworkPolicy) error {
+	logrus.Infof(
+		"Creating network policy to enable access from namespace %s to %s", intentsObjNamespace, intent.Name)
+	err := r.Create(ctx, newPolicy)
+	if err != nil {
+		return err
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(&newPolicy.Spec.PodSelector)
+	if err != nil {
+		return err
+	}
+	// Are any pods affected right now? If so, we need to request a Reconcile from the EndpointsReconciler, since
+	// it doesn't get notified on network policy changes.
+	podList := &corev1.PodList{}
+	err = r.List(ctx, podList,
+		&client.ListOptions{Namespace: newPolicy.Namespace},
+		client.MatchingLabelsSelector{Selector: selector})
+	if err != nil {
+		return err
+	}
+
+	affectedEndpointsList := sets.NewString()
+
+	// If so, check whether they belong to endpoints (= are used by a service), and send those to the EndpointsReconciler.
+	for _, pod := range podList.Items {
+		var endpointsList corev1.EndpointsList
+		err = r.List(
+			ctx, &endpointsList,
+			&client.MatchingFields{otterizev1alpha2.EndpointsPodNamesIndexField: pod.Name},
+			&client.ListOptions{Namespace: pod.Namespace})
+
+		if err != nil {
+			return err
+		}
+		for _, endpoints := range endpointsList.Items {
+			affectedEndpointsList.Insert(endpoints.Name)
+		}
+	}
+
+	for affectedEndpointsName := range affectedEndpointsList {
+		_, err := r.endpointsReconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: affectedEndpointsName, Namespace: newPolicy.Namespace}})
 		if err != nil {
 			return err
 		}
