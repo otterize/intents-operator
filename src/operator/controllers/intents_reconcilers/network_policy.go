@@ -144,17 +144,17 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		return r.CreateNetworkPolicy(ctx, intentsObjNamespace, intent, newPolicy)
 	}
 
-	return r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, err, intent, intentsObjNamespace)
+	return r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, intentsObjNamespace)
 }
 
-func (r *NetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, err error, intent otterizev1alpha2.Intent, intentsObjNamespace string) error {
+func (r *NetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, intent otterizev1alpha2.Intent, intentsObjNamespace string) error {
 	if !reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
 		policyCopy := existingPolicy.DeepCopy()
 		policyCopy.Labels = newPolicy.Labels
 		policyCopy.Annotations = newPolicy.Annotations
 		policyCopy.Spec = newPolicy.Spec
 
-		err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
+		err := r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 		if err != nil {
 			return err
 		}
