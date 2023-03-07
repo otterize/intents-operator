@@ -30,6 +30,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type EnforcementConfig struct {
+	EnforcementEnabledGlobally bool
+	EnableNetworkPolicy        bool
+	EnableKafkaACL             bool
+	EnableIstioPolicy          bool
+}
+
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
 	group *reconcilergroup.Group
@@ -41,14 +48,13 @@ func NewIntentsReconciler(
 	kafkaServerStore kafkaacls.ServersStore,
 	endpointsReconciler *external_traffic.EndpointsReconciler,
 	restrictToNamespaces []string,
-	enforcementEnabledGlobally bool,
-	enableNetworkPolicyCreation, enableKafkaACLCreation bool,
+	enforcementConfig EnforcementConfig,
 	otterizeClient otterizecloud.CloudClient) *IntentsReconciler {
 	intentsReconciler := &IntentsReconciler{
 		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 			intents_reconcilers.NewPodLabelReconciler(client, scheme),
-			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enableNetworkPolicyCreation, enforcementEnabledGlobally),
-			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enableKafkaACLCreation, kafkaacls.NewKafkaIntentsAdmin, enforcementEnabledGlobally),
+			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementEnabledGlobally),
+			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally),
 		)}
 
 	if otterizeClient != nil {
