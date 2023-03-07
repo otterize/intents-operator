@@ -62,7 +62,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
-			r.RecordWarningEventf(intents, ReasonRemovingIstioPolicyFailed, "could not remove network policies: %s", err.Error())
+			r.RecordWarningEventf(intents, ReasonRemovingIstioPolicyFailed, "could not remove istio policies: %s", err.Error())
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
