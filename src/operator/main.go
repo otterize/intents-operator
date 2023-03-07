@@ -99,6 +99,8 @@ func main() {
 		"Whether to enable istio authorization policy creation")
 	pflag.BoolVar(&enforcementConfig.EnableKafkaACL, "enable-kafka-acl-creation", true,
 		"Whether to disable Intents Kafka ACL creation")
+	pflag.BoolVar(&enforcementConfig.IstioFeatureFlagEnabled, "istio-feature-enabled", false,
+		"Whether to enable istio feature flag")
 
 	pflag.Parse()
 
