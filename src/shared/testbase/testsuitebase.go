@@ -38,7 +38,6 @@ type ControllerManagerTestSuiteBase struct {
 	K8sDirectClient  *kubernetes.Clientset
 	mgrCtx           context.Context
 	mgrCtxCancelFunc context.CancelFunc
-	mgrStopped       chan struct{} // closed when mgr has stopped
 	Mgr              manager.Manager
 }
 
@@ -48,7 +47,6 @@ func (s *ControllerManagerTestSuiteBase) TearDownSuite() {
 
 func (s *ControllerManagerTestSuiteBase) SetupTest() {
 	s.mgrCtx, s.mgrCtxCancelFunc = context.WithCancel(context.Background())
-	s.mgrStopped = make(chan struct{})
 
 	var err error
 	s.Mgr, err = manager.New(s.RestConfig, manager.Options{MetricsBindAddress: "0"})
@@ -61,7 +59,6 @@ func (s *ControllerManagerTestSuiteBase) BeforeTest(_, testName string) {
 		// We start the manager in "Before test" to allow operations that should happen before start to be run at SetupTest()
 		err := s.Mgr.Start(s.mgrCtx)
 		s.Require().NoError(err)
-		close(s.mgrStopped)
 	}()
 
 	s.TestNamespace = strings.ToLower(fmt.Sprintf("%s-%s", testName, time.Now().Format("20060102150405")))
