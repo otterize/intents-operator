@@ -10,9 +10,7 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
-COPY operator/ operator/
-COPY watcher/ watcher/
-COPY shared shared
+COPY . .
 
 RUN go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 RUN KUBEBUILDER_ASSETS=`setup-envtest use 1.24.1 -p path` go test ./operator/...
