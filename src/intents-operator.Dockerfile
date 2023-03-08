@@ -17,6 +17,7 @@ COPY shared shared
 COPY operator/webhooks operator/webhooks/
 
 RUN go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+RUN setup-envtest use 1.24.1
 RUN go test ./operator/...
 
 # Build
