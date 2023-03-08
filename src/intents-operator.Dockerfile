@@ -17,7 +17,7 @@ COPY shared shared
 COPY operator/webhooks operator/webhooks/
 
 RUN go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-RUN go test ./watcher/...
+RUN go test ./operator/...
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go

@@ -135,7 +135,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	s.Require().Empty(res)
 
 	// access label is added
-	res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
+	_, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
 			Name:      podName,
