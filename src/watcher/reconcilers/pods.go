@@ -124,7 +124,8 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 
 func (p *PodWatcher) Register(mgr manager.Manager) error {
 	watcher, err := controller.New("otterize-pod-watcher", mgr, controller.Options{
-		Reconciler: p,
+		Reconciler:   p,
+		RecoverPanic: true,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to set up pods controller: %p", err)
