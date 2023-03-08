@@ -74,16 +74,6 @@ func (s *ControllerManagerTestSuiteBase) BeforeTest(_, testName string) {
 
 func (s *ControllerManagerTestSuiteBase) TearDownTest() {
 	s.mgrCtxCancelFunc()
-	// Wait for mgr to stop completely before deleting the namespace.
-	// Ensures no operations occur on the namespace while the test is stopping.
-	select {
-	case <-s.mgrStopped:
-		break // ok to proceed
-	case <-time.After(10 * time.Second):
-		panic("kube mgr didn't stop for 10s")
-	}
-	err := s.K8sDirectClient.CoreV1().Namespaces().Delete(context.Background(), s.TestNamespace, metav1.DeleteOptions{})
-	s.Require().NoError(err)
 }
 
 type Condition func() bool
