@@ -10,14 +10,12 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
-COPY operator/main.go main.go
-COPY operator/api operator/api/
-COPY operator/controllers operator/controllers/
+COPY operator/ operator/
+COPY watcher/ watcher/
 COPY shared shared
-COPY operator/webhooks operator/webhooks/
 
 RUN go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-RUN setup-envtest use 1.24.1
+RUN sudo setup-envtest use 1.24.1
 RUN go test ./operator/...
 
 # Build
