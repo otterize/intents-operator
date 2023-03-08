@@ -16,12 +16,12 @@ import (
 	"testing"
 )
 
-type PodLabelReconcilerTestSuite struct {
+type WatcherPodLabelReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
 	Reconciler *PodWatcher
 }
 
-func (s *PodLabelReconcilerTestSuite) SetupSuite() {
+func (s *WatcherPodLabelReconcilerTestSuite) SetupSuite() {
 	s.TestEnv = &envtest.Environment{}
 	var err error
 	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "operator", "config", "crd")}
@@ -38,13 +38,13 @@ func (s *PodLabelReconcilerTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 }
 
-func (s *PodLabelReconcilerTestSuite) SetupTest() {
+func (s *WatcherPodLabelReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
 	s.Reconciler = NewPodWatcher(s.Mgr.GetClient())
 	s.Require().NoError(s.Reconciler.InitIntentsClientIndices(s.Mgr))
 }
 
-func (s *PodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels() {
+func (s *WatcherPodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels() {
 	podName := "podname"
 	intentTargetServerName := "test-server"
 
@@ -81,6 +81,16 @@ func (s *PodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels() {
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: podName}, &pod)
+		assert.NoError(err)
+		assert.NotEmpty(pod)
+		assert.Contains(pod.Labels, otterizev1alpha2.OtterizeServerLabelKey)
+		assert.Equal(thisPodIdentity, pod.Labels[otterizev1alpha2.OtterizeServerLabelKey])
+
+	})
+
 	// access label is added
 	res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -99,13 +109,11 @@ func (s *PodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels() {
 			Namespace: s.TestNamespace, Name: podName}, &pod)
 		assert.NoError(err)
 		assert.NotEmpty(pod)
-		assert.Contains(pod.Labels, otterizev1alpha2.OtterizeServerLabelKey)
-		assert.Equal(thisPodIdentity, pod.Labels[otterizev1alpha2.OtterizeServerLabelKey])
 		assert.Contains(pod.Labels, accessLabel)
 	})
 }
 
-func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
+func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	deploymentName := "deploymentname"
 	intentTargetServerName := "test-server"
 
@@ -134,6 +142,27 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 
+	pod := v1.Pod{}
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+		Namespace: s.TestNamespace, Name: podName}, &pod)
+	s.Require().NoError(err)
+
+	serviceID, err := s.Reconciler.serviceIdResolver.ResolvePodToServiceIdentity(context.Background(), &pod)
+	s.Require().NoError(err)
+
+	thisPodIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
+		serviceID.Name, s.TestNamespace)
+
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+			Namespace: s.TestNamespace, Name: podName}, &pod)
+		assert.NoError(err)
+		assert.NotEmpty(pod)
+		assert.Contains(pod.Labels, otterizev1alpha2.OtterizeServerLabelKey)
+		assert.Equal(thisPodIdentity, pod.Labels[otterizev1alpha2.OtterizeServerLabelKey])
+
+	})
+
 	// access label is added
 	_, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -142,7 +171,6 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 		},
 	})
 
-	pod := v1.Pod{}
 	targetServerIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
 		intentTargetServerName, s.TestNamespace)
 
@@ -157,5 +185,5 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 }
 
 func TestPodLabelReconcilerTestSuite(t *testing.T) {
-	suite.Run(t, new(PodLabelReconcilerTestSuite))
+	suite.Run(t, new(WatcherPodLabelReconcilerTestSuite))
 }
