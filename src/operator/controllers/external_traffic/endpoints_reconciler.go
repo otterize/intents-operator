@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
 const OtterizeExternalNetworkPolicyNameTemplate = "external-access-to-%s"
@@ -46,6 +47,7 @@ func (r *EndpointsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Endpoints{}).
+		WithOptions(controller.Options{RecoverPanic: true}).
 		Complete(r)
 }
 

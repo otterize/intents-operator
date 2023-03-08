@@ -10,14 +10,13 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
-COPY operator/main.go main.go
-COPY operator/api operator/api/
-COPY operator/controllers operator/controllers/
-COPY shared shared
-COPY operator/webhooks operator/webhooks/
+COPY . .
+
+RUN go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+RUN KUBEBUILDER_ASSETS=`setup-envtest use 1.24.1 -p path` go test ./operator/...
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager ./operator/main.go
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details

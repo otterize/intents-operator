@@ -71,8 +71,6 @@ func (s *ControllerManagerTestSuiteBase) BeforeTest(_, testName string) {
 
 func (s *ControllerManagerTestSuiteBase) TearDownTest() {
 	s.mgrCtxCancelFunc()
-	err := s.K8sDirectClient.CoreV1().Namespaces().Delete(context.Background(), s.TestNamespace, metav1.DeleteOptions{})
-	s.Require().NoError(err)
 }
 
 type Condition func() bool
@@ -119,7 +117,7 @@ func (s *ControllerManagerTestSuiteBase) WaitForDeletionToBeMarked(obj client.Ob
 	}))
 }
 
-func (s *ControllerManagerTestSuiteBase) AddPod(name string, podIp string, labels, annotations map[string]string) {
+func (s *ControllerManagerTestSuiteBase) AddPod(name string, podIp string, labels map[string]string, annotations map[string]string) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace, Labels: labels, Annotations: annotations},
 		Spec: corev1.PodSpec{Containers: []corev1.Container{
@@ -200,7 +198,7 @@ func (s *ControllerManagerTestSuiteBase) AddReplicaSet(
 func (s *ControllerManagerTestSuiteBase) AddDeployment(
 	name string,
 	podIps []string,
-	podLabels,
+	podLabels map[string]string,
 	annotations map[string]string) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},

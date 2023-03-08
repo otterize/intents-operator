@@ -57,7 +57,8 @@ func (ns *NamespaceWatcher) hasOtterizeLabel(namespace *v1.Namespace) bool {
 
 func (ns *NamespaceWatcher) Register(mgr manager.Manager) error {
 	watcher, err := controller.New("namespace-watcher", mgr, controller.Options{
-		Reconciler: ns,
+		Reconciler:   ns,
+		RecoverPanic: true,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to set up namespace controller: %w", err)

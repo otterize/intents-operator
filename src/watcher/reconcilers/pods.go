@@ -48,16 +48,19 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	otterizeServerLabelValue := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
 	if !otterizev1alpha2.HasOtterizeServerLabel(&pod, otterizeServerLabelValue) {
 		// Label pods as destination servers
-		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, serviceID)
+		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, serviceID.Name)
 		updatedPod := pod.DeepCopy()
+		if updatedPod.Labels == nil {
+			updatedPod.Labels = make(map[string]string)
+		}
 		updatedPod.Labels[otterizev1alpha2.OtterizeServerLabelKey] = otterizeServerLabelValue
 
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
-			logrus.Errorln("Failed labeling pod as server", "Pod name", pod.Name, "Namespace", pod.Namespace)
-			logrus.Errorln(err)
+			logrus.WithError(err).Errorln("Failed labeling pod as server", "Pod name", pod.Name, "Namespace", pod.Namespace)
 			return ctrl.Result{}, err
 		}
+		return ctrl.Result{}, nil
 	}
 
 	// Intents were deleted and the pod was updated by the operator, skip reconciliation
@@ -90,7 +93,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 	if otterizev1alpha2.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
-		logrus.Infof("Updating Otterize access labels for %s", serviceID)
+		logrus.Infof("Updating Otterize access labels for %s", serviceID.Name)
 		updatedPod := otterizev1alpha2.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
@@ -124,7 +127,8 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 
 func (p *PodWatcher) Register(mgr manager.Manager) error {
 	watcher, err := controller.New("otterize-pod-watcher", mgr, controller.Options{
-		Reconciler: p,
+		Reconciler:   p,
+		RecoverPanic: true,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to set up pods controller: %p", err)

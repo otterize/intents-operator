@@ -6,12 +6,12 @@ COPY go.sum go.sum
 
 RUN go mod download
 
-COPY watcher/cmd/main.go main.go
-COPY operator/api operator/api/
-COPY shared shared
-COPY watcher/ watcher/
+COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o watcherbin main.go
+RUN go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+RUN KUBEBUILDER_ASSETS=`setup-envtest use 1.24.1 -p path` go test ./watcher/...
+
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o watcherbin ./watcher/cmd/main.go
 
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
