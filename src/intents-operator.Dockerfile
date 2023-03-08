@@ -15,8 +15,7 @@ COPY watcher/ watcher/
 COPY shared shared
 
 RUN go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-RUN sudo setup-envtest use 1.24.1
-RUN go test ./operator/...
+RUN KUBEBUILDER_ASSETS="setup-envtest use 1.24.1 -p path)" go test ./operator/...
 
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o manager main.go
