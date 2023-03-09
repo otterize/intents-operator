@@ -3,6 +3,7 @@ package serviceidresolver
 import (
 	"context"
 	"fmt"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -15,8 +16,12 @@ const (
 	ServiceNameAnnotation = "intents.otterize.com/service-name"
 )
 
+type k8sClient interface {
+	client.Client
+}
+
 type Resolver struct {
-	client client.Client
+	client k8sClient
 }
 
 func NewResolver(c client.Client) *Resolver {
@@ -81,4 +86,17 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 
 	log.WithFields(logrus.Fields{"owner": obj.GetName(), "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Debug("pod resolved to owner name")
 	return obj, nil
+}
+
+func (r *Resolver) ResolveOtterizeServiceNameToServiceAccountName(ctx context.Context, otterizeServiceName string, namespace string) (string, error) {
+	podsList := &corev1.PodList{}
+	err := r.client.List(ctx, podsList, client.MatchingLabels{v1alpha2.OtterizeServerLabelKey: otterizeServiceName}, client.InNamespace(namespace))
+	if err != nil {
+		return "", err
+	}
+	if len(podsList.Items) == 0 {
+		return "", fmt.Errorf("cannot find pod with label: %s:%s", v1alpha2.OtterizeServerLabelKey, otterizeServiceName)
+	}
+	return podsList.Items[0].Spec.ServiceAccountName, nil
+
 }
