@@ -79,7 +79,7 @@ func (s *ServiceIdResolverTestSuite) TestOtterizeServiceToServiceAccountName_Pod
 		gomock.Eq(client.InNamespace(namespace))).Do(func(_ any, podList *corev1.PodList, _ ...any) {})
 
 	resultSAName, err := s.Resolver.ResolveOtterizeServiceNameToServiceAccountName(context.Background(), otterizeServiceName, namespace)
-	s.Require().Error(err)
+	s.Require().Equal(err, ServiceAccountNotFond)
 	s.Require().Equal("", resultSAName)
 
 }

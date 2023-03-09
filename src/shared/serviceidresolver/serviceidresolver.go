@@ -2,11 +2,12 @@ package serviceidresolver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,6 +16,8 @@ import (
 const (
 	ServiceNameAnnotation = "intents.otterize.com/service-name"
 )
+
+var ServiceAccountNotFond = errors.New("service account not found")
 
 type k8sClient interface {
 	client.Client
@@ -68,7 +71,7 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 		ownerObj.SetAPIVersion(owner.APIVersion)
 		ownerObj.SetKind(owner.Kind)
 		err := r.client.Get(ctx, types.NamespacedName{Name: owner.Name, Namespace: obj.GetNamespace()}, ownerObj)
-		if err != nil && errors.IsForbidden(err) {
+		if err != nil && k8serrors.IsForbidden(err) {
 			// We don't have permissions for further resolving of the owner object,
 			// and so we treat it as the identity.
 			log.WithFields(logrus.Fields{"owner": owner.Name, "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Warning(
@@ -95,7 +98,7 @@ func (r *Resolver) ResolveOtterizeServiceNameToServiceAccountName(ctx context.Co
 		return "", err
 	}
 	if len(podsList.Items) == 0 {
-		return "", fmt.Errorf("cannot find pod with label: %s:%s", v1alpha2.OtterizeServerLabelKey, otterizeServiceName)
+		return "", ServiceAccountNotFond
 	}
 	return podsList.Items[0].Spec.ServiceAccountName, nil
 
