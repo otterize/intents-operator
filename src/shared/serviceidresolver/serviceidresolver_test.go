@@ -37,13 +37,13 @@ func (m *MatchingLabelsMatcher) String() string {
 
 type ServiceIdResolverTestSuite struct {
 	suite.Suite
-	Client   *serviceidresolvermocks.Mockk8sClient
+	Client   *serviceidresolvermocks.MockClient
 	Resolver *Resolver
 }
 
 func (s *ServiceIdResolverTestSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
-	s.Client = serviceidresolvermocks.NewMockk8sClient(controller)
+	s.Client = serviceidresolvermocks.NewMockClient(controller)
 	s.Resolver = NewResolver(s.Client)
 }
 

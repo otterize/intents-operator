@@ -19,12 +19,8 @@ const (
 
 var ServiceAccountNotFond = errors.New("service account not found")
 
-type k8sClient interface {
-	client.Client
-}
-
 type Resolver struct {
-	client k8sClient
+	client client.Client
 }
 
 func NewResolver(c client.Client) *Resolver {
