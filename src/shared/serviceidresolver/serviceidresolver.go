@@ -87,9 +87,13 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 	return obj, nil
 }
 
-func (r *Resolver) ResolveOtterizeServiceNameToServiceAccountName(ctx context.Context, otterizeServiceName string, namespace string) (string, error) {
+func (r *Resolver) ResolveClientIntentToServiceAccountName(ctx context.Context, intent v1alpha2.ClientIntents) (string, error) {
 	podsList := &corev1.PodList{}
-	err := r.client.List(ctx, podsList, client.MatchingLabels{v1alpha2.OtterizeServerLabelKey: otterizeServiceName}, client.InNamespace(namespace))
+	labelSelector, err := intent.BuildPodLabelSelector()
+	if err != nil {
+		return "", err
+	}
+	err = r.client.List(ctx, podsList, client.MatchingLabelsSelector{Selector: labelSelector})
 	if err != nil {
 		return "", err
 	}
