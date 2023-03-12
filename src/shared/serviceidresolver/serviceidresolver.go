@@ -101,5 +101,4 @@ func (r *Resolver) ResolveOtterizeServiceNameToServiceAccountName(ctx context.Co
 		return "", ServiceAccountNotFond
 	}
 	return podsList.Items[0].Spec.ServiceAccountName, nil
-
 }
