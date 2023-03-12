@@ -24,6 +24,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -60,7 +61,7 @@ func NewIntentsReconciler(
 		)}
 
 	if enforcementConfig.IstioFeatureFlagEnabled {
-		istioReconciler := intents_reconcilers.NewIstioPolicyReconciler(client, scheme, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementEnabledGlobally)
+		istioReconciler := intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementEnabledGlobally)
 		intentsReconciler.group.AddToGroup(istioReconciler)
 	}
 
@@ -89,7 +90,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev1alpha2.ClientIntents{}).
-		WithOptions(controller.Options{RecoverPanic: true}).
+		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 	if err != nil {
 		return err

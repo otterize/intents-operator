@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -58,7 +59,7 @@ func (ns *NamespaceWatcher) hasOtterizeLabel(namespace *v1.Namespace) bool {
 func (ns *NamespaceWatcher) Register(mgr manager.Manager) error {
 	watcher, err := controller.New("namespace-watcher", mgr, controller.Options{
 		Reconciler:   ns,
-		RecoverPanic: true,
+		RecoverPanic: lo.ToPtr(true),
 	})
 	if err != nil {
 		return fmt.Errorf("unable to set up namespace controller: %w", err)
