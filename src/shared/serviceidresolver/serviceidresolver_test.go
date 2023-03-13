@@ -2,11 +2,9 @@ package serviceidresolver
 
 import (
 	"context"
-	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,25 +12,23 @@ import (
 	"testing"
 )
 
-type MatchingLabelsMatcher struct {
-	expected client.MatchingLabels
+type MatchingLabelsSelectorMatcher struct {
+	expected client.MatchingLabelsSelector
 }
 
-func (m *MatchingLabelsMatcher) Matches(x interface{}) bool {
+func (m *MatchingLabelsSelectorMatcher) Matches(x interface{}) bool {
 	if x == nil {
 		return false
 	}
-	matchingLabels, ok := x.(client.MatchingLabels)
+	matchingLabels, ok := x.(client.MatchingLabelsSelector)
 	if !ok {
 		return false
 	}
-	a, b := lo.Difference(lo.Keys(m.expected), lo.Keys(matchingLabels))
-	c, d := lo.Difference(lo.Values(m.expected), lo.Values(matchingLabels))
-	return len(a) == 0 && len(b) == 0 && len(c) == 0 && len(d) == 0
+	return m.expected.String() == matchingLabels.String()
 }
 
-func (m *MatchingLabelsMatcher) String() string {
-	return fmt.Sprintf("%s", m.expected)
+func (m *MatchingLabelsSelectorMatcher) String() string {
+	return m.expected.String()
 }
 
 type ServiceIdResolverTestSuite struct {
@@ -47,41 +43,47 @@ func (s *ServiceIdResolverTestSuite) SetupTest() {
 	s.Resolver = NewResolver(s.Client)
 }
 
-func (s *ServiceIdResolverTestSuite) TestOtterizeServiceToServiceAccountName_PodExists() {
-	otterizeServiceName := "coolservice"
+func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToServiceAccountName_PodExists() {
+	serviceName := "coolservice"
 	namespace := "coolnamespace"
 	SAName := "backendservice"
 
-	pod := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: otterizeServiceName, Namespace: namespace}, Spec: corev1.PodSpec{ServiceAccountName: SAName}}
+	intent := v1alpha2.ClientIntents{Spec: &v1alpha2.IntentsSpec{Service: v1alpha2.Service{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
+	ls, err := intent.BuildPodLabelSelector()
+	s.Require().NoError(err)
+
+	pod := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace}, Spec: corev1.PodSpec{ServiceAccountName: SAName}}
 
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(&corev1.PodList{}),
-		&MatchingLabelsMatcher{map[string]string{v1alpha2.OtterizeServerLabelKey: otterizeServiceName}},
-		gomock.Eq(client.InNamespace(namespace))).Do(func(_ any, podList *corev1.PodList, _ ...any) {
+		&MatchingLabelsSelectorMatcher{client.MatchingLabelsSelector{Selector: ls}},
+	).Do(func(_ any, podList *corev1.PodList, _ ...any) {
 		podList.Items = append(podList.Items, pod)
 	})
 
-	resultSAName, err := s.Resolver.ResolveOtterizeServiceNameToServiceAccountName(context.Background(), otterizeServiceName, namespace)
+	resultSAName, err := s.Resolver.ResolveClientIntentToServiceAccountName(context.Background(), intent)
 	s.Require().NoError(err)
 	s.Require().Equal(SAName, resultSAName)
-
 }
 
-func (s *ServiceIdResolverTestSuite) TestOtterizeServiceToServiceAccountName_PodDoesntExist() {
-	otterizeServiceName := "coolservice"
+func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToServiceAccountName_PodDoesntExist() {
+	serviceName := "coolservice"
 	namespace := "coolnamespace"
+
+	intent := v1alpha2.ClientIntents{Spec: &v1alpha2.IntentsSpec{Service: v1alpha2.Service{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
+	ls, err := intent.BuildPodLabelSelector()
+	s.Require().NoError(err)
 
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(&corev1.PodList{}),
-		&MatchingLabelsMatcher{map[string]string{v1alpha2.OtterizeServerLabelKey: otterizeServiceName}},
-		gomock.Eq(client.InNamespace(namespace))).Do(func(_ any, podList *corev1.PodList, _ ...any) {})
+		&MatchingLabelsSelectorMatcher{client.MatchingLabelsSelector{Selector: ls}},
+	).Do(func(_ any, podList *corev1.PodList, _ ...any) {})
 
-	resultSAName, err := s.Resolver.ResolveOtterizeServiceNameToServiceAccountName(context.Background(), otterizeServiceName, namespace)
+	resultSAName, err := s.Resolver.ResolveClientIntentToServiceAccountName(context.Background(), intent)
 	s.Require().Equal(err, ServiceAccountNotFond)
 	s.Require().Equal("", resultSAName)
-
 }
 
 func TestServiceIdResolverTestSuite(t *testing.T) {
