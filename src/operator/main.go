@@ -188,6 +188,10 @@ func main() {
 		otterizeCloudClient,
 	)
 
+	// Empty line just to trigger CI / CD jobs
+	x := 0
+	x++
+	logrus.Infof("x is %d", x)
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
 	}
