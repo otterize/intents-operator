@@ -1,6 +1,6 @@
 module github.com/otterize/intents-operator/src
 
-go 1.18
+go 1.19
 
 require (
 	github.com/Khan/genqlient v0.5.0
