@@ -5,8 +5,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func serviceNamesFromIngress(ingress *v1.Ingress) sets.String {
-	serviceNames := sets.NewString()
+func serviceNamesFromIngress(ingress *v1.Ingress) sets.Set[string] {
+	serviceNames := sets.Set[string]{}
 	if ingress.Spec.DefaultBackend != nil && ingress.Spec.DefaultBackend.Service != nil {
 		serviceNames.Insert(ingress.Spec.DefaultBackend.Service.Name)
 	}
