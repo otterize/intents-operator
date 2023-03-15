@@ -9,7 +9,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
+	sets "k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -68,8 +68,8 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return r.reconcileIngressCreateOrUpdate(ctx, ingress)
 }
 
-func (r *IngressReconciler) getServicesReferencedByNetworkPoliciesCreatedForIngress(ctx context.Context, ingressName types.NamespacedName) (sets.String, error) {
-	services := sets.NewString()
+func (r *IngressReconciler) getServicesReferencedByNetworkPoliciesCreatedForIngress(ctx context.Context, ingressName types.NamespacedName) (sets.Set[string], error) {
+	services := sets.Set[string]{}
 
 	netpolList := &v1.NetworkPolicyList{}
 	err := r.List(ctx, netpolList, &client.MatchingFields{otterizev1alpha2.NetworkPoliciesByIngressNameIndexField: ingressName.Name},

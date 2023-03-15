@@ -10,7 +10,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/vishalkuo/bimap"
-	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
@@ -76,7 +75,7 @@ func getTLSConfig(tlsSource otterizev1alpha2.TLSSource) (*tls.Config, error) {
 	}
 
 	pool := x509.NewCertPool()
-	rootCAPEM, err := ioutil.ReadFile(tlsSource.RootCAFile)
+	rootCAPEM, err := os.ReadFile(tlsSource.RootCAFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed loading root CA PEM file: %w ", err)
 	}
