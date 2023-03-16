@@ -5,14 +5,11 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	istiopolicy "github.com/otterize/intents-operator/src/shared/istioPolicyCreator"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	v1beta12 "istio.io/api/security/v1beta1"
-	v1beta13 "istio.io/api/type/v1beta1"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -26,9 +23,9 @@ const (
 	ReasonGettingIstioPolicyFailed    = "GettingIstioPolicyFailed"
 	ReasonRemovingIstioPolicyFailed   = "RemovingIstioPolicyFailed"
 	ReasonCreatingIstioPolicyFailed   = "CreatingIstioPolicyFailed"
+	ReasonUpdatingIstioPolicyFailed   = "UpdatingIstioPolicyFailed"
 	ReasonCreatedIstioPolicy          = "CreatedIstioPolicy"
 	ReasonServiceAccountNotFound      = "ServiceAccountNotFound"
-	OtterizeIstioPolicyNameTemplate   = "authorization-policy-to-%s-from-%s"
 )
 
 //+kubebuilder:rbac:groups="security.istio.io",resources=authorizationpolicies,verbs=get;update;patch;list;watch;delete;create
@@ -106,14 +103,9 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	return r.handleAuthorizationPolicy(ctx, req, intents)
-}
-
-func (r *IstioPolicyReconciler) handleAuthorizationPolicy(ctx context.Context, req ctrl.Request, intents *otterizev1alpha2.ClientIntents) (ctrl.Result, error) {
 	clientServiceAccountName, err := r.serviceIdResolver.ResolveClientIntentToServiceAccountName(ctx, *intents)
 	if err != nil {
 		if err == serviceidresolver.ServiceAccountNotFond {
-			// TODO: Handle missing service account
 			r.RecordWarningEventf(
 				intents,
 				ReasonServiceAccountNotFound,
@@ -126,28 +118,15 @@ func (r *IstioPolicyReconciler) handleAuthorizationPolicy(ctx context.Context, r
 		return ctrl.Result{}, err
 	}
 
-	for _, intent := range intents.GetCallsList() {
-		if r.namespaceNotAllowed(intent, req.Namespace) {
-			r.RecordWarningEventf(intents, ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration, istio policy ignored", req.Namespace)
-			continue
+	err = istiopolicy.CreatePolicy(ctx, r.Client, r.InjectableRecorder, intents, r.RestrictToNamespaces, req.Namespace, clientServiceAccountName)
+	if err != nil {
+		if k8serrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
 		}
-		err := r.updateOrCreatePolicy(ctx, intents, intent, req.Namespace, clientServiceAccountName)
-		if err != nil {
-			r.RecordWarningEventf(intents, ReasonCreatingIstioPolicyFailed, "could not create istio policies: %s", err.Error())
-			return ctrl.Result{}, err
-		}
+		return ctrl.Result{}, err
 	}
 
-	if len(intents.GetCallsList()) > 0 {
-		r.RecordNormalEventf(intents, ReasonCreatedIstioPolicy, "istio policies reconcile complete, reconciled %d servers", len(intents.GetCallsList()))
-	}
 	return ctrl.Result{}, nil
-}
-
-func (r *IstioPolicyReconciler) namespaceNotAllowed(intent otterizev1alpha2.Intent, requestNamespace string) bool {
-	targetNamespace := intent.GetServerNamespace(requestNamespace)
-	restrictedNamespacesExists := len(r.RestrictToNamespaces) != 0
-	return restrictedNamespacesExists && !lo.Contains(r.RestrictToNamespaces, targetNamespace)
 }
 
 func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
@@ -157,82 +136,29 @@ func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, i
 
 	logrus.Infof("Removing Istio policies for deleted intents for service: %s", intents.Spec.Service.Name)
 
-	// TODO: remove authorization policies
+	clientName := intents.Spec.Service.Name
+	for _, intent := range intents.GetCallsList() {
+		policyName := fmt.Sprintf(istiopolicy.OtterizeIstioPolicyNameTemplate, intent.GetServerName(), clientName)
+		policy := &v1beta1.AuthorizationPolicy{}
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      policyName,
+			Namespace: intent.GetServerNamespace(intents.Namespace)},
+			policy)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+			logrus.WithError(err).Errorf("could not get istio policy %s", policyName)
+			return err
+		}
+
+		err = r.Delete(ctx, policy)
+		if err != nil {
+			logrus.WithError(err).Errorf("could not delete istio policy %s", policyName)
+			return err
+		}
+	}
 
 	controllerutil.RemoveFinalizer(intents, IstioPolicyFinalizerName)
 	return r.Update(ctx, intents)
-}
-
-func (r *IstioPolicyReconciler) updateOrCreatePolicy(
-	ctx context.Context,
-	intents *otterizev1alpha2.ClientIntents,
-	intent otterizev1alpha2.Intent,
-	objectNamespace string,
-	clientServiceAccountName string,
-) error {
-	clientName := intents.Spec.Service.Name
-	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.GetServerName(), clientName)
-	existingPolicy := &v1beta1.AuthorizationPolicy{}
-	err := r.Get(ctx, types.NamespacedName{
-		Name:      policyName,
-		Namespace: intent.GetServerNamespace(objectNamespace)},
-		existingPolicy)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		r.RecordWarningEventf(existingPolicy, ReasonGettingIstioPolicyFailed, "failed to get istio policy: %s", err.Error())
-		return err
-	}
-
-	if k8serrors.IsNotFound(err) {
-		return r.CreateAuthorizationPolicyFromIntent(ctx, intent, objectNamespace, policyName, clientServiceAccountName)
-	}
-
-	logrus.Infof("Found existing istio policy %s", policyName)
-
-	//TODO: update istio policy if needed
-
-	return nil
-}
-
-func (r *IstioPolicyReconciler) CreateAuthorizationPolicyFromIntent(
-	ctx context.Context,
-	intent otterizev1alpha2.Intent,
-	objectNamespace string,
-	policyName string,
-	clientServiceAccountName string,
-) error {
-	logrus.Infof("Creating istio policy %s for intent %s", policyName, intent.GetServerName())
-
-	serverNamespace := intent.GetServerNamespace(objectNamespace)
-	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), serverNamespace)
-
-	source := fmt.Sprintf("cluster.local/ns/%s/sa/%s", objectNamespace, clientServiceAccountName)
-	newPolicy := v1beta1.AuthorizationPolicy{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      policyName,
-			Namespace: serverNamespace,
-		},
-		Spec: v1beta12.AuthorizationPolicy{
-			Selector: &v1beta13.WorkloadSelector{
-				MatchLabels: map[string]string{
-					otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
-				},
-			},
-			Action: v1beta12.AuthorizationPolicy_ALLOW,
-			Rules: []*v1beta12.Rule{
-				{
-					From: []*v1beta12.Rule_From{
-						{
-							Source: &v1beta12.Source{
-								Principals: []string{
-									source,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	return r.Create(ctx, &newPolicy)
 }

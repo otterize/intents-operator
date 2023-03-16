@@ -40,7 +40,8 @@ func (s *WatcherPodLabelReconcilerTestSuite) SetupSuite() {
 
 func (s *WatcherPodLabelReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
-	s.Reconciler = NewPodWatcher(s.Mgr.GetClient())
+	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
+	s.Reconciler = NewPodWatcher(s.Mgr.GetClient(), recorder)
 	s.Require().NoError(s.Reconciler.InitIntentsClientIndices(s.Mgr))
 }
 
