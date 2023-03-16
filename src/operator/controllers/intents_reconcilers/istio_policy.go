@@ -26,6 +26,7 @@ const (
 	ReasonGettingIstioPolicyFailed    = "GettingIstioPolicyFailed"
 	ReasonRemovingIstioPolicyFailed   = "RemovingIstioPolicyFailed"
 	ReasonCreatingIstioPolicyFailed   = "CreatingIstioPolicyFailed"
+	ReasonUpdatingIstioPolicyFailed   = "UpdatingIstioPolicyFailed"
 	ReasonCreatedIstioPolicy          = "CreatedIstioPolicy"
 	ReasonServiceAccountNotFound      = "ServiceAccountNotFound"
 	OtterizeIstioPolicyNameTemplate   = "authorization-policy-to-%s-from-%s"
@@ -157,7 +158,28 @@ func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, i
 
 	logrus.Infof("Removing Istio policies for deleted intents for service: %s", intents.Spec.Service.Name)
 
-	// TODO: remove authorization policies
+	clientName := intents.Spec.Service.Name
+	for _, intent := range intents.GetCallsList() {
+		policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.GetServerName(), clientName)
+		policy := &v1beta1.AuthorizationPolicy{}
+		err := r.Get(ctx, types.NamespacedName{
+			Name:      policyName,
+			Namespace: intent.GetServerNamespace(intents.Namespace)},
+			policy)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+			logrus.WithError(err).Errorf("could not get istio policy %s", policyName)
+			return err
+		}
+
+		err = r.Delete(ctx, policy)
+		if err != nil {
+			logrus.WithError(err).Errorf("could not delete istio policy %s", policyName)
+			return err
+		}
+	}
 
 	controllerutil.RemoveFinalizer(intents, IstioPolicyFinalizerName)
 	return r.Update(ctx, intents)
@@ -172,6 +194,8 @@ func (r *IstioPolicyReconciler) updateOrCreatePolicy(
 ) error {
 	clientName := intents.Spec.Service.Name
 	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.GetServerName(), clientName)
+	newPolicy := r.GetAuthorizationPolicyForIntent(intent, objectNamespace, policyName, clientServiceAccountName)
+
 	existingPolicy := &v1beta1.AuthorizationPolicy{}
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      policyName,
@@ -183,23 +207,43 @@ func (r *IstioPolicyReconciler) updateOrCreatePolicy(
 	}
 
 	if k8serrors.IsNotFound(err) {
-		return r.CreateAuthorizationPolicyFromIntent(ctx, intent, objectNamespace, policyName, clientServiceAccountName)
+		err = r.Create(ctx, &newPolicy)
+		if err != nil {
+			r.RecordWarningEventf(existingPolicy, ReasonCreatingIstioPolicyFailed, "failed to istio policy: %s", err.Error())
+			return err
+		}
+		return nil
 	}
 
 	logrus.Infof("Found existing istio policy %s", policyName)
 
-	//TODO: update istio policy if needed
+	if !r.isPolicyEqual(existingPolicy, &newPolicy) {
+		logrus.Infof("Updating existing istio policy %s", policyName)
+		policyCopy := existingPolicy.DeepCopy()
+		policyCopy.Spec.Rules[0].From[0].Source.Principals[0] = newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
+		policyCopy.Spec.Selector.MatchLabels[otterizev1alpha2.OtterizeServerLabelKey] = newPolicy.Spec.Selector.MatchLabels[otterizev1alpha2.OtterizeServerLabelKey]
+		err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
+		if err != nil {
+			r.RecordWarningEventf(existingPolicy, ReasonUpdatingIstioPolicyFailed, "failed to update istio policy: %s", err.Error())
+			return err
+		}
+	}
 
 	return nil
 }
 
-func (r *IstioPolicyReconciler) CreateAuthorizationPolicyFromIntent(
-	ctx context.Context,
+func (r *IstioPolicyReconciler) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) bool {
+	sameServer := existingPolicy.Spec.Selector.MatchLabels[otterizev1alpha2.OtterizeServerLabelKey] == newPolicy.Spec.Selector.MatchLabels[otterizev1alpha2.OtterizeServerLabelKey]
+	samePrincipal := existingPolicy.Spec.Rules[0].From[0].Source.Principals[0] == newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
+	return sameServer && samePrincipal
+}
+
+func (r *IstioPolicyReconciler) GetAuthorizationPolicyForIntent(
 	intent otterizev1alpha2.Intent,
 	objectNamespace string,
 	policyName string,
 	clientServiceAccountName string,
-) error {
+) v1beta1.AuthorizationPolicy {
 	logrus.Infof("Creating istio policy %s for intent %s", policyName, intent.GetServerName())
 
 	serverNamespace := intent.GetServerNamespace(objectNamespace)
@@ -234,5 +278,5 @@ func (r *IstioPolicyReconciler) CreateAuthorizationPolicyFromIntent(
 		},
 	}
 
-	return r.Create(ctx, &newPolicy)
+	return newPolicy
 }
