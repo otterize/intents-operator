@@ -128,18 +128,18 @@ func (r *IstioPolicyReconciler) handleAuthorizationPolicy(ctx context.Context, r
 
 	for _, intent := range intents.GetCallsList() {
 		if r.namespaceNotAllowed(intent, req.Namespace) {
-			r.RecordWarningEventf(intents, ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration, authorization policy ignored", req.Namespace)
+			r.RecordWarningEventf(intents, ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration, istio policy ignored", req.Namespace)
 			continue
 		}
 		err := r.updateOrCreatePolicy(ctx, intents, intent, req.Namespace, clientServiceAccountName)
 		if err != nil {
-			r.RecordWarningEventf(intents, ReasonCreatingIstioPolicyFailed, "could not create network policies: %s", err.Error())
+			r.RecordWarningEventf(intents, ReasonCreatingIstioPolicyFailed, "could not create istio policies: %s", err.Error())
 			return ctrl.Result{}, err
 		}
 	}
 
 	if len(intents.GetCallsList()) > 0 {
-		r.RecordNormalEventf(intents, ReasonCreatedIstioPolicy, "NetworkPolicy reconcile complete, reconciled %d servers", len(intents.GetCallsList()))
+		r.RecordNormalEventf(intents, ReasonCreatedIstioPolicy, "istio policies reconcile complete, reconciled %d servers", len(intents.GetCallsList()))
 	}
 	return ctrl.Result{}, nil
 }
@@ -178,7 +178,7 @@ func (r *IstioPolicyReconciler) updateOrCreatePolicy(
 		Namespace: intent.GetServerNamespace(objectNamespace)},
 		existingPolicy)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		r.RecordWarningEventf(existingPolicy, ReasonGettingIstioPolicyFailed, "failed to get network policy: %s", err.Error())
+		r.RecordWarningEventf(existingPolicy, ReasonGettingIstioPolicyFailed, "failed to get istio policy: %s", err.Error())
 		return err
 	}
 
@@ -186,9 +186,9 @@ func (r *IstioPolicyReconciler) updateOrCreatePolicy(
 		return r.CreateAuthorizationPolicyFromIntent(ctx, intent, objectNamespace, policyName, clientServiceAccountName)
 	}
 
-	logrus.Infof("Found existing authorization policy %s", policyName)
+	logrus.Infof("Found existing istio policy %s", policyName)
 
-	//TODO: update network policy if needed
+	//TODO: update istio policy if needed
 
 	return nil
 }
@@ -200,7 +200,7 @@ func (r *IstioPolicyReconciler) CreateAuthorizationPolicyFromIntent(
 	policyName string,
 	clientServiceAccountName string,
 ) error {
-	logrus.Infof("Creating network policy %s for intent %s", policyName, intent.GetServerName())
+	logrus.Infof("Creating istio policy %s for intent %s", policyName, intent.GetServerName())
 
 	serverNamespace := intent.GetServerNamespace(objectNamespace)
 	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), serverNamespace)
