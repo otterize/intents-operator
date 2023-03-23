@@ -25,12 +25,11 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -57,7 +56,7 @@ func init() {
 }
 
 func MustGetEnvVar(name string) string {
-	value := os.Getenv(name)
+	value := viper.GetString(name)
 	if value == "" {
 		logrus.Fatalf("%s environment variable is required", name)
 	}
@@ -66,47 +65,30 @@ func MustGetEnvVar(name string) string {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var selfSignedCert bool
-	var autoCreateNetworkPoliciesForExternalTraffic bool
-	var watchedNamespaces []string
-	var enforcementConfig controllers.EnforcementConfig
-	var disableWebhookServer bool
-	var tlsSource otterizev1alpha2.TLSSource
+	operatorconfig.InitCLIFlags()
 
-	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	pflag.StringVar(&tlsSource.CertFile, "kafka-server-tls-cert", "", "name of tls certificate file")
-	pflag.StringVar(&tlsSource.KeyFile, "kafka-server-tls-key", "", "name of tls private key file")
-	pflag.StringVar(&tlsSource.RootCAFile, "kafka-server-tls-ca", "", "name of tls ca file")
-	pflag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	pflag.BoolVar(&selfSignedCert, "self-signed-cert", true,
-		"Whether to generate and use a self signed cert as the CA for webhooks")
-	pflag.BoolVar(&disableWebhookServer, "disable-webhook-server", false,
-		"Disable webhook validator server")
-	pflag.BoolVar(&enforcementConfig.EnforcementEnabledGlobally, "enable-enforcement", true,
-		"If set to false disables the enforcement globally, superior to the other flags")
-	pflag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", true,
-		"Whether to automatically create network policies for external traffic")
-	pflag.StringSliceVar(&watchedNamespaces, "watched-namespaces", nil,
-		"Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
-	pflag.BoolVar(&enforcementConfig.EnableNetworkPolicy, "enable-network-policy-creation", true,
-		"Whether to enable Intents network policy creation")
-	pflag.BoolVar(&enforcementConfig.EnableIstioPolicy, "enable-istio-policy-creation", false,
-		"Whether to enable istio authorization policy creation")
-	pflag.BoolVar(&enforcementConfig.EnableKafkaACL, "enable-kafka-acl-creation", true,
-		"Whether to disable Intents Kafka ACL creation")
-	pflag.BoolVar(&enforcementConfig.IstioFeatureFlagEnabled, "istio-feature-enabled", false,
-		"Whether to enable istio feature flag")
+	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
+	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
+	enableLeaderElection := viper.GetBool(operatorconfig.EnableLeaderElectionKey)
+	selfSignedCert := viper.GetBool(operatorconfig.SelfSignedCertKey)
+	autoCreateNetworkPoliciesForExternalTraffic := viper.GetBool(operatorconfig.AutoCreateNetworkPoliciesForExternalTrafficKey)
+	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
+	enforcementConfig := controllers.EnforcementConfig{
+		EnforcementEnabledGlobally: viper.GetBool(operatorconfig.EnforcementEnabledGloballyKey),
+		EnableNetworkPolicy:        viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
+		EnableKafkaACL:             viper.GetBool(operatorconfig.EnableKafkaACLKey),
+		EnableIstioPolicy:          viper.GetBool(operatorconfig.EnableIstioPolicyKey),
+		IstioFeatureFlagEnabled:    viper.GetBool(operatorconfig.IstioFeatureFlagEnabledKey),
+	}
+	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
+	tlsSource := otterizev1alpha2.TLSSource{
+		CertFile:   viper.GetString(operatorconfig.KafkaServerTLSCertKey),
+		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
+		RootCAFile: viper.GetString(operatorconfig.KafkaServerTLSCAKey),
+	}
 
-	pflag.Parse()
-
-	podName := MustGetEnvVar("POD_NAME")
-	podNamespace := MustGetEnvVar("POD_NAMESPACE")
+	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
+	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
