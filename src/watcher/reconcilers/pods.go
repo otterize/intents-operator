@@ -5,7 +5,7 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	istiopolicy "github.com/otterize/intents-operator/src/shared/istioPolicyCreator"
+	istiopolicy "github.com/otterize/intents-operator/src/shared/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
@@ -26,17 +26,16 @@ const OtterizeClientNameIndexField = "spec.service.name"
 
 type PodWatcher struct {
 	client.Client
-	serviceIdResolver *serviceidresolver.Resolver
-	recorder          injectablerecorder.InjectableRecorder
+	serviceIdResolver  *serviceidresolver.Resolver
+	istioPolicyCreator *istiopolicy.Creator
 }
 
-func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder) *PodWatcher {
+func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string) *PodWatcher {
+	creator := istiopolicy.NewCreator(c, &injectablerecorder.InjectableRecorder{Recorder: eventRecorder}, watchedNamespaces)
 	return &PodWatcher{
-		Client:            c,
-		serviceIdResolver: serviceidresolver.NewResolver(c),
-		recorder: injectablerecorder.InjectableRecorder{
-			Recorder: eventRecorder,
-		},
+		Client:             c,
+		serviceIdResolver:  serviceidresolver.NewResolver(c),
+		istioPolicyCreator: creator,
 	}
 }
 
@@ -134,8 +133,7 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 		logrus.Warning("Pod does not have a service account name, skipping Istio policy creation")
 	}
 
-	restrictToNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
-	err := istiopolicy.CreatePolicy(ctx, p.Client, p.recorder, &intents, restrictToNamespaces, pod.Namespace, serviceAccountName)
+	err := p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, serviceAccountName)
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
 	}

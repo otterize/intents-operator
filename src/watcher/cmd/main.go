@@ -67,7 +67,7 @@ func main() {
 	}
 
 	recorder := mgr.GetEventRecorderFor("intents-operator")
-	podWatcher := reconcilers.NewPodWatcher(mgr.GetClient(), recorder)
+	podWatcher := reconcilers.NewPodWatcher(mgr.GetClient(), recorder, watchedNamespaces)
 
 	nsWatcher := reconcilers.NewNamespaceWatcher(mgr.GetClient())
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	istiopolicy "github.com/otterize/intents-operator/src/shared/istioPolicyCreator"
+	istiopolicy "github.com/otterize/intents-operator/src/shared/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/sirupsen/logrus"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
@@ -38,6 +38,7 @@ type IstioPolicyReconciler struct {
 	enforcementEnabledGlobally bool
 	injectablerecorder.InjectableRecorder
 	serviceIdResolver *serviceidresolver.Resolver
+	policyCreator     *istiopolicy.Creator
 }
 
 func NewIstioPolicyReconciler(
@@ -46,7 +47,7 @@ func NewIstioPolicyReconciler(
 	restrictToNamespaces []string,
 	enableIstioPolicyCreation bool,
 	enforcementEnabledGlobally bool) *IstioPolicyReconciler {
-	return &IstioPolicyReconciler{
+	reconciler := &IstioPolicyReconciler{
 		Client:                     c,
 		Scheme:                     s,
 		RestrictToNamespaces:       restrictToNamespaces,
@@ -54,6 +55,10 @@ func NewIstioPolicyReconciler(
 		enforcementEnabledGlobally: enforcementEnabledGlobally,
 		serviceIdResolver:          serviceidresolver.NewResolver(c),
 	}
+
+	reconciler.policyCreator = istiopolicy.NewCreator(c, &reconciler.InjectableRecorder, restrictToNamespaces)
+
+	return reconciler
 }
 
 func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -118,7 +123,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	err = istiopolicy.CreatePolicy(ctx, r.Client, r.InjectableRecorder, intents, r.RestrictToNamespaces, req.Namespace, clientServiceAccountName)
+	err = r.policyCreator.Create(ctx, intents, req.Namespace, clientServiceAccountName)
 	if err != nil {
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
