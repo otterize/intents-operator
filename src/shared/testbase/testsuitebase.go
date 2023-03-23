@@ -195,11 +195,29 @@ func (s *ControllerManagerTestSuiteBase) AddReplicaSet(
 	return replicaSet
 }
 
+func (s *ControllerManagerTestSuiteBase) AddDeploymentWithServiceAccount(name string, serviceAccountName string, otterizeName string) *appsv1.Deployment {
+	var podLabels = map[string]string{}
+	if otterizeName != "" {
+		podLabels[otterizev1alpha2.OtterizeServerLabelKey] = otterizeName
+	}
+	return s.addDeployment(name, []string{}, map[string]string{}, map[string]string{}, lo.ToPtr(serviceAccountName))
+}
+
 func (s *ControllerManagerTestSuiteBase) AddDeployment(
 	name string,
 	podIps []string,
 	podLabels map[string]string,
 	annotations map[string]string) *appsv1.Deployment {
+	return s.addDeployment(name, podIps, podLabels, annotations, nil)
+}
+
+func (s *ControllerManagerTestSuiteBase) addDeployment(
+	name string,
+	podIps []string,
+	podLabels map[string]string,
+	annotations map[string]string,
+	serviceAccountName *string,
+) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},
 		Spec: appsv1.DeploymentSpec{
@@ -218,6 +236,17 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 			},
 		},
 	}
+
+	if serviceAccountName != nil {
+		sa := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{Name: *serviceAccountName, Namespace: s.TestNamespace},
+		}
+		err := s.Mgr.GetClient().Create(context.Background(), sa)
+		s.Require().NoError(err)
+
+		deployment.Spec.Template.Spec.ServiceAccountName = *serviceAccountName
+	}
+
 	err := s.Mgr.GetClient().Create(context.Background(), deployment)
 	s.Require().NoError(err)
 
