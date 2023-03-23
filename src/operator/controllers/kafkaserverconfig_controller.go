@@ -27,6 +27,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
@@ -365,7 +366,7 @@ func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
 		For(&otterizev1alpha2.KafkaServerConfig{}).
-		WithOptions(controller.Options{RecoverPanic: true}).
+		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 	if err != nil {
 		return err

@@ -41,7 +41,9 @@ func (s *IstioPolicyReconcilerTestSuite) SetupSuite() {
 
 func (s *IstioPolicyReconcilerTestSuite) BeforeTest(_, testName string) {
 	s.ControllerManagerTestSuiteBase.BeforeTest("", testName)
-	s.Reconciler = NewIstioPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, true)
+	s.Reconciler = NewIstioPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, []string{}, true, true)
+	recorder := record.NewFakeRecorder(100)
+	s.Reconciler.InjectRecorder(recorder)
 }
 
 func (s *IstioPolicyReconcilerTestSuite) SetupTest() {
@@ -56,7 +58,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestGlobalEnforcementDisabled() {
 	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
-	reconciler := NewIstioPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, false)
+	reconciler := NewIstioPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, []string{}, true, false)
 	recorder := record.NewFakeRecorder(100)
 	reconciler.InjectRecorder(recorder)
 	res, err := reconciler.Reconcile(context.Background(), ctrl.Request{
@@ -85,7 +87,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyEnforcementDisabled() {
 	s.Require().NoError(err)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
-	reconciler := NewIstioPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, false, true)
+	reconciler := NewIstioPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, []string{}, false, true)
 	recorder := record.NewFakeRecorder(100)
 	reconciler.InjectRecorder(recorder)
 	res, err := reconciler.Reconcile(context.Background(), ctrl.Request{

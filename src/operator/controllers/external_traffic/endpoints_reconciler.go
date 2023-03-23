@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,7 +49,7 @@ func (r *EndpointsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Endpoints{}).
-		WithOptions(controller.Options{RecoverPanic: true}).
+		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 }
 
@@ -130,7 +132,8 @@ func (r *EndpointsReconciler) InitIngressReferencedServicesIndex(mgr ctrl.Manage
 		v1alpha2.IngressServiceNamesIndexField,
 		func(object client.Object) []string {
 			ingress := object.(*v1.Ingress)
-			return serviceNamesFromIngress(ingress).List()
+			services := serviceNamesFromIngress(ingress)
+			return sets.List(services)
 		})
 
 	if err != nil {
