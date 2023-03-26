@@ -6,11 +6,11 @@ import (
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
-	"istio.io/client-go/pkg/apis/security/v1beta1"
+	"github.com/stretchr/testify/suite"
+	istiov1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -25,7 +25,10 @@ type IstioPolicyReconcilerTestSuite struct {
 func (s *IstioPolicyReconcilerTestSuite) SetupSuite() {
 	s.TestEnv = &envtest.Environment{}
 	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd")}
+	s.TestEnv.CRDDirectoryPaths = []string{
+		"../../config/crd",
+		"../../../shared/istiopolicy/crd",
+	}
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
@@ -36,6 +39,9 @@ func (s *IstioPolicyReconcilerTestSuite) SetupSuite() {
 	s.Require().NotNil(s.K8sDirectClient)
 
 	err = otterizev1alpha2.AddToScheme(s.TestEnv.Scheme)
+	s.Require().NoError(err)
+
+	err = istiov1beta1.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 }
 
@@ -110,9 +116,30 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyEnforcementDisabled() {
 
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyCreation() {
 	intentObjectName := "client-intents"
-	_ = s.AddDeploymentWithServiceAccount("client-deployment", "client-service-account", "")
+	testClientName := "test-client"
+	s.AddServerDeploymentWithServiceAccount(testClientName)
 
-	intents, err := s.AddIntents(intentObjectName, "test-client", []otterizev1alpha2.Intent{{
+	intents, err := s.AddIntents(intentObjectName, testClientName, []otterizev1alpha2.Intent{{
+		Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server",
+	},
+	})
+	s.Require().NoError(err)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	s.RunReconciler(s.Reconciler, types.NamespacedName{
+		Namespace: s.TestNamespace,
+		Name:      intents.Name,
+	})
+
+	s.waitUntilPolicyCreated(err)
+}
+
+func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyMissingServiceAccount() {
+	intentObjectName := "client-intents"
+	testClientName := "test-client"
+	s.AddServerDeployment(testClientName)
+
+	intents, err := s.AddIntents(intentObjectName, testClientName, []otterizev1alpha2.Intent{{
 		Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server",
 	},
 	})
@@ -130,11 +157,19 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyCreation() {
 	s.Require().Empty(res)
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
-	istioPolicyList := &v1beta1.AuthorizationPolicyList{}
+	istioPolicyList := &istiov1beta1.AuthorizationPolicyList{}
 	err = s.Mgr.GetClient().List(context.Background(), istioPolicyList, client.InNamespace(s.TestNamespace))
 	s.Require().NoError(err)
-	s.Require().Len(istioPolicyList.Items, 1)
+	s.Require().Equal(0, len(istioPolicyList.Items))
+}
 
+func (s *IstioPolicyReconcilerTestSuite) waitUntilPolicyCreated(err error) {
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		istioPolicyList := &istiov1beta1.AuthorizationPolicyList{}
+		err = s.Mgr.GetClient().List(context.Background(), istioPolicyList, client.InNamespace(s.TestNamespace))
+		assert.NoError(err)
+		assert.Equal(1, len(istioPolicyList.Items))
+	})
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerAddedAndRemove() {
@@ -204,5 +239,5 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerAddedAndRemove(
 }
 
 func TestIstioPolicyReconcilerTestSuite(t *testing.T) {
-	//suite.Run(t, new(IstioPolicyReconcilerTestSuite))
+	suite.Run(t, new(IstioPolicyReconcilerTestSuite))
 }

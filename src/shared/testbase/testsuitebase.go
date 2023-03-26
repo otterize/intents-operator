@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	_ "os"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -195,12 +196,47 @@ func (s *ControllerManagerTestSuiteBase) AddReplicaSet(
 	return replicaSet
 }
 
-func (s *ControllerManagerTestSuiteBase) AddDeploymentWithServiceAccount(name string, serviceAccountName string, otterizeName string) *appsv1.Deployment {
-	var podLabels = map[string]string{}
-	if otterizeName != "" {
-		podLabels[otterizev1alpha2.OtterizeServerLabelKey] = otterizeName
+type Reconciler interface {
+	Reconcile(context.Context, ctrl.Request) (ctrl.Result, error)
+}
+
+func (s *ControllerManagerTestSuiteBase) RunReconciler(reconciler Reconciler, namespacedName types.NamespacedName) {
+	res := ctrl.Result{Requeue: true}
+	var err error
+
+	for res.Requeue {
+		res, err = reconciler.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: namespacedName,
+		})
 	}
-	return s.addDeployment(name, []string{}, map[string]string{}, map[string]string{}, lo.ToPtr(serviceAccountName))
+
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+}
+
+func (s *ControllerManagerTestSuiteBase) AddServerDeploymentWithServiceAccount(name string) {
+	s.Require().NotEqual(0, len(name))
+	formattedName := otterizev1alpha2.GetFormattedOtterizeIdentity(name, s.TestNamespace)
+	var podLabels = map[string]string{
+		otterizev1alpha2.OtterizeServerLabelKey: formattedName,
+	}
+
+	dummyIP := "1.2.3.4"
+	serviceAccountName := fmt.Sprintf("%s-sa", name)
+	_ = s.addDeployment(name, []string{dummyIP}, podLabels, map[string]string{}, lo.ToPtr(serviceAccountName))
+}
+
+func (s *ControllerManagerTestSuiteBase) AddServerDeployment(name string) {
+	s.Require().NotEqual(0, len(name))
+	formattedName := otterizev1alpha2.GetFormattedOtterizeIdentity(name, s.TestNamespace)
+	var podLabels = map[string]string{
+		otterizev1alpha2.OtterizeServerLabelKey: formattedName,
+	}
+
+	dummyIP := "1.2.3.4"
+
+	_ = s.addDeployment(name, []string{dummyIP}, podLabels, map[string]string{}, nil)
 }
 
 func (s *ControllerManagerTestSuiteBase) AddDeployment(

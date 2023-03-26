@@ -93,7 +93,7 @@ func (c *Creator) updateOrCreatePolicy(
 ) error {
 	clientName := intents.Spec.Service.Name
 	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.GetServerName(), clientName)
-	newPolicy := c.getAuthorizationPolicyForIntent(intent, objectNamespace, policyName, clientServiceAccountName)
+	newPolicy := c.generateAuthorizationPolicyForIntent(intent, objectNamespace, policyName, clientServiceAccountName)
 
 	existingPolicy := &v1beta1.AuthorizationPolicy{}
 	err := c.client.Get(ctx, types.NamespacedName{
@@ -116,7 +116,12 @@ func (c *Creator) updateOrCreatePolicy(
 
 	logrus.Infof("Found existing istio policy %s", policyName)
 
-	if !c.isPolicyEqual(existingPolicy, newPolicy) {
+	policyEqual, err := c.isPolicyEqual(existingPolicy, newPolicy)
+	if err != nil {
+		return err
+	}
+
+	if !policyEqual {
 		logrus.Infof("Updating existing istio policy %s", policyName)
 		policyCopy := existingPolicy.DeepCopy()
 		policyCopy.Spec.Rules[0].From[0].Source.Principals[0] = newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
@@ -131,13 +136,22 @@ func (c *Creator) updateOrCreatePolicy(
 	return nil
 }
 
-func (c *Creator) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) bool {
+func (c *Creator) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) (bool, error) {
+	if existingPolicy.Spec.Selector == nil || newPolicy.Spec.Selector == nil {
+		return false, fmt.Errorf("policy pod selector is nil")
+	}
+
+	if len(existingPolicy.Spec.Rules) == 0 || len(existingPolicy.Spec.Rules[0].From) == 0 {
+		logrus.Warning("found existing policy with bad format, overwriting")
+		return false, nil
+	}
+
 	sameServer := existingPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey] == newPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey]
 	samePrincipal := existingPolicy.Spec.Rules[0].From[0].Source.Principals[0] == newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
-	return sameServer && samePrincipal
+	return sameServer && samePrincipal, nil
 }
 
-func (c *Creator) getAuthorizationPolicyForIntent(
+func (c *Creator) generateAuthorizationPolicyForIntent(
 	intent v1alpha2.Intent,
 	objectNamespace string,
 	policyName string,
