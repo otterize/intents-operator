@@ -97,7 +97,7 @@ func (r *Resolver) ResolveClientIntentToServiceAccountName(ctx context.Context, 
 	if err != nil {
 		return "", err
 	}
-	if len(podsList.Items) == 0 {
+	if len(podsList.Items) == 0 || podsList.Items[0].Spec.ServiceAccountName == "" {
 		return "", ServiceAccountNotFond
 	}
 	return podsList.Items[0].Spec.ServiceAccountName, nil

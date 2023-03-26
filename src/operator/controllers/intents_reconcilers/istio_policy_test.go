@@ -7,10 +7,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	istiov1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -25,7 +25,10 @@ type IstioPolicyReconcilerTestSuite struct {
 func (s *IstioPolicyReconcilerTestSuite) SetupSuite() {
 	s.TestEnv = &envtest.Environment{}
 	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd")}
+	s.TestEnv.CRDDirectoryPaths = []string{
+		"../../config/crd",
+		"../../../shared/istiopolicy/crd",
+	}
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
@@ -36,6 +39,9 @@ func (s *IstioPolicyReconcilerTestSuite) SetupSuite() {
 	s.Require().NotNil(s.K8sDirectClient)
 
 	err = otterizev1alpha2.AddToScheme(s.TestEnv.Scheme)
+	s.Require().NoError(err)
+
+	err = istiov1beta1.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
 }
 

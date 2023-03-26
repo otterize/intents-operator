@@ -62,7 +62,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	err = s.IngressReconciler.InitNetworkPoliciesByIngressNameIndex(s.Mgr)
 	s.Require().NoError(err)
 
-	s.podWatcher = reconcilers.NewPodWatcher(s.Mgr.GetClient())
+	s.podWatcher = reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{})
 	err = s.podWatcher.InitIntentsClientIndices(s.Mgr)
 	s.Require().NoError(err)
 }

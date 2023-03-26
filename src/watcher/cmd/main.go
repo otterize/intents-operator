@@ -66,7 +66,8 @@ func main() {
 		logrus.WithError(err).Fatal("unable to start manager")
 	}
 
-	podWatcher := reconcilers.NewPodWatcher(mgr.GetClient())
+	recorder := mgr.GetEventRecorderFor("intents-operator")
+	podWatcher := reconcilers.NewPodWatcher(mgr.GetClient(), recorder, watchedNamespaces)
 
 	nsWatcher := reconcilers.NewNamespaceWatcher(mgr.GetClient())
 

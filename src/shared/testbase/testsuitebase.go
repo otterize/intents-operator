@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	_ "os"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -193,6 +194,25 @@ func (s *ControllerManagerTestSuiteBase) AddReplicaSet(
 	}
 
 	return replicaSet
+}
+
+type Reconciler interface {
+	Reconcile(context.Context, ctrl.Request) (ctrl.Result, error)
+}
+
+func (s *ControllerManagerTestSuiteBase) RunReconciler(reconciler Reconciler, namespacedName types.NamespacedName) {
+	res := ctrl.Result{Requeue: true}
+	var err error
+
+	for res.Requeue {
+		res, err = reconciler.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: namespacedName,
+		})
+	}
+
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 }
 
 func (s *ControllerManagerTestSuiteBase) AddDeployment(
