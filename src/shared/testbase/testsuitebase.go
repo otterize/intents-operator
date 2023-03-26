@@ -215,45 +215,11 @@ func (s *ControllerManagerTestSuiteBase) RunReconciler(reconciler Reconciler, na
 	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 }
 
-func (s *ControllerManagerTestSuiteBase) AddServerDeploymentWithServiceAccount(name string) {
-	s.Require().NotEqual(0, len(name))
-	formattedName := otterizev1alpha2.GetFormattedOtterizeIdentity(name, s.TestNamespace)
-	var podLabels = map[string]string{
-		otterizev1alpha2.OtterizeServerLabelKey: formattedName,
-	}
-
-	dummyIP := "1.2.3.4"
-	serviceAccountName := fmt.Sprintf("%s-sa", name)
-	_ = s.addDeployment(name, []string{dummyIP}, podLabels, map[string]string{}, lo.ToPtr(serviceAccountName))
-}
-
-func (s *ControllerManagerTestSuiteBase) AddServerDeployment(name string) {
-	s.Require().NotEqual(0, len(name))
-	formattedName := otterizev1alpha2.GetFormattedOtterizeIdentity(name, s.TestNamespace)
-	var podLabels = map[string]string{
-		otterizev1alpha2.OtterizeServerLabelKey: formattedName,
-	}
-
-	dummyIP := "1.2.3.4"
-
-	_ = s.addDeployment(name, []string{dummyIP}, podLabels, map[string]string{}, nil)
-}
-
 func (s *ControllerManagerTestSuiteBase) AddDeployment(
 	name string,
 	podIps []string,
 	podLabels map[string]string,
 	annotations map[string]string) *appsv1.Deployment {
-	return s.addDeployment(name, podIps, podLabels, annotations, nil)
-}
-
-func (s *ControllerManagerTestSuiteBase) addDeployment(
-	name string,
-	podIps []string,
-	podLabels map[string]string,
-	annotations map[string]string,
-	serviceAccountName *string,
-) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: s.TestNamespace},
 		Spec: appsv1.DeploymentSpec{
@@ -272,17 +238,6 @@ func (s *ControllerManagerTestSuiteBase) addDeployment(
 			},
 		},
 	}
-
-	if serviceAccountName != nil {
-		sa := &corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{Name: *serviceAccountName, Namespace: s.TestNamespace},
-		}
-		err := s.Mgr.GetClient().Create(context.Background(), sa)
-		s.Require().NoError(err)
-
-		deployment.Spec.Template.Spec.ServiceAccountName = *serviceAccountName
-	}
-
 	err := s.Mgr.GetClient().Create(context.Background(), deployment)
 	s.Require().NoError(err)
 

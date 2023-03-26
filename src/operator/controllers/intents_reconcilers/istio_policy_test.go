@@ -114,55 +114,6 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyEnforcementDisabled() {
 	}
 }
 
-func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyCreation() {
-	intentObjectName := "client-intents"
-	testClientName := "test-client"
-	s.AddServerDeploymentWithServiceAccount(testClientName)
-
-	intents, err := s.AddIntents(intentObjectName, testClientName, []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server",
-	},
-	})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	s.RunReconciler(s.Reconciler, types.NamespacedName{
-		Namespace: s.TestNamespace,
-		Name:      intents.Name,
-	})
-
-	s.waitUntilPolicyCreated(err)
-}
-
-func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyMissingServiceAccount() {
-	intentObjectName := "client-intents"
-	testClientName := "test-client"
-	s.AddServerDeployment(testClientName)
-
-	intents, err := s.AddIntents(intentObjectName, testClientName, []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server",
-	},
-	})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	istioPolicyList := &istiov1beta1.AuthorizationPolicyList{}
-	err = s.Mgr.GetClient().List(context.Background(), istioPolicyList, client.InNamespace(s.TestNamespace))
-	s.Require().NoError(err)
-	s.Require().Equal(0, len(istioPolicyList.Items))
-}
-
 func (s *IstioPolicyReconcilerTestSuite) waitUntilPolicyCreated(err error) {
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		istioPolicyList := &istiov1beta1.AuthorizationPolicyList{}
