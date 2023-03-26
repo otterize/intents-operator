@@ -114,15 +114,6 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyEnforcementDisabled() {
 	}
 }
 
-func (s *IstioPolicyReconcilerTestSuite) waitUntilPolicyCreated(err error) {
-	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		istioPolicyList := &istiov1beta1.AuthorizationPolicyList{}
-		err = s.Mgr.GetClient().List(context.Background(), istioPolicyList, client.InNamespace(s.TestNamespace))
-		assert.NoError(err)
-		assert.Equal(1, len(istioPolicyList.Items))
-	})
-}
-
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerAddedAndRemove() {
 	intentObjectName := "finalizer-intents"
 	intents, err := s.AddIntents(intentObjectName, "test-client", []otterizev1alpha2.Intent{{
