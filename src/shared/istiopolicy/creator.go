@@ -124,8 +124,8 @@ func (c *Creator) updateOrCreatePolicy(
 	if !policyEqual {
 		logrus.Infof("Updating existing istio policy %s", policyName)
 		policyCopy := existingPolicy.DeepCopy()
-		policyCopy.Spec.Rules[0].From[0].Source.Principals[0] = newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
-		policyCopy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey] = newPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey]
+		policyCopy.Spec.Rules = newPolicy.Spec.Rules
+		policyCopy.Spec.Selector = newPolicy.Spec.Selector
 		err = c.client.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 		if err != nil {
 			c.recorder.RecordWarningEventf(existingPolicy, ReasonUpdatingIstioPolicyFailed, "failed to update istio policy: %s", err.Error())
@@ -137,11 +137,10 @@ func (c *Creator) updateOrCreatePolicy(
 }
 
 func (c *Creator) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) (bool, error) {
-	if existingPolicy.Spec.Selector == nil || newPolicy.Spec.Selector == nil {
-		return false, fmt.Errorf("policy pod selector is nil")
-	}
-
-	if len(existingPolicy.Spec.Rules) == 0 || len(existingPolicy.Spec.Rules[0].From) == 0 {
+	if len(existingPolicy.Spec.Rules) == 0 ||
+		len(existingPolicy.Spec.Rules[0].From) == 0 ||
+		existingPolicy.Spec.Selector == nil ||
+		len(existingPolicy.Spec.Selector.MatchLabels) == 0 {
 		logrus.Warning("found existing policy with bad format, overwriting")
 		return false, nil
 	}
