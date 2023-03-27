@@ -140,6 +140,10 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 		return
 	}
 
+	if intents.DeletionTimestamp != nil {
+		return
+	}
+
 	err := p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, serviceAccountName)
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
