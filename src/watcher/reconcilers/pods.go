@@ -22,20 +22,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const OtterizeClientNameIndexField = "spec.service.name"
+const (
+	OtterizeClientNameIndexField   = "spec.service.name"
+	ReasonPodMissingServiceAccount = "PodMissingServiceAccount"
+)
 
 type PodWatcher struct {
 	client.Client
 	serviceIdResolver  *serviceidresolver.Resolver
 	istioPolicyCreator *istiopolicy.Creator
+	injectablerecorder.InjectableRecorder
 }
 
 func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string) *PodWatcher {
-	creator := istiopolicy.NewCreator(c, &injectablerecorder.InjectableRecorder{Recorder: eventRecorder}, watchedNamespaces)
+	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
+	creator := istiopolicy.NewCreator(c, &recorder, watchedNamespaces)
 	return &PodWatcher{
 		Client:             c,
 		serviceIdResolver:  serviceidresolver.NewResolver(c),
 		istioPolicyCreator: creator,
+		InjectableRecorder: recorder,
 	}
 }
 
@@ -130,7 +136,8 @@ func (p *PodWatcher) istioEnforcementEnabled() bool {
 func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha2.ClientIntents, pod v1.Pod) {
 	serviceAccountName := pod.Spec.ServiceAccountName
 	if serviceAccountName == "" {
-		logrus.Warning("Pod does not have a service account name, skipping Istio policy creation")
+		p.InjectableRecorder.RecordWarningEventf(&intents, ReasonPodMissingServiceAccount, "Pod %s/%s is missing SA", pod.Namespace, pod.Name)
+		return
 	}
 
 	err := p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, serviceAccountName)
