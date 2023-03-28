@@ -2,16 +2,13 @@ package intents_reconcilers
 
 import (
 	"context"
-	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	istiopolicy "github.com/otterize/intents-operator/src/shared/istiopolicy"
+	"github.com/otterize/intents-operator/src/shared/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/sirupsen/logrus"
-	"istio.io/client-go/pkg/apis/security/v1beta1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -20,15 +17,9 @@ import (
 const (
 	IstioPolicyFinalizerName          = "intents.otterize.com/istio-policy-finalizer"
 	ReasonIstioPolicyCreationDisabled = "IstioPolicyCreationDisabled"
-	ReasonGettingIstioPolicyFailed    = "GettingIstioPolicyFailed"
 	ReasonRemovingIstioPolicyFailed   = "RemovingIstioPolicyFailed"
-	ReasonCreatingIstioPolicyFailed   = "CreatingIstioPolicyFailed"
-	ReasonUpdatingIstioPolicyFailed   = "UpdatingIstioPolicyFailed"
-	ReasonCreatedIstioPolicy          = "CreatedIstioPolicy"
 	ReasonServiceAccountNotFound      = "ServiceAccountNotFound"
 )
-
-//+kubebuilder:rbac:groups="security.istio.io",resources=authorizationpolicies,verbs=get;update;patch;list;watch;delete;create
 
 type IstioPolicyReconciler struct {
 	client.Client
@@ -141,29 +132,10 @@ func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, i
 
 	logrus.Infof("Removing Istio policies for deleted intents for service: %s", intents.Spec.Service.Name)
 
-	clientName := intents.Spec.Service.Name
-	for _, intent := range intents.GetCallsList() {
-		policyName := fmt.Sprintf(istiopolicy.OtterizeIstioPolicyNameTemplate, intent.GetServerName(), clientName)
-		policy := &v1beta1.AuthorizationPolicy{}
-		err := r.Get(ctx, types.NamespacedName{
-			Name:      policyName,
-			Namespace: intent.GetServerNamespace(intents.Namespace)},
-			policy)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				continue
-			}
-			logrus.WithError(err).Errorf("could not get istio policy %s", policyName)
-			return err
-		}
-
-		err = r.Delete(ctx, policy)
-		if err != nil {
-			logrus.WithError(err).Errorf("could not delete istio policy %s", policyName)
-			return err
-		}
+	err := r.policyCreator.Delete(ctx, intents)
+	if err != nil {
+		return err
 	}
-
 	controllerutil.RemoveFinalizer(intents, IstioPolicyFinalizerName)
 	return r.Update(ctx, intents)
 }

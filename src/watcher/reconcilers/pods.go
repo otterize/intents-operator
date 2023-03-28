@@ -5,7 +5,7 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	istiopolicy "github.com/otterize/intents-operator/src/shared/istiopolicy"
+	"github.com/otterize/intents-operator/src/shared/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
@@ -23,8 +23,9 @@ import (
 )
 
 const (
-	OtterizeClientNameIndexField   = "spec.service.name"
-	ReasonPodMissingServiceAccount = "PodMissingServiceAccount"
+	OtterizeClientNameIndexField    = "spec.service.name"
+	ReasonPodMissingServiceAccount  = "PodMissingServiceAccount"
+	ReasonRemovingIstioPolicyFailed = "RemovingIstioPolicyFailed"
 )
 
 type PodWatcher struct {
@@ -122,7 +123,10 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	if p.istioEnforcementEnabled() {
 		for _, clientIntents := range intents.Items {
-			p.createIstioPolicies(ctx, clientIntents, pod)
+			err = p.createIstioPolicies(ctx, clientIntents, pod)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	}
 
@@ -133,21 +137,28 @@ func (p *PodWatcher) istioEnforcementEnabled() bool {
 	return viper.GetBool(operatorconfig.IstioFeatureFlagEnabledKey) && viper.GetBool(operatorconfig.EnableIstioPolicyKey)
 }
 
-func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha2.ClientIntents, pod v1.Pod) {
+func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha2.ClientIntents, pod v1.Pod) error {
 	serviceAccountName := pod.Spec.ServiceAccountName
 	if serviceAccountName == "" {
 		p.InjectableRecorder.RecordWarningEventf(&intents, ReasonPodMissingServiceAccount, "Pod %s/%s is missing SA", pod.Namespace, pod.Name)
-		return
+		err := p.istioPolicyCreator.Delete(ctx, &intents)
+		if err != nil {
+			p.InjectableRecorder.RecordWarningEventf(&intents, ReasonRemovingIstioPolicyFailed, "Failed deleting Istio policy for pod %s/%s", pod.Namespace, pod.Name)
+			return err
+		}
+		return nil
 	}
-
 	if intents.DeletionTimestamp != nil {
-		return
+		return nil
 	}
 
 	err := p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, serviceAccountName)
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
+		return err
 	}
+
+	return nil
 }
 
 func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
