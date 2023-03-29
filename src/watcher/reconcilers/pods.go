@@ -23,9 +23,7 @@ import (
 )
 
 const (
-	OtterizeClientNameIndexField    = "spec.service.name"
-	ReasonPodMissingServiceAccount  = "PodMissingServiceAccount"
-	ReasonRemovingIstioPolicyFailed = "RemovingIstioPolicyFailed"
+	OtterizeClientNameIndexField = "spec.service.name"
 )
 
 type PodWatcher struct {
@@ -138,21 +136,11 @@ func (p *PodWatcher) istioEnforcementEnabled() bool {
 }
 
 func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha2.ClientIntents, pod v1.Pod) error {
-	serviceAccountName := pod.Spec.ServiceAccountName
-	if serviceAccountName == "" {
-		p.InjectableRecorder.RecordWarningEventf(&intents, ReasonPodMissingServiceAccount, "Pod %s/%s is missing SA", pod.Namespace, pod.Name)
-		err := p.istioPolicyCreator.Delete(ctx, &intents)
-		if err != nil {
-			p.InjectableRecorder.RecordWarningEventf(&intents, ReasonRemovingIstioPolicyFailed, "Failed deleting Istio policy for pod %s/%s", pod.Namespace, pod.Name)
-			return err
-		}
-		return nil
-	}
 	if intents.DeletionTimestamp != nil {
 		return nil
 	}
 
-	err := p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, serviceAccountName)
+	err := p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, pod.Spec.ServiceAccountName)
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
 		return err
