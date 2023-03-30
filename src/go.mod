@@ -5,12 +5,14 @@ go 1.19
 require (
 	github.com/Khan/genqlient v0.5.0
 	github.com/Shopify/sarama v1.34.1
+	github.com/amit7itz/goset v1.2.1
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.9
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.8.1
+	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.0
 	github.com/stretchr/testify v1.8.1
 	github.com/suessflorian/gqlfetch v0.6.0
@@ -81,7 +83,6 @@ require (
 	github.com/spf13/afero v1.6.0 // indirect
 	github.com/spf13/cast v1.3.0 // indirect
 	github.com/spf13/jwalterweatherman v1.0.0 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/vektah/gqlparser v1.3.1 // indirect
 	github.com/vektah/gqlparser/v2 v2.4.5 // indirect

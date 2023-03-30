@@ -132,7 +132,7 @@ func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, i
 
 	logrus.Infof("Removing Istio policies for deleted intents for service: %s", intents.Spec.Service.Name)
 
-	err := r.policyCreator.Delete(ctx, intents)
+	err := r.policyCreator.DeleteAll(ctx, intents)
 	if err != nil {
 		return err
 	}
