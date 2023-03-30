@@ -5,7 +5,7 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	istiopolicy "github.com/otterize/intents-operator/src/shared/istiopolicy"
+	"github.com/otterize/intents-operator/src/shared/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
@@ -22,20 +22,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const OtterizeClientNameIndexField = "spec.service.name"
+const (
+	OtterizeClientNameIndexField = "spec.service.name"
+)
 
 type PodWatcher struct {
 	client.Client
 	serviceIdResolver  *serviceidresolver.Resolver
 	istioPolicyCreator *istiopolicy.Creator
+	injectablerecorder.InjectableRecorder
 }
 
 func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string) *PodWatcher {
-	creator := istiopolicy.NewCreator(c, &injectablerecorder.InjectableRecorder{Recorder: eventRecorder}, watchedNamespaces)
+	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
+	creator := istiopolicy.NewCreator(c, &recorder, watchedNamespaces)
 	return &PodWatcher{
 		Client:             c,
 		serviceIdResolver:  serviceidresolver.NewResolver(c),
 		istioPolicyCreator: creator,
+		InjectableRecorder: recorder,
 	}
 }
 
@@ -116,7 +121,10 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	if p.istioEnforcementEnabled() {
 		for _, clientIntents := range intents.Items {
-			p.createIstioPolicies(ctx, clientIntents, pod)
+			err = p.createIstioPolicies(ctx, clientIntents, pod)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
 		}
 	}
 
@@ -127,16 +135,18 @@ func (p *PodWatcher) istioEnforcementEnabled() bool {
 	return viper.GetBool(operatorconfig.IstioFeatureFlagEnabledKey) && viper.GetBool(operatorconfig.EnableIstioPolicyKey)
 }
 
-func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha2.ClientIntents, pod v1.Pod) {
-	serviceAccountName := pod.Spec.ServiceAccountName
-	if serviceAccountName == "" {
-		logrus.Warning("Pod does not have a service account name, skipping Istio policy creation")
+func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha2.ClientIntents, pod v1.Pod) error {
+	if intents.DeletionTimestamp != nil {
+		return nil
 	}
 
-	err := p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, serviceAccountName)
+	err := p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, pod.Spec.ServiceAccountName)
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
+		return err
 	}
+
+	return nil
 }
 
 func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {

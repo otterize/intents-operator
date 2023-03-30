@@ -11,6 +11,7 @@ import (
 	v1beta13 "istio.io/api/type/v1beta1"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -24,6 +25,8 @@ const (
 	ReasonNamespaceNotAllowed       = "NamespaceNotAllowed"
 	OtterizeIstioPolicyNameTemplate = "authorization-policy-to-%s-from-%s"
 )
+
+//+kubebuilder:rbac:groups="security.istio.io",resources=authorizationpolicies,verbs=get;update;patch;list;watch;delete;create
 
 type Creator struct {
 	client               client.Client
@@ -46,6 +49,35 @@ func (c *Creator) Create(
 	clientServiceAccountName string,
 ) error {
 	return c.handleAuthorizationPolicy(ctx, intents, clientIntentsNamespace, clientServiceAccountName)
+}
+
+func (c *Creator) Delete(
+	ctx context.Context,
+	intents *v1alpha2.ClientIntents,
+) error {
+	for _, intent := range intents.GetCallsList() {
+		policyName := c.getPolicyName(intents, intent)
+		policy := &v1beta1.AuthorizationPolicy{}
+		err := c.client.Get(ctx, types.NamespacedName{
+			Name:      policyName,
+			Namespace: intent.GetServerNamespace(intents.Namespace)},
+			policy)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+
+			logrus.WithError(err).Errorf("could not get istio policy %s", policyName)
+			return err
+		}
+
+		err = c.client.Delete(ctx, policy)
+		if err != nil {
+			logrus.WithError(err).Errorf("could not delete istio policy %s", policyName)
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Creator) handleAuthorizationPolicy(
@@ -91,8 +123,7 @@ func (c *Creator) updateOrCreatePolicy(
 	objectNamespace string,
 	clientServiceAccountName string,
 ) error {
-	clientName := intents.Spec.Service.Name
-	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.GetServerName(), clientName)
+	policyName := c.getPolicyName(intents, intent)
 	newPolicy := c.generateAuthorizationPolicyForIntent(intent, objectNamespace, policyName, clientServiceAccountName)
 
 	existingPolicy := &v1beta1.AuthorizationPolicy{}
@@ -129,6 +160,12 @@ func (c *Creator) updateOrCreatePolicy(
 	}
 
 	return nil
+}
+
+func (c *Creator) getPolicyName(intents *v1alpha2.ClientIntents, intent v1alpha2.Intent) string {
+	clientName := fmt.Sprintf("%s.%s", intents.GetServiceName(), intents.Namespace)
+	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.GetServerName(), clientName)
+	return policyName
 }
 
 func (c *Creator) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) bool {
