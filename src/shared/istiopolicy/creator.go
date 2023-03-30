@@ -116,12 +116,7 @@ func (c *Creator) updateOrCreatePolicy(
 
 	logrus.Infof("Found existing istio policy %s", policyName)
 
-	policyEqual, err := c.isPolicyEqual(existingPolicy, newPolicy)
-	if err != nil {
-		return err
-	}
-
-	if !policyEqual {
+	if !c.isPolicyEqual(existingPolicy, newPolicy) {
 		logrus.Infof("Updating existing istio policy %s", policyName)
 		policyCopy := existingPolicy.DeepCopy()
 		policyCopy.Spec.Rules = newPolicy.Spec.Rules
@@ -136,10 +131,10 @@ func (c *Creator) updateOrCreatePolicy(
 	return nil
 }
 
-func (c *Creator) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) (bool, error) {
+func (c *Creator) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) bool {
 	sameServer := existingPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey] == newPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey]
 	samePrincipal := existingPolicy.Spec.Rules[0].From[0].Source.Principals[0] == newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
-	return sameServer && samePrincipal, nil
+	return sameServer && samePrincipal
 }
 
 func (c *Creator) generateAuthorizationPolicyForIntent(
