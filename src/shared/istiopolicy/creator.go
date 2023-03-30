@@ -137,14 +137,6 @@ func (c *Creator) updateOrCreatePolicy(
 }
 
 func (c *Creator) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) (bool, error) {
-	if len(existingPolicy.Spec.Rules) == 0 ||
-		len(existingPolicy.Spec.Rules[0].From) == 0 ||
-		existingPolicy.Spec.Selector == nil ||
-		len(existingPolicy.Spec.Selector.MatchLabels) == 0 {
-		logrus.Warning("found existing policy with bad format, overwriting")
-		return false, nil
-	}
-
 	sameServer := existingPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey] == newPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey]
 	samePrincipal := existingPolicy.Spec.Rules[0].From[0].Source.Principals[0] == newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
 	return sameServer && samePrincipal, nil
