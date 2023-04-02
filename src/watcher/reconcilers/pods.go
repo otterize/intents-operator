@@ -119,7 +119,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 	}
 
-	if p.istioEnforcementEnabled() {
+	if p.istioEnforcementEnabled() && pod.DeletionTimestamp == nil {
 		for _, clientIntents := range intents.Items {
 			err = p.createIstioPolicies(ctx, clientIntents, pod)
 			if err != nil {
