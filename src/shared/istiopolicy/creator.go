@@ -29,6 +29,8 @@ const (
 	OtterizeIstioPolicyNameTemplate = "authorization-policy-to-%s-from-%s"
 )
 
+type PolicyID types.UID
+
 //+kubebuilder:rbac:groups="security.istio.io",resources=authorizationpolicies,verbs=get;update;patch;list;watch;delete;create
 
 type Creator struct {
@@ -79,12 +81,12 @@ func (c *Creator) Create(
 		return err
 	}
 
-	validPolicies, err := c.handelPolicies(ctx, clientIntents, clientNamespace, clientServiceAccount, existingPolicies)
+	updatedPolicies, err := c.createOrUpdatePolicies(ctx, clientIntents, clientNamespace, clientServiceAccount, existingPolicies)
 	if err != nil {
 		return err
 	}
 
-	err = c.deleteOutdatedPolicies(ctx, existingPolicies, validPolicies)
+	err = c.deleteOutdatedPolicies(ctx, existingPolicies, updatedPolicies)
 	if err != nil {
 		c.recorder.RecordWarningEventf(clientIntents, ReasonDeleteIstioPolicyFailed, "failed to delete istio policy: %s", err.Error())
 		return err
@@ -97,8 +99,14 @@ func (c *Creator) Create(
 	return nil
 }
 
-func (c *Creator) handelPolicies(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientNamespace string, clientServiceAccount string, existingPolicies v1beta1.AuthorizationPolicyList) (goset.Set[types.UID], error) {
-	validPolicies := goset.NewSet[types.UID]()
+func (c *Creator) createOrUpdatePolicies(
+	ctx context.Context,
+	clientIntents *v1alpha2.ClientIntents,
+	clientNamespace string,
+	clientServiceAccount string,
+	existingPolicies v1beta1.AuthorizationPolicyList,
+) (goset.Set[PolicyID], error) {
+	updatedPolicies := goset.NewSet[PolicyID]()
 	for _, intent := range clientIntents.GetCallsList() {
 		if c.namespaceNotAllowed(intent, clientNamespace) {
 			c.recorder.RecordWarningEventf(
@@ -116,19 +124,20 @@ func (c *Creator) handelPolicies(ctx context.Context, clientIntents *v1alpha2.Cl
 			err := c.UpdatePolicy(ctx, existingPolicy, newPolicy)
 			if err != nil {
 				c.recorder.RecordWarningEventf(clientIntents, ReasonUpdatingIstioPolicyFailed, "failed to update istio policy: %s", err.Error())
-				return goset.Set[types.UID]{}, err
+				return goset.Set[PolicyID]{}, err
 			}
-			validPolicies.Add(existingPolicy.UID)
-		} else {
-			err := c.client.Create(ctx, newPolicy)
-			if err != nil {
-				c.recorder.RecordWarningEventf(clientIntents, ReasonCreatingIstioPolicyFailed, "failed to istio policy: %s", err.Error())
-				return goset.Set[types.UID]{}, err
-			}
+			updatedPolicies.Add(PolicyID(existingPolicy.UID))
+			continue
+		}
+
+		err := c.client.Create(ctx, newPolicy)
+		if err != nil {
+			c.recorder.RecordWarningEventf(clientIntents, ReasonCreatingIstioPolicyFailed, "failed to istio policy: %s", err.Error())
+			return goset.Set[PolicyID]{}, err
 		}
 	}
 
-	return *validPolicies, nil
+	return *updatedPolicies, nil
 }
 
 func (c *Creator) findPolicy(existingPolicies v1beta1.AuthorizationPolicyList, newPolicy *v1beta1.AuthorizationPolicy) (*v1beta1.AuthorizationPolicy, bool) {
@@ -140,9 +149,9 @@ func (c *Creator) findPolicy(existingPolicies v1beta1.AuthorizationPolicyList, n
 	return nil, false
 }
 
-func (c *Creator) deleteOutdatedPolicies(ctx context.Context, existingPolicies v1beta1.AuthorizationPolicyList, validPolicies goset.Set[types.UID]) error {
+func (c *Creator) deleteOutdatedPolicies(ctx context.Context, existingPolicies v1beta1.AuthorizationPolicyList, validPolicies goset.Set[PolicyID]) error {
 	for _, existingPolicy := range existingPolicies.Items {
-		if !validPolicies.Contains(existingPolicy.UID) {
+		if !validPolicies.Contains(PolicyID(existingPolicy.UID)) {
 			err := c.client.Delete(ctx, existingPolicy)
 			if err != nil {
 				return err
