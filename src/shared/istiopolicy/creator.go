@@ -15,7 +15,6 @@ import (
 	v1beta13 "istio.io/api/type/v1beta1"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -194,8 +193,9 @@ func (c *Creator) getPolicyName(intents *v1alpha2.ClientIntents, intent v1alpha2
 
 func (c *Creator) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) bool {
 	sameServer := existingPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey] == newPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey]
-	sameRules := reflect.DeepEqual(existingPolicy.Spec.Rules, newPolicy.Spec.Rules)
-	return sameServer && sameRules
+	samePrincipals := existingPolicy.Spec.Rules[0].From[0].Source.Principals[0] == newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
+
+	return sameServer && samePrincipals
 }
 
 func (c *Creator) generateAuthorizationPolicy(

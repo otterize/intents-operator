@@ -299,6 +299,71 @@ func (s *CreatorTestSuite) TestUpdatePolicy() {
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
 
+func (s *CreatorTestSuite) TestNothingToUpdate() {
+	clientName := "test-client"
+	serverName := "test-server"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	clientServiceAccountName := "test-client-sa"
+
+	principal := generatePrincipal(clientIntentsNamespace, clientServiceAccountName)
+	existingPolicy := &v1beta1.AuthorizationPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+		},
+		Spec: v1beta12.AuthorizationPolicy{
+			Selector: &v1beta13.WorkloadSelector{
+				MatchLabels: map[string]string{
+					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+				},
+			},
+			Rules: []*v1beta12.Rule{
+				{
+					From: []*v1beta12.Rule_From{
+						{
+							Source: &v1beta12.Source{
+								Principals: []string{
+									principal,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(_ context.Context, policies *v1beta1.AuthorizationPolicyList, _ ...client.ListOption) {
+			policies.Items = append(policies.Items, existingPolicy)
+		}).Return(nil)
+
+	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	s.NoError(err)
+}
+
 func (s *CreatorTestSuite) TestDeletePolicy() {
 	clientName := "test-client"
 	serverName := "test-server"
