@@ -30,7 +30,7 @@ const (
 
 type PolicyID types.UID
 
-//+kubebuilder:rbac:groups="security.istio.io",resources=authorizationpolicies,verbs=get;update;patch;list;watch;delete;create
+//+kubebuilder:rbac:groups="security.istio.io",resources=authorizationpolicies,verbs=get;update;patch;list;watch;delete;create;deletecollection
 
 type Creator struct {
 	client               client.Client

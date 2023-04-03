@@ -54,12 +54,18 @@ func intentInputSort(intents []graphqlclient.IntentInput) {
 				return len(intent.Topics[i].Operations) < len(intent.Topics[j].Operations)
 			})
 		case graphqlclient.IntentTypeHttp:
+			for _, resource := range intent.Resources {
+				sort.Slice(resource.Methods, func(i, j int) bool {
+					return NilCompare(resource.Methods[i], resource.Methods[j]) < 0
+				})
+			}
 			sort.Slice(intent.Resources, func(i, j int) bool {
 				res := NilCompare(intent.Resources[i].Path, intent.Resources[j].Path)
 				if res != 0 {
 					return res < 0
 				}
-				return NilCompare(intent.Resources[i].Method, intent.Resources[j].Method) < 0
+
+				return len(intent.Resources[i].Methods) < len(intent.Resources[j].Methods)
 			})
 		}
 	}

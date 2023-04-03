@@ -579,6 +579,10 @@ func (s *CreatorTestSuite) TestUpdatePolicy() {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
@@ -645,11 +649,46 @@ func (s *CreatorTestSuite) TestUpdatePolicy() {
 			s.Equal(newPolicy.Namespace, policy.Namespace)
 			s.Equal(newPolicy.Spec.Selector, policy.Spec.Selector)
 			s.Equal(newPolicy.Spec.Rules, policy.Spec.Rules)
+			s.Equal(newPolicy.Labels, policy.Labels)
 		}).Return(nil)
 
 	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
+}
+
+func (s *CreatorTestSuite) TestDeleteAllPoliciesForClientIntents() {
+	clientName := "test-client"
+	serverName1 := "test-server-1"
+	serverName2 := "test-server-2"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-client-intents",
+			Namespace: clientIntentsNamespace,
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName1,
+				},
+				{
+					Name: serverName2,
+				},
+			},
+		},
+	}
+
+	s.mockClient.EXPECT().DeleteAllOf(gomock.Any(), &v1beta1.AuthorizationPolicy{}, client.MatchingLabels{
+		v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+	}).Return(nil)
+
+	err := s.creator.DeleteAll(context.Background(), intents)
+	s.NoError(err)
 }
 
 func (s *CreatorTestSuite) TestNothingToUpdate() {
