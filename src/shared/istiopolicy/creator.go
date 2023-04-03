@@ -16,7 +16,6 @@ import (
 	"istio.io/client-go/pkg/apis/security/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 const (
@@ -304,8 +303,7 @@ func (c *Creator) intentsMethodsToIstioMethods(intent []v1alpha2.HTTPMethod) []s
 	istioMethods := make([]string, 0, len(intent))
 	for _, method := range intent {
 		// Istio documentation specifies "A list of methods as specified in the HTTP request" in uppercase
-		strMethod := strings.ToUpper(string(method))
-		istioMethods = append(istioMethods, strMethod)
+		istioMethods = append(istioMethods, string(method))
 	}
 
 	return istioMethods
