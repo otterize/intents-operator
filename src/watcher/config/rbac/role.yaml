@@ -34,3 +34,24 @@ rules:
       - get
       - list
       - watch
+      - patch
+  - apiGroups:
+      - "k8s.otterize.com"
+    resources:
+      - clientintents/status
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - get
+      - list
+      - patch
+      - update
+      - watch

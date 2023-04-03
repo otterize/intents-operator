@@ -111,6 +111,9 @@ spec:
             type: object
           status:
             description: IntentsStatus defines the observed state of ClientIntents
+            properties:
+              hasSharedServiceAccount:
+                type: boolean
             type: object
         type: object
     served: true

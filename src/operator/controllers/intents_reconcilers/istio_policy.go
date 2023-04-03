@@ -114,6 +114,11 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	err = r.policyCreator.UpdateIntentsStatus(ctx, intents, clientServiceAccountName)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	err = r.policyCreator.Create(ctx, intents, req.Namespace, clientServiceAccountName)
 	if err != nil {
 		if k8serrors.IsConflict(err) {

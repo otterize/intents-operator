@@ -1,12 +1,9 @@
 package istiopolicy
 
 import (
-	"github.com/amit7itz/goset"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
@@ -14,7 +11,9 @@ import (
 	v1beta12 "istio.io/api/security/v1beta1"
 	v1beta13 "istio.io/api/type/v1beta1"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -25,12 +24,15 @@ const (
 	ReasonDeleteIstioPolicyFailed   = "DeleteIstioPolicyFailed"
 	ReasonCreatedIstioPolicy        = "CreatedIstioPolicy"
 	ReasonNamespaceNotAllowed       = "NamespaceNotAllowed"
+	ReasonIntentsLabelFailed        = "IntentsLabelFailed"
 	OtterizeIstioPolicyNameTemplate = "authorization-policy-to-%s-from-%s"
 )
 
 type PolicyID types.UID
 
 //+kubebuilder:rbac:groups="security.istio.io",resources=authorizationpolicies,verbs=get;update;patch;list;watch;delete;create;deletecollection
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/status,verbs=get;update;patch
 
 type Creator struct {
 	client               client.Client
@@ -93,6 +95,74 @@ func (c *Creator) Create(
 
 	if len(clientIntents.GetCallsList()) > 0 {
 		c.recorder.RecordNormalEventf(clientIntents, ReasonCreatedIstioPolicy, "istio policies reconcile complete, reconciled %d servers", len(clientIntents.GetCallsList()))
+	}
+
+	return nil
+}
+
+func (c *Creator) UpdateIntentsStatus(
+	ctx context.Context,
+	clientIntents *v1alpha2.ClientIntents,
+	clientServiceAccount string,
+) error {
+	err := c.labelWithServiceAccount(ctx, clientIntents, clientServiceAccount)
+	if err != nil {
+		return err
+	}
+
+	return c.updateStatusSharedServiceAccount(ctx, clientIntents.Namespace, clientServiceAccount)
+}
+
+func (c *Creator) labelWithServiceAccount(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {
+	serviceAccountLabelValue, ok := clientIntents.Labels[v1alpha2.OtterizeClientServiceAccountLabel]
+	if ok && serviceAccountLabelValue == clientServiceAccount {
+		return nil
+	}
+
+	labeledIntents := clientIntents.DeepCopy()
+	if labeledIntents.Labels == nil {
+		labeledIntents.Labels = make(map[string]string)
+	}
+
+	labeledIntents.Labels[v1alpha2.OtterizeClientServiceAccountLabel] = clientServiceAccount
+	err := c.client.Patch(ctx, labeledIntents, client.MergeFrom(clientIntents))
+	if err != nil {
+		logrus.WithError(err).Errorln("Failed labeling intent with service account name")
+		c.recorder.RecordWarningEventf(clientIntents, ReasonIntentsLabelFailed, "Failed labeling intent with service account name: %s", err.Error())
+		return err
+	}
+
+	logrus.Infof("Labeling intent %s with service account name %s", clientIntents.Name, clientServiceAccount)
+	return nil
+}
+
+func (c *Creator) updateStatusSharedServiceAccount(ctx context.Context, namespace string, clientServiceAccountName string) error {
+	var ClientIntentsList v1alpha2.ClientIntentsList
+	err := c.client.List(ctx, &ClientIntentsList, client.InNamespace(namespace), client.MatchingLabels{
+		v1alpha2.OtterizeClientServiceAccountLabel: clientServiceAccountName,
+	})
+
+	if err != nil {
+		return err
+	}
+
+	logrus.Infof("Found %d intents with service account %s", len(ClientIntentsList.Items), clientServiceAccountName)
+	HasSharedServiceAccount := len(ClientIntentsList.Items) > 1
+	for _, intents := range ClientIntentsList.Items {
+		if intents.Status != nil && intents.Status.HasSharedServiceAccount == HasSharedServiceAccount {
+			continue
+		}
+
+		updatedIntents := intents.DeepCopy()
+		if updatedIntents.Status == nil {
+			updatedIntents.Status = &v1alpha2.IntentsStatus{}
+		}
+
+		updatedIntents.Status.HasSharedServiceAccount = HasSharedServiceAccount
+		err = c.client.Status().Patch(ctx, updatedIntents, client.MergeFrom(&intents))
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
