@@ -11,9 +11,7 @@ import (
 	v1beta12 "istio.io/api/security/v1beta1"
 	v1beta13 "istio.io/api/type/v1beta1"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
@@ -41,13 +39,17 @@ func (s *CreatorTestSuite) TearDownTest() {
 func (s *CreatorTestSuite) TestCreate() {
 	clientName := "test-client"
 	serverName := "test-server"
-	policyName := "authorization-policy-to-test-server-from-test-client"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
 	intents := &v1alpha2.ClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
 		},
 		Spec: &v1alpha2.IntentsSpec{
 			Service: v1alpha2.Service{
@@ -67,6 +69,10 @@ func (s *CreatorTestSuite) TestCreate() {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
@@ -89,7 +95,8 @@ func (s *CreatorTestSuite) TestCreate() {
 			},
 		},
 	}
-	s.mockClient.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: policyName, Namespace: clientIntentsNamespace}, gomock.Any()).Return(errors.NewNotFound(v1beta1.Resource("authorizationpolicy"), policyName))
+
+	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
 	s.mockClient.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
 	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
@@ -101,7 +108,7 @@ func (s *CreatorTestSuite) TestNamespaceNotAllowed() {
 	ctx := context.Background()
 	clientName := "test-client"
 	serverName := "test-server"
-	policyName := "authorization-policy-to-test-server-from-test-client"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 	s.creator.restrictToNamespaces = []string{fmt.Sprintf("this-is-not-%s", clientIntentsNamespace)}
 	intents := &v1alpha2.ClientIntents{
@@ -121,6 +128,7 @@ func (s *CreatorTestSuite) TestNamespaceNotAllowed() {
 		},
 	}
 	clientServiceAccountName := "test-client-sa"
+	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
 	err := s.creator.Create(ctx, intents, clientIntentsNamespace, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonNamespaceNotAllowed)
@@ -129,7 +137,7 @@ func (s *CreatorTestSuite) TestNamespaceNotAllowed() {
 func (s *CreatorTestSuite) TestNamespaceAllowed() {
 	clientName := "test-client"
 	serverName := "test-server"
-	policyName := "authorization-policy-to-test-server-from-test-client"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 	s.creator.restrictToNamespaces = []string{clientIntentsNamespace}
 	intents := &v1alpha2.ClientIntents{
@@ -155,6 +163,10 @@ func (s *CreatorTestSuite) TestNamespaceAllowed() {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
@@ -177,7 +189,7 @@ func (s *CreatorTestSuite) TestNamespaceAllowed() {
 			},
 		},
 	}
-	s.mockClient.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: policyName, Namespace: clientIntentsNamespace}, gomock.Any()).Return(errors.NewNotFound(v1beta1.Resource("authorizationpolicy"), policyName))
+	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
 	s.mockClient.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
 	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
@@ -188,7 +200,7 @@ func (s *CreatorTestSuite) TestNamespaceAllowed() {
 func (s *CreatorTestSuite) TestUpdatePolicy() {
 	clientName := "test-client"
 	serverName := "test-server"
-	policyName := "authorization-policy-to-test-server-from-test-client"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
 	intents := &v1alpha2.ClientIntents{
@@ -242,6 +254,10 @@ func (s *CreatorTestSuite) TestUpdatePolicy() {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
@@ -265,9 +281,9 @@ func (s *CreatorTestSuite) TestUpdatePolicy() {
 		},
 	}
 
-	s.mockClient.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: policyName, Namespace: clientIntentsNamespace}, gomock.Any()).Do(
-		func(_ context.Context, _ types.NamespacedName, policy *v1beta1.AuthorizationPolicy, _ ...client.GetOption) {
-			*policy = *existingPolicy.DeepCopy()
+	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(_ context.Context, policies *v1beta1.AuthorizationPolicyList, _ ...client.ListOption) {
+			policies.Items = append(policies.Items, existingPolicy)
 		}).Return(nil)
 
 	s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MergeFrom(existingPolicy))).Do(
@@ -281,6 +297,170 @@ func (s *CreatorTestSuite) TestUpdatePolicy() {
 	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
+}
+
+func (s *CreatorTestSuite) TestNothingToUpdate() {
+	clientName := "test-client"
+	serverName := "test-server"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	clientServiceAccountName := "test-client-sa"
+
+	principal := generatePrincipal(clientIntentsNamespace, clientServiceAccountName)
+	existingPolicy := &v1beta1.AuthorizationPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+		},
+		Spec: v1beta12.AuthorizationPolicy{
+			Selector: &v1beta13.WorkloadSelector{
+				MatchLabels: map[string]string{
+					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+				},
+			},
+			Rules: []*v1beta12.Rule{
+				{
+					From: []*v1beta12.Rule_From{
+						{
+							Source: &v1beta12.Source{
+								Principals: []string{
+									principal,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(_ context.Context, policies *v1beta1.AuthorizationPolicyList, _ ...client.ListOption) {
+			policies.Items = append(policies.Items, existingPolicy)
+		}).Return(nil)
+
+	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	s.NoError(err)
+}
+
+func (s *CreatorTestSuite) TestDeletePolicy() {
+	clientName := "test-client"
+	serverName := "test-server"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	clientServiceAccountName := "test-client-sa"
+
+	principal := generatePrincipal(clientIntentsNamespace, clientServiceAccountName)
+	existingPolicy := &v1beta1.AuthorizationPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+			UID: "uid_1",
+		},
+		Spec: v1beta12.AuthorizationPolicy{
+			Selector: &v1beta13.WorkloadSelector{
+				MatchLabels: map[string]string{
+					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+				},
+			},
+			Rules: []*v1beta12.Rule{
+				{
+					From: []*v1beta12.Rule_From{
+						{
+							Source: &v1beta12.Source{
+								Principals: []string{
+									principal,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	outdatedPolicy := &v1beta1.AuthorizationPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-from-old-intent-file",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+			UID: "uid_2",
+		},
+		Spec: v1beta12.AuthorizationPolicy{
+			Selector: &v1beta13.WorkloadSelector{
+				MatchLabels: map[string]string{
+					v1alpha2.OtterizeServerLabelKey: "test-server-from-old-intent-file",
+				},
+			},
+			Rules: []*v1beta12.Rule{
+				{
+					From: []*v1beta12.Rule_From{
+						{
+							Source: &v1beta12.Source{
+								Principals: []string{
+									principal,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(_ context.Context, policies *v1beta1.AuthorizationPolicyList, _ ...client.ListOption) {
+			policies.Items = append(policies.Items, outdatedPolicy, existingPolicy)
+		}).Return(nil)
+
+	s.mockClient.EXPECT().Delete(gomock.Any(), outdatedPolicy).Return(nil)
+	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	s.NoError(err)
 }
 
 func generatePrincipal(clientIntentsNamespace string, clientServiceAccountName string) string {
