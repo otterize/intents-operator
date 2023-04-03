@@ -194,8 +194,35 @@ func (c *Creator) getPolicyName(intents *v1alpha2.ClientIntents, intent v1alpha2
 func (c *Creator) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) bool {
 	sameServer := existingPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey] == newPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey]
 	samePrincipals := existingPolicy.Spec.Rules[0].From[0].Source.Principals[0] == newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
+	sameHTTPRules := compareHTTPRules(existingPolicy.Spec.Rules[0].To, newPolicy.Spec.Rules[0].To)
 
-	return sameServer && samePrincipals
+	return sameServer && samePrincipals && sameHTTPRules
+}
+
+func compareHTTPRules(existingRules []*v1beta12.Rule_To, newRules []*v1beta12.Rule_To) bool {
+	if len(existingRules) == 0 && len(newRules) == 0 {
+		return true
+	}
+
+	if len(existingRules) != len(newRules) {
+		return false
+	}
+
+	for i := range existingRules {
+		existingOperation := existingRules[i].Operation
+		newOperation := newRules[i].Operation
+		if existingOperation.Paths[0] != newOperation.Paths[0] {
+			return false
+		}
+
+		for j, method := range existingOperation.Methods {
+			if method != newOperation.Methods[j] {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 func (c *Creator) generateAuthorizationPolicy(
@@ -210,6 +237,17 @@ func (c *Creator) generateAuthorizationPolicy(
 	serverNamespace := intent.GetServerNamespace(objectNamespace)
 	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), serverNamespace)
 	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, objectNamespace)
+
+	var ruleTo []*v1beta12.Rule_To
+	if intent.Type == v1alpha2.IntentTypeHTTP {
+		ruleTo = make([]*v1beta12.Rule_To, 0)
+		operations := c.intentsHTTPResourceToIstioOperations(intent.HTTPResources)
+		for _, operation := range operations {
+			ruleTo = append(ruleTo, &v1beta12.Rule_To{
+				Operation: operation,
+			})
+		}
+	}
 
 	source := fmt.Sprintf("cluster.local/ns/%s/sa/%s", objectNamespace, clientServiceAccountName)
 	newPolicy := &v1beta1.AuthorizationPolicy{
@@ -230,6 +268,7 @@ func (c *Creator) generateAuthorizationPolicy(
 			Action: v1beta12.AuthorizationPolicy_ALLOW,
 			Rules: []*v1beta12.Rule{
 				{
+					To: ruleTo,
 					From: []*v1beta12.Rule_From{
 						{
 							Source: &v1beta12.Source{
@@ -245,4 +284,27 @@ func (c *Creator) generateAuthorizationPolicy(
 	}
 
 	return newPolicy
+}
+
+func (c *Creator) intentsHTTPResourceToIstioOperations(resources []v1alpha2.HTTPResource) []*v1beta12.Operation {
+	operations := make([]*v1beta12.Operation, 0, len(resources))
+
+	for _, resource := range resources {
+		operations = append(operations, &v1beta12.Operation{
+			Methods: c.intentsMethodsToIstioMethods(resource.Methods),
+			Paths:   []string{resource.Path},
+		})
+	}
+
+	return operations
+}
+
+func (c *Creator) intentsMethodsToIstioMethods(intent []v1alpha2.HTTPMethod) []string {
+	istioMethods := make([]string, 0, len(intent))
+	for _, method := range intent {
+		// Istio documentation specifies "A list of methods as specified in the HTTP request" in uppercase
+		istioMethods = append(istioMethods, string(method))
+	}
+
+	return istioMethods
 }
