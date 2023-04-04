@@ -25,6 +25,8 @@ const (
 	ReasonCreatedIstioPolicy        = "CreatedIstioPolicy"
 	ReasonNamespaceNotAllowed       = "NamespaceNotAllowed"
 	ReasonIntentsLabelFailed        = "IntentsLabelFailed"
+	ReasonServiceAccountFound       = "ServiceAccountFound"
+	ReasonSharedServiceAccount      = "SharedServiceAccountFound"
 	OtterizeIstioPolicyNameTemplate = "authorization-policy-to-%s-from-%s"
 )
 
@@ -133,6 +135,8 @@ func (c *Creator) labelWithServiceAccount(ctx context.Context, clientIntents *v1
 	}
 
 	logrus.Infof("Labeling intent %s with service account name %s", clientIntents.Name, clientServiceAccount)
+
+	c.recorder.RecordNormalEventf(clientIntents, ReasonServiceAccountFound, "Client intents service account found %s", clientServiceAccount)
 	return nil
 }
 
@@ -162,6 +166,10 @@ func (c *Creator) updateStatusSharedServiceAccount(ctx context.Context, namespac
 		err = c.client.Status().Patch(ctx, updatedIntents, client.MergeFrom(&intents))
 		if err != nil {
 			return err
+		}
+
+		if HasSharedServiceAccount {
+			c.recorder.RecordWarningEventf(updatedIntents, ReasonSharedServiceAccount, "Service account %s is shared by multiple clients", clientServiceAccountName)
 		}
 	}
 
