@@ -45,6 +45,8 @@ const (
 	OtterizeNetworkPolicyExternalTraffic   = "intents.otterize.com/network-policy-external-traffic"
 	NetworkPolicyFinalizerName             = "intents.otterize.com/network-policy-finalizer"
 	OtterizeIstioClientAnnotationKey       = "intents.otterize.com/istio-client"
+	OtterizeClientServiceAccountAnnotation = "intents.otterize.com/client-intents-service-account"
+	OtterizeSharedServiceAccountAnnotation = "intents.otterize.com/shared-service-account"
 	OtterizeTargetServerIndexField         = "spec.service.calls.server"
 	EndpointsPodNamesIndexField            = "endpointsPodNames"
 	IngressServiceNamesIndexField          = "ingressServiceNames"

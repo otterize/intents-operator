@@ -62,6 +62,50 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	err = p.addOtterizePodLabels(ctx, req, serviceID, pod)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = p.handleIstioPolicy(ctx, pod, serviceID)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceID serviceidresolver.ServiceIdentity) error {
+	if !p.istioEnforcementEnabled() || pod.DeletionTimestamp != nil {
+		return nil
+	}
+
+	var intents otterizev1alpha2.ClientIntentsList
+	err := p.List(
+		ctx,
+		&intents,
+		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
+		&client.ListOptions{Namespace: pod.Namespace})
+	if err != nil {
+		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
+		return err
+	}
+
+	if len(intents.Items) == 0 {
+		return nil
+	}
+
+	for _, clientIntents := range intents.Items {
+		err = p.createIstioPolicies(ctx, clientIntents, pod)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request, serviceID serviceidresolver.ServiceIdentity, pod v1.Pod) error {
 	otterizeServerLabelValue := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
 	if !otterizev1alpha2.HasOtterizeServerLabel(&pod, otterizeServerLabelValue) {
 		// Label pods as destination servers
@@ -75,31 +119,31 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.WithError(err).Errorln("Failed labeling pod as server", "Pod name", pod.Name, "Namespace", pod.Namespace)
-			return ctrl.Result{}, err
+			return err
 		}
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	// Intents were deleted and the pod was updated by the operator, skip reconciliation
 	_, ok := pod.Annotations[otterizev1alpha2.AllIntentsRemovedAnnotation]
 	if ok {
 		logrus.Infof("Skipping reconciliation for pod %s - pod is handled by intents-operator", req.Name)
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	var intents otterizev1alpha2.ClientIntentsList
-	err = p.List(
+	err := p.List(
 		ctx, &intents,
 		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
 		&client.ListOptions{Namespace: pod.Namespace})
 
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
-		return ctrl.Result{}, err
+		return err
 	}
 
 	if len(intents.Items) == 0 {
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	otterizeAccessLabels := map[string]string{}
@@ -115,20 +159,11 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.Errorf("Failed updating Otterize labels for pod %s in namespace %s", pod.Name, pod.Namespace)
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
-	if p.istioEnforcementEnabled() {
-		for _, clientIntents := range intents.Items {
-			err = p.createIstioPolicies(ctx, clientIntents, pod)
-			if err != nil {
-				return ctrl.Result{}, err
-			}
-		}
-	}
-
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (p *PodWatcher) istioEnforcementEnabled() bool {
@@ -140,7 +175,12 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 		return nil
 	}
 
-	err := p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, pod.Spec.ServiceAccountName)
+	err := p.istioPolicyCreator.UpdateIntentsStatus(ctx, &intents, pod.Spec.ServiceAccountName)
+	if err != nil {
+		return err
+	}
+
+	err = p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, pod.Spec.ServiceAccountName)
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
 		return err

@@ -1,12 +1,9 @@
 package istiopolicy
 
 import (
-	"github.com/amit7itz/goset"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
@@ -14,8 +11,11 @@ import (
 	v1beta12 "istio.io/api/security/v1beta1"
 	v1beta13 "istio.io/api/type/v1beta1"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 const (
@@ -25,12 +25,16 @@ const (
 	ReasonDeleteIstioPolicyFailed   = "DeleteIstioPolicyFailed"
 	ReasonCreatedIstioPolicy        = "CreatedIstioPolicy"
 	ReasonNamespaceNotAllowed       = "NamespaceNotAllowed"
+	ReasonIntentsLabelFailed        = "IntentsLabelFailed"
+	ReasonServiceAccountFound       = "ServiceAccountFound"
+	ReasonSharedServiceAccount      = "SharedServiceAccountFound"
 	OtterizeIstioPolicyNameTemplate = "authorization-policy-to-%s-from-%s"
 )
 
 type PolicyID types.UID
 
 //+kubebuilder:rbac:groups="security.istio.io",resources=authorizationpolicies,verbs=get;update;patch;list;watch;delete;create;deletecollection
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents,verbs=get;list;watch;create;update;patch;delete
 
 type Creator struct {
 	client               client.Client
@@ -96,6 +100,110 @@ func (c *Creator) Create(
 	}
 
 	return nil
+}
+
+func (c *Creator) UpdateIntentsStatus(
+	ctx context.Context,
+	clientIntents *v1alpha2.ClientIntents,
+	clientServiceAccount string,
+) error {
+	err := c.saveServiceAccountName(ctx, clientIntents, clientServiceAccount)
+	if err != nil {
+		return err
+	}
+
+	return c.updateSharedServiceAccountsInNamespace(ctx, clientIntents.Namespace)
+}
+
+func (c *Creator) saveServiceAccountName(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {
+	serviceAccountLabelValue, ok := clientIntents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
+	if ok && serviceAccountLabelValue == clientServiceAccount {
+		return nil
+	}
+
+	updatedIntents := clientIntents.DeepCopy()
+	if updatedIntents.Annotations == nil {
+		updatedIntents.Annotations = make(map[string]string)
+	}
+
+	updatedIntents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation] = clientServiceAccount
+	err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
+	if err != nil {
+		logrus.WithError(err).Errorln("Failed updating intent with service account name")
+		c.recorder.RecordWarningEventf(clientIntents, ReasonIntentsLabelFailed, "Failed updating intent with service account name: %s", err.Error())
+		return err
+	}
+
+	logrus.Infof("updating intent %s with service account name %s", clientIntents.Name, clientServiceAccount)
+
+	c.recorder.RecordNormalEventf(clientIntents, ReasonServiceAccountFound, "Client intents service account found %s", clientServiceAccount)
+	return nil
+}
+
+func (c *Creator) updateSharedServiceAccountsInNamespace(ctx context.Context, namespace string) error {
+	var namespacesClientIntents v1alpha2.ClientIntentsList
+	err := c.client.List(
+		ctx, &namespacesClientIntents,
+		&client.ListOptions{Namespace: namespace})
+	if err != nil {
+		return err
+	}
+
+	clientsByServiceAccount := lo.GroupBy(namespacesClientIntents.Items, func(intents v1alpha2.ClientIntents) string {
+		return intents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
+	})
+
+	for clientServiceAccountName, clientIntents := range clientsByServiceAccount {
+		err = c.updateServiceAccountSharedStatus(ctx, clientIntents, clientServiceAccountName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Creator) updateServiceAccountSharedStatus(ctx context.Context, clientIntents []v1alpha2.ClientIntents, serviceAccount string) error {
+	logrus.Infof("Found %d intents with service account %s", len(clientIntents), serviceAccount)
+	isServiceAccountShared := len(clientIntents) > 1
+	sharedAccountValue := lo.Ternary(isServiceAccountShared, "true", "false")
+
+	clients := lo.Map(clientIntents, func(intents v1alpha2.ClientIntents, _ int) string {
+		return intents.Spec.Service.Name
+	})
+	clientsNames := strings.Join(clients, ", ")
+
+	for _, intents := range clientIntents {
+		if !shouldUpdateStatus(intents, serviceAccount, sharedAccountValue) {
+			continue
+		}
+
+		updatedIntents := intents.DeepCopy()
+
+		updatedIntents.Annotations[v1alpha2.OtterizeSharedServiceAccountAnnotation] = sharedAccountValue
+		err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(&intents))
+		if err != nil {
+			return err
+		}
+
+		if isServiceAccountShared {
+			c.recorder.RecordWarningEventf(updatedIntents, ReasonSharedServiceAccount, "Service account %s is shared and will also grant access to the following clients: %s", serviceAccount, clientsNames)
+		}
+	}
+	return nil
+}
+
+func shouldUpdateStatus(intents v1alpha2.ClientIntents, currentName string, currentSharedStatus string) bool {
+	oldName, annotationExists := intents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
+	if !annotationExists || oldName != currentName {
+		return true
+	}
+
+	oldSharedStatus, annotationExists := intents.Annotations[v1alpha2.OtterizeSharedServiceAccountAnnotation]
+	if !annotationExists || oldSharedStatus != currentSharedStatus {
+		return true
+	}
+
+	return false
 }
 
 func (c *Creator) createOrUpdatePolicies(
