@@ -93,23 +93,30 @@ jobs:
         run: |-
           CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
+          echo Client: $CLI1_POD      client_other: $CLI2_POD
           
           # using 14 because the log repeat itself every 14 lines
+          echo check client log
           kubectl logs --tail 14 -n otterize-tutorial-npol $CLI1_POD | grep "Hi, I am the server, you called, may I help you?"
+          
+          echo check client other log
           kubectl logs --tail 14 -n otterize-tutorial-npol $CLI2_POD | grep "Hi, I am the server, you called, may I help you?"
 
       - name: Apply intents and test connectivity
         run: |-
           CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
-          CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
+          CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`          
+          echo Client: $CLI1_POD      client_other: $CLI2_POD
           
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
           sleep 10
           
           # should work because there is an applied intent
+          echo check client log
           kubectl logs --tail 14 -n otterize-tutorial-npol $CLI1_POD | grep "Hi, I am the server, you called, may I help you?"
           
           # should be blocked (using 3 because the log should repeat itself every 3 lines)
+          echo check client other log
           kubectl logs --tail 3 -n otterize-tutorial-npol $CLI2_POD | grep "Hi, I am the server, you called, may I help you?"
           
       
