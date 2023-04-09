@@ -117,7 +117,7 @@ jobs:
           
           # should be blocked (using 3 because the log should repeat itself every 3 lines)
           echo check client other log
-          kubectl logs --tail 3 -n otterize-tutorial-npol $CLI2_POD | grep "Hi, I am the server, you called, may I help you?"
+          kubectl logs --tail 3 -n otterize-tutorial-npol $CLI2_POD | grep "curl timed out"
           
       
 
