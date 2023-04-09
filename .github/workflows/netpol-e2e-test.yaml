@@ -26,7 +26,7 @@ env:
 
 
 jobs:
-  tutorial-flows-test:
+  e2e-test:
     timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
@@ -86,13 +86,13 @@ jobs:
       - name: Wait for Tutorial services
         run: |-
           kubectl wait pods -n otterize-tutorial-npol -l app=client --for condition=Ready --timeout=90s
-          kubectl wait pods -n otterize-tutorial-npol -l app=client2 --for condition=Ready --timeout=90s
+          kubectl wait pods -n otterize-tutorial-npol -l app=client-other --for condition=Ready --timeout=90s
           kubectl wait pods -n otterize-tutorial-npol -l app=server --for condition=Ready --timeout=90s
 
       - name: Before apply intents
         run: |-
           CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq ".items[0].metadata.name"`
-          CLI2_POD=`kubectl get pod --selector app=client2 -n otterize-tutorial-npol -o json | jq ".items[0].metadata.name"`
+          CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq ".items[0].metadata.name"`
           
           # using 14 because the log repeat itself every 14 lines
           kubectl logs --tail 14 -n otterize-tutorial-npol $CLI1_POD | grep "Hi, I am the server, you called, may I help you?"
@@ -101,7 +101,7 @@ jobs:
       - name: Apply intents and test connectivity
         run: |-
           CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq ".items[0].metadata.name"`
-          CLI2_POD=`kubectl get pod --selector app=client2 -n otterize-tutorial-npol -o json | jq ".items[0].metadata.name"`
+          CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq ".items[0].metadata.name"`
           
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
           sleep 10
