@@ -170,7 +170,7 @@ func (c *Creator) updateServiceAccountSharedStatus(ctx context.Context, clientIn
 	clients := lo.Map(clientIntents, func(intents v1alpha2.ClientIntents, _ int) string {
 		return intents.Spec.Service.Name
 	})
-	clientsNames := strings.Join(clients, ",")
+	clientsNames := strings.Join(clients, ", ")
 
 	for _, intents := range clientIntents {
 		if !shouldUpdateStatus(intents, serviceAccount, sharedAccountValue) {
@@ -186,7 +186,7 @@ func (c *Creator) updateServiceAccountSharedStatus(ctx context.Context, clientIn
 		}
 
 		if isServiceAccountShared {
-			c.recorder.RecordWarningEventf(updatedIntents, ReasonSharedServiceAccount, "Service account %s is shared and will grant access to the following clients %s", serviceAccount, clientsNames)
+			c.recorder.RecordWarningEventf(updatedIntents, ReasonSharedServiceAccount, "Service account %s is shared and will also grant access to the following clients: %s", serviceAccount, clientsNames)
 		}
 	}
 	return nil

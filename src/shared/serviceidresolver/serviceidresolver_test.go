@@ -82,7 +82,7 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToServiceAccountName
 	).Do(func(_ any, podList *corev1.PodList, _ ...any) {})
 
 	resultSAName, err := s.Resolver.ResolveClientIntentToServiceAccountName(context.Background(), intent)
-	s.Require().Equal(err, ServiceAccountNotFond)
+	s.Require().Equal(err, PodNotFound)
 	s.Require().Equal("", resultSAName)
 }
 
