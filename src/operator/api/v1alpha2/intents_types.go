@@ -304,11 +304,28 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		intentInput.Type = lo.ToPtr(in.typeAsGQLType())
 	}
 
+	if in.HTTPResources != nil {
+		intentInput.Resources = lo.Map(in.HTTPResources, intentsHTTPResourceToCloud)
+	}
+
 	if len(otterizeTopics) != 0 {
 		intentInput.Topics = otterizeTopics
 	}
 
 	return intentInput
+}
+
+func intentsHTTPResourceToCloud(resource HTTPResource, index int) *graphqlclient.HTTPConfigInput {
+	methods := lo.Map(resource.Methods, func(method HTTPMethod, _ int) *graphqlclient.HTTPMethod {
+		return lo.ToPtr(graphqlclient.HTTPMethod(method))
+	})
+
+	httpConfig := graphqlclient.HTTPConfigInput{
+		Path:    lo.ToPtr(resource.Path),
+		Methods: methods,
+	}
+
+	return &httpConfig
 }
 
 // GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)

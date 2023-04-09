@@ -189,6 +189,81 @@ func (s *CloudReconcilerTestSuite) TestIntentsStatusUpload() {
 	})
 }
 
+func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
+	s.reconciler = NewOtterizeCloudReconciler(s.mockK8sClient, s.TestEnv.Scheme, s.mockCloudClient)
+
+	serviceAccountName := "test-service-account"
+	server := "test-server"
+	clientIntents := &otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: s.TestNamespace,
+			Annotations: map[string]string{
+				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
+			},
+		},
+		Spec: &otterizev1alpha2.IntentsSpec{
+			Service: otterizev1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha2.Intent{
+				{
+					Name: server,
+					Type: otterizev1alpha2.IntentTypeHTTP,
+					HTTPResources: []otterizev1alpha2.HTTPResource{
+						{
+							Path: "/login",
+							Methods: []otterizev1alpha2.HTTPMethod{
+								otterizev1alpha2.HTTPMethodGet,
+								otterizev1alpha2.HTTPMethodPost,
+							},
+						},
+						{
+							Path: "/logout",
+							Methods: []otterizev1alpha2.HTTPMethod{
+								otterizev1alpha2.HTTPMethodPost,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var clientIntentsList otterizev1alpha2.ClientIntentsList
+	s.mockK8sClient.EXPECT().List(gomock.Any(), &clientIntentsList, &client.ListOptions{Namespace: s.TestNamespace}).Do(
+		func(_ context.Context, list *otterizev1alpha2.ClientIntentsList, _ ...client.ListOption) {
+			list.Items = append(list.Items, *clientIntents)
+		}).Return(nil).Times(1)
+
+	expectedIntent := intentInput(clientName, s.TestNamespace, server, s.TestNamespace)
+	expectedIntent.Type = lo.ToPtr(graphqlclient.IntentTypeHttp)
+	expectedIntent.Resources = []*graphqlclient.HTTPConfigInput{
+		{
+			Path:    lo.ToPtr("/login"),
+			Methods: []*graphqlclient.HTTPMethod{lo.ToPtr(graphqlclient.HTTPMethodGet), lo.ToPtr(graphqlclient.HTTPMethodPost)},
+		},
+		{
+			Path:    lo.ToPtr("/logout"),
+			Methods: []*graphqlclient.HTTPMethod{lo.ToPtr(graphqlclient.HTTPMethodPost)},
+		},
+	}
+
+	expectedIntent.Status = &graphqlclient.IntentStatusInput{}
+	expectedIntent.Status.ServiceAccountName = lo.ToPtr(serviceAccountName)
+	expectedIntent.Status.IsServiceAccountShared = lo.ToPtr(false)
+	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
+	expectedNamespace := lo.ToPtr(s.TestNamespace)
+
+	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, GetMatcher(expectedIntents)).Return(nil).Times(1)
+
+	s.reconcile(types.NamespacedName{
+		Namespace: s.TestNamespace,
+		Name:      intentsObjectName,
+	})
+}
+
 func (s *CloudReconcilerTestSuite) TestNamespaceParseSuccess() {
 	serverName := "server.other-namespace"
 	intent := &otterizev1alpha2.Intent{Name: serverName}
