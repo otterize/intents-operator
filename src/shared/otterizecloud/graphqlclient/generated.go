@@ -38,6 +38,7 @@ const (
 	HTTPMethodTrace   HTTPMethod = "TRACE"
 	HTTPMethodPatch   HTTPMethod = "PATCH"
 	HTTPMethodConnect HTTPMethod = "CONNECT"
+	HTTPMethodAll     HTTPMethod = "ALL"
 )
 
 type IntentInput struct {
@@ -48,6 +49,7 @@ type IntentInput struct {
 	Type            *IntentType         `json:"type"`
 	Topics          []*KafkaConfigInput `json:"topics"`
 	Resources       []*HTTPConfigInput  `json:"resources"`
+	Status          *IntentStatusInput  `json:"status"`
 }
 
 // GetNamespace returns IntentInput.Namespace, and is useful for accessing the field via an interface.
@@ -70,6 +72,20 @@ func (v *IntentInput) GetTopics() []*KafkaConfigInput { return v.Topics }
 
 // GetResources returns IntentInput.Resources, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetResources() []*HTTPConfigInput { return v.Resources }
+
+// GetStatus returns IntentInput.Status, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetStatus() *IntentStatusInput { return v.Status }
+
+type IntentStatusInput struct {
+	ServiceAccountName     *string `json:"serviceAccountName"`
+	IsServiceAccountShared *bool   `json:"isServiceAccountShared"`
+}
+
+// GetServiceAccountName returns IntentStatusInput.ServiceAccountName, and is useful for accessing the field via an interface.
+func (v *IntentStatusInput) GetServiceAccountName() *string { return v.ServiceAccountName }
+
+// GetIsServiceAccountShared returns IntentStatusInput.IsServiceAccountShared, and is useful for accessing the field via an interface.
+func (v *IntentStatusInput) GetIsServiceAccountShared() *bool { return v.IsServiceAccountShared }
 
 type IntentType string
 

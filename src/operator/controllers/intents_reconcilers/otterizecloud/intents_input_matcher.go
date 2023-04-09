@@ -183,7 +183,7 @@ func prettyPrint(m IntentsMatcher) string {
 			}
 		}
 		if intent.Status != nil {
-			status = fmt.Sprintf("sa: %s, isShared: %t", *intent.Status.ServiceAccount, *intent.Status.IsServiceAccountShared)
+			status = fmt.Sprintf("sa: %s, isShared: %t", *intent.Status.ServiceAccountName, *intent.Status.IsServiceAccountShared)
 		}
 		result += fmt.Sprintf(itemFormat, clientName, serverName, namespace, serverNamespace, intentType, resource, status)
 	}

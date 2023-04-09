@@ -217,10 +217,32 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
+			input.Status = clientIntentsStatusToCloudFormat(clientIntents)
+
 			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
 		}
 	}
+
 	return otterizeIntents, nil
+}
+
+func clientIntentsStatusToCloudFormat(clientIntents ClientIntents) *graphqlclient.IntentStatusInput {
+	var status graphqlclient.IntentStatusInput
+
+	serviceAccountName, ok := clientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
+	if !ok {
+		return nil
+	}
+
+	status.ServiceAccountName = toPtrOrNil(serviceAccountName)
+	value, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
+	if !ok {
+		status.IsServiceAccountShared = nil
+	} else {
+		status.IsServiceAccountShared = lo.ToPtr(value == "true")
+	}
+
+	return &status
 }
 
 func toPtrOrNil(s string) *string {
