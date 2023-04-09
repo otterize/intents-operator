@@ -13,7 +13,7 @@ on:
       - main
 
 env:
-  REGISTRY: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize
+  REGISTRY: 353146681200.dkr.ecr.us-east-1.amazonaws.com
   REPOSITORY_NAME: otterize
 
 jobs:
@@ -60,11 +60,26 @@ jobs:
         with:
           context: src/
           file: src/${{ matrix.service }}.Dockerfile
-          tags: ${{ env.REGISTRY }}:${{ matrix.service }}-${{ github.sha }}
+          tags: ${{ env.REGISTRY }}/${{ env.REPOSITORY_NAME }}:${{ matrix.service }}-${{ github.sha }}
           push: true
           network: host
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  netpol-e2e-test:
+    uses: ./.github/workflows/netpol-e2e-test.yaml
+    name: Trigger e2e tests
+    # Must pass the secrets as the called workflow does not have access to the same context
+    secrets:
+      OTTERIZEBOT_GITHUB_TOKEN: ${{ secrets.OTTERIZEBOT_GITHUB_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    with:
+      operator-tag: intents-operator-${{ github.sha }}
+      watcher-tag: watcher-${{ github.sha }}
+
+    needs:
+      - build
 
   tag-latest-dev:
     name: Tag latest
