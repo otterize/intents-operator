@@ -217,10 +217,32 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
+			input.Status = clientIntentsStatusToCloudFormat(clientIntents)
+
 			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
 		}
 	}
+
 	return otterizeIntents, nil
+}
+
+func clientIntentsStatusToCloudFormat(clientIntents ClientIntents) *graphqlclient.IntentStatusInput {
+	var status graphqlclient.IntentStatusInput
+
+	serviceAccountName, ok := clientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
+	if !ok {
+		return nil
+	}
+
+	status.ServiceAccountName = toPtrOrNil(serviceAccountName)
+	value, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
+	if !ok {
+		status.IsServiceAccountShared = nil
+	} else {
+		status.IsServiceAccountShared = lo.ToPtr(value == "true")
+	}
+
+	return &status
 }
 
 func toPtrOrNil(s string) *string {
@@ -282,11 +304,28 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		intentInput.Type = lo.ToPtr(in.typeAsGQLType())
 	}
 
+	if in.HTTPResources != nil {
+		intentInput.Resources = lo.Map(in.HTTPResources, intentsHTTPResourceToCloud)
+	}
+
 	if len(otterizeTopics) != 0 {
 		intentInput.Topics = otterizeTopics
 	}
 
 	return intentInput
+}
+
+func intentsHTTPResourceToCloud(resource HTTPResource, index int) *graphqlclient.HTTPConfigInput {
+	methods := lo.Map(resource.Methods, func(method HTTPMethod, _ int) *graphqlclient.HTTPMethod {
+		return lo.ToPtr(graphqlclient.HTTPMethod(method))
+	})
+
+	httpConfig := graphqlclient.HTTPConfigInput{
+		Path:    lo.ToPtr(resource.Path),
+		Methods: methods,
+	}
+
+	return &httpConfig
 }
 
 // GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)

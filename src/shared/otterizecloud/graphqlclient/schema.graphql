@@ -183,12 +183,12 @@ type Environment {
 }
 
 type HTTPConfig {
-	path: String
+	path: String!
 	methods: [HTTPMethod!]
 }
 
 input HTTPConfigInput {
-	path: String
+	path: String!
 	methods: [HTTPMethod!]
 }
 
@@ -201,6 +201,7 @@ enum HTTPMethod {
 	TRACE
 	PATCH
 	CONNECT
+	ALL
 }
 
 input InputAccessGraphFilter {
@@ -245,6 +246,7 @@ type Intent {
 	type: IntentType
 	kafkaTopics: [KafkaConfig!]
 	httpResources: [HTTPConfig!]
+	status: IntentStatus
 }
 
 input IntentInput {
@@ -255,6 +257,7 @@ input IntentInput {
 	type: IntentType
 	topics: [KafkaConfigInput!]
 	resources: [HTTPConfigInput!]
+	status: IntentStatusInput
 }
 
 type IntentsOperatorComponent {
@@ -273,6 +276,16 @@ input IntentsOperatorConfigurationInput {
 	globalEnforcementEnabled: Boolean!
 	networkPolicyEnforcementEnabled: Boolean!
 	kafkaACLEnforcementEnabled: Boolean!
+}
+
+type IntentStatus {
+	serviceAccountName: String!
+	isServiceAccountShared: Boolean!
+}
+
+input IntentStatusInput {
+	serviceAccountName: String!
+	isServiceAccountShared: Boolean!
 }
 
 enum IntentType {

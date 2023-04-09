@@ -156,9 +156,9 @@ func printKafkaConfigInput(input []*graphqlclient.KafkaConfigInput) string {
 func prettyPrint(m IntentsMatcher) string {
 	expected := m.expected
 	var result string
-	itemFormat := "IntentInput{ClientName: %s, ServerName: %s, Namespace: %s, ServerNamespace: %s, Type: %s, Resource: %s},"
+	itemFormat := "IntentInput{ClientName: %s, ServerName: %s, Namespace: %s, ServerNamespace: %s, Type: %s, Resource: %s, Status: %s},"
 	for _, intent := range expected {
-		var clientName, namespace, serverName, serverNamespace, intentType, resource string
+		var clientName, namespace, serverName, serverNamespace, intentType, resource, status string
 		if intent.ClientName != nil {
 			clientName = *intent.ClientName
 		}
@@ -182,7 +182,10 @@ func prettyPrint(m IntentsMatcher) string {
 				resource = "Unimplemented type"
 			}
 		}
-		result += fmt.Sprintf(itemFormat, clientName, serverName, namespace, serverNamespace, intentType, resource)
+		if intent.Status != nil {
+			status = fmt.Sprintf("sa: %s, isShared: %t", *intent.Status.ServiceAccountName, *intent.Status.IsServiceAccountShared)
+		}
+		result += fmt.Sprintf(itemFormat, clientName, serverName, namespace, serverNamespace, intentType, resource, status)
 	}
 
 	return result
