@@ -36,15 +36,6 @@ rules:
       - watch
       - patch
   - apiGroups:
-      - "k8s.otterize.com"
-    resources:
-      - clientintents/status
-    verbs:
-      - get
-      - list
-      - watch
-      - patch
-  - apiGroups:
       - ""
     resources:
       - events
