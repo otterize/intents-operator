@@ -884,8 +884,8 @@ func (s *CreatorTestSuite) TestUpdateStatusServiceAccount() {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
-			Labels: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountLabel: clientServiceAccountName,
+			Annotations: map[string]string{
+				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
 			},
 		},
 		Spec: &v1alpha2.IntentsSpec{
@@ -904,8 +904,9 @@ func (s *CreatorTestSuite) TestUpdateStatusServiceAccount() {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
-			Labels: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountLabel: clientServiceAccountName,
+			Annotations: map[string]string{
+				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
 			},
 		},
 		Spec: &v1alpha2.IntentsSpec{
@@ -918,22 +919,16 @@ func (s *CreatorTestSuite) TestUpdateStatusServiceAccount() {
 				},
 			},
 		},
-		Status: &v1alpha2.IntentsStatus{
-			HasSharedServiceAccount: false,
-		},
 	}
 
 	gomock.InOrder(
 		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(labeledIntents, *intents)
 		}).Return(nil),
-		s.mockClient.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, client.InNamespace(clientIntentsNamespace), client.MatchingLabels{
-			v1alpha2.OtterizeClientServiceAccountLabel: clientServiceAccountName,
-		}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
+		s.mockClient.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
 			intents.Items = append(intents.Items, labeledIntents)
 		}).Return(nil),
-		s.mockClient.EXPECT().Status().Return(s.mockStatusClient),
-		s.mockStatusClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(intentsWithStatus, *intents)
 		}).Return(nil),
 	)
@@ -970,8 +965,8 @@ func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
-			Labels: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountLabel: clientServiceAccountName,
+			Annotations: map[string]string{
+				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
 			},
 		},
 		Spec: &v1alpha2.IntentsSpec{
@@ -990,8 +985,8 @@ func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-other-client-intents",
 			Namespace: clientIntentsNamespace,
-			Labels: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountLabel: clientServiceAccountName,
+			Annotations: map[string]string{
+				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
 			},
 		},
 		Spec: &v1alpha2.IntentsSpec{
@@ -1010,8 +1005,9 @@ func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
-			Labels: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountLabel: clientServiceAccountName,
+			Annotations: map[string]string{
+				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha2.OtterizeSharedServiceAccountAnnotation: "true",
 			},
 		},
 		Spec: &v1alpha2.IntentsSpec{
@@ -1024,17 +1020,15 @@ func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
 				},
 			},
 		},
-		Status: &v1alpha2.IntentsStatus{
-			HasSharedServiceAccount: true,
-		},
 	}
 
 	anotherIntentsWithStatus := v1alpha2.ClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-other-client-intents",
 			Namespace: clientIntentsNamespace,
-			Labels: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountLabel: clientServiceAccountName,
+			Annotations: map[string]string{
+				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha2.OtterizeSharedServiceAccountAnnotation: "true",
 			},
 		},
 		Spec: &v1alpha2.IntentsSpec{
@@ -1047,32 +1041,25 @@ func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
 				},
 			},
 		},
-		Status: &v1alpha2.IntentsStatus{
-			HasSharedServiceAccount: true,
-		},
 	}
 
 	gomock.InOrder(
 		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(labeledIntents, *intents)
 		}).Return(nil),
-		s.mockClient.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, client.InNamespace(clientIntentsNamespace), client.MatchingLabels{
-			v1alpha2.OtterizeClientServiceAccountLabel: clientServiceAccountName,
-		}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
+		s.mockClient.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
 			intents.Items = append(intents.Items, labeledIntents, anotherIntents)
 		}).Return(nil),
 	)
 
 	gomock.InOrder(
-		s.mockClient.EXPECT().Status().Return(s.mockStatusClient),
-		s.mockStatusClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(intentsWithStatus, *intents)
 		}).Return(nil),
 	)
 
 	gomock.InOrder(
-		s.mockClient.EXPECT().Status().Return(s.mockStatusClient),
-		s.mockStatusClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(anotherIntentsWithStatus, *intents)
 		}).Return(nil),
 	)

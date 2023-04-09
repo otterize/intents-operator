@@ -45,7 +45,8 @@ const (
 	OtterizeNetworkPolicyExternalTraffic   = "intents.otterize.com/network-policy-external-traffic"
 	NetworkPolicyFinalizerName             = "intents.otterize.com/network-policy-finalizer"
 	OtterizeIstioClientAnnotationKey       = "intents.otterize.com/istio-client"
-	OtterizeClientServiceAccountLabel      = "intents.otterize.com/istio-client-service-account"
+	OtterizeClientServiceAccountAnnotation = "intents.otterize.com/client-intents-service-account"
+	OtterizeSharedServiceAccountAnnotation = "intents.otterize.com/shared-service-account"
 	OtterizeTargetServerIndexField         = "spec.service.calls.server"
 	EndpointsPodNamesIndexField            = "endpointsPodNames"
 	IngressServiceNamesIndexField          = "ingressServiceNames"
@@ -128,7 +129,8 @@ type KafkaTopic struct {
 
 // IntentsStatus defines the observed state of ClientIntents
 type IntentsStatus struct {
-	HasSharedServiceAccount bool `json:"hasSharedServiceAccount,omitempty" yaml:"hasSharedServiceAccount,omitempty"`
+	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// Important: Run "make" to regenerate code after modifying this file
 }
 
 //+kubebuilder:object:root=true

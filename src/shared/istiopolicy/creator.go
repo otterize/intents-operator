@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 const (
@@ -107,73 +108,103 @@ func (c *Creator) UpdateIntentsStatus(
 	clientIntents *v1alpha2.ClientIntents,
 	clientServiceAccount string,
 ) error {
-	err := c.labelWithServiceAccount(ctx, clientIntents, clientServiceAccount)
+	err := c.saveServiceAccountName(ctx, clientIntents, clientServiceAccount)
 	if err != nil {
 		return err
 	}
 
-	return c.updateStatusSharedServiceAccount(ctx, clientIntents.Namespace, clientServiceAccount)
+	return c.updateSharedServiceAccountsInNamespace(ctx, clientIntents.Namespace)
 }
 
-func (c *Creator) labelWithServiceAccount(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {
-	serviceAccountLabelValue, ok := clientIntents.Labels[v1alpha2.OtterizeClientServiceAccountLabel]
+func (c *Creator) saveServiceAccountName(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {
+	serviceAccountLabelValue, ok := clientIntents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
 	if ok && serviceAccountLabelValue == clientServiceAccount {
 		return nil
 	}
 
-	labeledIntents := clientIntents.DeepCopy()
-	if labeledIntents.Labels == nil {
-		labeledIntents.Labels = make(map[string]string)
+	updatedIntents := clientIntents.DeepCopy()
+	if updatedIntents.Annotations == nil {
+		updatedIntents.Annotations = make(map[string]string)
 	}
 
-	labeledIntents.Labels[v1alpha2.OtterizeClientServiceAccountLabel] = clientServiceAccount
-	err := c.client.Patch(ctx, labeledIntents, client.MergeFrom(clientIntents))
+	updatedIntents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation] = clientServiceAccount
+	err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
 	if err != nil {
-		logrus.WithError(err).Errorln("Failed labeling intent with service account name")
-		c.recorder.RecordWarningEventf(clientIntents, ReasonIntentsLabelFailed, "Failed labeling intent with service account name: %s", err.Error())
+		logrus.WithError(err).Errorln("Failed updating intent with service account name")
+		c.recorder.RecordWarningEventf(clientIntents, ReasonIntentsLabelFailed, "Failed updating intent with service account name: %s", err.Error())
 		return err
 	}
 
-	logrus.Infof("Labeling intent %s with service account name %s", clientIntents.Name, clientServiceAccount)
+	logrus.Infof("updating intent %s with service account name %s", clientIntents.Name, clientServiceAccount)
 
 	c.recorder.RecordNormalEventf(clientIntents, ReasonServiceAccountFound, "Client intents service account found %s", clientServiceAccount)
 	return nil
 }
 
-func (c *Creator) updateStatusSharedServiceAccount(ctx context.Context, namespace string, clientServiceAccountName string) error {
-	var ClientIntentsList v1alpha2.ClientIntentsList
-	err := c.client.List(ctx, &ClientIntentsList, client.InNamespace(namespace), client.MatchingLabels{
-		v1alpha2.OtterizeClientServiceAccountLabel: clientServiceAccountName,
-	})
-
+func (c *Creator) updateSharedServiceAccountsInNamespace(ctx context.Context, namespace string) error {
+	var namespacesClientIntents v1alpha2.ClientIntentsList
+	err := c.client.List(
+		ctx, &namespacesClientIntents,
+		&client.ListOptions{Namespace: namespace})
 	if err != nil {
 		return err
 	}
 
-	logrus.Infof("Found %d intents with service account %s", len(ClientIntentsList.Items), clientServiceAccountName)
-	HasSharedServiceAccount := len(ClientIntentsList.Items) > 1
-	for _, intents := range ClientIntentsList.Items {
-		if intents.Status != nil && intents.Status.HasSharedServiceAccount == HasSharedServiceAccount {
+	clientsByServiceAccount := lo.GroupBy(namespacesClientIntents.Items, func(intents v1alpha2.ClientIntents) string {
+		return intents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
+	})
+
+	for clientServiceAccountName, clientIntents := range clientsByServiceAccount {
+		err = c.updateServiceAccountSharedStatus(ctx, clientIntents, clientServiceAccountName)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Creator) updateServiceAccountSharedStatus(ctx context.Context, clientIntents []v1alpha2.ClientIntents, serviceAccount string) error {
+	logrus.Infof("Found %d intents with service account %s", len(clientIntents), serviceAccount)
+	isServiceAccountShared := len(clientIntents) > 1
+	sharedAccountValue := lo.Ternary(isServiceAccountShared, "true", "false")
+
+	clients := lo.Map(clientIntents, func(intents v1alpha2.ClientIntents, _ int) string {
+		return intents.Spec.Service.Name
+	})
+	clientsNames := strings.Join(clients, ",")
+
+	for _, intents := range clientIntents {
+		if !shouldUpdateStatus(intents, serviceAccount, sharedAccountValue) {
 			continue
 		}
 
 		updatedIntents := intents.DeepCopy()
-		if updatedIntents.Status == nil {
-			updatedIntents.Status = &v1alpha2.IntentsStatus{}
-		}
 
-		updatedIntents.Status.HasSharedServiceAccount = HasSharedServiceAccount
-		err = c.client.Status().Patch(ctx, updatedIntents, client.MergeFrom(&intents))
+		updatedIntents.Annotations[v1alpha2.OtterizeSharedServiceAccountAnnotation] = sharedAccountValue
+		err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(&intents))
 		if err != nil {
 			return err
 		}
 
-		if HasSharedServiceAccount {
-			c.recorder.RecordWarningEventf(updatedIntents, ReasonSharedServiceAccount, "Service account %s is shared by multiple clients", clientServiceAccountName)
+		if isServiceAccountShared {
+			c.recorder.RecordWarningEventf(updatedIntents, ReasonSharedServiceAccount, "Service account %s is shared and will grant access to the following clients %s", serviceAccount, clientsNames)
 		}
 	}
-
 	return nil
+}
+
+func shouldUpdateStatus(intents v1alpha2.ClientIntents, currentName string, currentSharedStatus string) bool {
+	oldName, annotationExists := intents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
+	if !annotationExists || oldName != currentName {
+		return true
+	}
+
+	oldSharedStatus, annotationExists := intents.Annotations[v1alpha2.OtterizeSharedServiceAccountAnnotation]
+	if !annotationExists || oldSharedStatus != currentSharedStatus {
+		return true
+	}
+
+	return false
 }
 
 func (c *Creator) createOrUpdatePolicies(
