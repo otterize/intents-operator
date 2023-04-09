@@ -236,9 +236,7 @@ func clientIntentsStatusToCloudFormat(clientIntents ClientIntents) *graphqlclien
 
 	status.ServiceAccountName = toPtrOrNil(serviceAccountName)
 	value, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
-	if !ok {
-		status.IsServiceAccountShared = nil
-	} else {
+	if ok {
 		status.IsServiceAccountShared = lo.ToPtr(value == "true")
 	}
 
