@@ -19,17 +19,15 @@ import (
 
 type CreatorTestSuite struct {
 	suite.Suite
-	ctrl             *gomock.Controller
-	mockClient       *istiopolicymocks.MockClient
-	mockStatusClient *istiopolicymocks.MockSubResourceWriter
-	recorder         *record.FakeRecorder
-	creator          *Creator
+	ctrl       *gomock.Controller
+	mockClient *istiopolicymocks.MockClient
+	recorder   *record.FakeRecorder
+	creator    *Creator
 }
 
 func (s *CreatorTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.mockClient = istiopolicymocks.NewMockClient(s.ctrl)
-	s.mockStatusClient = istiopolicymocks.NewMockSubResourceWriter(s.ctrl)
 	s.recorder = record.NewFakeRecorder(100)
 	s.creator = NewCreator(s.mockClient, &injectablerecorder.InjectableRecorder{Recorder: s.recorder}, []string{})
 }
