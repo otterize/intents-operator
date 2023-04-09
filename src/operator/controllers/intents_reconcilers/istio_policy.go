@@ -101,11 +101,11 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	clientServiceAccountName, err := r.serviceIdResolver.ResolveClientIntentToServiceAccountName(ctx, *intents)
 	if err != nil {
-		if err == serviceidresolver.ServiceAccountNotFond {
+		if err == serviceidresolver.PodNotFound {
 			r.RecordWarningEventf(
 				intents,
 				ReasonServiceAccountNotFound,
-				"could not find service account for service %s in namespace %s",
+				"could not find pod for service %s in namespace %s",
 				intents.Spec.Service.Name,
 				intents.Namespace)
 			return ctrl.Result{}, nil
