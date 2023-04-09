@@ -246,6 +246,7 @@ type Intent {
 	type: IntentType
 	kafkaTopics: [KafkaConfig!]
 	httpResources: [HTTPConfig!]
+	status: IntentStatus
 }
 
 input IntentInput {
@@ -277,9 +278,14 @@ input IntentsOperatorConfigurationInput {
 	kafkaACLEnforcementEnabled: Boolean!
 }
 
+type IntentStatus {
+	serviceAccountName: String!
+	isServiceAccountShared: Boolean!
+}
+
 input IntentStatusInput {
-	serviceAccountName: String
-	isServiceAccountShared: Boolean
+	serviceAccountName: String!
+	isServiceAccountShared: Boolean!
 }
 
 enum IntentType {
