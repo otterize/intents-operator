@@ -68,7 +68,7 @@ jobs:
           docker pull ${{ env.REGISTRY }}/${{ env.REPOSITORY_NAME }}:${{ inputs.watcher-tag }}
           minikube image load  ${{ env.REGISTRY }}/${{ env.REPOSITORY_NAME }}:${{ inputs.watcher-tag }}
           
-          OPERATOR_FLAGS="--set-string intentsOperator.operatoroperator.repository=${{ env.REGISTRY }} --set-string intentsOperator.operator.image=${{ env.REPOSITORY_NAME }} --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
+          OPERATOR_FLAGS="--set-string intentsOperator.operator.repository=${{ env.REGISTRY }} --set-string intentsOperator.operator.image=${{ env.REPOSITORY_NAME }} --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
           WATCHER_FLAGS="--set-string intentsOperator.watcher.repository=${{ env.REGISTRY }} --set-string intentsOperator.watcher.image=${{ env.REPOSITORY_NAME }} --set-string intentsOperator.watcher.tag=${{ inputs.watcher-tag }} --set-string intentsOperator.watcher.pullPolicy=Never"
           helm dep up ./helm-charts/otterize-kubernetes
           helm install otterize ./helm-charts/otterize-kubernetes -n otterize-system --create-namespace $OPERATOR_FLAGS $WATCHER_FLAGS
