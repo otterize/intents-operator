@@ -70,8 +70,10 @@ For more usage example see the [network policy tutorial](https://docs.otterize.c
 
 ### Kafka mTLS & ACLs
 The intents operator automatically creates, updates, and deletes ACLs in Kafka clusters running within your Kubernetes cluster. 
-It works together with SPIRE and the [Otterize SPIRE integration operator](https://github.com/otterize/spire-integration-operator) 
-to automatically manage and distribute certificates, easily enabling secure access to Kafka from client pods, all in your Kubernetes cluster.
+It works works with the [credentials operator](https://github.com/otterize/credentials-operator) to automatically:
+- Establish pod service identities.
+- Generate trusted credentials for each client service.
+- Deliver the credentials to the pod's containers within a locally-mounted volume.
 
 With Kafka, you can also control access to individual topics, like so:
 ```yaml
