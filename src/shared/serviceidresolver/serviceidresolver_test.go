@@ -43,7 +43,7 @@ func (s *ServiceIdResolverTestSuite) SetupTest() {
 	s.Resolver = NewResolver(s.Client)
 }
 
-func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToServiceAccountName_PodExists() {
+func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodExists() {
 	serviceName := "coolservice"
 	namespace := "coolnamespace"
 	SAName := "backendservice"
@@ -62,12 +62,13 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToServiceAccountName
 		podList.Items = append(podList.Items, pod)
 	})
 
-	resultSAName, err := s.Resolver.ResolveClientIntentToServiceAccountName(context.Background(), intent)
+	resolvedPod, err := s.Resolver.ResolveClientIntentToPod(context.Background(), intent)
+	resultSAName := resolvedPod.Spec.ServiceAccountName
 	s.Require().NoError(err)
 	s.Require().Equal(SAName, resultSAName)
 }
 
-func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToServiceAccountName_PodDoesntExist() {
+func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodDoesntExist() {
 	serviceName := "coolservice"
 	namespace := "coolnamespace"
 
@@ -81,9 +82,9 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToServiceAccountName
 		&MatchingLabelsSelectorMatcher{client.MatchingLabelsSelector{Selector: ls}},
 	).Do(func(_ any, podList *corev1.PodList, _ ...any) {})
 
-	resultSAName, err := s.Resolver.ResolveClientIntentToServiceAccountName(context.Background(), intent)
+	pod, err := s.Resolver.ResolveClientIntentToPod(context.Background(), intent)
 	s.Require().Equal(err, PodNotFound)
-	s.Require().Equal("", resultSAName)
+	s.Require().Equal(corev1.Pod{}, pod)
 }
 
 func TestServiceIdResolverTestSuite(t *testing.T) {

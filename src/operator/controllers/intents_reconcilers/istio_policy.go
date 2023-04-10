@@ -99,7 +99,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	clientServiceAccountName, err := r.serviceIdResolver.ResolveClientIntentToServiceAccountName(ctx, *intents)
+	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, *intents)
 	if err != nil {
 		if err == serviceidresolver.PodNotFound {
 			r.RecordWarningEventf(
@@ -114,9 +114,17 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
-	err = r.policyCreator.UpdateIntentsStatus(ctx, intents, clientServiceAccountName)
+	clientServiceAccountName := pod.Spec.ServiceAccountName
+	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
+
+	err = r.policyCreator.UpdateIntentsStatus(ctx, intents, clientServiceAccountName, missingSideCar)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if missingSideCar {
+		logrus.Infof("Pod %s/%s does not have a sidecar, skipping istio policy creation", pod.Namespace, pod.Name)
+		return ctrl.Result{}, nil
 	}
 
 	err = r.policyCreator.Create(ctx, intents, req.Namespace, clientServiceAccountName)

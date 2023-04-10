@@ -79,6 +79,7 @@ func (v *IntentInput) GetStatus() *IntentStatusInput { return v.Status }
 type IntentStatusInput struct {
 	ServiceAccountName     *string `json:"serviceAccountName"`
 	IsServiceAccountShared *bool   `json:"isServiceAccountShared"`
+	MissingSidecar         *bool   `json:"missingSidecar"`
 }
 
 // GetServiceAccountName returns IntentStatusInput.ServiceAccountName, and is useful for accessing the field via an interface.
@@ -86,6 +87,9 @@ func (v *IntentStatusInput) GetServiceAccountName() *string { return v.ServiceAc
 
 // GetIsServiceAccountShared returns IntentStatusInput.IsServiceAccountShared, and is useful for accessing the field via an interface.
 func (v *IntentStatusInput) GetIsServiceAccountShared() *bool { return v.IsServiceAccountShared }
+
+// GetMissingSidecar returns IntentStatusInput.MissingSidecar, and is useful for accessing the field via an interface.
+func (v *IntentStatusInput) GetMissingSidecar() *bool { return v.MissingSidecar }
 
 type IntentType string
 

@@ -281,11 +281,13 @@ input IntentsOperatorConfigurationInput {
 type IntentStatus {
 	serviceAccountName: String!
 	isServiceAccountShared: Boolean!
+	missingSidecar: Boolean!
 }
 
 input IntentStatusInput {
 	serviceAccountName: String!
 	isServiceAccountShared: Boolean!
+	missingSidecar: Boolean!
 }
 
 enum IntentType {

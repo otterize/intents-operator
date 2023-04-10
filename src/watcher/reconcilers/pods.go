@@ -175,9 +175,16 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 		return nil
 	}
 
-	err := p.istioPolicyCreator.UpdateIntentsStatus(ctx, &intents, pod.Spec.ServiceAccountName)
+	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
+
+	err := p.istioPolicyCreator.UpdateIntentsStatus(ctx, &intents, pod.Spec.ServiceAccountName, missingSideCar)
 	if err != nil {
 		return err
+	}
+
+	if missingSideCar {
+		logrus.Infof("Pod %s/%s does not have a sidecar, skipping istio policy creation", pod.Namespace, pod.Name)
+		return nil
 	}
 
 	err = p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, pod.Spec.ServiceAccountName)

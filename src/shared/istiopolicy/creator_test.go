@@ -14,6 +14,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 	"testing"
 )
 
@@ -918,10 +919,14 @@ func (s *CreatorTestSuite) TestUpdateStatusServiceAccount() {
 			},
 		},
 	}
-
 	gomock.InOrder(
 		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(labeledIntents, *intents)
+		}).Return(nil),
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+			missingSideCar, ok := intents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
+			s.True(ok)
+			s.Equal(strconv.FormatBool(false), missingSideCar)
 		}).Return(nil),
 		s.mockClient.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
 			intents.Items = append(intents.Items, labeledIntents)
@@ -931,9 +936,95 @@ func (s *CreatorTestSuite) TestUpdateStatusServiceAccount() {
 		}).Return(nil),
 	)
 
-	err := s.creator.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName)
+	err := s.creator.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, false)
 	s.NoError(err)
 	s.expectEvent(ReasonServiceAccountFound)
+}
+
+func (s *CreatorTestSuite) TestUpdateStatusMissingSidecar() {
+	clientName := "test-client"
+	serverName := "test-server"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-client-intents",
+			Namespace: clientIntentsNamespace,
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+
+	clientServiceAccountName := "test-client-sa"
+	labeledIntents := v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-client-intents",
+			Namespace: clientIntentsNamespace,
+			Annotations: map[string]string{
+				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+			},
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+
+	intentsWithStatus := v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-client-intents",
+			Namespace: clientIntentsNamespace,
+			Annotations: map[string]string{
+				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
+			},
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	gomock.InOrder(
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+			s.Equal(labeledIntents, *intents)
+		}).Return(nil),
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+			missingSideCar, ok := intents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
+			s.True(ok)
+			s.Equal(strconv.FormatBool(true), missingSideCar)
+		}).Return(nil),
+		s.mockClient.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
+			intents.Items = append(intents.Items, labeledIntents)
+		}).Return(nil),
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+			s.Equal(intentsWithStatus, *intents)
+		}).Return(nil),
+	)
+
+	err := s.creator.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, true)
+	s.NoError(err)
+	s.expectEvent(ReasonServiceAccountFound)
+	s.expectEvent(ReasonMissingSidecar)
 }
 
 func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
@@ -1040,10 +1131,16 @@ func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
 			},
 		},
 	}
+	isMissingSideCar := false
 
 	gomock.InOrder(
 		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(labeledIntents, *intents)
+		}).Return(nil),
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+			missingSideCar, ok := intents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
+			s.Equal(true, ok)
+			s.Equal(strconv.FormatBool(isMissingSideCar), missingSideCar)
 		}).Return(nil),
 		s.mockClient.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
 			intents.Items = append(intents.Items, labeledIntents, anotherIntents)
@@ -1062,7 +1159,7 @@ func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
 		}).Return(nil),
 	)
 
-	err := s.creator.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName)
+	err := s.creator.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, isMissingSideCar)
 	s.NoError(err)
 	s.expectEvent(ReasonServiceAccountFound)
 	s.expectEvent(ReasonSharedServiceAccount)
