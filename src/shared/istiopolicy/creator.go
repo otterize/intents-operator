@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 	"strings"
 )
 
@@ -27,6 +28,7 @@ const (
 	ReasonNamespaceNotAllowed       = "NamespaceNotAllowed"
 	ReasonIntentsLabelFailed        = "IntentsLabelFailed"
 	ReasonServiceAccountFound       = "ServiceAccountFound"
+	ReasonMissingSidecar            = "MissingSidecar"
 	ReasonSharedServiceAccount      = "SharedServiceAccountFound"
 	OtterizeIstioPolicyNameTemplate = "authorization-policy-to-%s-from-%s"
 )
@@ -106,8 +108,14 @@ func (c *Creator) UpdateIntentsStatus(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
 	clientServiceAccount string,
+	missingSideCar bool,
 ) error {
 	err := c.saveServiceAccountName(ctx, clientIntents, clientServiceAccount)
+	if err != nil {
+		return err
+	}
+
+	err = c.saveSideCarStatus(ctx, clientIntents, missingSideCar)
 	if err != nil {
 		return err
 	}
@@ -137,6 +145,33 @@ func (c *Creator) saveServiceAccountName(ctx context.Context, clientIntents *v1a
 	logrus.Infof("updating intent %s with service account name %s", clientIntents.Name, clientServiceAccount)
 
 	c.recorder.RecordNormalEventf(clientIntents, ReasonServiceAccountFound, "Client intents service account found %s", clientServiceAccount)
+	return nil
+}
+
+func (c *Creator) saveSideCarStatus(ctx context.Context, clientIntents *v1alpha2.ClientIntents, missingSideCar bool) error {
+	oldValue, ok := clientIntents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
+	if ok && oldValue == strconv.FormatBool(missingSideCar) {
+		return nil
+	}
+
+	updatedIntents := clientIntents.DeepCopy()
+	if updatedIntents.Annotations == nil {
+		updatedIntents.Annotations = make(map[string]string)
+	}
+
+	updatedIntents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation] = strconv.FormatBool(missingSideCar)
+	err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
+	if err != nil {
+		logrus.WithError(err).Errorln("Failed updating intent with sidecar status")
+		c.recorder.RecordWarningEventf(clientIntents, ReasonIntentsLabelFailed, "Failed updating intent with service account name: %s", err.Error())
+		return err
+	}
+
+	if missingSideCar {
+		logrus.Infof("updating intent %s with side %v", clientIntents.Name, missingSideCar)
+		c.recorder.RecordWarningEventf(clientIntents, ReasonMissingSidecar, "Client pod missing sidecar, will not create policies")
+	}
+
 	return nil
 }
 
@@ -178,7 +213,9 @@ func (c *Creator) updateServiceAccountSharedStatus(ctx context.Context, clientIn
 		}
 
 		updatedIntents := intents.DeepCopy()
-
+		if updatedIntents.Annotations == nil {
+			updatedIntents.Annotations = make(map[string]string)
+		}
 		updatedIntents.Annotations[v1alpha2.OtterizeSharedServiceAccountAnnotation] = sharedAccountValue
 		err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(&intents))
 		if err != nil {

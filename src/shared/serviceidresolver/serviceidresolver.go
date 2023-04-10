@@ -87,18 +87,18 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 	return obj, nil
 }
 
-func (r *Resolver) ResolveClientIntentToServiceAccountName(ctx context.Context, intent v1alpha2.ClientIntents) (string, error) {
+func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha2.ClientIntents) (corev1.Pod, error) {
 	podsList := &corev1.PodList{}
 	labelSelector, err := intent.BuildPodLabelSelector()
 	if err != nil {
-		return "", err
+		return corev1.Pod{}, err
 	}
 	err = r.client.List(ctx, podsList, client.MatchingLabelsSelector{Selector: labelSelector})
 	if err != nil {
-		return "", err
+		return corev1.Pod{}, err
 	}
 	if len(podsList.Items) == 0 {
-		return "", PodNotFound
+		return corev1.Pod{}, PodNotFound
 	}
 
 	for _, pod := range podsList.Items {
@@ -106,8 +106,8 @@ func (r *Resolver) ResolveClientIntentToServiceAccountName(ctx context.Context, 
 			continue
 		}
 
-		return pod.Spec.ServiceAccountName, nil
+		return pod, nil
 	}
 
-	return "", PodNotFound
+	return corev1.Pod{}, PodNotFound
 }

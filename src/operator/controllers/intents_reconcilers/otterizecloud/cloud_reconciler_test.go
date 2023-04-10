@@ -136,6 +136,7 @@ func (s *CloudReconcilerTestSuite) TestIntentsStatusUpload() {
 			Annotations: map[string]string{
 				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
 				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
+				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "false",
 			},
 		},
 		Spec: &otterizev1alpha2.IntentsSpec{
@@ -178,6 +179,7 @@ func (s *CloudReconcilerTestSuite) TestIntentsStatusUpload() {
 	expectedIntent.Status = &graphqlclient.IntentStatusInput{}
 	expectedIntent.Status.ServiceAccountName = lo.ToPtr(serviceAccountName)
 	expectedIntent.Status.IsServiceAccountShared = lo.ToPtr(false)
+	expectedIntent.Status.MissingSidecar = lo.ToPtr(false)
 	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
 	expectedNamespace := lo.ToPtr(s.TestNamespace)
 
@@ -201,6 +203,7 @@ func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
 			Annotations: map[string]string{
 				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
 				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
+				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "false",
 			},
 		},
 		Spec: &otterizev1alpha2.IntentsSpec{
@@ -253,6 +256,7 @@ func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
 	expectedIntent.Status = &graphqlclient.IntentStatusInput{}
 	expectedIntent.Status.ServiceAccountName = lo.ToPtr(serviceAccountName)
 	expectedIntent.Status.IsServiceAccountShared = lo.ToPtr(false)
+	expectedIntent.Status.MissingSidecar = lo.ToPtr(false)
 	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
 	expectedNamespace := lo.ToPtr(s.TestNamespace)
 

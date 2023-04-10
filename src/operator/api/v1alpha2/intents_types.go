@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"strconv"
 	"strings"
 )
 
@@ -47,6 +48,7 @@ const (
 	OtterizeIstioClientAnnotationKey       = "intents.otterize.com/istio-client"
 	OtterizeClientServiceAccountAnnotation = "intents.otterize.com/client-intents-service-account"
 	OtterizeSharedServiceAccountAnnotation = "intents.otterize.com/shared-service-account"
+	OtterizeMissingSidecarAnnotation       = "intents.otterize.com/service-missing-sidecar"
 	OtterizeTargetServerIndexField         = "spec.service.calls.server"
 	EndpointsPodNamesIndexField            = "endpointsPodNames"
 	IngressServiceNamesIndexField          = "ingressServiceNames"
@@ -217,8 +219,11 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
-			input.Status = clientIntentsStatusToCloudFormat(clientIntents)
-
+			statusInput, err := clientIntentsStatusToCloudFormat(clientIntents)
+			if err != nil {
+				return nil, err
+			}
+			input.Status = statusInput
 			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
 		}
 	}
@@ -226,21 +231,38 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	return otterizeIntents, nil
 }
 
-func clientIntentsStatusToCloudFormat(clientIntents ClientIntents) *graphqlclient.IntentStatusInput {
+func clientIntentsStatusToCloudFormat(clientIntents ClientIntents) (*graphqlclient.IntentStatusInput, error) {
 	var status graphqlclient.IntentStatusInput
 
 	serviceAccountName, ok := clientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
 	if !ok {
-		return nil
+		// Status is not set, nothing to do
+		return nil, nil
 	}
 
 	status.ServiceAccountName = toPtrOrNil(serviceAccountName)
-	value, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
-	if ok {
-		status.IsServiceAccountShared = lo.ToPtr(value == "true")
+	isSharedValue, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("missing annotation shared service account for client intents %s", clientIntents.Name)
 	}
 
-	return &status
+	isShared, err := strconv.ParseBool(isSharedValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse shared service account annotation for client intents %s", clientIntents.Name)
+	}
+	status.IsServiceAccountShared = lo.ToPtr(isShared)
+
+	missingSideCarValue, ok := clientIntents.Annotations[OtterizeMissingSidecarAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
+	}
+
+	missingSideCar, err := strconv.ParseBool(missingSideCarValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
+	}
+	status.MissingSidecar = lo.ToPtr(missingSideCar)
+	return &status, nil
 }
 
 func toPtrOrNil(s string) *string {
