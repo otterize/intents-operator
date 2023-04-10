@@ -270,12 +270,14 @@ type IntentsOperatorConfiguration {
 	globalEnforcementEnabled: Boolean!
 	networkPolicyEnforcementEnabled: Boolean!
 	kafkaACLEnforcementEnabled: Boolean!
+	istioPolicyEnforcementEnabled: Boolean!
 }
 
 input IntentsOperatorConfigurationInput {
 	globalEnforcementEnabled: Boolean!
 	networkPolicyEnforcementEnabled: Boolean!
 	kafkaACLEnforcementEnabled: Boolean!
+	istioPolicyEnforcementEnabled: Boolean!
 }
 
 type IntentStatus {

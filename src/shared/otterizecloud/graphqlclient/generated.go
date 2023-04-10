@@ -102,6 +102,7 @@ type IntentsOperatorConfigurationInput struct {
 	GlobalEnforcementEnabled        bool `json:"globalEnforcementEnabled"`
 	NetworkPolicyEnforcementEnabled bool `json:"networkPolicyEnforcementEnabled"`
 	KafkaACLEnforcementEnabled      bool `json:"kafkaACLEnforcementEnabled"`
+	IstioPolicyEnforcementEnabled   bool `json:"istioPolicyEnforcementEnabled"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -117,6 +118,11 @@ func (v *IntentsOperatorConfigurationInput) GetNetworkPolicyEnforcementEnabled()
 // GetKafkaACLEnforcementEnabled returns IntentsOperatorConfigurationInput.KafkaACLEnforcementEnabled, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetKafkaACLEnforcementEnabled() bool {
 	return v.KafkaACLEnforcementEnabled
+}
+
+// GetIstioPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.IstioPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetIstioPolicyEnforcementEnabled() bool {
+	return v.IstioPolicyEnforcementEnabled
 }
 
 type KafkaConfigInput struct {
