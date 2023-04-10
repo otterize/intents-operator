@@ -162,13 +162,11 @@ func (c *Creator) saveSideCarStatus(ctx context.Context, clientIntents *v1alpha2
 	updatedIntents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation] = strconv.FormatBool(missingSideCar)
 	err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
 	if err != nil {
-		logrus.WithError(err).Errorln("Failed updating intent with sidecar status")
 		c.recorder.RecordWarningEventf(clientIntents, ReasonIntentsLabelFailed, "Failed updating intent with service account name: %s", err.Error())
 		return err
 	}
 
 	if missingSideCar {
-		logrus.Infof("updating intent %s with side %v", clientIntents.Name, missingSideCar)
 		c.recorder.RecordWarningEventf(clientIntents, ReasonMissingSidecar, "Client pod missing sidecar, will not create policies")
 	}
 
