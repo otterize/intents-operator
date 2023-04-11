@@ -29,12 +29,10 @@ const (
 	AutoCreateNetworkPoliciesForExternalTrafficDefault = true
 	EnableNetworkPolicyKey                             = "enable-network-policy-creation" // Whether to enable Intents network policy creation
 	EnableNetworkPolicyDefault                         = true
-	EnableIstioPolicyKey                               = "enable-istio-policy-creation" // Whether to enable istio authorization policy creation
+	EnableIstioPolicyKey                               = "experimental-enable-istio-policy-creation" // Whether to enable istio authorization policy creation
 	EnableIstioPolicyDefault                           = false
 	EnableKafkaACLKey                                  = "enable-kafka-acl-creation" // Whether to disable Intents Kafka ACL creation
 	EnableKafkaACLDefault                              = true
-	IstioFeatureFlagEnabledKey                         = "istio-feature-enabled" // Whether to enable istio feature flag
-	IstioFeatureFlagEnabledDefault                     = false
 	IntentsOperatorPodNameKey                          = "pod-name"
 	IntentsOperatorPodNamespaceKey                     = "pod-namespace"
 	EnvPrefix                                          = "OTTERIZE"
@@ -50,7 +48,6 @@ func init() {
 	viper.SetDefault(EnableNetworkPolicyKey, EnableNetworkPolicyDefault)
 	viper.SetDefault(EnableKafkaACLKey, EnableKafkaACLDefault)
 	viper.SetDefault(EnableIstioPolicyKey, EnableIstioPolicyDefault)
-	viper.SetDefault(IstioFeatureFlagEnabledKey, IstioFeatureFlagEnabledDefault)
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
@@ -73,7 +70,6 @@ func InitCLIFlags() {
 	pflag.Bool(EnableLeaderElectionKey, EnableLeaderElectionDefault, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	pflag.StringSlice(WatchedNamespacesKey, nil, "Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable istio authorization policy creation")
-	pflag.Bool(IstioFeatureFlagEnabledKey, IstioFeatureFlagEnabledDefault, "Whether to enable istio feature flag")
 
 	runtime.Must(viper.BindPFlags(pflag.CommandLine))
 

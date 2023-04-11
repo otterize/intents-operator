@@ -37,7 +37,6 @@ type EnforcementConfig struct {
 	EnableNetworkPolicy        bool
 	EnableKafkaACL             bool
 	EnableIstioPolicy          bool
-	IstioFeatureFlagEnabled    bool
 }
 
 // IntentsReconciler reconciles a Intents object
@@ -58,12 +57,8 @@ func NewIntentsReconciler(
 			intents_reconcilers.NewPodLabelReconciler(client, scheme),
 			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementEnabledGlobally),
 			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally),
+			intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementEnabledGlobally),
 		)}
-
-	if enforcementConfig.IstioFeatureFlagEnabled {
-		istioReconciler := intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementEnabledGlobally)
-		intentsReconciler.group.AddToGroup(istioReconciler)
-	}
 
 	if otterizeClient != nil {
 		otterizeCloudReconciler := otterizecloud.NewOtterizeCloudReconciler(client, scheme, otterizeClient)

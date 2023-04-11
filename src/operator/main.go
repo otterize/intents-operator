@@ -78,7 +78,6 @@ func main() {
 		EnableNetworkPolicy:        viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
 		EnableKafkaACL:             viper.GetBool(operatorconfig.EnableKafkaACLKey),
 		EnableIstioPolicy:          viper.GetBool(operatorconfig.EnableIstioPolicyKey),
-		IstioFeatureFlagEnabled:    viper.GetBool(operatorconfig.IstioFeatureFlagEnabledKey),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev1alpha2.TLSSource{
