@@ -167,7 +167,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 }
 
 func (p *PodWatcher) istioEnforcementEnabled() bool {
-	return viper.GetBool(operatorconfig.IstioFeatureFlagEnabledKey) && viper.GetBool(operatorconfig.EnableIstioPolicyKey)
+	return viper.GetBool(operatorconfig.EnableIstioPolicyKey)
 }
 
 func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha2.ClientIntents, pod v1.Pod) error {
