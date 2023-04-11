@@ -27,7 +27,7 @@ func (s *IstioPolicyReconcilerTestSuite) SetupSuite() {
 	var err error
 	s.TestEnv.CRDDirectoryPaths = []string{
 		"../../config/crd",
-		"../../../shared/istiopolicy/crd",
+		"../../../exp/istiopolicy/crd",
 	}
 
 	s.RestConfig, err = s.TestEnv.Start()
