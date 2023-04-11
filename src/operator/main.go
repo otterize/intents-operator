@@ -237,6 +237,7 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient otterizecloud.
 		GlobalEnforcementEnabled:        config.EnforcementEnabledGlobally,
 		NetworkPolicyEnforcementEnabled: config.EnforcementEnabledGlobally && config.EnableNetworkPolicy,
 		KafkaACLEnforcementEnabled:      config.EnforcementEnabledGlobally && config.EnableKafkaACL,
+		IstioPolicyEnforcementEnabled:   config.EnforcementEnabledGlobally && config.EnableIstioPolicy,
 	})
 	if err != nil {
 		logrus.WithError(err).Error("Failed to report configuration to the cloud")
