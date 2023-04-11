@@ -49,3 +49,32 @@ jobs:
           docker push otterize/intents-operator-pod-watcher:${{ github.ref_name }}
           docker push otterize/intents-operator:latest
           docker push otterize/intents-operator-pod-watcher:latest
+
+  commit-latest-build-tag-to-helm-chart:
+    name: Commit Latest Build Tag
+    runs-on: ubuntu-latest
+    needs: push-dockerhub
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          repository: "otterize/helm-charts"
+          token: ${{ secrets.OTTERIZEBOT_GITHUB_TOKEN }}
+          ref: main
+
+      - name: Update appVersion in chart.yaml
+        uses: mikefarah/yq@master
+        with:
+          cmd: yq -i '.appVersion = "${{ github.ref_name }}"' 'intents-operator/Chart.yaml'
+
+      - name: Setup git config
+        run: |
+          git config user.name "otterizebot"
+          git config user.email "otterizebot@users.noreply.github.com"
+
+      - name: Commit
+        run: |
+          git add --all
+          git commit -m "Setting latest tag in intents-operator helm chart repo to ${{ github.ref_name }}"
+          git push origin HEAD
+
