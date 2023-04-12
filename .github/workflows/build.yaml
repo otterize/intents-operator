@@ -84,7 +84,9 @@ jobs:
   tag-latest-dev:
     name: Tag latest
     if: github.ref == 'refs/heads/main'
-    needs: build
+    needs:
+      - build
+      - netpol-e2e-test
     runs-on: ubuntu-latest
 
     steps:
