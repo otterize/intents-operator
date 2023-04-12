@@ -123,3 +123,16 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - security.istio.io
+  resources:
+  - authorizationpolicies
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch

@@ -24,12 +24,20 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
+	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 )
+
+type EnforcementConfig struct {
+	EnforcementEnabledGlobally bool
+	EnableNetworkPolicy        bool
+	EnableKafkaACL             bool
+	EnableIstioPolicy          bool
+}
 
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
@@ -42,14 +50,14 @@ func NewIntentsReconciler(
 	kafkaServerStore kafkaacls.ServersStore,
 	endpointsReconciler *external_traffic.EndpointsReconciler,
 	restrictToNamespaces []string,
-	enforcementEnabledGlobally bool,
-	enableNetworkPolicyCreation, enableKafkaACLCreation bool,
+	enforcementConfig EnforcementConfig,
 	otterizeClient otterizecloud.CloudClient) *IntentsReconciler {
 	intentsReconciler := &IntentsReconciler{
 		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 			intents_reconcilers.NewPodLabelReconciler(client, scheme),
-			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enableNetworkPolicyCreation, enforcementEnabledGlobally),
-			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enableKafkaACLCreation, kafkaacls.NewKafkaIntentsAdmin, enforcementEnabledGlobally),
+			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementEnabledGlobally),
+			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally),
+			intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementEnabledGlobally),
 		)}
 
 	if otterizeClient != nil {
@@ -77,7 +85,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev1alpha2.ClientIntents{}).
-		WithOptions(controller.Options{RecoverPanic: true}).
+		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 	if err != nil {
 		return err

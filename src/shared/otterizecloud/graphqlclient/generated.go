@@ -17,15 +17,15 @@ const (
 )
 
 type HTTPConfigInput struct {
-	Path   *string     `json:"path"`
-	Method *HTTPMethod `json:"method"`
+	Path    *string       `json:"path"`
+	Methods []*HTTPMethod `json:"methods"`
 }
 
 // GetPath returns HTTPConfigInput.Path, and is useful for accessing the field via an interface.
 func (v *HTTPConfigInput) GetPath() *string { return v.Path }
 
-// GetMethod returns HTTPConfigInput.Method, and is useful for accessing the field via an interface.
-func (v *HTTPConfigInput) GetMethod() *HTTPMethod { return v.Method }
+// GetMethods returns HTTPConfigInput.Methods, and is useful for accessing the field via an interface.
+func (v *HTTPConfigInput) GetMethods() []*HTTPMethod { return v.Methods }
 
 type HTTPMethod string
 
@@ -38,6 +38,7 @@ const (
 	HTTPMethodTrace   HTTPMethod = "TRACE"
 	HTTPMethodPatch   HTTPMethod = "PATCH"
 	HTTPMethodConnect HTTPMethod = "CONNECT"
+	HTTPMethodAll     HTTPMethod = "ALL"
 )
 
 type IntentInput struct {
@@ -48,6 +49,7 @@ type IntentInput struct {
 	Type            *IntentType         `json:"type"`
 	Topics          []*KafkaConfigInput `json:"topics"`
 	Resources       []*HTTPConfigInput  `json:"resources"`
+	Status          *IntentStatusInput  `json:"status"`
 }
 
 // GetNamespace returns IntentInput.Namespace, and is useful for accessing the field via an interface.
@@ -71,6 +73,24 @@ func (v *IntentInput) GetTopics() []*KafkaConfigInput { return v.Topics }
 // GetResources returns IntentInput.Resources, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetResources() []*HTTPConfigInput { return v.Resources }
 
+// GetStatus returns IntentInput.Status, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetStatus() *IntentStatusInput { return v.Status }
+
+type IntentStatusInput struct {
+	ServiceAccountName     *string `json:"serviceAccountName"`
+	IsServiceAccountShared *bool   `json:"isServiceAccountShared"`
+	MissingSidecar         *bool   `json:"missingSidecar"`
+}
+
+// GetServiceAccountName returns IntentStatusInput.ServiceAccountName, and is useful for accessing the field via an interface.
+func (v *IntentStatusInput) GetServiceAccountName() *string { return v.ServiceAccountName }
+
+// GetIsServiceAccountShared returns IntentStatusInput.IsServiceAccountShared, and is useful for accessing the field via an interface.
+func (v *IntentStatusInput) GetIsServiceAccountShared() *bool { return v.IsServiceAccountShared }
+
+// GetMissingSidecar returns IntentStatusInput.MissingSidecar, and is useful for accessing the field via an interface.
+func (v *IntentStatusInput) GetMissingSidecar() *bool { return v.MissingSidecar }
+
 type IntentType string
 
 const (
@@ -82,6 +102,7 @@ type IntentsOperatorConfigurationInput struct {
 	GlobalEnforcementEnabled        bool `json:"globalEnforcementEnabled"`
 	NetworkPolicyEnforcementEnabled bool `json:"networkPolicyEnforcementEnabled"`
 	KafkaACLEnforcementEnabled      bool `json:"kafkaACLEnforcementEnabled"`
+	IstioPolicyEnforcementEnabled   bool `json:"istioPolicyEnforcementEnabled"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -97,6 +118,11 @@ func (v *IntentsOperatorConfigurationInput) GetNetworkPolicyEnforcementEnabled()
 // GetKafkaACLEnforcementEnabled returns IntentsOperatorConfigurationInput.KafkaACLEnforcementEnabled, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetKafkaACLEnforcementEnabled() bool {
 	return v.KafkaACLEnforcementEnabled
+}
+
+// GetIstioPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.IstioPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetIstioPolicyEnforcementEnabled() bool {
+	return v.IstioPolicyEnforcementEnabled
 }
 
 type KafkaConfigInput struct {

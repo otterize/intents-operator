@@ -25,17 +25,17 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -50,13 +50,13 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
+	utilruntime.Must(istiosecurityscheme.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
 func MustGetEnvVar(name string) string {
-	value := os.Getenv(name)
+	value := viper.GetString(name)
 	if value == "" {
 		logrus.Fatalf("%s environment variable is required", name)
 	}
@@ -65,45 +65,29 @@ func MustGetEnvVar(name string) string {
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var selfSignedCert bool
-	var enforcementEnabledGlobally bool
-	var autoCreateNetworkPoliciesForExternalTraffic bool
-	var watchedNamespaces []string
-	var enableNetworkPolicyCreation bool
-	var enableKafkaACLCreation bool
-	var disableWebhookServer bool
-	var tlsSource otterizev1alpha2.TLSSource
+	operatorconfig.InitCLIFlags()
 
-	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	pflag.StringVar(&tlsSource.CertFile, "kafka-server-tls-cert", "", "name of tls certificate file")
-	pflag.StringVar(&tlsSource.KeyFile, "kafka-server-tls-key", "", "name of tls private key file")
-	pflag.StringVar(&tlsSource.RootCAFile, "kafka-server-tls-ca", "", "name of tls ca file")
-	pflag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	pflag.BoolVar(&selfSignedCert, "self-signed-cert", true,
-		"Whether to generate and use a self signed cert as the CA for webhooks")
-	pflag.BoolVar(&disableWebhookServer, "disable-webhook-server", false,
-		"Disable webhook validator server")
-	pflag.BoolVar(&enforcementEnabledGlobally, "enable-enforcement", true,
-		"If set to false disables the enforcement globally, superior to the other flags")
-	pflag.BoolVar(&autoCreateNetworkPoliciesForExternalTraffic, "auto-create-network-policies-for-external-traffic", true,
-		"Whether to automatically create network policies for external traffic")
-	pflag.StringSliceVar(&watchedNamespaces, "watched-namespaces", nil,
-		"Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
-	pflag.BoolVar(&enableNetworkPolicyCreation, "enable-network-policy-creation", true,
-		"Whether to disable Intents network policy creation")
-	pflag.BoolVar(&enableKafkaACLCreation, "enable-kafka-acl-creation", true,
-		"Whether to disable Intents Kafka ACL creation")
+	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
+	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
+	enableLeaderElection := viper.GetBool(operatorconfig.EnableLeaderElectionKey)
+	selfSignedCert := viper.GetBool(operatorconfig.SelfSignedCertKey)
+	autoCreateNetworkPoliciesForExternalTraffic := viper.GetBool(operatorconfig.AutoCreateNetworkPoliciesForExternalTrafficKey)
+	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
+	enforcementConfig := controllers.EnforcementConfig{
+		EnforcementEnabledGlobally: viper.GetBool(operatorconfig.EnforcementEnabledGloballyKey),
+		EnableNetworkPolicy:        viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
+		EnableKafkaACL:             viper.GetBool(operatorconfig.EnableKafkaACLKey),
+		EnableIstioPolicy:          viper.GetBool(operatorconfig.EnableIstioPolicyKey),
+	}
+	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
+	tlsSource := otterizev1alpha2.TLSSource{
+		CertFile:   viper.GetString(operatorconfig.KafkaServerTLSCertKey),
+		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
+		RootCAFile: viper.GetString(operatorconfig.KafkaServerTLSCAKey),
+	}
 
-	pflag.Parse()
-
-	podName := MustGetEnvVar("POD_NAME")
-	podNamespace := MustGetEnvVar("POD_NAMESPACE")
+	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
+	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
@@ -139,9 +123,9 @@ func main() {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
 
-	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enableKafkaACLCreation, kafkaacls.NewKafkaIntentsAdmin, enforcementEnabledGlobally)
+	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally)
 
-	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, enforcementEnabledGlobally)
+	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, enforcementConfig.EnforcementEnabledGlobally)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
@@ -166,20 +150,25 @@ func main() {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
-		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation)
+		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig)
 		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
 	} else {
 		logrus.Info("Not configured for cloud integration")
 	}
 
-	if !enforcementEnabledGlobally {
+	if !enforcementConfig.EnforcementEnabledGlobally {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(
-		mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, endpointReconciler,
-		watchedNamespaces, enforcementEnabledGlobally, enableNetworkPolicyCreation, enableKafkaACLCreation,
-		otterizeCloudClient)
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		kafkaServersStore,
+		endpointReconciler,
+		watchedNamespaces,
+		enforcementConfig,
+		otterizeCloudClient,
+	)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
@@ -239,14 +228,15 @@ func main() {
 	}
 }
 
-func uploadConfiguration(ctx context.Context, otterizeCloudClient otterizecloud.CloudClient, enforcementEnabledGlobally bool, enableNetworkPolicyCreation bool, enableKafkaACLCreation bool) {
+func uploadConfiguration(ctx context.Context, otterizeCloudClient otterizecloud.CloudClient, config controllers.EnforcementConfig) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
 
 	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
-		GlobalEnforcementEnabled:        enforcementEnabledGlobally,
-		NetworkPolicyEnforcementEnabled: enforcementEnabledGlobally && enableNetworkPolicyCreation,
-		KafkaACLEnforcementEnabled:      enforcementEnabledGlobally && enableKafkaACLCreation,
+		GlobalEnforcementEnabled:        config.EnforcementEnabledGlobally,
+		NetworkPolicyEnforcementEnabled: config.EnforcementEnabledGlobally && config.EnableNetworkPolicy,
+		KafkaACLEnforcementEnabled:      config.EnforcementEnabledGlobally && config.EnableKafkaACL,
+		IstioPolicyEnforcementEnabled:   config.EnforcementEnabledGlobally && config.EnableIstioPolicy,
 	})
 	if err != nil {
 		logrus.WithError(err).Error("Failed to report configuration to the cloud")

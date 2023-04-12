@@ -54,12 +54,18 @@ func intentInputSort(intents []graphqlclient.IntentInput) {
 				return len(intent.Topics[i].Operations) < len(intent.Topics[j].Operations)
 			})
 		case graphqlclient.IntentTypeHttp:
+			for _, resource := range intent.Resources {
+				sort.Slice(resource.Methods, func(i, j int) bool {
+					return NilCompare(resource.Methods[i], resource.Methods[j]) < 0
+				})
+			}
 			sort.Slice(intent.Resources, func(i, j int) bool {
 				res := NilCompare(intent.Resources[i].Path, intent.Resources[j].Path)
 				if res != 0 {
 					return res < 0
 				}
-				return NilCompare(intent.Resources[i].Method, intent.Resources[j].Method) < 0
+
+				return len(intent.Resources[i].Methods) < len(intent.Resources[j].Methods)
 			})
 		}
 	}
@@ -150,9 +156,9 @@ func printKafkaConfigInput(input []*graphqlclient.KafkaConfigInput) string {
 func prettyPrint(m IntentsMatcher) string {
 	expected := m.expected
 	var result string
-	itemFormat := "IntentInput{ClientName: %s, ServerName: %s, Namespace: %s, ServerNamespace: %s, Type: %s, Resource: %s},"
+	itemFormat := "IntentInput{ClientName: %s, ServerName: %s, Namespace: %s, ServerNamespace: %s, Type: %s, Resource: %s, Status: %s},"
 	for _, intent := range expected {
-		var clientName, namespace, serverName, serverNamespace, intentType, resource string
+		var clientName, namespace, serverName, serverNamespace, intentType, resource, status string
 		if intent.ClientName != nil {
 			clientName = *intent.ClientName
 		}
@@ -176,7 +182,10 @@ func prettyPrint(m IntentsMatcher) string {
 				resource = "Unimplemented type"
 			}
 		}
-		result += fmt.Sprintf(itemFormat, clientName, serverName, namespace, serverNamespace, intentType, resource)
+		if intent.Status != nil {
+			status = fmt.Sprintf("sa: %s, isShared: %t", *intent.Status.ServiceAccountName, *intent.Status.IsServiceAccountShared)
+		}
+		result += fmt.Sprintf(itemFormat, clientName, serverName, namespace, serverNamespace, intentType, resource, status)
 	}
 
 	return result

@@ -12,7 +12,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"io/ioutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -84,11 +83,11 @@ func WriteCertToFiles(bundle CertificateBundle) error {
 	certFilePath := filepath.Join(CertDirPath, CertFilename)
 	privateKeyFilePath := filepath.Join(CertDirPath, PrivateKeyFilename)
 
-	err = ioutil.WriteFile(certFilePath, bundle.CertPem, 0600)
+	err = os.WriteFile(certFilePath, bundle.CertPem, 0600)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(privateKeyFilePath, bundle.PrivateKeyPem, 0600)
+	return os.WriteFile(privateKeyFilePath, bundle.PrivateKeyPem, 0600)
 }
 
 func getKubeClient() (*kubernetes.Clientset, error) {

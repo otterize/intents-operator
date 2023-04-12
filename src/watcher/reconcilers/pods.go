@@ -3,11 +3,17 @@ package reconcilers
 import (
 	"context"
 	"fmt"
+	"github.com/otterize/intents-operator/src/exp/istiopolicy"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -16,15 +22,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-const OtterizeClientNameIndexField = "spec.service.name"
+const (
+	OtterizeClientNameIndexField = "spec.service.name"
+)
 
 type PodWatcher struct {
 	client.Client
-	serviceIdResolver *serviceidresolver.Resolver
+	serviceIdResolver  *serviceidresolver.Resolver
+	istioPolicyCreator *istiopolicy.Creator
+	injectablerecorder.InjectableRecorder
 }
 
-func NewPodWatcher(c client.Client) *PodWatcher {
-	return &PodWatcher{Client: c, serviceIdResolver: serviceidresolver.NewResolver(c)}
+func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string) *PodWatcher {
+	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
+	creator := istiopolicy.NewCreator(c, &recorder, watchedNamespaces)
+	return &PodWatcher{
+		Client:             c,
+		serviceIdResolver:  serviceidresolver.NewResolver(c),
+		istioPolicyCreator: creator,
+		InjectableRecorder: recorder,
+	}
 }
 
 func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -45,6 +62,50 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	err = p.addOtterizePodLabels(ctx, req, serviceID, pod)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = p.handleIstioPolicy(ctx, pod, serviceID)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceID serviceidresolver.ServiceIdentity) error {
+	if !p.istioEnforcementEnabled() || pod.DeletionTimestamp != nil {
+		return nil
+	}
+
+	var intents otterizev1alpha2.ClientIntentsList
+	err := p.List(
+		ctx,
+		&intents,
+		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
+		&client.ListOptions{Namespace: pod.Namespace})
+	if err != nil {
+		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
+		return err
+	}
+
+	if len(intents.Items) == 0 {
+		return nil
+	}
+
+	for _, clientIntents := range intents.Items {
+		err = p.createIstioPolicies(ctx, clientIntents, pod)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request, serviceID serviceidresolver.ServiceIdentity, pod v1.Pod) error {
 	otterizeServerLabelValue := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
 	if !otterizev1alpha2.HasOtterizeServerLabel(&pod, otterizeServerLabelValue) {
 		// Label pods as destination servers
@@ -58,31 +119,31 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.WithError(err).Errorln("Failed labeling pod as server", "Pod name", pod.Name, "Namespace", pod.Namespace)
-			return ctrl.Result{}, err
+			return err
 		}
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	// Intents were deleted and the pod was updated by the operator, skip reconciliation
 	_, ok := pod.Annotations[otterizev1alpha2.AllIntentsRemovedAnnotation]
 	if ok {
 		logrus.Infof("Skipping reconciliation for pod %s - pod is handled by intents-operator", req.Name)
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	var intents otterizev1alpha2.ClientIntentsList
-	err = p.List(
+	err := p.List(
 		ctx, &intents,
 		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
 		&client.ListOptions{Namespace: pod.Namespace})
 
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
-		return ctrl.Result{}, err
+		return err
 	}
 
 	if len(intents.Items) == 0 {
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	otterizeAccessLabels := map[string]string{}
@@ -98,11 +159,41 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.Errorf("Failed updating Otterize labels for pod %s in namespace %s", pod.Name, pod.Namespace)
-			return ctrl.Result{}, err
+			return err
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return nil
+}
+
+func (p *PodWatcher) istioEnforcementEnabled() bool {
+	return viper.GetBool(operatorconfig.EnableIstioPolicyKey)
+}
+
+func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha2.ClientIntents, pod v1.Pod) error {
+	if intents.DeletionTimestamp != nil {
+		return nil
+	}
+
+	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
+
+	err := p.istioPolicyCreator.UpdateIntentsStatus(ctx, &intents, pod.Spec.ServiceAccountName, missingSideCar)
+	if err != nil {
+		return err
+	}
+
+	if missingSideCar {
+		logrus.Infof("Pod %s/%s does not have a sidecar, skipping istio policy creation", pod.Namespace, pod.Name)
+		return nil
+	}
+
+	err = p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, pod.Spec.ServiceAccountName)
+	if err != nil {
+		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
+		return err
+	}
+
+	return nil
 }
 
 func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
@@ -128,7 +219,7 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 func (p *PodWatcher) Register(mgr manager.Manager) error {
 	watcher, err := controller.New("otterize-pod-watcher", mgr, controller.Options{
 		Reconciler:   p,
-		RecoverPanic: true,
+		RecoverPanic: lo.ToPtr(true),
 	})
 	if err != nil {
 		return fmt.Errorf("unable to set up pods controller: %p", err)

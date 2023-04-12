@@ -3,9 +3,11 @@ package main
 import (
 	"github.com/bombsimon/logrusr/v3"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/watcher/reconcilers"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -19,24 +21,17 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(istiosecurityscheme.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(scheme))
 }
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var watchedNamespaces []string
+	operatorconfig.InitCLIFlags()
 
-	pflag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	pflag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	pflag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	pflag.StringSliceVar(&watchedNamespaces, "watched-namespaces", nil,
-		"Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
-
-	pflag.Parse()
+	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
+	enableLeaderElection := viper.GetBool(operatorconfig.EnableLeaderElectionKey)
+	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
+	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
@@ -71,7 +66,8 @@ func main() {
 		logrus.WithError(err).Fatal("unable to start manager")
 	}
 
-	podWatcher := reconcilers.NewPodWatcher(mgr.GetClient())
+	recorder := mgr.GetEventRecorderFor("intents-operator")
+	podWatcher := reconcilers.NewPodWatcher(mgr.GetClient(), recorder, watchedNamespaces)
 
 	nsWatcher := reconcilers.NewNamespaceWatcher(mgr.GetClient())
 

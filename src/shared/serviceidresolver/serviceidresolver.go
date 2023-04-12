@@ -17,7 +17,7 @@ const (
 	ServiceNameAnnotation = "intents.otterize.com/service-name"
 )
 
-var ServiceAccountNotFond = errors.New("service account not found")
+var PodNotFound = errors.New("pod not found")
 
 type Resolver struct {
 	client client.Client
@@ -87,18 +87,27 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 	return obj, nil
 }
 
-func (r *Resolver) ResolveClientIntentToServiceAccountName(ctx context.Context, intent v1alpha2.ClientIntents) (string, error) {
+func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha2.ClientIntents) (corev1.Pod, error) {
 	podsList := &corev1.PodList{}
 	labelSelector, err := intent.BuildPodLabelSelector()
 	if err != nil {
-		return "", err
+		return corev1.Pod{}, err
 	}
 	err = r.client.List(ctx, podsList, client.MatchingLabelsSelector{Selector: labelSelector})
 	if err != nil {
-		return "", err
+		return corev1.Pod{}, err
 	}
 	if len(podsList.Items) == 0 {
-		return "", ServiceAccountNotFond
+		return corev1.Pod{}, PodNotFound
 	}
-	return podsList.Items[0].Spec.ServiceAccountName, nil
+
+	for _, pod := range podsList.Items {
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+
+		return pod, nil
+	}
+
+	return corev1.Pod{}, PodNotFound
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"strconv"
 	"strings"
 )
 
@@ -44,6 +45,10 @@ const (
 	OtterizeNetworkPolicy                  = "intents.otterize.com/network-policy"
 	OtterizeNetworkPolicyExternalTraffic   = "intents.otterize.com/network-policy-external-traffic"
 	NetworkPolicyFinalizerName             = "intents.otterize.com/network-policy-finalizer"
+	OtterizeIstioClientAnnotationKey       = "intents.otterize.com/istio-client"
+	OtterizeClientServiceAccountAnnotation = "intents.otterize.com/client-intents-service-account"
+	OtterizeSharedServiceAccountAnnotation = "intents.otterize.com/shared-service-account"
+	OtterizeMissingSidecarAnnotation       = "intents.otterize.com/service-missing-sidecar"
 	OtterizeTargetServerIndexField         = "spec.service.calls.server"
 	EndpointsPodNamesIndexField            = "endpointsPodNames"
 	IngressServiceNamesIndexField          = "ingressServiceNames"
@@ -214,10 +219,50 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
+			statusInput, err := clientIntentsStatusToCloudFormat(clientIntents)
+			if err != nil {
+				return nil, err
+			}
+			input.Status = statusInput
 			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
 		}
 	}
+
 	return otterizeIntents, nil
+}
+
+func clientIntentsStatusToCloudFormat(clientIntents ClientIntents) (*graphqlclient.IntentStatusInput, error) {
+	var status graphqlclient.IntentStatusInput
+
+	serviceAccountName, ok := clientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
+	if !ok {
+		// Status is not set, nothing to do
+		return nil, nil
+	}
+
+	status.ServiceAccountName = toPtrOrNil(serviceAccountName)
+	isSharedValue, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("missing annotation shared service account for client intents %s", clientIntents.Name)
+	}
+
+	isShared, err := strconv.ParseBool(isSharedValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse shared service account annotation for client intents %s", clientIntents.Name)
+	}
+	status.IsServiceAccountShared = lo.ToPtr(isShared)
+
+	missingSideCarValue, ok := clientIntents.Annotations[OtterizeMissingSidecarAnnotation]
+	if !ok {
+		return nil, fmt.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
+	}
+
+	missingSideCar, err := strconv.ParseBool(missingSideCarValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
+	}
+	status.MissingSidecar = lo.ToPtr(missingSideCar)
+	return &status, nil
 }
 
 func toPtrOrNil(s string) *string {
@@ -279,11 +324,28 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		intentInput.Type = lo.ToPtr(in.typeAsGQLType())
 	}
 
+	if in.HTTPResources != nil {
+		intentInput.Resources = lo.Map(in.HTTPResources, intentsHTTPResourceToCloud)
+	}
+
 	if len(otterizeTopics) != 0 {
 		intentInput.Topics = otterizeTopics
 	}
 
 	return intentInput
+}
+
+func intentsHTTPResourceToCloud(resource HTTPResource, index int) *graphqlclient.HTTPConfigInput {
+	methods := lo.Map(resource.Methods, func(method HTTPMethod, _ int) *graphqlclient.HTTPMethod {
+		return lo.ToPtr(graphqlclient.HTTPMethod(method))
+	})
+
+	httpConfig := graphqlclient.HTTPConfigInput{
+		Path:    lo.ToPtr(resource.Path),
+		Methods: methods,
+	}
+
+	return &httpConfig
 }
 
 // GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)
