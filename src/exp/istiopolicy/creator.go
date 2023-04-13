@@ -62,7 +62,7 @@ func (c *Creator) DeleteAll(
 		&v1beta1.AuthorizationPolicy{},
 		client.MatchingLabels{v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
 	if err != nil && !k8serrors.IsNotFound(err) {
-		c.recorder.RecordWarningEventf(clientIntents, ReasonGettingIstioPolicyFailed, "could not get istio policies: %s", err.Error())
+		c.recorder.RecordWarningEventf(clientIntents, ReasonGettingIstioPolicyFailed, "Could not get Istio policies: %s", err.Error())
 		return err
 	}
 
@@ -82,7 +82,7 @@ func (c *Creator) Create(
 		&existingPolicies,
 		client.MatchingLabels{v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
 	if err != nil {
-		c.recorder.RecordWarningEventf(clientIntents, ReasonGettingIstioPolicyFailed, "could not get istio policies: %s", err.Error())
+		c.recorder.RecordWarningEventf(clientIntents, ReasonGettingIstioPolicyFailed, "Could not get Istio policies: %s", err.Error())
 		return err
 	}
 
@@ -93,12 +93,12 @@ func (c *Creator) Create(
 
 	err = c.deleteOutdatedPolicies(ctx, existingPolicies, updatedPolicies)
 	if err != nil {
-		c.recorder.RecordWarningEventf(clientIntents, ReasonDeleteIstioPolicyFailed, "failed to delete istio policy: %s", err.Error())
+		c.recorder.RecordWarningEventf(clientIntents, ReasonDeleteIstioPolicyFailed, "Failed to delete Istio policy: %s", err.Error())
 		return err
 	}
 
 	if len(clientIntents.GetCallsList()) > 0 {
-		c.recorder.RecordNormalEventf(clientIntents, ReasonCreatedIstioPolicy, "istio policies reconcile complete, reconciled %d servers", len(clientIntents.GetCallsList()))
+		c.recorder.RecordNormalEventf(clientIntents, ReasonCreatedIstioPolicy, "Istio policy reconcile complete, reconciled %d servers", len(clientIntents.GetCallsList()))
 	}
 
 	return nil
@@ -138,13 +138,11 @@ func (c *Creator) saveServiceAccountName(ctx context.Context, clientIntents *v1a
 	err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed updating intent with service account name")
-		c.recorder.RecordWarningEventf(clientIntents, ReasonIntentsLabelFailed, "Failed updating intent with service account name: %s", err.Error())
 		return err
 	}
 
 	logrus.Infof("updating intent %s with service account name %s", clientIntents.Name, clientServiceAccount)
 
-	c.recorder.RecordNormalEventf(clientIntents, ReasonServiceAccountFound, "Client intents service account found %s", clientServiceAccount)
 	return nil
 }
 
@@ -162,12 +160,7 @@ func (c *Creator) saveSideCarStatus(ctx context.Context, clientIntents *v1alpha2
 	updatedIntents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation] = strconv.FormatBool(missingSideCar)
 	err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
 	if err != nil {
-		c.recorder.RecordWarningEventf(clientIntents, ReasonIntentsLabelFailed, "Failed updating intent with service account name: %s", err.Error())
 		return err
-	}
-
-	if missingSideCar {
-		c.recorder.RecordWarningEventf(clientIntents, ReasonMissingSidecar, "Client pod missing sidecar, will not create policies")
 	}
 
 	return nil
@@ -254,7 +247,7 @@ func (c *Creator) createOrUpdatePolicies(
 			c.recorder.RecordWarningEventf(
 				clientIntents,
 				ReasonNamespaceNotAllowed,
-				"namespace %s was specified in intent, but is not allowed by configuration, istio policy ignored",
+				"Namespace %s was specified in intent, but is not allowed by configuration, Istio policy ignored",
 				clientNamespace,
 			)
 			continue
@@ -265,7 +258,7 @@ func (c *Creator) createOrUpdatePolicies(
 		if found {
 			err := c.UpdatePolicy(ctx, existingPolicy, newPolicy)
 			if err != nil {
-				c.recorder.RecordWarningEventf(clientIntents, ReasonUpdatingIstioPolicyFailed, "failed to update istio policy: %s", err.Error())
+				c.recorder.RecordWarningEventf(clientIntents, ReasonUpdatingIstioPolicyFailed, "Failed to update Istio policy: %s", err.Error())
 				return goset.Set[PolicyID]{}, err
 			}
 			updatedPolicies.Add(PolicyID(existingPolicy.UID))
@@ -274,7 +267,7 @@ func (c *Creator) createOrUpdatePolicies(
 
 		err := c.client.Create(ctx, newPolicy)
 		if err != nil {
-			c.recorder.RecordWarningEventf(clientIntents, ReasonCreatingIstioPolicyFailed, "failed to istio policy: %s", err.Error())
+			c.recorder.RecordWarningEventf(clientIntents, ReasonCreatingIstioPolicyFailed, "Failed to create Istio policy: %s", err.Error())
 			return goset.Set[PolicyID]{}, err
 		}
 	}
@@ -320,10 +313,9 @@ func (c *Creator) UpdatePolicy(ctx context.Context, existingPolicy *v1beta1.Auth
 
 	err := c.client.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 	if err != nil {
-		c.recorder.RecordWarningEventf(existingPolicy, ReasonUpdatingIstioPolicyFailed, "failed to update istio policy: %s", err.Error())
+		c.recorder.RecordWarningEventf(existingPolicy, ReasonUpdatingIstioPolicyFailed, "Failed to update Istio policy: %s", err.Error())
 		return err
 	}
-	logrus.Infof("Updating existing istio policy %s", newPolicy.Name)
 
 	return nil
 }
@@ -375,7 +367,7 @@ func (c *Creator) generateAuthorizationPolicy(
 	clientServiceAccountName string,
 ) *v1beta1.AuthorizationPolicy {
 	policyName := c.getPolicyName(clientIntents, intent)
-	logrus.Infof("Creating istio policy %s for intent %s", policyName, intent.GetServerName())
+	logrus.Infof("Creating Istio policy %s for intent %s", policyName, intent.GetServerName())
 
 	serverNamespace := intent.GetServerNamespace(objectNamespace)
 	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), serverNamespace)

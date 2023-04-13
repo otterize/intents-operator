@@ -183,7 +183,7 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 	}
 
 	if missingSideCar {
-		logrus.Infof("Pod %s/%s does not have a sidecar, skipping istio policy creation", pod.Namespace, pod.Name)
+		logrus.Infof("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
 		return nil
 	}
 
