@@ -69,7 +69,7 @@ func InitCLIFlags() {
 	pflag.String(ProbeAddrKey, ProbeAddrDefault, "The address the probe endpoint binds to.")
 	pflag.Bool(EnableLeaderElectionKey, EnableLeaderElectionDefault, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	pflag.StringSlice(WatchedNamespacesKey, nil, "Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
-	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable istio authorization policy creation")
+	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
 
 	runtime.Must(viper.BindPFlags(pflag.CommandLine))
 
