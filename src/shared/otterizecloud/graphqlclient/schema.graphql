@@ -105,11 +105,15 @@ type Cluster {
 type ClusterConfiguration {
 	globalDefaultDeny: Boolean!
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
+	useKafkaACLsInAccessGraphStates: Boolean!
 }
 
 input ClusterConfigurationInput {
 	globalDefaultDeny: Boolean!
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean
+	useKafkaACLsInAccessGraphStates: Boolean
 }
 
 type ComponentStatus {
@@ -150,6 +154,8 @@ input DiscoveredIntentInput {
 
 type EdgeAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
+	useKafkaPoliciesInAccessGraphStates: Boolean!
 	verdict: EdgeAccessStatusVerdict!
 	reason: EdgeAccessStatusReason!
 }
@@ -157,6 +163,14 @@ type EdgeAccessStatus {
 enum EdgeAccessStatusReason {
 	ALLOWED_BY_APPLIED_INTENTS
 	ALLOWED_BY_APPLIED_INTENTS_OVERLY_PERMISSIVE
+	ALLOWED_BY_APPLIED_INTENTS_HTTP_OVERLY_PERMISSIVE
+	ALLOWED_BY_APPLIED_INTENTS_KAFKA_OVERLY_MISMATCH
+	BLOCKED_BY_APPLIED_INTENTS_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_RESOURCE_MISMATCH
+	BLOCKED_BY_APPLIED_INTENTS_HTTP_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_HTTP_RESOURCE_MISMATCH
+	BLOCKED_BY_APPLIED_INTENTS_KAFKA_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_KAFKA_RESOURCE_MISMATCH
 	BLOCKED_BY_DEFAULT_DENY
 	INTENTS_OPERATOR_NOT_ENFORCING
 	INTENTS_OPERATOR_NOT_ENFORCING_MISSING_APPLIED_INTENT
@@ -749,6 +763,8 @@ type ServiceAccessGraph {
 
 type ServiceAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useKafkaACLsInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
 	protectionStatus: ServerProtectionStatus!
 	blockingStatus: ServerBlockingStatus!
 	hasAppliedIntents: Boolean!
