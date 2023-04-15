@@ -297,13 +297,15 @@ input IntentsOperatorConfigurationInput {
 type IntentStatus {
 	serviceAccountName: String!
 	isServiceAccountShared: Boolean!
-	missingSidecar: Boolean!
+	isServerMissingSidecar: Boolean!
+	isClientMissingSidecar: Boolean!
 }
 
 input IntentStatusInput {
 	serviceAccountName: String!
 	isServiceAccountShared: Boolean!
-	missingSidecar: Boolean!
+	isServerMissingSidecar: Boolean!
+	isClientMissingSidecar: Boolean!
 }
 
 enum IntentType {
