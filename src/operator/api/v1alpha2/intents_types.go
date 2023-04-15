@@ -260,7 +260,7 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 }
 
 func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent) (*graphqlclient.IntentStatusInput, error) {
-	var status graphqlclient.IntentStatusInput
+	var status graphqlclient.IstioStatusInput
 
 	serviceAccountName, ok := clientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
 	if !ok {
@@ -291,7 +291,10 @@ func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent
 	}
 	status.IsClientMissingSidecar = lo.ToPtr(clientMissingSidecar)
 	status.IsServerMissingSidecar = lo.ToPtr(clientIntents.IsServerMissingSidecar(intent))
-	return &status, nil
+	intentsStatus := graphqlclient.IntentStatusInput{
+		IstioStatus: &status,
+	}
+	return &intentsStatus, nil
 }
 
 func toPtrOrNil(s string) *string {

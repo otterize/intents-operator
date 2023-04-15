@@ -176,11 +176,13 @@ func (s *CloudReconcilerTestSuite) TestIntentsStatusUpload() {
 		},
 	}
 	expectedIntent.Topics = []*graphqlclient.KafkaConfigInput{&kafkaConfigInput}
-	expectedIntent.Status = &graphqlclient.IntentStatusInput{}
-	expectedIntent.Status.ServiceAccountName = lo.ToPtr(serviceAccountName)
-	expectedIntent.Status.IsServiceAccountShared = lo.ToPtr(false)
-	expectedIntent.Status.IsClientMissingSidecar = lo.ToPtr(false)
-	expectedIntent.Status.IsServerMissingSidecar = lo.ToPtr(false)
+	expectedIntent.Status = &graphqlclient.IntentStatusInput{
+		IstioStatus: &graphqlclient.IstioStatusInput{},
+	}
+	expectedIntent.Status.IstioStatus.ServiceAccountName = lo.ToPtr(serviceAccountName)
+	expectedIntent.Status.IstioStatus.IsServiceAccountShared = lo.ToPtr(false)
+	expectedIntent.Status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(false)
+	expectedIntent.Status.IstioStatus.IsServerMissingSidecar = lo.ToPtr(false)
 	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
 	expectedNamespace := lo.ToPtr(s.TestNamespace)
 
@@ -253,12 +255,13 @@ func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
 			Methods: []*graphqlclient.HTTPMethod{lo.ToPtr(graphqlclient.HTTPMethodPost)},
 		},
 	}
-
-	expectedIntent.Status = &graphqlclient.IntentStatusInput{}
-	expectedIntent.Status.ServiceAccountName = lo.ToPtr(serviceAccountName)
-	expectedIntent.Status.IsServiceAccountShared = lo.ToPtr(false)
-	expectedIntent.Status.IsClientMissingSidecar = lo.ToPtr(false)
-	expectedIntent.Status.IsServerMissingSidecar = lo.ToPtr(false)
+	expectedIntent.Status = &graphqlclient.IntentStatusInput{
+		IstioStatus: &graphqlclient.IstioStatusInput{},
+	}
+	expectedIntent.Status.IstioStatus.ServiceAccountName = lo.ToPtr(serviceAccountName)
+	expectedIntent.Status.IstioStatus.IsServiceAccountShared = lo.ToPtr(false)
+	expectedIntent.Status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(false)
+	expectedIntent.Status.IstioStatus.IsServerMissingSidecar = lo.ToPtr(false)
 
 	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
 	expectedNamespace := lo.ToPtr(s.TestNamespace)
