@@ -173,21 +173,6 @@ func (c *Creator) setServersWithoutSidecar(ctx context.Context, clientIntents *v
 	return serversValues, nil
 }
 
-func getServersWithoutSidecar(clientIntents *v1alpha2.ClientIntents) sets.Set[string] {
-	servers, ok := clientIntents.Annotations[v1alpha2.OtterizeServersWithoutSidecarAnnotation]
-	if !ok {
-		servers = ""
-	}
-
-	var serversList []string
-	if len(servers) > 0 {
-		serversList = strings.Split(servers, ",")
-	}
-
-	set := sets.New[string](serversList...)
-	return set
-}
-
 func (c *Creator) saveServiceAccountName(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {
 	serviceAccountLabelValue, ok := clientIntents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
 	if ok && serviceAccountLabelValue == clientServiceAccount {
