@@ -25,6 +25,7 @@ import (
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"strconv"
 	"strings"
 )
@@ -33,28 +34,29 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
-	OtterizeAccessLabelPrefix              = "intents.otterize.com/access"
-	OtterizeAccessLabelKey                 = "intents.otterize.com/access-%s"
-	OtterizeClientLabelKey                 = "intents.otterize.com/client"
-	OtterizeServerLabelKey                 = "intents.otterize.com/server"
-	OtterizeNamespaceLabelKey              = "intents.otterize.com/namespace-name"
-	AllIntentsRemovedAnnotation            = "intents.otterize.com/all-intents-removed"
-	OtterizeCreatedForServiceAnnotation    = "intents.otterize.com/created-for-service"
-	OtterizeCreatedForIngressAnnotation    = "intents.otterize.com/created-for-ingress"
-	OtterizeNetworkPolicyNameTemplate      = "access-to-%s-from-%s"
-	OtterizeNetworkPolicy                  = "intents.otterize.com/network-policy"
-	OtterizeNetworkPolicyExternalTraffic   = "intents.otterize.com/network-policy-external-traffic"
-	NetworkPolicyFinalizerName             = "intents.otterize.com/network-policy-finalizer"
-	OtterizeIstioClientAnnotationKey       = "intents.otterize.com/istio-client"
-	OtterizeClientServiceAccountAnnotation = "intents.otterize.com/client-intents-service-account"
-	OtterizeSharedServiceAccountAnnotation = "intents.otterize.com/shared-service-account"
-	OtterizeMissingSidecarAnnotation       = "intents.otterize.com/service-missing-sidecar"
-	OtterizeTargetServerIndexField         = "spec.service.calls.server"
-	EndpointsPodNamesIndexField            = "endpointsPodNames"
-	IngressServiceNamesIndexField          = "ingressServiceNames"
-	NetworkPoliciesByIngressNameIndexField = "networkPoliciesByIngressName"
-	MaxOtterizeNameLength                  = 20
-	MaxNamespaceLength                     = 20
+	OtterizeAccessLabelPrefix               = "intents.otterize.com/access"
+	OtterizeAccessLabelKey                  = "intents.otterize.com/access-%s"
+	OtterizeClientLabelKey                  = "intents.otterize.com/client"
+	OtterizeServerLabelKey                  = "intents.otterize.com/server"
+	OtterizeNamespaceLabelKey               = "intents.otterize.com/namespace-name"
+	AllIntentsRemovedAnnotation             = "intents.otterize.com/all-intents-removed"
+	OtterizeCreatedForServiceAnnotation     = "intents.otterize.com/created-for-service"
+	OtterizeCreatedForIngressAnnotation     = "intents.otterize.com/created-for-ingress"
+	OtterizeNetworkPolicyNameTemplate       = "access-to-%s-from-%s"
+	OtterizeNetworkPolicy                   = "intents.otterize.com/network-policy"
+	OtterizeNetworkPolicyExternalTraffic    = "intents.otterize.com/network-policy-external-traffic"
+	NetworkPolicyFinalizerName              = "intents.otterize.com/network-policy-finalizer"
+	OtterizeIstioClientAnnotationKey        = "intents.otterize.com/istio-client"
+	OtterizeClientServiceAccountAnnotation  = "intents.otterize.com/client-intents-service-account"
+	OtterizeSharedServiceAccountAnnotation  = "intents.otterize.com/shared-service-account"
+	OtterizeMissingSidecarAnnotation        = "intents.otterize.com/service-missing-sidecar"
+	OtterizeServersWithoutSidecarAnnotation = "intents.otterize.com/servers-without-sidecar"
+	OtterizeTargetServerIndexField          = "spec.service.calls.server"
+	EndpointsPodNamesIndexField             = "endpointsPodNames"
+	IngressServiceNamesIndexField           = "ingressServiceNames"
+	NetworkPoliciesByIngressNameIndexField  = "networkPoliciesByIngressName"
+	MaxOtterizeNameLength                   = 20
+	MaxNamespaceLength                      = 20
 )
 
 // +kubebuilder:validation:Enum=http;kafka
@@ -214,15 +216,41 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 	}
 }
 
+func (in *ClientIntents) GetServersWithoutSidecar() sets.Set[string] {
+	if in.Annotations == nil {
+		return sets.New[string]()
+	}
+
+	servers, ok := in.Annotations[OtterizeServersWithoutSidecarAnnotation]
+	if !ok {
+		servers = ""
+	}
+
+	var serversList []string
+	if len(servers) > 0 {
+		serversList = strings.Split(servers, ",")
+	}
+
+	set := sets.New[string](serversList...)
+	return set
+}
+
+func (in *ClientIntents) IsServerMissingSidecar(intent Intent) bool {
+	serversSet := in.GetServersWithoutSidecar()
+	serverIdentity := GetFormattedOtterizeIdentity(intent.GetServerName(), intent.GetServerNamespace(in.Namespace))
+	return serversSet.Has(serverIdentity)
+}
+
 func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentInput, error) {
 	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
-			statusInput, err := clientIntentsStatusToCloudFormat(clientIntents)
+			statusInput, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {
 				return nil, err
 			}
+
 			input.Status = statusInput
 			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
 		}
@@ -231,7 +259,7 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	return otterizeIntents, nil
 }
 
-func clientIntentsStatusToCloudFormat(clientIntents ClientIntents) (*graphqlclient.IntentStatusInput, error) {
+func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent) (*graphqlclient.IntentStatusInput, error) {
 	var status graphqlclient.IntentStatusInput
 
 	serviceAccountName, ok := clientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
@@ -252,16 +280,17 @@ func clientIntentsStatusToCloudFormat(clientIntents ClientIntents) (*graphqlclie
 	}
 	status.IsServiceAccountShared = lo.ToPtr(isShared)
 
-	missingSideCarValue, ok := clientIntents.Annotations[OtterizeMissingSidecarAnnotation]
+	clientMissingSidecarValue, ok := clientIntents.Annotations[OtterizeMissingSidecarAnnotation]
 	if !ok {
 		return nil, fmt.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
 	}
 
-	missingSideCar, err := strconv.ParseBool(missingSideCarValue)
+	clientMissingSidecar, err := strconv.ParseBool(clientMissingSidecarValue)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
 	}
-	status.MissingSidecar = lo.ToPtr(missingSideCar)
+	status.IsClientMissingSidecar = lo.ToPtr(clientMissingSidecar)
+	status.IsServerMissingSidecar = lo.ToPtr(clientIntents.IsServerMissingSidecar(intent))
 	return &status, nil
 }
 

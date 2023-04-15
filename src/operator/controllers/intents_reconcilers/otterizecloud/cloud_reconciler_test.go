@@ -179,7 +179,8 @@ func (s *CloudReconcilerTestSuite) TestIntentsStatusUpload() {
 	expectedIntent.Status = &graphqlclient.IntentStatusInput{}
 	expectedIntent.Status.ServiceAccountName = lo.ToPtr(serviceAccountName)
 	expectedIntent.Status.IsServiceAccountShared = lo.ToPtr(false)
-	expectedIntent.Status.MissingSidecar = lo.ToPtr(false)
+	expectedIntent.Status.IsClientMissingSidecar = lo.ToPtr(false)
+	expectedIntent.Status.IsServerMissingSidecar = lo.ToPtr(false)
 	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
 	expectedNamespace := lo.ToPtr(s.TestNamespace)
 
@@ -256,7 +257,9 @@ func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
 	expectedIntent.Status = &graphqlclient.IntentStatusInput{}
 	expectedIntent.Status.ServiceAccountName = lo.ToPtr(serviceAccountName)
 	expectedIntent.Status.IsServiceAccountShared = lo.ToPtr(false)
-	expectedIntent.Status.MissingSidecar = lo.ToPtr(false)
+	expectedIntent.Status.IsClientMissingSidecar = lo.ToPtr(false)
+	expectedIntent.Status.IsServerMissingSidecar = lo.ToPtr(false)
+
 	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
 	expectedNamespace := lo.ToPtr(s.TestNamespace)
 

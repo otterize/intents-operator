@@ -80,8 +80,13 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 		return nil
 	}
 
+	err := p.updateServerSideCar(ctx, pod, serviceID)
+	if err != nil {
+		return err
+	}
+
 	var intents otterizev1alpha2.ClientIntentsList
-	err := p.List(
+	err = p.List(
 		ctx,
 		&intents,
 		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
@@ -97,6 +102,33 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 
 	for _, clientIntents := range intents.Items {
 		err = p.createIstioPolicies(ctx, clientIntents, pod)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, serviceID serviceidresolver.ServiceIdentity) error {
+	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
+
+	serviceFullName := fmt.Sprintf("%s.%s", serviceID.Name, pod.Namespace)
+	var intentsList otterizev1alpha2.ClientIntentsList
+	err := p.List(
+		ctx, &intentsList,
+		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serviceFullName})
+	if err != nil {
+		return err
+	}
+
+	if len(intentsList.Items) == 0 {
+		return nil
+	}
+
+	for _, clientIntents := range intentsList.Items {
+		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
+		err = p.istioPolicyCreator.UpdateServerSidecar(ctx, &clientIntents, formattedTargetServer, missingSideCar)
 		if err != nil {
 			return err
 		}
@@ -207,6 +239,32 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 				return nil
 			}
 			return []string{intents.Spec.Service.Name}
+		})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *PodWatcher) InitIntentsServerIndices(mgr ctrl.Manager) error {
+	err := mgr.GetCache().IndexField(
+		context.Background(),
+		&otterizev1alpha2.ClientIntents{},
+		otterizev1alpha2.OtterizeTargetServerIndexField,
+		func(object client.Object) []string {
+			var res []string
+			intents := object.(*otterizev1alpha2.ClientIntents)
+			if intents.Spec == nil {
+				return nil
+			}
+
+			for _, intent := range intents.GetCallsList() {
+				res = append(res, intent.Name)
+			}
+
+			return res
 		})
 
 	if err != nil {

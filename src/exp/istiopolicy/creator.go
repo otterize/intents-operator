@@ -14,6 +14,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
@@ -26,9 +27,8 @@ const (
 	ReasonDeleteIstioPolicyFailed   = "DeleteIstioPolicyFailed"
 	ReasonCreatedIstioPolicy        = "CreatedIstioPolicy"
 	ReasonNamespaceNotAllowed       = "NamespaceNotAllowed"
-	ReasonIntentsLabelFailed        = "IntentsLabelFailed"
-	ReasonServiceAccountFound       = "ServiceAccountFound"
 	ReasonMissingSidecar            = "MissingSidecar"
+	ReasonServerMissingSidecar      = "ServerMissingSidecar"
 	ReasonSharedServiceAccount      = "SharedServiceAccountFound"
 	OtterizeIstioPolicyNameTemplate = "authorization-policy-to-%s-from-%s"
 )
@@ -121,6 +121,71 @@ func (c *Creator) UpdateIntentsStatus(
 	}
 
 	return c.updateSharedServiceAccountsInNamespace(ctx, clientIntents.Namespace)
+}
+
+func (c *Creator) UpdateServerSidecar(
+	ctx context.Context,
+	clientIntents *v1alpha2.ClientIntents,
+	serverName string,
+	missingSideCar bool,
+) error {
+	set := clientIntents.GetServersWithoutSidecar()
+	if missingSideCar {
+		if set.Has(serverName) {
+			return nil
+		}
+		set.Insert(serverName)
+	} else {
+		if !set.Has(serverName) {
+			return nil
+		}
+		set.Delete(serverName)
+	}
+
+	serversValues, err := c.setServersWithoutSidecar(ctx, clientIntents, set)
+	if err != nil {
+		return err
+	}
+
+	if missingSideCar {
+		c.recorder.RecordWarningEventf(clientIntents, ReasonServerMissingSidecar, "Can't apply policies for server %s since it doesn't have sidecar", serverName)
+	}
+
+	// ################# TODO: remove this log before pushing
+	logrus.Infof("updating intent %s with servers without sidecar %s", clientIntents.Name, serversValues)
+
+	return nil
+}
+
+func (c *Creator) setServersWithoutSidecar(ctx context.Context, clientIntents *v1alpha2.ClientIntents, set sets.Set[string]) (string, error) {
+	serversSortedList := sets.List(set)
+	serversValues := strings.Join(serversSortedList, ",")
+	updatedIntents := clientIntents.DeepCopy()
+	if updatedIntents.Annotations == nil {
+		updatedIntents.Annotations = make(map[string]string)
+	}
+
+	updatedIntents.Annotations[v1alpha2.OtterizeServersWithoutSidecarAnnotation] = serversValues
+	err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
+	if err != nil {
+		return "", err
+	}
+	return serversValues, nil
+}
+
+func getServersWithoutSidecar(clientIntents *v1alpha2.ClientIntents) sets.Set[string] {
+	servers, ok := clientIntents.Annotations[v1alpha2.OtterizeServersWithoutSidecarAnnotation]
+	if !ok {
+		servers = ""
+	}
+
+	var serversList []string
+	if len(servers) > 0 {
+		serversList = strings.Split(servers, ",")
+	}
+
+	set := sets.New[string](serversList...)
+	return set
 }
 
 func (c *Creator) saveServiceAccountName(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {
@@ -248,6 +313,16 @@ func (c *Creator) createOrUpdatePolicies(
 				clientIntents,
 				ReasonNamespaceNotAllowed,
 				"Namespace %s was specified in intent, but is not allowed by configuration, Istio policy ignored",
+				clientNamespace,
+			)
+			continue
+		}
+
+		if clientIntents.IsServerMissingSidecar(intent) {
+			c.recorder.RecordWarningEventf(
+				clientIntents,
+				ReasonServerMissingSidecar,
+				"Server namespace %s is missing sidecar, Istio policy ignored",
 				clientNamespace,
 			)
 			continue
