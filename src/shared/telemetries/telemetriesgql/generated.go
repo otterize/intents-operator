@@ -64,14 +64,14 @@ func (v *SendTelemetriesResponse) GetSendTelemetries() bool { return v.SendTelem
 
 type TelemetryData struct {
 	EventType EventType `json:"eventType"`
-	Data      string    `json:"data"`
+	Count     int       `json:"count"`
 }
 
 // GetEventType returns TelemetryData.EventType, and is useful for accessing the field via an interface.
 func (v *TelemetryData) GetEventType() EventType { return v.EventType }
 
-// GetData returns TelemetryData.Data, and is useful for accessing the field via an interface.
-func (v *TelemetryData) GetData() string { return v.Data }
+// GetCount returns TelemetryData.Count, and is useful for accessing the field via an interface.
+func (v *TelemetryData) GetCount() int { return v.Count }
 
 type TelemetryInput struct {
 	Component Component     `json:"component"`

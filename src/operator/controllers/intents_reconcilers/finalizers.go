@@ -9,7 +9,7 @@ import (
 
 func removeIntentFinalizers(intents *otterizev1alpha2.ClientIntents, finalizerName string) {
 	if len(intents.GetFinalizers()) <= 1 {
-		telemetrysender.Send(telemetriesgql.EventTypeIntentsDeleted, map[string]string{"ns": telemetrysender.Anonymize(intents.Namespace)})
+		telemetrysender.Send(telemetriesgql.EventTypeIntentsDeleted, 1)
 	}
 	controllerutil.RemoveFinalizer(intents, finalizerName)
 }

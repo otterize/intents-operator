@@ -338,7 +338,7 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 			if err := a.kafkaAdminClient.CreateACLs(resourceAclsCreate); err != nil {
 				return fmt.Errorf("failed applying ACLs to server: %w", err)
 			}
-			telemetrysender.Send(telemetriesgql.EventTypeKafkaAclCreated, map[string]string{"count": fmt.Sprintf("%d", len(resourceAclsCreate))})
+			telemetrysender.Send(telemetriesgql.EventTypeKafkaAclCreated, len(resourceAclsCreate))
 		} else if !a.enableKafkaACLCreation {
 			logger.Infof("Skipped creation of %d new ACLs because Kafka ACL Creation is disabled", len(resourceAclsCreate))
 		} else if !a.enforcementEnabledGlobally {
@@ -353,7 +353,7 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 		if err := a.deleteResourceAcls(resourceAclsDelete); err != nil {
 			return fmt.Errorf("failed deleting ACLs on server: %w", err)
 		}
-		telemetrysender.Send(telemetriesgql.EventTypeKafkaAclDeleted, map[string]string{"count": fmt.Sprintf("%d", len(resourceAclsCreate))})
+		telemetrysender.Send(telemetriesgql.EventTypeKafkaAclDeleted, len(resourceAclsCreate))
 	}
 
 	if err := a.logACLs(); err != nil {

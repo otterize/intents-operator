@@ -16,11 +16,11 @@ func SetGlobalComponent(component telemetriesgql.Component) {
 	globalComponent = component
 }
 
-func Send(eventType telemetriesgql.EventType, data map[string]string) {
+func Send(eventType telemetriesgql.EventType, count int) {
 	stdOnce.Do(func() {
 		std = New()
 	})
-	if err := std.Send(globalComponent, eventType, data); err != nil {
+	if err := std.Send(globalComponent, eventType, count); err != nil {
 		logrus.Warningf("failed sending telemetry. %s", err)
 	}
 }

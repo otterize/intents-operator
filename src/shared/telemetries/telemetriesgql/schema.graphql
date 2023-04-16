@@ -61,15 +61,12 @@ scalar ID
 scalar Int
 
 type Mutation {
-"""This is just a placeholder since currently GraphQL does not allow empty types"""
-	dummy: Boolean
 	sendTelemetries(
 		telemetries: [TelemetryInput!]!
 	): Boolean!
 }
 
 type Query {
-"""This is just a placeholder since currently GraphQL does not allow empty types"""
 	dummy: Boolean
 }
 
@@ -78,7 +75,7 @@ scalar String
 
 input TelemetryData {
 	eventType: EventType!
-	data: String!
+	count: Int!
 }
 
 input TelemetryInput {

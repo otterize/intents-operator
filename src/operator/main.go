@@ -148,7 +148,7 @@ func main() {
 	telemetrysender.SetGlobalComponent(
 		telemetriesgql.Component{
 			ComponentType:      telemetriesgql.ComponentTypeIntentsOperator,
-			PlatformIdentifier: kubeSystemUID,
+			PlatformIdentifier: telemetrysender.Anonymize(kubeSystemUID),
 			Identifier:         uuid.NewString(),
 		})
 
@@ -252,7 +252,7 @@ func main() {
 	}
 
 	logrus.Info("starting manager")
-	telemetrysender.Send(telemetriesgql.EventTypeStarted, nil)
+	telemetrysender.Send(telemetriesgql.EventTypeStarted, 0)
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Fatal("problem running manager")
 	}

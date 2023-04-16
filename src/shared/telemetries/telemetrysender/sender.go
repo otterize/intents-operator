@@ -2,8 +2,6 @@ package telemetrysender
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"github.com/Khan/genqlient/graphql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/basicbatch"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
@@ -50,20 +48,12 @@ func New() *TelemetrySender {
 
 }
 
-func (t *TelemetrySender) Send(component telemetriesgql.Component, eventType telemetriesgql.EventType, data map[string]string) error {
+func (t *TelemetrySender) Send(component telemetriesgql.Component, eventType telemetriesgql.EventType, count int) error {
 	if !t.enabled {
 		return nil
 	}
-	dataJsonStr := ""
-	if len(data) != 0 {
-		dataJson, err := json.Marshal(data)
-		if err != nil {
-			return fmt.Errorf("failed serializing data %s", data)
-		}
-		dataJsonStr = string(dataJson)
-	}
 
-	telemetryData := telemetriesgql.TelemetryData{EventType: eventType, Data: dataJsonStr}
+	telemetryData := telemetriesgql.TelemetryData{EventType: eventType, Count: count}
 	telemetry := telemetriesgql.TelemetryInput{Component: component, Data: telemetryData}
 	t.batcher.AddNoWait(telemetry)
 	return nil
