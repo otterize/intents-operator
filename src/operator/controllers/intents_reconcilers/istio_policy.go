@@ -75,9 +75,19 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
-			r.RecordWarningEventf(intents, ReasonRemovingIstioPolicyFailed, "could not remove istio policies: %s", err.Error())
+			r.RecordWarningEventf(intents, ReasonRemovingIstioPolicyFailed, "Could not remove Istio policies: %s", err.Error())
 			return ctrl.Result{}, err
 		}
+		return ctrl.Result{}, nil
+	}
+
+	if !r.enforcementEnabledGlobally {
+		r.RecordNormalEvent(intents, ReasonEnforcementGloballyDisabled, "Enforcement is disabled globally, Istio policy creation skipped")
+		return ctrl.Result{}, nil
+	}
+
+	if !r.enableIstioPolicyCreation {
+		r.RecordNormalEvent(intents, ReasonIstioPolicyCreationDisabled, "Istio policy creation is disabled, creation skipped")
 		return ctrl.Result{}, nil
 	}
 
@@ -89,23 +99,13 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		}
 	}
 
-	if !r.enforcementEnabledGlobally {
-		r.RecordNormalEvent(intents, ReasonEnforcementGloballyDisabled, "Enforcement is disabled globally, istio policy creation skipped")
-		return ctrl.Result{}, nil
-	}
-
-	if !r.enableIstioPolicyCreation {
-		r.RecordNormalEvent(intents, ReasonIstioPolicyCreationDisabled, "Istio policy creation is disabled, creation skipped")
-		return ctrl.Result{}, nil
-	}
-
 	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, *intents)
 	if err != nil {
 		if err == serviceidresolver.PodNotFound {
 			r.RecordWarningEventf(
 				intents,
 				ReasonServiceAccountNotFound,
-				"could not find pod for service %s in namespace %s",
+				"Could not find pod for service %s in namespace %s",
 				intents.Spec.Service.Name,
 				intents.Namespace)
 			return ctrl.Result{}, nil
@@ -123,8 +123,14 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	if missingSideCar {
-		logrus.Infof("Pod %s/%s does not have a sidecar, skipping istio policy creation", pod.Namespace, pod.Name)
+		r.RecordWarningEvent(intents, istiopolicy.ReasonMissingSidecar, "Client pod missing sidecar, will not create policies")
+		logrus.Infof("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
 		return ctrl.Result{}, nil
+	}
+
+	err = r.updateServerSidecarStatus(ctx, intents)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	err = r.policyCreator.Create(ctx, intents, req.Namespace, clientServiceAccountName)
@@ -136,6 +142,28 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
+	for _, intent := range intents.Spec.Calls {
+		serverNamespace := intent.GetServerNamespace(intents.Namespace)
+		pod, err := r.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, serverNamespace)
+		if err != nil {
+			if err == serviceidresolver.PodNotFound {
+				continue
+			}
+			return err
+		}
+
+		missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
+		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), serverNamespace)
+		err = r.policyCreator.UpdateServerSidecar(ctx, intents, formattedTargetServer, missingSideCar)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {

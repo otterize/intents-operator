@@ -77,19 +77,11 @@ func (v *IntentInput) GetResources() []*HTTPConfigInput { return v.Resources }
 func (v *IntentInput) GetStatus() *IntentStatusInput { return v.Status }
 
 type IntentStatusInput struct {
-	ServiceAccountName     *string `json:"serviceAccountName"`
-	IsServiceAccountShared *bool   `json:"isServiceAccountShared"`
-	MissingSidecar         *bool   `json:"missingSidecar"`
+	IstioStatus *IstioStatusInput `json:"istioStatus"`
 }
 
-// GetServiceAccountName returns IntentStatusInput.ServiceAccountName, and is useful for accessing the field via an interface.
-func (v *IntentStatusInput) GetServiceAccountName() *string { return v.ServiceAccountName }
-
-// GetIsServiceAccountShared returns IntentStatusInput.IsServiceAccountShared, and is useful for accessing the field via an interface.
-func (v *IntentStatusInput) GetIsServiceAccountShared() *bool { return v.IsServiceAccountShared }
-
-// GetMissingSidecar returns IntentStatusInput.MissingSidecar, and is useful for accessing the field via an interface.
-func (v *IntentStatusInput) GetMissingSidecar() *bool { return v.MissingSidecar }
+// GetIstioStatus returns IntentStatusInput.IstioStatus, and is useful for accessing the field via an interface.
+func (v *IntentStatusInput) GetIstioStatus() *IstioStatusInput { return v.IstioStatus }
 
 type IntentType string
 
@@ -124,6 +116,25 @@ func (v *IntentsOperatorConfigurationInput) GetKafkaACLEnforcementEnabled() bool
 func (v *IntentsOperatorConfigurationInput) GetIstioPolicyEnforcementEnabled() bool {
 	return v.IstioPolicyEnforcementEnabled
 }
+
+type IstioStatusInput struct {
+	ServiceAccountName     *string `json:"serviceAccountName"`
+	IsServiceAccountShared *bool   `json:"isServiceAccountShared"`
+	IsServerMissingSidecar *bool   `json:"isServerMissingSidecar"`
+	IsClientMissingSidecar *bool   `json:"isClientMissingSidecar"`
+}
+
+// GetServiceAccountName returns IstioStatusInput.ServiceAccountName, and is useful for accessing the field via an interface.
+func (v *IstioStatusInput) GetServiceAccountName() *string { return v.ServiceAccountName }
+
+// GetIsServiceAccountShared returns IstioStatusInput.IsServiceAccountShared, and is useful for accessing the field via an interface.
+func (v *IstioStatusInput) GetIsServiceAccountShared() *bool { return v.IsServiceAccountShared }
+
+// GetIsServerMissingSidecar returns IstioStatusInput.IsServerMissingSidecar, and is useful for accessing the field via an interface.
+func (v *IstioStatusInput) GetIsServerMissingSidecar() *bool { return v.IsServerMissingSidecar }
+
+// GetIsClientMissingSidecar returns IstioStatusInput.IsClientMissingSidecar, and is useful for accessing the field via an interface.
+func (v *IstioStatusInput) GetIsClientMissingSidecar() *bool { return v.IsClientMissingSidecar }
 
 type KafkaConfigInput struct {
 	Name       *string           `json:"name"`
