@@ -1,6 +1,6 @@
 package basicbatch
 
-// it's britney b*tch
+// it's britney batch
 
 import (
 	"github.com/sirupsen/logrus"

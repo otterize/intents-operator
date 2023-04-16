@@ -149,6 +149,6 @@ func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, i
 	if err != nil {
 		return err
 	}
-	controllerutil.RemoveFinalizer(intents, IstioPolicyFinalizerName)
+	removeIntentFinalizers(intents, IstioPolicyFinalizerName)
 	return r.Update(ctx, intents)
 }

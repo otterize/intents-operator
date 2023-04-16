@@ -6,6 +6,8 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -214,6 +216,9 @@ func (r *NetworkPolicyReconciler) CreateNetworkPolicy(ctx context.Context, inten
 			return err
 		}
 	}
+	telemetrysender.Send(
+		telemetriesgql.EventTypeNetworkPolicyCreated,
+		map[string]string{"intents_ns": telemetrysender.Anonymize(intentsObjNamespace), "policy_ns": telemetrysender.Anonymize(newPolicy.Namespace)})
 	return nil
 }
 
@@ -230,7 +235,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 		}
 	}
 
-	controllerutil.RemoveFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+	removeIntentFinalizers(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 	if err := r.Update(ctx, intents); err != nil {
 		return err
 	}
@@ -262,6 +267,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyRemoval(
 		if err = r.deleteNetworkPolicy(ctx, intent, intentsObjNamespace); err != nil {
 			return err
 		}
+		telemetrysender.Send(telemetriesgql.EventTypeNetworkPolicyDeleted, map[string]string{})
 	}
 	return nil
 }
