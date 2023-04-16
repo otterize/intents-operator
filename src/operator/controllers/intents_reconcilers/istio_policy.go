@@ -81,14 +81,6 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	if !controllerutil.ContainsFinalizer(intents, IstioPolicyFinalizerName) {
-		logrus.WithField("namespacedName", req.String()).Infof("Adding finalizer %s", IstioPolicyFinalizerName)
-		controllerutil.AddFinalizer(intents, IstioPolicyFinalizerName)
-		if err := r.Update(ctx, intents); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	if !r.enforcementEnabledGlobally {
 		r.RecordNormalEvent(intents, ReasonEnforcementGloballyDisabled, "Enforcement is disabled globally, Istio policy creation skipped")
 		return ctrl.Result{}, nil
@@ -97,6 +89,14 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if !r.enableIstioPolicyCreation {
 		r.RecordNormalEvent(intents, ReasonIstioPolicyCreationDisabled, "Istio policy creation is disabled, creation skipped")
 		return ctrl.Result{}, nil
+	}
+
+	if !controllerutil.ContainsFinalizer(intents, IstioPolicyFinalizerName) {
+		logrus.WithField("namespacedName", req.String()).Infof("Adding finalizer %s", IstioPolicyFinalizerName)
+		controllerutil.AddFinalizer(intents, IstioPolicyFinalizerName)
+		if err := r.Update(ctx, intents); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, *intents)
