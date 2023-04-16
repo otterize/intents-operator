@@ -30,7 +30,7 @@ func newGqlClient() graphql.Client {
 func batchSendTelemetries(ctx context.Context, telemetriesClient graphql.Client, telemetries []telemetriesgql.TelemetryInput) error {
 	_, err := telemetriesgql.SendTelemetries(ctx, telemetriesClient, telemetries)
 	if err != nil {
-		logrus.Errorf("failed sending telemetries: %w", err)
+		logrus.Errorf("failed batch sending telemetries: %s", err)
 	}
 	return nil
 }

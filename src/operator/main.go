@@ -33,8 +33,8 @@ import (
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -130,13 +130,15 @@ func main() {
 	}
 
 	metadataClient, err := metadata.NewForConfig(ctrl.GetConfigOrDie())
-	namespace := &corev1.Namespace{}
-	mapping, err := mgr.GetRESTMapper().RESTMapping(namespace.GroupVersionKind().GroupKind(), namespace.GroupVersionKind().Version)
 	if err != nil {
 		panic(err)
 	}
-	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(context.Background(), "kube-system", metav1.GetOptions{})
+	mapping, err := mgr.GetRESTMapper().RESTMapping(schema.GroupKind{Group: "", Kind: "Namespace"}, "v1")
+	if err != nil {
+		panic(err)
+	}
 	kubeSystemUID := ""
+	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(context.Background(), "kube-system", metav1.GetOptions{})
 	if err != nil || kubeSystemNs == nil {
 		logrus.Warningf("failed getting kubesystem UID: %s", err)
 		kubeSystemUID = "UNKNOWN"
