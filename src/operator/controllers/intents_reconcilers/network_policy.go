@@ -214,7 +214,6 @@ func (r *NetworkPolicyReconciler) CreateNetworkPolicy(ctx context.Context, inten
 			return err
 		}
 	}
-
 	return nil
 }
 

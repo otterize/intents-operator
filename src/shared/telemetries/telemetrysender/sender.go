@@ -50,7 +50,7 @@ func New() *TelemetrySender {
 
 }
 
-func (t *TelemetrySender) AddTelemetry(component telemetriesgql.Component, eventType telemetriesgql.EventType, data map[string]string) error {
+func (t *TelemetrySender) Send(component telemetriesgql.Component, eventType telemetriesgql.EventType, data map[string]string) error {
 	if !t.enabled {
 		return nil
 	}
