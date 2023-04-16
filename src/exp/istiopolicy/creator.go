@@ -130,17 +130,29 @@ func (c *Creator) UpdateServerSidecar(
 	serverName string,
 	missingSideCar bool,
 ) error {
-	set, err := clientIntents.GetServersWithoutSidecar()
+	servers, err := clientIntents.GetServersWithoutSidecar()
 	if err != nil {
 		return err
 	}
+	intentsUpdateRequired := false
 	if missingSideCar {
-		set.Insert(serverName)
+		if !servers.Has(serverName) {
+			intentsUpdateRequired = true
+		}
+		servers.Insert(serverName)
 	} else {
-		set.Delete(serverName)
+		if servers.Has(serverName) {
+			intentsUpdateRequired = true
+		}
+		servers.Delete(serverName)
 	}
 
-	err = c.setServersWithoutSidecar(ctx, clientIntents, set)
+	// If no update needed, skip intents update to avoid loop.
+	if !intentsUpdateRequired {
+		return nil
+	}
+
+	err = c.setServersWithoutSidecar(ctx, clientIntents, servers)
 	if err != nil {
 		return err
 	}
