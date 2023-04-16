@@ -15,9 +15,8 @@ const (
 	TelemetriesMaxBatchSizeDefault = 100
 	TelemetriesIntervalKey         = "telemetries-interval-seconds"
 	TelemetriesIntervalDefault     = 5
-	//TelemetriesAddressDefault = "https://app.otterize.com/api/telemetry/query"
-	TelemetriesAddressDefault = "http://app-omris94-cloud-pr903.staging.otterize.com/api/telemetry/query"
-	EnvPrefix                 = "OTTERIZE"
+	TelemetriesAddressDefault      = "https://app.otterize.com/api/telemetry/query"
+	EnvPrefix                      = "OTTERIZE"
 )
 
 func init() {
