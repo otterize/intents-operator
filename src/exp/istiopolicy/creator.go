@@ -2,6 +2,7 @@ package istiopolicy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
@@ -14,6 +15,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
@@ -26,9 +28,8 @@ const (
 	ReasonDeleteIstioPolicyFailed   = "DeleteIstioPolicyFailed"
 	ReasonCreatedIstioPolicy        = "CreatedIstioPolicy"
 	ReasonNamespaceNotAllowed       = "NamespaceNotAllowed"
-	ReasonIntentsLabelFailed        = "IntentsLabelFailed"
-	ReasonServiceAccountFound       = "ServiceAccountFound"
 	ReasonMissingSidecar            = "MissingSidecar"
+	ReasonServerMissingSidecar      = "ServerMissingSidecar"
 	ReasonSharedServiceAccount      = "SharedServiceAccountFound"
 	OtterizeIstioPolicyNameTemplate = "authorization-policy-to-%s-from-%s"
 )
@@ -121,6 +122,53 @@ func (c *Creator) UpdateIntentsStatus(
 	}
 
 	return c.updateSharedServiceAccountsInNamespace(ctx, clientIntents.Namespace)
+}
+
+func (c *Creator) UpdateServerSidecar(
+	ctx context.Context,
+	clientIntents *v1alpha2.ClientIntents,
+	serverName string,
+	missingSideCar bool,
+) error {
+	set, err := clientIntents.GetServersWithoutSidecar()
+	if err != nil {
+		return err
+	}
+	if missingSideCar {
+		set.Insert(serverName)
+	} else {
+		set.Delete(serverName)
+	}
+
+	err = c.setServersWithoutSidecar(ctx, clientIntents, set)
+	if err != nil {
+		return err
+	}
+
+	if missingSideCar {
+		c.recorder.RecordWarningEventf(clientIntents, ReasonServerMissingSidecar, "Can't apply policies for server %s since it doesn't have sidecar", serverName)
+	}
+
+	return nil
+}
+
+func (c *Creator) setServersWithoutSidecar(ctx context.Context, clientIntents *v1alpha2.ClientIntents, set sets.Set[string]) error {
+	serversSortedList := sets.List(set)
+	serversValues, err := json.Marshal(serversSortedList)
+	if err != nil {
+		return err
+	}
+	updatedIntents := clientIntents.DeepCopy()
+	if updatedIntents.Annotations == nil {
+		updatedIntents.Annotations = make(map[string]string)
+	}
+
+	updatedIntents.Annotations[v1alpha2.OtterizeServersWithoutSidecarAnnotation] = string(serversValues)
+	err = c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (c *Creator) saveServiceAccountName(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {

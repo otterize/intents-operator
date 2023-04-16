@@ -104,12 +104,18 @@ type Cluster {
 
 type ClusterConfiguration {
 	globalDefaultDeny: Boolean!
+	istioGlobalDefaultDeny: Boolean!
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
+	useKafkaACLsInAccessGraphStates: Boolean!
 }
 
 input ClusterConfigurationInput {
 	globalDefaultDeny: Boolean!
+	istioGlobalDefaultDeny: Boolean
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean
+	useKafkaACLsInAccessGraphStates: Boolean
 }
 
 type ComponentStatus {
@@ -150,6 +156,8 @@ input DiscoveredIntentInput {
 
 type EdgeAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
+	useKafkaPoliciesInAccessGraphStates: Boolean!
 	verdict: EdgeAccessStatusVerdict!
 	reason: EdgeAccessStatusReason!
 }
@@ -157,12 +165,24 @@ type EdgeAccessStatus {
 enum EdgeAccessStatusReason {
 	ALLOWED_BY_APPLIED_INTENTS
 	ALLOWED_BY_APPLIED_INTENTS_OVERLY_PERMISSIVE
+	ALLOWED_BY_APPLIED_INTENTS_HTTP_OVERLY_PERMISSIVE
+	ALLOWED_BY_APPLIED_INTENTS_KAFKA_OVERLY_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_RESOURCE_MISMATCH
+	BLOCKED_BY_APPLIED_INTENTS_HTTP_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_HTTP_RESOURCE_MISMATCH
+	BLOCKED_BY_APPLIED_INTENTS_KAFKA_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_KAFKA_RESOURCE_MISMATCH
+	BLOCKED_BY_KAFKA_ENFORCEMENT_CONFIG_MISSING_APPLIED_INTENTS
 	BLOCKED_BY_DEFAULT_DENY
 	INTENTS_OPERATOR_NOT_ENFORCING
 	INTENTS_OPERATOR_NOT_ENFORCING_MISSING_APPLIED_INTENT
+	INTENTS_OPERATOR_NOT_ENFORCING_KAFKA_INTENTS_NOT_REQUIRED_FOR_TOPIC
 	MISSING_APPLIED_INTENT
 	INTENTS_OPERATOR_NEVER_CONNECTED
 	NETWORK_MAPPER_NEVER_CONNECTED
+	NO_INTENTS_FOUND_OF_RELEVANT_TYPE
+	IGNORED_IN_CALCULATION
 }
 
 enum EdgeAccessStatusVerdict {
@@ -283,13 +303,12 @@ input IntentsOperatorConfigurationInput {
 type IntentStatus {
 	serviceAccountName: String!
 	isServiceAccountShared: Boolean!
-	missingSidecar: Boolean!
+	isServerMissingSidecar: Boolean!
+	isClientMissingSidecar: Boolean!
 }
 
 input IntentStatusInput {
-	serviceAccountName: String!
-	isServiceAccountShared: Boolean!
-	missingSidecar: Boolean!
+	istioStatus: IstioStatusInput
 }
 
 enum IntentType {
@@ -310,6 +329,13 @@ type Invite {
 enum InviteStatus {
 	PENDING
 	ACCEPTED
+}
+
+input IstioStatusInput {
+	serviceAccountName: String!
+	isServiceAccountShared: Boolean!
+	isServerMissingSidecar: Boolean!
+	isClientMissingSidecar: Boolean!
 }
 
 type KafkaConfig {
@@ -749,6 +775,8 @@ type ServiceAccessGraph {
 
 type ServiceAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useKafkaACLsInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
 	protectionStatus: ServerProtectionStatus!
 	blockingStatus: ServerBlockingStatus!
 	hasAppliedIntents: Boolean!

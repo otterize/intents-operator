@@ -856,6 +856,78 @@ func (s *CreatorTestSuite) TestDeletePolicy() {
 	s.NoError(err)
 }
 
+func (s *CreatorTestSuite) TestDeletePolicyIfServerHasNoSidecar() {
+	clientName := "test-client"
+	serverName := "test-server"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Annotations: map[string]string{
+				v1alpha2.OtterizeServersWithoutSidecarAnnotation: "test-server-test-namespace-8ddecb",
+			},
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	clientServiceAccountName := "test-client-sa"
+
+	principal := generatePrincipal(clientIntentsNamespace, clientServiceAccountName)
+	existingPolicy := &v1beta1.AuthorizationPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+			UID: "uid_1",
+		},
+		Spec: v1beta12.AuthorizationPolicy{
+			Selector: &v1beta13.WorkloadSelector{
+				MatchLabels: map[string]string{
+					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+				},
+			},
+			Rules: []*v1beta12.Rule{
+				{
+					From: []*v1beta12.Rule_From{
+						{
+							Source: &v1beta12.Source{
+								Principals: []string{
+									principal,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+		func(_ context.Context, policies *v1beta1.AuthorizationPolicyList, _ ...client.ListOption) {
+			policies.Items = append(policies.Items, existingPolicy)
+		}).Return(nil)
+
+	s.mockClient.EXPECT().Delete(gomock.Any(), existingPolicy).Return(nil)
+	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	s.NoError(err)
+
+	s.expectEvent(ReasonServerMissingSidecar)
+}
+
 func (s *CreatorTestSuite) TestUpdateStatusServiceAccount() {
 	clientName := "test-client"
 	serverName := "test-server"
@@ -938,7 +1010,6 @@ func (s *CreatorTestSuite) TestUpdateStatusServiceAccount() {
 
 	err := s.creator.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, false)
 	s.NoError(err)
-	s.expectEvent(ReasonServiceAccountFound)
 }
 
 func (s *CreatorTestSuite) TestUpdateStatusMissingSidecar() {
@@ -1023,8 +1094,164 @@ func (s *CreatorTestSuite) TestUpdateStatusMissingSidecar() {
 
 	err := s.creator.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, true)
 	s.NoError(err)
-	s.expectEvent(ReasonServiceAccountFound)
-	s.expectEvent(ReasonMissingSidecar)
+}
+
+func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecar() {
+	clientName := "test-client"
+	serverName := "test-server"
+	clientIntentsNamespace := "test-namespace"
+
+	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
+
+	intentsWithStatus := initialIntents.DeepCopy()
+	intentsWithStatus.Annotations = map[string]string{
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: serverName,
+	}
+
+	gomock.InOrder(
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+			s.Equal(*intentsWithStatus, *intents)
+		}).Return(nil),
+	)
+
+	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, true)
+	s.NoError(err)
+	s.expectEvent(ReasonServerMissingSidecar)
+}
+
+func emptyIntents(clientIntentsNamespace string, clientName string, serverName string) *v1alpha2.ClientIntents {
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "test-client-intents",
+			Namespace: clientIntentsNamespace,
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	return intents
+}
+
+func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecarAnnotationExists() {
+	clientName := "test-client"
+	serverName := "test-server"
+	clientIntentsNamespace := "test-namespace"
+
+	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
+	initialIntents.Annotations = map[string]string{
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: serverName,
+	}
+
+	// Expect that nothing will happen if the annotation already exists
+
+	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, true)
+	s.NoError(err)
+}
+
+func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecarExistingServers() {
+	clientName := "test-client"
+	serverName := "test-server"
+	clientIntentsNamespace := "test-namespace"
+
+	initialServersList := "a-server,x-server"
+	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
+	initialIntents.Annotations = map[string]string{
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServersList,
+	}
+
+	expectedServersList := fmt.Sprintf("%s,%s,%s", "a-server", serverName, "x-server")
+	intentsWithStatus := initialIntents.DeepCopy()
+	intentsWithStatus.Annotations = map[string]string{
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
+	}
+
+	gomock.InOrder(
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+			s.Equal(*intentsWithStatus, *intents)
+		}).Return(nil),
+	)
+
+	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, true)
+	s.NoError(err)
+	s.expectEvent(ReasonServerMissingSidecar)
+}
+
+func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList() {
+	clientName := "test-client"
+	serverName := "test-server"
+	clientIntentsNamespace := "test-namespace"
+
+	initialServersList := fmt.Sprintf("%s,%s", "other-server", serverName)
+	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
+	initialIntents.Annotations = map[string]string{
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServersList,
+	}
+
+	expectedServersList := "other-server"
+	intentsWithStatus := initialIntents.DeepCopy()
+	intentsWithStatus.Annotations = map[string]string{
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
+	}
+
+	gomock.InOrder(
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+			s.Equal(*intentsWithStatus, *intents)
+		}).Return(nil),
+	)
+
+	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, false)
+	s.NoError(err)
+}
+
+func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarRemovedLastFromList() {
+	clientName := "test-client"
+	serverName := "test-server"
+	clientIntentsNamespace := "test-namespace"
+
+	initialServersList := serverName
+	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
+	initialIntents.Annotations = map[string]string{
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServersList,
+	}
+
+	expectedServersList := ""
+	intentsWithStatus := initialIntents.DeepCopy()
+	intentsWithStatus.Annotations = map[string]string{
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
+	}
+
+	gomock.InOrder(
+		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+			s.Equal(*intentsWithStatus, *intents)
+		}).Return(nil),
+	)
+
+	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, false)
+	s.NoError(err)
+}
+
+func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarAlreadyRemoved() {
+	clientName := "test-client"
+	serverName := "test-server"
+	clientIntentsNamespace := "test-namespace"
+
+	initialServersList := "other-server"
+	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
+	initialIntents.Annotations = map[string]string{
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServersList,
+	}
+
+	// Expect that nothing will happen if the server is already removed from the list
+
+	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, false)
+	s.NoError(err)
 }
 
 func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
@@ -1161,7 +1388,6 @@ func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
 
 	err := s.creator.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, isMissingSideCar)
 	s.NoError(err)
-	s.expectEvent(ReasonServiceAccountFound)
 	s.expectEvent(ReasonSharedServiceAccount)
 	s.expectEvent(ReasonSharedServiceAccount)
 }

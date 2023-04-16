@@ -76,6 +76,11 @@ func main() {
 		logrus.WithError(err).Panic()
 	}
 
+	err = podWatcher.InitIntentsServerIndices(mgr)
+	if err != nil {
+		logrus.WithError(err).Panic()
+	}
+
 	err = podWatcher.Register(mgr)
 	if err != nil {
 		logrus.WithError(err).Panic()

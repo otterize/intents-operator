@@ -111,3 +111,31 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha2
 
 	return corev1.Pod{}, PodNotFound
 }
+
+func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha2.Intent, namespace string) (corev1.Pod, error) {
+	podsList := &corev1.PodList{}
+
+	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), namespace)
+	err := r.client.List(
+		ctx,
+		podsList,
+		client.MatchingLabels{v1alpha2.OtterizeServerLabelKey: formattedTargetServer},
+		client.InNamespace(namespace),
+	)
+	if err != nil {
+		return corev1.Pod{}, err
+	}
+	if len(podsList.Items) == 0 {
+		return corev1.Pod{}, PodNotFound
+	}
+
+	for _, pod := range podsList.Items {
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+
+		return pod, nil
+	}
+
+	return corev1.Pod{}, PodNotFound
+}
