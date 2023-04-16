@@ -134,10 +134,22 @@ func (c *Creator) UpdateServerSidecar(
 	if err != nil {
 		return err
 	}
+	intentsUpdateRequired := false
 	if missingSideCar {
+		if !set.Has(serverName) {
+			intentsUpdateRequired = true
+		}
 		set.Insert(serverName)
 	} else {
+		if set.Has(serverName) {
+			intentsUpdateRequired = true
+		}
 		set.Delete(serverName)
+	}
+
+	// If no update needed, skip intents update to avoid loop.
+	if !intentsUpdateRequired {
+		return nil
 	}
 
 	err = c.setServersWithoutSidecar(ctx, clientIntents, set)

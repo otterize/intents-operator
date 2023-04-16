@@ -122,15 +122,15 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	err = r.updateServerSidecarStatus(ctx, intents)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if missingSideCar {
 		r.RecordWarningEvent(intents, istiopolicy.ReasonMissingSidecar, "Client pod missing sidecar, will not create policies")
 		logrus.Infof("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
 		return ctrl.Result{}, nil
-	}
-
-	err = r.updateServerSidecarStatus(ctx, intents)
-	if err != nil {
-		return ctrl.Result{}, err
 	}
 
 	err = r.policyCreator.Create(ctx, intents, req.Namespace, clientServiceAccountName)
