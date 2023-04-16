@@ -19,6 +19,7 @@ package v1alpha2
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/samber/lo"
@@ -216,29 +217,32 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 	}
 }
 
-func (in *ClientIntents) GetServersWithoutSidecar() sets.Set[string] {
+func (in *ClientIntents) GetServersWithoutSidecar() (sets.Set[string], error) {
 	if in.Annotations == nil {
-		return sets.New[string]()
+		return sets.New[string](), nil
 	}
 
 	servers, ok := in.Annotations[OtterizeServersWithoutSidecarAnnotation]
 	if !ok {
-		servers = ""
+		return sets.New[string](), nil
 	}
 
-	var serversList []string
-	if len(servers) > 0 {
-		serversList = strings.Split(servers, ",")
+	serversList := make([]string, 0)
+	err := json.Unmarshal([]byte(servers), &serversList)
+	if err != nil {
+		return nil, err
 	}
 
-	set := sets.New[string](serversList...)
-	return set
+	return sets.New[string](serversList...), nil
 }
 
-func (in *ClientIntents) IsServerMissingSidecar(intent Intent) bool {
-	serversSet := in.GetServersWithoutSidecar()
+func (in *ClientIntents) IsServerMissingSidecar(intent Intent) (bool, error) {
+	serversSet, err := in.GetServersWithoutSidecar()
+	if err != nil {
+		return false, err
+	}
 	serverIdentity := GetFormattedOtterizeIdentity(intent.GetServerName(), intent.GetServerNamespace(in.Namespace))
-	return serversSet.Has(serverIdentity)
+	return serversSet.Has(serverIdentity), nil
 }
 
 func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentInput, error) {
@@ -260,7 +264,9 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 }
 
 func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent) (*graphqlclient.IntentStatusInput, error) {
-	var status graphqlclient.IntentStatusInput
+	status := graphqlclient.IntentStatusInput{
+		IstioStatus: &graphqlclient.IstioStatusInput{},
+	}
 
 	serviceAccountName, ok := clientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
 	if !ok {
@@ -268,7 +274,7 @@ func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent
 		return nil, nil
 	}
 
-	status.ServiceAccountName = toPtrOrNil(serviceAccountName)
+	status.IstioStatus.ServiceAccountName = toPtrOrNil(serviceAccountName)
 	isSharedValue, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
 	if !ok {
 		return nil, fmt.Errorf("missing annotation shared service account for client intents %s", clientIntents.Name)
@@ -278,7 +284,7 @@ func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse shared service account annotation for client intents %s", clientIntents.Name)
 	}
-	status.IsServiceAccountShared = lo.ToPtr(isShared)
+	status.IstioStatus.IsServiceAccountShared = lo.ToPtr(isShared)
 
 	clientMissingSidecarValue, ok := clientIntents.Annotations[OtterizeMissingSidecarAnnotation]
 	if !ok {
@@ -289,8 +295,12 @@ func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
 	}
-	status.IsClientMissingSidecar = lo.ToPtr(clientMissingSidecar)
-	status.IsServerMissingSidecar = lo.ToPtr(clientIntents.IsServerMissingSidecar(intent))
+	status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(clientMissingSidecar)
+	isServerMissingSidecar, err := clientIntents.IsServerMissingSidecar(intent)
+	if err != nil {
+		return nil, err
+	}
+	status.IstioStatus.IsServerMissingSidecar = lo.ToPtr(isServerMissingSidecar)
 	return &status, nil
 }
 

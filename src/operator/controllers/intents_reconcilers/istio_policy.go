@@ -128,7 +128,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	err = r.updateServerSideCarStatus(ctx, intents)
+	err = r.updateServerSidecarStatus(ctx, intents)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -144,7 +144,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-func (r *IstioPolicyReconciler) updateServerSideCarStatus(ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
+func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
 	for _, intent := range intents.Spec.Calls {
 		serverNamespace := intent.GetServerNamespace(intents.Namespace)
 		pod, err := r.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, serverNamespace)
