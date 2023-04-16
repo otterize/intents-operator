@@ -182,7 +182,7 @@ func prettyPrint(m IntentsMatcher) string {
 				resource = "Unimplemented type"
 			}
 		}
-		if intent.Status != nil {
+		if intent.Status != nil && intent.Status.IstioStatus != nil {
 			status = fmt.Sprintf("sa: %s, isShared: %t", *intent.Status.IstioStatus.ServiceAccountName, *intent.Status.IstioStatus.IsServiceAccountShared)
 		}
 		result += fmt.Sprintf(itemFormat, clientName, serverName, namespace, serverNamespace, intentType, resource, status)
