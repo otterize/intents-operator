@@ -12,7 +12,6 @@ import (
 	v1beta12 "istio.io/api/security/v1beta1"
 	v1beta13 "istio.io/api/type/v1beta1"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -59,14 +58,20 @@ func (c *Creator) DeleteAll(
 ) error {
 	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, clientIntents.Namespace)
 
-	err := c.client.DeleteAllOf(ctx,
-		&v1beta1.AuthorizationPolicy{},
+	var existingPolicies v1beta1.AuthorizationPolicyList
+	err := c.client.List(ctx,
+		&existingPolicies,
 		client.MatchingLabels{v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		c.recorder.RecordWarningEventf(clientIntents, ReasonGettingIstioPolicyFailed, "Could not get Istio policies: %s", err.Error())
+	if client.IgnoreNotFound(err) != nil {
 		return err
 	}
 
+	for _, policy := range existingPolicies.Items {
+		err = c.client.Delete(ctx, policy)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
