@@ -75,7 +75,7 @@ scalar String
 
 input TelemetryData {
 	eventType: EventType!
-	count: Int!
+	count: Int
 }
 
 input TelemetryInput {
