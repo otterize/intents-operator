@@ -200,10 +200,15 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 				Name: annotatedServiceName,
 			},
 			Calls: []otterizev1alpha2.Intent{{
-				// HTTP is used here to indicate that this should only apply network policies.
-				// In the future, should be updated as declaring type HTTP becomes unnecessary.
-				Type: otterizev1alpha2.IntentTypeHTTP,
+				Type: otterizev1alpha2.IntentTypeKafka,
 				Name: fmt.Sprintf("%s.%s", config.Spec.Service.Name, config.Namespace),
+				Topics: []otterizev1alpha2.KafkaTopic{{
+					Name: "*",
+					Operations: []otterizev1alpha2.KafkaOperation{
+						otterizev1alpha2.KafkaOperationDescribe,
+						otterizev1alpha2.KafkaOperationAlter,
+					},
+				}},
 			}},
 		},
 	}
