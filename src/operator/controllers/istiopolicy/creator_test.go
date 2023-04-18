@@ -2,11 +2,13 @@ package istiopolicy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/golang/mock/gomock"
-	"github.com/otterize/intents-operator/src/exp/istiopolicy/mocks"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy/mocks"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	v1beta12 "istio.io/api/security/v1beta1"
 	v1beta13 "istio.io/api/type/v1beta1"
@@ -684,9 +686,12 @@ func (s *CreatorTestSuite) TestDeleteAllPoliciesForClientIntents() {
 		},
 	}
 
-	s.mockClient.EXPECT().DeleteAllOf(gomock.Any(), &v1beta1.AuthorizationPolicy{}, client.MatchingLabels{
+	authzPol := &v1beta1.AuthorizationPolicy{ObjectMeta: v1.ObjectMeta{Name: "blah"}}
+	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), client.MatchingLabels{
 		v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
-	}).Return(nil)
+	}).SetArg(1, v1beta1.AuthorizationPolicyList{Items: []*v1beta1.AuthorizationPolicy{authzPol}}).Return(nil)
+
+	s.mockClient.EXPECT().Delete(gomock.Any(), authzPol).Return(nil)
 
 	err := s.creator.DeleteAll(context.Background(), intents)
 	s.NoError(err)
@@ -854,78 +859,6 @@ func (s *CreatorTestSuite) TestDeletePolicy() {
 	s.mockClient.EXPECT().Delete(gomock.Any(), outdatedPolicy).Return(nil)
 	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
 	s.NoError(err)
-}
-
-func (s *CreatorTestSuite) TestDeletePolicyIfServerHasNoSidecar() {
-	clientName := "test-client"
-	serverName := "test-server"
-	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
-	clientIntentsNamespace := "test-namespace"
-
-	intents := &v1alpha2.ClientIntents{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      policyName,
-			Namespace: clientIntentsNamespace,
-			Annotations: map[string]string{
-				v1alpha2.OtterizeServersWithoutSidecarAnnotation: "test-server-test-namespace-8ddecb",
-			},
-		},
-		Spec: &v1alpha2.IntentsSpec{
-			Service: v1alpha2.Service{
-				Name: clientName,
-			},
-			Calls: []v1alpha2.Intent{
-				{
-					Name: serverName,
-				},
-			},
-		},
-	}
-	clientServiceAccountName := "test-client-sa"
-
-	principal := generatePrincipal(clientIntentsNamespace, clientServiceAccountName)
-	existingPolicy := &v1beta1.AuthorizationPolicy{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      policyName,
-			Namespace: clientIntentsNamespace,
-			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
-			},
-			UID: "uid_1",
-		},
-		Spec: v1beta12.AuthorizationPolicy{
-			Selector: &v1beta13.WorkloadSelector{
-				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
-				},
-			},
-			Rules: []*v1beta12.Rule{
-				{
-					From: []*v1beta12.Rule_From{
-						{
-							Source: &v1beta12.Source{
-								Principals: []string{
-									principal,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
-		func(_ context.Context, policies *v1beta1.AuthorizationPolicyList, _ ...client.ListOption) {
-			policies.Items = append(policies.Items, existingPolicy)
-		}).Return(nil)
-
-	s.mockClient.EXPECT().Delete(gomock.Any(), existingPolicy).Return(nil)
-	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
-	s.NoError(err)
-
-	s.expectEvent(ReasonServerMissingSidecar)
 }
 
 func (s *CreatorTestSuite) TestUpdateStatusServiceAccount() {
@@ -1105,7 +1038,7 @@ func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecar() {
 
 	intentsWithStatus := initialIntents.DeepCopy()
 	intentsWithStatus.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: serverName,
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: string(lo.Must(json.Marshal([]string{serverName}))),
 	}
 
 	gomock.InOrder(
@@ -1146,7 +1079,7 @@ func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecarAnnotationExists(
 
 	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
 	initialIntents.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: serverName,
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: string(lo.Must(json.Marshal([]string{serverName}))),
 	}
 
 	// Expect that nothing will happen if the annotation already exists
@@ -1160,13 +1093,13 @@ func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecarExistingServers()
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
 
-	initialServersList := "a-server,x-server"
+	initialServersList := string(lo.Must(json.Marshal([]string{"a-server", "x-server"})))
 	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
 	initialIntents.Annotations = map[string]string{
 		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServersList,
 	}
 
-	expectedServersList := fmt.Sprintf("%s,%s,%s", "a-server", serverName, "x-server")
+	expectedServersList := string(lo.Must(json.Marshal([]string{"a-server", serverName, "x-server"})))
 	intentsWithStatus := initialIntents.DeepCopy()
 	intentsWithStatus.Annotations = map[string]string{
 		v1alpha2.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
@@ -1188,13 +1121,14 @@ func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList() {
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
 
-	initialServersList := fmt.Sprintf("%s,%s", "other-server", serverName)
+	initialServersList := string(lo.Must(json.Marshal([]string{"other-server", serverName})))
+
 	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
 	initialIntents.Annotations = map[string]string{
 		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServersList,
 	}
 
-	expectedServersList := "other-server"
+	expectedServersList := string(lo.Must(json.Marshal([]string{"other-server"})))
 	intentsWithStatus := initialIntents.DeepCopy()
 	intentsWithStatus.Annotations = map[string]string{
 		v1alpha2.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
@@ -1215,13 +1149,14 @@ func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarRemovedLastFromList()
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
 
-	initialServersList := serverName
+	initialServerList := string(lo.Must(json.Marshal([]string{serverName})))
+
 	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
 	initialIntents.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServersList,
+		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServerList,
 	}
 
-	expectedServersList := ""
+	expectedServersList := string(lo.Must(json.Marshal([]string{})))
 	intentsWithStatus := initialIntents.DeepCopy()
 	intentsWithStatus.Annotations = map[string]string{
 		v1alpha2.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
@@ -1242,7 +1177,7 @@ func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarAlreadyRemoved() {
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
 
-	initialServersList := "other-server"
+	initialServersList := string(lo.Must(json.Marshal([]string{"other-server"})))
 	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
 	initialIntents.Annotations = map[string]string{
 		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServersList,
