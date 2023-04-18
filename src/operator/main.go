@@ -131,7 +131,7 @@ func main() {
 
 	metadataClient, err := metadata.NewForConfig(ctrl.GetConfigOrDie())
 	if err != nil {
-		panic(err)
+		logrus.WithError(err).Fatal("unable to create metadata client")
 	}
 	mapping, err := mgr.GetRESTMapper().RESTMapping(schema.GroupKind{Group: "", Kind: "Namespace"}, "v1")
 	if err != nil {
