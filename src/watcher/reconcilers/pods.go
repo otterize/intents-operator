@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	istiopolicy2 "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
+	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -29,13 +29,13 @@ const (
 type PodWatcher struct {
 	client.Client
 	serviceIdResolver  *serviceidresolver.Resolver
-	istioPolicyCreator *istiopolicy2.Creator
+	istioPolicyCreator *istiopolicy.Creator
 	injectablerecorder.InjectableRecorder
 }
 
 func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string) *PodWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
-	creator := istiopolicy2.NewCreator(c, &recorder, watchedNamespaces)
+	creator := istiopolicy.NewCreator(c, &recorder, watchedNamespaces)
 	return &PodWatcher{
 		Client:             c,
 		serviceIdResolver:  serviceidresolver.NewResolver(c),
@@ -111,7 +111,7 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 }
 
 func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, serviceID serviceidresolver.ServiceIdentity) error {
-	missingSideCar := !istiopolicy2.IsPodPartOfIstioMesh(pod)
+	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 
 	serviceFullName := fmt.Sprintf("%s.%s", serviceID.Name, pod.Namespace)
 	var intentsList otterizev1alpha2.ClientIntentsList
@@ -207,7 +207,7 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 		return nil
 	}
 
-	missingSideCar := !istiopolicy2.IsPodPartOfIstioMesh(pod)
+	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 
 	err := p.istioPolicyCreator.UpdateIntentsStatus(ctx, &intents, pod.Spec.ServiceAccountName, missingSideCar)
 	if err != nil {
