@@ -135,7 +135,7 @@ func main() {
 	}
 	mapping, err := mgr.GetRESTMapper().RESTMapping(schema.GroupKind{Group: "", Kind: "Namespace"}, "v1")
 	if err != nil {
-		panic(err)
+		logrus.WithError(err).Fatal("unable to create Kubernetes API REST mapping")
 	}
 	kubeSystemUID := ""
 	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(context.Background(), "kube-system", metav1.GetOptions{})
