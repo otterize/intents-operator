@@ -141,7 +141,7 @@ func main() {
 	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(context.Background(), "kube-system", metav1.GetOptions{})
 	if err != nil || kubeSystemNs == nil {
 		logrus.Warningf("failed getting kubesystem UID: %s", err)
-		kubeSystemUID = "UNKNOWN"
+		kubeSystemUID = fmt.Sprintf("rand-%s", uuid.New().String())
 	} else {
 		kubeSystemUID = string(kubeSystemNs.UID)
 	}
