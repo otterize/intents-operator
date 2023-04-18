@@ -8,7 +8,7 @@ import (
 
 var (
 	senderInitOnce         = sync.Once{}
-	std             *TelemetrySender
+	sender             *TelemetrySender
 	globalComponent telemetriesgql.Component
 )
 
