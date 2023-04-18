@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	senderInitOnce         = sync.Once{}
-	sender             *TelemetrySender
+	senderInitOnce  = sync.Once{}
+	sender          *TelemetrySender
 	globalComponent telemetriesgql.Component
 )
 
@@ -17,10 +17,10 @@ func SetGlobalComponent(component telemetriesgql.Component) {
 }
 
 func Send(eventType telemetriesgql.EventType, count int) {
-	stdOnce.Do(func() {
-		std = New()
+	senderInitOnce.Do(func() {
+		sender = New()
 	})
-	if err := std.Send(globalComponent, eventType, count); err != nil {
+	if err := sender.Send(globalComponent, eventType, count); err != nil {
 		logrus.Warningf("failed sending telemetry. %s", err)
 	}
 }
