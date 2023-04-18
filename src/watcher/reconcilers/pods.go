@@ -80,7 +80,16 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 		return nil
 	}
 
-	err := p.updateServerSideCar(ctx, pod, serviceID)
+	isIstioInstalled, err := istiopolicy.IsIstioInstalled(ctx, p.Client)
+	if err != nil {
+		return err
+	}
+
+	if !isIstioInstalled {
+		return nil
+	}
+
+	err = p.updateServerSideCar(ctx, pod, serviceID)
 	if err != nil {
 		return err
 	}
@@ -248,7 +257,7 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 	return nil
 }
 
-func (r *PodWatcher) InitIntentsServerIndices(mgr ctrl.Manager) error {
+func (p *PodWatcher) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&otterizev1alpha2.ClientIntents{},

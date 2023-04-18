@@ -53,8 +53,17 @@ func NewIstioPolicyReconciler(
 }
 
 func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	isIstioInstalled, err := istiopolicy.IsIstioInstalled(ctx, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if !isIstioInstalled {
+		return ctrl.Result{}, nil
+	}
+
 	intents := &otterizev1alpha2.ClientIntents{}
-	err := r.Get(ctx, req.NamespacedName, intents)
+	err = r.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
