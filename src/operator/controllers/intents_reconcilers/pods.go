@@ -144,7 +144,7 @@ func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
 		}
 	}
 
-	controllerutil.RemoveFinalizer(intents, PodLabelFinalizerName)
+	removeIntentFinalizers(intents, PodLabelFinalizerName)
 	if err := r.Update(ctx, intents); err != nil {
 		return err
 	}
