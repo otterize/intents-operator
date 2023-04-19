@@ -75,11 +75,11 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     with:
-      operator-tag: intents-operator-158fde85ba3f4304e2ce78e8f8b1bc8a8effc382
-      watcher-tag: watcher-158fde85ba3f4304e2ce78e8f8b1bc8a8effc382
+      operator-tag: intents-operator-${{ github.sha }}
+      watcher-tag: watcher-${{ github.sha }}
 
-#    needs:
-#      - build
+    needs:
+      - build
 
   tag-latest-dev:
     name: Tag latest
