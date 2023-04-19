@@ -12,7 +12,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const IntentsCRDName = "clientintents.k8s.otterize.com"
+const (
+	IntentsCRDName       = "clientintents.k8s.otterize.com"
+	CRDVersionToValidate = "v1alpha2"
+)
 
 type CRDValidatorReconciler struct {
 	client.Client
@@ -40,6 +43,10 @@ func (r *CRDValidatorReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		logrus.WithError(err).Error("failed validating intents CRD")
 		return ctrl.Result{}, nil
 	}
+	if intentsCRD.Spec.Versions[0].Name != CRDVersionToValidate {
+		return ctrl.Result{}, nil
+	}
+
 	// God, please forgive us
 	requiredResources := intentsCRD.Spec.Versions[0].Schema.OpenAPIV3Schema.Properties["spec"].Properties["calls"].
 		Items.Schema.Properties["resources"].Items.Schema.Required
