@@ -80,6 +80,7 @@ jobs:
 
       - name: Wait for Otterize
         run: |-
+          sleep 20;
           for elapsed in {1..180}; do 
           kubectl get pods -n otterize-system -l app=intents-operator 2>&1 | grep -v 'RESTARTS' | grep -v 'Running';
           kubectl get pods -n otterize-system -l app=otterize-watcher 2>&1 | grep -v 'RESTARTS' | grep -v 'Running';
