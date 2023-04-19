@@ -1,4 +1,0 @@
-mutation SendTelemetries($telemetries: [TelemetryInput!]!) {
-    sendTelemetries(telemetries: $telemetries)
-}
-

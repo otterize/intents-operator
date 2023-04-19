@@ -6,8 +6,6 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -113,9 +111,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if len(intents.GetCallsList()) > 0 {
-		callsCount := len(intents.GetCallsList())
-		r.RecordNormalEventf(intents, ReasonCreatedNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
-		telemetrysender.Send(telemetriesgql.EventTypeNetworkPolicyCreated, callsCount)
+		r.RecordNormalEventf(intents, ReasonCreatedNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", len(intents.GetCallsList()))
 	}
 	return ctrl.Result{}, nil
 }
@@ -218,6 +214,7 @@ func (r *NetworkPolicyReconciler) CreateNetworkPolicy(ctx context.Context, inten
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -234,9 +231,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 		}
 	}
 
-	telemetrysender.Send(telemetriesgql.EventTypeNetworkPolicyDeleted, len(intents.GetCallsList()))
-
-	removeIntentFinalizers(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+	controllerutil.RemoveFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 	if err := r.Update(ctx, intents); err != nil {
 		return err
 	}
