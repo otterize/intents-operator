@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	istiopolicy2 "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
+	istiopolicy "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/sirupsen/logrus"
@@ -29,7 +29,7 @@ type IstioPolicyReconciler struct {
 	enforcementEnabledGlobally bool
 	injectablerecorder.InjectableRecorder
 	serviceIdResolver *serviceidresolver.Resolver
-	policyCreator     *istiopolicy2.Creator
+	policyCreator     *istiopolicy.Creator
 }
 
 func NewIstioPolicyReconciler(
@@ -47,7 +47,7 @@ func NewIstioPolicyReconciler(
 		serviceIdResolver:          serviceidresolver.NewResolver(c),
 	}
 
-	reconciler.policyCreator = istiopolicy2.NewCreator(c, &reconciler.InjectableRecorder, restrictToNamespaces)
+	reconciler.policyCreator = istiopolicy.NewCreator(c, &reconciler.InjectableRecorder, restrictToNamespaces)
 
 	return reconciler
 }
@@ -124,7 +124,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	clientServiceAccountName := pod.Spec.ServiceAccountName
-	missingSideCar := !istiopolicy2.IsPodPartOfIstioMesh(pod)
+	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 
 	err = r.policyCreator.UpdateIntentsStatus(ctx, intents, clientServiceAccountName, missingSideCar)
 	if err != nil {
@@ -137,7 +137,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	if missingSideCar {
-		r.RecordWarningEvent(intents, istiopolicy2.ReasonMissingSidecar, "Client pod missing sidecar, will not create policies")
+		r.RecordWarningEvent(intents, istiopolicy.ReasonMissingSidecar, "Client pod missing sidecar, will not create policies")
 		logrus.Infof("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
 		return ctrl.Result{}, nil
 	}
@@ -164,7 +164,7 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 			return err
 		}
 
-		missingSideCar := !istiopolicy2.IsPodPartOfIstioMesh(pod)
+		missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), serverNamespace)
 		err = r.policyCreator.UpdateServerSidecar(ctx, intents, formattedTargetServer, missingSideCar)
 		if err != nil {
