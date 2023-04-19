@@ -39,7 +39,6 @@ spec:
     name: my-client
   calls:
     - name: web-server
-      type: http
     - name: kafka-server
       type: kafka
 ```
@@ -92,7 +91,21 @@ spec:
           operations: [ produce ]
 ```
 
-Read more about it in the [secure kafka access tutorial](https://docs.otterize.com/quick-tutorials/k8s-kafka-mtls).
+Read more about it in the [secure Kafka access tutorial](https://docs.otterize.com/quick-tutorials/k8s-kafka-mtls).
+
+### Istio AuthorizationPolicy
+The intents operator automatically creates, updates and deletes Istio authorization policies, automatically looks up service accounts for client pods and labels server pods, to reflect precisely the client-to-server calls declared in client intents files.
+
+The intents operator can also be configured to process client intents *without* creating and managing network policies, to provide visibility on what would happen once enforcement via Istio authorization policy is activated. More information can be found in the [shadow vs active enforcement documentation](/shadow-vs-active-enforcement).
+
+In the example above, the `my-client` service intends to call the `web-server`. When the CRD is applied through `kubectl apply`, the intents operator labels the `web-server` pod, looks up `my-client`'s service account, and creates an authorization policy for the `web-server` that references the service account for `my-client` and allows calls to the `web-server` from the `my-client`.
+
+The intents operator uses the resolved identity as the service name, and combines it with the namespace of the pod and hashed to form the value of the label `intents.otterize.com/server`.
+This label is used as a selector for servers in Istio authorization policies. The same algorithm is used to look up the client from the service name in the client intents, for whom the service account is looked up.
+
+Finally, an Istio authorization policy is created that allows communication between the client's service account and the server. If the service account covers clients other than the one requested, an event is generated on the ClientIntents to warn about this, and this appears as a warning on Otterize Cloud.
+
+Read more about it in the [Istio AuthorizationPolicy tutorial](https://docs.otterize.com/quick-tutorials/k8s-istio-authorization-policies).
 
 ### Identities
 Pods in the cluster are dynamically labeled with their owner's identity. If a `ReplicaSet` named `my-client` owns 5 pods
