@@ -18,9 +18,7 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/bombsimon/logrusr/v3"
-	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
@@ -30,14 +28,9 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -131,29 +124,6 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
-
-	metadataClient, err := metadata.NewForConfig(ctrl.GetConfigOrDie())
-	if err != nil {
-		logrus.WithError(err).Fatal("unable to create metadata client")
-	}
-	mapping, err := mgr.GetRESTMapper().RESTMapping(schema.GroupKind{Group: "", Kind: "Namespace"}, "v1")
-	if err != nil {
-		logrus.WithError(err).Fatal("unable to create Kubernetes API REST mapping")
-	}
-	kubeSystemUID := ""
-	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(context.Background(), "kube-system", metav1.GetOptions{})
-	if err != nil || kubeSystemNs == nil {
-		logrus.Warningf("failed getting kubesystem UID: %s", err)
-		kubeSystemUID = fmt.Sprintf("rand-%s", uuid.New().String())
-	} else {
-		kubeSystemUID = string(kubeSystemNs.UID)
-	}
-	telemetrysender.SetGlobalComponent(
-		telemetriesgql.Component{
-			ComponentType:      telemetriesgql.ComponentTypeIntentsOperator,
-			PlatformIdentifier: telemetrysender.Anonymize(kubeSystemUID),
-			Identifier:         uuid.NewString(),
-		})
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally)
 
@@ -255,7 +225,6 @@ func main() {
 	}
 
 	logrus.Info("starting manager")
-	telemetrysender.Send(telemetriesgql.EventTypeStarted, 0)
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Fatal("problem running manager")
 	}
