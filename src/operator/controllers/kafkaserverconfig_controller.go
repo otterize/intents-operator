@@ -27,6 +27,8 @@ import (
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -151,6 +153,8 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, ka
 	if err := r.Update(ctx, kafkaServerConfig); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeKafkaServerConfigDeleted, 1)
 
 	return ctrl.Result{}, nil
 }
@@ -293,6 +297,7 @@ func (r *KafkaServerConfigReconciler) reconcileObject(ctx context.Context, kafka
 	}
 
 	r.RecordNormalEvent(kafkaServerConfig, ReasonAppliedKafkaServerConfigFailed, "successfully applied server config")
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeKafkaServerConfigApplied, len(kafkaServerConfig.Spec.Topics))
 	return ctrl.Result{}, nil
 }
 
