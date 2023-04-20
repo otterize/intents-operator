@@ -148,12 +148,7 @@ func main() {
 	} else {
 		kubeSystemUID = string(kubeSystemNs.UID)
 	}
-	telemetrysender.SetGlobalComponent(
-		telemetriesgql.Component{
-			ComponentType:      telemetriesgql.ComponentTypeIntentsOperator,
-			PlatformIdentifier: telemetrysender.Anonymize(kubeSystemUID),
-			Identifier:         uuid.NewString(),
-		})
+	telemetrysender.SetGlobalPlatformIdentifier(telemetrysender.Anonymize(kubeSystemUID))
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally)
 
@@ -255,7 +250,7 @@ func main() {
 	}
 
 	logrus.Info("starting manager")
-	telemetrysender.Send(telemetriesgql.EventTypeStarted, 0)
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 0)
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Fatal("problem running manager")
 	}

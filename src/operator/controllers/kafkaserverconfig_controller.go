@@ -154,7 +154,7 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, ka
 		return ctrl.Result{}, err
 	}
 
-	telemetrysender.Send(telemetriesgql.EventTypeKafkaServerConfigDeleted, 1)
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeKafkaServerConfigDeleted, 1)
 
 	return ctrl.Result{}, nil
 }
@@ -297,7 +297,7 @@ func (r *KafkaServerConfigReconciler) reconcileObject(ctx context.Context, kafka
 	}
 
 	r.RecordNormalEvent(kafkaServerConfig, ReasonAppliedKafkaServerConfigFailed, "successfully applied server config")
-	telemetrysender.Send(telemetriesgql.EventTypeKafkaServerConfigApplied, len(kafkaServerConfig.Spec.Topics))
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeKafkaServerConfigApplied, len(kafkaServerConfig.Spec.Topics))
 	return ctrl.Result{}, nil
 }
 
