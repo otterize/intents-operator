@@ -204,7 +204,6 @@ func main() {
 
 	if !disableWebhookServer {
 		intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
-
 		if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
 			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
 		}
