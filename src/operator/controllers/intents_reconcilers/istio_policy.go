@@ -2,8 +2,8 @@ package intents_reconcilers
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/src/exp/istiopolicy"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	istiopolicy "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/sirupsen/logrus"
@@ -53,8 +53,17 @@ func NewIstioPolicyReconciler(
 }
 
 func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	isIstioInstalled, err := istiopolicy.IsIstioInstalled(ctx, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if !isIstioInstalled {
+		return ctrl.Result{}, nil
+	}
+
 	intents := &otterizev1alpha2.ClientIntents{}
-	err := r.Get(ctx, req.NamespacedName, intents)
+	err = r.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -177,6 +186,6 @@ func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, i
 	if err != nil {
 		return err
 	}
-	removeIntentFinalizers(intents, IstioPolicyFinalizerName)
+	controllerutil.RemoveFinalizer(intents, IstioPolicyFinalizerName)
 	return r.Update(ctx, intents)
 }

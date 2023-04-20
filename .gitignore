@@ -16,4 +16,4 @@
 
 
 .idea/
-/src/exp/istiopolicy/crd/
+/src/operator/controllers/istiopolicy/crd/
