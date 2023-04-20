@@ -11,7 +11,6 @@ import (
 var (
 	senderInitOnce           = sync.Once{}
 	sender                   *TelemetrySender
-	globalComponent          telemetriesgql.Component
 	globalPlatformIdentifier string
 	globalRuntimeIdentifier  string
 )
