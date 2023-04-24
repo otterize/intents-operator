@@ -102,7 +102,7 @@ func (s *CreatorTestSuite) TestCreate() {
 	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
 	s.mockClient.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
@@ -204,7 +204,7 @@ func (s *CreatorTestSuite) TestCreateHTTPResources() {
 	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
 	s.mockClient.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
@@ -350,7 +350,7 @@ func (s *CreatorTestSuite) TestUpdateHTTPResources() {
 			s.Equal(newPolicy.Spec.Rules[0].To[1].Operation, policy.Spec.Rules[0].To[1].Operation)
 		}).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
@@ -455,7 +455,7 @@ func (s *CreatorTestSuite) TestNothingToUpdateHTTPResources() {
 			policies.Items = append(policies.Items, existingPolicy)
 		}).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
@@ -485,7 +485,7 @@ func (s *CreatorTestSuite) TestNamespaceNotAllowed() {
 	}
 	clientServiceAccountName := "test-client-sa"
 	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
-	err := s.creator.Create(ctx, intents, clientIntentsNamespace, clientServiceAccountName)
+	err := s.creator.Create(ctx, intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonNamespaceNotAllowed)
 }
@@ -548,7 +548,7 @@ func (s *CreatorTestSuite) TestNamespaceAllowed() {
 	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
 	s.mockClient.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
@@ -655,7 +655,7 @@ func (s *CreatorTestSuite) TestUpdatePolicy() {
 			s.Equal(newPolicy.Labels, policy.Labels)
 		}).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
@@ -758,7 +758,7 @@ func (s *CreatorTestSuite) TestNothingToUpdate() {
 			policies.Items = append(policies.Items, existingPolicy)
 		}).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 }
 
@@ -857,7 +857,7 @@ func (s *CreatorTestSuite) TestDeletePolicy() {
 		}).Return(nil)
 
 	s.mockClient.EXPECT().Delete(gomock.Any(), outdatedPolicy).Return(nil)
-	err := s.creator.Create(context.Background(), intents, clientIntentsNamespace, clientServiceAccountName)
+	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 }
 
