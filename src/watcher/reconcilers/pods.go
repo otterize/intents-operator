@@ -228,7 +228,7 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 		return nil
 	}
 
-	err = p.istioPolicyCreator.Create(ctx, &intents, pod.Namespace, pod.Spec.ServiceAccountName)
+	err = p.istioPolicyCreator.Create(ctx, &intents, pod.Spec.ServiceAccountName)
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
 		return err
