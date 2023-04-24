@@ -2,6 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
+	"errors"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	istiopolicy "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -18,7 +19,7 @@ const (
 	IstioPolicyFinalizerName          = "intents.otterize.com/istio-policy-finalizer"
 	ReasonIstioPolicyCreationDisabled = "IstioPolicyCreationDisabled"
 	ReasonRemovingIstioPolicyFailed   = "RemovingIstioPolicyFailed"
-	ReasonServiceAccountNotFound      = "ServiceAccountNotFound"
+	ReasonOtterizeServiceNotFound     = "OtterizeServiceNotFound"
 )
 
 type IstioPolicyReconciler struct {
@@ -110,11 +111,11 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, *intents)
 	if err != nil {
-		if err == serviceidresolver.PodNotFound {
+		if errors.Is(err, serviceidresolver.PodNotFound) {
 			r.RecordWarningEventf(
 				intents,
-				ReasonServiceAccountNotFound,
-				"Could not find pod for service %s in namespace %s",
+				ReasonOtterizeServiceNotFound,
+				"Could not find non-terminating pods for service %s in namespace %s",
 				intents.Spec.Service.Name,
 				intents.Namespace)
 			return ctrl.Result{}, nil
@@ -142,7 +143,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	err = r.policyCreator.Create(ctx, intents, req.Namespace, clientServiceAccountName)
+	err = r.policyCreator.Create(ctx, intents, clientServiceAccountName)
 	if err != nil {
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
@@ -158,7 +159,7 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 		serverNamespace := intent.GetServerNamespace(intents.Namespace)
 		pod, err := r.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, serverNamespace)
 		if err != nil {
-			if err == serviceidresolver.PodNotFound {
+			if errors.Is(err, serviceidresolver.PodNotFound) {
 				continue
 			}
 			return err
