@@ -23,9 +23,9 @@ scalar Boolean
 
 input Component {
 	componentType: ComponentType!
+	componentInstanceId: ID!
+	contextId: ID!
 	version: String!
-	platformIdentifier: ID!
-	identifier: ID!
 }
 
 enum ComponentType {

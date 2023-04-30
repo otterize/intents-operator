@@ -18,7 +18,7 @@ type TelemetrySender struct {
 }
 
 func newGqlClient() graphql.Client {
-	apiAddress := viper.GetString(TelemetriesAPIAddressKey)
+	apiAddress := viper.GetString(TelemetryAPIAddressKey)
 	clientTimeout := viper.GetDuration(TimeoutKey)
 	transport := &http.Transport{}
 	clientWithTimeout := &http.Client{Timeout: clientTimeout, Transport: transport}
@@ -34,9 +34,9 @@ func batchSendTelemetries(ctx context.Context, telemetriesClient graphql.Client,
 }
 
 func New() *TelemetrySender {
-	enabled := viper.GetBool(TelemetriesEnabledKey)
-	maxBatchSize := viper.GetInt(TelemetriesMaxBatchSizeKey)
-	interval := viper.GetInt(TelemetriesIntervalKey)
+	enabled := viper.GetBool(TelemetryEnabledKey)
+	maxBatchSize := viper.GetInt(TelemetryMaxBatchSizeKey)
+	interval := viper.GetInt(TelemetryIntervalKey)
 	telemetriesClient := newGqlClient()
 	sender := &TelemetrySender{telemetriesClient: telemetriesClient, enabled: enabled}
 	batchSendFunc := func(telemetries []telemetriesgql.TelemetryInput) error {

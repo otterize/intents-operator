@@ -9,23 +9,23 @@ import (
 )
 
 type Component struct {
-	ComponentType      ComponentType `json:"componentType"`
-	Version            string        `json:"version"`
-	PlatformIdentifier string        `json:"platformIdentifier"`
-	Identifier         string        `json:"identifier"`
+	ComponentType       ComponentType `json:"componentType"`
+	ComponentInstanceId string        `json:"componentInstanceId"`
+	ContextId           string        `json:"contextId"`
+	Version             string        `json:"version"`
 }
 
 // GetComponentType returns Component.ComponentType, and is useful for accessing the field via an interface.
 func (v *Component) GetComponentType() ComponentType { return v.ComponentType }
 
+// GetComponentInstanceId returns Component.ComponentInstanceId, and is useful for accessing the field via an interface.
+func (v *Component) GetComponentInstanceId() string { return v.ComponentInstanceId }
+
+// GetContextId returns Component.ContextId, and is useful for accessing the field via an interface.
+func (v *Component) GetContextId() string { return v.ContextId }
+
 // GetVersion returns Component.Version, and is useful for accessing the field via an interface.
 func (v *Component) GetVersion() string { return v.Version }
-
-// GetPlatformIdentifier returns Component.PlatformIdentifier, and is useful for accessing the field via an interface.
-func (v *Component) GetPlatformIdentifier() string { return v.PlatformIdentifier }
-
-// GetIdentifier returns Component.Identifier, and is useful for accessing the field via an interface.
-func (v *Component) GetIdentifier() string { return v.Identifier }
 
 type ComponentType string
 

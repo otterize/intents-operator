@@ -9,20 +9,20 @@ import (
 )
 
 var (
-	senderInitOnce           = sync.Once{}
-	sender                   *TelemetrySender
-	globalPlatformIdentifier string
-	globalRuntimeIdentifier  string
+	senderInitOnce            = sync.Once{}
+	sender                    *TelemetrySender
+	globalContextId           string
+	globalComponentInstanceId string
 )
 
-func SetGlobalPlatformIdentifier(platformIdentifier string) {
-	globalPlatformIdentifier = platformIdentifier
+func SetGlobalContextId(contextId string) {
+	globalContextId = contextId
 }
 
 func send(componentType telemetriesgql.ComponentType, eventType telemetriesgql.EventType, count int) {
 	senderInitOnce.Do(func() {
 		sender = New()
-		globalRuntimeIdentifier = uuid.NewString()
+		globalComponentInstanceId = uuid.NewString()
 		if flag.Lookup("test.v") != nil {
 			logrus.Infof("Disabling telemetry sender because this is a test")
 			sender.enabled = false
@@ -30,9 +30,9 @@ func send(componentType telemetriesgql.ComponentType, eventType telemetriesgql.E
 	})
 	if err := sender.Send(
 		telemetriesgql.Component{
-			ComponentType:      componentType,
-			Identifier:         globalRuntimeIdentifier,
-			PlatformIdentifier: globalPlatformIdentifier,
+			ComponentType:       componentType,
+			ComponentInstanceId: globalComponentInstanceId,
+			ContextId:           globalContextId,
 		}, eventType, count); err != nil {
 		logrus.Warningf("failed sending telemetry. %s", err)
 	}

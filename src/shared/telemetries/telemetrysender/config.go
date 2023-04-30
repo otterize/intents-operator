@@ -6,25 +6,25 @@ import (
 )
 
 const (
-	TelemetriesAPIAddressKey       = "telemetries-address"
-	TimeoutKey                     = "telemetry-client-timeout"
-	CloudClientTimeoutDefault      = "30s"
-	TelemetriesEnabledKey          = "telemetries-enabled"
-	TelemetriesEnabledDefault      = true
-	TelemetriesMaxBatchSizeKey     = "telemetries-max-batch-size"
-	TelemetriesMaxBatchSizeDefault = 100
-	TelemetriesIntervalKey         = "telemetries-interval-seconds"
-	TelemetriesIntervalDefault     = 5
-	TelemetriesAddressDefault      = "https://app.otterize.com/api/telemetry/query"
-	EnvPrefix                      = "OTTERIZE"
+	TelemetryAPIAddressKey       = "telemetry-address"
+	TimeoutKey                   = "telemetry-client-timeout"
+	CloudClientTimeoutDefault    = "30s"
+	TelemetryEnabledKey          = "telemetry-enabled"
+	TelemetryEnabledDefault      = true
+	TelemetryMaxBatchSizeKey     = "telemetry-max-batch-size"
+	TelemetryMaxBatchSizeDefault = 100
+	TelemetryIntervalKey         = "telemetry-interval-seconds"
+	TelemetryIntervalDefault     = 5
+	TelemetryAddressDefault      = "https://app.otterize.com/api/telemetry/query"
+	EnvPrefix                    = "OTTERIZE"
 )
 
 func init() {
-	viper.SetDefault(TelemetriesAPIAddressKey, TelemetriesAddressDefault)
+	viper.SetDefault(TelemetryAPIAddressKey, TelemetryAddressDefault)
 	viper.SetDefault(TimeoutKey, CloudClientTimeoutDefault)
-	viper.SetDefault(TelemetriesIntervalKey, TelemetriesIntervalDefault)
-	viper.SetDefault(TelemetriesMaxBatchSizeKey, TelemetriesMaxBatchSizeDefault)
-	viper.SetDefault(TelemetriesEnabledKey, TelemetriesEnabledDefault)
+	viper.SetDefault(TelemetryIntervalKey, TelemetryIntervalDefault)
+	viper.SetDefault(TelemetryMaxBatchSizeKey, TelemetryMaxBatchSizeDefault)
+	viper.SetDefault(TelemetryEnabledKey, TelemetryEnabledDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
