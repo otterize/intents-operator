@@ -148,7 +148,7 @@ func main() {
 	} else {
 		kubeSystemUID = string(kubeSystemNs.UID)
 	}
-	telemetrysender.SetGlobalPlatformIdentifier(telemetrysender.Anonymize(kubeSystemUID))
+	telemetrysender.SetGlobalContextId(telemetrysender.Anonymize(kubeSystemUID))
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally)
 
