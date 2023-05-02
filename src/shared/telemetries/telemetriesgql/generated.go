@@ -13,6 +13,7 @@ type Component struct {
 	ComponentInstanceId string        `json:"componentInstanceId"`
 	ContextId           string        `json:"contextId"`
 	Version             string        `json:"version"`
+	CloudClientId       string        `json:"cloudClientId"`
 }
 
 // GetComponentType returns Component.ComponentType, and is useful for accessing the field via an interface.
@@ -27,31 +28,41 @@ func (v *Component) GetContextId() string { return v.ContextId }
 // GetVersion returns Component.Version, and is useful for accessing the field via an interface.
 func (v *Component) GetVersion() string { return v.Version }
 
+// GetCloudClientId returns Component.CloudClientId, and is useful for accessing the field via an interface.
+func (v *Component) GetCloudClientId() string { return v.CloudClientId }
+
 type ComponentType string
 
 const (
 	ComponentTypeIntentsOperator     ComponentType = "INTENTS_OPERATOR"
 	ComponentTypeCredentialsOperator ComponentType = "CREDENTIALS_OPERATOR"
 	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
+	ComponentTypeCli                 ComponentType = "CLI"
 )
 
 type EventType string
 
 const (
-	EventTypeCustom                   EventType = "CUSTOM"
-	EventTypeIntentsDeleted           EventType = "INTENTS_DELETED"
-	EventTypeIntentsApplied           EventType = "INTENTS_APPLIED"
-	EventTypeIntentsDiscovered        EventType = "INTENTS_DISCOVERED"
-	EventTypeKafkaServerConfigApplied EventType = "KAFKA_SERVER_CONFIG_APPLIED"
-	EventTypeKafkaServerConfigDeleted EventType = "KAFKA_SERVER_CONFIG_DELETED"
-	EventTypeNetworkPolicyCreated     EventType = "NETWORK_POLICY_CREATED"
-	EventTypeNetworkPolicyDeleted     EventType = "NETWORK_POLICY_DELETED"
-	EventTypeKafkaAclCreated          EventType = "KAFKA_ACL_CREATED"
-	EventTypeKafkaAclDeleted          EventType = "KAFKA_ACL_DELETED"
-	EventTypeIstioPolicyCreated       EventType = "ISTIO_POLICY_CREATED"
-	EventTypeIstioPolicyDeleted       EventType = "ISTIO_POLICY_DELETED"
-	EventTypeMapperExport             EventType = "MAPPER_EXPORT"
-	EventTypeStarted                  EventType = "STARTED"
+	EventTypeCustom                      EventType = "CUSTOM"
+	EventTypeIntentsDeleted              EventType = "INTENTS_DELETED"
+	EventTypeIntentsApplied              EventType = "INTENTS_APPLIED"
+	EventTypeIntentsDiscovered           EventType = "INTENTS_DISCOVERED"
+	EventTypeIntentsDiscoveredSocketScan EventType = "INTENTS_DISCOVERED_SOCKET_SCAN"
+	EventTypeIntentsDiscoveredCapture    EventType = "INTENTS_DISCOVERED_CAPTURE"
+	EventTypeIntentsDiscoveredKafka      EventType = "INTENTS_DISCOVERED_KAFKA"
+	EventTypeIntentsDiscoveredIstio      EventType = "INTENTS_DISCOVERED_ISTIO"
+	EventTypeIntentsExported             EventType = "INTENTS_EXPORTED"
+	EventTypeIntentsVisualised           EventType = "INTENTS_VISUALISED"
+	EventTypeKafkaServerConfigApplied    EventType = "KAFKA_SERVER_CONFIG_APPLIED"
+	EventTypeKafkaServerConfigDeleted    EventType = "KAFKA_SERVER_CONFIG_DELETED"
+	EventTypeNetworkPolicyCreated        EventType = "NETWORK_POLICY_CREATED"
+	EventTypeNetworkPolicyDeleted        EventType = "NETWORK_POLICY_DELETED"
+	EventTypeKafkaAclCreated             EventType = "KAFKA_ACL_CREATED"
+	EventTypeKafkaAclDeleted             EventType = "KAFKA_ACL_DELETED"
+	EventTypeIstioPolicyCreated          EventType = "ISTIO_POLICY_CREATED"
+	EventTypeIstioPolicyDeleted          EventType = "ISTIO_POLICY_DELETED"
+	EventTypeMapperExport                EventType = "MAPPER_EXPORT"
+	EventTypeStarted                     EventType = "STARTED"
 )
 
 // SendTelemetriesResponse is returned by SendTelemetries on success.
