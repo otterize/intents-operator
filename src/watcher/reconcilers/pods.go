@@ -80,12 +80,13 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 		return nil
 	}
 
-	isIstioInstalled, err := istiopolicy.IsIstioInstalled(ctx, p.Client)
+	isIstioInstalled, err := istiopolicy.IsIstioAuthorizationPoliciesInstalled(ctx, p.Client)
 	if err != nil {
 		return err
 	}
 
 	if !isIstioInstalled {
+		logrus.Warning("authorization policies CRD is not installed, Istio policy creation skipped")
 		return nil
 	}
 
