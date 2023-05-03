@@ -43,7 +43,6 @@ const (
 type EventType string
 
 const (
-	EventTypeCustom                      EventType = "CUSTOM"
 	EventTypeIntentsDeleted              EventType = "INTENTS_DELETED"
 	EventTypeIntentsApplied              EventType = "INTENTS_APPLIED"
 	EventTypeIntentsDiscovered           EventType = "INTENTS_DISCOVERED"
@@ -51,17 +50,16 @@ const (
 	EventTypeIntentsDiscoveredCapture    EventType = "INTENTS_DISCOVERED_CAPTURE"
 	EventTypeIntentsDiscoveredKafka      EventType = "INTENTS_DISCOVERED_KAFKA"
 	EventTypeIntentsDiscoveredIstio      EventType = "INTENTS_DISCOVERED_ISTIO"
-	EventTypeIntentsExported             EventType = "INTENTS_EXPORTED"
-	EventTypeIntentsVisualised           EventType = "INTENTS_VISUALISED"
+	EventTypeMapperExport                EventType = "MAPPER_EXPORT"
+	EventTypeMapperVisualize             EventType = "MAPPER_VISUALIZE"
 	EventTypeKafkaServerConfigApplied    EventType = "KAFKA_SERVER_CONFIG_APPLIED"
 	EventTypeKafkaServerConfigDeleted    EventType = "KAFKA_SERVER_CONFIG_DELETED"
-	EventTypeNetworkPolicyCreated        EventType = "NETWORK_POLICY_CREATED"
-	EventTypeNetworkPolicyDeleted        EventType = "NETWORK_POLICY_DELETED"
-	EventTypeKafkaAclCreated             EventType = "KAFKA_ACL_CREATED"
-	EventTypeKafkaAclDeleted             EventType = "KAFKA_ACL_DELETED"
-	EventTypeIstioPolicyCreated          EventType = "ISTIO_POLICY_CREATED"
-	EventTypeIstioPolicyDeleted          EventType = "ISTIO_POLICY_DELETED"
-	EventTypeMapperExport                EventType = "MAPPER_EXPORT"
+	EventTypeNetworkPoliciesCreated      EventType = "NETWORK_POLICIES_CREATED"
+	EventTypeNetworkPoliciesDeleted      EventType = "NETWORK_POLICIES_DELETED"
+	EventTypeKafkaAclsCreated            EventType = "KAFKA_ACLS_CREATED"
+	EventTypeKafkaAclsDeleted            EventType = "KAFKA_ACLS_DELETED"
+	EventTypeIstioPoliciesCreated        EventType = "ISTIO_POLICIES_CREATED"
+	EventTypeIstioPoliciesDeleted        EventType = "ISTIO_POLICIES_DELETED"
 	EventTypeStarted                     EventType = "STARTED"
 )
 

@@ -7,6 +7,8 @@ import (
 	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	v1beta12 "istio.io/api/security/v1beta1"
@@ -67,11 +69,20 @@ func (c *Creator) DeleteAll(
 	}
 
 	for _, policy := range existingPolicies.Items {
-		err = c.client.Delete(ctx, policy)
+		err = c.deletePolicy(ctx, policy)
 		if err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func (c *Creator) deletePolicy(ctx context.Context, policy *v1beta1.AuthorizationPolicy) error {
+	err := c.client.Delete(ctx, policy)
+	if err != nil {
+		return err
+	}
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIstioPoliciesDeleted, 1)
 	return nil
 }
 
@@ -335,6 +346,7 @@ func (c *Creator) createOrUpdatePolicies(
 			c.recorder.RecordWarningEventf(clientIntents, ReasonCreatingIstioPolicyFailed, "Failed to create Istio policy: %s", err.Error())
 			return goset.Set[PolicyID]{}, err
 		}
+		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIstioPoliciesCreated, 1)
 	}
 
 	return *updatedPolicies, nil
@@ -352,7 +364,7 @@ func (c *Creator) findPolicy(existingPolicies v1beta1.AuthorizationPolicyList, n
 func (c *Creator) deleteOutdatedPolicies(ctx context.Context, existingPolicies v1beta1.AuthorizationPolicyList, validPolicies goset.Set[PolicyID]) error {
 	for _, existingPolicy := range existingPolicies.Items {
 		if !validPolicies.Contains(PolicyID(existingPolicy.UID)) {
-			err := c.client.Delete(ctx, existingPolicy)
+			err := c.deletePolicy(ctx, existingPolicy)
 			if err != nil {
 				return err
 			}
