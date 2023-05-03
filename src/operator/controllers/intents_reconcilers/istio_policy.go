@@ -53,12 +53,13 @@ func NewIstioPolicyReconciler(
 }
 
 func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	isIstioInstalled, err := istiopolicy.IsIstioInstalled(ctx, r.Client)
+	isIstioInstalled, err := istiopolicy.IsIstioAuthorizationPoliciesInstalled(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if !isIstioInstalled {
+		logrus.Warning("authorization policies CRD is not installed, Istio policy creation skipped")
 		return ctrl.Result{}, nil
 	}
 
