@@ -59,7 +59,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	if !isIstioInstalled {
-		logrus.Warning("authorization policies CRD is not installed, Istio policy creation skipped")
+		logrus.Warning("Authorization policies CRD is not installed, Istio policy creation skipped")
 		return ctrl.Result{}, nil
 	}
 
