@@ -146,7 +146,7 @@ The operator reports anonymous usage information back to the Otterize team, to h
 
 To **disable** sending usage information:
 - Via the Otterize OSS Helm chart: `--set global.telemetry.enabled=false`.
-- Via en environment variable: `OTTERIZE_TELEMETRY_ENABLED=false`.
+- Via an environment variable: `OTTERIZE_TELEMETRY_ENABLED=false`.
 - If running an operator directly: `--telemetry-enabled=false`.
 
 If the `telemetry` flag is omitted or set to `true`, telemetry will be enabled: usage information will be reported.
