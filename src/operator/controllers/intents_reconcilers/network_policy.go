@@ -115,7 +115,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if len(intents.GetCallsList()) > 0 {
 		callsCount := len(intents.GetCallsList())
 		r.RecordNormalEventf(intents, ReasonCreatedNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
-		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPolicyCreated, callsCount)
+		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, callsCount)
 	}
 	return ctrl.Result{}, nil
 }
@@ -234,7 +234,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 		}
 	}
 
-	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPolicyDeleted, len(intents.GetCallsList()))
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesDeleted, len(intents.GetCallsList()))
 
 	removeIntentFinalizers(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 	if err := r.Update(ctx, intents); err != nil {
