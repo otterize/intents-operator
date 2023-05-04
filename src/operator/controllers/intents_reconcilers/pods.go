@@ -41,7 +41,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	intents := &otterizev1alpha2.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
-		logrus.Infof("Intents deleted for namespace %s", namespace)
+		logrus.WithField("namespacedName", req.String()).Infof("Intents deleted")
 		return ctrl.Result{}, nil
 	}
 

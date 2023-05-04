@@ -11,8 +11,8 @@ import (
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	v1beta12 "istio.io/api/security/v1beta1"
-	v1beta13 "istio.io/api/type/v1beta1"
+	v1beta1security "istio.io/api/security/v1beta1"
+	v1beta1type "istio.io/api/type/v1beta1"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -89,10 +89,9 @@ func (c *Creator) deletePolicy(ctx context.Context, policy *v1beta1.Authorizatio
 func (c *Creator) Create(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
-	clientNamespace string,
 	clientServiceAccount string,
 ) error {
-	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, clientNamespace)
+	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, clientIntents.Namespace)
 
 	var existingPolicies v1beta1.AuthorizationPolicyList
 	err := c.client.List(ctx,
@@ -103,7 +102,7 @@ func (c *Creator) Create(
 		return err
 	}
 
-	updatedPolicies, err := c.createOrUpdatePolicies(ctx, clientIntents, clientNamespace, clientServiceAccount, existingPolicies)
+	updatedPolicies, err := c.createOrUpdatePolicies(ctx, clientIntents, clientServiceAccount, existingPolicies)
 	if err != nil {
 		return err
 	}
@@ -313,23 +312,23 @@ func shouldUpdateStatus(intents v1alpha2.ClientIntents, currentName string, curr
 func (c *Creator) createOrUpdatePolicies(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
-	clientNamespace string,
 	clientServiceAccount string,
 	existingPolicies v1beta1.AuthorizationPolicyList,
 ) (goset.Set[PolicyID], error) {
 	updatedPolicies := goset.NewSet[PolicyID]()
 	for _, intent := range clientIntents.GetCallsList() {
-		if c.namespaceNotAllowed(intent, clientNamespace) {
+		targetNamespace := intent.GetServerNamespace(clientIntents.Namespace)
+		if len(c.restrictToNamespaces) != 0 && !lo.Contains(c.restrictToNamespaces, targetNamespace) {
 			c.recorder.RecordWarningEventf(
 				clientIntents,
 				ReasonNamespaceNotAllowed,
 				"Namespace %s was specified in intent, but is not allowed by configuration, Istio policy ignored",
-				clientNamespace,
+				targetNamespace,
 			)
 			continue
 		}
 
-		newPolicy := c.generateAuthorizationPolicy(clientIntents, intent, clientNamespace, clientServiceAccount)
+		newPolicy := c.generateAuthorizationPolicy(clientIntents, intent, clientServiceAccount)
 		existingPolicy, found := c.findPolicy(existingPolicies, newPolicy)
 		if found {
 			err := c.UpdatePolicy(ctx, existingPolicy, newPolicy)
@@ -373,12 +372,6 @@ func (c *Creator) deleteOutdatedPolicies(ctx context.Context, existingPolicies v
 	return nil
 }
 
-func (c *Creator) namespaceNotAllowed(intent v1alpha2.Intent, requestNamespace string) bool {
-	targetNamespace := intent.GetServerNamespace(requestNamespace)
-	restrictedNamespacesExists := len(c.restrictToNamespaces) != 0
-	return restrictedNamespacesExists && !lo.Contains(c.restrictToNamespaces, targetNamespace)
-}
-
 func (c *Creator) UpdatePolicy(ctx context.Context, existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) error {
 	if c.isPolicyEqual(existingPolicy, newPolicy) {
 		return nil
@@ -411,7 +404,7 @@ func (c *Creator) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, new
 	return sameServer && samePrincipals && sameHTTPRules
 }
 
-func compareHTTPRules(existingRules []*v1beta12.Rule_To, newRules []*v1beta12.Rule_To) bool {
+func compareHTTPRules(existingRules []*v1beta1security.Rule_To, newRules []*v1beta1security.Rule_To) bool {
 	if len(existingRules) == 0 && len(newRules) == 0 {
 		return true
 	}
@@ -440,28 +433,27 @@ func compareHTTPRules(existingRules []*v1beta12.Rule_To, newRules []*v1beta12.Ru
 func (c *Creator) generateAuthorizationPolicy(
 	clientIntents *v1alpha2.ClientIntents,
 	intent v1alpha2.Intent,
-	objectNamespace string,
 	clientServiceAccountName string,
 ) *v1beta1.AuthorizationPolicy {
 	policyName := c.getPolicyName(clientIntents, intent)
 	logrus.Infof("Creating Istio policy %s for intent %s", policyName, intent.GetServerName())
 
-	serverNamespace := intent.GetServerNamespace(objectNamespace)
+	serverNamespace := intent.GetServerNamespace(clientIntents.Namespace)
 	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), serverNamespace)
-	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, objectNamespace)
+	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.GetServiceName(), clientIntents.Namespace)
 
-	var ruleTo []*v1beta12.Rule_To
+	var ruleTo []*v1beta1security.Rule_To
 	if intent.Type == v1alpha2.IntentTypeHTTP {
-		ruleTo = make([]*v1beta12.Rule_To, 0)
+		ruleTo = make([]*v1beta1security.Rule_To, 0)
 		operations := c.intentsHTTPResourceToIstioOperations(intent.HTTPResources)
 		for _, operation := range operations {
-			ruleTo = append(ruleTo, &v1beta12.Rule_To{
+			ruleTo = append(ruleTo, &v1beta1security.Rule_To{
 				Operation: operation,
 			})
 		}
 	}
 
-	source := fmt.Sprintf("cluster.local/ns/%s/sa/%s", objectNamespace, clientServiceAccountName)
+	source := fmt.Sprintf("cluster.local/ns/%s/sa/%s", clientIntents.Namespace, clientServiceAccountName)
 	newPolicy := &v1beta1.AuthorizationPolicy{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
@@ -471,19 +463,19 @@ func (c *Creator) generateAuthorizationPolicy(
 				v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity,
 			},
 		},
-		Spec: v1beta12.AuthorizationPolicy{
-			Selector: &v1beta13.WorkloadSelector{
+		Spec: v1beta1security.AuthorizationPolicy{
+			Selector: &v1beta1type.WorkloadSelector{
 				MatchLabels: map[string]string{
 					v1alpha2.OtterizeServerLabelKey: formattedTargetServer,
 				},
 			},
-			Action: v1beta12.AuthorizationPolicy_ALLOW,
-			Rules: []*v1beta12.Rule{
+			Action: v1beta1security.AuthorizationPolicy_ALLOW,
+			Rules: []*v1beta1security.Rule{
 				{
 					To: ruleTo,
-					From: []*v1beta12.Rule_From{
+					From: []*v1beta1security.Rule_From{
 						{
-							Source: &v1beta12.Source{
+							Source: &v1beta1security.Source{
 								Principals: []string{
 									source,
 								},
@@ -498,11 +490,11 @@ func (c *Creator) generateAuthorizationPolicy(
 	return newPolicy
 }
 
-func (c *Creator) intentsHTTPResourceToIstioOperations(resources []v1alpha2.HTTPResource) []*v1beta12.Operation {
-	operations := make([]*v1beta12.Operation, 0, len(resources))
+func (c *Creator) intentsHTTPResourceToIstioOperations(resources []v1alpha2.HTTPResource) []*v1beta1security.Operation {
+	operations := make([]*v1beta1security.Operation, 0, len(resources))
 
 	for _, resource := range resources {
-		operations = append(operations, &v1beta12.Operation{
+		operations = append(operations, &v1beta1security.Operation{
 			Methods: c.intentsMethodsToIstioMethods(resource.Methods),
 			Paths:   []string{resource.Path},
 		})

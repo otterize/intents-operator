@@ -5,7 +5,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,7 +37,7 @@ func (r *CRDValidatorReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	intentsCRD := v1.CustomResourceDefinition{}
+	intentsCRD := apiextensionsv1.CustomResourceDefinition{}
 	err := r.Get(ctx, types.NamespacedName{Name: IntentsCRDName}, &intentsCRD)
 	if err != nil {
 		logrus.WithError(err).Error("failed validating intents CRD")
