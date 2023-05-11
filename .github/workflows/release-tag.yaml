@@ -8,8 +8,7 @@ on:
       - published
 
 env:
-  REGISTRY: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize
-  REPOSITORY_NAME: otterize
+  REGISTRY: us-central1-docker.pkg.dev/main-383408/otterize
 
 jobs:
   push-dockerhub:
@@ -20,16 +19,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - name: Login to GCR
+        uses: docker/login-action@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+          registry: ${{ env.REGISTRY }}
+          username: _json_key_base64
+          password: ${{ secrets.B64_GCLOUD_SERVICE_ACCOUNT_JSON}}
 
       - name: Login to DockerHub
         uses: docker/login-action@v1
@@ -39,9 +34,9 @@ jobs:
 
       - name: Push to Docker Hub
         run: |-
-          docker pull ${{ env.REGISTRY }}:credentials-operator-${{ github.sha }}
-          docker tag ${{ env.REGISTRY }}:credentials-operator-${{ github.sha }} otterize/credentials-operator:${{ github.ref_name }}
-          docker tag ${{ env.REGISTRY }}:credentials-operator-${{ github.sha }} otterize/credentials-operator:latest
+          docker pull ${{ env.REGISTRY }}/credentials-operator:${{ github.sha }}
+          docker tag ${{ env.REGISTRY }}/credentials-operator:${{ github.sha }} otterize/credentials-operator:${{ github.ref_name }}
+          docker tag ${{ env.REGISTRY }}/credentials-operator:${{ github.sha }} otterize/credentials-operator:latest
           docker push otterize/credentials-operator:${{ github.ref_name }}
           docker push otterize/credentials-operator:latest
 
