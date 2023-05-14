@@ -54,7 +54,7 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	$(CONTROLLER_GEN) rbac:roleName=intents-operator-manager-role crd webhook paths="../..."
+	$(CONTROLLER_GEN) rbac:roleName=otterize-intents-operator-manager-role crd webhook paths="../..."
 
 
 .PHONY: generate
