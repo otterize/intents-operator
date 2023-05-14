@@ -1,6 +1,7 @@
 package operatorconfig
 
 import (
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -70,6 +71,7 @@ func InitCLIFlags() {
 	pflag.Bool(EnableLeaderElectionKey, EnableLeaderElectionDefault, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	pflag.StringSlice(WatchedNamespacesKey, nil, "Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
+	pflag.Bool(telemetrysender.TelemetryEnabledKey, telemetrysender.TelemetryEnabledDefault, "Whether telemetry should be enabled")
 
 	runtime.Must(viper.BindPFlags(pflag.CommandLine))
 
