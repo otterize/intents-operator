@@ -61,6 +61,7 @@ type KafkaServerConfigReconciler struct {
 	operatorPodNamespace string
 	otterizeClient       otterizecloud.CloudClient
 	injectablerecorder.InjectableRecorder
+	serviceResolver serviceidresolver.ServiceResolver
 }
 
 func NewKafkaServerConfigReconciler(
@@ -70,6 +71,7 @@ func NewKafkaServerConfigReconciler(
 	operatorPodName string,
 	operatorPodNameSpace string,
 	cloudClient otterizecloud.CloudClient,
+	serviceResolver serviceidresolver.ServiceResolver,
 ) *KafkaServerConfigReconciler {
 	return &KafkaServerConfigReconciler{
 		Client:               client,
@@ -78,6 +80,7 @@ func NewKafkaServerConfigReconciler(
 		operatorPodName:      operatorPodName,
 		operatorPodNamespace: operatorPodNameSpace,
 		otterizeClient:       cloudClient,
+		serviceResolver:      serviceResolver,
 	}
 }
 
@@ -182,13 +185,11 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRegistered(
 }
 
 func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx context.Context, config *otterizev1alpha2.KafkaServerConfig) error {
-	operatorPod := &v1.Pod{}
-	err := r.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, operatorPod)
+	annotatedServiceName, ok, err := r.serviceResolver.GetPodAnnotatedName(ctx, r.operatorPodName, r.operatorPodNamespace)
 	if err != nil {
 		return err
 	}
 
-	annotatedServiceName, ok := serviceidresolver.ResolvePodToServiceIdentityUsingAnnotationOnly(operatorPod)
 	if !ok {
 		r.RecordWarningEventf(config, ReasonIntentsOperatorIdentityResolveFailed, "failed resolving intents operator identity - service name annotation required")
 		return fmt.Errorf("failed resolving intents operator identity - service name annotation required")
@@ -197,7 +198,7 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 	newIntents := &otterizev1alpha2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      formatIntentsName(config),
-			Namespace: operatorPod.Namespace,
+			Namespace: r.operatorPodNamespace,
 		},
 		Spec: &otterizev1alpha2.IntentsSpec{
 			Service: otterizev1alpha2.Service{

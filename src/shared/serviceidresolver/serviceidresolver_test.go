@@ -2,12 +2,14 @@ package serviceidresolver
 
 import (
 	"context"
+	"errors"
 	"github.com/golang/mock/gomock"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 )
@@ -85,6 +87,46 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodDoesntExist
 	pod, err := s.Resolver.ResolveClientIntentToPod(context.Background(), intent)
 	s.Require().Equal(err, PodNotFound)
 	s.Require().Equal(corev1.Pod{}, pod)
+}
+
+func (s *ServiceIdResolverTestSuite) TestGetPodAnnotatedName_PodExists() {
+	podName := "coolpod"
+	podNamespace := "coolnamespace"
+	serviceName := "coolservice"
+
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: podName, Namespace: podNamespace}, gomock.AssignableToTypeOf(&corev1.Pod{})).Do(
+		func(_ context.Context, _ types.NamespacedName, pod *corev1.Pod, _ ...any) {
+			pod.Annotations = map[string]string{ServiceNameAnnotation: serviceName}
+		}).Return(nil)
+
+	name, found, err := s.Resolver.GetPodAnnotatedName(context.Background(), podName, podNamespace)
+	s.Require().NoError(err)
+	s.Require().True(found)
+	s.Require().Equal(serviceName, name)
+}
+
+func (s *ServiceIdResolverTestSuite) TestGetPodAnnotatedName_PodMissingAnnotation() {
+	podName := "coolpod"
+	podNamespace := "coolnamespace"
+
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: podName, Namespace: podNamespace}, gomock.AssignableToTypeOf(&corev1.Pod{})).Return(nil)
+
+	name, found, err := s.Resolver.GetPodAnnotatedName(context.Background(), podName, podNamespace)
+	s.Require().NoError(err)
+	s.Require().False(found)
+	s.Require().Equal("", name)
+}
+
+func (s *ServiceIdResolverTestSuite) TestGetPodAnnotatedName_PodMCallFailed() {
+	podName := "coolpod"
+	podNamespace := "coolnamespace"
+
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: podName, Namespace: podNamespace}, gomock.AssignableToTypeOf(&corev1.Pod{})).Return(errors.New("generic error"))
+
+	name, found, err := s.Resolver.GetPodAnnotatedName(context.Background(), podName, podNamespace)
+	s.Require().Error(err)
+	s.Require().False(found)
+	s.Require().Equal("", name)
 }
 
 func TestServiceIdResolverTestSuite(t *testing.T) {

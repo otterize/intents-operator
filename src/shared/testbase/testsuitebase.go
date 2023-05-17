@@ -63,11 +63,7 @@ func (s *ControllerManagerTestSuiteBase) BeforeTest(_, testName string) {
 	}()
 
 	s.TestNamespace = strings.ToLower(fmt.Sprintf("%s-%s", testName, time.Now().Format("20060102150405")))
-	testNamespaceObj := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: s.TestNamespace},
-	}
-	_, err := s.K8sDirectClient.CoreV1().Namespaces().Create(context.Background(), testNamespaceObj, metav1.CreateOptions{})
-	s.Require().NoError(err)
+	s.CreateNamespace(s.TestNamespace)
 }
 
 func (s *ControllerManagerTestSuiteBase) TearDownTest() {
@@ -116,6 +112,14 @@ func (s *ControllerManagerTestSuiteBase) WaitForDeletionToBeMarked(obj client.Ob
 		}
 		return false, nil
 	}))
+}
+
+func (s *ControllerManagerTestSuiteBase) CreateNamespace(namespace string) {
+	testNamespaceObj := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: namespace},
+	}
+	_, err := s.K8sDirectClient.CoreV1().Namespaces().Create(context.Background(), testNamespaceObj, metav1.CreateOptions{})
+	s.Require().NoError(err)
 }
 
 func (s *ControllerManagerTestSuiteBase) AddPod(name string, podIp string, labels map[string]string, annotations map[string]string) {
@@ -408,9 +412,17 @@ func (s *ControllerManagerTestSuiteBase) AddIntents(
 	objName,
 	clientName string,
 	callList []otterizev1alpha2.Intent) (*otterizev1alpha2.ClientIntents, error) {
+	return s.AddIntentsInNamespace(objName, clientName, s.TestNamespace, callList)
+}
+
+func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
+	objName,
+	clientName string,
+	namespace string,
+	callList []otterizev1alpha2.Intent) (*otterizev1alpha2.ClientIntents, error) {
 
 	intents := &otterizev1alpha2.ClientIntents{
-		ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: s.TestNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
 		Spec: &otterizev1alpha2.IntentsSpec{
 			Service: otterizev1alpha2.Service{Name: clientName},
 			Calls:   callList,
