@@ -21,6 +21,23 @@ directive @specifiedBy(
 """The `Boolean` scalar type represents `true` or `false`."""
 scalar Boolean
 
+input CLICommand {
+	noun: String!
+	verb: String!
+	modifiers: [String!]
+}
+
+input CLIIdentifier {
+	version: String!
+	contextId: String!
+	cloudClientId: String
+}
+
+input CLITelemetry {
+	identifier: CLIIdentifier!
+	command: CLICommand!
+}
+
 input Component {
 	componentType: ComponentType!
 	componentInstanceId: ID!
@@ -69,6 +86,9 @@ scalar Int
 type Mutation {
 	sendTelemetries(
 		telemetries: [TelemetryInput!]!
+	): Boolean!
+	sendCLITelemetries(
+		telemetries: [CLITelemetry!]!
 	): Boolean!
 }
 
