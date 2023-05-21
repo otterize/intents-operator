@@ -175,7 +175,7 @@ jobs:
         run: |-
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/all.yaml
 
-      - name: Restart pods
+      - name: Wait for pods
         run: |-
           kubectl wait pods -n otterize-tutorial-npol -l app=client --for condition=Ready --timeout=180s
           kubectl wait pods -n otterize-tutorial-npol -l app=client-other --for condition=Ready --timeout=180s
@@ -187,7 +187,7 @@ jobs:
           CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           echo Client: $CLI1_POD      client_other: $CLI2_POD
           for i in {1..10}; do if ! kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.labels" | grep 'access-server'; then echo Waiting for label; sleep 1; else echo Label found; break; fi; done;
-          if ! kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.labels" | grep 'access-server'; then echo Label not found; exit 1
+          if ! kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.labels" | grep 'access-server'; then echo Label not found; exit 1; fi
           
           # should work because there is an applied intent
           echo check client log
