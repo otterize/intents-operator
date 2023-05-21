@@ -197,7 +197,7 @@ jobs:
       
 
 
-  e2e-test:
-    needs:
-      - e2e-test-intents-last
-      - e2e-test-intents-first
+    e2e-test:
+      needs:
+        - e2e-test-intents-last
+        - e2e-test-intents-first
