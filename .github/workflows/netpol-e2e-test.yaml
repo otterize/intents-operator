@@ -175,7 +175,7 @@ jobs:
         run: |-
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/all.yaml
 
-      - name: Wait for Tutorial services
+      - name: Restart pods
         run: |-
           kubectl wait pods -n otterize-tutorial-npol -l app=client --for condition=Ready --timeout=180s
           kubectl wait pods -n otterize-tutorial-npol -l app=client-other --for condition=Ready --timeout=180s
@@ -184,16 +184,16 @@ jobs:
       - name: Test connectivity
         run: |-
           CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
-          CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`          
+          CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           echo Client: $CLI1_POD      client_other: $CLI2_POD
           
           # should work because there is an applied intent
           echo check client log
-          kubectl logs --tail 14 -n otterize-tutorial-npol $CLI1_POD | grep "Hi, I am the server, you called, may I help you?"
+          kubectl logs -n otterize-tutorial-npol $CLI1_POD | grep "Hi, I am the server, you called, may I help you?"
           
           # should be blocked (using 3 because the log should repeat itself every 3 lines)
           echo check client other log
-          kubectl logs --tail 3 -n otterize-tutorial-npol $CLI2_POD | grep "curl timed out"
+          kubectl logs -n otterize-tutorial-npol $CLI2_POD | grep "curl timed out"
           
       
 
