@@ -19,6 +19,10 @@ const (
 
 var PodNotFound = errors.New("pod not found")
 
+type ServiceResolver interface {
+	GetPodAnnotatedName(ctx context.Context, podName string, podNamespace string) (string, bool, error)
+}
+
 type Resolver struct {
 	client client.Client
 }
@@ -30,6 +34,17 @@ func NewResolver(c client.Client) *Resolver {
 func ResolvePodToServiceIdentityUsingAnnotationOnly(pod *corev1.Pod) (string, bool) {
 	annotation, ok := pod.Annotations[ServiceNameAnnotation]
 	return annotation, ok
+}
+
+func (r *Resolver) GetPodAnnotatedName(ctx context.Context, podName string, podNamespace string) (string, bool, error) {
+	var pod corev1.Pod
+	err := r.client.Get(ctx, types.NamespacedName{Name: podName, Namespace: podNamespace}, &pod)
+	if err != nil {
+		return "", false, err
+	}
+
+	annotation, ok := ResolvePodToServiceIdentityUsingAnnotationOnly(&pod)
+	return annotation, ok, nil
 }
 
 type ServiceIdentity struct {

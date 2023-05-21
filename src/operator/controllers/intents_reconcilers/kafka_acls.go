@@ -6,6 +6,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -16,14 +17,15 @@ import (
 )
 
 const (
-	KafkaACLsFinalizerName                  = "intents.otterize.com/kafka-finalizer"
-	ReasonCouldNotConnectToKafkaServer      = "CouldNotConnectToKafkaServer"
-	ReasonCouldNotApplyIntentsOnKafkaServer = "CouldNotApplyIntentsOnKafkaServer"
-	ReasonKafkaACLCreationDisabled          = "KafkaACLCreationDisabled"
-	ReasonKafkaServerNotConfigured          = "KafkaServerNotConfigured"
-	ReasonRemovingKafkaACLsFailed           = "RemovingKafkaACLsFailed"
-	ReasonApplyingKafkaACLsFailed           = "ApplyingKafkaACLsFailed"
-	ReasonAppliedKafkaACLs                  = "AppliedKafkaACLs"
+	KafkaACLsFinalizerName                     = "intents.otterize.com/kafka-finalizer"
+	ReasonCouldNotConnectToKafkaServer         = "CouldNotConnectToKafkaServer"
+	ReasonCouldNotApplyIntentsOnKafkaServer    = "CouldNotApplyIntentsOnKafkaServer"
+	ReasonKafkaACLCreationDisabled             = "KafkaACLCreationDisabled"
+	ReasonKafkaServerNotConfigured             = "KafkaServerNotConfigured"
+	ReasonRemovingKafkaACLsFailed              = "RemovingKafkaACLsFailed"
+	ReasonApplyingKafkaACLsFailed              = "ApplyingKafkaACLsFailed"
+	ReasonAppliedKafkaACLs                     = "AppliedKafkaACLs"
+	ReasonIntentsOperatorIdentityResolveFailed = "IntentsOperatorIdentityResolveFailed"
 )
 
 type KafkaACLReconciler struct {
@@ -33,10 +35,23 @@ type KafkaACLReconciler struct {
 	enforcementEnabledGlobally bool
 	enableKafkaACLCreation     bool
 	getNewKafkaIntentsAdmin    kafkaacls.IntentsAdminFactoryFunction
+	operatorPodName            string
+	operatorPodNamespace       string
+	serviceResolver            serviceidresolver.ServiceResolver
 	injectablerecorder.InjectableRecorder
 }
 
-func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, serversStore kafkaacls.ServersStore, enableKafkaACLCreation bool, factoryFunc kafkaacls.IntentsAdminFactoryFunction, enforcementEnabledGlobally bool) *KafkaACLReconciler {
+func NewKafkaACLReconciler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	serversStore kafkaacls.ServersStore,
+	enableKafkaACLCreation bool,
+	factoryFunc kafkaacls.IntentsAdminFactoryFunction,
+	enforcementEnabledGlobally bool,
+	operatorPodName string,
+	operatorPodNamespace string,
+	serviceResolver serviceidresolver.ServiceResolver,
+) *KafkaACLReconciler {
 	return &KafkaACLReconciler{
 		client:                     client,
 		scheme:                     scheme,
@@ -44,6 +59,9 @@ func NewKafkaACLReconciler(client client.Client, scheme *runtime.Scheme, servers
 		enableKafkaACLCreation:     enableKafkaACLCreation,
 		getNewKafkaIntentsAdmin:    factoryFunc,
 		enforcementEnabledGlobally: enforcementEnabledGlobally,
+		operatorPodName:            operatorPodName,
+		operatorPodNamespace:       operatorPodNamespace,
+		serviceResolver:            serviceResolver,
 	}
 }
 
@@ -147,6 +165,16 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
+	clientIsOperator, err := r.isIntentsForTheIntentsOperator(ctx, intents)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if clientIsOperator {
+		logger.Info("Skipping ACLs creation for the intents operator")
+		return ctrl.Result{}, nil
+	}
+
 	var result ctrl.Result
 	result, err = r.applyAcls(logger, intents)
 	if err != nil {
@@ -155,6 +183,24 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	return ctrl.Result{}, nil
 
+}
+
+func (r *KafkaACLReconciler) isIntentsForTheIntentsOperator(ctx context.Context, intents *otterizev1alpha2.ClientIntents) (bool, error) {
+	if r.operatorPodNamespace != intents.Namespace {
+		return false, nil
+	}
+
+	name, ok, err := r.serviceResolver.GetPodAnnotatedName(ctx, r.operatorPodName, r.operatorPodNamespace)
+	if err != nil {
+		return false, fmt.Errorf("failed resolving intents operator identity - %w", err)
+	}
+
+	if !ok {
+		r.RecordWarningEventf(intents, ReasonIntentsOperatorIdentityResolveFailed, "failed resolving intents operator identity - service name annotation required")
+		return false, fmt.Errorf("failed resolving intents operator identity - service name annotation required")
+	}
+
+	return name == intents.Spec.Service.Name, nil
 }
 
 func (r *KafkaACLReconciler) applyAcls(logger *logrus.Entry, intents *otterizev1alpha2.ClientIntents) (ctrl.Result, error) {

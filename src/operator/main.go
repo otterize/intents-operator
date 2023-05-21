@@ -30,6 +30,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/sirupsen/logrus"
@@ -195,6 +196,8 @@ func main() {
 		watchedNamespaces,
 		enforcementConfig,
 		otterizeCloudClient,
+		podName,
+		podNamespace,
 	)
 
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
@@ -234,7 +237,15 @@ func main() {
 		}
 	}
 
-	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(mgr.GetClient(), mgr.GetScheme(), kafkaServersStore, podName, podNamespace, otterizeCloudClient)
+	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		kafkaServersStore,
+		podName,
+		podNamespace,
+		otterizeCloudClient,
+		serviceidresolver.NewResolver(mgr.GetClient()),
+	)
 
 	if err = kafkaServerConfigReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")

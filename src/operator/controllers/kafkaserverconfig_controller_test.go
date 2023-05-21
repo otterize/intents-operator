@@ -3,12 +3,14 @@ package controllers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/golang/mock/gomock"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
+	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -22,19 +24,22 @@ import (
 )
 
 const (
-	kafkaServiceName  string = "kafka"
-	kafkaTopicName    string = "test-topic"
-	clientName        string = "test-client"
-	intentsObjectName string = "test-client-intents"
-	usernameMapping   string = "user-name-mapping-test"
-	operatorPodName   string = "operator-pod-name"
+	kafkaServiceName           string = "kafka"
+	kafkaTopicName             string = "test-topic"
+	clientName                 string = "test-client"
+	intentsObjectName          string = "test-client-intents"
+	usernameMapping            string = "user-name-mapping-test"
+	operatorPodName            string = "operator-pod-name"
+	operatorPodNamespacePrefix string = "otterize"
 )
 
 type KafkaServerConfigReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
-	reconciler       *KafkaServerConfigReconciler
-	mockCloudClient  *otterizecloudmocks.MockCloudClient
-	mockIntentsAdmin *kafkaaclsmocks.MockKafkaIntentsAdmin
+	reconciler          *KafkaServerConfigReconciler
+	mockCloudClient     *otterizecloudmocks.MockCloudClient
+	mockIntentsAdmin    *kafkaaclsmocks.MockKafkaIntentsAdmin
+	mockServiceResolver *serviceidresolvermocks.MockServiceResolver
+	operatorNamespace   string
 }
 
 func (s *KafkaServerConfigReconcilerTestSuite) SetupSuite() {
@@ -93,10 +98,26 @@ func (s *KafkaServerConfigReconcilerTestSuite) BeforeTest(_, testName string) {
 	kafkaServersStore := s.setupServerStore(kafkaServiceName, controller)
 	s.mockCloudClient = otterizecloudmocks.NewMockCloudClient(controller)
 
-	s.reconciler = NewKafkaServerConfigReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, kafkaServersStore, operatorPodName, s.TestNamespace, s.mockCloudClient)
+	s.mockServiceResolver = serviceidresolvermocks.NewMockServiceResolver(controller)
+
+	s.reconciler = NewKafkaServerConfigReconciler(
+		s.Mgr.GetClient(),
+		s.TestEnv.Scheme,
+		kafkaServersStore,
+		operatorPodName,
+		s.operatorNamespace,
+		s.mockCloudClient,
+		s.mockServiceResolver,
+	)
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	s.reconciler.InjectRecorder(recorder)
+}
+
+func (s *KafkaServerConfigReconcilerTestSuite) initOperatorNamespace() {
+	s.operatorNamespace = operatorPodNamespacePrefix + "-" + s.TestNamespace
+	s.CreateNamespace(s.operatorNamespace)
+	s.reconciler.operatorPodNamespace = s.operatorNamespace
 }
 
 func getMockIntentsAdminFactory(mockIntentsAdmin *kafkaaclsmocks.MockKafkaIntentsAdmin) kafkaacls.IntentsAdminFactoryFunction {
@@ -239,6 +260,72 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 		Namespace: s.TestNamespace,
 	})
 }
+
+func (s *KafkaServerConfigReconcilerTestSuite) TestIntentsGeneratedForOperator() {
+	s.initOperatorNamespace()
+
+	operatorServiceName := "intents-operator-service"
+	s.mockServiceResolver.EXPECT().GetPodAnnotatedName(gomock.Any(), operatorPodName, s.operatorNamespace).Return(operatorServiceName, true, nil)
+
+	kafkaServerConfig := s.generateKafkaServerConfig()
+	kafkaServerConfig.SetNamespace(s.TestNamespace)
+	kafkaServerConfig.Spec.NoAutoCreateIntentsForOperator = false
+	s.AddKafkaServerConfig(&kafkaServerConfig)
+
+	// Set go mock expectations
+	expectedConfigs := s.getExpectedKafkaServerConfigs(kafkaServerConfig)
+	s.mockCloudClient.EXPECT().ReportKafkaServerConfig(gomock.Any(), s.TestNamespace, gomock.Eq(expectedConfigs)).Return(nil)
+	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil)
+	s.mockIntentsAdmin.EXPECT().Close()
+
+	s.reconcile(types.NamespacedName{
+		Name:      kafkaServiceName,
+		Namespace: s.TestNamespace,
+	})
+
+	operatorIntentsObjectName := fmt.Sprintf("operator-to-kafkaserverconfig-kafka-namespace-%s", s.TestNamespace)
+	intents := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorIntentsObjectName,
+			Namespace: s.operatorNamespace,
+		},
+		Spec: &otterizev1alpha2.IntentsSpec{
+			Service: otterizev1alpha2.Service{
+				Name: operatorServiceName,
+			},
+			Calls: []otterizev1alpha2.Intent{
+				{
+					Name: fmt.Sprintf("%s.%s", kafkaServiceName, s.TestNamespace),
+					Type: otterizev1alpha2.IntentTypeKafka,
+					Topics: []otterizev1alpha2.KafkaTopic{{
+						Name: "*",
+						Operations: []otterizev1alpha2.KafkaOperation{
+							otterizev1alpha2.KafkaOperationDescribe,
+							otterizev1alpha2.KafkaOperationAlter,
+						},
+					}},
+				},
+			},
+		},
+	}
+
+	var actualIntents otterizev1alpha2.ClientIntents
+	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
+		Name:      operatorIntentsObjectName,
+		Namespace: s.operatorNamespace,
+	}, &actualIntents)
+	s.Require().NoError(err)
+
+	s.Require().Equal(intents.ObjectMeta.Name, actualIntents.ObjectMeta.Name)
+	s.Require().Equal(intents.ObjectMeta.Namespace, actualIntents.ObjectMeta.Namespace)
+	s.Require().Equal(intents.Spec.Service.Name, actualIntents.Spec.Service.Name)
+	s.Require().Equal(intents.Spec.Calls[0].Name, actualIntents.Spec.Calls[0].Name)
+	s.Require().Equal(intents.Spec.Calls[0].Type, actualIntents.Spec.Calls[0].Type)
+	s.Require().Equal(intents.Spec.Calls[0].Topics[0].Name, actualIntents.Spec.Calls[0].Topics[0].Name)
+	s.Require().Equal(intents.Spec.Calls[0].Topics[0].Operations[0], actualIntents.Spec.Calls[0].Topics[0].Operations[0])
+	s.Require().Equal(intents.Spec.Calls[0].Topics[0].Operations[1], actualIntents.Spec.Calls[0].Topics[0].Operations[1])
+}
+
 func TestKafkaACLReconcilerTestSuite(t *testing.T) {
 	suite.Run(t, new(KafkaServerConfigReconcilerTestSuite))
 }

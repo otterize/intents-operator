@@ -160,6 +160,7 @@ type EdgeAccessStatus {
 	useKafkaPoliciesInAccessGraphStates: Boolean!
 	verdict: EdgeAccessStatusVerdict!
 	reason: EdgeAccessStatusReason!
+	reasons: [EdgeAccessStatusReason!]!
 }
 
 enum EdgeAccessStatusReason {
@@ -175,6 +176,9 @@ enum EdgeAccessStatusReason {
 	BLOCKED_BY_APPLIED_INTENTS_KAFKA_RESOURCE_MISMATCH
 	BLOCKED_BY_KAFKA_ENFORCEMENT_CONFIG_MISSING_APPLIED_INTENTS
 	BLOCKED_BY_DEFAULT_DENY
+	SHARED_SERVICE_ACCOUNT
+	CLIENT_ISTIO_SIDECAR_MISSING
+	SERVER_ISTIO_SIDECAR_MISSING
 	INTENTS_OPERATOR_NOT_ENFORCING
 	INTENTS_OPERATOR_NOT_ENFORCING_MISSING_APPLIED_INTENT
 	INTENTS_OPERATOR_NOT_ENFORCING_KAFKA_INTENTS_NOT_REQUIRED_FOR_TOPIC
@@ -741,12 +745,26 @@ type ServerProtectionStatus {
 	reason: ServerProtectionStatusReason!
 }
 
+type ServerProtectionStatuses {
+	networkPolicies: ServerProtectionStatus!
+	kafkaACLs: ServerProtectionStatus!
+	istioPolicies: ServerProtectionStatus!
+}
+
 enum ServerProtectionStatusReason {
 	INTENTS_OPERATOR_NEVER_CONNECTED
 	INTENTS_OPERATOR_NOT_ENFORCING
 	SERVER_HAS_NO_NETWORK_POLICY
+	SERVER_HAS_NO_ISTIO_POLICY
+	SERVER_HAS_NO_ISTIO_SIDECAR
 	PROTECTED_BY_DEFAULT_DENY
 	PROTECTED_BY_SERVER_NETWORK_POLICY
+	PROTECTED_BY_SERVER_ISTIO_POLICY
+	PROTECTED_BY_KAFKA_IDENTITY_REQUIRED_NO_INTENTS_REQUIRED
+	PROTECTED_BY_KAFKA_INTENTS_REQUIRED
+	SERVER_HAS_KAFKASERVERCONFIG_NO_ENFORCEMENT
+	SERVER_HAS_NO_KAFKA_SERVER_CONFIG
+	IGNORED_IN_CALCULATION
 }
 
 enum ServerProtectionStatusVerdict {
@@ -764,6 +782,7 @@ type Service {
 	environment: Environment!
 """If service is Kafka, its KafkaServerConfig."""
 	kafkaServerConfig: KafkaServerConfig
+	serviceAccount: String
 }
 
 type ServiceAccessGraph {
@@ -778,6 +797,7 @@ type ServiceAccessStatus {
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
 	protectionStatus: ServerProtectionStatus!
+	protectionStatuses: ServerProtectionStatuses!
 	blockingStatus: ServerBlockingStatus!
 	hasAppliedIntents: Boolean!
 }

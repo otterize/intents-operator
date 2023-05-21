@@ -8,6 +8,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
+	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -22,18 +23,23 @@ import (
 )
 
 const (
-	kafkaServiceName  string = "kafka"
-	kafkaTopicName    string = "test-topic"
-	clientName        string = "test-client"
-	intentsObjectName string = "test-client-intents"
-	usernameMapping   string = "user-name-mapping-test"
+	kafkaServiceName           string = "kafka"
+	kafkaTopicName             string = "test-topic"
+	clientName                 string = "test-client"
+	intentsObjectName          string = "test-client-intents"
+	usernameMapping            string = "user-name-mapping-test"
+	operatorServiceName        string = "intents-operator"
+	operatorPodName            string = "operator-pod-name"
+	operatorPodNamespacePrefix string = "otterize-ns"
 )
 
 type KafkaACLReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
-	Reconciler     *KafkaACLReconciler
-	mockKafkaAdmin *kafkaaclsmocks.MockClusterAdmin
-	recorder       *record.FakeRecorder
+	Reconciler          *KafkaACLReconciler
+	mockKafkaAdmin      *kafkaaclsmocks.MockClusterAdmin
+	recorder            *record.FakeRecorder
+	mockServiceResolver *serviceidresolvermocks.MockServiceResolver
+	operatorNamespace   string
 }
 
 func (s *KafkaACLReconcilerTestSuite) SetupSuite() {
@@ -89,6 +95,7 @@ func (s *KafkaACLReconcilerTestSuite) BeforeTest(_, testName string) {
 
 	controller := gomock.NewController(s.T())
 	s.mockKafkaAdmin = kafkaaclsmocks.NewMockClusterAdmin(controller)
+	s.mockServiceResolver = serviceidresolvermocks.NewMockServiceResolver(controller)
 
 	s.initKafkaIntentsAdmin(true, true)
 }
@@ -96,7 +103,17 @@ func (s *KafkaACLReconcilerTestSuite) BeforeTest(_, testName string) {
 func (s *KafkaACLReconcilerTestSuite) initKafkaIntentsAdmin(enableAclCreation bool, enforcementEnabledGlobally bool) {
 	kafkaServersStore := s.setupServerStore(kafkaServiceName)
 	newTestKafkaIntentsAdmin := getMockIntentsAdminFactory(s.mockKafkaAdmin, usernameMapping)
-	s.Reconciler = NewKafkaACLReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, kafkaServersStore, enableAclCreation, newTestKafkaIntentsAdmin, enforcementEnabledGlobally)
+	s.Reconciler = NewKafkaACLReconciler(
+		s.Mgr.GetClient(),
+		s.TestEnv.Scheme,
+		kafkaServersStore,
+		enableAclCreation,
+		newTestKafkaIntentsAdmin,
+		enforcementEnabledGlobally,
+		operatorPodName,
+		s.operatorNamespace,
+		s.mockServiceResolver,
+	)
 	s.recorder = record.NewFakeRecorder(100)
 	s.Reconciler.InjectRecorder(s.recorder)
 }
@@ -109,6 +126,42 @@ func getMockIntentsAdminFactory(clusterAdmin sarama.ClusterAdmin, usernameMappin
 	return func(kafkaServer otterizev1alpha2.KafkaServerConfig, _ otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementEnabledGlobally bool) (kafkaacls.KafkaIntentsAdmin, error) {
 		return kafkaacls.NewKafkaIntentsAdminImpl(kafkaServer, clusterAdmin, usernameMapping, enableKafkaACLCreation, enforcementEnabledGlobally), nil
 	}
+}
+
+func (s *KafkaACLReconcilerTestSuite) TestNoACLCreatedForIntentsOperator() {
+	s.initOperatorNamespace()
+
+	intentsName := "intents-operator-calls-to-kafka"
+	operatorIntents := []otterizev1alpha2.Intent{{
+		Name: kafkaServiceName,
+		Type: otterizev1alpha2.IntentTypeKafka,
+		Topics: []otterizev1alpha2.KafkaTopic{{
+			Name: "*",
+			Operations: []otterizev1alpha2.KafkaOperation{
+				otterizev1alpha2.KafkaOperationAlter,
+				otterizev1alpha2.KafkaOperationDescribe,
+			},
+		}},
+	}}
+
+	_, err := s.AddIntentsInNamespace(intentsName, operatorServiceName, s.operatorNamespace, operatorIntents)
+	s.Require().NoError(err)
+
+	s.mockServiceResolver.EXPECT().GetPodAnnotatedName(gomock.Any(), operatorPodName, s.operatorNamespace).Return(operatorServiceName, true, nil)
+
+	// Shouldn't creat ACLs for the operator intents therefore not expecting any call to mockKafkaAdmin
+
+	operatorNamespacedName := types.NamespacedName{
+		Name:      intentsName,
+		Namespace: s.operatorNamespace,
+	}
+	s.reconcile(operatorNamespacedName)
+}
+
+func (s *KafkaACLReconcilerTestSuite) initOperatorNamespace() {
+	s.operatorNamespace = operatorPodNamespacePrefix + "-" + s.TestNamespace
+	s.CreateNamespace(s.operatorNamespace)
+	s.Reconciler.operatorPodNamespace = s.operatorNamespace
 }
 
 func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnIntents() {
