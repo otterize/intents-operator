@@ -186,6 +186,8 @@ jobs:
           CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           echo Client: $CLI1_POD      client_other: $CLI2_POD
+          for i in {1..10}; do if ! kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.labels" | grep 'access-server'; then echo Waiting for label; sleep 1; else echo Label found; break; fi; done;
+          if ! kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.labels" | grep 'access-server'; then echo Label not found; exit 1
           
           # should work because there is an applied intent
           echo check client log
