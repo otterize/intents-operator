@@ -115,6 +115,7 @@ func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConf
 }
 
 func (r *KafkaServerConfigReconciler) ensureFinalizerRunForOperatorIntents(ctx context.Context, config *otterizev1alpha2.KafkaServerConfig) error {
+	// Get the operator pod just to verify that we have the right name and namespace
 	operatorPod := &v1.Pod{}
 	err := r.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, operatorPod)
 	if err != nil {
