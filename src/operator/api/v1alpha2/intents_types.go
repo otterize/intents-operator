@@ -119,7 +119,7 @@ type Intent struct {
 	Topics []KafkaTopic `json:"topics,omitempty" yaml:"topics,omitempty"`
 
 	//+optional
-	HTTPResources []HTTPResource `json:"resources"`
+	HTTPResources []HTTPResource `json:"resources,omitempty" yaml:"topics,omitempty"`
 }
 
 type HTTPResource struct {
