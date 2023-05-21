@@ -168,6 +168,7 @@ jobs:
 
       - name: Apply intents
         run: |-
+          kubectl create namespace otterize-tutorial-npol
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
 
       - name: Deploy Tutorial services
