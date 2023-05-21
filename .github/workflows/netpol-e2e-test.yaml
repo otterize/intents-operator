@@ -197,7 +197,10 @@ jobs:
       
 
 
-    e2e-test:
-      needs:
-        - e2e-test-intents-last
-        - e2e-test-intents-first
+  e2e-test:
+    needs:
+      - e2e-test-intents-last
+      - e2e-test-intents-first
+    steps:
+      - run: |-
+          echo Success! This step is only here to depend on the tests.
