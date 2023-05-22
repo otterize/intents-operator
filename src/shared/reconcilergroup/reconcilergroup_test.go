@@ -37,7 +37,7 @@ func (s *ReconcilerGroupTestSuite) TestGroupError() {
 	reconcilerWithResult := &TestReconciler{Err: nil, Result: reconcile.Result{Requeue: true}}
 	happyReconciler := &TestReconciler{Err: nil, Result: reconcile.Result{}}
 	s.group = NewGroup("test", nil, nil, reconcilerWithError, reconcilerWithResult, happyReconciler)
-	res, err := s.group.Reconcile(nil, reconcile.Request{})
+	res, err := s.group.Reconcile(context.Background(), reconcile.Request{})
 	s.Require().Equal(reconcilerWithError.Err, err)
 	s.Require().Equal(reconcilerWithResult.Result, res)
 	s.Require().True(reconcilerWithError.Reconciled)
@@ -50,7 +50,7 @@ func (s *ReconcilerGroupTestSuite) TestAddToGroup() {
 	addedReconciler := &TestReconciler{}
 	s.group = NewGroup("test", nil, nil, happyReconciler)
 	s.group.AddToGroup(addedReconciler)
-	res, err := s.group.Reconcile(nil, reconcile.Request{})
+	res, err := s.group.Reconcile(context.Background(), reconcile.Request{})
 	s.Require().NoError(err)
 	s.Require().True(res.IsZero())
 	s.Require().True(happyReconciler.Reconciled)
@@ -61,7 +61,7 @@ func (s *ReconcilerGroupTestSuite) TestGroupSuccess() {
 	happyReconciler := &TestReconciler{Err: nil, Result: reconcile.Result{}}
 	anotherHappyReconciler := &TestReconciler{Err: nil, Result: reconcile.Result{}}
 	s.group = NewGroup("test", nil, nil, happyReconciler, anotherHappyReconciler)
-	res, err := s.group.Reconcile(nil, reconcile.Request{})
+	res, err := s.group.Reconcile(context.Background(), reconcile.Request{})
 	s.Require().NoError(err)
 	s.Require().Equal(reconcile.Result{}, res)
 	s.Require().True(anotherHappyReconciler.Reconciled)
@@ -72,7 +72,7 @@ func (s *ReconcilerGroupTestSuite) TestResultIsTheShortestRequeueTime() {
 	happyReconciler := &TestReconciler{Err: nil, Result: reconcile.Result{RequeueAfter: 10}}
 	anotherHappyReconciler := &TestReconciler{Err: nil, Result: reconcile.Result{RequeueAfter: 5}}
 	s.group = NewGroup("test", nil, nil, happyReconciler, anotherHappyReconciler)
-	res, err := s.group.Reconcile(nil, reconcile.Request{})
+	res, err := s.group.Reconcile(context.Background(), reconcile.Request{})
 	s.Require().NoError(err)
 	s.Require().Equal(reconcile.Result{RequeueAfter: 5}, res)
 	s.Require().True(anotherHappyReconciler.Reconciled)
@@ -83,7 +83,7 @@ func (s *ReconcilerGroupTestSuite) TestResultIsTheEmptyRequeueAfter() {
 	happyReconciler := &TestReconciler{Err: nil, Result: reconcile.Result{RequeueAfter: 10}}
 	anotherHappyReconciler := &TestReconciler{Err: nil, Result: reconcile.Result{Requeue: true}}
 	s.group = NewGroup("test", nil, nil, happyReconciler, anotherHappyReconciler)
-	res, err := s.group.Reconcile(nil, reconcile.Request{})
+	res, err := s.group.Reconcile(context.Background(), reconcile.Request{})
 	s.Require().NoError(err)
 	s.Require().Equal(reconcile.Result{Requeue: true}, res)
 	s.Require().True(anotherHappyReconciler.Reconciled)
