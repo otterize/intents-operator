@@ -191,11 +191,15 @@ jobs:
           
           # should work because there is an applied intent
           echo check client log
-          kubectl logs -n otterize-tutorial-npol $CLI1_POD | grep "Hi, I am the server, you called, may I help you?"
+          CLIENT_LOG=`kubectl logs -n otterize-tutorial-npol $CLI1_POD`
+          echo $CLIENT_LOG
+          echo $CLIENT_LOG | grep "Hi, I am the server, you called, may I help you?"
           
           # should be blocked (using 3 because the log should repeat itself every 3 lines)
           echo check client other log
-          kubectl logs -n otterize-tutorial-npol $CLI2_POD | grep "curl timed out"
+          OTHER_CLIENT_LOG=`kubectl logs -n otterize-tutorial-npol $CLI2_POD`
+          echo $OTHER_CLIENT_LOG
+          echo $OTHER_CLIENT_LOG | grep "curl timed out"
           
       
 
