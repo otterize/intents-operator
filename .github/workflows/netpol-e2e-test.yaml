@@ -23,7 +23,7 @@ env:
 
 
 jobs:
-  e2e-test-intents-last:
+  e2e-test-intents-after-pods:
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
@@ -116,7 +116,7 @@ jobs:
       
 
       
-  e2e-test-intents-first:
+  e2e-test-intents-before-pods:
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
@@ -209,8 +209,8 @@ jobs:
 
   e2e-test:
     needs:
-      - e2e-test-intents-last
-      - e2e-test-intents-first
+      - e2e-test-intents-after-pods
+      - e2e-test-intents-before-pods
     runs-on: ubuntu-latest
     steps:
       - run: |-
