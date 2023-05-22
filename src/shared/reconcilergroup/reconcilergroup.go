@@ -31,17 +31,26 @@ func (g *Group) AddToGroup(reconciler ReconcilerWithEvents) {
 	g.reconcilers = append(g.reconcilers, reconciler)
 }
 
-func (g *Group) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var finalErr error
+	var finalRes ctrl.Result
 	logrus.Infof("## Starting reconciliation group cycle for %s", g.name)
+
 	for _, reconciler := range g.reconcilers {
 		logrus.Infof("Starting cycle for %T", reconciler)
 		res, err := reconciler.Reconcile(ctx, req)
-		if !res.IsZero() || err != nil {
-			return res, err
+		if err != nil {
+			if finalErr == nil {
+				finalErr = err
+			}
+			logrus.Errorf("Error in reconciler %T: %s", reconciler, err)
+		}
+		if !res.IsZero() {
+			finalRes = shortestRequeue(res, finalRes)
 		}
 	}
 
-	return ctrl.Result{}, nil
+	return finalRes, finalErr
 }
 
 func (g *Group) InjectRecorder(recorder record.EventRecorder) {
@@ -49,4 +58,17 @@ func (g *Group) InjectRecorder(recorder record.EventRecorder) {
 	for _, reconciler := range g.reconcilers {
 		reconciler.InjectRecorder(recorder)
 	}
+}
+
+func shortestRequeue(a, b reconcile.Result) reconcile.Result {
+	if a.IsZero() {
+		return b
+	}
+	if b.IsZero() {
+		return a
+	}
+	if a.RequeueAfter < b.RequeueAfter {
+		return a
+	}
+	return b
 }
