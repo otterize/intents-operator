@@ -1,4 +1,4 @@
-# Otterize intents operator
+# Otterize intents operator 
 
 <img title="Otter Manning Helm" src="./otterhelm.png" width=200 />
 
@@ -128,6 +128,9 @@ and is an implementation of [intent-based access control](https://otterize.com/i
 Run the `make` command inside `src/operator` directory. Some useful commands are:
 * `make build` to compile the go code.
 * `make deploy` to generate Kubernetes Deployment object which deploys the project to your local cluster.
+
+To create a local Docker image, execute `make docker-build-local`, and deploy it to your local cluster using `make deploy-local`.
+For utilizing the locally built Docker image on Minikube running on a VM like macOS arm64, use `make minikube-push`.
 
 ## Contributing
 1. Feel free to fork and open a pull request! Include tests and document your code in [Godoc style](https://go.dev/blog/godoc)
