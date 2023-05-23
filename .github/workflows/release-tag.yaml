@@ -26,7 +26,7 @@ jobs:
           username: _json_key_base64
           password: ${{ secrets.B64_GCLOUD_SERVICE_ACCOUNT_JSON}}
 
-      - name: Build Operator Release Image with Tag As Version
+      - name: Build operator release image with tag as version
         uses: docker/build-push-action@v2
         with:
           context: src/
@@ -49,7 +49,7 @@ jobs:
 
       - name: Push to Docker Hub
         run: |-
-          docker pull $${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }}
+          docker pull ${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }}
           docker pull ${{ env.REGISTRY }}/watcher:${{ github.sha }}
           docker tag ${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }} otterize/intents-operator:${{ github.ref_name }}
           docker tag ${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }} otterize/intents-operator:latest

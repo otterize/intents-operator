@@ -1,4 +1,4 @@
-# The only purpose this Dockerfile serves is to be able to run buildx to push a the tag to the version file of the image without rebuilding.
+# This Dockerfile enables us to push the release-tag into the /version file of the operator, withour rebuilding the SOURCE_IMAGE.
 ARG SOURCE_IMAGE
 
 FROM alpine as releaser
