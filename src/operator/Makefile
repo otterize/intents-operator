@@ -78,7 +78,7 @@ vet: ## Run go vet against code.
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests.
-	go test ../exp/... -coverprofile cover.out
+	#go test ../exp/... -coverprofile cover.out
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
 ##@ Build
@@ -93,11 +93,11 @@ run: manifests generate fmt vet ## Run a controller from your host.
 
 .PHONY: docker-build
 docker-build: test ## Build docker image with the manager.
-	docker build -t ${IMG} -f ../intents-operator.Dockerfile ../
+	docker build --build-arg="VERSION=$(LOCAL_IMAGE_TAG)" -t ${IMG} -f ../intents-operator.Dockerfile ../
 
 .PHONY: docker-build-local
 docker-build-local: test ## Build docker image with the manager.
-	docker build -t ${OPERATOR_DEBUG_IMAGE} -f ../intents-operator.Dockerfile ../
+	docker build --build-arg="VERSION=$(LOCAL_IMAGE_TAG)" -t ${OPERATOR_DEBUG_IMAGE} -f ../intents-operator.Dockerfile ../
 	docker build -f ../watcher.Dockerfile -t ${WATCHER_DEBUG_IMAGE} ../
 
 

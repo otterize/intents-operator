@@ -59,6 +59,8 @@ jobs:
           network: host
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            "VERSION=${{ github.run_id }}"
 
   netpol-e2e-test:
     uses: ./.github/workflows/netpol-e2e-test.yaml
