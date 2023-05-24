@@ -8,12 +8,16 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,7 +31,6 @@ import (
 type NetworkPolicyReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
 	Reconciler *NetworkPolicyReconciler
-	//ReconcilerWithEnforcementDisabled *NetworkPolicyReconciler
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) SetupSuite() {
