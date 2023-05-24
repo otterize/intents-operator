@@ -37,8 +37,10 @@ func (s *IstioPolicyReconcilerTestSuite) SetupSuite() {
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
 
-	err = otterizev1alpha2.AddToScheme(s.TestEnv.Scheme)
-	s.Require().NoError(err)
+	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
 
 	err = istiov1beta1.AddToScheme(s.TestEnv.Scheme)
 	s.Require().NoError(err)
