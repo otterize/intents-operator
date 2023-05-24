@@ -2,6 +2,7 @@ package external_traffic
 
 import (
 	"context"
+	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
@@ -33,20 +34,29 @@ type NetworkPolicyCreator struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	enabled                    bool
-	enforcementEnabledGlobally bool
+	enabled                                bool
+	createEvenIfNoPreexistingNetworkPolicy bool
+	enforcementEnabledGlobally             bool
 }
 
-func NewNetworkPolicyCreator(client client.Client, scheme *runtime.Scheme, enabled bool, enforcementEnabledGlobally bool) *NetworkPolicyCreator {
-	return &NetworkPolicyCreator{client: client, scheme: scheme, enabled: enabled, enforcementEnabledGlobally: enforcementEnabledGlobally}
+func NewNetworkPolicyCreator(client client.Client, scheme *runtime.Scheme, enabled bool, createEvenIfNoPreexistingNetworkPolicy bool, enforcementEnabledGlobally bool) *NetworkPolicyCreator {
+	return &NetworkPolicyCreator{client: client, scheme: scheme, enabled: enabled, createEvenIfNoPreexistingNetworkPolicy: createEvenIfNoPreexistingNetworkPolicy, enforcementEnabledGlobally: enforcementEnabledGlobally}
+}
+
+func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdateForServiceWithoutIntents(ctx context.Context, endpoints *corev1.Endpoints, owner client.Object, otterizeServiceName string, eventsObject client.Object, svc *corev1.Service, ingressList *v1.IngressList, policyName string) error {
+	return r.handleNetworkPolicyCreationOrUpdate(ctx, endpoints, owner, otterizeServiceName, eventsObject, metav1.LabelSelector{MatchLabels: svc.Spec.Selector}, ingressList, policyName, fmt.Sprintf("created external traffic network policy for service '%s'", endpoints.GetName()))
+}
+
+func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdateForNetpol(ctx context.Context, endpoints *corev1.Endpoints, owner client.Object, otterizeServiceName string, eventsObject client.Object, netpol *v1.NetworkPolicy, ingressList *v1.IngressList, policyName string) error {
+	return r.handleNetworkPolicyCreationOrUpdate(ctx, endpoints, owner, otterizeServiceName, eventsObject, netpol.Spec.PodSelector, ingressList, policyName, fmt.Sprintf("created external traffic network policy. service '%s' refers to pods protected by network policy '%s'", endpoints.GetName(), netpol.GetName()))
 }
 
 func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
-	ctx context.Context, endpoints *corev1.Endpoints, owner client.Object, otterizeServiceName string, eventsObject client.Object, netpol *v1.NetworkPolicy, ingressList *v1.IngressList, policyName string) error {
+	ctx context.Context, endpoints *corev1.Endpoints, owner client.Object, otterizeServiceName string, eventsObject client.Object, selector metav1.LabelSelector, ingressList *v1.IngressList, policyName string, successMsg string) error {
 
 	existingPolicy := &v1.NetworkPolicy{}
 	errGetExistingPolicy := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
-	newPolicy := buildNetworkPolicyObjectForService(endpoints, otterizeServiceName, netpol.Spec.PodSelector, ingressList, policyName)
+	newPolicy := buildNetworkPolicyObjectForService(endpoints, otterizeServiceName, selector, ingressList, policyName)
 	err := controllerutil.SetOwnerReference(owner, newPolicy, r.scheme)
 	if err != nil {
 		return err
@@ -64,7 +74,7 @@ func (r *NetworkPolicyCreator) handleNetworkPolicyCreationOrUpdate(
 				r.RecordWarningEventf(eventsObject, ReasonCreatingExternalTrafficPolicyFailed, "failed to create external traffic network policy: %s", err.Error())
 				return err
 			}
-			r.RecordNormalEventf(eventsObject, ReasonCreatedExternalTrafficPolicy, "created external traffic network policy. service '%s' refers to pods protected by network policy '%s'", endpoints.GetName(), netpol.GetName())
+			r.RecordNormalEvent(eventsObject, ReasonCreatedExternalTrafficPolicy, successMsg)
 		}
 		return nil
 	} else if errGetExistingPolicy != nil {

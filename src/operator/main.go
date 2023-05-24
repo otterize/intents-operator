@@ -82,6 +82,7 @@ func main() {
 	enableLeaderElection := viper.GetBool(operatorconfig.EnableLeaderElectionKey)
 	selfSignedCert := viper.GetBool(operatorconfig.SelfSignedCertKey)
 	autoCreateNetworkPoliciesForExternalTraffic := viper.GetBool(operatorconfig.AutoCreateNetworkPoliciesForExternalTrafficKey)
+	autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement := viper.GetBool(operatorconfig.AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredKey)
 	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
 	enforcementConfig := controllers.EnforcementConfig{
 		EnforcementEnabledGlobally: viper.GetBool(operatorconfig.EnforcementEnabledGloballyKey),
@@ -153,7 +154,7 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally)
 
-	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, enforcementConfig.EnforcementEnabledGlobally)
+	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement, enforcementConfig.EnforcementEnabledGlobally)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
