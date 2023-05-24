@@ -2,6 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
+	"fmt"
 	"github.com/golang/mock/gomock"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
@@ -10,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -25,12 +27,15 @@ type PodLabelReconcilerTestSuite struct {
 	suite.Suite
 	Reconciler *PodLabelReconciler
 	client     *mocks.MockClient
+	recorder   *record.FakeRecorder
 }
 
 func (s *PodLabelReconcilerTestSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
 	s.client = mocks.NewMockClient(controller)
 	s.Reconciler = NewPodLabelReconciler(s.client, nil)
+	s.recorder = record.NewFakeRecorder(100)
+	s.Reconciler.Recorder = s.recorder
 }
 
 func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
@@ -461,6 +466,85 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Equal(ctrl.Result{}, res)
+}
+
+func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddFailedPatch() {
+	deploymentName := "test-deployment-name"
+	serviceName := "test-client"
+
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      deploymentName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	serverName := "test-server"
+	intentsSpec := otterizev1alpha2.IntentsSpec{
+		Service: otterizev1alpha2.Service{Name: serviceName},
+		Calls: []otterizev1alpha2.Intent{
+			{
+				Name: serverName,
+			},
+		},
+	}
+
+	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+			intents.Spec = &intentsSpec
+			controllerutil.AddFinalizer(intents, PodLabelFinalizerName)
+			return nil
+		})
+
+	var intents otterizev1alpha2.ClientIntents
+	intents.Spec = &intentsSpec
+
+	listOption := &client.ListOptions{Namespace: testNamespace}
+	labelSelector := labels.SelectorFromSet(map[string]string{
+		"intents.otterize.com/server": "test-client--2436df",
+	})
+
+	labelMatcher := client.MatchingLabelsSelector{Selector: labelSelector}
+	pod := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test-pod",
+			Labels: make(map[string]string),
+		},
+	}
+
+	s.client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
+		func(ctx context.Context, pds *v1.PodList, opts ...client.ListOption) error {
+			pds.Items = append(pds.Items, pod)
+			return nil
+		})
+
+	updatedPod := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-pod",
+			Labels: map[string]string{
+				"intents.otterize.com/access-test-server-test-namespace-8ddecb": "true",
+				"intents.otterize.com/client":                                   "true",
+			},
+		},
+		Spec: v1.PodSpec{},
+	}
+
+	s.client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(fmt.Errorf("Patch failed"))
+
+	_, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.Error(err)
+	s.expectEvent(ReasonUpdatePodFailed)
+}
+
+func (s *PodLabelReconcilerTestSuite) expectEvent(expectedEvent string) {
+	select {
+	case event := <-s.recorder.Events:
+		s.Require().Contains(event, expectedEvent)
+	default:
+		s.Fail("Expected event not found")
+	}
 }
 
 func TestPodLabelReconcilerTestSuite(t *testing.T) {
