@@ -10,33 +10,35 @@ import (
 )
 
 const (
-	MetricsAddrKey                                     = "metrics-bind-address" // The address the metric endpoint binds to
-	MetricsAddrDefault                                 = ":8180"
-	ProbeAddrKey                                       = "health-probe-bind-address" // The address the probe endpoint binds to
-	ProbeAddrDefault                                   = ":8181"
-	EnableLeaderElectionKey                            = "leader-elect" // Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager
-	EnableLeaderElectionDefault                        = false
-	WatchedNamespacesKey                               = "watched-namespaces"    // Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas
-	KafkaServerTLSCertKey                              = "kafka-server-tls-cert" // name of tls certificate file
-	KafkaServerTLSKeyKey                               = "kafka-server-tls-key"  // name of tls private key file
-	KafkaServerTLSCAKey                                = "kafka-server-tls-ca"   // name of tls ca file
-	SelfSignedCertKey                                  = "self-signed-cert"      // Whether to generate and use a self signed cert as the CA for webhooks
-	SelfSignedCertDefault                              = true
-	DisableWebhookServerKey                            = "disable-webhook-server" // Disable webhook validator server
-	DisableWebhookServerDefault                        = false
-	EnforcementEnabledGloballyKey                      = "enable-enforcement" // If set to false disables the enforcement globally, superior to the other flags
-	EnforcementEnabledGloballyDefault                  = true
-	AutoCreateNetworkPoliciesForExternalTrafficKey     = "auto-create-network-policies-for-external-traffic" // Whether to automatically create network policies for external traffic
-	AutoCreateNetworkPoliciesForExternalTrafficDefault = true
-	EnableNetworkPolicyKey                             = "enable-network-policy-creation" // Whether to enable Intents network policy creation
-	EnableNetworkPolicyDefault                         = true
-	EnableIstioPolicyKey                               = "experimental-enable-istio-policy-creation" // Whether to enable istio authorization policy creation
-	EnableIstioPolicyDefault                           = false
-	EnableKafkaACLKey                                  = "enable-kafka-acl-creation" // Whether to disable Intents Kafka ACL creation
-	EnableKafkaACLDefault                              = true
-	IntentsOperatorPodNameKey                          = "pod-name"
-	IntentsOperatorPodNamespaceKey                     = "pod-namespace"
-	EnvPrefix                                          = "OTTERIZE"
+	MetricsAddrKey                                                      = "metrics-bind-address" // The address the metric endpoint binds to
+	MetricsAddrDefault                                                  = ":8180"
+	ProbeAddrKey                                                        = "health-probe-bind-address" // The address the probe endpoint binds to
+	ProbeAddrDefault                                                    = ":8181"
+	EnableLeaderElectionKey                                             = "leader-elect" // Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager
+	EnableLeaderElectionDefault                                         = false
+	WatchedNamespacesKey                                                = "watched-namespaces"    // Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas
+	KafkaServerTLSCertKey                                               = "kafka-server-tls-cert" // name of tls certificate file
+	KafkaServerTLSKeyKey                                                = "kafka-server-tls-key"  // name of tls private key file
+	KafkaServerTLSCAKey                                                 = "kafka-server-tls-ca"   // name of tls ca file
+	SelfSignedCertKey                                                   = "self-signed-cert"      // Whether to generate and use a self signed cert as the CA for webhooks
+	SelfSignedCertDefault                                               = true
+	DisableWebhookServerKey                                             = "disable-webhook-server" // Disable webhook validator server
+	DisableWebhookServerDefault                                         = false
+	EnforcementEnabledGloballyKey                                       = "enable-enforcement" // If set to false disables the enforcement globally, superior to the other flags
+	EnforcementEnabledGloballyDefault                                   = true
+	AutoCreateNetworkPoliciesForExternalTrafficKey                      = "auto-create-network-policies-for-external-traffic" // Whether to automatically create network policies for external traffic
+	AutoCreateNetworkPoliciesForExternalTrafficDefault                  = true
+	AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredKey     = "exp-auto-create-network-policies-for-external-traffic-disable-intents-requirement" // Whether to automatically create network policies for external traffic, even if no intents point to the relevant service
+	AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredDefault = false
+	EnableNetworkPolicyKey                                              = "enable-network-policy-creation" // Whether to enable Intents network policy creation
+	EnableNetworkPolicyDefault                                          = true
+	EnableIstioPolicyKey                                                = "experimental-enable-istio-policy-creation" // Whether to enable istio authorization policy creation
+	EnableIstioPolicyDefault                                            = false
+	EnableKafkaACLKey                                                   = "enable-kafka-acl-creation" // Whether to disable Intents Kafka ACL creation
+	EnableKafkaACLDefault                                               = true
+	IntentsOperatorPodNameKey                                           = "pod-name"
+	IntentsOperatorPodNamespaceKey                                      = "pod-namespace"
+	EnvPrefix                                                           = "OTTERIZE"
 )
 
 func init() {
@@ -64,6 +66,7 @@ func InitCLIFlags() {
 	pflag.Bool(DisableWebhookServerKey, DisableWebhookServerDefault, "Disable webhook validator server")
 	pflag.Bool(EnforcementEnabledGloballyKey, EnforcementEnabledGloballyDefault, "If set to false disables the enforcement globally, superior to the other flags")
 	pflag.Bool(AutoCreateNetworkPoliciesForExternalTrafficKey, AutoCreateNetworkPoliciesForExternalTrafficDefault, "Whether to automatically create network policies for external traffic")
+	pflag.Bool(AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredKey, AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredDefault, "Whether to create network policies for external traffic, even if no intents point to the relevant service")
 	pflag.Bool(EnableNetworkPolicyKey, EnableNetworkPolicyDefault, "Whether to enable Intents network policy creation")
 	pflag.Bool(EnableKafkaACLKey, EnableKafkaACLDefault, "Whether to disable Intents Kafka ACL creation")
 	pflag.String(MetricsAddrKey, MetricsAddrDefault, "The address the metric endpoint binds to.")

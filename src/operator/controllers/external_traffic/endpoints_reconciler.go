@@ -26,8 +26,9 @@ const OtterizeExternalNetworkPolicyNameTemplate = "external-access-to-%s"
 
 type EndpointsReconciler struct {
 	client.Client
-	Scheme        *runtime.Scheme
-	netpolCreator *NetworkPolicyCreator
+	Scheme                     *runtime.Scheme
+	netpolCreator              *NetworkPolicyCreator
+	createEvenIfNoIntentsFound bool
 	injectablerecorder.InjectableRecorder
 }
 
@@ -35,11 +36,12 @@ func (r *EndpointsReconciler) formatPolicyName(serviceName string) string {
 	return fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 }
 
-func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enabled bool, enforcementEnabledGlobally bool) *EndpointsReconciler {
+func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enabled bool, createEvenIfNoIntentsFound bool, enforcementEnabledGlobally bool) *EndpointsReconciler {
 	return &EndpointsReconciler{
-		Client:        client,
-		Scheme:        scheme,
-		netpolCreator: NewNetworkPolicyCreator(client, scheme, enabled, enforcementEnabledGlobally),
+		Client:                     client,
+		Scheme:                     scheme,
+		createEvenIfNoIntentsFound: createEvenIfNoIntentsFound,
+		netpolCreator:              NewNetworkPolicyCreator(client, scheme, enabled, createEvenIfNoIntentsFound, enforcementEnabledGlobally),
 	}
 }
 
@@ -186,6 +188,15 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 		}
 
 		if len(netpolList.Items) == 0 {
+			if r.createEvenIfNoIntentsFound {
+				result, err := r.ReconcileServiceForServiceWithoutIntents(ctx, endpoints, serverLabel, ingressList)
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+				if !result.IsZero() {
+					return result, nil
+				}
+			}
 			continue
 		}
 
@@ -200,7 +211,7 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 
 	}
 
-	if !foundOtterizeNetpolsAffectingPods {
+	if !foundOtterizeNetpolsAffectingPods && !r.createEvenIfNoIntentsFound {
 		policyName := r.formatPolicyName(endpoints.Name)
 		result, err := r.handlePolicyDelete(ctx, policyName, endpoints.Namespace)
 		if err != nil {
@@ -241,7 +252,24 @@ func (r *EndpointsReconciler) ReconcileServiceForOtterizeNetpol(ctx context.Cont
 		return ctrl.Result{}, err
 	}
 
-	err = r.netpolCreator.handleNetworkPolicyCreationOrUpdate(ctx, endpoints, svc, otterizeServiceName, svc, netpol, ingressList, r.formatPolicyName(endpoints.Name))
+	err = r.netpolCreator.handleNetworkPolicyCreationOrUpdateForNetpol(ctx, endpoints, svc, otterizeServiceName, svc, netpol, ingressList, r.formatPolicyName(endpoints.Name))
+	if err != nil {
+		if k8serrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *EndpointsReconciler) ReconcileServiceForServiceWithoutIntents(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList) (ctrl.Result, error) {
+	svc := &corev1.Service{}
+	err := r.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = r.netpolCreator.handleNetworkPolicyCreationOrUpdateForServiceWithoutIntents(ctx, endpoints, svc, otterizeServiceName, svc, svc, ingressList, r.formatPolicyName(endpoints.Name))
 	if err != nil {
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
