@@ -13,10 +13,20 @@ var (
 	sender                    *TelemetrySender
 	globalContextId           string
 	globalComponentInstanceId string
+	globalVersion             string
+	globalCloudClientId       string
 )
 
 func SetGlobalContextId(contextId string) {
 	globalContextId = contextId
+}
+
+func SetGlobalVersion(version string) {
+	globalVersion = version
+}
+
+func SetGlobalCloudClientId(clientId string) {
+	globalCloudClientId = clientId
 }
 
 func send(componentType telemetriesgql.ComponentType, eventType telemetriesgql.EventType, count int) {
@@ -30,9 +40,11 @@ func send(componentType telemetriesgql.ComponentType, eventType telemetriesgql.E
 	})
 	if err := sender.Send(
 		telemetriesgql.Component{
+			CloudClientId:       globalCloudClientId,
 			ComponentType:       componentType,
 			ComponentInstanceId: globalComponentInstanceId,
 			ContextId:           globalContextId,
+			Version:             globalVersion,
 		}, eventType, count); err != nil {
 		logrus.Warningf("failed sending telemetry. %s", err)
 	}
