@@ -211,7 +211,7 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 
 	}
 
-	if !foundOtterizeNetpolsAffectingPods {
+	if !foundOtterizeNetpolsAffectingPods && !r.createEvenIfNoIntentsFound {
 		policyName := r.formatPolicyName(endpoints.Name)
 		result, err := r.handlePolicyDelete(ctx, policyName, endpoints.Namespace)
 		if err != nil {
