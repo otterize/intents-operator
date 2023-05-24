@@ -39,12 +39,12 @@ func (s *PodLabelReconcilerTestSuite) SetupTest() {
 }
 
 func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
-	deploymentName := "test-deployment-name"
+	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
-		Name:      deploymentName,
+		Name:      clientIntentsName,
 	}
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
@@ -109,13 +109,13 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 }
 
 func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddedTruncatedNameAndNamespace() {
-	deploymentName := "test-deployment-name"
+	clientIntentsName := "client-intents"
 	serviceName := "test-client-with-a-very-long-name-more-than-20-characters"
 	longNamespace := "test-namespace-with-a-very-long-name-more-than-20-characters"
 
 	namespacedName := types.NamespacedName{
 		Namespace: longNamespace,
-		Name:      deploymentName,
+		Name:      clientIntentsName,
 	}
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
@@ -188,12 +188,12 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemovedNoPodAnnotatio
 }
 
 func (s *PodLabelReconcilerTestSuite) testClientAccessLabelRemovedWithParams(podAnnotations map[string]string) {
-	deploymentName := "test-deployment-name"
+	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
-		Name:      deploymentName,
+		Name:      clientIntentsName,
 	}
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
@@ -276,12 +276,12 @@ func (s *PodLabelReconcilerTestSuite) testClientAccessLabelRemovedWithParams(pod
 }
 
 func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
-	deploymentName := "test-deployment-name"
+	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
-		Name:      deploymentName,
+		Name:      clientIntentsName,
 	}
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
@@ -382,12 +382,12 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 }
 
 func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
-	deploymentName := "test-deployment-name"
+	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
-		Name:      deploymentName,
+		Name:      clientIntentsName,
 	}
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
@@ -423,12 +423,12 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
 }
 
 func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
-	deploymentName := "test-deployment-name"
+	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
-		Name:      deploymentName,
+		Name:      clientIntentsName,
 	}
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
@@ -469,12 +469,12 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
 }
 
 func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddFailedPatch() {
-	deploymentName := "test-deployment-name"
+	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
-		Name:      deploymentName,
+		Name:      clientIntentsName,
 	}
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
