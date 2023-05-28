@@ -36,7 +36,7 @@ const (
 type NetworkPolicyReconciler struct {
 	client.Client
 	Scheme                      *runtime.Scheme
-	endpointsReconciler         *external_traffic.EndpointsReconciler
+	endpointsReconciler         external_traffic.EndpointsReconcilerInterface
 	RestrictToNamespaces        []string
 	enableNetworkPolicyCreation bool
 	enforcementEnabledGlobally  bool
@@ -46,7 +46,7 @@ type NetworkPolicyReconciler struct {
 func NewNetworkPolicyReconciler(
 	c client.Client,
 	s *runtime.Scheme,
-	endpointsReconciler *external_traffic.EndpointsReconciler,
+	endpointsReconciler external_traffic.EndpointsReconcilerInterface,
 	restrictToNamespaces []string,
 	enableNetworkPolicyCreation bool,
 	enforcementEnabledGlobally bool) *NetworkPolicyReconciler {
@@ -200,9 +200,11 @@ func (r *NetworkPolicyReconciler) CreateNetworkPolicy(ctx context.Context, inten
 	for _, pod := range podList.Items {
 		var endpointsList corev1.EndpointsList
 		err = r.List(
-			ctx, &endpointsList,
+			ctx,
+			&endpointsList,
 			&client.MatchingFields{otterizev1alpha2.EndpointsPodNamesIndexField: pod.Name},
-			&client.ListOptions{Namespace: pod.Namespace})
+			&client.ListOptions{Namespace: pod.Namespace},
+		)
 
 		if err != nil {
 			return err
@@ -280,7 +282,6 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, intent.GetServerName(), intentsObjNamespace)
 	policy := &v1.NetworkPolicy{}
 	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.GetServerNamespace(intentsObjNamespace)}, policy)
-
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
