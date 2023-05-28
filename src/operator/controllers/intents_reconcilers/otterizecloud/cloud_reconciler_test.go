@@ -2,143 +2,178 @@ package otterizecloud
 
 import (
 	"context"
+	"errors"
 	"github.com/golang/mock/gomock"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
-	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
-	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
-	"path/filepath"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"testing"
 )
 
 const (
 	clientName        string = "test-client"
 	intentsObjectName string = "test-client-intents"
+	testNamespace            = "test-namespace"
 )
 
 type CloudReconcilerTestSuite struct {
-	testbase.ControllerManagerTestSuiteBase
-	reconciler      *OtterizeCloudReconciler
+	suite.Suite
+	Reconciler      *OtterizeCloudReconciler
+	client          *mocks.MockClient
+	recorder        *record.FakeRecorder
 	mockCloudClient *otterizecloudmocks.MockCloudClient
-	mockK8sClient   *serviceidresolvermocks.MockClient
-}
-
-func (s *CloudReconcilerTestSuite) SetupSuite() {
-	s.TestEnv = &envtest.Environment{}
-	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "..", "config", "crd")}
-
-	s.RestConfig, err = s.TestEnv.Start()
-	s.Require().NoError(err)
-	s.Require().NotNil(s.RestConfig)
-
-	s.K8sDirectClient, err = kubernetes.NewForConfig(s.RestConfig)
-	s.Require().NoError(err)
-	s.Require().NotNil(s.K8sDirectClient)
-
-	err = otterizev1alpha2.AddToScheme(s.TestEnv.Scheme)
-	s.Require().NoError(err)
 }
 
 func (s *CloudReconcilerTestSuite) SetupTest() {
-	s.ControllerManagerTestSuiteBase.SetupTest()
-}
-
-func (s *CloudReconcilerTestSuite) TearDownSuite() {
-	s.ControllerManagerTestSuiteBase.TearDownSuite()
-}
-
-func (s *CloudReconcilerTestSuite) BeforeTest(_, testName string) {
-	s.ControllerManagerTestSuiteBase.BeforeTest("", testName)
 	controller := gomock.NewController(s.T())
+	s.client = mocks.NewMockClient(controller)
 	s.mockCloudClient = otterizecloudmocks.NewMockCloudClient(controller)
-	s.mockK8sClient = serviceidresolvermocks.NewMockClient(controller)
 
-	s.reconciler = NewOtterizeCloudReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, s.mockCloudClient)
+	s.Reconciler = NewOtterizeCloudReconciler(
+		s.client,
+		&runtime.Scheme{},
+		s.mockCloudClient,
+	)
 
-	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
-	s.reconciler.InjectRecorder(recorder)
+	s.recorder = record.NewFakeRecorder(100)
+	s.Reconciler.Recorder = s.recorder
 }
 
-func (s *CloudReconcilerTestSuite) reconcile(namespacedName types.NamespacedName) {
-	res := ctrl.Result{Requeue: true}
-	var err error
-	for res.Requeue || res.RequeueAfter > 0 {
-		res, err = s.reconciler.Reconcile(context.Background(), ctrl.Request{
-			NamespacedName: namespacedName,
-		})
-		if k8serrors.IsConflict(err) {
-			res.Requeue = true
-		}
-	}
-
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+func (s *CloudReconcilerTestSuite) TearDownTest() {
+	s.Reconciler = nil
+	s.expectNoEvent()
 }
 
 func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 	server := "test-server"
-	_, err := s.AddIntents(intentsObjectName, clientName, []otterizev1alpha2.Intent{{
-		Name: server,
-		Type: otterizev1alpha2.IntentTypeKafka,
-		Topics: []otterizev1alpha2.KafkaTopic{{
-			Name: "test-topic",
-			Operations: []otterizev1alpha2.KafkaOperation{
-				otterizev1alpha2.KafkaOperationCreate,
-				otterizev1alpha2.KafkaOperationDelete,
-			},
-		}},
-	},
-	})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
-	expectedIntent := intentInput(clientName, s.TestNamespace, server, s.TestNamespace)
-	expectedIntent.Type = lo.ToPtr(graphqlclient.IntentTypeKafka)
-	kafkaConfigInput := graphqlclient.KafkaConfigInput{
-		Name: lo.ToPtr("test-topic"),
-		Operations: []*graphqlclient.KafkaOperation{
-			lo.ToPtr(graphqlclient.KafkaOperationDelete),
-			lo.ToPtr(graphqlclient.KafkaOperationCreate),
-		},
-	}
-	expectedIntent.Topics = []*graphqlclient.KafkaConfigInput{&kafkaConfigInput}
-	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
-	expectedNamespace := lo.ToPtr(s.TestNamespace)
-	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, GetMatcher(expectedIntents)).Return(nil).Times(1)
-
-	s.reconcile(types.NamespacedName{
-		Namespace: s.TestNamespace,
-		Name:      intentsObjectName,
-	})
-}
-
-func (s *CloudReconcilerTestSuite) TestIntentsStatusUpload() {
-	s.reconciler = NewOtterizeCloudReconciler(s.mockK8sClient, s.TestEnv.Scheme, s.mockCloudClient)
-
-	serviceAccountName := "test-service-account"
-	server := "test-server"
-	clientIntents := &otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
-			Namespace: s.TestNamespace,
-			Annotations: map[string]string{
-				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
-				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
-				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "false",
+			Namespace: testNamespace,
+		},
+
+		Spec: &otterizev1alpha2.IntentsSpec{
+			Service: otterizev1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha2.Intent{
+				{
+					Name: server,
+					Type: "",
+				},
+				{
+					Name: "other-server.other-namespace",
+				},
 			},
 		},
+	}
+
+	expectedIntentInNamespace := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr(server),
+		Namespace:       lo.ToPtr(testNamespace),
+		ServerNamespace: lo.ToPtr(testNamespace),
+		Type:            nil,
+		Topics:          nil,
+		Resources:       nil,
+	}
+	expectedIntentInOtherNamespace := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr("other-server"),
+		Namespace:       lo.ToPtr(testNamespace),
+		ServerNamespace: lo.ToPtr("other-namespace"),
+		Type:            nil,
+		Topics:          nil,
+		Resources:       nil,
+	}
+
+	expectedIntents := []graphqlclient.IntentInput{
+		expectedIntentInNamespace,
+		expectedIntentInOtherNamespace,
+	}
+
+	s.assertReportedIntents(clientIntents, expectedIntents)
+}
+
+func (s *CloudReconcilerTestSuite) TestAppliedIntentsRetryWhenUploadFailed() {
+	server := "test-server"
+
+	clientIntents := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+		},
+
+		Spec: &otterizev1alpha2.IntentsSpec{
+			Service: otterizev1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha2.Intent{
+				{
+					Name: server,
+				},
+			},
+		},
+	}
+
+	expectedIntentInNamespace := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr(server),
+		Namespace:       lo.ToPtr(testNamespace),
+		ServerNamespace: lo.ToPtr(testNamespace),
+		Type:            nil,
+		Topics:          nil,
+		Resources:       nil,
+	}
+	expectedIntents := []graphqlclient.IntentInput{
+		expectedIntentInNamespace,
+	}
+
+	emptyList := otterizev1alpha2.ClientIntentsList{}
+	clientIntentsList := otterizev1alpha2.ClientIntentsList{
+		Items: []otterizev1alpha2.ClientIntents{clientIntents},
+	}
+
+	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts *client.ListOptions) error {
+			clientIntentsList.DeepCopyInto(list)
+			return nil
+		})
+
+	expectedNamespace := lo.ToPtr(testNamespace)
+	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, GetMatcher(expectedIntents)).
+		Return(errors.New("upload failed, try again later, ok? cool")).Times(1)
+
+	objName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      intentsObjectName,
+	}
+	req := ctrl.Request{NamespacedName: objName}
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	// We get an error and the operator will try sending again
+	s.Require().Error(err)
+	s.Require().Equal(ctrl.Result{}, res)
+}
+
+func (s *CloudReconcilerTestSuite) TestUploadKafkaType() {
+	server := "test-server"
+
+	clientIntents := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+		},
+
 		Spec: &otterizev1alpha2.IntentsSpec{
 			Service: otterizev1alpha2.Service{
 				Name: clientName,
@@ -152,57 +187,38 @@ func (s *CloudReconcilerTestSuite) TestIntentsStatusUpload() {
 						Operations: []otterizev1alpha2.KafkaOperation{
 							otterizev1alpha2.KafkaOperationCreate,
 							otterizev1alpha2.KafkaOperationDelete,
-						},
-					},
+						}},
 					},
 				},
 			},
 		},
 	}
 
-	var clientIntentsList otterizev1alpha2.ClientIntentsList
-	s.mockK8sClient.EXPECT().List(gomock.Any(), &clientIntentsList, &client.ListOptions{Namespace: s.TestNamespace}).Do(
-		func(_ context.Context, list *otterizev1alpha2.ClientIntentsList, _ ...client.ListOption) {
-			list.Items = append(list.Items, *clientIntents)
-		}).Return(nil).Times(1)
-
-	expectedIntent := intentInput(clientName, s.TestNamespace, server, s.TestNamespace)
-	expectedIntent.Type = lo.ToPtr(graphqlclient.IntentTypeKafka)
-	kafkaConfigInput := graphqlclient.KafkaConfigInput{
-		Name: lo.ToPtr("test-topic"),
-		Operations: []*graphqlclient.KafkaOperation{
-			lo.ToPtr(graphqlclient.KafkaOperationDelete),
-			lo.ToPtr(graphqlclient.KafkaOperationCreate),
-		},
+	expectedIntent := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr(server),
+		Namespace:       lo.ToPtr(testNamespace),
+		ServerNamespace: lo.ToPtr(testNamespace),
+		Type:            lo.ToPtr(graphqlclient.IntentTypeKafka),
+		Topics: []*graphqlclient.KafkaConfigInput{{
+			Name: lo.ToPtr("test-topic"),
+			Operations: []*graphqlclient.KafkaOperation{
+				lo.ToPtr(graphqlclient.KafkaOperationDelete),
+				lo.ToPtr(graphqlclient.KafkaOperationCreate),
+			},
+		}},
 	}
-	expectedIntent.Topics = []*graphqlclient.KafkaConfigInput{&kafkaConfigInput}
-	expectedIntent.Status = &graphqlclient.IntentStatusInput{
-		IstioStatus: &graphqlclient.IstioStatusInput{},
-	}
-	expectedIntent.Status.IstioStatus.ServiceAccountName = lo.ToPtr(serviceAccountName)
-	expectedIntent.Status.IstioStatus.IsServiceAccountShared = lo.ToPtr(false)
-	expectedIntent.Status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(false)
-	expectedIntent.Status.IstioStatus.IsServerMissingSidecar = lo.ToPtr(false)
-	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
-	expectedNamespace := lo.ToPtr(s.TestNamespace)
 
-	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, GetMatcher(expectedIntents)).Return(nil).Times(1)
-
-	s.reconcile(types.NamespacedName{
-		Namespace: s.TestNamespace,
-		Name:      intentsObjectName,
-	})
+	s.assertReportedIntents(clientIntents, []graphqlclient.IntentInput{expectedIntent})
 }
 
 func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
-	s.reconciler = NewOtterizeCloudReconciler(s.mockK8sClient, s.TestEnv.Scheme, s.mockCloudClient)
-
 	serviceAccountName := "test-service-account"
 	server := "test-server"
-	clientIntents := &otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
-			Namespace: s.TestNamespace,
+			Namespace: testNamespace,
 			Annotations: map[string]string{
 				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
 				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
@@ -237,50 +253,239 @@ func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
 		},
 	}
 
-	var clientIntentsList otterizev1alpha2.ClientIntentsList
-	s.mockK8sClient.EXPECT().List(gomock.Any(), &clientIntentsList, &client.ListOptions{Namespace: s.TestNamespace}).Do(
-		func(_ context.Context, list *otterizev1alpha2.ClientIntentsList, _ ...client.ListOption) {
-			list.Items = append(list.Items, *clientIntents)
-		}).Return(nil).Times(1)
-
-	expectedIntent := intentInput(clientName, s.TestNamespace, server, s.TestNamespace)
-	expectedIntent.Type = lo.ToPtr(graphqlclient.IntentTypeHttp)
-	expectedIntent.Resources = []*graphqlclient.HTTPConfigInput{
-		{
-			Path:    lo.ToPtr("/login"),
-			Methods: []*graphqlclient.HTTPMethod{lo.ToPtr(graphqlclient.HTTPMethodGet), lo.ToPtr(graphqlclient.HTTPMethodPost)},
+	expectedIntent := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr(server),
+		Namespace:       lo.ToPtr(testNamespace),
+		ServerNamespace: lo.ToPtr(testNamespace),
+		Type:            lo.ToPtr(graphqlclient.IntentTypeHttp),
+		Resources: []*graphqlclient.HTTPConfigInput{
+			{
+				Path:    lo.ToPtr("/login"),
+				Methods: []*graphqlclient.HTTPMethod{lo.ToPtr(graphqlclient.HTTPMethodGet), lo.ToPtr(graphqlclient.HTTPMethodPost)},
+			},
+			{
+				Path:    lo.ToPtr("/logout"),
+				Methods: []*graphqlclient.HTTPMethod{lo.ToPtr(graphqlclient.HTTPMethodPost)},
+			},
 		},
-		{
-			Path:    lo.ToPtr("/logout"),
-			Methods: []*graphqlclient.HTTPMethod{lo.ToPtr(graphqlclient.HTTPMethodPost)},
+		Status: &graphqlclient.IntentStatusInput{
+			IstioStatus: &graphqlclient.IstioStatusInput{
+				ServiceAccountName:     lo.ToPtr(serviceAccountName),
+				IsServiceAccountShared: lo.ToPtr(false),
+				IsClientMissingSidecar: lo.ToPtr(false),
+				IsServerMissingSidecar: lo.ToPtr(false),
+			},
 		},
 	}
-	expectedIntent.Status = &graphqlclient.IntentStatusInput{
-		IstioStatus: &graphqlclient.IstioStatusInput{},
+
+	s.assertReportedIntents(clientIntents, []graphqlclient.IntentInput{expectedIntent})
+}
+
+func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSharedSA() {
+	serviceAccountName := "test-service-account"
+	server := "test-server"
+	clientIntents := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+			Annotations: map[string]string{
+				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "false",
+			},
+		},
+		Spec: &otterizev1alpha2.IntentsSpec{
+			Service: otterizev1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha2.Intent{
+				{
+					Name: server,
+					Type: otterizev1alpha2.IntentTypeHTTP,
+					HTTPResources: []otterizev1alpha2.HTTPResource{
+						{
+							Path: "/login",
+							Methods: []otterizev1alpha2.HTTPMethod{
+								otterizev1alpha2.HTTPMethodGet,
+								otterizev1alpha2.HTTPMethodPost,
+							},
+						},
+					},
+				},
+			},
+		},
 	}
-	expectedIntent.Status.IstioStatus.ServiceAccountName = lo.ToPtr(serviceAccountName)
-	expectedIntent.Status.IstioStatus.IsServiceAccountShared = lo.ToPtr(false)
-	expectedIntent.Status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(false)
-	expectedIntent.Status.IstioStatus.IsServerMissingSidecar = lo.ToPtr(false)
 
-	expectedIntents := []graphqlclient.IntentInput{expectedIntent}
-	expectedNamespace := lo.ToPtr(s.TestNamespace)
+	s.expectReconcilerError(clientIntents)
+}
 
+func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSidecar() {
+	serviceAccountName := "test-service-account"
+	server := "test-server"
+	clientIntents := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+			Annotations: map[string]string{
+				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
+			},
+		},
+		Spec: &otterizev1alpha2.IntentsSpec{
+			Service: otterizev1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha2.Intent{
+				{
+					Name: server,
+					Type: otterizev1alpha2.IntentTypeHTTP,
+					HTTPResources: []otterizev1alpha2.HTTPResource{
+						{
+							Path: "/login",
+							Methods: []otterizev1alpha2.HTTPMethod{
+								otterizev1alpha2.HTTPMethodGet,
+								otterizev1alpha2.HTTPMethodPost,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s.expectReconcilerError(clientIntents)
+}
+
+func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatSharedSA() {
+	serviceAccountName := "test-service-account"
+	server := "test-server"
+	clientIntents := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+			Annotations: map[string]string{
+				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "sharing-is-caring",
+				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "false",
+			},
+		},
+		Spec: &otterizev1alpha2.IntentsSpec{
+			Service: otterizev1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha2.Intent{
+				{
+					Name: server,
+					Type: otterizev1alpha2.IntentTypeHTTP,
+					HTTPResources: []otterizev1alpha2.HTTPResource{
+						{
+							Path: "/login",
+							Methods: []otterizev1alpha2.HTTPMethod{
+								otterizev1alpha2.HTTPMethodGet,
+								otterizev1alpha2.HTTPMethodPost,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s.expectReconcilerError(clientIntents)
+}
+
+func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatSidecar() {
+	serviceAccountName := "test-service-account"
+	server := "test-server"
+	clientIntents := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+			Annotations: map[string]string{
+				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
+				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "I-don't-see-any-sidecar",
+			},
+		},
+		Spec: &otterizev1alpha2.IntentsSpec{
+			Service: otterizev1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha2.Intent{
+				{
+					Name: server,
+					Type: otterizev1alpha2.IntentTypeHTTP,
+					HTTPResources: []otterizev1alpha2.HTTPResource{
+						{
+							Path: "/login",
+							Methods: []otterizev1alpha2.HTTPMethod{
+								otterizev1alpha2.HTTPMethodGet,
+								otterizev1alpha2.HTTPMethodPost,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s.expectReconcilerError(clientIntents)
+}
+
+func (s *CloudReconcilerTestSuite) expectReconcilerError(clientIntents otterizev1alpha2.ClientIntents) {
+	emptyList := otterizev1alpha2.ClientIntentsList{}
+	clientIntentsList := otterizev1alpha2.ClientIntentsList{
+		Items: []otterizev1alpha2.ClientIntents{clientIntents},
+	}
+
+	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts *client.ListOptions) error {
+			clientIntentsList.DeepCopyInto(list)
+			return nil
+		})
+
+	objName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      intentsObjectName,
+	}
+	req := ctrl.Request{NamespacedName: objName}
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.Require().Error(err)
+	s.Require().Equal(ctrl.Result{}, res)
+}
+
+func (s *CloudReconcilerTestSuite) assertReportedIntents(clientIntents otterizev1alpha2.ClientIntents, expectedIntents []graphqlclient.IntentInput) {
+	emptyList := otterizev1alpha2.ClientIntentsList{}
+	clientIntentsList := otterizev1alpha2.ClientIntentsList{
+		Items: []otterizev1alpha2.ClientIntents{clientIntents},
+	}
+
+	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts *client.ListOptions) error {
+			clientIntentsList.DeepCopyInto(list)
+			return nil
+		})
+
+	expectedNamespace := lo.ToPtr(testNamespace)
 	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, GetMatcher(expectedIntents)).Return(nil).Times(1)
 
-	s.reconcile(types.NamespacedName{
-		Namespace: s.TestNamespace,
+	objName := types.NamespacedName{
+		Namespace: testNamespace,
 		Name:      intentsObjectName,
-	})
+	}
+	req := ctrl.Request{NamespacedName: objName}
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.Require().NoError(err)
+	s.Require().Equal(ctrl.Result{}, res)
 }
 
 func (s *CloudReconcilerTestSuite) TestNamespaceParseSuccess() {
 	serverName := "server.other-namespace"
 	intent := &otterizev1alpha2.Intent{Name: serverName}
 
-	cloudIntent := intent.ConvertToCloudFormat(s.TestNamespace, clientName)
+	cloudIntent := intent.ConvertToCloudFormat(testNamespace, clientName)
 
-	s.Require().Equal(lo.FromPtr(cloudIntent.Namespace), s.TestNamespace)
+	s.Require().Equal(lo.FromPtr(cloudIntent.Namespace), testNamespace)
 	s.Require().Equal(lo.FromPtr(cloudIntent.ClientName), clientName)
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerName), "server")
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), "other-namespace")
@@ -289,23 +494,16 @@ func (s *CloudReconcilerTestSuite) TestNamespaceParseSuccess() {
 func (s *CloudReconcilerTestSuite) TestTargetNamespaceAsSourceNamespace() {
 	serverName := "server"
 	intent := &otterizev1alpha2.Intent{Name: serverName}
-	cloudIntent := intent.ConvertToCloudFormat(s.TestNamespace, clientName)
-	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), s.TestNamespace)
+	cloudIntent := intent.ConvertToCloudFormat(testNamespace, clientName)
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), testNamespace)
 }
 
-func intentInput(clientName string, namespace string, serverName string, serverNamespace string) graphqlclient.IntentInput {
-	nilIfEmpty := func(s string) *string {
-		if s == "" {
-			return nil
-		}
-		return lo.ToPtr(s)
-	}
-
-	return graphqlclient.IntentInput{
-		ClientName:      nilIfEmpty(clientName),
-		ServerName:      nilIfEmpty(serverName),
-		Namespace:       nilIfEmpty(namespace),
-		ServerNamespace: nilIfEmpty(serverNamespace),
+func (s *CloudReconcilerTestSuite) expectNoEvent() {
+	select {
+	case event := <-s.recorder.Events:
+		s.Fail("Unexpected event found", event)
+	default:
+		// Amazing, no events left behind!
 	}
 }
 
