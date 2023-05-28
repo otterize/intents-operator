@@ -63,8 +63,9 @@ jobs:
           
           OPERATOR_FLAGS="--set-string intentsOperator.operator.repository=${{ env.REGISTRY }} --set-string intentsOperator.operator.image=intents-operator --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
           WATCHER_FLAGS="--set-string intentsOperator.watcher.repository=${{ env.REGISTRY }} --set-string intentsOperator.watcher.image=watcher --set-string intentsOperator.watcher.tag=${{ inputs.watcher-tag }} --set-string intentsOperator.watcher.pullPolicy=Never"
+          TELEMETRY_FLAG="--set global.telemetry.enabled=false"
           helm dep up ./helm-charts/otterize-kubernetes
-          helm install otterize ./helm-charts/otterize-kubernetes -n otterize-system --create-namespace $OPERATOR_FLAGS $WATCHER_FLAGS
+          helm install otterize ./helm-charts/otterize-kubernetes -n otterize-system --create-namespace $OPERATOR_FLAGS $WATCHER_FLAGS $TELEMETRY_FLAG
 
 
       - name: Deploy Tutorial services
@@ -156,8 +157,9 @@ jobs:
           
           OPERATOR_FLAGS="--set-string intentsOperator.operator.repository=${{ env.REGISTRY }} --set-string intentsOperator.operator.image=intents-operator --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
           WATCHER_FLAGS="--set-string intentsOperator.watcher.repository=${{ env.REGISTRY }} --set-string intentsOperator.watcher.image=watcher --set-string intentsOperator.watcher.tag=${{ inputs.watcher-tag }} --set-string intentsOperator.watcher.pullPolicy=Never"
+          TELEMETRY_FLAG="--set global.telemetry.enabled=false"
           helm dep up ./helm-charts/otterize-kubernetes
-          helm install otterize ./helm-charts/otterize-kubernetes -n otterize-system --create-namespace $OPERATOR_FLAGS $WATCHER_FLAGS
+          helm install otterize ./helm-charts/otterize-kubernetes -n otterize-system --create-namespace $OPERATOR_FLAGS $WATCHER_FLAGS $TELEMETRY_FLAG
 
 
       - name: Wait for Otterize
