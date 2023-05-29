@@ -26,7 +26,7 @@ type IstioPolicyReconcilerTestSuite struct {
 	Reconciler      *IstioPolicyReconciler
 	client          *mocks.MockClient
 	recorder        *record.FakeRecorder
-	policyCreator   *mocks.MockCreatorInterface
+	policyAdmin     *mocks.MockAdmin
 	serviceResolver *mocks.MockServiceResolver
 	scheme          *runtime.Scheme
 }
@@ -34,7 +34,7 @@ type IstioPolicyReconcilerTestSuite struct {
 func (s *IstioPolicyReconcilerTestSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
 	s.client = mocks.NewMockClient(controller)
-	s.policyCreator = mocks.NewMockCreatorInterface(controller)
+	s.policyAdmin = mocks.NewMockAdmin(controller)
 	s.serviceResolver = mocks.NewMockServiceResolver(controller)
 	restrictToNamespaces := make([]string, 0)
 	s.scheme = runtime.NewScheme()
@@ -51,7 +51,7 @@ func (s *IstioPolicyReconcilerTestSuite) SetupTest() {
 	s.recorder = record.NewFakeRecorder(100)
 	s.Reconciler.Recorder = s.recorder
 	s.Reconciler.serviceIdResolver = s.serviceResolver
-	s.Reconciler.policyCreator = s.policyCreator
+	s.Reconciler.policyAdmin = s.policyAdmin
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TearDownTest() {
@@ -143,10 +143,10 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
 		},
 	}
 	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(intentsObj)).Return(clientPod, nil)
-	s.policyCreator.EXPECT().UpdateIntentsStatus(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount, false).Return(nil)
+	s.policyAdmin.EXPECT().UpdateIntentsStatus(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount, false).Return(nil)
 	s.serviceResolver.EXPECT().ResolveIntentServerToPod(gomock.Any(), gomock.Eq(intentsObj.Spec.Calls[0]), serverNamespace).Return(serverPod, nil)
-	s.policyCreator.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&intentsObj), "test-server-far-far-away-aa0d79", false).Return(nil)
-	s.policyCreator.EXPECT().Create(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount).Return(nil)
+	s.policyAdmin.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&intentsObj), "test-server-far-far-away-aa0d79", false).Return(nil)
+	s.policyAdmin.EXPECT().Create(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Equal(ctrl.Result{}, res)
@@ -260,7 +260,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {
 			return nil
 		})
 
-	s.policyCreator.EXPECT().DeleteAll(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
+	s.policyAdmin.EXPECT().DeleteAll(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
 
 	intentsWithoutFinalizer := &otterizev1alpha2.ClientIntents{}
 	clientIntentsObj.DeepCopyInto(intentsWithoutFinalizer)

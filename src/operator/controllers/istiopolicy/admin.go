@@ -40,28 +40,28 @@ type PolicyID types.UID
 //+kubebuilder:rbac:groups="security.istio.io",resources=authorizationpolicies,verbs=get;update;patch;list;watch;delete;create;deletecollection
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents,verbs=get;list;watch;create;update;patch;delete
 
-type Creator struct {
+type AdminImpl struct {
 	client               client.Client
 	recorder             *injectablerecorder.InjectableRecorder
 	restrictToNamespaces []string
 }
 
-type CreatorInterface interface {
+type Admin interface {
 	DeleteAll(ctx context.Context, clientIntents *v1alpha2.ClientIntents) error
 	Create(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error
 	UpdateIntentsStatus(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string, missingSideCar bool) error
 	UpdateServerSidecar(ctx context.Context, clientIntents *v1alpha2.ClientIntents, serverName string, missingSideCar bool) error
 }
 
-func NewCreator(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string) *Creator {
-	return &Creator{
+func NewAdmin(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string) *AdminImpl {
+	return &AdminImpl{
 		client:               client,
 		recorder:             recorder,
 		restrictToNamespaces: restrictedNamespaces,
 	}
 }
 
-func (c *Creator) DeleteAll(
+func (c *AdminImpl) DeleteAll(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
 ) error {
@@ -84,7 +84,7 @@ func (c *Creator) DeleteAll(
 	return nil
 }
 
-func (c *Creator) deletePolicy(ctx context.Context, policy *v1beta1.AuthorizationPolicy) error {
+func (c *AdminImpl) deletePolicy(ctx context.Context, policy *v1beta1.AuthorizationPolicy) error {
 	err := c.client.Delete(ctx, policy)
 	if err != nil {
 		return err
@@ -93,7 +93,7 @@ func (c *Creator) deletePolicy(ctx context.Context, policy *v1beta1.Authorizatio
 	return nil
 }
 
-func (c *Creator) Create(
+func (c *AdminImpl) Create(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
 	clientServiceAccount string,
@@ -127,7 +127,7 @@ func (c *Creator) Create(
 	return nil
 }
 
-func (c *Creator) UpdateIntentsStatus(
+func (c *AdminImpl) UpdateIntentsStatus(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
 	clientServiceAccount string,
@@ -146,7 +146,7 @@ func (c *Creator) UpdateIntentsStatus(
 	return c.updateSharedServiceAccountsInNamespace(ctx, clientIntents.Namespace)
 }
 
-func (c *Creator) UpdateServerSidecar(
+func (c *AdminImpl) UpdateServerSidecar(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
 	serverName string,
@@ -186,7 +186,7 @@ func (c *Creator) UpdateServerSidecar(
 	return nil
 }
 
-func (c *Creator) setServersWithoutSidecar(ctx context.Context, clientIntents *v1alpha2.ClientIntents, set sets.Set[string]) error {
+func (c *AdminImpl) setServersWithoutSidecar(ctx context.Context, clientIntents *v1alpha2.ClientIntents, set sets.Set[string]) error {
 	serversSortedList := sets.List(set)
 	serversValues, err := json.Marshal(serversSortedList)
 	if err != nil {
@@ -205,7 +205,7 @@ func (c *Creator) setServersWithoutSidecar(ctx context.Context, clientIntents *v
 	return nil
 }
 
-func (c *Creator) saveServiceAccountName(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {
+func (c *AdminImpl) saveServiceAccountName(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {
 	serviceAccountLabelValue, ok := clientIntents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
 	if ok && serviceAccountLabelValue == clientServiceAccount {
 		return nil
@@ -228,7 +228,7 @@ func (c *Creator) saveServiceAccountName(ctx context.Context, clientIntents *v1a
 	return nil
 }
 
-func (c *Creator) saveSideCarStatus(ctx context.Context, clientIntents *v1alpha2.ClientIntents, missingSideCar bool) error {
+func (c *AdminImpl) saveSideCarStatus(ctx context.Context, clientIntents *v1alpha2.ClientIntents, missingSideCar bool) error {
 	oldValue, ok := clientIntents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
 	if ok && oldValue == strconv.FormatBool(missingSideCar) {
 		return nil
@@ -248,7 +248,7 @@ func (c *Creator) saveSideCarStatus(ctx context.Context, clientIntents *v1alpha2
 	return nil
 }
 
-func (c *Creator) updateSharedServiceAccountsInNamespace(ctx context.Context, namespace string) error {
+func (c *AdminImpl) updateSharedServiceAccountsInNamespace(ctx context.Context, namespace string) error {
 	var namespacesClientIntents v1alpha2.ClientIntentsList
 	err := c.client.List(
 		ctx, &namespacesClientIntents,
@@ -270,7 +270,7 @@ func (c *Creator) updateSharedServiceAccountsInNamespace(ctx context.Context, na
 	return nil
 }
 
-func (c *Creator) updateServiceAccountSharedStatus(ctx context.Context, clientIntents []v1alpha2.ClientIntents, serviceAccount string) error {
+func (c *AdminImpl) updateServiceAccountSharedStatus(ctx context.Context, clientIntents []v1alpha2.ClientIntents, serviceAccount string) error {
 	logrus.Infof("Found %d intents with service account %s", len(clientIntents), serviceAccount)
 	isServiceAccountShared := len(clientIntents) > 1
 	sharedAccountValue := lo.Ternary(isServiceAccountShared, "true", "false")
@@ -316,7 +316,7 @@ func shouldUpdateStatus(intents v1alpha2.ClientIntents, currentName string, curr
 	return false
 }
 
-func (c *Creator) createOrUpdatePolicies(
+func (c *AdminImpl) createOrUpdatePolicies(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
 	clientServiceAccount string,
@@ -358,7 +358,7 @@ func (c *Creator) createOrUpdatePolicies(
 	return *updatedPolicies, nil
 }
 
-func (c *Creator) findPolicy(existingPolicies v1beta1.AuthorizationPolicyList, newPolicy *v1beta1.AuthorizationPolicy) (*v1beta1.AuthorizationPolicy, bool) {
+func (c *AdminImpl) findPolicy(existingPolicies v1beta1.AuthorizationPolicyList, newPolicy *v1beta1.AuthorizationPolicy) (*v1beta1.AuthorizationPolicy, bool) {
 	for _, policy := range existingPolicies.Items {
 		if policy.Labels[v1alpha2.OtterizeServerLabelKey] == newPolicy.Labels[v1alpha2.OtterizeServerLabelKey] {
 			return policy, true
@@ -367,7 +367,7 @@ func (c *Creator) findPolicy(existingPolicies v1beta1.AuthorizationPolicyList, n
 	return nil, false
 }
 
-func (c *Creator) deleteOutdatedPolicies(ctx context.Context, existingPolicies v1beta1.AuthorizationPolicyList, validPolicies goset.Set[PolicyID]) error {
+func (c *AdminImpl) deleteOutdatedPolicies(ctx context.Context, existingPolicies v1beta1.AuthorizationPolicyList, validPolicies goset.Set[PolicyID]) error {
 	for _, existingPolicy := range existingPolicies.Items {
 		if !validPolicies.Contains(PolicyID(existingPolicy.UID)) {
 			err := c.deletePolicy(ctx, existingPolicy)
@@ -379,7 +379,7 @@ func (c *Creator) deleteOutdatedPolicies(ctx context.Context, existingPolicies v
 	return nil
 }
 
-func (c *Creator) updatePolicy(ctx context.Context, existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) error {
+func (c *AdminImpl) updatePolicy(ctx context.Context, existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) error {
 	if c.isPolicyEqual(existingPolicy, newPolicy) {
 		return nil
 	}
@@ -397,13 +397,13 @@ func (c *Creator) updatePolicy(ctx context.Context, existingPolicy *v1beta1.Auth
 	return nil
 }
 
-func (c *Creator) getPolicyName(intents *v1alpha2.ClientIntents, intent v1alpha2.Intent) string {
+func (c *AdminImpl) getPolicyName(intents *v1alpha2.ClientIntents, intent v1alpha2.Intent) string {
 	clientName := fmt.Sprintf("%s.%s", intents.GetServiceName(), intents.Namespace)
 	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.GetServerName(), clientName)
 	return policyName
 }
 
-func (c *Creator) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) bool {
+func (c *AdminImpl) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) bool {
 	sameServer := existingPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey] == newPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey]
 	samePrincipals := existingPolicy.Spec.Rules[0].From[0].Source.Principals[0] == newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
 	sameHTTPRules := compareHTTPRules(existingPolicy.Spec.Rules[0].To, newPolicy.Spec.Rules[0].To)
@@ -437,7 +437,7 @@ func compareHTTPRules(existingRules []*v1beta1security.Rule_To, newRules []*v1be
 	return true
 }
 
-func (c *Creator) generateAuthorizationPolicy(
+func (c *AdminImpl) generateAuthorizationPolicy(
 	clientIntents *v1alpha2.ClientIntents,
 	intent v1alpha2.Intent,
 	clientServiceAccountName string,
@@ -497,7 +497,7 @@ func (c *Creator) generateAuthorizationPolicy(
 	return newPolicy
 }
 
-func (c *Creator) intentsHTTPResourceToIstioOperations(resources []v1alpha2.HTTPResource) []*v1beta1security.Operation {
+func (c *AdminImpl) intentsHTTPResourceToIstioOperations(resources []v1alpha2.HTTPResource) []*v1beta1security.Operation {
 	operations := make([]*v1beta1security.Operation, 0, len(resources))
 
 	for _, resource := range resources {
@@ -510,7 +510,7 @@ func (c *Creator) intentsHTTPResourceToIstioOperations(resources []v1alpha2.HTTP
 	return operations
 }
 
-func (c *Creator) intentsMethodsToIstioMethods(intent []v1alpha2.HTTPMethod) []string {
+func (c *AdminImpl) intentsMethodsToIstioMethods(intent []v1alpha2.HTTPMethod) []string {
 	istioMethods := make([]string, 0, len(intent))
 	for _, method := range intent {
 		// Istio documentation specifies "A list of methods as specified in the HTTP request" in uppercase

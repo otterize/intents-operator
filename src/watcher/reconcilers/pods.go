@@ -28,18 +28,18 @@ const (
 
 type PodWatcher struct {
 	client.Client
-	serviceIdResolver  *serviceidresolver.Resolver
-	istioPolicyCreator *istiopolicy.Creator
+	serviceIdResolver *serviceidresolver.Resolver
+	istioPolicyAdmin  istiopolicy.Admin
 	injectablerecorder.InjectableRecorder
 }
 
 func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string) *PodWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
-	creator := istiopolicy.NewCreator(c, &recorder, watchedNamespaces)
+	creator := istiopolicy.NewAdmin(c, &recorder, watchedNamespaces)
 	return &PodWatcher{
 		Client:             c,
 		serviceIdResolver:  serviceidresolver.NewResolver(c),
-		istioPolicyCreator: creator,
+		istioPolicyAdmin:   creator,
 		InjectableRecorder: recorder,
 	}
 }
@@ -138,7 +138,7 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 
 	for _, clientIntents := range intentsList.Items {
 		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
-		err = p.istioPolicyCreator.UpdateServerSidecar(ctx, &clientIntents, formattedTargetServer, missingSideCar)
+		err = p.istioPolicyAdmin.UpdateServerSidecar(ctx, &clientIntents, formattedTargetServer, missingSideCar)
 		if err != nil {
 			return err
 		}
@@ -219,7 +219,7 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 
 	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 
-	err := p.istioPolicyCreator.UpdateIntentsStatus(ctx, &intents, pod.Spec.ServiceAccountName, missingSideCar)
+	err := p.istioPolicyAdmin.UpdateIntentsStatus(ctx, &intents, pod.Spec.ServiceAccountName, missingSideCar)
 	if err != nil {
 		return err
 	}
@@ -229,7 +229,7 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 		return nil
 	}
 
-	err = p.istioPolicyCreator.Create(ctx, &intents, pod.Spec.ServiceAccountName)
+	err = p.istioPolicyAdmin.Create(ctx, &intents, pod.Spec.ServiceAccountName)
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
 		return err
