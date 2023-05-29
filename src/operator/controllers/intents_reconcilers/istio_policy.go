@@ -29,8 +29,8 @@ type IstioPolicyReconciler struct {
 	enableIstioPolicyCreation  bool
 	enforcementEnabledGlobally bool
 	injectablerecorder.InjectableRecorder
-	serviceIdResolver *serviceidresolver.Resolver
-	policyCreator     *istiopolicy.Creator
+	serviceIdResolver serviceidresolver.ServiceResolver
+	policyCreator     istiopolicy.CreatorInterface
 }
 
 func NewIstioPolicyReconciler(

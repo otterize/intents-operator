@@ -46,6 +46,13 @@ type Creator struct {
 	restrictToNamespaces []string
 }
 
+type CreatorInterface interface {
+	DeleteAll(ctx context.Context, clientIntents *v1alpha2.ClientIntents) error
+	Create(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error
+	UpdateIntentsStatus(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string, missingSideCar bool) error
+	UpdateServerSidecar(ctx context.Context, clientIntents *v1alpha2.ClientIntents, serverName string, missingSideCar bool) error
+}
+
 func NewCreator(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string) *Creator {
 	return &Creator{
 		client:               client,
@@ -331,7 +338,7 @@ func (c *Creator) createOrUpdatePolicies(
 		newPolicy := c.generateAuthorizationPolicy(clientIntents, intent, clientServiceAccount)
 		existingPolicy, found := c.findPolicy(existingPolicies, newPolicy)
 		if found {
-			err := c.UpdatePolicy(ctx, existingPolicy, newPolicy)
+			err := c.updatePolicy(ctx, existingPolicy, newPolicy)
 			if err != nil {
 				c.recorder.RecordWarningEventf(clientIntents, ReasonUpdatingIstioPolicyFailed, "Failed to update Istio policy: %s", err.Error())
 				return goset.Set[PolicyID]{}, err
@@ -372,7 +379,7 @@ func (c *Creator) deleteOutdatedPolicies(ctx context.Context, existingPolicies v
 	return nil
 }
 
-func (c *Creator) UpdatePolicy(ctx context.Context, existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) error {
+func (c *Creator) updatePolicy(ctx context.Context, existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) error {
 	if c.isPolicyEqual(existingPolicy, newPolicy) {
 		return nil
 	}
