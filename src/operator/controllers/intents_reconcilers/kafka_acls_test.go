@@ -6,9 +6,9 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/golang/mock/gomock"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	intentsreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
-	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -38,7 +38,7 @@ type KafkaACLReconcilerTestSuite struct {
 	Reconciler          *KafkaACLReconciler
 	mockKafkaAdmin      *kafkaaclsmocks.MockClusterAdmin
 	recorder            *record.FakeRecorder
-	mockServiceResolver *serviceidresolvermocks.MockServiceResolver
+	mockServiceResolver *intentsreconcilersmocks.MockServiceResolver
 	operatorNamespace   string
 }
 
@@ -95,7 +95,7 @@ func (s *KafkaACLReconcilerTestSuite) BeforeTest(_, testName string) {
 
 	controller := gomock.NewController(s.T())
 	s.mockKafkaAdmin = kafkaaclsmocks.NewMockClusterAdmin(controller)
-	s.mockServiceResolver = serviceidresolvermocks.NewMockServiceResolver(controller)
+	s.mockServiceResolver = intentsreconcilersmocks.NewMockServiceResolver(controller)
 
 	s.initKafkaIntentsAdmin(true, true)
 }
