@@ -2,189 +2,295 @@ package intents_reconcilers
 
 import (
 	"context"
+	"fmt"
+	"github.com/golang/mock/gomock"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/shared/testbase"
-	"github.com/samber/lo"
-	"github.com/stretchr/testify/assert"
-	istiov1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	"github.com/stretchr/testify/suite"
+	"istio.io/client-go/pkg/apis/security/v1beta1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"testing"
+	"time"
 )
 
 type IstioPolicyReconcilerTestSuite struct {
-	testbase.ControllerManagerTestSuiteBase
-	Reconciler *IstioPolicyReconciler
-}
-
-func (s *IstioPolicyReconcilerTestSuite) SetupSuite() {
-	s.TestEnv = &envtest.Environment{}
-	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{
-		"../../config/crd",
-		"../../../exp/istiopolicy/crd",
-	}
-
-	s.RestConfig, err = s.TestEnv.Start()
-	s.Require().NoError(err)
-	s.Require().NotNil(s.RestConfig)
-
-	s.K8sDirectClient, err = kubernetes.NewForConfig(s.RestConfig)
-	s.Require().NoError(err)
-	s.Require().NotNil(s.K8sDirectClient)
-
-	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(istiov1beta1.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
-
-	err = istiov1beta1.AddToScheme(s.TestEnv.Scheme)
-	s.Require().NoError(err)
-}
-
-func (s *IstioPolicyReconcilerTestSuite) BeforeTest(_, testName string) {
-	s.ControllerManagerTestSuiteBase.BeforeTest("", testName)
-	s.Reconciler = NewIstioPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, []string{}, true, true)
-	recorder := record.NewFakeRecorder(100)
-	s.Reconciler.InjectRecorder(recorder)
+	suite.Suite
+	Reconciler      *IstioPolicyReconciler
+	client          *mocks.MockClient
+	recorder        *record.FakeRecorder
+	policyAdmin     *mocks.MockAdmin
+	serviceResolver *mocks.MockServiceResolver
+	scheme          *runtime.Scheme
 }
 
 func (s *IstioPolicyReconcilerTestSuite) SetupTest() {
-	s.ControllerManagerTestSuiteBase.SetupTest()
+	controller := gomock.NewController(s.T())
+	s.client = mocks.NewMockClient(controller)
+	s.policyAdmin = mocks.NewMockAdmin(controller)
+	s.serviceResolver = mocks.NewMockServiceResolver(controller)
+	restrictToNamespaces := make([]string, 0)
+	s.scheme = runtime.NewScheme()
+	s.scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "security.istio.io", Version: "v1", Kind: "authorizationpolicies"}, &v1beta1.AuthorizationPolicy{})
+
+	s.Reconciler = NewIstioPolicyReconciler(
+		s.client,
+		s.scheme,
+		restrictToNamespaces,
+		true,
+		true,
+	)
+
+	s.recorder = record.NewFakeRecorder(100)
+	s.Reconciler.Recorder = s.recorder
+	s.Reconciler.serviceIdResolver = s.serviceResolver
+	s.Reconciler.policyAdmin = s.policyAdmin
+}
+
+func (s *IstioPolicyReconcilerTestSuite) TearDownTest() {
+	s.expectNoEvent()
+	s.Reconciler = nil
+}
+
+func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
+	clientIntentsName := "client-intents"
+	serviceName := "test-client"
+	serverNamespace := "far-far-away"
+
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev1alpha2.IntentsSpec{
+		Service: otterizev1alpha2.Service{Name: serviceName},
+		Calls: []otterizev1alpha2.Intent{
+			{
+				Name: serverName,
+			},
+		},
+	}
+
+	intentsWithoutFinalizer := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clientIntentsName,
+			Namespace: testNamespace,
+		},
+		Spec: intentsSpec,
+	}
+
+	s.expectValidatingIstioIsInstalled()
+
+	// Initial call to get the ClientIntents object when reconciler starts
+	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+			intentsWithoutFinalizer.DeepCopyInto(intents)
+			return nil
+		})
+
+	// Check finalizer is added
+	intentsObj := otterizev1alpha2.ClientIntents{}
+	intentsWithoutFinalizer.DeepCopyInto(&intentsObj)
+	controllerutil.AddFinalizer(&intentsObj, IstioPolicyFinalizerName)
+	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(&intentsObj)).Return(nil)
+
+	clientServiceAccount := "test-server-sa"
+	clientPod := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-client-fdae32",
+			Namespace: serverNamespace,
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: clientServiceAccount,
+			Containers: []v1.Container{
+				{
+					Name: "real-application-who-does-something",
+				},
+				{
+					Name: "istio-proxy",
+				},
+			},
+		},
+	}
+
+	serverPod := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-server-2b5e0d",
+			Namespace: serverNamespace,
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: "test-server-sa",
+			Containers: []v1.Container{
+				{
+					Name: "server-who-listens",
+				},
+				{
+					Name: "istio-proxy",
+				},
+			},
+		},
+	}
+	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(intentsObj)).Return(clientPod, nil)
+	s.policyAdmin.EXPECT().UpdateIntentsStatus(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount, false).Return(nil)
+	s.serviceResolver.EXPECT().ResolveIntentServerToPod(gomock.Any(), gomock.Eq(intentsObj.Spec.Calls[0]), serverNamespace).Return(serverPod, nil)
+	s.policyAdmin.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&intentsObj), "test-server-far-far-away-aa0d79", false).Return(nil)
+	s.policyAdmin.EXPECT().Create(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount).Return(nil)
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Equal(ctrl.Result{}, res)
+}
+
+func (s *IstioPolicyReconcilerTestSuite) expectValidatingIstioIsInstalled() {
+	s.client.EXPECT().Scheme().Return(s.scheme)
+	s.client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: "authorizationpolicies.security.istio.io"}, gomock.Any()).Return(nil)
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestGlobalEnforcementDisabled() {
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server",
-	},
-	})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	reconciler := NewIstioPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, []string{}, true, false)
-	recorder := record.NewFakeRecorder(100)
-	reconciler.InjectRecorder(recorder)
-	res, err := reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-
-	select {
-	case event := <-recorder.Events:
-		s.Require().Contains(event, ReasonEnforcementGloballyDisabled)
-	default:
-		s.Fail("event not raised")
-	}
+	s.Reconciler.enforcementEnabledGlobally = false
+	s.assertPolicyIgnored()
+	s.expectEvent(ReasonEnforcementGloballyDisabled)
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyEnforcementDisabled() {
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server",
-	},
-	})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	s.Reconciler.enableIstioPolicyCreation = false
+	s.assertPolicyIgnored()
+	s.expectEvent(ReasonIstioPolicyCreationDisabled)
+}
 
-	reconciler := NewIstioPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, []string{}, false, true)
-	recorder := record.NewFakeRecorder(100)
-	reconciler.InjectRecorder(recorder)
-	res, err := reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
+func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
+	clientIntentsName := "client-intents"
+	serviceName := "test-client"
+	serverNamespace := "far-far-away"
+
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev1alpha2.IntentsSpec{
+		Service: otterizev1alpha2.Service{Name: serviceName},
+		Calls: []otterizev1alpha2.Intent{
+			{
+				Name: serverName,
+			},
 		},
-	})
+	}
 
-	s.Require().NoError(err)
-	s.Require().Empty(res)
+	clientIntentsObj := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clientIntentsName,
+			Namespace: testNamespace,
+		},
+		Spec: intentsSpec,
+	}
+	controllerutil.AddFinalizer(&clientIntentsObj, IstioPolicyFinalizerName)
 
+	s.expectValidatingIstioIsInstalled()
+
+	// Initial call to get the ClientIntents object when reconciler starts
+	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+			clientIntentsObj.DeepCopyInto(intents)
+			return nil
+		})
+
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Equal(ctrl.Result{}, res)
+}
+
+func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {
+	clientIntentsName := "client-intents"
+	serviceName := "test-client"
+	serverNamespace := "far-far-away"
+
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev1alpha2.IntentsSpec{
+		Service: otterizev1alpha2.Service{Name: serviceName},
+		Calls: []otterizev1alpha2.Intent{
+			{
+				Name: serverName,
+			},
+		},
+	}
+
+	date := metav1.Date(1989, 2, 15, 20, 00, 0, 0, time.UTC)
+	clientIntentsObj := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              clientIntentsName,
+			Namespace:         testNamespace,
+			DeletionTimestamp: &date,
+		},
+		Spec: intentsSpec,
+	}
+	controllerutil.AddFinalizer(&clientIntentsObj, IstioPolicyFinalizerName)
+
+	s.expectValidatingIstioIsInstalled()
+
+	// Initial call to get the ClientIntents object when reconciler starts
+	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+			clientIntentsObj.DeepCopyInto(intents)
+			return nil
+		})
+
+	s.policyAdmin.EXPECT().DeleteAll(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
+
+	intentsWithoutFinalizer := &otterizev1alpha2.ClientIntents{}
+	clientIntentsObj.DeepCopyInto(intentsWithoutFinalizer)
+	controllerutil.RemoveFinalizer(intentsWithoutFinalizer, IstioPolicyFinalizerName)
+
+	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(intentsWithoutFinalizer)).Return(nil)
+
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Equal(ctrl.Result{}, res)
+}
+
+func (s *IstioPolicyReconcilerTestSuite) expectEvent(expectedEvent string) {
 	select {
-	case event := <-recorder.Events:
-		s.Require().Contains(event, ReasonIstioPolicyCreationDisabled)
+	case event := <-s.recorder.Events:
+		s.Require().Contains(event, expectedEvent)
 	default:
-		s.Fail("event not raised")
+		s.Fail("Expected event not found")
 	}
 }
 
-func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerAddedAndRemove() {
-	intentObjectName := "finalizer-intents"
-	intents, err := s.AddIntents(intentObjectName, "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server",
-	},
-	})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	intents = &otterizev1alpha2.ClientIntents{}
-	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intentObjectName,
-		}, intents)
-		assert.NoError(err)
-		assert.NotEmpty(intents.Finalizers)
-	})
-	s.Require().Contains(intents.Finalizers, IstioPolicyFinalizerName)
-
-	additionalFinalizerIntents := intents.DeepCopy()
-	// We have to add another finalizer so the object won't actually be deleted after the reconciler finishes
-	additionalFinalizerIntents.Finalizers = append(additionalFinalizerIntents.Finalizers, "finalizer-to-prevent-obj-deletion")
-	err = s.Mgr.GetClient().Patch(context.Background(), additionalFinalizerIntents, client.MergeFrom(intents))
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	err = s.Mgr.GetClient().Delete(context.Background(), intents, &client.DeleteOptions{GracePeriodSeconds: lo.ToPtr(int64(0))})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	s.WaitForDeletionToBeMarked(intents)
-
-	res = ctrl.Result{Requeue: true}
-	for res.Requeue {
-		res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: s.TestNamespace,
-				Name:      intents.Name,
-			},
-		})
-		s.Require().NoError(err)
-		s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+func (s *IstioPolicyReconcilerTestSuite) expectNoEvent() {
+	select {
+	case event := <-s.recorder.Events:
+		s.Fail("Unexpected event found", event)
+	default:
+		// Amazing, no events left behind!
 	}
-
-	intents = &otterizev1alpha2.ClientIntents{}
-	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-			Namespace: s.TestNamespace, Name: "finalizer-intents",
-		}, intents)
-		assert.True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != otterizev1alpha2.NetworkPolicyFinalizerName)
-	})
-	s.Require().NotContains(intents.Finalizers, IstioPolicyFinalizerName)
 }
 
 func TestIstioPolicyReconcilerTestSuite(t *testing.T) {
-	// Temporarily skipped. Need to add Istio CRD to tests.
-	//suite.Run(t, new(IstioPolicyReconcilerTestSuite))
+	suite.Run(t, new(IstioPolicyReconcilerTestSuite))
 }

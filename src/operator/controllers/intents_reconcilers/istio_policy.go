@@ -29,8 +29,8 @@ type IstioPolicyReconciler struct {
 	enableIstioPolicyCreation  bool
 	enforcementEnabledGlobally bool
 	injectablerecorder.InjectableRecorder
-	serviceIdResolver *serviceidresolver.Resolver
-	policyCreator     *istiopolicy.Creator
+	serviceIdResolver serviceidresolver.ServiceResolver
+	policyAdmin       istiopolicy.Admin
 }
 
 func NewIstioPolicyReconciler(
@@ -48,7 +48,7 @@ func NewIstioPolicyReconciler(
 		serviceIdResolver:          serviceidresolver.NewResolver(c),
 	}
 
-	reconciler.policyCreator = istiopolicy.NewCreator(c, &reconciler.InjectableRecorder, restrictToNamespaces)
+	reconciler.policyAdmin = istiopolicy.NewAdmin(c, &reconciler.InjectableRecorder, restrictToNamespaces)
 
 	return reconciler
 }
@@ -128,7 +128,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	clientServiceAccountName := pod.Spec.ServiceAccountName
 	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 
-	err = r.policyCreator.UpdateIntentsStatus(ctx, intents, clientServiceAccountName, missingSideCar)
+	err = r.policyAdmin.UpdateIntentsStatus(ctx, intents, clientServiceAccountName, missingSideCar)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -144,7 +144,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	err = r.policyCreator.Create(ctx, intents, clientServiceAccountName)
+	err = r.policyAdmin.Create(ctx, intents, clientServiceAccountName)
 	if err != nil {
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
@@ -168,7 +168,7 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 
 		missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), serverNamespace)
-		err = r.policyCreator.UpdateServerSidecar(ctx, intents, formattedTargetServer, missingSideCar)
+		err = r.policyAdmin.UpdateServerSidecar(ctx, intents, formattedTargetServer, missingSideCar)
 		if err != nil {
 			return err
 		}
@@ -184,7 +184,7 @@ func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, i
 
 	logrus.Infof("Removing Istio policies for deleted intents for service: %s", intents.Spec.Service.Name)
 
-	err := r.policyCreator.DeleteAll(ctx, intents)
+	err := r.policyAdmin.DeleteAll(ctx, intents)
 	if err != nil {
 		return err
 	}

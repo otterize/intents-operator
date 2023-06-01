@@ -21,6 +21,8 @@ var PodNotFound = errors.New("pod not found")
 
 type ServiceResolver interface {
 	GetPodAnnotatedName(ctx context.Context, podName string, podNamespace string) (string, bool, error)
+	ResolveClientIntentToPod(ctx context.Context, intent v1alpha2.ClientIntents) (corev1.Pod, error)
+	ResolveIntentServerToPod(ctx context.Context, intent v1alpha2.Intent, namespace string) (corev1.Pod, error)
 }
 
 type Resolver struct {

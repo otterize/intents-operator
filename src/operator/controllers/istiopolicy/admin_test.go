@@ -20,26 +20,26 @@ import (
 	"testing"
 )
 
-type CreatorTestSuite struct {
+type AdminTestSuite struct {
 	suite.Suite
 	ctrl       *gomock.Controller
 	mockClient *istiopolicymocks.MockClient
 	recorder   *record.FakeRecorder
-	creator    *Creator
+	admin      *AdminImpl
 }
 
-func (s *CreatorTestSuite) SetupTest() {
+func (s *AdminTestSuite) SetupTest() {
 	s.ctrl = gomock.NewController(s.T())
 	s.mockClient = istiopolicymocks.NewMockClient(s.ctrl)
 	s.recorder = record.NewFakeRecorder(100)
-	s.creator = NewCreator(s.mockClient, &injectablerecorder.InjectableRecorder{Recorder: s.recorder}, []string{})
+	s.admin = NewAdmin(s.mockClient, &injectablerecorder.InjectableRecorder{Recorder: s.recorder}, []string{})
 }
 
-func (s *CreatorTestSuite) TearDownTest() {
+func (s *AdminTestSuite) TearDownTest() {
 	s.ctrl.Finish()
 }
 
-func (s *CreatorTestSuite) TestCreate() {
+func (s *AdminTestSuite) TestCreate() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -102,12 +102,12 @@ func (s *CreatorTestSuite) TestCreate() {
 	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
 	s.mockClient.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *CreatorTestSuite) TestCreateHTTPResources() {
+func (s *AdminTestSuite) TestCreateHTTPResources() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -204,12 +204,12 @@ func (s *CreatorTestSuite) TestCreateHTTPResources() {
 	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
 	s.mockClient.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *CreatorTestSuite) TestUpdateHTTPResources() {
+func (s *AdminTestSuite) TestUpdateHTTPResources() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -350,12 +350,12 @@ func (s *CreatorTestSuite) TestUpdateHTTPResources() {
 			s.Equal(newPolicy.Spec.Rules[0].To[1].Operation, policy.Spec.Rules[0].To[1].Operation)
 		}).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *CreatorTestSuite) TestNothingToUpdateHTTPResources() {
+func (s *AdminTestSuite) TestNothingToUpdateHTTPResources() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -455,18 +455,18 @@ func (s *CreatorTestSuite) TestNothingToUpdateHTTPResources() {
 			policies.Items = append(policies.Items, existingPolicy)
 		}).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *CreatorTestSuite) TestNamespaceNotAllowed() {
+func (s *AdminTestSuite) TestNamespaceNotAllowed() {
 	ctx := context.Background()
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
-	s.creator.restrictToNamespaces = []string{fmt.Sprintf("this-is-not-%s", clientIntentsNamespace)}
+	s.admin.restrictToNamespaces = []string{fmt.Sprintf("this-is-not-%s", clientIntentsNamespace)}
 	intents := &v1alpha2.ClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
@@ -485,17 +485,17 @@ func (s *CreatorTestSuite) TestNamespaceNotAllowed() {
 	}
 	clientServiceAccountName := "test-client-sa"
 	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
-	err := s.creator.Create(ctx, intents, clientServiceAccountName)
+	err := s.admin.Create(ctx, intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonNamespaceNotAllowed)
 }
 
-func (s *CreatorTestSuite) TestNamespaceAllowed() {
+func (s *AdminTestSuite) TestNamespaceAllowed() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
-	s.creator.restrictToNamespaces = []string{clientIntentsNamespace}
+	s.admin.restrictToNamespaces = []string{clientIntentsNamespace}
 	intents := &v1alpha2.ClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
@@ -548,12 +548,12 @@ func (s *CreatorTestSuite) TestNamespaceAllowed() {
 	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
 	s.mockClient.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *CreatorTestSuite) TestUpdatePolicy() {
+func (s *AdminTestSuite) TestUpdatePolicy() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -655,12 +655,12 @@ func (s *CreatorTestSuite) TestUpdatePolicy() {
 			s.Equal(newPolicy.Labels, policy.Labels)
 		}).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.expectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *CreatorTestSuite) TestDeleteAllPoliciesForClientIntents() {
+func (s *AdminTestSuite) TestDeleteAllPoliciesForClientIntents() {
 	clientName := "test-client"
 	serverName1 := "test-server-1"
 	serverName2 := "test-server-2"
@@ -693,11 +693,11 @@ func (s *CreatorTestSuite) TestDeleteAllPoliciesForClientIntents() {
 
 	s.mockClient.EXPECT().Delete(gomock.Any(), authzPol).Return(nil)
 
-	err := s.creator.DeleteAll(context.Background(), intents)
+	err := s.admin.DeleteAll(context.Background(), intents)
 	s.NoError(err)
 }
 
-func (s *CreatorTestSuite) TestNothingToUpdate() {
+func (s *AdminTestSuite) TestNothingToUpdate() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -758,11 +758,11 @@ func (s *CreatorTestSuite) TestNothingToUpdate() {
 			policies.Items = append(policies.Items, existingPolicy)
 		}).Return(nil)
 
-	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 }
 
-func (s *CreatorTestSuite) TestDeletePolicy() {
+func (s *AdminTestSuite) TestDeletePolicy() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -857,11 +857,11 @@ func (s *CreatorTestSuite) TestDeletePolicy() {
 		}).Return(nil)
 
 	s.mockClient.EXPECT().Delete(gomock.Any(), outdatedPolicy).Return(nil)
-	err := s.creator.Create(context.Background(), intents, clientServiceAccountName)
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 }
 
-func (s *CreatorTestSuite) TestUpdateStatusServiceAccount() {
+func (s *AdminTestSuite) TestUpdateStatusServiceAccount() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -941,11 +941,11 @@ func (s *CreatorTestSuite) TestUpdateStatusServiceAccount() {
 		}).Return(nil),
 	)
 
-	err := s.creator.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, false)
+	err := s.admin.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, false)
 	s.NoError(err)
 }
 
-func (s *CreatorTestSuite) TestUpdateStatusMissingSidecar() {
+func (s *AdminTestSuite) TestUpdateStatusMissingSidecar() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1025,11 +1025,11 @@ func (s *CreatorTestSuite) TestUpdateStatusMissingSidecar() {
 		}).Return(nil),
 	)
 
-	err := s.creator.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, true)
+	err := s.admin.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, true)
 	s.NoError(err)
 }
 
-func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecar() {
+func (s *AdminTestSuite) TestUpdateStatusServerMissingSidecar() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1047,7 +1047,7 @@ func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecar() {
 		}).Return(nil),
 	)
 
-	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, true)
+	err := s.admin.UpdateServerSidecar(context.Background(), initialIntents, serverName, true)
 	s.NoError(err)
 	s.expectEvent(ReasonServerMissingSidecar)
 }
@@ -1072,7 +1072,7 @@ func emptyIntents(clientIntentsNamespace string, clientName string, serverName s
 	return intents
 }
 
-func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecarAnnotationExists() {
+func (s *AdminTestSuite) TestUpdateStatusServerMissingSidecarAnnotationExists() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1084,11 +1084,11 @@ func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecarAnnotationExists(
 
 	// Expect that nothing will happen if the annotation already exists
 
-	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, true)
+	err := s.admin.UpdateServerSidecar(context.Background(), initialIntents, serverName, true)
 	s.NoError(err)
 }
 
-func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecarExistingServers() {
+func (s *AdminTestSuite) TestUpdateStatusServerMissingSidecarExistingServers() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1111,12 +1111,12 @@ func (s *CreatorTestSuite) TestUpdateStatusServerMissingSidecarExistingServers()
 		}).Return(nil),
 	)
 
-	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, true)
+	err := s.admin.UpdateServerSidecar(context.Background(), initialIntents, serverName, true)
 	s.NoError(err)
 	s.expectEvent(ReasonServerMissingSidecar)
 }
 
-func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList() {
+func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1140,11 +1140,11 @@ func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList() {
 		}).Return(nil),
 	)
 
-	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, false)
+	err := s.admin.UpdateServerSidecar(context.Background(), initialIntents, serverName, false)
 	s.NoError(err)
 }
 
-func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarRemovedLastFromList() {
+func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarRemovedLastFromList() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1168,11 +1168,11 @@ func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarRemovedLastFromList()
 		}).Return(nil),
 	)
 
-	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, false)
+	err := s.admin.UpdateServerSidecar(context.Background(), initialIntents, serverName, false)
 	s.NoError(err)
 }
 
-func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarAlreadyRemoved() {
+func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarAlreadyRemoved() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1185,11 +1185,11 @@ func (s *CreatorTestSuite) TestUpdateStatusServerHasSidecarAlreadyRemoved() {
 
 	// Expect that nothing will happen if the server is already removed from the list
 
-	err := s.creator.UpdateServerSidecar(context.Background(), initialIntents, serverName, false)
+	err := s.admin.UpdateServerSidecar(context.Background(), initialIntents, serverName, false)
 	s.NoError(err)
 }
 
-func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
+func (s *AdminTestSuite) TestUpdateStatusSharedServiceAccount() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1321,7 +1321,7 @@ func (s *CreatorTestSuite) TestUpdateStatusSharedServiceAccount() {
 		}).Return(nil),
 	)
 
-	err := s.creator.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, isMissingSideCar)
+	err := s.admin.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, isMissingSideCar)
 	s.NoError(err)
 	s.expectEvent(ReasonSharedServiceAccount)
 	s.expectEvent(ReasonSharedServiceAccount)
@@ -1331,7 +1331,7 @@ func generatePrincipal(clientIntentsNamespace string, clientServiceAccountName s
 	return fmt.Sprintf("cluster.local/ns/%s/sa/%s", clientIntentsNamespace, clientServiceAccountName)
 }
 
-func (s *CreatorTestSuite) expectEvent(expectedEvent string) {
+func (s *AdminTestSuite) expectEvent(expectedEvent string) {
 	select {
 	case event := <-s.recorder.Events:
 		s.Require().Contains(event, expectedEvent)
@@ -1341,5 +1341,5 @@ func (s *CreatorTestSuite) expectEvent(expectedEvent string) {
 }
 
 func TestCreatorTestSuite(t *testing.T) {
-	suite.Run(t, new(CreatorTestSuite))
+	suite.Run(t, new(AdminTestSuite))
 }

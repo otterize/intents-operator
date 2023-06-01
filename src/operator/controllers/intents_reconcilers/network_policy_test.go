@@ -3,460 +3,646 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
+	"github.com/golang/mock/gomock"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/shared/testbase"
-	"github.com/samber/lo"
-	"github.com/stretchr/testify/assert"
+	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/stretchr/testify/suite"
 	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/kubernetes"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"strings"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"testing"
+	"time"
 )
 
 type NetworkPolicyReconcilerTestSuite struct {
-	testbase.ControllerManagerTestSuiteBase
-	Reconciler *NetworkPolicyReconciler
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) SetupSuite() {
-	s.TestEnv = &envtest.Environment{}
-	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd")}
-
-	s.RestConfig, err = s.TestEnv.Start()
-	s.Require().NoError(err)
-	s.Require().NotNil(s.RestConfig)
-
-	s.K8sDirectClient, err = kubernetes.NewForConfig(s.RestConfig)
-	s.Require().NoError(err)
-	s.Require().NotNil(s.K8sDirectClient)
-
-	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) BeforeTest(_, testName string) {
-	s.Require().NoError(s.initServerIndices(s.Mgr))
-	s.ControllerManagerTestSuiteBase.BeforeTest("", testName)
+	suite.Suite
+	Reconciler          *NetworkPolicyReconciler
+	client              *mocks.MockClient
+	recorder            *record.FakeRecorder
+	endpointsReconciler *mocks.MockEndpointsReconcilerInterface
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
-	s.ControllerManagerTestSuiteBase.SetupTest()
-	s.Reconciler = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, true)
-	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
-	s.Reconciler.InjectRecorder(recorder)
+	controller := gomock.NewController(s.T())
+	s.client = mocks.NewMockClient(controller)
+	s.endpointsReconciler = mocks.NewMockEndpointsReconcilerInterface(controller)
+	restrictToNamespaces := make([]string, 0)
+
+	s.Reconciler = NewNetworkPolicyReconciler(
+		s.client,
+		&runtime.Scheme{},
+		s.endpointsReconciler,
+		restrictToNamespaces,
+		true,
+		true,
+	)
+
+	s.recorder = record.NewFakeRecorder(100)
+	s.Reconciler.Recorder = s.recorder
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
-	intents, err := s.AddIntents("finalizer-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server",
-	},
-	})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	intents = &otterizev1alpha2.ClientIntents{}
-	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
-			Namespace: s.TestNamespace, Name: "finalizer-intents"}, intents)
-		assert.NoError(err)
-		assert.NotEmpty(intents.Finalizers)
-	})
+func (s *NetworkPolicyReconcilerTestSuite) TearDownTest() {
+	s.expectNoEvent()
+	s.Reconciler = nil
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerRemoved() {
-	intents, err := s.AddIntents(
-		"finalizer-intents", "test-client", []otterizev1alpha2.Intent{{
-			Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server"}})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-	s.Require().NoError(err)
-	s.Require().Empty(res)
+func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
+	clientIntentsName := "client-intents"
+	policyName := "access-to-test-server-from-test-namespace"
+	serviceName := "test-client"
+	serverNamespace := testNamespace
+	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
-	_, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
-			Namespace: s.TestNamespace, Name: "finalizer-intents"}, intents)
-		assert.Equal(len(intents.Finalizers), 1)
-	})
-
-	additionalFinalizerIntents := intents.DeepCopy()
-	// We have to add another finalizer so the object won't actually be deleted after the netpol reconciler finishes
-	additionalFinalizerIntents.Finalizers = append(additionalFinalizerIntents.Finalizers, "finalizer-to-prevent-obj-deletion")
-	err = s.Mgr.GetClient().Patch(context.Background(), additionalFinalizerIntents, client.MergeFrom(intents))
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	err = s.Mgr.GetClient().Delete(context.Background(), intents, &client.DeleteOptions{GracePeriodSeconds: lo.ToPtr(int64(0))})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	s.WaitForDeletionToBeMarked(intents)
-
-	res = ctrl.Result{Requeue: true}
-	for res.Requeue {
-		res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: s.TestNamespace,
-				Name:      intents.Name,
-			},
-		})
-		s.Require().NoError(err)
-		s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-	}
-
-	intents = &otterizev1alpha2.ClientIntents{}
-	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-			Namespace: s.TestNamespace, Name: "finalizer-intents",
-		}, intents)
-		assert.True(len(intents.Finalizers) == 1 && intents.Finalizers[0] != otterizev1alpha2.NetworkPolicyFinalizerName)
-	})
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreate() {
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server",
-	},
-	})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-
-	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
-	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: policyName,
-	}, &np)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(np)
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDisabled() {
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server",
-	},
-	})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	reconciler := NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, false)
-	recorder := record.NewFakeRecorder(100)
-	reconciler.InjectRecorder(recorder)
-	res, err := reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-
-	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
-	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: policyName,
-	}, &np)
-	// verify network policy not created when enforcement is globally disabled
-	s.Require().True(k8serrors.IsNotFound(err))
-	select {
-	case event := <-recorder.Events:
-		s.Require().Contains(event, ReasonEnforcementGloballyDisabled)
-	default:
-		s.Fail("event not raised")
-	}
+	s.testCreateNetworkPolicy(
+		clientIntentsName,
+		serverNamespace,
+		serviceName,
+		policyName,
+		formattedTargetServer,
+	)
+	s.expectEvent(ReasonCreatedNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace() {
-	// Create namespace
-	otherNamespace := "test-cross-ns-create"
-	serverName := "test-server"
+	clientIntentsName := "client-intents"
+	policyName := "access-to-test-server-from-test-namespace"
+	serviceName := "test-client"
+	serverNamespace := "other-namespace"
+	formattedTargetServer := "test-server-other-namespace-f6a461"
 
-	_, err := s.K8sDirectClient.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: otherNamespace}}, metav1.CreateOptions{})
-	s.Require().NoError(err)
-
-	intents, err := s.AddIntents("cross-ns-test-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: fmt.Sprintf("%s.%s", serverName, otherNamespace)}})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-
-	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, serverName, s.TestNamespace)
-	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-		Namespace: otherNamespace, Name: policyName,
-	}, &np)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(np)
-	key := lo.Keys(np.Spec.Ingress[0].From[0].PodSelector.MatchLabels)[0]
-	index := strings.LastIndex(key, "-")
-	label := key[:index]
-	s.Require().Equal(fmt.Sprintf("intents.otterize.com/access-%s-%s", serverName, otherNamespace), label)
-
+	s.testCreateNetworkPolicy(
+		clientIntentsName,
+		serverNamespace,
+		serviceName,
+		policyName,
+		formattedTargetServer,
+	)
+	s.expectEvent(ReasonCreatedNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
-	intents, err := s.AddIntents(
-		"cleanup-test", "test-client", []otterizev1alpha2.Intent{{
-			Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server"}})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	clientIntentsName := "client-intents"
+	policyName := "access-to-test-server-from-test-namespace"
+	serviceName := "test-client"
+	serverNamespace := testNamespace
+	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
-	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-
-	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
-	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: policyName,
-	}, &np)
-	s.Require().NoError(err)
-
-	err = s.Mgr.GetClient().Delete(context.Background(), intents, &client.DeleteOptions{GracePeriodSeconds: lo.ToPtr(int64(0))})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	s.WaitForDeletionToBeMarked(intents)
-
-	res = ctrl.Result{Requeue: true}
-	for res.Requeue {
-		res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: s.TestNamespace,
-				Name:      intents.Name,
-			},
-		})
-		s.Require().NoError(err)
-		s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-	}
-
-	deletedPolicy := v1.NetworkPolicy{}
-	// Policy should have been deleted because intents were removed
-	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: policyName,
-	}, &deletedPolicy)
-
-	// We expect an error to have occurred
-	s.Require().Error(err)
+	s.testCleanNetworkPolicy(
+		clientIntentsName,
+		serverNamespace,
+		serviceName,
+		policyName,
+		formattedTargetServer,
+	)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespace() {
-	otherNamespace := "test-cross-namespace-delete"
-	_, err := s.K8sDirectClient.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: otherNamespace}}, metav1.CreateOptions{})
-	s.Require().NoError(err)
+	clientIntentsName := "client-intents"
+	policyName := "access-to-test-server-from-test-namespace"
+	serviceName := "test-client"
+	serverNamespace := "other-namespace"
+	formattedTargetServer := "test-server-other-namespace-f6a461"
 
-	intents, err := s.AddIntents(
-		"cross-ns-cleanup-test", "test-client", []otterizev1alpha2.Intent{{
-			Type: otterizev1alpha2.IntentTypeHTTP, Name: fmt.Sprintf("%s.%s", "test-server", otherNamespace)}})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	s.testCleanNetworkPolicy(
+		clientIntentsName,
+		serverNamespace,
+		serviceName,
+		policyName,
+		formattedTargetServer,
+	)
+}
 
-	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-
-	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
-	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-		Namespace: otherNamespace, Name: policyName,
-	}, &np)
-	s.Require().NoError(err)
-
-	err = s.Mgr.GetClient().Delete(context.Background(), intents, &client.DeleteOptions{GracePeriodSeconds: lo.ToPtr(int64(0))})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	s.WaitForDeletionToBeMarked(intents)
-
-	res = ctrl.Result{Requeue: true}
-	for res.Requeue {
-		res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: s.TestNamespace,
-				Name:      intents.Name,
-			},
-		})
-		s.Require().NoError(err)
-		s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsName string, serverNamespace string, serviceName string, policyName string, formattedTargetServer string) {
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
 	}
 
-	deletedPolicy := v1.NetworkPolicy{}
-	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		// Policy should have been deleted because intents were removed
-		err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-			Namespace: otherNamespace, Name: policyName,
-		}, &deletedPolicy)
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev1alpha2.IntentsSpec{
+		Service: otterizev1alpha2.Service{Name: serviceName},
+		Calls: []otterizev1alpha2.Intent{
+			{
+				Name: serverName,
+			},
+		},
+	}
 
-		// We expect an error to have occurred
-		assert.Error(err)
+	// Initial call to get the ClientIntents object when reconciler starts
+	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	clientIntentsObj := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              clientIntentsName,
+			Namespace:         testNamespace,
+			DeletionTimestamp: &metav1.Time{Time: time.Date(2020, 12, 1, 17, 14, 0, 0, time.UTC)},
+		},
+		Spec: intentsSpec,
+	}
+
+	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+			clientIntentsObj.DeepCopyInto(intents)
+			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+			return nil
+		})
+
+	// Search for client intents with the same target server and delete them if it's the last client intent pointing to the server
+	emptyIntentsList := &otterizev1alpha2.ClientIntentsList{}
+	intentsList := &otterizev1alpha2.ClientIntentsList{
+		Items: []otterizev1alpha2.ClientIntents{
+			clientIntentsObj,
+		},
+	}
+	s.client.EXPECT().List(
+		gomock.Any(),
+		gomock.Eq(emptyIntentsList),
+		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serverName},
+		&client.ListOptions{Namespace: testNamespace},
+	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts ...client.ListOption) error {
+		intentsList.DeepCopyInto(list)
+		return nil
 	})
+
+	// Remove network policy:
+	// 1. get the network policy
+	// 2. get all external policies for this service
+	// 3. delete all of them
+
+	networkPolicyNamespacedName := types.NamespacedName{
+		Namespace: serverNamespace,
+		Name:      policyName,
+	}
+
+	existingPolicy := networkPolicyTemplate(
+		policyName,
+		serverNamespace,
+		formattedTargetServer,
+		testNamespace,
+	)
+
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	s.client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			existingPolicy.DeepCopyInto(networkPolicy)
+			return nil
+		})
+
+	emptyExternalPolicyList := &v1.NetworkPolicyList{}
+	externalPolicyList := &v1.NetworkPolicyList{
+		Items: []v1.NetworkPolicy{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "external-policy-1",
+					Namespace: testNamespace,
+				},
+				Spec: v1.NetworkPolicySpec{
+					PodSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							otterizev1alpha2.OtterizeNetworkPolicy: formattedTargetServer,
+						},
+					},
+				},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "external-policy-2",
+					Namespace: testNamespace,
+				},
+				Spec: v1.NetworkPolicySpec{
+					PodSelector: metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							otterizev1alpha2.OtterizeNetworkPolicy: formattedTargetServer,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s.client.EXPECT().List(gomock.Any(), gomock.Eq(emptyExternalPolicyList), client.MatchingLabels{otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic: formattedTargetServer}, &client.ListOptions{Namespace: existingPolicy.Namespace}).DoAndReturn(
+		func(ctx context.Context, list *v1.NetworkPolicyList, opts ...client.ListOption) error {
+			externalPolicyList.DeepCopyInto(list)
+			return nil
+		})
+
+	gomock.InOrder(
+		s.client.EXPECT().Delete(gomock.Any(), gomock.Eq(&externalPolicyList.Items[0])).Return(nil),
+		s.client.EXPECT().Delete(gomock.Any(), gomock.Eq(&externalPolicyList.Items[1])).Return(nil),
+	)
+	s.client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
+
+	// Remove finalizer
+	controllerutil.AddFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)
+	controllerutil.RemoveFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)
+	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Equal(ctrl.Result{}, res)
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(clientIntentsName string, serverNamespace string, serviceName string, policyName string, formattedTargetServer string) {
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev1alpha2.IntentsSpec{
+		Service: otterizev1alpha2.Service{Name: serviceName},
+		Calls: []otterizev1alpha2.Intent{
+			{
+				Name: serverName,
+			},
+		},
+	}
+
+	// Initial call to get the ClientIntents object when reconciler starts
+	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+			intents.Spec = intentsSpec
+			return nil
+		})
+
+	// Search for existing NetworkPolicy
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	networkPolicyNamespacedName := types.NamespacedName{
+		Namespace: serverNamespace,
+		Name:      policyName,
+	}
+	s.client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
+		})
+
+	// Create NetworkPolicy
+	newPolicy := networkPolicyTemplate(
+		policyName,
+		serverNamespace,
+		formattedTargetServer,
+		testNamespace,
+	)
+	s.client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
+
+	// Get Pods in server namespace
+	emptyPodList := &corev1.PodList{}
+	listOptions := &client.ListOptions{
+		Namespace: serverNamespace,
+	}
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{
+		otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
+	}))
+	serverPodName := "test-server"
+	s.client.EXPECT().List(gomock.Any(), gomock.Eq(emptyPodList), listOptions, client.MatchingLabelsSelector{Selector: selector}).DoAndReturn(
+		func(ctx context.Context, podList *corev1.PodList, options ...client.ListOption) error {
+			podList.Items = []corev1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serverPodName,
+						Namespace: serverNamespace,
+						Labels: map[string]string{
+							otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
+						},
+					},
+				},
+			}
+			return nil
+		})
+
+	// Get Endpoints in server namespace
+	emptyEndpoints := &corev1.EndpointsList{}
+	s.client.EXPECT().List(gomock.Any(), gomock.Eq(emptyEndpoints), &client.MatchingFields{otterizev1alpha2.EndpointsPodNamesIndexField: serverPodName}, listOptions).DoAndReturn(
+		func(ctx context.Context, endpointsList *corev1.EndpointsList, options ...client.ListOption) error {
+			endpointsList.Items = []corev1.Endpoints{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serverName,
+						Namespace: serverNamespace,
+					},
+					Subsets: []corev1.EndpointSubset{
+						{
+							Addresses: []corev1.EndpointAddress{
+								{
+									IP: "172.249.1.17",
+								},
+							},
+						},
+					},
+				},
+			}
+			return nil
+		})
+
+	endpointRequest := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: serverNamespace,
+			Name:      serverName,
+		},
+	}
+
+	s.endpointsReconciler.EXPECT().Reconcile(gomock.Any(), endpointRequest).Return(ctrl.Result{}, nil)
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Equal(ctrl.Result{}, res)
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
+	clientIntentsName := "client-intents"
+	policyName := "access-to-test-server-from-test-namespace"
+	serviceName := "test-client"
+	serverNamespace := testNamespace
+	formattedTargetServer := "test-server-test-namespace-8ddecb"
+
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev1alpha2.IntentsSpec{
+		Service: otterizev1alpha2.Service{Name: serviceName},
+		Calls: []otterizev1alpha2.Intent{
+			{
+				Name: serverName,
+			},
+		},
+	}
+
+	// Initial call to get the ClientIntents object when reconciler starts
+	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	intentsWithoutFinalizer := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clientIntentsName,
+			Namespace: testNamespace,
+		},
+		Spec: intentsSpec,
+	}
+
+	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+			intentsWithoutFinalizer.DeepCopyInto(intents)
+			return nil
+		})
+
+	intentsWithFinalizer := otterizev1alpha2.ClientIntents{}
+	intentsWithoutFinalizer.DeepCopyInto(&intentsWithFinalizer)
+	// Add finalizer to ClientIntents
+	controllerutil.AddFinalizer(&intentsWithFinalizer, otterizev1alpha2.NetworkPolicyFinalizerName)
+	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(&intentsWithFinalizer)).Return(nil)
+
+	// Just assume policy exist because the rest of the flow is tested in other tests
+	existingPolicy := networkPolicyTemplate(
+		policyName,
+		serverNamespace,
+		formattedTargetServer,
+		testNamespace,
+	)
+
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	networkPolicyNamespacedName := types.NamespacedName{
+		Namespace: serverNamespace,
+		Name:      policyName,
+	}
+	s.client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			existingPolicy.DeepCopyInto(networkPolicy)
+			return nil
+		})
+
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Equal(ctrl.Result{}, res)
+	s.expectEvent(ReasonCreatedNetworkPolicies)
+}
+
+func networkPolicyTemplate(
+	policyName string,
+	targetNamespace string,
+	formattedTargetServer string,
+	intentsObjNamespace string,
+) *v1.NetworkPolicy {
+	return &v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      policyName,
+			Namespace: targetNamespace,
+			Labels: map[string]string{
+				otterizev1alpha2.OtterizeNetworkPolicy: formattedTargetServer,
+			},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
+				},
+			},
+			Ingress: []v1.NetworkPolicyIngressRule{
+				{
+					From: []v1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									fmt.Sprintf(
+										otterizev1alpha2.OtterizeAccessLabelKey, formattedTargetServer): "true",
+								},
+							},
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									otterizev1alpha2.OtterizeNamespaceLabelKey: intentsObjNamespace,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDisabled() {
+	s.Reconciler.enableNetworkPolicyCreation = false
+
+	s.testEnforcementDisabled()
+	s.expectEvent(ReasonNetworkPolicyCreationDisabled)
+	s.expectEvent(ReasonCreatedNetworkPolicies)
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) TestNetworkGlobalEnforcementDisabled() {
+	s.Reconciler.enforcementEnabledGlobally = false
+
+	s.testEnforcementDisabled()
+	s.expectEvent(ReasonEnforcementGloballyDisabled)
+	s.expectEvent(ReasonCreatedNetworkPolicies)
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) TestNotInWatchedNamespaces() {
+	s.Reconciler.RestrictToNamespaces = []string{"namespace-you-never-heard-of"}
+
+	s.testEnforcementDisabled()
+	s.expectEvent(ReasonNamespaceNotAllowed)
+	s.expectEvent(ReasonCreatedNetworkPolicies)
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
+	clientIntentsName := "client-intents"
+	serviceName := "test-client"
+	serverNamespace := "other-namespace"
+
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev1alpha2.IntentsSpec{
+		Service: otterizev1alpha2.Service{Name: serviceName},
+		Calls: []otterizev1alpha2.Intent{
+			{
+				Name: serverName,
+			},
+		},
+	}
+
+	// Initial call to get the ClientIntents object when reconciler starts
+	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+			intents.Spec = intentsSpec
+			return nil
+		})
+
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Equal(ctrl.Result{}, res)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWithSameServer() {
-	_, err := s.AddIntents(
-		"no-cleanup-test", "test-client", []otterizev1alpha2.Intent{{
-			Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server"}})
-	s.Require().NoError(err)
+	clientIntentsName := "client-intents"
+	serviceName := "test-client"
+	serverNamespace := "other-namespace"
 
-	intents, err := s.AddIntents(
-		"other-no-cleanup-test", "test-client-2", []otterizev1alpha2.Intent{{
-			Type: otterizev1alpha2.IntentTypeHTTP, Name: "test-server"}})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-	res, err := s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-
-	np := v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, "test-server", s.TestNamespace)
-	err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-		Namespace: s.TestNamespace, Name: policyName,
-	}, &np)
-	s.Require().NoError(err)
-
-	// We delete one of the policies, and expect the reconciler to NOT REMOVE the policy since there's another
-	// Intents resource that contains that server
-	err = s.Mgr.GetClient().Delete(context.Background(), intents, &client.DeleteOptions{GracePeriodSeconds: lo.ToPtr(int64(0))})
-	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
-
-	s.WaitForDeletionToBeMarked(intents)
-
-	res = ctrl.Result{Requeue: true}
-	for res.Requeue {
-		res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
-			NamespacedName: types.NamespacedName{
-				Namespace: s.TestNamespace,
-				Name:      intents.Name,
-			},
-		})
-		s.Require().NoError(err)
-		s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
 	}
 
-	np = v1.NetworkPolicy{}
-	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		// Policy should have been deleted because intents were removed
-		err = s.Mgr.GetCache().Get(context.Background(), types.NamespacedName{
-			Namespace: s.TestNamespace, Name: policyName,
-		}, &np)
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev1alpha2.IntentsSpec{
+		Service: otterizev1alpha2.Service{Name: serviceName},
+		Calls: []otterizev1alpha2.Intent{
+			{
+				Name: serverName,
+			},
+		},
+	}
 
-		// We expect an error to have occurred
-		assert.NoError(err)
+	// Initial call to get the ClientIntents object when reconciler starts
+	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	clientIntentsObj := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              clientIntentsName,
+			Namespace:         testNamespace,
+			DeletionTimestamp: &metav1.Time{Time: time.Date(2020, 12, 1, 17, 14, 0, 0, time.UTC)},
+		},
+		Spec: intentsSpec,
+	}
+
+	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+			clientIntentsObj.DeepCopyInto(intents)
+			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+			return nil
+		})
+
+	// Search for client intents with the same target server and delete them if it's the last client intent pointing to the server
+	emptyIntentsList := &otterizev1alpha2.ClientIntentsList{}
+
+	otherClientIntentsInTheNamespace := otterizev1alpha2.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "other-client-intents",
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev1alpha2.IntentsSpec{
+			Service: otterizev1alpha2.Service{Name: "other-client"},
+			Calls: []otterizev1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	intentsList := &otterizev1alpha2.ClientIntentsList{
+		Items: []otterizev1alpha2.ClientIntents{
+			clientIntentsObj,
+			otherClientIntentsInTheNamespace,
+		},
+	}
+	s.client.EXPECT().List(
+		gomock.Any(),
+		gomock.Eq(emptyIntentsList),
+		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serverName},
+		&client.ListOptions{Namespace: testNamespace},
+	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts ...client.ListOption) error {
+		intentsList.DeepCopyInto(list)
+		return nil
 	})
+
+	// Shouldn't remove NetworkPolicy from this namespace
+	// because there is another client with the same target server
+
+	// Remove finalizer from the ClientIntents object
+	controllerutil.AddFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)
+	controllerutil.RemoveFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)
+	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Equal(ctrl.Result{}, res)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) initServerIndices(mgr manager.Manager) error {
-	err := mgr.GetCache().IndexField(
-		context.Background(),
-		&otterizev1alpha2.ClientIntents{},
-		otterizev1alpha2.OtterizeTargetServerIndexField,
-		func(object client.Object) []string {
-			var res []string
-			intents := object.(*otterizev1alpha2.ClientIntents)
-			if intents.Spec == nil {
-				return nil
-			}
-
-			for _, intent := range intents.GetCallsList() {
-				res = append(res, intent.Name)
-			}
-
-			return res
-		})
-
-	if err != nil {
-		return err
+func (s *NetworkPolicyReconcilerTestSuite) expectEvent(expectedEvent string) {
+	select {
+	case event := <-s.recorder.Events:
+		s.Require().Contains(event, expectedEvent)
+	default:
+		s.Fail("Expected event not found")
 	}
-	return nil
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) expectNoEvent() {
+	select {
+	case event := <-s.recorder.Events:
+		s.Fail("Unexpected event found", event)
+	default:
+		// Amazing, no events left behind!
+	}
 }
 
 func TestNetworkPolicyReconcilerTestSuite(t *testing.T) {
 	suite.Run(t, new(NetworkPolicyReconcilerTestSuite))
 }
-
-// TODO: Add test for flag being false and netpol not created
