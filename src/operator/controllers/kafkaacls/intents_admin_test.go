@@ -4,12 +4,10 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/golang/mock/gomock"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	"testing"
 	"time"
 )
@@ -26,16 +24,12 @@ const (
 type IntentAdminSuite struct {
 	suite.Suite
 	mockClusterAdmin *kafkaaclsmocks.MockClusterAdmin
-	recorder         *record.FakeRecorder
-	client           *mocks.MockClient
 	intentsAdmin     KafkaIntentsAdmin
 }
 
 func (s *IntentAdminSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
 	s.mockClusterAdmin = kafkaaclsmocks.NewMockClusterAdmin(controller)
-	s.client = mocks.NewMockClient(controller)
-	s.recorder = record.NewFakeRecorder(100)
 }
 
 func (s *IntentAdminSuite) TestApplyServerConfig() {
@@ -320,17 +314,7 @@ func getAclAuthenticatedOnly(topicName string, anonymousUsersPrincipal string, a
 }
 
 func (s *IntentAdminSuite) TearDownTest() {
-	s.expectNoEvent()
 	s.intentsAdmin = nil
-}
-
-func (s *IntentAdminSuite) expectNoEvent() {
-	select {
-	case event := <-s.recorder.Events:
-		s.Fail("Unexpected event found", event)
-	default:
-		// Amazing, no events left behind!
-	}
 }
 
 func TestIntentAdminSuite(t *testing.T) {
