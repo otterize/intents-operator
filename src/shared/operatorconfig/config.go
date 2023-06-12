@@ -32,8 +32,8 @@ const (
 	AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredDefault = false
 	EnableNetworkPolicyKey                                              = "enable-network-policy-creation" // Whether to enable Intents network policy creation
 	EnableNetworkPolicyDefault                                          = true
-	EnableIstioPolicyKey                                                = "experimental-enable-istio-policy-creation" // Whether to enable istio authorization policy creation
-	EnableIstioPolicyDefault                                            = false
+	EnableIstioPolicyKey                                                = "enable-istio-policy-creation" // Whether to enable Istio authorization policy creation
+	EnableIstioPolicyDefault                                            = true
 	EnableKafkaACLKey                                                   = "enable-kafka-acl-creation" // Whether to disable Intents Kafka ACL creation
 	EnableKafkaACLDefault                                               = true
 	IntentsOperatorPodNameKey                                           = "pod-name"
