@@ -394,7 +394,7 @@ func (a *KafkaIntentsAdminImpl) RemoveAllIntents() error {
 	aclFilter := sarama.AclFilter{
 		ResourceType:              sarama.AclResourceTopic,
 		ResourcePatternTypeFilter: sarama.AclPatternAny,
-		PermissionType:            sarama.AclPermissionAllow,
+		PermissionType:            sarama.AclPermissionAny,
 		Operation:                 sarama.AclOperationAny,
 	}
 
