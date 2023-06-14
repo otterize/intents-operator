@@ -27,21 +27,16 @@ import (
 )
 
 const (
-	testNamespace                     = "test-namespace"
-	operatorPodNamespace              = "otterize-system"
-	kafkaServiceName           string = "kafka"
-	kafkaTopicName             string = "test-topic"
-	clientName                 string = "test-client"
-	intentsObjectName          string = "test-client-intents"
-	usernameMapping            string = "user-name-mapping-test"
-	operatorPodName            string = "operator-pod-name"
-	operatorPodNamespacePrefix string = "otterize"
+	testNamespace        = "test-namespace"
+	operatorPodNamespace = "otterize-system"
+	kafkaServiceName     = "kafka"
+	kafkaTopicName       = "test-topic"
+	operatorPodName      = "operator-pod-name"
 )
 
 type KafkaServerConfigReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
 	mockServiceResolver *serviceidresolvermocks.MockServiceResolver
-	operatorNamespace   string
 	reconciler          *KafkaServerConfigReconciler
 	mockCloudClient     *otterizecloudmocks.MockCloudClient
 	mockIntentsAdmin    *kafkaaclsmocks.MockKafkaIntentsAdmin
