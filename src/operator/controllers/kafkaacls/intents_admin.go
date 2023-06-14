@@ -36,7 +36,7 @@ type KafkaIntentsAdmin interface {
 	ApplyServerTopicsConf(topicsConf []otterizev1alpha2.TopicConfig) error
 	ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev1alpha2.Intent) error
 	RemoveClientIntents(clientName string, clientNamespace string) error
-	RemoveAllIntents() error
+	RemoveServerIntents(topicsConf []otterizev1alpha2.TopicConfig) error
 	Close()
 }
 
@@ -382,7 +382,7 @@ func (a *KafkaIntentsAdminImpl) RemoveClientIntents(clientName string, clientNam
 	return nil
 }
 
-func (a *KafkaIntentsAdminImpl) RemoveAllIntents() error {
+func (a *KafkaIntentsAdminImpl) RemoveServerIntents(topicsConf []otterizev1alpha2.TopicConfig) error {
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"serverName":      a.kafkaServer.Spec.Service,
@@ -391,19 +391,11 @@ func (a *KafkaIntentsAdminImpl) RemoveAllIntents() error {
 
 	logger.Info("Clearing ACLs from Kafka server")
 
-	aclFilter := sarama.AclFilter{
-		ResourceType:              sarama.AclResourceTopic,
-		ResourcePatternTypeFilter: sarama.AclPatternAny,
-		PermissionType:            sarama.AclPermissionAny,
-		Operation:                 sarama.AclOperationAny,
-	}
-
-	matchedAcls, err := a.kafkaAdminClient.DeleteACL(aclFilter, true)
+	serverACLs := a.getServerACLs(topicsConf)
+	err := a.deleteResourceAcls(serverACLs)
 	if err != nil {
 		return fmt.Errorf("failed deleting ACLs on server: %w", err)
 	}
-
-	logger.Infof("%d topic acl rules were deleted", len(matchedAcls))
 
 	deletedRulesCount, err := a.deleteConsumerGroupWildcardACLs()
 	if err != nil {
@@ -412,6 +404,21 @@ func (a *KafkaIntentsAdminImpl) RemoveAllIntents() error {
 	logger.Infof("%d group acl rules were deleted", deletedRulesCount)
 
 	return nil
+}
+
+func (a *KafkaIntentsAdminImpl) getServerACLs(topicsConf []otterizev1alpha2.TopicConfig) []*sarama.ResourceAcls {
+	expectedACLs := a.getExpectedTopicsConfAcls(topicsConf)
+	var serverACLs []*sarama.ResourceAcls
+	for resource, acls := range expectedACLs {
+		resourceACLs := &sarama.ResourceAcls{
+			Resource: resource,
+		}
+		for _, acl := range acls {
+			resourceACLs.Acls = append(resourceACLs.Acls, lo.ToPtr(acl))
+		}
+		serverACLs = append(serverACLs, resourceACLs)
+	}
+	return serverACLs
 }
 
 func (a *KafkaIntentsAdminImpl) getExpectedTopicsConfAcls(topicsConf []otterizev1alpha2.TopicConfig) map[sarama.Resource][]sarama.Acl {
@@ -532,7 +539,7 @@ func (a *KafkaIntentsAdminImpl) kafkaResourceAclsDiff(expected map[sarama.Resour
 func (a *KafkaIntentsAdminImpl) deleteResourceAcls(resourceAclsToDelete []*sarama.ResourceAcls) error {
 	for _, resourceAcls := range resourceAclsToDelete {
 		for _, acl := range resourceAcls.Acls {
-			if _, err := a.kafkaAdminClient.DeleteACL(sarama.AclFilter{
+			filter := sarama.AclFilter{
 				ResourceType:              resourceAcls.ResourceType,
 				ResourceName:              lo.ToPtr(resourceAcls.ResourceName),
 				ResourcePatternTypeFilter: resourceAcls.ResourcePatternType,
@@ -540,7 +547,8 @@ func (a *KafkaIntentsAdminImpl) deleteResourceAcls(resourceAclsToDelete []*saram
 				Operation:                 acl.Operation,
 				Principal:                 lo.ToPtr(acl.Principal),
 				Host:                      lo.ToPtr(acl.Host),
-			}, false); err != nil {
+			}
+			if _, err := a.kafkaAdminClient.DeleteACL(filter, false); err != nil {
 				return err
 			}
 		}

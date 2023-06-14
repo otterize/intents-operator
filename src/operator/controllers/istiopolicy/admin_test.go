@@ -6,37 +6,32 @@ import (
 	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy/mocks"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	v1beta12 "istio.io/api/security/v1beta1"
 	v1beta13 "istio.io/api/type/v1beta1"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"testing"
 )
 
 type AdminTestSuite struct {
-	suite.Suite
-	ctrl       *gomock.Controller
-	mockClient *istiopolicymocks.MockClient
-	recorder   *record.FakeRecorder
-	admin      *AdminImpl
+	testbase.MocksSuiteBase
+	admin *AdminImpl
 }
 
 func (s *AdminTestSuite) SetupTest() {
-	s.ctrl = gomock.NewController(s.T())
-	s.mockClient = istiopolicymocks.NewMockClient(s.ctrl)
-	s.recorder = record.NewFakeRecorder(100)
-	s.admin = NewAdmin(s.mockClient, &injectablerecorder.InjectableRecorder{Recorder: s.recorder}, []string{})
+	s.MocksSuiteBase.SetupTest()
+	s.admin = NewAdmin(s.Client, &injectablerecorder.InjectableRecorder{Recorder: s.Recorder}, []string{})
 }
 
 func (s *AdminTestSuite) TearDownTest() {
-	s.ctrl.Finish()
+	s.admin = nil
+	s.MocksSuiteBase.TearDownTest()
 }
 
 func (s *AdminTestSuite) TestCreate() {
@@ -99,12 +94,12 @@ func (s *AdminTestSuite) TestCreate() {
 		},
 	}
 
-	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
-	s.mockClient.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+	s.Client.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
 	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
-	s.expectEvent(ReasonCreatedIstioPolicy)
+	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
 func (s *AdminTestSuite) TestCreateHTTPResources() {
@@ -201,12 +196,12 @@ func (s *AdminTestSuite) TestCreateHTTPResources() {
 			},
 		},
 	}
-	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
-	s.mockClient.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+	s.Client.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
 	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
-	s.expectEvent(ReasonCreatedIstioPolicy)
+	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
 func (s *AdminTestSuite) TestUpdateHTTPResources() {
@@ -334,12 +329,12 @@ func (s *AdminTestSuite) TestUpdateHTTPResources() {
 			},
 		},
 	}
-	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(_ context.Context, policies *v1beta1.AuthorizationPolicyList, _ ...client.ListOption) {
 			policies.Items = append(policies.Items, existingPolicyWithoutHTTP)
 		}).Return(nil)
 
-	s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MergeFrom(existingPolicyWithoutHTTP))).Do(
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MergeFrom(existingPolicyWithoutHTTP))).Do(
 		func(_ context.Context, policy *v1beta1.AuthorizationPolicy, patch client.Patch, _ ...client.PatchOption) {
 			s.Equal(newPolicy.Name, policy.Name)
 			s.Equal(newPolicy.Namespace, policy.Namespace)
@@ -352,7 +347,7 @@ func (s *AdminTestSuite) TestUpdateHTTPResources() {
 
 	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
-	s.expectEvent(ReasonCreatedIstioPolicy)
+	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
 func (s *AdminTestSuite) TestNothingToUpdateHTTPResources() {
@@ -450,14 +445,14 @@ func (s *AdminTestSuite) TestNothingToUpdateHTTPResources() {
 		},
 	}
 
-	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(_ context.Context, policies *v1beta1.AuthorizationPolicyList, _ ...client.ListOption) {
 			policies.Items = append(policies.Items, existingPolicy)
 		}).Return(nil)
 
 	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
-	s.expectEvent(ReasonCreatedIstioPolicy)
+	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
 func (s *AdminTestSuite) TestNamespaceNotAllowed() {
@@ -484,10 +479,11 @@ func (s *AdminTestSuite) TestNamespaceNotAllowed() {
 		},
 	}
 	clientServiceAccountName := "test-client-sa"
-	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
 	err := s.admin.Create(ctx, intents, clientServiceAccountName)
 	s.NoError(err)
-	s.expectEvent(ReasonNamespaceNotAllowed)
+	s.ExpectEvent(ReasonNamespaceNotAllowed)
+	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
 func (s *AdminTestSuite) TestNamespaceAllowed() {
@@ -545,12 +541,12 @@ func (s *AdminTestSuite) TestNamespaceAllowed() {
 			},
 		},
 	}
-	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
-	s.mockClient.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+	s.Client.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
 	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
-	s.expectEvent(ReasonCreatedIstioPolicy)
+	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
 func (s *AdminTestSuite) TestUpdatePolicy() {
@@ -641,12 +637,12 @@ func (s *AdminTestSuite) TestUpdatePolicy() {
 		},
 	}
 
-	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(_ context.Context, policies *v1beta1.AuthorizationPolicyList, _ ...client.ListOption) {
 			policies.Items = append(policies.Items, existingPolicy)
 		}).Return(nil)
 
-	s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MergeFrom(existingPolicy))).Do(
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MergeFrom(existingPolicy))).Do(
 		func(_ context.Context, policy *v1beta1.AuthorizationPolicy, patch client.Patch, _ ...client.PatchOption) {
 			s.Equal(newPolicy.Name, policy.Name)
 			s.Equal(newPolicy.Namespace, policy.Namespace)
@@ -657,7 +653,7 @@ func (s *AdminTestSuite) TestUpdatePolicy() {
 
 	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
-	s.expectEvent(ReasonCreatedIstioPolicy)
+	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
 func (s *AdminTestSuite) TestDeleteAllPoliciesForClientIntents() {
@@ -687,11 +683,11 @@ func (s *AdminTestSuite) TestDeleteAllPoliciesForClientIntents() {
 	}
 
 	authzPol := &v1beta1.AuthorizationPolicy{ObjectMeta: v1.ObjectMeta{Name: "blah"}}
-	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), client.MatchingLabels{
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), client.MatchingLabels{
 		v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 	}).SetArg(1, v1beta1.AuthorizationPolicyList{Items: []*v1beta1.AuthorizationPolicy{authzPol}}).Return(nil)
 
-	s.mockClient.EXPECT().Delete(gomock.Any(), authzPol).Return(nil)
+	s.Client.EXPECT().Delete(gomock.Any(), authzPol).Return(nil)
 
 	err := s.admin.DeleteAll(context.Background(), intents)
 	s.NoError(err)
@@ -753,13 +749,14 @@ func (s *AdminTestSuite) TestNothingToUpdate() {
 		},
 	}
 
-	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(_ context.Context, policies *v1beta1.AuthorizationPolicyList, _ ...client.ListOption) {
 			policies.Items = append(policies.Items, existingPolicy)
 		}).Return(nil)
 
 	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
+	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
 func (s *AdminTestSuite) TestDeletePolicy() {
@@ -851,14 +848,15 @@ func (s *AdminTestSuite) TestDeletePolicy() {
 		},
 	}
 
-	s.mockClient.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Do(
 		func(_ context.Context, policies *v1beta1.AuthorizationPolicyList, _ ...client.ListOption) {
 			policies.Items = append(policies.Items, outdatedPolicy, existingPolicy)
 		}).Return(nil)
 
-	s.mockClient.EXPECT().Delete(gomock.Any(), outdatedPolicy).Return(nil)
+	s.Client.EXPECT().Delete(gomock.Any(), outdatedPolicy).Return(nil)
 	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
+	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
 func (s *AdminTestSuite) TestUpdateStatusServiceAccount() {
@@ -925,18 +923,18 @@ func (s *AdminTestSuite) TestUpdateStatusServiceAccount() {
 		},
 	}
 	gomock.InOrder(
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(labeledIntents, *intents)
 		}).Return(nil),
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			missingSideCar, ok := intents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
 			s.True(ok)
 			s.Equal(strconv.FormatBool(false), missingSideCar)
 		}).Return(nil),
-		s.mockClient.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
+		s.Client.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
 			intents.Items = append(intents.Items, labeledIntents)
 		}).Return(nil),
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(intentsWithStatus, *intents)
 		}).Return(nil),
 	)
@@ -1009,18 +1007,18 @@ func (s *AdminTestSuite) TestUpdateStatusMissingSidecar() {
 		},
 	}
 	gomock.InOrder(
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(labeledIntents, *intents)
 		}).Return(nil),
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			missingSideCar, ok := intents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
 			s.True(ok)
 			s.Equal(strconv.FormatBool(true), missingSideCar)
 		}).Return(nil),
-		s.mockClient.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
+		s.Client.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
 			intents.Items = append(intents.Items, labeledIntents)
 		}).Return(nil),
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(intentsWithStatus, *intents)
 		}).Return(nil),
 	)
@@ -1042,14 +1040,14 @@ func (s *AdminTestSuite) TestUpdateStatusServerMissingSidecar() {
 	}
 
 	gomock.InOrder(
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(*intentsWithStatus, *intents)
 		}).Return(nil),
 	)
 
 	err := s.admin.UpdateServerSidecar(context.Background(), initialIntents, serverName, true)
 	s.NoError(err)
-	s.expectEvent(ReasonServerMissingSidecar)
+	s.ExpectEvent(ReasonServerMissingSidecar)
 }
 
 func emptyIntents(clientIntentsNamespace string, clientName string, serverName string) *v1alpha2.ClientIntents {
@@ -1106,14 +1104,14 @@ func (s *AdminTestSuite) TestUpdateStatusServerMissingSidecarExistingServers() {
 	}
 
 	gomock.InOrder(
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(*intentsWithStatus, *intents)
 		}).Return(nil),
 	)
 
 	err := s.admin.UpdateServerSidecar(context.Background(), initialIntents, serverName, true)
 	s.NoError(err)
-	s.expectEvent(ReasonServerMissingSidecar)
+	s.ExpectEvent(ReasonServerMissingSidecar)
 }
 
 func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList() {
@@ -1135,7 +1133,7 @@ func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList() {
 	}
 
 	gomock.InOrder(
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(*intentsWithStatus, *intents)
 		}).Return(nil),
 	)
@@ -1163,7 +1161,7 @@ func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarRemovedLastFromList() {
 	}
 
 	gomock.InOrder(
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(*intentsWithStatus, *intents)
 		}).Return(nil),
 	)
@@ -1296,48 +1294,39 @@ func (s *AdminTestSuite) TestUpdateStatusSharedServiceAccount() {
 	isMissingSideCar := false
 
 	gomock.InOrder(
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(labeledIntents, *intents)
 		}).Return(nil),
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			missingSideCar, ok := intents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
 			s.Equal(true, ok)
 			s.Equal(strconv.FormatBool(isMissingSideCar), missingSideCar)
 		}).Return(nil),
-		s.mockClient.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
+		s.Client.EXPECT().List(gomock.Any(), &v1alpha2.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v1alpha2.ClientIntentsList, _ ...client.ListOption) {
 			intents.Items = append(intents.Items, labeledIntents, anotherIntents)
 		}).Return(nil),
 	)
 
 	gomock.InOrder(
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(intentsWithStatus, *intents)
 		}).Return(nil),
 	)
 
 	gomock.InOrder(
-		s.mockClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha2.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(anotherIntentsWithStatus, *intents)
 		}).Return(nil),
 	)
 
 	err := s.admin.UpdateIntentsStatus(context.Background(), intents, clientServiceAccountName, isMissingSideCar)
 	s.NoError(err)
-	s.expectEvent(ReasonSharedServiceAccount)
-	s.expectEvent(ReasonSharedServiceAccount)
+	s.ExpectEvent(ReasonSharedServiceAccount)
+	s.ExpectEvent(ReasonSharedServiceAccount)
 }
 
 func generatePrincipal(clientIntentsNamespace string, clientServiceAccountName string) string {
 	return fmt.Sprintf("cluster.local/ns/%s/sa/%s", clientIntentsNamespace, clientServiceAccountName)
-}
-
-func (s *AdminTestSuite) expectEvent(expectedEvent string) {
-	select {
-	case event := <-s.recorder.Events:
-		s.Require().Contains(event, expectedEvent)
-	default:
-		s.Fail("Expected event not found")
-	}
 }
 
 func TestCreatorTestSuite(t *testing.T) {

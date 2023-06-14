@@ -48,8 +48,7 @@ const (
 	finalizerName                              = "intents.otterize.com/kafkaserverconfig-finalizer"
 	ReasonIntentsOperatorIdentityResolveFailed = "IntentsOperatorIdentityResolveFailed"
 	ReasonApplyingKafkaServerConfigFailed      = "ApplyingKafkaServerConfigFailed"
-	ReasonAppliedKafkaServerConfigFailed       = "AppliedKafkaServerConfigFailed"
-	IntentsOperatorSource                      = "intents-operator"
+	ReasonSuccessfullyAppliedKafkaServerConfig = "SuccessfullyAppliedKafkaServerConfig"
 )
 
 // KafkaServerConfigReconciler reconciles a KafkaServerConfig object
@@ -108,7 +107,7 @@ func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConf
 	defer intentsAdmin.Close()
 
 	logger.Info("Removing associated ACLs")
-	if err := intentsAdmin.RemoveAllIntents(); err != nil {
+	if err := intentsAdmin.RemoveServerIntents(kafkaServerConfig.Spec.Topics); err != nil {
 		return err
 	}
 
@@ -297,7 +296,7 @@ func (r *KafkaServerConfigReconciler) reconcileObject(ctx context.Context, kafka
 		return ctrl.Result{}, err
 	}
 
-	r.RecordNormalEvent(kafkaServerConfig, ReasonAppliedKafkaServerConfigFailed, "successfully applied server config")
+	r.RecordNormalEvent(kafkaServerConfig, ReasonSuccessfullyAppliedKafkaServerConfig, "successfully applied server config")
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeKafkaServerConfigApplied, len(kafkaServerConfig.Spec.Topics))
 	return ctrl.Result{}, nil
 }

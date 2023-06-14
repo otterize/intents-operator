@@ -6,6 +6,7 @@ import (
 	"github.com/golang/mock/gomock"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -13,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -22,41 +22,37 @@ import (
 )
 
 type IstioPolicyReconcilerTestSuite struct {
-	suite.Suite
+	testbase.MocksSuiteBase
 	Reconciler      *IstioPolicyReconciler
-	client          *mocks.MockClient
-	recorder        *record.FakeRecorder
 	policyAdmin     *mocks.MockAdmin
 	serviceResolver *mocks.MockServiceResolver
 	scheme          *runtime.Scheme
 }
 
 func (s *IstioPolicyReconcilerTestSuite) SetupTest() {
-	controller := gomock.NewController(s.T())
-	s.client = mocks.NewMockClient(controller)
-	s.policyAdmin = mocks.NewMockAdmin(controller)
-	s.serviceResolver = mocks.NewMockServiceResolver(controller)
+	s.MocksSuiteBase.SetupTest()
+	s.policyAdmin = mocks.NewMockAdmin(s.Controller)
+	s.serviceResolver = mocks.NewMockServiceResolver(s.Controller)
 	restrictToNamespaces := make([]string, 0)
 	s.scheme = runtime.NewScheme()
 	s.scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "security.istio.io", Version: "v1", Kind: "authorizationpolicies"}, &v1beta1.AuthorizationPolicy{})
 
 	s.Reconciler = NewIstioPolicyReconciler(
-		s.client,
+		s.Client,
 		s.scheme,
 		restrictToNamespaces,
 		true,
 		true,
 	)
 
-	s.recorder = record.NewFakeRecorder(100)
-	s.Reconciler.Recorder = s.recorder
+	s.Reconciler.Recorder = s.Recorder
 	s.Reconciler.serviceIdResolver = s.serviceResolver
 	s.Reconciler.policyAdmin = s.policyAdmin
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TearDownTest() {
-	s.expectNoEvent()
 	s.Reconciler = nil
+	s.MocksSuiteBase.TearDownTest()
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
@@ -94,7 +90,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
 
 	// Initial call to get the ClientIntents object when reconciler starts
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			intentsWithoutFinalizer.DeepCopyInto(intents)
 			return nil
@@ -104,7 +100,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
 	intentsObj := otterizev1alpha2.ClientIntents{}
 	intentsWithoutFinalizer.DeepCopyInto(&intentsObj)
 	controllerutil.AddFinalizer(&intentsObj, IstioPolicyFinalizerName)
-	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(&intentsObj)).Return(nil)
+	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&intentsObj)).Return(nil)
 
 	clientServiceAccount := "test-server-sa"
 	clientPod := v1.Pod{
@@ -153,20 +149,20 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
 }
 
 func (s *IstioPolicyReconcilerTestSuite) expectValidatingIstioIsInstalled() {
-	s.client.EXPECT().Scheme().Return(s.scheme)
-	s.client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: "authorizationpolicies.security.istio.io"}, gomock.Any()).Return(nil)
+	s.Client.EXPECT().Scheme().Return(s.scheme)
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: "authorizationpolicies.security.istio.io"}, gomock.Any()).Return(nil)
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestGlobalEnforcementDisabled() {
 	s.Reconciler.enforcementEnabledGlobally = false
 	s.assertPolicyIgnored()
-	s.expectEvent(ReasonEnforcementGloballyDisabled)
+	s.ExpectEvent(ReasonEnforcementGloballyDisabled)
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyEnforcementDisabled() {
 	s.Reconciler.enableIstioPolicyCreation = false
 	s.assertPolicyIgnored()
-	s.expectEvent(ReasonIstioPolicyCreationDisabled)
+	s.ExpectEvent(ReasonIstioPolicyCreationDisabled)
 }
 
 func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
@@ -205,7 +201,7 @@ func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
 
 	// Initial call to get the ClientIntents object when reconciler starts
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			clientIntentsObj.DeepCopyInto(intents)
 			return nil
@@ -254,7 +250,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {
 
 	// Initial call to get the ClientIntents object when reconciler starts
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			clientIntentsObj.DeepCopyInto(intents)
 			return nil
@@ -266,29 +262,11 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {
 	clientIntentsObj.DeepCopyInto(intentsWithoutFinalizer)
 	controllerutil.RemoveFinalizer(intentsWithoutFinalizer, IstioPolicyFinalizerName)
 
-	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(intentsWithoutFinalizer)).Return(nil)
+	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(intentsWithoutFinalizer)).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Equal(ctrl.Result{}, res)
-}
-
-func (s *IstioPolicyReconcilerTestSuite) expectEvent(expectedEvent string) {
-	select {
-	case event := <-s.recorder.Events:
-		s.Require().Contains(event, expectedEvent)
-	default:
-		s.Fail("Expected event not found")
-	}
-}
-
-func (s *IstioPolicyReconcilerTestSuite) expectNoEvent() {
-	select {
-	case event := <-s.recorder.Events:
-		s.Fail("Unexpected event found", event)
-	default:
-		// Amazing, no events left behind!
-	}
 }
 
 func TestIstioPolicyReconcilerTestSuite(t *testing.T) {

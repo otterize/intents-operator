@@ -197,7 +197,7 @@ func (s *IntentAdminSuite) TestDeleteServerConfig() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              kafkaServerConfigResourceName,
 			Namespace:         testNamespace,
-			DeletionTimestamp: lo.ToPtr(metav1.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)),
+			DeletionTimestamp: lo.ToPtr(metav1.Date(2021, 6, 13, 0, 0, 0, 0, time.UTC)),
 		},
 		Spec: otterizev1alpha2.KafkaServerConfigSpec{
 			Service: otterizev1alpha2.Service{
@@ -217,13 +217,74 @@ func (s *IntentAdminSuite) TestDeleteServerConfig() {
 
 	s.intentsAdmin = NewKafkaIntentsAdminImpl(kafkaServerConfig, s.mockClusterAdmin, "user-name-mapping", true, true)
 
-	aclDeleteFilterTopics := sarama.AclFilter{
-		ResourceType:              sarama.AclResourceTopic,
-		ResourcePatternTypeFilter: sarama.AclPatternAny,
-		PermissionType:            sarama.AclPermissionAny,
-		Operation:                 sarama.AclOperationAny,
+	resource := sarama.Resource{
+		ResourceType:        sarama.AclResourceTopic,
+		ResourceName:        topicName,
+		ResourcePatternType: sarama.AclPatternLiteral,
 	}
 
+	anonymousUsersTopicAcl := []sarama.MatchingAcl{
+		{
+			Resource: resource,
+			Acl: sarama.Acl{
+				Principal:      anonymousUsersPrincipal,
+				Host:           "*",
+				Operation:      sarama.AclOperationAll,
+				PermissionType: sarama.AclPermissionDeny,
+			},
+		},
+	}
+	authenticatedUsersTopicAcl := []sarama.MatchingAcl{
+		{
+			Resource: resource,
+			Acl: sarama.Acl{
+				Principal:      allUsersPrincipal,
+				Host:           "*",
+				Operation:      sarama.AclOperationAll,
+				PermissionType: sarama.AclPermissionAllow,
+			},
+		},
+	}
+
+	groupAcl := []sarama.MatchingAcl{
+		{
+			Resource: resource,
+			Acl: sarama.Acl{
+				Principal:      allUsersPrincipal,
+				Host:           "*",
+				Operation:      sarama.AclOperationRead,
+				PermissionType: sarama.AclPermissionAllow,
+			},
+		},
+		{
+			Resource: resource,
+			Acl: sarama.Acl{
+				Principal:      allUsersPrincipal,
+				Host:           "*",
+				Operation:      sarama.AclOperationDescribe,
+				PermissionType: sarama.AclPermissionAllow,
+			},
+		},
+	}
+
+	anonymousUserACLFilter := sarama.AclFilter{
+		ResourceType:              sarama.AclResourceTopic,
+		ResourceName:              lo.ToPtr("my-topic"),
+		ResourcePatternTypeFilter: sarama.AclPatternLiteral,
+		Principal:                 lo.ToPtr("User:ANONYMOUS"),
+		Host:                      lo.ToPtr("*"),
+		Operation:                 sarama.AclOperationAll,
+		PermissionType:            sarama.AclPermissionDeny,
+	}
+	authenticatedUserACLFilter := sarama.AclFilter{
+		ResourceType:              sarama.AclResourceTopic,
+		ResourceName:              lo.ToPtr("my-topic"),
+		ResourcePatternTypeFilter: sarama.AclPatternLiteral,
+		Principal:                 lo.ToPtr("User:*"),
+		Host:                      lo.ToPtr("*"),
+		Operation:                 sarama.AclOperationAll,
+		PermissionType:            sarama.AclPermissionAllow,
+	}
 	aclDeleteFilterOperatorGroup := sarama.AclFilter{
 		ResourceType:              sarama.AclResourceGroup,
 		ResourceName:              lo.ToPtr("*"),
@@ -233,35 +294,11 @@ func (s *IntentAdminSuite) TestDeleteServerConfig() {
 		Operation:                 sarama.AclOperationAny,
 	}
 
-	allowAuthenticatedOnly := getAclAuthenticatedOnly(topicName, anonymousUsersPrincipal, allUsersPrincipal)
-	operatorGroupPermission := getAclOperatorGroupPermission()
+	s.mockClusterAdmin.EXPECT().DeleteACL(anonymousUserACLFilter, false).Return(anonymousUsersTopicAcl, nil)
+	s.mockClusterAdmin.EXPECT().DeleteACL(authenticatedUserACLFilter, false).Return(authenticatedUsersTopicAcl, nil)
+	s.mockClusterAdmin.EXPECT().DeleteACL(aclDeleteFilterOperatorGroup, false).Return(groupAcl, nil)
 
-	topicAcl := []sarama.MatchingAcl{
-		{
-			Resource: allowAuthenticatedOnly.Resource,
-			Acl:      *allowAuthenticatedOnly.Acls[0],
-		},
-		{
-			Resource: allowAuthenticatedOnly.Resource,
-			Acl:      *allowAuthenticatedOnly.Acls[1],
-		},
-	}
-	groupAcl := []sarama.MatchingAcl{
-		{
-			Resource: operatorGroupPermission.Resource,
-			Acl:      *operatorGroupPermission.Acls[0],
-		},
-		{
-			Resource: operatorGroupPermission.Resource,
-			Acl:      *operatorGroupPermission.Acls[1],
-		},
-	}
-	gomock.InOrder(
-		s.mockClusterAdmin.EXPECT().DeleteACL(aclDeleteFilterTopics, true).Return(topicAcl, nil),
-		s.mockClusterAdmin.EXPECT().DeleteACL(aclDeleteFilterOperatorGroup, false).Return(groupAcl, nil),
-	)
-
-	err := s.intentsAdmin.RemoveAllIntents()
+	err := s.intentsAdmin.RemoveServerIntents(kafkaServerConfig.Spec.Topics)
 	s.Require().NoError(err)
 }
 
