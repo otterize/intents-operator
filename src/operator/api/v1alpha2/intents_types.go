@@ -198,12 +198,16 @@ func (in *Intent) GetServerNamespace(intentsObjNamespace string) string {
 // GetServerNamespace returns target namespace for intent if exists
 // or the entire resource's namespace if the specific intent has no target namespace, as it's optional
 func (in *Intent) GetServerName() string {
+	var name string
 	nameWithNamespace := strings.Split(in.Name, ".")
 	if len(nameWithNamespace) == 1 {
-		return in.Name
+		name = in.Name
+	} else {
+		name = nameWithNamespace[0]
 	}
 
-	return nameWithNamespace[0]
+	name = strings.ReplaceAll(name, "_", ".")
+	return name
 }
 
 func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
