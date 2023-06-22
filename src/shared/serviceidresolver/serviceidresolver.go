@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 const (
@@ -69,7 +70,14 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 		return ServiceIdentity{}, err
 	}
 
-	return ServiceIdentity{Name: ownerObj.GetName(), OwnerObject: ownerObj}, nil
+	resourceName := ownerObj.GetName()
+	// Deployments and other resources with pod templates have a dot in their name since they follow RFC 1123 subdomain
+	// naming convention. We use the dot as a separator between the service and the namespace. We replace the dot with
+	// an underscore, which isn't a valid character in a DNS name.
+	// So, for example, a deployment named "my-deployment.5.2.0" will be seen by Otterize as "my-deployment_5_2_0"
+	otterizeServiceName := strings.ReplaceAll(resourceName, ".", "_")
+
+	return ServiceIdentity{Name: otterizeServiceName, OwnerObject: ownerObj}, nil
 }
 
 // GetOwnerObject recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference
