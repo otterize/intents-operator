@@ -198,6 +198,7 @@ func main() {
 		endpointReconciler,
 		watchedNamespaces,
 		enforcementConfig,
+		autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement,
 		otterizeCloudClient,
 		podName,
 		podNamespace,

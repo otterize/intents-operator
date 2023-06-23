@@ -35,11 +35,12 @@ const (
 
 type NetworkPolicyReconciler struct {
 	client.Client
-	Scheme                      *runtime.Scheme
-	endpointsReconciler         reconcile.Reconciler
-	RestrictToNamespaces        []string
-	enableNetworkPolicyCreation bool
-	enforcementEnabledGlobally  bool
+	Scheme                                        *runtime.Scheme
+	endpointsReconciler                           reconcile.Reconciler
+	RestrictToNamespaces                          []string
+	enableNetworkPolicyCreation                   bool
+	enforcementEnabledGlobally                    bool
+	externalNetworkPoliciesCreatedEvenIfNoIntents bool
 	injectablerecorder.InjectableRecorder
 }
 
@@ -49,7 +50,8 @@ func NewNetworkPolicyReconciler(
 	endpointsReconciler reconcile.Reconciler,
 	restrictToNamespaces []string,
 	enableNetworkPolicyCreation bool,
-	enforcementEnabledGlobally bool) *NetworkPolicyReconciler {
+	enforcementEnabledGlobally bool,
+	externalNetworkPoliciesCreatedEvenIfNoIntents bool) *NetworkPolicyReconciler {
 	return &NetworkPolicyReconciler{
 		Client:                      c,
 		Scheme:                      s,
@@ -57,6 +59,7 @@ func NewNetworkPolicyReconciler(
 		RestrictToNamespaces:        restrictToNamespaces,
 		enableNetworkPolicyCreation: enableNetworkPolicyCreation,
 		enforcementEnabledGlobally:  enforcementEnabledGlobally,
+		externalNetworkPoliciesCreatedEvenIfNoIntents: externalNetworkPoliciesCreatedEvenIfNoIntents,
 	}
 }
 
@@ -289,10 +292,6 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 		return err
 	}
 
-	// Check if network policies from all namespaces are gone
-	// If so, check if intents required flag for external policies is disabled
-	// If so, delete.
-
 	// Remove network policies created by the external traffic reconcilers.
 	// Once no more Otterize network policies are present, there's no longer need for them.
 	// Before we do this, we must check there are no Otterize network policies in ANY namespace.
@@ -307,8 +306,9 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 		return err
 	}
 
-	// This is the last intent out of all namespaces, so it's safe to delete the external traffic policy.
-	if len(intentsList.Items) == 1 {
+	// This is the last intent out of all namespaces, so it's safe to delete the external traffic policy, unless we are
+	// creating external traffic policies regardless of intents.
+	if len(intentsList.Items) == 1 && !r.externalNetworkPoliciesCreatedEvenIfNoIntents {
 		externalPolicyList := &v1.NetworkPolicyList{}
 		serviceNameLabel := policy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
 		err = r.List(ctx, externalPolicyList, client.MatchingLabels{otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
