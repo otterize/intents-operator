@@ -40,6 +40,7 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 		restrictToNamespaces,
 		true,
 		true,
+		false,
 	)
 
 	s.Reconciler.Recorder = s.Recorder
