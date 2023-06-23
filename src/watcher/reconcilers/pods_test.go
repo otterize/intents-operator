@@ -135,7 +135,6 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	},
 	})
 	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	podName := fmt.Sprintf("%s-0", deploymentName)
 

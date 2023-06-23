@@ -169,7 +169,6 @@ func (s *KafkaServerConfigReconcilerTestSuite) reconcile(namespacedName types.Na
 
 	s.Require().NoError(err)
 	s.Require().Empty(res)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 }
 
 func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {

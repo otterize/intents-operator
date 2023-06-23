@@ -16,7 +16,6 @@
 package webhooks
 
 import (
-	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -105,7 +104,6 @@ func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntentsAfterUpdate() {
 	})
 	expectedErr := fmt.Sprintf("type %s cannot contain kafka topics", otterizev1alpha2.IntentTypeHTTP)
 	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	err = s.UpdateIntents("intents", []otterizev1alpha2.Intent{
 		{
