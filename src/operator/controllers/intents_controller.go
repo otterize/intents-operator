@@ -116,7 +116,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			}
 
 			for _, intent := range intents.GetCallsList() {
-				res = append(res, intent.Name)
+				res = append(res, intent.GetServerFullyQualifiedName(intents.Namespace))
 			}
 
 			return res
