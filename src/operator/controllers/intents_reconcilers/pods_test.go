@@ -6,12 +6,12 @@ import (
 	"github.com/golang/mock/gomock"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -24,18 +24,20 @@ const (
 )
 
 type PodLabelReconcilerTestSuite struct {
-	suite.Suite
+	testbase.MocksSuiteBase
 	Reconciler *PodLabelReconciler
-	client     *mocks.MockClient
-	recorder   *record.FakeRecorder
 }
 
 func (s *PodLabelReconcilerTestSuite) SetupTest() {
-	controller := gomock.NewController(s.T())
-	s.client = mocks.NewMockClient(controller)
-	s.Reconciler = NewPodLabelReconciler(s.client, nil)
-	s.recorder = record.NewFakeRecorder(100)
-	s.Reconciler.Recorder = s.recorder
+	s.MocksSuiteBase.SetupTest()
+	s.Client = mocks.NewMockClient(s.Controller)
+	s.Reconciler = NewPodLabelReconciler(s.Client, nil)
+	s.Reconciler.Recorder = s.Recorder
+}
+
+func (s *PodLabelReconcilerTestSuite) TearDownTest() {
+	s.Reconciler = nil
+	s.MocksSuiteBase.TearDownTest()
 }
 
 func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
@@ -61,7 +63,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	}
 
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			controllerutil.AddFinalizer(intents, PodLabelFinalizerName)
@@ -84,7 +86,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 		},
 	}
 
-	s.client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
 		func(ctx context.Context, pds *v1.PodList, opts ...client.ListOption) error {
 			pds.Items = append(pds.Items, pod)
 			return nil
@@ -101,7 +103,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 		Spec: v1.PodSpec{},
 	}
 
-	s.client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(nil)
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -132,7 +134,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddedTruncatedNameAnd
 	}
 
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			controllerutil.AddFinalizer(intents, PodLabelFinalizerName)
@@ -155,7 +157,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddedTruncatedNameAnd
 		},
 	}
 
-	s.client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
 		func(ctx context.Context, pds *v1.PodList, opts ...client.ListOption) error {
 			pds.Items = append(pds.Items, pod)
 			return nil
@@ -172,7 +174,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddedTruncatedNameAnd
 		Spec: v1.PodSpec{},
 	}
 
-	s.client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(nil)
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -217,7 +219,7 @@ func (s *PodLabelReconcilerTestSuite) testClientAccessLabelRemovedWithParams(pod
 	deletedIntents.SetDeletionTimestamp(&metav1.Time{Time: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)})
 	controllerutil.AddFinalizer(&deletedIntents, PodLabelFinalizerName)
 
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			*intents = deletedIntents
 			return nil
@@ -227,7 +229,7 @@ func (s *PodLabelReconcilerTestSuite) testClientAccessLabelRemovedWithParams(pod
 
 	deletedIntentsWithoutFinalizer := deletedIntents.DeepCopy()
 	deletedIntentsWithoutFinalizer.SetFinalizers([]string{})
-	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(deletedIntentsWithoutFinalizer)).Return(nil)
+	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(deletedIntentsWithoutFinalizer)).Return(nil)
 	listOption := &client.ListOptions{Namespace: testNamespace}
 	labelSelector := labels.SelectorFromSet(map[string]string{
 		"intents.otterize.com/server": "test-client-test-namespace-537e87",
@@ -246,7 +248,7 @@ func (s *PodLabelReconcilerTestSuite) testClientAccessLabelRemovedWithParams(pod
 		Spec: v1.PodSpec{},
 	}
 
-	s.client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&v1.PodList{}), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
+	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&v1.PodList{}), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
 		func(ctx context.Context, pds *v1.PodList, opts ...client.ListOption) error {
 			pds.Items = append(pds.Items, pod)
 			return nil
@@ -268,7 +270,7 @@ func (s *PodLabelReconcilerTestSuite) testClientAccessLabelRemovedWithParams(pod
 		Spec: v1.PodSpec{},
 	}
 
-	s.client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), MatchPatch(client.MergeFrom(&pod))).Return(nil)
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), MatchPatch(client.MergeFrom(&pod))).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -298,7 +300,7 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 	}
 
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			controllerutil.AddFinalizer(intents, PodLabelFinalizerName)
@@ -321,7 +323,7 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 		},
 	}
 
-	s.client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
 		func(ctx context.Context, pds *v1.PodList, opts ...client.ListOption) error {
 			pds.Items = append(pds.Items, pod)
 			return nil
@@ -338,7 +340,7 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 		Spec: v1.PodSpec{},
 	}
 
-	s.client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(nil)
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -349,14 +351,14 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 	intentsSpec.Calls[0].Name = "test-server-2"
 
 	emptyIntents = &otterizev1alpha2.ClientIntents{}
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			controllerutil.AddFinalizer(intents, PodLabelFinalizerName)
 			return nil
 		})
 
-	s.client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
 		func(ctx context.Context, pds *v1.PodList, opts ...client.ListOption) error {
 			pds.Items = append(pds.Items, pod)
 			return nil
@@ -373,7 +375,7 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 		Spec: v1.PodSpec{},
 	}
 
-	s.client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(nil)
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(nil)
 
 	res, err = s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -404,7 +406,7 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
 	}
 
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			return nil
@@ -413,9 +415,9 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
 	var intents otterizev1alpha2.ClientIntents
 	intents.Spec = &intentsSpec
 	controllerutil.AddFinalizer(&intents, PodLabelFinalizerName)
-	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(&intents)).Return(nil)
+	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&intents)).Return(nil)
 
-	s.client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -446,7 +448,7 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
 
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
 	deletionTimestamp := &metav1.Time{Time: time.Now()}
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			controllerutil.AddFinalizer(intents, PodLabelFinalizerName)
@@ -460,8 +462,8 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
 	controllerutil.AddFinalizer(&intentsWithoutFinalizer, PodLabelFinalizerName)
 	controllerutil.RemoveFinalizer(&intentsWithoutFinalizer, PodLabelFinalizerName)
 
-	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(&intentsWithoutFinalizer)).Return(nil)
-	s.client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&intentsWithoutFinalizer)).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -491,7 +493,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddFailedPatch() {
 	}
 
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			controllerutil.AddFinalizer(intents, PodLabelFinalizerName)
@@ -514,7 +516,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddFailedPatch() {
 		},
 	}
 
-	s.client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Eq(listOption), gomock.Eq(labelMatcher)).DoAndReturn(
 		func(ctx context.Context, pds *v1.PodList, opts ...client.ListOption) error {
 			pds.Items = append(pds.Items, pod)
 			return nil
@@ -531,20 +533,11 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddFailedPatch() {
 		Spec: v1.PodSpec{},
 	}
 
-	s.client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(fmt.Errorf("Patch failed"))
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(fmt.Errorf("Patch failed"))
 
 	_, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.Error(err)
-	s.expectEvent(ReasonUpdatePodFailed)
-}
-
-func (s *PodLabelReconcilerTestSuite) expectEvent(expectedEvent string) {
-	select {
-	case event := <-s.recorder.Events:
-		s.Require().Contains(event, expectedEvent)
-	default:
-		s.Fail("Expected event not found")
-	}
+	s.ExpectEvent(ReasonUpdatePodFailed)
 }
 
 func TestPodLabelReconcilerTestSuite(t *testing.T) {

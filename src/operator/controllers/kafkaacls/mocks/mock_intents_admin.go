@@ -74,20 +74,6 @@ func (mr *MockKafkaIntentsAdminMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockKafkaIntentsAdmin)(nil).Close))
 }
 
-// RemoveAllIntents mocks base method.
-func (m *MockKafkaIntentsAdmin) RemoveAllIntents() error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveAllIntents")
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveAllIntents indicates an expected call of RemoveAllIntents.
-func (mr *MockKafkaIntentsAdminMockRecorder) RemoveAllIntents() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAllIntents", reflect.TypeOf((*MockKafkaIntentsAdmin)(nil).RemoveAllIntents))
-}
-
 // RemoveClientIntents mocks base method.
 func (m *MockKafkaIntentsAdmin) RemoveClientIntents(clientName, clientNamespace string) error {
 	m.ctrl.T.Helper()
@@ -100,4 +86,18 @@ func (m *MockKafkaIntentsAdmin) RemoveClientIntents(clientName, clientNamespace 
 func (mr *MockKafkaIntentsAdminMockRecorder) RemoveClientIntents(clientName, clientNamespace interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveClientIntents", reflect.TypeOf((*MockKafkaIntentsAdmin)(nil).RemoveClientIntents), clientName, clientNamespace)
+}
+
+// RemoveServerIntents mocks base method.
+func (m *MockKafkaIntentsAdmin) RemoveServerIntents(topicsConf []v1alpha2.TopicConfig) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveServerIntents", topicsConf)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RemoveServerIntents indicates an expected call of RemoveServerIntents.
+func (mr *MockKafkaIntentsAdminMockRecorder) RemoveServerIntents(topicsConf interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveServerIntents", reflect.TypeOf((*MockKafkaIntentsAdmin)(nil).RemoveServerIntents), topicsConf)
 }
