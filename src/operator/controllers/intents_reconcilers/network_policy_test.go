@@ -228,6 +228,14 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 		},
 	}
 
+	s.Client.EXPECT().List(
+		gomock.Any(),
+		gomock.Eq(emptyIntentsList),
+		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serverName},
+	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts ...client.ListOption) error {
+		intentsList.DeepCopyInto(list)
+		return nil
+	})
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(emptyExternalPolicyList), client.MatchingLabels{otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic: formattedTargetServer}, &client.ListOptions{Namespace: existingPolicy.Namespace}).DoAndReturn(
 		func(ctx context.Context, list *v1.NetworkPolicyList, opts ...client.ListOption) error {
 			externalPolicyList.DeepCopyInto(list)

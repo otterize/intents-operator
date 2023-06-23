@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	intentsreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
@@ -165,7 +166,7 @@ func (s *KafkaACLReconcilerTestSuite) TestNoACLCreatedForIntentsOperator() {
 }
 
 func (s *KafkaACLReconcilerTestSuite) initOperatorNamespace() {
-	s.operatorNamespace = operatorPodNamespacePrefix + "-" + s.TestNamespace
+	s.operatorNamespace = operatorPodNamespacePrefix + "-" + uuid.New().String()
 	s.CreateNamespace(s.operatorNamespace)
 	s.Reconciler.operatorPodNamespace = s.operatorNamespace
 }
