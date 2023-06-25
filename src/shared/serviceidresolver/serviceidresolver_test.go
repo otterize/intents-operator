@@ -8,7 +8,10 @@ import (
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
 	"github.com/stretchr/testify/suite"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
@@ -127,6 +130,119 @@ func (s *ServiceIdResolverTestSuite) TestGetPodAnnotatedName_PodMCallFailed() {
 	s.Require().Error(err)
 	s.Require().False(found)
 	s.Require().Equal("", name)
+}
+
+func (s *ServiceIdResolverTestSuite) TestDeploymentNameWithDotsReplacedByUnderscore() {
+	deploymentName := "cool-versioned-application.4.2.0"
+	podName := "cool-pod-1234567890-12345"
+	serviceName := "cool-versioned-application_4_2_0"
+	podNamespace := "cool-namespace"
+
+	// Create a pod with reference to the deployment with dots in the name
+	myPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: podNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind:       "Deployment",
+					Name:       deploymentName,
+					APIVersion: "apps/v1",
+				},
+			},
+		},
+	}
+
+	deploymentAsObject := unstructured.Unstructured{}
+	deploymentAsObject.SetName(deploymentName)
+	deploymentAsObject.SetNamespace(podNamespace)
+	deploymentAsObject.SetKind("Deployment")
+	deploymentAsObject.SetAPIVersion("apps/v1")
+
+	emptyObject := &unstructured.Unstructured{}
+	emptyObject.SetKind("Deployment")
+	emptyObject.SetAPIVersion("apps/v1")
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: deploymentName, Namespace: podNamespace}, emptyObject).Do(
+		func(_ context.Context, _ types.NamespacedName, obj *unstructured.Unstructured, _ ...any) error {
+			deploymentAsObject.DeepCopyInto(obj)
+			return nil
+		})
+
+	service, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
+	s.Require().NoError(err)
+	s.Require().Equal(serviceName, service.Name)
+}
+
+func (s *ServiceIdResolverTestSuite) TestDeploymentReadForbidden() {
+	deploymentName := "best-deployment-ever"
+	podName := "cool-pod-1234567890-12345"
+	podNamespace := "cool-namespace"
+
+	// Create a pod with reference to the deployment with dots in the name
+	myPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: podNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind:       "Deployment",
+					Name:       deploymentName,
+					APIVersion: "apps/v1",
+				},
+			},
+		},
+	}
+
+	emptyObject := &unstructured.Unstructured{}
+	emptyObject.SetKind("Deployment")
+	emptyObject.SetAPIVersion("apps/v1")
+
+	forbiddenError := apierrors.NewForbidden(schema.GroupResource{Group: "apps", Resource: "Deployment"}, deploymentName, errors.New("forbidden"))
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: deploymentName, Namespace: podNamespace}, emptyObject).Return(forbiddenError)
+
+	service, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
+	s.Require().NoError(err)
+	s.Require().Equal(deploymentName, service.Name)
+}
+
+func (s *ServiceIdResolverTestSuite) TestDeploymentRead() {
+	deploymentName := "best-deployment-ever"
+	podName := "cool-pod-1234567890-12345"
+	podNamespace := "cool-namespace"
+
+	// Create a pod with reference to the deployment with dots in the name
+	myPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: podNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind:       "Deployment",
+					Name:       deploymentName,
+					APIVersion: "apps/v1",
+				},
+			},
+		},
+	}
+
+	deploymentAsObject := unstructured.Unstructured{}
+	deploymentAsObject.SetName(deploymentName)
+	deploymentAsObject.SetNamespace(podNamespace)
+	deploymentAsObject.SetKind("Deployment")
+	deploymentAsObject.SetAPIVersion("apps/v1")
+
+	emptyObject := &unstructured.Unstructured{}
+	emptyObject.SetKind("Deployment")
+	emptyObject.SetAPIVersion("apps/v1")
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: deploymentName, Namespace: podNamespace}, emptyObject).Do(
+		func(_ context.Context, _ types.NamespacedName, obj *unstructured.Unstructured, _ ...any) error {
+			deploymentAsObject.DeepCopyInto(obj)
+			return nil
+		})
+
+	service, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
+	s.Require().NoError(err)
+	s.Require().Equal(deploymentName, service.Name)
 }
 
 func TestServiceIdResolverTestSuite(t *testing.T) {
