@@ -1,10 +1,13 @@
-package intents_reconcilers
+package external_traffic_network_policy
 
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/otterize/intents-operator/src/watcher/reconcilers"
 	"github.com/stretchr/testify/assert"
@@ -28,14 +31,14 @@ type ExternalNetworkPolicyReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
 	IngressReconciler       *external_traffic.IngressReconciler
 	endpointReconciler      *external_traffic.EndpointsReconciler
-	NetworkPolicyReconciler *NetworkPolicyReconciler
+	NetworkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler
 	podWatcher              *reconcilers.PodWatcher
 }
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupSuite() {
 	s.TestEnv = &envtest.Environment{}
 	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd")}
+	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "..", "config", "crd")}
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
@@ -55,10 +58,12 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
-	s.NetworkPolicyReconciler = NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, true)
+	createEvenIfNoIntentsFound := false
+	s.NetworkPolicyReconciler = intents_reconcilers.NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, true, createEvenIfNoIntentsFound)
+	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
 	s.NetworkPolicyReconciler.InjectRecorder(recorder)
 
-	s.endpointReconciler = external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, false, true)
+	s.endpointReconciler = external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, createEvenIfNoIntentsFound, true)
 	s.endpointReconciler.InjectRecorder(recorder)
 	err := s.endpointReconciler.InitIngressReferencedServicesIndex(s.Mgr)
 	s.Require().NoError(err)
@@ -73,11 +78,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.Require().NoError(err)
 }
 
-// BeforeTest happens AFTER the SetupTest()
-func (s *ExternalNetworkPolicyReconcilerTestSuite) BeforeTest(_, testName string) {
-	s.ControllerManagerTestSuiteBase.BeforeTest("", testName)
-}
-
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIngress() {
 	serviceName := "test-server-ingress-test"
 	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
@@ -86,7 +86,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 	})
 	s.Require().NoError(err)
 
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
@@ -104,7 +103,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 	s.Require().NotEmpty(np)
 
 	s.AddDeploymentWithService(serviceName, []string{"1.1.1.1"}, map[string]string{"app": "test"}, nil)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	// the ingress reconciler expect the pod watcher labels in order to work
 	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
@@ -116,7 +114,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 	s.Require().True(errors.IsNotFound(err))
 
 	s.AddIngress(serviceName)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	res, err = s.IngressReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -128,7 +125,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.NoError(err)
@@ -143,7 +139,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	},
 	})
 	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -164,7 +159,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	podIps := []string{"1.1.2.1"}
 	podLabels := map[string]string{"app": "test-load-balancer"}
 	s.AddDeploymentWithService(serviceName, podIps, podLabels, nil)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	// the ingress reconciler expect the pod watcher labels in order to work
 	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
@@ -177,7 +171,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	s.Require().True(errors.IsNotFound(err))
 
 	s.AddLoadBalancerService(loadBalancerServiceName, podIps, podLabels)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	res, err = s.endpointReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
@@ -188,7 +181,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.NoError(err)
@@ -196,14 +188,198 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	})
 }
 
-func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNodePort() {
-	serviceName := "test-server-node-port-test"
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedAndDeletedWhenLastIntentDeleted() {
+	serviceName := "test-server-load-balancer-test"
 	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: serviceName,
+		Name: serviceName,
 	},
 	})
 	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
+
+	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	// make sure the network policy was created between the two services based on the intents
+	netpol := &v1.NetworkPolicy{}
+	intentNetworkPolicyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, netpol)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(netpol)
+
+	podIps := []string{"1.1.2.1"}
+	podLabels := map[string]string{"app": "test-load-balancer"}
+	s.AddDeploymentWithService(serviceName, podIps, podLabels, nil)
+
+	// the ingress reconciler expect the pod watcher labels in order to work
+	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
+	s.Require().NoError(err)
+
+	// make sure the load balancer network policy doesn't exist yet
+	loadBalancerServiceName := serviceName + "-lb"
+	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, netpol)
+	s.Require().True(errors.IsNotFound(err))
+
+	s.AddLoadBalancerService(loadBalancerServiceName, podIps, podLabels)
+	res, err = s.endpointReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      loadBalancerServiceName,
+		},
+	})
+
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, netpol)
+		assert.NoError(err)
+		assert.NotEmpty(netpol)
+	})
+
+	// Delete the intent and reconcile it
+	s.Require().NoError(s.Mgr.GetClient().Delete(context.Background(), intents))
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		intentsDeleted := &otterizev1alpha2.ClientIntents{}
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intents.Name}, intentsDeleted)
+		assert.NoError(err)
+		assert.NotNil(intentsDeleted.DeletionTimestamp)
+	})
+
+	res, err = s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, &v1.NetworkPolicy{})
+		assert.True(errors.IsNotFound(err))
+	})
+
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, &v1.NetworkPolicy{})
+		assert.True(errors.IsNotFound(err))
+	})
+}
+
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedAndDoesNotGetDeletedEvenWhenIntentRemovedAsLongAsOneRemains() {
+	serviceName := "test-server-load-balancer-test"
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
+		Name: serviceName,
+	},
+	})
+	s.Require().NoError(err)
+
+	secondaryNamespace := "ns-" + uuid.New().String() + "e"
+	s.CreateNamespace(secondaryNamespace)
+	secondIntents, err := s.AddIntentsInNamespace("test-intents-other-ns", "test-client-other-ns", secondaryNamespace, []otterizev1alpha2.Intent{{
+		Name: fmt.Sprintf("%s.%s", serviceName, s.TestNamespace),
+	}})
+	s.Require().NoError(err)
+
+	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	res2, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: secondaryNamespace,
+			Name:      secondIntents.Name,
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(res2)
+
+	// make sure the network policy was created between the two services based on the intents
+	np := &v1.NetworkPolicy{}
+	intentNetworkPolicyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, np)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(np)
+
+	podIps := []string{"1.1.2.1"}
+	podLabels := map[string]string{"app": "test-load-balancer"}
+	s.AddDeploymentWithService(serviceName, podIps, podLabels, nil)
+
+	// the ingress reconciler expect the pod watcher labels in order to work
+	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
+	s.Require().NoError(err)
+
+	// make sure the load balancer network policy doesn't exist yet
+	loadBalancerServiceName := serviceName + "-lb"
+	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+	s.Require().True(errors.IsNotFound(err))
+
+	s.AddLoadBalancerService(loadBalancerServiceName, podIps, podLabels)
+	res, err = s.endpointReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      loadBalancerServiceName,
+		},
+	})
+
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
+		assert.NoError(err)
+		assert.NotEmpty(np)
+	})
+
+	// Delete the intent and reconcile it
+	s.Require().NoError(s.Mgr.GetClient().Delete(context.Background(), intents))
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		intentsDeleted := &otterizev1alpha2.ClientIntents{}
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intents.Name}, intentsDeleted)
+		assert.NoError(err)
+		assert.NotNil(intentsDeleted.DeletionTimestamp)
+	})
+
+	res, err = s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: s.TestNamespace,
+			Name:      intents.Name,
+		},
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, &v1.NetworkPolicy{})
+		assert.True(errors.IsNotFound(err))
+	})
+
+	// Check that external policy was not deleted.
+	externalNetpol := &v1.NetworkPolicy{}
+	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, externalNetpol)
+	s.Require().NoError(err)
+	s.Require().Nil(externalNetpol.DeletionTimestamp)
+}
+
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNodePort() {
+	serviceName := "test-server-node-port-test"
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
+		Name: serviceName,
+	},
+	})
+	s.Require().NoError(err)
 
 	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -224,7 +400,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNod
 	podIps := []string{"1.1.2.1"}
 	podLabels := map[string]string{"app": "test-load-balancer"}
 	s.AddDeploymentWithService(serviceName, podIps, podLabels, nil)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	// the ingress reconciler expect the pod watcher labels in order to work
 	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
@@ -237,7 +412,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNod
 	s.Require().True(errors.IsNotFound(err))
 
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	res, err = s.endpointReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
@@ -247,7 +421,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNod
 
 	s.Require().NoError(err)
 	s.Require().Empty(res)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.NoError(err)
@@ -258,11 +431,10 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNod
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerEnforcementDisabled() {
 	serviceName := "test-endpoints-reconciler-enforcement-disabled"
 	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: serviceName,
+		Name: serviceName,
 	},
 	})
 	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -283,7 +455,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerEnforc
 	podIps := []string{"1.1.2.1"}
 	podLabels := map[string]string{"app": "test-load-balancer"}
 	s.AddDeploymentWithService(serviceName, podIps, podLabels, nil)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	// the ingress reconciler expect the pod watcher labels in order to work
 	_, err = s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
@@ -296,7 +467,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerEnforc
 	s.Require().True(errors.IsNotFound(err))
 
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, false, false)
 	recorder := record.NewFakeRecorder(10)
@@ -311,7 +481,6 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerEnforc
 
 	s.Require().NoError(err)
 	s.Require().Empty(res)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 	s.Require().True(errors.IsNotFound(err))
 	select {

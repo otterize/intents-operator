@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/golang/mock/gomock"
+	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	intentsreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
@@ -165,7 +166,7 @@ func (s *KafkaACLReconcilerTestSuite) TestNoACLCreatedForIntentsOperator() {
 }
 
 func (s *KafkaACLReconcilerTestSuite) initOperatorNamespace() {
-	s.operatorNamespace = operatorPodNamespacePrefix + "-" + s.TestNamespace
+	s.operatorNamespace = operatorPodNamespacePrefix + "-" + uuid.New().String()
 	s.CreateNamespace(s.operatorNamespace)
 	s.Reconciler.operatorPodNamespace = s.operatorNamespace
 }
@@ -224,7 +225,6 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 	intentsConsume := []otterizev1alpha2.Intent{intentsConfig}
 	_, err := s.AddIntents(intentsObjectName, clientName, intentsConsume)
 	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	namespacedName := types.NamespacedName{
 		Namespace: s.TestNamespace,
 		Name:      intentsObjectName,
@@ -253,7 +253,6 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 	// Update the intents object and reconcile
 	err = s.UpdateIntents(intentsObjectName, intentsWithConsumeAndProduce)
 	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), namespacedName, intentsFromReconciler)
 		assert.Equal(len(intentsFromReconciler.Spec.Calls[0].Topics[0].Operations), 2)
@@ -295,7 +294,6 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 
 	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
 	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	namespacedName := types.NamespacedName{
 		Namespace: s.TestNamespace,
@@ -327,7 +325,6 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 	// Remove the intents object
 	err = s.RemoveIntents(intentsObjectName)
 	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	s.reconcile(namespacedName)
 }
@@ -346,7 +343,6 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreationDisabled() {
 
 	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
 	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	namespacedName := types.NamespacedName{
 		Namespace: s.TestNamespace,
@@ -370,7 +366,6 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() 
 
 	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
 	s.Require().NoError(err)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 
 	namespacedName := types.NamespacedName{
 		Namespace: s.TestNamespace,
@@ -399,7 +394,6 @@ func (s *KafkaACLReconcilerTestSuite) reconcile(namespacedName types.NamespacedN
 
 	s.Require().NoError(err)
 	s.Require().Empty(res)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 }
 
 func (s *KafkaACLReconcilerTestSuite) generateIntents(operation otterizev1alpha2.KafkaOperation) otterizev1alpha2.Intent {

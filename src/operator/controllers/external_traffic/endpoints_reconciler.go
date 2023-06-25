@@ -32,10 +32,6 @@ type EndpointsReconciler struct {
 	injectablerecorder.InjectableRecorder
 }
 
-type EndpointsReconcilerInterface interface {
-	Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error)
-}
-
 func (r *EndpointsReconciler) formatPolicyName(serviceName string) string {
 	return fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 }

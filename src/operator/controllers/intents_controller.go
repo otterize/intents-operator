@@ -52,6 +52,7 @@ func NewIntentsReconciler(
 	endpointsReconciler *external_traffic.EndpointsReconciler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
+	externalNetworkPoliciesCreatedEvenIfNoIntents bool,
 	otterizeClient otterizecloud.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string) *IntentsReconciler {
@@ -59,7 +60,7 @@ func NewIntentsReconciler(
 		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 			intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
 			intents_reconcilers.NewPodLabelReconciler(client, scheme),
-			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementEnabledGlobally),
+			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementEnabledGlobally, externalNetworkPoliciesCreatedEvenIfNoIntents),
 			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),
 			intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementEnabledGlobally),
 		)}
@@ -116,7 +117,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			}
 
 			for _, intent := range intents.GetCallsList() {
-				res = append(res, intent.Name)
+				res = append(res, intent.GetServerFullyQualifiedName(intents.Namespace))
 			}
 
 			return res

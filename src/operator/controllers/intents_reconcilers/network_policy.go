@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
@@ -21,6 +20,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -35,21 +35,23 @@ const (
 
 type NetworkPolicyReconciler struct {
 	client.Client
-	Scheme                      *runtime.Scheme
-	endpointsReconciler         external_traffic.EndpointsReconcilerInterface
-	RestrictToNamespaces        []string
-	enableNetworkPolicyCreation bool
-	enforcementEnabledGlobally  bool
+	Scheme                                        *runtime.Scheme
+	endpointsReconciler                           reconcile.Reconciler
+	RestrictToNamespaces                          []string
+	enableNetworkPolicyCreation                   bool
+	enforcementEnabledGlobally                    bool
+	externalNetworkPoliciesCreatedEvenIfNoIntents bool
 	injectablerecorder.InjectableRecorder
 }
 
 func NewNetworkPolicyReconciler(
 	c client.Client,
 	s *runtime.Scheme,
-	endpointsReconciler external_traffic.EndpointsReconcilerInterface,
+	endpointsReconciler reconcile.Reconciler,
 	restrictToNamespaces []string,
 	enableNetworkPolicyCreation bool,
-	enforcementEnabledGlobally bool) *NetworkPolicyReconciler {
+	enforcementEnabledGlobally bool,
+	externalNetworkPoliciesCreatedEvenIfNoIntents bool) *NetworkPolicyReconciler {
 	return &NetworkPolicyReconciler{
 		Client:                      c,
 		Scheme:                      s,
@@ -57,6 +59,7 @@ func NewNetworkPolicyReconciler(
 		RestrictToNamespaces:        restrictToNamespaces,
 		enableNetworkPolicyCreation: enableNetworkPolicyCreation,
 		enforcementEnabledGlobally:  enforcementEnabledGlobally,
+		externalNetworkPoliciesCreatedEvenIfNoIntents: externalNetworkPoliciesCreatedEvenIfNoIntents,
 	}
 }
 
@@ -254,7 +257,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyRemoval(
 	var intentsList otterizev1alpha2.ClientIntentsList
 	err := r.List(
 		ctx, &intentsList,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: intent.Name},
+		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: intent.GetServerFullyQualifiedName(intentsObjNamespace)},
 		&client.ListOptions{Namespace: intentsObjNamespace})
 
 	if err != nil {
@@ -291,18 +294,34 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 
 	// Remove network policies created by the external traffic reconcilers.
 	// Once no more Otterize network policies are present, there's no longer need for them.
-	externalPolicyList := &v1.NetworkPolicyList{}
-	serviceNameLabel := policy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
-	err = r.List(ctx, externalPolicyList, client.MatchingLabels{otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
-		&client.ListOptions{Namespace: policy.Namespace})
+	// Before we do this, we must check there are no Otterize network policies in ANY namespace.
+	// This function is called once there are no more network policies from this namespace.
+
+	var intentsList otterizev1alpha2.ClientIntentsList
+	err = r.List(
+		ctx, &intentsList,
+		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: intent.GetServerFullyQualifiedName(intentsObjNamespace)})
+
 	if err != nil {
 		return err
 	}
 
-	for _, externalPolicy := range externalPolicyList.Items {
-		err := r.Delete(ctx, externalPolicy.DeepCopy())
+	// This is the last intent out of all namespaces, so it's safe to delete the external traffic policy, unless we are
+	// creating external traffic policies regardless of intents.
+	if len(intentsList.Items) == 1 && !r.externalNetworkPoliciesCreatedEvenIfNoIntents {
+		externalPolicyList := &v1.NetworkPolicyList{}
+		serviceNameLabel := policy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
+		err = r.List(ctx, externalPolicyList, client.MatchingLabels{otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
+			&client.ListOptions{Namespace: policy.Namespace})
 		if err != nil {
 			return err
+		}
+
+		for _, externalPolicy := range externalPolicyList.Items {
+			err := r.Delete(ctx, externalPolicy.DeepCopy())
+			if err != nil {
+				return err
+			}
 		}
 	}
 

@@ -3,6 +3,7 @@ package testbase
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"strings"
 	"testing"
 	"time"
@@ -62,7 +64,9 @@ func (s *ControllerManagerTestSuiteBase) BeforeTest(_, testName string) {
 		s.Require().NoError(err)
 	}()
 
-	s.TestNamespace = strings.ToLower(fmt.Sprintf("%s-%s", testName, time.Now().Format("20060102150405")))
+	const maxNamespaceLength = 63
+	namespaceUUID := uuid.New().String()
+	s.TestNamespace = strings.ToLower(fmt.Sprintf("%s-%s%s", testName[:maxNamespaceLength-1-len(namespaceUUID)-1], namespaceUUID, "e"))
 	s.CreateNamespace(s.TestNamespace)
 }
 
@@ -76,7 +80,6 @@ func (s *ControllerManagerTestSuiteBase) WaitUntilCondition(cond func(assert *as
 	err := wait.PollImmediate(waitForCreationInterval, waitForCreationTimeout, func() (done bool, err error) {
 		localT := &testing.T{}
 		asrt := assert.New(localT)
-		s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 		cond(asrt)
 		done = !localT.Failed()
 		return done, nil
@@ -200,11 +203,7 @@ func (s *ControllerManagerTestSuiteBase) AddReplicaSet(
 	return replicaSet
 }
 
-type Reconciler interface {
-	Reconcile(context.Context, ctrl.Request) (ctrl.Result, error)
-}
-
-func (s *ControllerManagerTestSuiteBase) RunReconciler(reconciler Reconciler, namespacedName types.NamespacedName) {
+func (s *ControllerManagerTestSuiteBase) RunReconciler(reconciler reconcile.Reconciler, namespacedName types.NamespacedName) {
 	res := ctrl.Result{Requeue: true}
 	var err error
 
@@ -216,7 +215,6 @@ func (s *ControllerManagerTestSuiteBase) RunReconciler(reconciler Reconciler, na
 
 	s.Require().NoError(err)
 	s.Require().Empty(res)
-	s.Require().True(s.Mgr.GetCache().WaitForCacheSync(context.Background()))
 }
 
 func (s *ControllerManagerTestSuiteBase) AddDeployment(
