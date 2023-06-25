@@ -271,7 +271,8 @@ func (p *PodWatcher) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			}
 
 			for _, intent := range intents.GetCallsList() {
-				res = append(res, intent.GetServerFullyQualifiedName(intent.GetServerFullyQualifiedName(intents.Namespace)))
+				fullName := intent.GetServerFullyQualifiedName(intents.Namespace)
+				res = append(res, fullName)
 			}
 
 			return res
