@@ -17,30 +17,8 @@ env:
   REGISTRY: us-central1-docker.pkg.dev/main-383408/otterize
 
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.18
-
-      - name: Setup dep cache
-        uses: actions/cache@v3
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-
-      - name: Test
-        run: |
-          go test -v ./...
-        working-directory: src/operator
-
   build:
-    name: Build
+    name: Build & Test
     runs-on: ubuntu-latest
     steps:
       - name: Check out the code
@@ -84,7 +62,6 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs:
       - build
-      - test
     runs-on: ubuntu-latest
 
     steps:

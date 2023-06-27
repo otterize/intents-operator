@@ -166,6 +166,7 @@ func (v *ReportActiveCertificateRequestersResponse) GetReportActiveCertificateRe
 
 // ReportComponentStatusResponse is returned by ReportComponentStatus on success.
 type ReportComponentStatusResponse struct {
+	// Report integration components status
 	ReportIntegrationComponentStatus bool `json:"reportIntegrationComponentStatus"`
 }
 
@@ -246,14 +247,9 @@ type __ReportComponentStatusInput struct {
 // GetComponent returns __ReportComponentStatusInput.Component, and is useful for accessing the field via an interface.
 func (v *__ReportComponentStatusInput) GetComponent() ComponentType { return v.Component }
 
-func GetTLSKeyPair(
-	ctx context.Context,
-	client graphql.Client,
-	id *string,
-) (*GetTLSKeyPairResponse, error) {
-	req := &graphql.Request{
-		OpName: "GetTLSKeyPair",
-		Query: `
+// The query or mutation executed by GetTLSKeyPair.
+const GetTLSKeyPair_Operation = `
+# @genqlient(pointer: true)
 query GetTLSKeyPair ($id: ID!) {
 	service(id: $id) {
 		tlsKeyPair {
@@ -268,7 +264,16 @@ fragment TLSKeyPair on KeyPair {
 	rootCAPEM
 	expiresAt
 }
-`,
+`
+
+func GetTLSKeyPair(
+	ctx context.Context,
+	client graphql.Client,
+	id *string,
+) (*GetTLSKeyPairResponse, error) {
+	req := &graphql.Request{
+		OpName: "GetTLSKeyPair",
+		Query:  GetTLSKeyPair_Operation,
 		Variables: &__GetTLSKeyPairInput{
 			Id: id,
 		},
@@ -287,6 +292,15 @@ fragment TLSKeyPair on KeyPair {
 	return &data, err
 }
 
+// The query or mutation executed by RegisterKubernetesPodOwnerCertificateRequest.
+const RegisterKubernetesPodOwnerCertificateRequest_Operation = `
+mutation RegisterKubernetesPodOwnerCertificateRequest ($namespace: String!, $podOwnerName: String!, $certificateCustomizations: CertificateCustomization) {
+	registerKubernetesPodOwnerCertificateRequest(podOwner: {name:$podOwnerName,namespace:$namespace}, certificateCustomization: $certificateCustomizations) {
+		id
+	}
+}
+`
+
 func RegisterKubernetesPodOwnerCertificateRequest(
 	ctx context.Context,
 	client graphql.Client,
@@ -296,13 +310,7 @@ func RegisterKubernetesPodOwnerCertificateRequest(
 ) (*RegisterKubernetesPodOwnerCertificateRequestResponse, error) {
 	req := &graphql.Request{
 		OpName: "RegisterKubernetesPodOwnerCertificateRequest",
-		Query: `
-mutation RegisterKubernetesPodOwnerCertificateRequest ($namespace: String!, $podOwnerName: String!, $certificateCustomizations: CertificateCustomization) {
-	registerKubernetesPodOwnerCertificateRequest(podOwner: {name:$podOwnerName,namespace:$namespace}, certificateCustomization: $certificateCustomizations) {
-		id
-	}
-}
-`,
+		Query:  RegisterKubernetesPodOwnerCertificateRequest_Operation,
 		Variables: &__RegisterKubernetesPodOwnerCertificateRequestInput{
 			Namespace:                 namespace,
 			PodOwnerName:              podOwnerName,
@@ -323,6 +331,13 @@ mutation RegisterKubernetesPodOwnerCertificateRequest ($namespace: String!, $pod
 	return &data, err
 }
 
+// The query or mutation executed by ReportActiveCertificateRequesters.
+const ReportActiveCertificateRequesters_Operation = `
+mutation ReportActiveCertificateRequesters ($existingPodOwners: [NamespacedPodOwner!]!) {
+	reportActiveCertificateRequesters(activePodOwners: $existingPodOwners)
+}
+`
+
 func ReportActiveCertificateRequesters(
 	ctx context.Context,
 	client graphql.Client,
@@ -330,11 +345,7 @@ func ReportActiveCertificateRequesters(
 ) (*ReportActiveCertificateRequestersResponse, error) {
 	req := &graphql.Request{
 		OpName: "ReportActiveCertificateRequesters",
-		Query: `
-mutation ReportActiveCertificateRequesters ($existingPodOwners: [NamespacedPodOwner!]!) {
-	reportActiveCertificateRequesters(activePodOwners: $existingPodOwners)
-}
-`,
+		Query:  ReportActiveCertificateRequesters_Operation,
 		Variables: &__ReportActiveCertificateRequestersInput{
 			ExistingPodOwners: existingPodOwners,
 		},
@@ -353,6 +364,13 @@ mutation ReportActiveCertificateRequesters ($existingPodOwners: [NamespacedPodOw
 	return &data, err
 }
 
+// The query or mutation executed by ReportComponentStatus.
+const ReportComponentStatus_Operation = `
+mutation ReportComponentStatus ($component: ComponentType!) {
+	reportIntegrationComponentStatus(component: $component)
+}
+`
+
 func ReportComponentStatus(
 	ctx context.Context,
 	client graphql.Client,
@@ -360,11 +378,7 @@ func ReportComponentStatus(
 ) (*ReportComponentStatusResponse, error) {
 	req := &graphql.Request{
 		OpName: "ReportComponentStatus",
-		Query: `
-mutation ReportComponentStatus ($component: ComponentType!) {
-	reportIntegrationComponentStatus(component: $component)
-}
-`,
+		Query:  ReportComponentStatus_Operation,
 		Variables: &__ReportComponentStatusInput{
 			Component: component,
 		},

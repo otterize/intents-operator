@@ -86,25 +86,37 @@ type CertificateInformation {
 	ttl: Int
 }
 
+type Client {
+	id: ID!
+	secret: String!
+}
+
 type Cluster {
 	id: ID!
-	integration: Integration
-	defaultEnvironment: Environment
 	name: String!
-	components: IntegrationComponents!
 	configuration: ClusterConfiguration
 	namespaces: [Namespace!]!
 	serviceCount: Int!
+	integration: Integration
+	defaultEnvironment: Environment
+	components: IntegrationComponents!
+	createdAt: Time!
 }
 
 type ClusterConfiguration {
 	globalDefaultDeny: Boolean!
+	istioGlobalDefaultDeny: Boolean!
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
+	useKafkaACLsInAccessGraphStates: Boolean!
 }
 
 input ClusterConfigurationInput {
 	globalDefaultDeny: Boolean!
+	istioGlobalDefaultDeny: Boolean
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean
+	useKafkaACLsInAccessGraphStates: Boolean
 }
 
 type ComponentStatus {
@@ -145,19 +157,37 @@ input DiscoveredIntentInput {
 
 type EdgeAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
+	useKafkaPoliciesInAccessGraphStates: Boolean!
 	verdict: EdgeAccessStatusVerdict!
 	reason: EdgeAccessStatusReason!
+	reasons: [EdgeAccessStatusReason!]!
 }
 
 enum EdgeAccessStatusReason {
 	ALLOWED_BY_APPLIED_INTENTS
 	ALLOWED_BY_APPLIED_INTENTS_OVERLY_PERMISSIVE
+	ALLOWED_BY_APPLIED_INTENTS_HTTP_OVERLY_PERMISSIVE
+	ALLOWED_BY_APPLIED_INTENTS_KAFKA_OVERLY_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_RESOURCE_MISMATCH
+	BLOCKED_BY_APPLIED_INTENTS_HTTP_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_HTTP_RESOURCE_MISMATCH
+	BLOCKED_BY_APPLIED_INTENTS_KAFKA_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_KAFKA_RESOURCE_MISMATCH
+	BLOCKED_BY_KAFKA_ENFORCEMENT_CONFIG_MISSING_APPLIED_INTENTS
 	BLOCKED_BY_DEFAULT_DENY
+	SHARED_SERVICE_ACCOUNT
+	CLIENT_ISTIO_SIDECAR_MISSING
+	SERVER_ISTIO_SIDECAR_MISSING
 	INTENTS_OPERATOR_NOT_ENFORCING
 	INTENTS_OPERATOR_NOT_ENFORCING_MISSING_APPLIED_INTENT
+	INTENTS_OPERATOR_NOT_ENFORCING_KAFKA_INTENTS_NOT_REQUIRED_FOR_TOPIC
 	MISSING_APPLIED_INTENT
 	INTENTS_OPERATOR_NEVER_CONNECTED
 	NETWORK_MAPPER_NEVER_CONNECTED
+	NO_INTENTS_FOUND_OF_RELEVANT_TYPE
+	IGNORED_IN_CALCULATION
 }
 
 enum EdgeAccessStatusVerdict {
@@ -170,21 +200,21 @@ enum EdgeAccessStatusVerdict {
 
 type Environment {
 	id: ID!
-	appliedIntentsCount: Int!
 	name: String!
 	labels: [Label!]
 	namespaces: [Namespace!]!
 	serviceCount: Int!
+	appliedIntentsCount: Int!
 }
 
 type HTTPConfig {
-	path: String
+	path: String!
 	methods: [HTTPMethod!]
 }
 
 input HTTPConfigInput {
-	path: String
-	method: HTTPMethod
+	path: String!
+	methods: [HTTPMethod!]
 }
 
 enum HTTPMethod {
@@ -196,6 +226,7 @@ enum HTTPMethod {
 	TRACE
 	PATCH
 	CONNECT
+	ALL
 }
 
 input InputAccessGraphFilter {
@@ -218,7 +249,6 @@ type Integration {
 }
 
 type IntegrationComponents {
-	clusterId: ID!
 	intentsOperator: IntentsOperatorComponent!
 	credentialsOperator: CredentialsOperatorComponent!
 	networkMapper: NetworkMapperComponent!
@@ -241,6 +271,7 @@ type Intent {
 	type: IntentType
 	kafkaTopics: [KafkaConfig!]
 	httpResources: [HTTPConfig!]
+	status: IntentStatus
 }
 
 input IntentInput {
@@ -251,6 +282,7 @@ input IntentInput {
 	type: IntentType
 	topics: [KafkaConfigInput!]
 	resources: [HTTPConfigInput!]
+	status: IntentStatusInput
 }
 
 type IntentsOperatorComponent {
@@ -263,12 +295,25 @@ type IntentsOperatorConfiguration {
 	globalEnforcementEnabled: Boolean!
 	networkPolicyEnforcementEnabled: Boolean!
 	kafkaACLEnforcementEnabled: Boolean!
+	istioPolicyEnforcementEnabled: Boolean!
 }
 
 input IntentsOperatorConfigurationInput {
 	globalEnforcementEnabled: Boolean!
 	networkPolicyEnforcementEnabled: Boolean!
 	kafkaACLEnforcementEnabled: Boolean!
+	istioPolicyEnforcementEnabled: Boolean!
+}
+
+type IntentStatus {
+	serviceAccountName: String!
+	isServiceAccountShared: Boolean!
+	isServerMissingSidecar: Boolean!
+	isClientMissingSidecar: Boolean!
+}
+
+input IntentStatusInput {
+	istioStatus: IstioStatusInput
 }
 
 enum IntentType {
@@ -289,6 +334,13 @@ type Invite {
 enum InviteStatus {
 	PENDING
 	ACCEPTED
+}
+
+input IstioStatusInput {
+	serviceAccountName: String!
+	isServiceAccountShared: Boolean!
+	isServerMissingSidecar: Boolean!
+	isClientMissingSidecar: Boolean!
 }
 
 type KafkaConfig {
@@ -385,6 +437,26 @@ type MeMutation {
 type Mutation {
 """This is just a placeholder since currently GraphQL does not allow empty types"""
 	dummy: Boolean
+"""Create client"""
+	createClient: Client!
+"""Delete client"""
+	deleteClient(
+		id: ID!
+	): ID!
+"""Create user invite"""
+	createInvite(
+		email: String!
+	): Invite!
+"""Delete user invite"""
+	deleteInvite(
+		id: ID!
+	): ID!
+"""Accept user invite"""
+	acceptInvite(
+		id: ID!
+	): Invite!
+"""Operate on the current logged-in user"""
+	me: MeMutation!
 """Create a new organization"""
 	createOrganization: Organization!
 """Update organization"""
@@ -398,23 +470,57 @@ type Mutation {
 		id: ID!
 		userId: ID!
 	): ID!
-"""Operate on the current logged-in user"""
-	me: MeMutation!
-"""Create user invite"""
-	createInvite(
-		email: String!
-	): Invite!
-"""Delete user invite"""
-	deleteInvite(
+	initializeOrganizationCAs(
+		organizationId: ID!
+	): Boolean!
+"""Register certificate-request details for kubernetes pod owner, returns the service associated with this pod owner"""
+	registerKubernetesPodOwnerCertificateRequest(
+		podOwner: NamespacedPodOwner!
+		certificateCustomization: CertificateCustomization
+	): Service!
+"""Report active pod owners to the cloud, as a result the cloud removes certificate requests of inactive pod owners """
+	reportActiveCertificateRequesters(
+		activePodOwners: [NamespacedPodOwner!]!
+	): Boolean!
+"""Create cluster"""
+	createCluster(
+		name: String!
+	): Cluster!
+"""Delete cluster"""
+	deleteCluster(
 		id: ID!
 	): ID!
-"""Accept user invite"""
-	acceptInvite(
+"""Update cluster"""
+	updateCluster(
 		id: ID!
-	): Invite!
-	reportIntentsOperatorConfiguration(
-		configuration: IntentsOperatorConfigurationInput!
-	): Boolean!
+		name: String
+		configuration: ClusterConfigurationInput
+	): Cluster!
+"""Create a new environment"""
+	createEnvironment(
+		name: String!
+		labels: [LabelInput!]
+	): Environment!
+"""Update environment"""
+	updateEnvironment(
+		id: ID!
+		name: String
+		labels: [LabelInput!]
+	): Environment!
+"""Delete environment"""
+	deleteEnvironment(
+		id: ID!
+	): ID!
+"""Add label to environment"""
+	addEnvironmentLabel(
+		id: ID!
+		label: LabelInput!
+	): Environment!
+"""Remove label from environment"""
+	deleteEnvironmentLabel(
+		id: ID!
+		key: String!
+	): Environment!
 """Create a new generic integration"""
 	createGenericIntegration(
 		name: String!
@@ -442,8 +548,8 @@ type Mutation {
 	reportIntegrationComponentStatus(
 		component: ComponentType!
 	): Boolean!
-	createEnvIntCA(
-		environmentId: ID!
+	reportIntentsOperatorConfiguration(
+		configuration: IntentsOperatorConfigurationInput!
 	): Boolean!
 	reportDiscoveredIntents(
 		intents: [DiscoveredIntentInput!]!
@@ -456,58 +562,11 @@ type Mutation {
 		namespace: String!
 		serverConfigs: [KafkaServerConfigInput!]!
 	): Boolean!
-"""Register certificate-request details for kubernetes pod owner, returns the service associated with this pod owner"""
-	registerKubernetesPodOwnerCertificateRequest(
-		podOwner: NamespacedPodOwner!
-		certificateCustomization: CertificateCustomization
-	): Service!
-"""Report active pod owners to the cloud, as a result the cloud removes certificate requests of inactive pod owners """
-	reportActiveCertificateRequesters(
-		activePodOwners: [NamespacedPodOwner!]!
-	): Boolean!
-"""Create a new environment"""
-	createEnvironment(
-		name: String!
-		labels: [LabelInput!]
-	): Environment!
-"""Update environment"""
-	updateEnvironment(
-		id: ID!
-		name: String
-		labels: [LabelInput!]
-	): Environment!
-"""Delete environment"""
-	deleteEnvironment(
-		id: ID!
-	): ID!
-"""Add label to environment"""
-	addEnvironmentLabel(
-		id: ID!
-		label: LabelInput!
-	): Environment!
-"""Remove label from environment"""
-	deleteEnvironmentLabel(
-		id: ID!
-		key: String!
-	): Environment!
 """Associate namespace to environment"""
 	associateNamespaceToEnv(
 		id: ID!
 		environmentId: ID
 	): Namespace!
-"""Create cluster"""
-	createCluster(
-		name: String!
-	): Cluster!
-"""Delete cluster"""
-	deleteCluster(
-		id: ID!
-	): ID!
-"""Update cluster"""
-	updateCluster(
-		id: ID!
-		configuration: ClusterConfigurationInput
-	): Cluster!
 }
 
 type Namespace {
@@ -538,20 +597,10 @@ type Organization {
 type Query {
 """This is just a placeholder since currently GraphQL does not allow empty types"""
 	dummy: Boolean
-"""List organizations"""
-	organizations: [Organization!]!
-"""Get organization"""
-	organization(
+"""Get client"""
+	client(
 		id: ID!
-	): Organization!
-"""List users"""
-	users: [User!]!
-"""Get user"""
-	user(
-		id: ID!
-	): User!
-"""Get information regarding the current logged-in user"""
-	me: Me!
+	): Client!
 """List user invites"""
 	invites(
 		email: String
@@ -566,6 +615,49 @@ type Query {
 		email: String
 		status: InviteStatus
 	): Invite!
+"""Get information regarding the current logged-in user"""
+	me: Me!
+"""List organizations"""
+	organizations: [Organization!]!
+"""Get organization"""
+	organization(
+		id: ID!
+	): Organization!
+"""List users"""
+	users: [User!]!
+"""Get user"""
+	user(
+		id: ID!
+	): User!
+"""Get access graph"""
+	accessGraph(
+		filter: InputAccessGraphFilter
+	): AccessGraph!
+"""Get cluster"""
+	cluster(
+		id: ID!
+	): Cluster!
+"""List clusters"""
+	clusters(
+		name: String
+	): [Cluster!]!
+"""Get cluster by filters"""
+	oneCluster(
+		name: String!
+	): Cluster
+"""Get environment"""
+	environment(
+		id: ID!
+	): Environment!
+"""List environments"""
+	environments(
+		name: String
+		labels: [LabelInput!]
+	): [Environment!]!
+"""Get environment by filters"""
+	oneEnvironment(
+		name: String!
+	): Environment!
 """List integrations"""
 	integrations(
 		name: String
@@ -594,39 +686,6 @@ type Query {
 		clientId: ID
 		serverId: ID
 	): [Intent!]!
-"""Get service"""
-	service(
-		id: ID!
-	): Service!
-"""List services"""
-	services(
-		environmentId: ID
-		namespaceId: ID
-		name: String
-	): [Service!]!
-"""Get service by filters"""
-	oneService(
-		environmentId: ID
-		namespaceId: ID
-		name: String
-	): Service
-"""Get access graph"""
-	accessGraph(
-		filter: InputAccessGraphFilter
-	): AccessGraph!
-"""Get environment"""
-	environment(
-		id: ID!
-	): Environment!
-"""List environments"""
-	environments(
-		name: String
-		labels: [LabelInput!]
-	): [Environment!]!
-"""Get environment by filters"""
-	oneEnvironment(
-		name: String!
-	): Environment!
 """Get namespace"""
 	namespace(
 		id: ID!
@@ -643,18 +702,22 @@ type Query {
 		clusterId: ID
 		name: String
 	): Namespace!
-"""Get cluster"""
-	cluster(
+"""Get service"""
+	service(
 		id: ID!
-	): Cluster!
-"""List clusters"""
-	clusters(
+	): Service!
+"""List services"""
+	services(
+		environmentId: ID
+		namespaceId: ID
 		name: String
-	): [Cluster!]!
-"""Get cluster by filters"""
-	oneCluster(
-		name: String!
-	): Cluster
+	): [Service!]!
+"""Get service by filters"""
+	oneService(
+		environmentId: ID
+		namespaceId: ID
+		name: String
+	): Service
 }
 
 type ServerBlockingStatus {
@@ -683,12 +746,26 @@ type ServerProtectionStatus {
 	reason: ServerProtectionStatusReason!
 }
 
+type ServerProtectionStatuses {
+	networkPolicies: ServerProtectionStatus!
+	kafkaACLs: ServerProtectionStatus!
+	istioPolicies: ServerProtectionStatus!
+}
+
 enum ServerProtectionStatusReason {
 	INTENTS_OPERATOR_NEVER_CONNECTED
 	INTENTS_OPERATOR_NOT_ENFORCING
 	SERVER_HAS_NO_NETWORK_POLICY
+	SERVER_HAS_NO_ISTIO_POLICY
+	SERVER_HAS_NO_ISTIO_SIDECAR
 	PROTECTED_BY_DEFAULT_DENY
 	PROTECTED_BY_SERVER_NETWORK_POLICY
+	PROTECTED_BY_SERVER_ISTIO_POLICY
+	PROTECTED_BY_KAFKA_IDENTITY_REQUIRED_NO_INTENTS_REQUIRED
+	PROTECTED_BY_KAFKA_INTENTS_REQUIRED
+	SERVER_HAS_KAFKASERVERCONFIG_NO_ENFORCEMENT
+	SERVER_HAS_NO_KAFKA_SERVER_CONFIG
+	IGNORED_IN_CALCULATION
 }
 
 enum ServerProtectionStatusVerdict {
@@ -699,13 +776,14 @@ enum ServerProtectionStatusVerdict {
 
 type Service {
 	id: ID!
+	certificateInformation: CertificateInformation
 	tlsKeyPair: KeyPair!
 	name: String!
 	namespace: Namespace
 	environment: Environment!
 """If service is Kafka, its KafkaServerConfig."""
 	kafkaServerConfig: KafkaServerConfig
-	certificateInformation: CertificateInformation
+	serviceAccount: String
 }
 
 type ServiceAccessGraph {
@@ -717,7 +795,10 @@ type ServiceAccessGraph {
 
 type ServiceAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useKafkaACLsInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
 	protectionStatus: ServerProtectionStatus!
+	protectionStatuses: ServerProtectionStatuses!
 	blockingStatus: ServerBlockingStatus!
 	hasAppliedIntents: Boolean!
 }
