@@ -88,3 +88,17 @@ func (mr *MockCloudClientMockRecorder) ReportKafkaServerConfig(ctx, namespace, s
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportKafkaServerConfig", reflect.TypeOf((*MockCloudClient)(nil).ReportKafkaServerConfig), ctx, namespace, servers)
 }
+
+// ReportNetworkPolicies mocks base method.
+func (m *MockCloudClient) ReportNetworkPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReportNetworkPolicies", ctx, namespace, policies)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReportNetworkPolicies indicates an expected call of ReportNetworkPolicies.
+func (mr *MockCloudClientMockRecorder) ReportNetworkPolicies(ctx, namespace, policies interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportNetworkPolicies", reflect.TypeOf((*MockCloudClient)(nil).ReportNetworkPolicies), ctx, namespace, policies)
+}
