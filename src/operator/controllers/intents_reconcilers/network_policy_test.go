@@ -25,12 +25,12 @@ import (
 type NetworkPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
 	Reconciler          *NetworkPolicyReconciler
-	endpointsReconciler *mocks.MockEndpointsReconcilerInterface
+	endpointsReconciler *mocks.MockEndpointsReconciler
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.endpointsReconciler = mocks.NewMockEndpointsReconcilerInterface(s.Controller)
+	s.endpointsReconciler = mocks.NewMockEndpointsReconciler(s.Controller)
 	restrictToNamespaces := make([]string, 0)
 
 	s.Reconciler = NewNetworkPolicyReconciler(
