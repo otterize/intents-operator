@@ -49,7 +49,7 @@ func NewIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
-	endpointsReconciler *external_traffic.EndpointsReconciler,
+	endpointsReconciler external_traffic.EndpointsReconciler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
 	externalNetworkPoliciesCreatedEvenIfNoIntents bool,
