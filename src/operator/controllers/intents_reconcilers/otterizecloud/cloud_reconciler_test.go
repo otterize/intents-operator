@@ -55,7 +55,14 @@ func (s *CloudReconcilerTestSuite) TearDownTest() {
 
 func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 	server := "test-server"
+	server2 := "other-server"
+	server2Namespace := "other-namespace"
 
+	s.assertUploadIntent(server, server2, server2Namespace)
+}
+
+func (s *CloudReconcilerTestSuite) assertUploadIntent(server string, server2 string, server2Namespace string) {
+	server2FullName := server2 + "." + server2Namespace
 	clientIntents := otterizev1alpha2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
@@ -72,7 +79,7 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 					Type: "",
 				},
 				{
-					Name: "other-server.other-namespace",
+					Name: server2FullName,
 				},
 			},
 		},
@@ -87,11 +94,12 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 		Topics:          nil,
 		Resources:       nil,
 	}
+
 	expectedIntentInOtherNamespace := graphqlclient.IntentInput{
 		ClientName:      lo.ToPtr(clientName),
-		ServerName:      lo.ToPtr("other-server"),
+		ServerName:      lo.ToPtr(server2),
 		Namespace:       lo.ToPtr(testNamespace),
-		ServerNamespace: lo.ToPtr("other-namespace"),
+		ServerNamespace: lo.ToPtr(server2Namespace),
 		Type:            nil,
 		Topics:          nil,
 		Resources:       nil,
@@ -103,6 +111,14 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 	}
 
 	s.assertReportedIntents(clientIntents, expectedIntents)
+}
+
+func (s *CloudReconcilerTestSuite) TestAppliedIntentsUploadUnderscore() {
+	server := "metric-server_3_6_9"
+	server2 := "other-server_2_0_0"
+	server2Namespace := "other-namespace"
+
+	s.assertUploadIntent(server, server2, server2Namespace)
 }
 
 func (s *CloudReconcilerTestSuite) TestAppliedIntentsRetryWhenUploadFailed() {

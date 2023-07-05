@@ -205,7 +205,6 @@ func (in *Intent) GetServerName() string {
 		name = nameWithNamespace[0]
 	}
 
-	name = strings.ReplaceAll(name, "_", ".")
 	return name
 }
 
