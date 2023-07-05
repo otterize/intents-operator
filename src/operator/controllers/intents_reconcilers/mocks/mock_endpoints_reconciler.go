@@ -9,34 +9,61 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	record "k8s.io/client-go/tools/record"
 	controllerruntime "sigs.k8s.io/controller-runtime"
 )
 
-// MockEndpointsReconcilerInterface is a mock of EndpointsReconcilerInterface interface.
-type MockEndpointsReconcilerInterface struct {
+// MockEndpointsReconciler is a mock of EndpointsReconciler interface.
+type MockEndpointsReconciler struct {
 	ctrl     *gomock.Controller
-	recorder *MockEndpointsReconcilerInterfaceMockRecorder
+	recorder *MockEndpointsReconcilerMockRecorder
 }
 
-// MockEndpointsReconcilerInterfaceMockRecorder is the mock recorder for MockEndpointsReconcilerInterface.
-type MockEndpointsReconcilerInterfaceMockRecorder struct {
-	mock *MockEndpointsReconcilerInterface
+// MockEndpointsReconcilerMockRecorder is the mock recorder for MockEndpointsReconciler.
+type MockEndpointsReconcilerMockRecorder struct {
+	mock *MockEndpointsReconciler
 }
 
-// NewMockEndpointsReconcilerInterface creates a new mock instance.
-func NewMockEndpointsReconcilerInterface(ctrl *gomock.Controller) *MockEndpointsReconcilerInterface {
-	mock := &MockEndpointsReconcilerInterface{ctrl: ctrl}
-	mock.recorder = &MockEndpointsReconcilerInterfaceMockRecorder{mock}
+// NewMockEndpointsReconciler creates a new mock instance.
+func NewMockEndpointsReconciler(ctrl *gomock.Controller) *MockEndpointsReconciler {
+	mock := &MockEndpointsReconciler{ctrl: ctrl}
+	mock.recorder = &MockEndpointsReconcilerMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockEndpointsReconcilerInterface) EXPECT() *MockEndpointsReconcilerInterfaceMockRecorder {
+func (m *MockEndpointsReconciler) EXPECT() *MockEndpointsReconcilerMockRecorder {
 	return m.recorder
 }
 
+// InitIngressReferencedServicesIndex mocks base method.
+func (m *MockEndpointsReconciler) InitIngressReferencedServicesIndex(mgr controllerruntime.Manager) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitIngressReferencedServicesIndex", mgr)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// InitIngressReferencedServicesIndex indicates an expected call of InitIngressReferencedServicesIndex.
+func (mr *MockEndpointsReconcilerMockRecorder) InitIngressReferencedServicesIndex(mgr interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitIngressReferencedServicesIndex", reflect.TypeOf((*MockEndpointsReconciler)(nil).InitIngressReferencedServicesIndex), mgr)
+}
+
+// InjectRecorder mocks base method.
+func (m *MockEndpointsReconciler) InjectRecorder(recorder record.EventRecorder) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "InjectRecorder", recorder)
+}
+
+// InjectRecorder indicates an expected call of InjectRecorder.
+func (mr *MockEndpointsReconcilerMockRecorder) InjectRecorder(recorder interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InjectRecorder", reflect.TypeOf((*MockEndpointsReconciler)(nil).InjectRecorder), recorder)
+}
+
 // Reconcile mocks base method.
-func (m *MockEndpointsReconcilerInterface) Reconcile(ctx context.Context, req controllerruntime.Request) (controllerruntime.Result, error) {
+func (m *MockEndpointsReconciler) Reconcile(ctx context.Context, req controllerruntime.Request) (controllerruntime.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Reconcile", ctx, req)
 	ret0, _ := ret[0].(controllerruntime.Result)
@@ -45,7 +72,21 @@ func (m *MockEndpointsReconcilerInterface) Reconcile(ctx context.Context, req co
 }
 
 // Reconcile indicates an expected call of Reconcile.
-func (mr *MockEndpointsReconcilerInterfaceMockRecorder) Reconcile(ctx, req interface{}) *gomock.Call {
+func (mr *MockEndpointsReconcilerMockRecorder) Reconcile(ctx, req interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reconcile", reflect.TypeOf((*MockEndpointsReconcilerInterface)(nil).Reconcile), ctx, req)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reconcile", reflect.TypeOf((*MockEndpointsReconciler)(nil).Reconcile), ctx, req)
+}
+
+// SetupWithManager mocks base method.
+func (m *MockEndpointsReconciler) SetupWithManager(mgr controllerruntime.Manager) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetupWithManager", mgr)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetupWithManager indicates an expected call of SetupWithManager.
+func (mr *MockEndpointsReconcilerMockRecorder) SetupWithManager(mgr interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetupWithManager", reflect.TypeOf((*MockEndpointsReconciler)(nil).SetupWithManager), mgr)
 }

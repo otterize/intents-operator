@@ -22,11 +22,11 @@ import (
 type IngressReconciler struct {
 	client.Client
 	Scheme              *runtime.Scheme
-	endpointsReconciler *EndpointsReconciler
+	endpointsReconciler EndpointsReconciler
 	injectablerecorder.InjectableRecorder
 }
 
-func NewIngressReconciler(client client.Client, scheme *runtime.Scheme, endpointsReconciler *EndpointsReconciler) *IngressReconciler {
+func NewIngressReconciler(client client.Client, scheme *runtime.Scheme, endpointsReconciler EndpointsReconciler) *IngressReconciler {
 	return &IngressReconciler{Client: client, Scheme: scheme, endpointsReconciler: endpointsReconciler}
 }
 

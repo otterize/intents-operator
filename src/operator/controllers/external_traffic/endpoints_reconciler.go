@@ -24,7 +24,14 @@ const OtterizeExternalNetworkPolicyNameTemplate = "external-access-to-%s"
 //+kubebuilder:rbac:groups="",resources=endpoints,verbs=get;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 
-type EndpointsReconciler struct {
+type EndpointsReconciler interface {
+	Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error)
+	InitIngressReferencedServicesIndex(mgr ctrl.Manager) error
+	SetupWithManager(mgr ctrl.Manager) error
+	InjectRecorder(recorder record.EventRecorder)
+}
+
+type EndpointsReconcilerImpl struct {
 	client.Client
 	Scheme                     *runtime.Scheme
 	netpolCreator              *NetworkPolicyCreator
@@ -32,12 +39,12 @@ type EndpointsReconciler struct {
 	injectablerecorder.InjectableRecorder
 }
 
-func (r *EndpointsReconciler) formatPolicyName(serviceName string) string {
+func (r *EndpointsReconcilerImpl) formatPolicyName(serviceName string) string {
 	return fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 }
 
-func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enabled bool, createEvenIfNoIntentsFound bool, enforcementEnabledGlobally bool) *EndpointsReconciler {
-	return &EndpointsReconciler{
+func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enabled bool, createEvenIfNoIntentsFound bool, enforcementEnabledGlobally bool) EndpointsReconciler {
+	return &EndpointsReconcilerImpl{
 		Client:                     client,
 		Scheme:                     scheme,
 		createEvenIfNoIntentsFound: createEvenIfNoIntentsFound,
@@ -45,7 +52,7 @@ func NewEndpointsReconciler(client client.Client, scheme *runtime.Scheme, enable
 	}
 }
 
-func (r *EndpointsReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *EndpointsReconcilerImpl) SetupWithManager(mgr ctrl.Manager) error {
 	recorder := mgr.GetEventRecorderFor("intents-operator")
 	r.InjectRecorder(recorder)
 
@@ -55,7 +62,7 @@ func (r *EndpointsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *EndpointsReconciler) InjectRecorder(recorder record.EventRecorder) {
+func (r *EndpointsReconcilerImpl) InjectRecorder(recorder record.EventRecorder) {
 	r.Recorder = recorder
 	r.netpolCreator.InjectRecorder(recorder)
 }
@@ -77,7 +84,7 @@ func (r *EndpointsReconciler) InjectRecorder(recorder record.EventRecorder) {
 //	are created, updated or deleted. This means that if you create, update or delete intents, the corresponding
 //	external traffic policy will be created (if there were no other intents affecting the service before then) or
 //	deleted (if no intents network policies refer to the pods backing the service any longer).
-func (r *EndpointsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *EndpointsReconcilerImpl) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	endpoints := &corev1.Endpoints{}
 	err := r.Get(ctx, req.NamespacedName, endpoints)
 	if k8serrors.IsNotFound(err) {
@@ -113,7 +120,7 @@ func (r *EndpointsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	return r.reconcileEndpoints(ctx, endpoints, ingressList)
 }
 
-func (r *EndpointsReconciler) getIngressRefersToService(ctx context.Context, svc *corev1.Service) (*v1.IngressList, error) {
+func (r *EndpointsReconcilerImpl) getIngressRefersToService(ctx context.Context, svc *corev1.Service) (*v1.IngressList, error) {
 	var endpointsList v1.IngressList
 	err := r.List(
 		ctx, &endpointsList,
@@ -127,7 +134,7 @@ func (r *EndpointsReconciler) getIngressRefersToService(ctx context.Context, svc
 	return &endpointsList, nil
 }
 
-func (r *EndpointsReconciler) InitIngressReferencedServicesIndex(mgr ctrl.Manager) error {
+func (r *EndpointsReconcilerImpl) InitIngressReferencedServicesIndex(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&v1.Ingress{},
@@ -145,7 +152,7 @@ func (r *EndpointsReconciler) InitIngressReferencedServicesIndex(mgr ctrl.Manage
 	return nil
 }
 
-func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints *corev1.Endpoints, ingressList *v1.IngressList) (ctrl.Result, error) {
+func (r *EndpointsReconcilerImpl) reconcileEndpoints(ctx context.Context, endpoints *corev1.Endpoints, ingressList *v1.IngressList) (ctrl.Result, error) {
 	foundOtterizeNetpolsAffectingPods := false
 
 	addresses := make([]corev1.EndpointAddress, 0)
@@ -222,7 +229,7 @@ func (r *EndpointsReconciler) reconcileEndpoints(ctx context.Context, endpoints 
 	return ctrl.Result{}, nil
 }
 
-func (r *EndpointsReconciler) handlePolicyDelete(ctx context.Context, policyName string, policyNamespace string) (ctrl.Result, error) {
+func (r *EndpointsReconcilerImpl) handlePolicyDelete(ctx context.Context, policyName string, policyNamespace string) (ctrl.Result, error) {
 
 	policy := &v1.NetworkPolicy{}
 	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: policyNamespace}, policy)
@@ -245,7 +252,7 @@ func (r *EndpointsReconciler) handlePolicyDelete(ctx context.Context, policyName
 	return ctrl.Result{}, nil
 }
 
-func (r *EndpointsReconciler) ReconcileServiceForOtterizeNetpol(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, netpol *v1.NetworkPolicy) (ctrl.Result, error) {
+func (r *EndpointsReconcilerImpl) ReconcileServiceForOtterizeNetpol(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, netpol *v1.NetworkPolicy) (ctrl.Result, error) {
 	svc := &corev1.Service{}
 	err := r.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
 	if err != nil {
@@ -262,7 +269,7 @@ func (r *EndpointsReconciler) ReconcileServiceForOtterizeNetpol(ctx context.Cont
 	return ctrl.Result{}, nil
 }
 
-func (r *EndpointsReconciler) ReconcileServiceForServiceWithoutIntents(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList) (ctrl.Result, error) {
+func (r *EndpointsReconcilerImpl) ReconcileServiceForServiceWithoutIntents(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList) (ctrl.Result, error) {
 	svc := &corev1.Service{}
 	err := r.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
 	if err != nil {

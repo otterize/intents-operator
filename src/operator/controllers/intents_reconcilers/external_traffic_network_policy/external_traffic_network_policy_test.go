@@ -30,7 +30,7 @@ import (
 type ExternalNetworkPolicyReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
 	IngressReconciler       *external_traffic.IngressReconciler
-	endpointReconciler      *external_traffic.EndpointsReconciler
+	endpointReconciler      external_traffic.EndpointsReconciler
 	NetworkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler
 	podWatcher              *reconcilers.PodWatcher
 }
