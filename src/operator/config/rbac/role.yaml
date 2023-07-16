@@ -119,6 +119,32 @@ rules:
   - patch
   - update
 - apiGroups:
+  - k8s.otterize.com
+  resources:
+  - networkpolicyprotectedservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - k8s.otterize.com
+  resources:
+  - networkpolicyprotectedservices/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - k8s.otterize.com
+  resources:
+  - networkpolicyprotectedservices/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - networking.k8s.io
   resources:
   - ingresses

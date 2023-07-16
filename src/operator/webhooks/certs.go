@@ -114,17 +114,20 @@ func UpdateWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
 		return err
 	}
 
-	_, err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(ctx, webHookName, metav1.GetOptions{})
+	webhookConfig, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(ctx, webHookName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
 
-	newCA := []patchValue{{
-		Op:    "replace",
-		Path:  "/webhooks/0/clientConfig/caBundle",
-		Value: base64.StdEncoding.EncodeToString(ca),
-	},
+	var newCA []patchValue
+	for i := range webhookConfig.Webhooks {
+		newCA = append(newCA, patchValue{
+			Op:    "replace",
+			Path:  fmt.Sprintf("/webhooks/%d/clientConfig/caBundle", i),
+			Value: base64.StdEncoding.EncodeToString(ca),
+		})
 	}
+
 	newCAByte, err := json.Marshal(newCA)
 	if err != nil {
 		return err

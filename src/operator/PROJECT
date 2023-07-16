@@ -28,4 +28,16 @@ resources:
   webhooks:
     validation: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: k8s.otterize.com
+  group: otterize
+  kind: NetworkPolicyProtectedServices
+  path: github.com/otterize/intents-operator/api/v1alpha2
+  version: v1alpha2
+  webhooks:
+    validation: true
+    webhookVersion: v1
 version: "3"

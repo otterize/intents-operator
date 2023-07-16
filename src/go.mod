@@ -6,10 +6,13 @@ require (
 	github.com/Khan/genqlient v0.5.0
 	github.com/Shopify/sarama v1.34.1
 	github.com/amit7itz/goset v1.2.1
+	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
+	github.com/onsi/ginkgo/v2 v2.6.0
+	github.com/onsi/gomega v1.24.1
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.8.1
@@ -20,6 +23,7 @@ require (
 	github.com/vishalkuo/bimap v0.0.0-20220726225509-e0b4f20de28b
 	golang.org/x/exp v0.0.0-20230124195608-d38c7dcee874
 	golang.org/x/oauth2 v0.6.0
+	gopkg.in/yaml.v3 v3.0.1
 	istio.io/api v0.0.0-20230310175855-3be9c0870417
 	istio.io/client-go v1.17.1
 	k8s.io/api v0.26.2
@@ -43,6 +47,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/go-logr/logr v1.2.3 // indirect
+	github.com/go-logr/zapr v1.2.3 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
 	github.com/go-openapi/swag v0.22.3 // indirect
@@ -91,6 +96,7 @@ require (
 	github.com/vektah/gqlparser/v2 v2.4.5 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
+	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.6.0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
@@ -106,7 +112,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/component-base v0.26.2 // indirect
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect

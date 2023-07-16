@@ -8,5 +8,11 @@ patches:
       - op: replace
         path: /webhooks/0/clientConfig/service/name
         value: intents-operator-webhook-service
+      - op: replace
+        path: /webhooks/1/clientConfig/service/namespace
+        value: '{{ .Release.Namespace }}'
+      - op: replace
+        path: /webhooks/1/clientConfig/service/name
+        value: intents-operator-webhook-service
     target:
       kind: ValidatingWebhookConfiguration
