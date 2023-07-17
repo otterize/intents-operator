@@ -26,11 +26,16 @@ import (
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 type EnforcementConfig struct {
@@ -42,7 +47,8 @@ type EnforcementConfig struct {
 
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
-	group *reconcilergroup.Group
+	group  *reconcilergroup.Group
+	client client.Client
 }
 
 func NewIntentsReconciler(
@@ -56,14 +62,18 @@ func NewIntentsReconciler(
 	otterizeClient otterizecloud.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string) *IntentsReconciler {
+	reconcilersGroup := reconcilergroup.NewGroup("intents-reconciler", client, scheme,
+		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
+		intents_reconcilers.NewPodLabelReconciler(client, scheme),
+		intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementEnabledGlobally, externalNetworkPoliciesCreatedEvenIfNoIntents),
+		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),
+		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementEnabledGlobally),
+	)
+
 	intentsReconciler := &IntentsReconciler{
-		group: reconcilergroup.NewGroup("intents-reconciler", client, scheme,
-			intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
-			intents_reconcilers.NewPodLabelReconciler(client, scheme),
-			intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementEnabledGlobally, externalNetworkPoliciesCreatedEvenIfNoIntents),
-			intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),
-			intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementEnabledGlobally),
-		)}
+		group:  reconcilersGroup,
+		client: client,
+	}
 
 	if otterizeClient != nil {
 		otterizeCloudReconciler := otterizecloud.NewOtterizeCloudReconciler(client, scheme, otterizeClient)
@@ -92,6 +102,7 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev1alpha2.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
+		Watches(&source.Kind{Type: &otterizev1alpha2.ProtectedServices{}}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServicesToClientIntents)).
 		Complete(r)
 	if err != nil {
 		return err
@@ -100,6 +111,29 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.group.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
 
 	return nil
+}
+
+func (r *IntentsReconciler) mapProtectedServicesToClientIntents(obj client.Object) []reconcile.Request {
+	namespace := obj.GetNamespace()
+	var clientIntentsList otterizev1alpha2.ClientIntentsList
+	err := r.client.List(context.Background(), &clientIntentsList, client.InNamespace(namespace))
+	if err != nil {
+		logrus.Errorf("Failed to list client intents in namespace %s: %v", namespace, err)
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0)
+	for _, clientIntents := range clientIntentsList.Items {
+		request := reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      clientIntents.Name,
+				Namespace: clientIntents.Namespace,
+			},
+		}
+		requests = append(requests, request)
+	}
+
+	return requests
 }
 
 // InitIntentsServerIndices indexes intents by target server name
