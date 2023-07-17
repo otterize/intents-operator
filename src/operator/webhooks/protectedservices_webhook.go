@@ -37,7 +37,7 @@ type ProtectedServicesValidator struct {
 
 func (v *ProtectedServicesValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&otterizev1alpha2.NetworkPolicyProtectedServices{}).
+		For(&otterizev1alpha2.ProtectedServices{}).
 		WithValidator(v).
 		Complete()
 }
@@ -48,14 +48,14 @@ func NewProtectedServicesValidator(c client.Client) *ProtectedServicesValidator 
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha2-networkpolicyprotectedservices,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=networkpolicyprotectedservices,verbs=create;update,versions=v1alpha2,name=networkpolicyprotectedservices.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha2-protectedservices,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=protectedservices,verbs=create;update,versions=v1alpha2,name=protectedservices.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &ProtectedServicesValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *ProtectedServicesValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	var allErrs field.ErrorList
-	intentsObj := obj.(*otterizev1alpha2.NetworkPolicyProtectedServices)
+	intentsObj := obj.(*otterizev1alpha2.ProtectedServices)
 
 	if err := v.validateSpec(intentsObj); err != nil {
 		allErrs = append(allErrs, err)
@@ -74,9 +74,9 @@ func (v *ProtectedServicesValidator) ValidateCreate(ctx context.Context, obj run
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *ProtectedServicesValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
 	var allErrs field.ErrorList
-	networkPolicyProtectedServices := newObj.(*otterizev1alpha2.NetworkPolicyProtectedServices)
+	protectedServices := newObj.(*otterizev1alpha2.ProtectedServices)
 
-	if err := v.validateSpec(networkPolicyProtectedServices); err != nil {
+	if err := v.validateSpec(protectedServices); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -84,10 +84,10 @@ func (v *ProtectedServicesValidator) ValidateUpdate(ctx context.Context, oldObj,
 		return nil
 	}
 
-	gvk := networkPolicyProtectedServices.GroupVersionKind()
+	gvk := protectedServices.GroupVersionKind()
 	return errors.NewInvalid(
 		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-		networkPolicyProtectedServices.Name, allErrs)
+		protectedServices.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -96,7 +96,7 @@ func (v *ProtectedServicesValidator) ValidateDelete(ctx context.Context, obj run
 }
 
 // validateSpec
-func (v *ProtectedServicesValidator) validateSpec(intents *otterizev1alpha2.NetworkPolicyProtectedServices) *field.Error {
+func (v *ProtectedServicesValidator) validateSpec(intents *otterizev1alpha2.ProtectedServices) *field.Error {
 	for _, service := range intents.Spec.ProtectedServices {
 		serviceName := strings.Trim(service.Name, "-_")
 		// Validate Service Name contains only lowercase alphanumeric characters

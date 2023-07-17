@@ -5,20 +5,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.9.0
   creationTimestamp: null
-  name: networkpolicyprotectedservices.k8s.otterize.com
+  name: protectedservices.k8s.otterize.com
 spec:
   group: k8s.otterize.com
   names:
-    kind: NetworkPolicyProtectedServices
-    listKind: NetworkPolicyProtectedServicesList
-    plural: networkpolicyprotectedservices
-    singular: networkpolicyprotectedservices
+    kind: ProtectedServices
+    listKind: ProtectedServicesList
+    plural: protectedservices
+    singular: protectedservices
   scope: Namespaced
   versions:
   - name: v1alpha2
     schema:
       openAPIV3Schema:
-        description: NetworkPolicyProtectedServices is the Schema for the networkpolicyprotectedservices
+        description: ProtectedServices is the Schema for the protectedservices
           API
         properties:
           apiVersion:
@@ -34,8 +34,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: NetworkPolicyProtectedServicesSpec defines the desired state
-              of NetworkPolicyProtectedServices
+            description: ProtectedServicesSpec defines the desired state
+              of ProtectedServices
             properties:
               protectedServices:
                 items:
@@ -46,8 +46,8 @@ spec:
                 type: array
             type: object
           status:
-            description: NetworkPolicyProtectedServicesStatus defines the observed
-              state of NetworkPolicyProtectedServices
+            description: ProtectedServicesStatus defines the observed
+              state of ProtectedServices
             type: object
         type: object
     served: true

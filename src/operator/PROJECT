@@ -34,7 +34,7 @@ resources:
   controller: true
   domain: k8s.otterize.com
   group: otterize
-  kind: NetworkPolicyProtectedServices
+  kind: ProtectedServices
   path: github.com/otterize/intents-operator/api/v1alpha2
   version: v1alpha2
   webhooks:

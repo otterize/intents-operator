@@ -262,11 +262,11 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
 	}
 
-	if err = (&controllers.NetworkPolicyProtectedServicesReconciler{
+	if err = (&controllers.ProtectedServicesReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "NetworkPolicyProtectedServices")
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "ProtectedServices")
 	}
 
 	//+kubebuilder:scaffold:builder
