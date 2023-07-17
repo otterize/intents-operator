@@ -300,9 +300,9 @@ type IntentsOperatorConfiguration {
 
 input IntentsOperatorConfigurationInput {
 	globalEnforcementEnabled: Boolean!
-	networkPolicyEnforcementEnabled: Boolean!
-	kafkaACLEnforcementEnabled: Boolean!
-	istioPolicyEnforcementEnabled: Boolean!
+	networkPolicyEnforcementEnabled: Boolean
+	kafkaACLEnforcementEnabled: Boolean
+	istioPolicyEnforcementEnabled: Boolean
 }
 
 type IntentStatus {
@@ -594,6 +594,7 @@ type NetworkMapperComponent {
 
 input NetworkPolicyInput {
 	namespace: String!
+	name: String!
 	serverName: String!
 	externalTrafficPolicy: Boolean!
 }
