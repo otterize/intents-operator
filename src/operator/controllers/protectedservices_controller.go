@@ -28,18 +28,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// NetworkPolicyProtectedServicesReconciler reconciles a NetworkPolicyProtectedServices object
-type NetworkPolicyProtectedServicesReconciler struct {
+// ProtectedServicesReconciler reconciles a ProtectedServices object
+type ProtectedServicesReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=k8s.otterize.com,resources=networkpolicyprotectedservices,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=k8s.otterize.com,resources=networkpolicyprotectedservices/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=k8s.otterize.com,resources=networkpolicyprotectedservices/finalizers,verbs=update
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices/finalizers,verbs=update
 
-func (r *NetworkPolicyProtectedServicesReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var ProtectedServices otterizev1alpha2.NetworkPolicyProtectedServices
+func (r *ProtectedServicesReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	var ProtectedServices otterizev1alpha2.ProtectedServices
 	err := r.Get(ctx, req.NamespacedName, &ProtectedServices)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -54,9 +54,9 @@ func (r *NetworkPolicyProtectedServicesReconciler) Reconcile(ctx context.Context
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *NetworkPolicyProtectedServicesReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ProtectedServicesReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev1alpha2.NetworkPolicyProtectedServices{}).
+		For(&otterizev1alpha2.ProtectedServices{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 }

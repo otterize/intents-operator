@@ -24,13 +24,13 @@ type ProtectedService struct {
 	Name string `json:"name,omitempty"`
 }
 
-// NetworkPolicyProtectedServicesSpec defines the desired state of NetworkPolicyProtectedServices
-type NetworkPolicyProtectedServicesSpec struct {
+// ProtectedServicesSpec defines the desired state of ProtectedServices
+type ProtectedServicesSpec struct {
 	ProtectedServices []ProtectedService `json:"protectedServices,omitempty"`
 }
 
-// NetworkPolicyProtectedServicesStatus defines the observed state of NetworkPolicyProtectedServices
-type NetworkPolicyProtectedServicesStatus struct {
+// ProtectedServicesStatus defines the observed state of ProtectedServices
+type ProtectedServicesStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
@@ -38,24 +38,24 @@ type NetworkPolicyProtectedServicesStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// NetworkPolicyProtectedServices is the Schema for the networkpolicyprotectedservices API
-type NetworkPolicyProtectedServices struct {
+// ProtectedServices is the Schema for the protectedservices API
+type ProtectedServices struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   NetworkPolicyProtectedServicesSpec   `json:"spec,omitempty"`
-	Status NetworkPolicyProtectedServicesStatus `json:"status,omitempty"`
+	Spec   ProtectedServicesSpec   `json:"spec,omitempty"`
+	Status ProtectedServicesStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// NetworkPolicyProtectedServicesList contains a list of NetworkPolicyProtectedServices
-type NetworkPolicyProtectedServicesList struct {
+// ProtectedServicesList contains a list of ProtectedServices
+type ProtectedServicesList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []NetworkPolicyProtectedServices `json:"items"`
+	Items           []ProtectedServices `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&NetworkPolicyProtectedServices{}, &NetworkPolicyProtectedServicesList{})
+	SchemeBuilder.Register(&ProtectedServices{}, &ProtectedServicesList{})
 }
