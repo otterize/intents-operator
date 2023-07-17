@@ -134,10 +134,21 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		return nil
 	}
 
+	createPolicy, err := r.shouldProtectServer(ctx, intent, intentsObjNamespace)
+	if err != nil {
+		return err
+	}
+
+	if !createPolicy {
+		logrus.Infof("Server not in protected list, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
+		// TODO: Make sure to delete policy if should not protect server
+		return nil
+	}
+
 	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, intent.GetServerName(), intentsObjNamespace)
 	existingPolicy := &v1.NetworkPolicy{}
 	newPolicy := r.buildNetworkPolicyObjectForIntent(intent, policyName, intentsObjNamespace)
-	err := r.Get(ctx, types.NamespacedName{
+	err = r.Get(ctx, types.NamespacedName{
 		Name:      policyName,
 		Namespace: intent.GetServerNamespace(intentsObjNamespace)},
 		existingPolicy)
@@ -152,6 +163,28 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	}
 
 	return r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, intentsObjNamespace)
+}
+
+func (r *NetworkPolicyReconciler) shouldProtectServer(ctx context.Context, intent otterizev1alpha2.Intent, intentObjNamespace string) (bool, error) {
+	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
+	err := r.List(ctx, &protectedServicesResources, client.InNamespace(intentObjNamespace))
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	serverName := intent.GetServerName()
+	for _, protectedServiceList := range protectedServicesResources.Items {
+		for _, protectedService := range protectedServiceList.Spec.ProtectedServices {
+			if protectedService.Name == serverName {
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 func (r *NetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, intent otterizev1alpha2.Intent, intentsObjNamespace string) error {
