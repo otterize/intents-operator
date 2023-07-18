@@ -21,6 +21,14 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/metadata"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
@@ -34,13 +42,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/otterize/intents-operator/src/shared/version"
-	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
-	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/metadata"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -239,6 +241,11 @@ func main() {
 		if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
 			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
 		}
+
+		protectedServices := webhooks.NewProtectedServicesValidator(mgr.GetClient())
+		if err = protectedServices.SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "ProtectedServices")
+		}
 	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(
@@ -253,6 +260,13 @@ func main() {
 
 	if err = kafkaServerConfigReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
+	}
+
+	if err = (&controllers.ProtectedServicesReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "ProtectedServices")
 	}
 
 	//+kubebuilder:scaffold:builder

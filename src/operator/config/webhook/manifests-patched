@@ -24,3 +24,23 @@ webhooks:
     resources:
     - clientintents
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-k8s-otterize-com-v1alpha2-protectedservices
+  failurePolicy: Fail
+  name: protectedservices.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - protectedservices
+  sideEffects: None
