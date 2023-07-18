@@ -1,7 +1,7 @@
 package intents_reconcilers
 
 import (
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -3,10 +3,10 @@ package serviceidresolver
 import (
 	"context"
 	"errors"
-	"github.com/golang/mock/gomock"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
