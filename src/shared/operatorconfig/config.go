@@ -36,6 +36,8 @@ const (
 	EnableIstioPolicyDefault                                            = true
 	EnableKafkaACLKey                                                   = "enable-kafka-acl-creation" // Whether to disable Intents Kafka ACL creation
 	EnableKafkaACLDefault                                               = true
+	EnableProtectedServicesKey                                          = "enable-protected-services" // Whether to enable protected services
+	EnableProtectedServicesDefault                                      = false
 	IntentsOperatorPodNameKey                                           = "pod-name"
 	IntentsOperatorPodNamespaceKey                                      = "pod-namespace"
 	EnvPrefix                                                           = "OTTERIZE"
@@ -52,6 +54,7 @@ func init() {
 	viper.SetDefault(EnableKafkaACLKey, EnableKafkaACLDefault)
 	viper.SetDefault(EnableIstioPolicyKey, EnableIstioPolicyDefault)
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
+	viper.SetDefault(EnableProtectedServicesKey, EnableProtectedServicesDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()

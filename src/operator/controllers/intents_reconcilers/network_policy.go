@@ -5,10 +5,12 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -166,6 +168,10 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 }
 
 func (r *NetworkPolicyReconciler) shouldProtectServer(ctx context.Context, intent otterizev1alpha2.Intent, intentObjNamespace string) (bool, error) {
+	if !viper.GetBool(operatorconfig.EnableProtectedServicesKey) {
+		return true, nil
+	}
+
 	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
 	err := r.List(ctx, &protectedServicesResources, client.InNamespace(intentObjNamespace))
 	if err != nil {

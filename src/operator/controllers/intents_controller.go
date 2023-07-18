@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
@@ -114,16 +115,16 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *IntentsReconciler) mapProtectedServicesToClientIntents(obj client.Object) []reconcile.Request {
-	namespace := obj.GetNamespace()
-	var clientIntentsList otterizev1alpha2.ClientIntentsList
-	err := r.client.List(context.Background(), &clientIntentsList, client.InNamespace(namespace))
-	if err != nil {
-		logrus.Errorf("Failed to list client intents in namespace %s: %v", namespace, err)
-		return nil
-	}
+	protectedServices := obj.(*otterizev1alpha2.ProtectedServices)
+	logrus.Infof("Enqueueing client intents for protected services %s", protectedServices.Name)
 
+	intentsToReconcile := r.getIntentsToProtectedServices(protectedServices)
+	return r.mapIntentsToRequests(intentsToReconcile)
+}
+
+func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1alpha2.ClientIntents) []reconcile.Request {
 	requests := make([]reconcile.Request, 0)
-	for _, clientIntents := range clientIntentsList.Items {
+	for _, clientIntents := range intentsToReconcile {
 		request := reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      clientIntents.Name,
@@ -132,8 +133,25 @@ func (r *IntentsReconciler) mapProtectedServicesToClientIntents(obj client.Objec
 		}
 		requests = append(requests, request)
 	}
-
 	return requests
+}
+
+func (r *IntentsReconciler) getIntentsToProtectedServices(protectedServices *otterizev1alpha2.ProtectedServices) []otterizev1alpha2.ClientIntents {
+	intentsToReconcile := make([]otterizev1alpha2.ClientIntents, 0)
+	for _, protectedService := range protectedServices.Spec.ProtectedServices {
+		fullServerName := fmt.Sprintf("%s.%s", protectedService.Name, protectedServices.Namespace)
+		var intentsToServer otterizev1alpha2.ClientIntentsList
+		err := r.client.List(context.Background(),
+			&intentsToServer,
+			&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fullServerName},
+		)
+		if err != nil {
+			logrus.Errorf("Failed to list client intents for client %s: %v", fullServerName, err)
+		}
+
+		intentsToReconcile = append(intentsToReconcile, intentsToServer.Items...)
+	}
+	return intentsToReconcile
 }
 
 // InitIntentsServerIndices indexes intents by target server name
