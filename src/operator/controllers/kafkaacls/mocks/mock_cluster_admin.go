@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	sarama "github.com/Shopify/sarama"
-	gomock "github.com/golang/mock/gomock"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockClusterAdmin is a mock of ClusterAdmin interface.

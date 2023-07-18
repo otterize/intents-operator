@@ -3,7 +3,7 @@ package kafkaacls
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	"golang.org/x/exp/slices"
 	"reflect"
 )
