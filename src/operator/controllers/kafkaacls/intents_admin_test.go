@@ -2,11 +2,11 @@ package kafkaacls
 
 import (
 	"github.com/Shopify/sarama"
-	"github.com/golang/mock/gomock"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 	"time"

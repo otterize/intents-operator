@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"fmt"
 	"github.com/Shopify/sarama"
-	"github.com/golang/mock/gomock"
+	"go.uber.org/mock/gomock"
 	"reflect"
 )
 

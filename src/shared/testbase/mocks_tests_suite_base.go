@@ -1,9 +1,9 @@
 package testbase
 
 import (
-	"github.com/golang/mock/gomock"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 	"k8s.io/client-go/tools/record"
 )
 
