@@ -102,17 +102,18 @@ jobs:
           CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`          
           echo Client: $CLI1_POD      client_other: $CLI2_POD
+          source ./test-bashrc.sh 
           
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
-          sleep 10
           
           # should work because there is an applied intent
           echo check client log
-          kubectl logs --tail 14 -n otterize-tutorial-npol $CLI1_POD | grep "Hi, I am the server, you called, may I help you?"
+          wait_for_log $CLI1_POD 30 "Hi, I am the server, you called, may I help you?"
           
           # should be blocked (using 3 because the log should repeat itself every 3 lines)
           echo check client other log
-          kubectl logs --tail 3 -n otterize-tutorial-npol $CLI2_POD | grep "curl timed out"
+
+          wait_for_log $CLI2_POD 30 "curl timed out"
           
       
 
@@ -144,6 +145,7 @@ jobs:
 
       - name: Wait for Calico startup
         run: |-
+          source ./test-bashrc.sh
           kubectl wait pods -n kube-system -l k8s-app=calico-kube-controllers --for condition=Ready --timeout=90s
           kubectl wait pods -n kube-system -l k8s-app=calico-node --for condition=Ready --timeout=90s
           kubectl wait pods -n kube-system -l k8s-app=calico-kube-controllers --for condition=Ready --timeout=90s
@@ -188,24 +190,18 @@ jobs:
           CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           echo Client: $CLI1_POD      client_other: $CLI2_POD
+          source ./test-bashrc.sh 
+
           for i in {1..10}; do if ! kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.labels" | grep 'access-server'; then echo Waiting for label; sleep 1; else echo Label found; break; fi; done;
           if ! kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.labels" | grep 'access-server'; then echo Label not found; exit 1; fi
           
-          # once the label is applied, we should sleep a few seconds because the tutorial service sleeps between attempts
-          sleep 5
-          
           # should work because there is an applied intent
           echo check client log
-          CLIENT_LOG=`kubectl logs -n otterize-tutorial-npol $CLI1_POD`
-          echo $CLIENT_LOG
-          echo $CLIENT_LOG | grep "Hi, I am the server, you called, may I help you?"
+          wait_for_log $CLI1_POD 30 "Hi, I am the server, you called, may I help you?"
           
           # should be blocked (using 3 because the log should repeat itself every 3 lines)
           echo check client other log
-          OTHER_CLIENT_LOG=`kubectl logs -n otterize-tutorial-npol $CLI2_POD`
-          echo $OTHER_CLIENT_LOG
-          echo $OTHER_CLIENT_LOG | grep "curl timed out"
-          
+          wait_for_log $CLI2_POD 30 "curl timed out"
       
 
 
