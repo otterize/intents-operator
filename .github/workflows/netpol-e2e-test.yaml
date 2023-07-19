@@ -113,10 +113,12 @@ jobs:
             echo "Waiting for $DELAY_SECONDS seconds until $END_TIME starting from $CURRENT_TIME"
             while [ $CURRENT_TIME -lt $END_TIME ];
             do
-              grep "$OUTPUT_MESSAGE" <(kubectl logs --since=10s -n otterize-tutorial-npol $POD) && return || sleep 0.2;
+              OUTPUT=$(kubectl logs --since=10s -n otterize-tutorial-npol $POD)
+              grep "$OUTPUT_MESSAGE" <(echo $OUTPUT) && return || sleep 0.2;
               CURRENT_TIME=$(date +%s)
             done
             echo "Failed to find output in logs"
+            echo "Last output was: $OUTPUT"
             exit 1
           }
 
