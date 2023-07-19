@@ -103,16 +103,31 @@ jobs:
           CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`          
           echo Client: $CLI1_POD      client_other: $CLI2_POD
           
+          wait_for_log() {
+            POD=$1
+            DELAY_SECONDS=$2
+            CURRENT_TIME=$(date +%s)
+            END_TIME=$((CURRENT_TIME+DELAY_SECONDS))
+            OUTPUT_MESSAGE="${@:3}"
+            while [ $CURRENT_TIME -lt $END_TIME ];
+            do
+              grep $OUTPUT_MESSAGE <(kubectl logs --since=10s -n otterize-tutorial-npol $POD) && return || sleep 0.2;
+              CURRENT_TIME=$(date +%s)
+            done
+            echo "Failed to find output in logs"
+            exit 1
+          }
+
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
-          sleep 30
           
           # should work because there is an applied intent
           echo check client log
-          kubectl logs --tail 14 -n otterize-tutorial-npol $CLI1_POD | grep "Hi, I am the server, you called, may I help you?"
+          wait_for_log $CLI1_POD 30 "Hi, I am the server, you called, may I help you?"
           
           # should be blocked (using 3 because the log should repeat itself every 3 lines)
           echo check client other log
-          kubectl logs --tail 3 -n otterize-tutorial-npol $CLI2_POD | grep "curl timed out"
+
+          wait_for_log $CLI2_POD 30 "curl timed out"
           
       
 
