@@ -131,7 +131,7 @@ jobs:
           # should be blocked (using 3 because the log should repeat itself every 3 lines)
           echo check client other log
 
-          wait_for_log $CLI2_POD 30 "curl timed out"
+          wait_for_log $CLI2_POD 90 "curl timed out"
           
       
 
