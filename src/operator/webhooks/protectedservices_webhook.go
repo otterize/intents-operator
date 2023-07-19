@@ -96,11 +96,14 @@ func (v *ProtectedServicesValidator) ValidateDelete(ctx context.Context, obj run
 }
 
 // validateSpec
-func (v *ProtectedServicesValidator) validateSpec(intents *otterizev1alpha2.ProtectedServices) *field.Error {
-	for _, service := range intents.Spec.ProtectedServices {
-		serviceName := strings.Trim(service.Name, "-_")
+func (v *ProtectedServicesValidator) validateSpec(protectedServices *otterizev1alpha2.ProtectedServices) *field.Error {
+	for _, service := range protectedServices.Spec.ProtectedServices {
+		serviceName := strings.ReplaceAll(service.Name, "-", "")
+		serviceName = strings.ReplaceAll(serviceName, "_", "")
 		// Validate Service Name contains only lowercase alphanumeric characters
-		if !govalidator.IsAlphanumeric(serviceName) {
+		// Service name should be a valid RFC 1123 subdomain name
+		// It's a namespaced resource, we do not expect resources in other namespaces
+		if !govalidator.IsAlphanumeric(serviceName) || !govalidator.IsLowerCase(serviceName) {
 			message := fmt.Sprintf("Invalid Name: %s. Service name must contain only lowercase alphanumeric characters, '-' or '_'", service.Name)
 			return &field.Error{
 				Type:   field.ErrorTypeForbidden,

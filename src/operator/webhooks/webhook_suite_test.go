@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -115,6 +116,72 @@ func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntentsAfterUpdate() {
 		},
 	})
 	s.Require().ErrorContains(err, expectedErr)
+}
+
+func (s *ValidationWebhookTestSuite) TestValidateProtectedServices() {
+	fakeValidator := NewProtectedServicesValidator(nil)
+
+	protectedServices := otterizev1alpha2.ProtectedServices{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "protected-services",
+			Namespace: "test-namespace",
+		},
+		Spec: otterizev1alpha2.ProtectedServicesSpec{
+			ProtectedServices: []otterizev1alpha2.ProtectedService{
+				{
+					Name: "my-service",
+				},
+				{
+					Name: "myservice2",
+				},
+				{
+					Name: "my_service3",
+				},
+			},
+		},
+	}
+	err := fakeValidator.validateSpec(&protectedServices)
+	s.Require().True(err == nil)
+}
+
+func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfDotFound() {
+	fakeValidator := NewProtectedServicesValidator(nil)
+
+	protectedServices := otterizev1alpha2.ProtectedServices{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "protected-services",
+			Namespace: "test-namespace",
+		},
+		Spec: otterizev1alpha2.ProtectedServicesSpec{
+			ProtectedServices: []otterizev1alpha2.ProtectedService{
+				{
+					Name: "my-service.test-namespace",
+				},
+			},
+		},
+	}
+	err := fakeValidator.validateSpec(&protectedServices)
+	s.Require().Error(err)
+}
+
+func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfUppercase() {
+	fakeValidator := NewProtectedServicesValidator(nil)
+
+	protectedServices := otterizev1alpha2.ProtectedServices{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "protected-services",
+			Namespace: "test-namespace",
+		},
+		Spec: otterizev1alpha2.ProtectedServicesSpec{
+			ProtectedServices: []otterizev1alpha2.ProtectedService{
+				{
+					Name: "MyService",
+				},
+			},
+		},
+	}
+	err := fakeValidator.validateSpec(&protectedServices)
+	s.Require().Error(err)
 }
 
 func TestValidationWebhookTestSuite(t *testing.T) {
