@@ -119,6 +119,10 @@ jobs:
             done
             echo "Failed to find output in logs"
             echo "Last output was: $OUTPUT"
+            echo "##############################################"
+            echo "##############################################"
+            echo "Operator manager logs:"
+            kubectl logs -n otterize-system -l app=intents-operator --tail 400
             exit 1
           }
 
