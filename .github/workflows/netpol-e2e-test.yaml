@@ -104,7 +104,7 @@ jobs:
           echo Client: $CLI1_POD      client_other: $CLI2_POD
           
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
-          sleep 10
+          sleep 30
           
           # should work because there is an applied intent
           echo check client log
