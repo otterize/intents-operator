@@ -136,7 +136,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		return nil
 	}
 
-	createPolicy, err := r.shouldProtectServer(ctx, intent, intentsObjNamespace)
+	createPolicy, err := r.shouldProtectServer(ctx, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
 	if err != nil {
 		return err
 	}
@@ -167,13 +167,13 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	return r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, intentsObjNamespace)
 }
 
-func (r *NetworkPolicyReconciler) shouldProtectServer(ctx context.Context, intent otterizev1alpha2.Intent, intentObjNamespace string) (bool, error) {
+func (r *NetworkPolicyReconciler) shouldProtectServer(ctx context.Context, serverName string, serverNamespace string) (bool, error) {
 	if !viper.GetBool(operatorconfig.EnableProtectedServicesKey) {
 		return true, nil
 	}
 
 	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
-	err := r.List(ctx, &protectedServicesResources, client.InNamespace(intentObjNamespace))
+	err := r.List(ctx, &protectedServicesResources, client.InNamespace(serverNamespace))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return false, nil
@@ -181,7 +181,6 @@ func (r *NetworkPolicyReconciler) shouldProtectServer(ctx context.Context, inten
 		return false, err
 	}
 
-	serverName := intent.GetServerName()
 	for _, protectedServiceList := range protectedServicesResources.Items {
 		for _, protectedService := range protectedServiceList.Spec.ProtectedServices {
 			if protectedService.Name == serverName {
