@@ -20,8 +20,10 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
@@ -50,6 +52,10 @@ func NewProtectedServicesReconciler(client client.Client, scheme *runtime.Scheme
 }
 
 func (r *ProtectedServicesReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if !viper.GetBool(operatorconfig.EnableProtectedServicesKey) {
+		return r.DeleteAllDefaultDeny(ctx, req.Namespace)
+	}
+
 	var ProtectedServicesResources otterizev1alpha2.ProtectedServicesList
 
 	// Get all protected services in the namespace
@@ -155,6 +161,26 @@ func (r *ProtectedServicesReconciler) buildNetworkPolicyObjectForIntent(
 			Ingress: []v1.NetworkPolicyIngressRule{},
 		},
 	}
+}
+
+func (r *ProtectedServicesReconciler) DeleteAllDefaultDeny(ctx context.Context, namespace string) (ctrl.Result, error) {
+	var networkPolicies v1.NetworkPolicyList
+	err := r.List(ctx, &networkPolicies, client.InNamespace(namespace), client.MatchingLabels{
+		otterizev1alpha2.OtterizeNetworkPolicyDefaultDeny: "true",
+	})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	for _, existingPolicy := range networkPolicies.Items {
+		err = r.Delete(ctx, &existingPolicy)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		logrus.Infof("Deleted network policy %s", existingPolicy.Name)
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
