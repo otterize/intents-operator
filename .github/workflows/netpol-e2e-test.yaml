@@ -102,7 +102,7 @@ jobs:
           CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`          
           echo Client: $CLI1_POD      client_other: $CLI2_POD
-          source .github/workflows/netpol-e2e-test.yaml
+          source .github/workflows/test-bashrc.sh
           
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
           
@@ -145,7 +145,7 @@ jobs:
 
       - name: Wait for Calico startup
         run: |-
-          source .github/workflows/netpol-e2e-test.yaml
+          source .github/workflows/test-bashrc.sh
           kubectl wait pods -n kube-system -l k8s-app=calico-kube-controllers --for condition=Ready --timeout=90s
           kubectl wait pods -n kube-system -l k8s-app=calico-node --for condition=Ready --timeout=90s
           kubectl wait pods -n kube-system -l k8s-app=calico-kube-controllers --for condition=Ready --timeout=90s
@@ -190,7 +190,7 @@ jobs:
           CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           echo Client: $CLI1_POD      client_other: $CLI2_POD
-          source .github/workflows/netpol-e2e-test.yaml
+          source .github/workflows/test-bashrc.sh
 
           for i in {1..10}; do if ! kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.labels" | grep 'access-server'; then echo Waiting for label; sleep 1; else echo Label found; break; fi; done;
           if ! kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.labels" | grep 'access-server'; then echo Label not found; exit 1; fi
