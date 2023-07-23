@@ -45,6 +45,7 @@ const (
 	OtterizeCreatedForIngressAnnotation     = "intents.otterize.com/created-for-ingress"
 	OtterizeNetworkPolicyNameTemplate       = "access-to-%s-from-%s"
 	OtterizeNetworkPolicy                   = "intents.otterize.com/network-policy"
+	OtterizeNetworkPolicyDefaultDeny        = "intents.otterize.com/network-policy-default-deny"
 	OtterizeNetworkPolicyExternalTraffic    = "intents.otterize.com/network-policy-external-traffic"
 	NetworkPolicyFinalizerName              = "intents.otterize.com/network-policy-finalizer"
 	OtterizeIstioClientAnnotationKey        = "intents.otterize.com/istio-client"
