@@ -195,7 +195,7 @@ func main() {
 
 	netpolReconciler := external_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
 	if err = netpolReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to init index for netpol")
+		logrus.WithError(err).Fatal("unable to initialize NetworkPolicy reconciler")
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(

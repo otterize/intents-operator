@@ -55,13 +55,13 @@ func (r *NetworkPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.WithField("policy", req.NamespacedName.String()).Infof("Reconcile NetworkPolicy")
+	logrus.WithField("policy", req.NamespacedName.String()).Debug("Reconcile Otterize NetworkPolicy")
 
 	netpol := &v1.NetworkPolicy{}
 	err := r.Get(ctx, req.NamespacedName, netpol)
 
 	if k8serrors.IsNotFound(err) {
-		logrus.WithField("policy", req.NamespacedName.String()).Info("NetPol was deleted")
+		logrus.WithField("policy", req.NamespacedName.String()).Debug("NetPol was deleted")
 		return ctrl.Result{}, nil
 	}
 
