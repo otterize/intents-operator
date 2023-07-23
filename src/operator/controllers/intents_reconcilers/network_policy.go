@@ -5,10 +5,12 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -126,18 +128,32 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intentsObj *otterizev1alpha2.ClientIntents, intent otterizev1alpha2.Intent, intentsObjNamespace string) error {
 	if !r.enforcementEnabledGlobally {
+		logrus.Infof("Enforcement is disabled globally, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
 		r.RecordNormalEvent(intentsObj, ReasonEnforcementGloballyDisabled, "Enforcement is disabled globally, network policy creation skipped")
 		return nil
 	}
 	if !r.enableNetworkPolicyCreation {
+		logrus.Infof("Network policy creation is disabled, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
 		r.RecordNormalEvent(intentsObj, ReasonNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
+		return nil
+	}
+
+	createPolicy, err := r.shouldProtectServer(ctx, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
+	if err != nil {
+		return err
+	}
+
+	logrus.Infof("Server %s in namespace %s is in protected list: %t", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), createPolicy)
+	if !createPolicy {
+		logrus.Infof("Server not in protected list, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
+		// TODO: Make sure to delete policy if should not protect server
 		return nil
 	}
 
 	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, intent.GetServerName(), intentsObjNamespace)
 	existingPolicy := &v1.NetworkPolicy{}
 	newPolicy := r.buildNetworkPolicyObjectForIntent(intent, policyName, intentsObjNamespace)
-	err := r.Get(ctx, types.NamespacedName{
+	err = r.Get(ctx, types.NamespacedName{
 		Name:      policyName,
 		Namespace: intent.GetServerNamespace(intentsObjNamespace)},
 		existingPolicy)
@@ -152,6 +168,35 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	}
 
 	return r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, intentsObjNamespace)
+}
+
+func (r *NetworkPolicyReconciler) shouldProtectServer(ctx context.Context, serverName string, serverNamespace string) (bool, error) {
+	if !viper.GetBool(operatorconfig.EnableProtectedServicesKey) {
+		logrus.Info("Protected services are disabled, skipping protected service check")
+		return true, nil
+	}
+
+	logrus.Info("Protected services are enabled, checking if server is in protected list")
+	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
+	err := r.List(ctx, &protectedServicesResources, client.InNamespace(serverNamespace))
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	for _, protectedServiceList := range protectedServicesResources.Items {
+		for _, protectedService := range protectedServiceList.Spec.ProtectedServices {
+			if protectedService.Name == serverName {
+				logrus.Infof("Server %s in namespace %s is in protected list", serverName, serverNamespace)
+				return true, nil
+			}
+		}
+	}
+
+	logrus.Infof("Server %s in namespace %s is not in protected list", serverName, serverNamespace)
+	return false, nil
 }
 
 func (r *NetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, intent otterizev1alpha2.Intent, intentsObjNamespace string) error {
