@@ -210,11 +210,6 @@ func (r *NetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, exis
 		if err != nil {
 			return err
 		}
-
-		err = r.handleNetworkPolicyRemoval(ctx, intent, intentsObjNamespace)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
