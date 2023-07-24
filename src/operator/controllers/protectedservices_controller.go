@@ -58,12 +58,20 @@ func (r *ProtectedServicesReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	var ProtectedServicesResources otterizev1alpha2.ProtectedServicesList
 
-	// Get all protected services in the namespace
 	err := r.List(ctx, &ProtectedServicesResources, client.InNamespace(req.Namespace))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
+	err = r.blockAccessToServices(ctx, ProtectedServicesResources, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *ProtectedServicesReconciler) blockAccessToServices(ctx context.Context, ProtectedServicesResources otterizev1alpha2.ProtectedServicesList, namespace string) error {
 	serversToProtect := map[string]v1.NetworkPolicy{}
 	for _, list := range ProtectedServicesResources.Items {
 		if list.DeletionTimestamp != nil {
@@ -72,18 +80,18 @@ func (r *ProtectedServicesReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 
 		for _, service := range list.Spec.ProtectedServices {
-			formattedServerName := otterizev1alpha2.GetFormattedOtterizeIdentity(service.Name, req.Namespace)
-			policy := r.buildNetworkPolicyObjectForIntent(formattedServerName, service.Name, req.Namespace)
+			formattedServerName := otterizev1alpha2.GetFormattedOtterizeIdentity(service.Name, namespace)
+			policy := r.buildNetworkPolicyObjectForIntent(formattedServerName, service.Name, namespace)
 			serversToProtect[formattedServerName] = policy
 		}
 	}
 
 	var networkPolicies v1.NetworkPolicyList
-	err = r.List(ctx, &networkPolicies, client.InNamespace(req.Namespace), client.MatchingLabels{
+	err := r.List(ctx, &networkPolicies, client.InNamespace(namespace), client.MatchingLabels{
 		otterizev1alpha2.OtterizeNetworkPolicyDefaultDeny: "true",
 	})
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	for _, existingPolicy := range networkPolicies.Items {
@@ -93,13 +101,13 @@ func (r *ProtectedServicesReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			desiredPolicy := serversToProtect[existingPolicyServerName]
 			err = r.updateIfNeeded(existingPolicy, desiredPolicy)
 			if err != nil {
-				return ctrl.Result{}, err
+				return err
 			}
 			delete(serversToProtect, existingPolicyServerName)
 		} else {
 			err = r.Delete(ctx, &existingPolicy)
 			if err != nil {
-				return ctrl.Result{}, err
+				return err
 			}
 			logrus.Infof("Deleted network policy %s", existingPolicy.Name)
 		}
@@ -108,12 +116,12 @@ func (r *ProtectedServicesReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	for _, networkPolicy := range serversToProtect {
 		err = r.Create(ctx, &networkPolicy)
 		if err != nil {
-			return ctrl.Result{}, err
+			return err
 		}
 		logrus.Infof("Created network policy %s", networkPolicy.Name)
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (r *ProtectedServicesReconciler) updateIfNeeded(
