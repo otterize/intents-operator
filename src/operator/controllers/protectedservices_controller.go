@@ -88,7 +88,7 @@ func (r *ProtectedServicesReconciler) blockAccessToServices(ctx context.Context,
 
 	var networkPolicies v1.NetworkPolicyList
 	err := r.List(ctx, &networkPolicies, client.InNamespace(namespace), client.MatchingLabels{
-		otterizev1alpha2.OtterizeNetworkPolicyDefaultDeny: "true",
+		otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	})
 	if err != nil {
 		return err
@@ -155,8 +155,8 @@ func (r *ProtectedServicesReconciler) buildNetworkPolicyObjectForIntent(
 			Name:      policyName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				otterizev1alpha2.OtterizeNetworkPolicyDefaultDeny: "true",
-				otterizev1alpha2.OtterizeNetworkPolicy:            formattedServerName,
+				otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev1alpha2.OtterizeNetworkPolicy:                   formattedServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -174,7 +174,7 @@ func (r *ProtectedServicesReconciler) buildNetworkPolicyObjectForIntent(
 func (r *ProtectedServicesReconciler) DeleteAllDefaultDeny(ctx context.Context, namespace string) (ctrl.Result, error) {
 	var networkPolicies v1.NetworkPolicyList
 	err := r.List(ctx, &networkPolicies, client.InNamespace(namespace), client.MatchingLabels{
-		otterizev1alpha2.OtterizeNetworkPolicyDefaultDeny: "true",
+		otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	})
 	if err != nil {
 		return ctrl.Result{}, err
