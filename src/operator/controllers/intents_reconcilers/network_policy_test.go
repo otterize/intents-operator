@@ -196,6 +196,70 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespac
 	)
 }
 
+func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
+	clientIntentsName := "client-intents"
+	policyName := "access-to-test-server-from-test-namespace"
+	serviceName := "test-client"
+	serverNamespace := testNamespace
+	formattedTargetServer := "test-server-test-namespace-8ddecb"
+
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev1alpha2.IntentsSpec{
+		Service: otterizev1alpha2.Service{Name: serviceName},
+		Calls: []otterizev1alpha2.Intent{
+			{
+				Name: serverName,
+			},
+		},
+	}
+
+	// Initial call to get the ClientIntents object when reconciler starts
+	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+			intents.Spec = intentsSpec
+			return nil
+		})
+
+	// Search for existing NetworkPolicy
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	networkPolicyNamespacedName := types.NamespacedName{
+		Namespace: serverNamespace,
+		Name:      policyName,
+	}
+
+	newPolicy := networkPolicyTemplate(
+		policyName,
+		serverNamespace,
+		formattedTargetServer,
+		testNamespace,
+	)
+	existingBadPolicy := newPolicy.DeepCopy()
+	existingBadPolicy.Spec.Ingress[0].From[0].PodSelector.MatchLabels["another-label"] = "just to create diff from real policy"
+	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			existingBadPolicy.DeepCopyInto(networkPolicy)
+			return nil
+		})
+
+	// Update NetworkPolicy
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(newPolicy), MatchPatch(client.MergeFrom(existingBadPolicy))).Return(nil)
+
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Equal(ctrl.Result{}, res)
+	s.ExpectEvent(ReasonCreatedNetworkPolicies)
+}
+
 func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsName string, serverNamespace string, serviceName string, policyName string, formattedTargetServer string) {
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
