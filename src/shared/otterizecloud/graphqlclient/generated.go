@@ -208,6 +208,25 @@ const (
 	KafkaTopicPatternPrefix  KafkaTopicPattern = "PREFIX"
 )
 
+type NetworkPolicyInput struct {
+	Namespace             string `json:"namespace"`
+	Name                  string `json:"name"`
+	ServerName            string `json:"serverName"`
+	ExternalTrafficPolicy bool   `json:"externalTrafficPolicy"`
+}
+
+// GetNamespace returns NetworkPolicyInput.Namespace, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetNamespace() string { return v.Namespace }
+
+// GetName returns NetworkPolicyInput.Name, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetName() string { return v.Name }
+
+// GetServerName returns NetworkPolicyInput.ServerName, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetServerName() string { return v.ServerName }
+
+// GetExternalTrafficPolicy returns NetworkPolicyInput.ExternalTrafficPolicy, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetExternalTrafficPolicy() bool { return v.ExternalTrafficPolicy }
+
 // ReportAppliedKubernetesIntentsResponse is returned by ReportAppliedKubernetesIntents on success.
 type ReportAppliedKubernetesIntentsResponse struct {
 	ReportAppliedKubernetesIntents *bool `json:"reportAppliedKubernetesIntents"`
@@ -247,6 +266,16 @@ type ReportKafkaServerConfigResponse struct {
 // GetReportKafkaServerConfigs returns ReportKafkaServerConfigResponse.ReportKafkaServerConfigs, and is useful for accessing the field via an interface.
 func (v *ReportKafkaServerConfigResponse) GetReportKafkaServerConfigs() bool {
 	return v.ReportKafkaServerConfigs
+}
+
+// ReportNetworkPoliciesResponse is returned by ReportNetworkPolicies on success.
+type ReportNetworkPoliciesResponse struct {
+	ReportNetworkPolicies bool `json:"reportNetworkPolicies"`
+}
+
+// GetReportNetworkPolicies returns ReportNetworkPoliciesResponse.ReportNetworkPolicies, and is useful for accessing the field via an interface.
+func (v *ReportNetworkPoliciesResponse) GetReportNetworkPolicies() bool {
+	return v.ReportNetworkPolicies
 }
 
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
@@ -292,6 +321,18 @@ func (v *__ReportKafkaServerConfigInput) GetNamespace() string { return v.Namesp
 func (v *__ReportKafkaServerConfigInput) GetKafkaServerConfigs() []KafkaServerConfigInput {
 	return v.KafkaServerConfigs
 }
+
+// __ReportNetworkPoliciesInput is used internally by genqlient
+type __ReportNetworkPoliciesInput struct {
+	Namespace string               `json:"namespace"`
+	Policies  []NetworkPolicyInput `json:"policies"`
+}
+
+// GetNamespace returns __ReportNetworkPoliciesInput.Namespace, and is useful for accessing the field via an interface.
+func (v *__ReportNetworkPoliciesInput) GetNamespace() string { return v.Namespace }
+
+// GetPolicies returns __ReportNetworkPoliciesInput.Policies, and is useful for accessing the field via an interface.
+func (v *__ReportNetworkPoliciesInput) GetPolicies() []NetworkPolicyInput { return v.Policies }
 
 func ReportAppliedKubernetesIntents(
 	ctx context.Context,
@@ -406,6 +447,38 @@ mutation ReportKafkaServerConfig ($namespace: String!, $kafkaServerConfigs: [Kaf
 	var err error
 
 	var data ReportKafkaServerConfigResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func ReportNetworkPolicies(
+	ctx context.Context,
+	client graphql.Client,
+	namespace string,
+	policies []NetworkPolicyInput,
+) (*ReportNetworkPoliciesResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportNetworkPolicies",
+		Query: `
+mutation ReportNetworkPolicies ($namespace: String!, $policies: [NetworkPolicyInput!]!) {
+	reportNetworkPolicies(namespace: $namespace, policies: $policies)
+}
+`,
+		Variables: &__ReportNetworkPoliciesInput{
+			Namespace: namespace,
+			Policies:  policies,
+		},
+	}
+	var err error
+
+	var data ReportNetworkPoliciesResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(
