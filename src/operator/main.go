@@ -193,6 +193,11 @@ func main() {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
 
+	netpolReconciler := external_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
+	if err = netpolReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to initialize NetworkPolicy reconciler")
+	}
+
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
