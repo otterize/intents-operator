@@ -174,7 +174,30 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 
 			return res
 		})
+	if err != nil {
+		return err
+	}
 
+	err = mgr.GetCache().IndexField(
+		context.Background(),
+		&otterizev1alpha2.ClientIntents{},
+		otterizev1alpha2.OtterizeFormattedTargetServerIndexField,
+		func(object client.Object) []string {
+			var res []string
+			intents := object.(*otterizev1alpha2.ClientIntents)
+			if intents.Spec == nil {
+				return nil
+			}
+
+			for _, intent := range intents.GetCallsList() {
+				serverName := intent.GetServerName()
+				serverNamespace := intent.GetServerNamespace(intents.Namespace)
+				formattedServerName := otterizev1alpha2.GetFormattedOtterizeIdentity(serverName, serverNamespace)
+				res = append(res, formattedServerName)
+			}
+
+			return res
+		})
 	if err != nil {
 		return err
 	}

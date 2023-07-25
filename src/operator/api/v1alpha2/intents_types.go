@@ -54,6 +54,7 @@ const (
 	OtterizeMissingSidecarAnnotation        = "intents.otterize.com/service-missing-sidecar"
 	OtterizeServersWithoutSidecarAnnotation = "intents.otterize.com/servers-without-sidecar"
 	OtterizeTargetServerIndexField          = "spec.service.calls.server"
+	OtterizeFormattedTargetServerIndexField = "formattedTargetServer"
 	EndpointsPodNamesIndexField             = "endpointsPodNames"
 	IngressServiceNamesIndexField           = "ingressServiceNames"
 	NetworkPoliciesByIngressNameIndexField  = "networkPoliciesByIngressName"

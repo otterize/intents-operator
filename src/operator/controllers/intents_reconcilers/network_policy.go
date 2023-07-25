@@ -15,6 +15,7 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -115,6 +116,12 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			r.RecordWarningEventf(intents, ReasonCreatingNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
 			return ctrl.Result{}, err
 		}
+	}
+
+	err = r.removeOrphanNetworkPolicies(ctx)
+	if err != nil {
+		r.RecordWarningEventf(intents, ReasonRemovingNetworkPolicyFailed, "could not remove orphan network policies: %s", err.Error())
+		return ctrl.Result{}, err
 	}
 
 	if len(intents.GetCallsList()) > 0 {
@@ -223,6 +230,10 @@ func (r *NetworkPolicyReconciler) CreateNetworkPolicy(ctx context.Context, inten
 		return err
 	}
 
+	return r.reconcileEndpointsForPolicy(ctx, newPolicy)
+}
+
+func (r *NetworkPolicyReconciler) reconcileEndpointsForPolicy(ctx context.Context, newPolicy *v1.NetworkPolicy) error {
 	selector, err := metav1.LabelSelectorAsSelector(&newPolicy.Spec.PodSelector)
 	if err != nil {
 		return err
@@ -317,6 +328,66 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyRemoval(
 	return nil
 }
 
+func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Context) error {
+	logrus.Info("Searching for orphaned network policies")
+	networkPolicyList := &v1.NetworkPolicyList{}
+	selector, err := r.matchAccessNetworkPolicy()
+	if err != nil {
+		return err
+	}
+
+	err = r.List(ctx, networkPolicyList, &client.ListOptions{LabelSelector: selector})
+	if err != nil {
+		logrus.Infof("Error listing network policies: %s", err.Error())
+		return err
+	}
+
+	logrus.Infof("Selector: %s found %d network policies", selector.String(), len(networkPolicyList.Items))
+	for _, networkPolicy := range networkPolicyList.Items {
+		// Get all client intents that reference this network policy
+		var intentsList otterizev1alpha2.ClientIntentsList
+		serverName := networkPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
+		err = r.List(ctx, &intentsList, &client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: serverName})
+		if err != nil {
+			return err
+		}
+
+		if len(intentsList.Items) == 0 {
+			logrus.Infof("Removing orphaned network policy: %s server %s ns %s", networkPolicy.Name, serverName, networkPolicy.Namespace)
+			err = r.removeRelatedExternalNetworkPolicies(ctx, &networkPolicy)
+			if err != nil {
+				return err
+			}
+			err = r.Delete(ctx, &networkPolicy)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *NetworkPolicyReconciler) matchAccessNetworkPolicy() (labels.Selector, error) {
+	isOtterizeNetworkPolicy := metav1.LabelSelectorRequirement{
+		Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+		Operator: metav1.LabelSelectorOpExists,
+	}
+	isNotExternalTrafficPolicy := metav1.LabelSelectorRequirement{
+		Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
+		Operator: metav1.LabelSelectorOpDoesNotExist,
+	}
+	isNotDefaultDenyPolicy := metav1.LabelSelectorRequirement{
+		Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
+		Operator: metav1.LabelSelectorOpDoesNotExist,
+	}
+	return metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		isOtterizeNetworkPolicy,
+		isNotExternalTrafficPolicy,
+		isNotDefaultDenyPolicy,
+	}})
+}
+
 func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 	ctx context.Context,
 	intent otterizev1alpha2.Intent,
@@ -348,24 +419,36 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 
 	// This is the last intent out of all namespaces, so it's safe to delete the external traffic policy, unless we are
 	// creating external traffic policies regardless of intents.
-	if len(intentsList.Items) == 1 && !r.externalNetworkPoliciesCreatedEvenIfNoIntents {
-		externalPolicyList := &v1.NetworkPolicyList{}
-		serviceNameLabel := policy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
-		err = r.List(ctx, externalPolicyList, client.MatchingLabels{otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
-			&client.ListOptions{Namespace: policy.Namespace})
+	if len(intentsList.Items) == 1 {
+		err = r.removeRelatedExternalNetworkPolicies(ctx, policy)
 		if err != nil {
 			return err
-		}
-
-		for _, externalPolicy := range externalPolicyList.Items {
-			err := r.Delete(ctx, externalPolicy.DeepCopy())
-			if err != nil {
-				return err
-			}
 		}
 	}
 
 	return r.Delete(ctx, policy)
+}
+
+func (r *NetworkPolicyReconciler) removeRelatedExternalNetworkPolicies(ctx context.Context, accessPolicy *v1.NetworkPolicy) error {
+	if r.externalNetworkPoliciesCreatedEvenIfNoIntents {
+		return nil
+	}
+
+	externalPolicyList := &v1.NetworkPolicyList{}
+	serviceNameLabel := accessPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
+	err := r.List(ctx, externalPolicyList, client.MatchingLabels{otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
+		&client.ListOptions{Namespace: accessPolicy.Namespace})
+	if err != nil {
+		return err
+	}
+
+	for _, externalPolicy := range externalPolicyList.Items {
+		err := r.Delete(ctx, externalPolicy.DeepCopy())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
