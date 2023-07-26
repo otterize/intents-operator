@@ -198,7 +198,7 @@ func main() {
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
-		endpointReconciler,
+		extNetpolHandler,
 		watchedNamespaces,
 		enforcementConfig,
 		autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement,

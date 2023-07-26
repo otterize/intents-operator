@@ -12,6 +12,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -166,6 +167,50 @@ func (r *NetworkPolicyHandler) HandleEndpointsByName(ctx context.Context, servic
 	}
 
 	return r.HandleEndpoints(ctx, endpoints)
+}
+
+func (r *NetworkPolicyHandler) HandlePodsByLabelSelector(ctx context.Context, namespace string, labelSelector labels.Selector) error {
+	podList := &corev1.PodList{}
+	err := r.client.List(ctx, podList,
+		&client.ListOptions{Namespace: namespace},
+		client.MatchingLabelsSelector{Selector: labelSelector})
+	if err != nil {
+		return err
+	}
+	return r.handlePodList(ctx, podList)
+}
+
+func (r *NetworkPolicyHandler) handlePodList(ctx context.Context, podList *corev1.PodList) error {
+	for _, pod := range podList.Items {
+		err := r.handlePod(ctx, &pod)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod) error {
+	var endpointsList corev1.EndpointsList
+
+	err := r.client.List(
+		ctx,
+		&endpointsList,
+		&client.MatchingFields{v1alpha2.EndpointsPodNamesIndexField: pod.Name},
+		&client.ListOptions{Namespace: pod.Namespace},
+	)
+
+	if err != nil {
+		return err
+	}
+	for _, endpoints := range endpointsList.Items {
+		if err := r.HandleEndpoints(ctx, &endpoints); err != nil {
+			return err
+		}
+	}
+
+	return nil
+
 }
 
 func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *corev1.Endpoints) error {
