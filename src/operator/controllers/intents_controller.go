@@ -44,6 +44,7 @@ type EnforcementConfig struct {
 	EnableNetworkPolicy        bool
 	EnableKafkaACL             bool
 	EnableIstioPolicy          bool
+	EnableProtectedServices    bool
 }
 
 // IntentsReconciler reconciles a Intents object
