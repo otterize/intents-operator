@@ -1,4 +1,4 @@
-package controllers
+package protected_services_reconcilers
 
 import (
 	"context"
@@ -24,28 +24,29 @@ const (
 	protectedServiceFormattedName        = "test-service-test-namespace-b0207e"
 	anotherProtectedService              = "other-test-service"
 	anotherProtectedServiceFormattedName = "other-test-service-test-namespace-398a04"
+	testNamespace                        = "test-namespace"
 )
 
-type ProtectedServiceReconcilerTestSuite struct {
+type DefaultDenyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
-	reconciler *ProtectedServicesReconciler
+	reconciler *DefaultDenyReconciler
 }
 
-func (s *ProtectedServiceReconcilerTestSuite) SetupTest() {
+func (s *DefaultDenyReconcilerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 
 	scheme := runtime.NewScheme()
-	s.reconciler = NewProtectedServicesReconciler(s.Client, scheme)
+	s.reconciler = NewDefaultDenyReconciler(s.Client, scheme)
 	viper.Set(operatorconfig.EnableProtectedServicesKey, true)
 }
 
-func (s *ProtectedServiceReconcilerTestSuite) TearDownTest() {
+func (s *DefaultDenyReconcilerTestSuite) TearDownTest() {
 	viper.Reset()
 	s.reconciler = nil
 	s.MocksSuiteBase.TearDownTest()
 }
 
-func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServicesCreate() {
+func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
 	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
 		{
@@ -111,7 +112,7 @@ func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServicesCreate() {
 	s.Require().NoError(err)
 }
 
-func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServicesCreateFromMultipleLists() {
+func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultipleLists() {
 	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
 		{
@@ -213,7 +214,7 @@ func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServicesCreateFromMul
 }
 
 // TestDeleteProtectedServices tests the deletion of a protected service when the service is no longer in the list of protected services
-func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServiceNotInList() {
+func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
 		{
@@ -280,7 +281,7 @@ func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServiceNotInList() {
 	s.Require().NoError(err)
 }
 
-func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServiceResourceBeingDeleted() {
+func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDeleted() {
 	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
 		{
@@ -351,7 +352,7 @@ func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServiceResourceBeingD
 	s.Require().NoError(err)
 }
 
-func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServiceResourceAlreadyDeleted() {
+func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceAlreadyDeleted() {
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServicesList{}), client.InNamespace(testNamespace)).Return(nil)
 
 	request := ctrl.Request{
@@ -400,7 +401,7 @@ func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServiceResourceAlread
 	s.Require().NoError(err)
 }
 
-func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
+func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
 		{
@@ -497,7 +498,7 @@ func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServiceAlreadyExists(
 	s.Require().NoError(err)
 }
 
-func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServiceUpdate() {
+func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
 	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
 		{
@@ -584,7 +585,7 @@ func (s *ProtectedServiceReconcilerTestSuite) TestProtectedServiceUpdate() {
 	s.Require().NoError(err)
 }
 
-func (s *ProtectedServiceReconcilerTestSuite) TestDeleteAllWhenFeatureDisabled() {
+func (s *DefaultDenyReconcilerTestSuite) TestDeleteAllWhenFeatureDisabled() {
 	viper.Set(operatorconfig.EnableProtectedServicesKey, false)
 
 	formattedServerName := protectedServiceFormattedName
@@ -653,6 +654,6 @@ func (s *ProtectedServiceReconcilerTestSuite) TestDeleteAllWhenFeatureDisabled()
 
 }
 
-func TestProtectedServiceReconcilerTestSuite(t *testing.T) {
-	suite.Run(t, new(ProtectedServiceReconcilerTestSuite))
+func TestDefaultDenyReconcilerTestSuite(t *testing.T) {
+	suite.Run(t, new(DefaultDenyReconcilerTestSuite))
 }
