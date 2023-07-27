@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
@@ -15,6 +14,7 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"reflect"
@@ -33,10 +33,14 @@ const (
 	ReasonCreatedNetworkPolicies        = "CreatedNetworkPolicies"
 )
 
+type externalNetpolHandler interface {
+	HandlePodsByLabelSelector(ctx context.Context, namespace string, labelSelector labels.Selector) error
+}
+
 type NetworkPolicyReconciler struct {
 	client.Client
 	Scheme                                        *runtime.Scheme
-	extNetpolHandler                              *external_traffic.NetworkPolicyHandler
+	extNetpolHandler                              externalNetpolHandler
 	RestrictToNamespaces                          []string
 	enableNetworkPolicyCreation                   bool
 	enforcementEnabledGlobally                    bool
@@ -47,7 +51,7 @@ type NetworkPolicyReconciler struct {
 func NewNetworkPolicyReconciler(
 	c client.Client,
 	s *runtime.Scheme,
-	extNetpolHandler *external_traffic.NetworkPolicyHandler,
+	extNetpolHandler externalNetpolHandler,
 	restrictToNamespaces []string,
 	enableNetworkPolicyCreation bool,
 	enforcementEnabledGlobally bool,

@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,19 +25,19 @@ import (
 
 type NetworkPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
-	Reconciler          *NetworkPolicyReconciler
-	endpointsReconciler *mocks.MockEndpointsReconciler
+	Reconciler            *NetworkPolicyReconciler
+	externalNetpolHandler *mocks.MockexternalNetpolHandler
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.endpointsReconciler = mocks.NewMockEndpointsReconciler(s.Controller)
+	s.externalNetpolHandler = mocks.NewMockexternalNetpolHandler(s.Controller)
 	restrictToNamespaces := make([]string, 0)
 
 	s.Reconciler = NewNetworkPolicyReconciler(
 		s.Client,
 		&runtime.Scheme{},
-		s.endpointsReconciler,
+		s.externalNetpolHandler,
 		restrictToNamespaces,
 		true,
 		true,
@@ -51,7 +50,7 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 func (s *NetworkPolicyReconcilerTestSuite) TearDownTest() {
 	viper.Reset()
 	s.Reconciler = nil
-	s.endpointsReconciler = nil
+	s.externalNetpolHandler = nil
 	s.MocksSuiteBase.TearDownTest()
 }
 
@@ -399,63 +398,12 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
-	// Get Pods in server namespace
-	emptyPodList := &corev1.PodList{}
-	listOptions := &client.ListOptions{
-		Namespace: serverNamespace,
-	}
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
 		otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
 	}))
-	serverPodName := "test-server"
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(emptyPodList), listOptions, client.MatchingLabelsSelector{Selector: selector}).DoAndReturn(
-		func(ctx context.Context, podList *corev1.PodList, options ...client.ListOption) error {
-			podList.Items = []corev1.Pod{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      serverPodName,
-						Namespace: serverNamespace,
-						Labels: map[string]string{
-							otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
-						},
-					},
-				},
-			}
-			return nil
-		})
 
-	// Get Endpoints in server namespace
-	emptyEndpoints := &corev1.EndpointsList{}
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(emptyEndpoints), &client.MatchingFields{otterizev1alpha2.EndpointsPodNamesIndexField: serverPodName}, listOptions).DoAndReturn(
-		func(ctx context.Context, endpointsList *corev1.EndpointsList, options ...client.ListOption) error {
-			endpointsList.Items = []corev1.Endpoints{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      serverName,
-						Namespace: serverNamespace,
-					},
-					Subsets: []corev1.EndpointSubset{
-						{
-							Addresses: []corev1.EndpointAddress{
-								{
-									IP: "172.249.1.17",
-								},
-							},
-						},
-					},
-				},
-			}
-			return nil
-		})
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
 
-	endpointRequest := ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: serverNamespace,
-			Name:      serverName,
-		},
-	}
-
-	s.endpointsReconciler.EXPECT().Reconcile(gomock.Any(), endpointRequest).Return(ctrl.Result{}, nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Equal(ctrl.Result{}, res)
