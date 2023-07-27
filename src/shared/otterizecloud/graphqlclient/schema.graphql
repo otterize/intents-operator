@@ -353,6 +353,7 @@ type IntentsOperatorConfiguration {
 	kafkaACLEnforcementEnabled: Boolean!
 	istioPolicyEnforcementEnabled: Boolean!
 	protectedServicesEnabled: Boolean!
+	protectedServices: [Service!]!
 }
 
 input IntentsOperatorConfigurationInput {
@@ -638,6 +639,10 @@ type Mutation {
 		id: ID!
 		environmentId: ID
 	): Namespace!
+	reportProtectedServicesSnapshot(
+		namespace: String!
+		services: [ProtectedServiceInput!]!
+	): Boolean!
 }
 
 type Namespace {
@@ -670,6 +675,10 @@ type Organization {
 	id: ID!
 	name: String
 	imageURL: String
+}
+
+input ProtectedServiceInput {
+	name: String!
 }
 
 type Query {

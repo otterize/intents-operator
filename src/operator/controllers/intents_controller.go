@@ -22,8 +22,8 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
@@ -61,7 +61,7 @@ func NewIntentsReconciler(
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
 	externalNetworkPoliciesCreatedEvenIfNoIntents bool,
-	otterizeClient otterizecloud.CloudClient,
+	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string) *IntentsReconciler {
 	reconcilersGroup := reconcilergroup.NewGroup("intents-reconciler", client, scheme,
@@ -78,7 +78,7 @@ func NewIntentsReconciler(
 	}
 
 	if otterizeClient != nil {
-		otterizeCloudReconciler := otterizecloud.NewOtterizeCloudReconciler(client, scheme, otterizeClient)
+		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
 	}
 

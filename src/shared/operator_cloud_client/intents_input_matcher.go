@@ -1,4 +1,4 @@
-package otterizecloud
+package operator_cloud_client
 
 import (
 	"fmt"

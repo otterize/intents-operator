@@ -1,9 +1,10 @@
-package otterizecloud
+package intents_reconcilers
 
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -17,14 +18,14 @@ import (
 type OtterizeCloudReconciler struct {
 	client.Client
 	Scheme         *runtime.Scheme
-	otterizeClient CloudClient
+	otterizeClient operator_cloud_client.CloudClient
 	injectablerecorder.InjectableRecorder
 }
 
 func NewOtterizeCloudReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	cloudClient CloudClient) *OtterizeCloudReconciler {
+	cloudClient operator_cloud_client.CloudClient) *OtterizeCloudReconciler {
 
 	return &OtterizeCloudReconciler{
 		Client:         client,
