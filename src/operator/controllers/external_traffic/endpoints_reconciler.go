@@ -54,23 +54,6 @@ func (r *EndpointsReconcilerImpl) InjectRecorder(recorder record.EventRecorder) 
 	r.extNetpolHandler.InjectRecorder(recorder)
 }
 
-// Reconcile handles three cases:
-// (1) It watches Endpoints, which means it gets updates when Services are updated, or the pods backing them are updated.
-//
-//	    When that happens, and the Service is of type LoadBalancer, NodePort, or is referenced by an Ingress,
-//		   it checks if the backing pods are affected by Otterize Intents Network Policies.
-//		   If so, and the reconciler is enabled, it will create network policies to allow external traffic to those pods.
-//		   If the Endpoints (= Services) update port, it will update the port specified in the corresponding network policy.
-//		   If the Endpoints no longer refer to pods affected by Intents, then the network policy will be deleted.
-//		   If the Service is deleted completely, then the corresponding network policy will be deleted, since it is owned
-//		   by the service.
-//
-// (2) It receives reconcile requests from the IngressReconciler, when Ingresses are created, updated or deleted.
-// (3) It receives reconcile requests from the Intents NetworkPolicyReconciler, when Network Policies that apply intents
-//
-//	are created, updated or deleted. This means that if you create, update or delete intents, the corresponding
-//	external traffic policy will be created (if there were no other intents affecting the service before then) or
-//	deleted (if no intents network policies refer to the pods backing the service any longer).
 func (r *EndpointsReconcilerImpl) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	endpoints := &corev1.Endpoints{}
 	err := r.Get(ctx, req.NamespacedName, endpoints)
