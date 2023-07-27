@@ -251,8 +251,8 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 
 	// Remove network policy:
 	// 1. get the network policy
-	// 2. get all external policies for this service
-	// 3. delete all of them
+	// 2. delete it
+	// 3.call external netpol handler
 
 	networkPolicyNamespacedName := types.NamespacedName{
 		Namespace: serverNamespace,
@@ -273,57 +273,11 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 			return nil
 		})
 
-	emptyExternalPolicyList := &v1.NetworkPolicyList{}
-	externalPolicyList := &v1.NetworkPolicyList{
-		Items: []v1.NetworkPolicy{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "external-policy-1",
-					Namespace: testNamespace,
-				},
-				Spec: v1.NetworkPolicySpec{
-					PodSelector: metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							otterizev1alpha2.OtterizeNetworkPolicy: formattedTargetServer,
-						},
-					},
-				},
-			},
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "external-policy-2",
-					Namespace: testNamespace,
-				},
-				Spec: v1.NetworkPolicySpec{
-					PodSelector: metav1.LabelSelector{
-						MatchLabels: map[string]string{
-							otterizev1alpha2.OtterizeNetworkPolicy: formattedTargetServer,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	s.Client.EXPECT().List(
-		gomock.Any(),
-		gomock.Eq(emptyIntentsList),
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serverName},
-	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts ...client.ListOption) error {
-		intentsList.DeepCopyInto(list)
-		return nil
-	})
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(emptyExternalPolicyList), client.MatchingLabels{otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic: formattedTargetServer}, &client.ListOptions{Namespace: existingPolicy.Namespace}).DoAndReturn(
-		func(ctx context.Context, list *v1.NetworkPolicyList, opts ...client.ListOption) error {
-			externalPolicyList.DeepCopyInto(list)
-			return nil
-		})
-
-	gomock.InOrder(
-		s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(&externalPolicyList.Items[0])).Return(nil),
-		s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(&externalPolicyList.Items[1])).Return(nil),
-	)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{
+		otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
+	}))
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
 
 	// Remove finalizer
 	controllerutil.AddFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)

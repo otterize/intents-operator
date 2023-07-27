@@ -285,6 +285,16 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyRemoval(
 		if err = r.deleteNetworkPolicy(ctx, intent, intentsObjNamespace); err != nil {
 			return err
 		}
+
+		labelSelector := r.buildPodLabelSelectorFromIntent(intent, intentsObjNamespace)
+		selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
+		if err != nil {
+			return err
+		}
+		if err = r.extNetpolHandler.HandlePodsByLabelSelector(ctx, intent.GetServerNamespace(intentsObjNamespace), selector); err != nil {
+			return err
+		}
+
 	}
 	return nil
 }
@@ -304,39 +314,6 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 		return err
 	}
 
-	// Remove network policies created by the external traffic reconcilers.
-	// Once no more Otterize network policies are present, there's no longer need for them.
-	// Before we do this, we must check there are no Otterize network policies in ANY namespace.
-	// This function is called once there are no more network policies from this namespace.
-
-	var intentsList otterizev1alpha2.ClientIntentsList
-	err = r.List(
-		ctx, &intentsList,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: intent.GetServerFullyQualifiedName(intentsObjNamespace)})
-
-	if err != nil {
-		return err
-	}
-
-	// This is the last intent out of all namespaces, so it's safe to delete the external traffic policy, unless we are
-	// creating external traffic policies regardless of intents.
-	if len(intentsList.Items) == 1 && !r.externalNetworkPoliciesCreatedEvenIfNoIntents {
-		externalPolicyList := &v1.NetworkPolicyList{}
-		serviceNameLabel := policy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
-		err = r.List(ctx, externalPolicyList, client.MatchingLabels{otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
-			&client.ListOptions{Namespace: policy.Namespace})
-		if err != nil {
-			return err
-		}
-
-		for _, externalPolicy := range externalPolicyList.Items {
-			err := r.Delete(ctx, externalPolicy.DeepCopy())
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	return r.Delete(ctx, policy)
 }
 
@@ -346,7 +323,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 	targetNamespace := intent.GetServerNamespace(intentsObjNamespace)
 	// The intent's target server made of name + namespace + hash
 	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), targetNamespace)
-
+	podSelector := r.buildPodLabelSelectorFromIntent(intent, intentsObjNamespace)
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
@@ -357,11 +334,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
-				},
-			},
+			PodSelector: podSelector,
 			Ingress: []v1.NetworkPolicyIngressRule{
 				{
 					From: []v1.NetworkPolicyPeer{
@@ -381,6 +354,18 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 					},
 				},
 			},
+		},
+	}
+}
+
+func (r *NetworkPolicyReconciler) buildPodLabelSelectorFromIntent(intent otterizev1alpha2.Intent, intentsObjNamespace string) metav1.LabelSelector {
+	targetNamespace := intent.GetServerNamespace(intentsObjNamespace)
+	// The intent's target server made of name + namespace + hash
+	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), targetNamespace)
+
+	return metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
 		},
 	}
 }
