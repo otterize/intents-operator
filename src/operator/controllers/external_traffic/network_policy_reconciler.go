@@ -102,10 +102,10 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 
 		inputs = append(inputs, graphqlclient.NetworkPolicyInput{
-			Namespace:             req.Namespace,
-			Name:                  req.Name,
-			ServerName:            serviceId.Name,
-			ExternalTrafficPolicy: true,
+			Namespace:                    req.Namespace,
+			Name:                         req.Name,
+			ServerName:                   serviceId.Name,
+			ExternalNetworkTrafficPolicy: true,
 		})
 	}
 
