@@ -54,7 +54,6 @@ func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, Prote
 	serversToProtect := map[string]v1.NetworkPolicy{}
 	for _, list := range ProtectedServicesResources.Items {
 		if list.DeletionTimestamp != nil {
-			logrus.Infof("Protected service %s is being deleted and ignored", list.Name)
 			continue
 		}
 
