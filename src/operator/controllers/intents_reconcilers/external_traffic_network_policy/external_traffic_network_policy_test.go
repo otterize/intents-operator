@@ -59,11 +59,11 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	createEvenIfNoIntentsFound := false
-	s.NetworkPolicyReconciler = intents_reconcilers.NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, true, createEvenIfNoIntentsFound)
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, createEvenIfNoIntentsFound, true)
+	s.NetworkPolicyReconciler = intents_reconcilers.NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, true, true, createEvenIfNoIntentsFound)
 	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
 	s.NetworkPolicyReconciler.InjectRecorder(recorder)
 
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, createEvenIfNoIntentsFound, true)
 	s.endpointReconciler = external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.endpointReconciler.InjectRecorder(recorder)
 	err := s.endpointReconciler.InitIngressReferencedServicesIndex(s.Mgr)
