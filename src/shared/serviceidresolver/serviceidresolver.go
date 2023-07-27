@@ -95,7 +95,7 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 		if err != nil && k8serrors.IsForbidden(err) {
 			// We don't have permissions for further resolving of the owner object,
 			// and so we treat it as the identity.
-			log.WithFields(logrus.Fields{"owner": owner.Name, "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Warning(
+			log.WithError(err).WithFields(logrus.Fields{"owner": owner.Name, "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Warning(
 				"permission error resolving owner, will use owner object as service identifier",
 			)
 			ownerObj.SetName(owner.Name)

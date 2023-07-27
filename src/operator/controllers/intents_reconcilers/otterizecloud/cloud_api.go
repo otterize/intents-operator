@@ -13,6 +13,7 @@ type CloudClient interface {
 	ReportAppliedIntents(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error
 	ReportIntentsOperatorConfiguration(ctx context.Context, config graphqlclient.IntentsOperatorConfigurationInput) error
 	ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType)
+	ReportNetworkPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error
 }
 
 type CloudClientImpl struct {
@@ -72,4 +73,13 @@ func (c *CloudClientImpl) ReportComponentStatus(ctx context.Context, component g
 		logrus.WithError(err).Error("failed to reported component status Otterize cloud")
 		return
 	}
+}
+
+func (c *CloudClientImpl) ReportNetworkPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error {
+	logrus.WithField("namespace", namespace).
+		WithField("count", len(policies)).
+		Infof("Reporting network policies")
+
+	_, err := graphqlclient.ReportNetworkPolicies(ctx, c.client, namespace, policies)
+	return err
 }

@@ -92,6 +92,7 @@ func main() {
 		EnableNetworkPolicy:        viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
 		EnableKafkaACL:             viper.GetBool(operatorconfig.EnableKafkaACLKey),
 		EnableIstioPolicy:          viper.GetBool(operatorconfig.EnableIstioPolicyKey),
+		EnableProtectedServices:    viper.GetBool(operatorconfig.EnableProtectedServicesKey),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev1alpha2.TLSSource{
@@ -194,6 +195,11 @@ func main() {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
 
+	netpolReconciler := external_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
+	if err = netpolReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to initialize NetworkPolicy reconciler")
+	}
+
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
@@ -294,6 +300,7 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient otterizecloud.
 		NetworkPolicyEnforcementEnabled: config.EnforcementEnabledGlobally && config.EnableNetworkPolicy,
 		KafkaACLEnforcementEnabled:      config.EnforcementEnabledGlobally && config.EnableKafkaACL,
 		IstioPolicyEnforcementEnabled:   config.EnforcementEnabledGlobally && config.EnableIstioPolicy,
+		ProtectedServicesEnabled:        config.EnforcementEnabledGlobally && config.EnableProtectedServices,
 	})
 	if err != nil {
 		logrus.WithError(err).Error("Failed to report configuration to the cloud")

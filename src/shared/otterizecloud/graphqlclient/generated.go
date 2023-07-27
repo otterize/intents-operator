@@ -16,6 +16,27 @@ const (
 	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
 )
 
+type DatabaseConfigInput struct {
+	Table      *string              `json:"table"`
+	Operations []*DatabaseOperation `json:"operations"`
+}
+
+// GetTable returns DatabaseConfigInput.Table, and is useful for accessing the field via an interface.
+func (v *DatabaseConfigInput) GetTable() *string { return v.Table }
+
+// GetOperations returns DatabaseConfigInput.Operations, and is useful for accessing the field via an interface.
+func (v *DatabaseConfigInput) GetOperations() []*DatabaseOperation { return v.Operations }
+
+type DatabaseOperation string
+
+const (
+	DatabaseOperationAll    DatabaseOperation = "ALL"
+	DatabaseOperationSelect DatabaseOperation = "SELECT"
+	DatabaseOperationInsert DatabaseOperation = "INSERT"
+	DatabaseOperationUpdate DatabaseOperation = "UPDATE"
+	DatabaseOperationDelete DatabaseOperation = "DELETE"
+)
+
 type HTTPConfigInput struct {
 	Path    *string       `json:"path"`
 	Methods []*HTTPMethod `json:"methods"`
@@ -42,14 +63,15 @@ const (
 )
 
 type IntentInput struct {
-	Namespace       *string             `json:"namespace"`
-	ClientName      *string             `json:"clientName"`
-	ServerName      *string             `json:"serverName"`
-	ServerNamespace *string             `json:"serverNamespace"`
-	Type            *IntentType         `json:"type"`
-	Topics          []*KafkaConfigInput `json:"topics"`
-	Resources       []*HTTPConfigInput  `json:"resources"`
-	Status          *IntentStatusInput  `json:"status"`
+	Namespace         *string                `json:"namespace"`
+	ClientName        *string                `json:"clientName"`
+	ServerName        *string                `json:"serverName"`
+	ServerNamespace   *string                `json:"serverNamespace"`
+	Type              *IntentType            `json:"type"`
+	Topics            []*KafkaConfigInput    `json:"topics"`
+	Resources         []*HTTPConfigInput     `json:"resources"`
+	DatabaseResources []*DatabaseConfigInput `json:"databaseResources"`
+	Status            *IntentStatusInput     `json:"status"`
 }
 
 // GetNamespace returns IntentInput.Namespace, and is useful for accessing the field via an interface.
@@ -73,6 +95,9 @@ func (v *IntentInput) GetTopics() []*KafkaConfigInput { return v.Topics }
 // GetResources returns IntentInput.Resources, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetResources() []*HTTPConfigInput { return v.Resources }
 
+// GetDatabaseResources returns IntentInput.DatabaseResources, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetDatabaseResources() []*DatabaseConfigInput { return v.DatabaseResources }
+
 // GetStatus returns IntentInput.Status, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetStatus() *IntentStatusInput { return v.Status }
 
@@ -86,8 +111,9 @@ func (v *IntentStatusInput) GetIstioStatus() *IstioStatusInput { return v.IstioS
 type IntentType string
 
 const (
-	IntentTypeHttp  IntentType = "HTTP"
-	IntentTypeKafka IntentType = "KAFKA"
+	IntentTypeHttp     IntentType = "HTTP"
+	IntentTypeKafka    IntentType = "KAFKA"
+	IntentTypeDatabase IntentType = "DATABASE"
 )
 
 type IntentsOperatorConfigurationInput struct {
@@ -95,6 +121,7 @@ type IntentsOperatorConfigurationInput struct {
 	NetworkPolicyEnforcementEnabled bool `json:"networkPolicyEnforcementEnabled"`
 	KafkaACLEnforcementEnabled      bool `json:"kafkaACLEnforcementEnabled"`
 	IstioPolicyEnforcementEnabled   bool `json:"istioPolicyEnforcementEnabled"`
+	ProtectedServicesEnabled        bool `json:"protectedServicesEnabled"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -115,6 +142,11 @@ func (v *IntentsOperatorConfigurationInput) GetKafkaACLEnforcementEnabled() bool
 // GetIstioPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.IstioPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetIstioPolicyEnforcementEnabled() bool {
 	return v.IstioPolicyEnforcementEnabled
+}
+
+// GetProtectedServicesEnabled returns IntentsOperatorConfigurationInput.ProtectedServicesEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetProtectedServicesEnabled() bool {
+	return v.ProtectedServicesEnabled
 }
 
 type IstioStatusInput struct {
@@ -208,6 +240,27 @@ const (
 	KafkaTopicPatternPrefix  KafkaTopicPattern = "PREFIX"
 )
 
+type NetworkPolicyInput struct {
+	Namespace                    string `json:"namespace"`
+	Name                         string `json:"name"`
+	ServerName                   string `json:"serverName"`
+	ExternalNetworkTrafficPolicy bool   `json:"externalNetworkTrafficPolicy"`
+}
+
+// GetNamespace returns NetworkPolicyInput.Namespace, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetNamespace() string { return v.Namespace }
+
+// GetName returns NetworkPolicyInput.Name, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetName() string { return v.Name }
+
+// GetServerName returns NetworkPolicyInput.ServerName, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetServerName() string { return v.ServerName }
+
+// GetExternalNetworkTrafficPolicy returns NetworkPolicyInput.ExternalNetworkTrafficPolicy, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetExternalNetworkTrafficPolicy() bool {
+	return v.ExternalNetworkTrafficPolicy
+}
+
 // ReportAppliedKubernetesIntentsResponse is returned by ReportAppliedKubernetesIntents on success.
 type ReportAppliedKubernetesIntentsResponse struct {
 	ReportAppliedKubernetesIntents *bool `json:"reportAppliedKubernetesIntents"`
@@ -247,6 +300,16 @@ type ReportKafkaServerConfigResponse struct {
 // GetReportKafkaServerConfigs returns ReportKafkaServerConfigResponse.ReportKafkaServerConfigs, and is useful for accessing the field via an interface.
 func (v *ReportKafkaServerConfigResponse) GetReportKafkaServerConfigs() bool {
 	return v.ReportKafkaServerConfigs
+}
+
+// ReportNetworkPoliciesResponse is returned by ReportNetworkPolicies on success.
+type ReportNetworkPoliciesResponse struct {
+	ReportNetworkPolicies bool `json:"reportNetworkPolicies"`
+}
+
+// GetReportNetworkPolicies returns ReportNetworkPoliciesResponse.ReportNetworkPolicies, and is useful for accessing the field via an interface.
+func (v *ReportNetworkPoliciesResponse) GetReportNetworkPolicies() bool {
+	return v.ReportNetworkPolicies
 }
 
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
@@ -292,6 +355,18 @@ func (v *__ReportKafkaServerConfigInput) GetNamespace() string { return v.Namesp
 func (v *__ReportKafkaServerConfigInput) GetKafkaServerConfigs() []KafkaServerConfigInput {
 	return v.KafkaServerConfigs
 }
+
+// __ReportNetworkPoliciesInput is used internally by genqlient
+type __ReportNetworkPoliciesInput struct {
+	Namespace string               `json:"namespace"`
+	Policies  []NetworkPolicyInput `json:"policies"`
+}
+
+// GetNamespace returns __ReportNetworkPoliciesInput.Namespace, and is useful for accessing the field via an interface.
+func (v *__ReportNetworkPoliciesInput) GetNamespace() string { return v.Namespace }
+
+// GetPolicies returns __ReportNetworkPoliciesInput.Policies, and is useful for accessing the field via an interface.
+func (v *__ReportNetworkPoliciesInput) GetPolicies() []NetworkPolicyInput { return v.Policies }
 
 func ReportAppliedKubernetesIntents(
 	ctx context.Context,
@@ -406,6 +481,38 @@ mutation ReportKafkaServerConfig ($namespace: String!, $kafkaServerConfigs: [Kaf
 	var err error
 
 	var data ReportKafkaServerConfigResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func ReportNetworkPolicies(
+	ctx context.Context,
+	client graphql.Client,
+	namespace string,
+	policies []NetworkPolicyInput,
+) (*ReportNetworkPoliciesResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportNetworkPolicies",
+		Query: `
+mutation ReportNetworkPolicies ($namespace: String!, $policies: [NetworkPolicyInput!]!) {
+	reportNetworkPolicies(namespace: $namespace, policies: $policies)
+}
+`,
+		Variables: &__ReportNetworkPoliciesInput{
+			Namespace: namespace,
+			Policies:  policies,
+		},
+	}
+	var err error
+
+	var data ReportNetworkPoliciesResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(
