@@ -18,10 +18,6 @@ import (
 	"testing"
 )
 
-const (
-	anotherProtectedServicesResourceName = "another-protected-services"
-)
-
 type CloudReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
 	reconciler  *CloudReconciler
