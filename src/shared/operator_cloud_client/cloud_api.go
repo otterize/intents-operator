@@ -1,4 +1,4 @@
-package otterizecloud
+package operator_cloud_client
 
 import (
 	"context"
@@ -14,6 +14,7 @@ type CloudClient interface {
 	ReportIntentsOperatorConfiguration(ctx context.Context, config graphqlclient.IntentsOperatorConfigurationInput) error
 	ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType)
 	ReportNetworkPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error
+	ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error
 }
 
 type CloudClientImpl struct {
@@ -81,5 +82,14 @@ func (c *CloudClientImpl) ReportNetworkPolicies(ctx context.Context, namespace s
 		Infof("Reporting network policies")
 
 	_, err := graphqlclient.ReportNetworkPolicies(ctx, c.client, namespace, policies)
+	return err
+}
+
+func (c *CloudClientImpl) ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error {
+	logrus.WithField("namespace", namespace).
+		WithField("count", len(protectedServices)).
+		Infof("Reporting network policies")
+
+	_, err := graphqlclient.ReportProtectedServicesSnapshot(ctx, c.client, namespace, protectedServices)
 	return err
 }

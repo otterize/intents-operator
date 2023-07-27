@@ -20,6 +20,7 @@ import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_services_reconcilers"
+	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/samber/lo"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -43,9 +44,19 @@ type ProtectedServicesReconciler struct {
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices/finalizers,verbs=update
 
-func NewProtectedServicesReconciler(client client.Client, scheme *runtime.Scheme) *ProtectedServicesReconciler {
+func NewProtectedServicesReconciler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	otterizeClient operator_cloud_client.CloudClient,
+) *ProtectedServicesReconciler {
 	group := reconcilergroup.NewGroup(protectedServicesGroupName, client, scheme,
 		protected_services_reconcilers.NewDefaultDenyReconciler(client, scheme))
+
+	if otterizeClient != nil {
+		otterizeCloudReconciler := protected_services_reconcilers.NewCloudReconciler(client, scheme, otterizeClient)
+		group.AddToGroup(otterizeCloudReconciler)
+	}
+
 	return &ProtectedServicesReconciler{
 		Client: client,
 		group:  group,

@@ -21,9 +21,9 @@ import (
 	"errors"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -58,7 +58,7 @@ type KafkaServerConfigReconciler struct {
 	ServersStore         kafkaacls.ServersStore
 	operatorPodName      string
 	operatorPodNamespace string
-	otterizeClient       otterizecloud.CloudClient
+	otterizeClient       operator_cloud_client.CloudClient
 	injectablerecorder.InjectableRecorder
 	serviceResolver serviceidresolver.ServiceResolver
 }
@@ -69,7 +69,7 @@ func NewKafkaServerConfigReconciler(
 	serversStore kafkaacls.ServersStore,
 	operatorPodName string,
 	operatorPodNameSpace string,
-	cloudClient otterizecloud.CloudClient,
+	cloudClient operator_cloud_client.CloudClient,
 	serviceResolver serviceidresolver.ServiceResolver,
 ) *KafkaServerConfigReconciler {
 	return &KafkaServerConfigReconciler{
