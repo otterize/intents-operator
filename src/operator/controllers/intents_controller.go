@@ -57,7 +57,7 @@ func NewIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
-	endpointsReconciler external_traffic.EndpointsReconciler,
+	externalNetpolHandler *external_traffic.NetworkPolicyHandler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
 	externalNetworkPoliciesCreatedEvenIfNoIntents bool,
@@ -67,7 +67,7 @@ func NewIntentsReconciler(
 	reconcilersGroup := reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
-		intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, endpointsReconciler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementEnabledGlobally, externalNetworkPoliciesCreatedEvenIfNoIntents),
+		intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, externalNetpolHandler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementEnabledGlobally, externalNetworkPoliciesCreatedEvenIfNoIntents),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementEnabledGlobally),
 	)

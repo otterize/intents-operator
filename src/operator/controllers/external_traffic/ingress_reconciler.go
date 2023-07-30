@@ -7,7 +7,6 @@ import (
 	"github.com/samber/lo"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	sets "k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -21,13 +20,12 @@ import (
 
 type IngressReconciler struct {
 	client.Client
-	Scheme              *runtime.Scheme
-	endpointsReconciler EndpointsReconciler
+	extNetpolHandler *NetworkPolicyHandler
 	injectablerecorder.InjectableRecorder
 }
 
-func NewIngressReconciler(client client.Client, scheme *runtime.Scheme, endpointsReconciler EndpointsReconciler) *IngressReconciler {
-	return &IngressReconciler{Client: client, Scheme: scheme, endpointsReconciler: endpointsReconciler}
+func NewIngressReconciler(client client.Client, extNetpolHandler *NetworkPolicyHandler) *IngressReconciler {
+	return &IngressReconciler{Client: client, extNetpolHandler: extNetpolHandler}
 }
 
 func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -57,9 +55,9 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 
 		for service := range services {
-			res, err := r.endpointsReconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: service, Namespace: req.Namespace}})
-			if err != nil || !res.IsZero() {
-				return res, err
+			err := r.extNetpolHandler.HandleEndpointsByName(ctx, service, req.Namespace)
+			if err != nil {
+				return ctrl.Result{}, err
 			}
 		}
 		return ctrl.Result{}, nil
@@ -101,9 +99,9 @@ func (r *IngressReconciler) reconcileIngressCreateOrUpdate(ctx context.Context, 
 
 	// Ingress create/update - reconciles each service
 	for service := range services {
-		res, err := r.endpointsReconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Name: service, Namespace: ingress.Namespace}})
-		if err != nil || !res.IsZero() {
-			return res, err
+		err := r.extNetpolHandler.HandleEndpointsByName(ctx, service, ingress.Namespace)
+		if err != nil {
+			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil

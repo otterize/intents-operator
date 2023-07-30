@@ -58,22 +58,26 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupTest() {
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	createEvenIfNoIntentsFound := true
-	s.NetworkPolicyReconciler = intents_reconcilers.NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, nil, []string{}, true, true, createEvenIfNoIntentsFound)
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, createEvenIfNoIntentsFound, true)
+	s.NetworkPolicyReconciler = intents_reconcilers.NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, true, true, createEvenIfNoIntentsFound)
 	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
 	s.NetworkPolicyReconciler.InjectRecorder(recorder)
 
-	s.endpointReconciler = external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, createEvenIfNoIntentsFound, true)
+	s.endpointReconciler = external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.endpointReconciler.InjectRecorder(recorder)
 	err := s.endpointReconciler.InitIngressReferencedServicesIndex(s.Mgr)
 	s.Require().NoError(err)
 
-	s.IngressReconciler = external_traffic.NewIngressReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, s.endpointReconciler)
+	s.IngressReconciler = external_traffic.NewIngressReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.IngressReconciler.InjectRecorder(recorder)
 	err = s.IngressReconciler.InitNetworkPoliciesByIngressNameIndex(s.Mgr)
 	s.Require().NoError(err)
 
 	s.podWatcher = reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{})
 	err = s.podWatcher.InitIntentsClientIndices(s.Mgr)
+	s.Require().NoError(err)
+
+	err = (&controllers.IntentsReconciler{}).InitEndpointsPodNamesIndex(s.Mgr)
 	s.Require().NoError(err)
 }
 
@@ -210,7 +214,8 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestEndpointsRec
 
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
 
-	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, true, false)
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, true, false)
+	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	recorder := record.NewFakeRecorder(10)
 	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)
 
