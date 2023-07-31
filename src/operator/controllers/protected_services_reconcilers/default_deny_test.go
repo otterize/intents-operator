@@ -3,6 +3,7 @@ package protected_services_reconcilers
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	protectedservicesmock "github.com/otterize/intents-operator/src/operator/controllers/protected_services_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/spf13/viper"
@@ -10,7 +11,6 @@ import (
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,14 +29,15 @@ const (
 
 type DefaultDenyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
-	reconciler *DefaultDenyReconciler
+	reconciler       *DefaultDenyReconciler
+	extNetpolHandler *protectedservicesmock.MockExternalNepolHandler
 }
 
 func (s *DefaultDenyReconcilerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 
-	scheme := runtime.NewScheme()
-	s.reconciler = NewDefaultDenyReconciler(s.Client, scheme)
+	s.extNetpolHandler = protectedservicesmock.NewMockExternalNepolHandler(s.Controller)
+	s.reconciler = NewDefaultDenyReconciler(s.Client, s.extNetpolHandler)
 	viper.Set(operatorconfig.EnableProtectedServicesKey, true)
 }
 
@@ -107,6 +108,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
 	}
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(&policy)).Return(nil).Times(1)
 
+	s.extNetpolHandler.EXPECT().HandlePodsByNamespace(gomock.Any(), request.Namespace)
 	res, err := s.reconciler.Reconcile(context.Background(), request)
 	s.Require().Empty(res)
 	s.Require().NoError(err)
@@ -208,6 +210,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(&serverPolicy)).Return(nil).Times(1)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(&otherServerPolicy)).Return(nil).Times(1)
 
+	s.extNetpolHandler.EXPECT().HandlePodsByNamespace(gomock.Any(), request.Namespace)
 	res, err := s.reconciler.Reconcile(context.Background(), request)
 	s.Require().Empty(res)
 	s.Require().NoError(err)
@@ -275,6 +278,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 		})
 
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(&policy)).Return(nil).Times(1)
+	s.extNetpolHandler.EXPECT().HandlePodsByNamespace(gomock.Any(), request.Namespace)
 
 	res, err := s.reconciler.Reconcile(context.Background(), request)
 	s.Require().Empty(res)
@@ -347,6 +351,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDelete
 
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(&policy)).Return(nil).Times(1)
 
+	s.extNetpolHandler.EXPECT().HandlePodsByNamespace(gomock.Any(), request.Namespace)
 	res, err := s.reconciler.Reconcile(context.Background(), request)
 	s.Require().Empty(res)
 	s.Require().NoError(err)
@@ -396,6 +401,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceAlreadyDele
 
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(&policy)).Return(nil).Times(1)
 
+	s.extNetpolHandler.EXPECT().HandlePodsByNamespace(gomock.Any(), request.Namespace)
 	res, err := s.reconciler.Reconcile(context.Background(), request)
 	s.Require().Empty(res)
 	s.Require().NoError(err)
@@ -493,6 +499,8 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 
 	// We expect no other calls to the client since the policy already exists and is valid
 
+	s.extNetpolHandler.EXPECT().HandlePodsByNamespace(gomock.Any(), request.Namespace)
+
 	res, err := s.reconciler.Reconcile(context.Background(), request)
 	s.Require().Empty(res)
 	s.Require().NoError(err)
@@ -580,6 +588,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
 
 	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&fixedPolicy)).Return(nil)
 
+	s.extNetpolHandler.EXPECT().HandlePodsByNamespace(gomock.Any(), request.Namespace)
 	res, err := s.reconciler.Reconcile(context.Background(), request)
 	s.Require().Empty(res)
 	s.Require().NoError(err)
@@ -648,6 +657,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestDeleteAllWhenFeatureDisabled() {
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(&serverPolicy)).Return(nil)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(&otherServerPolicy)).Return(nil)
 
+	s.extNetpolHandler.EXPECT().HandleAllPods(gomock.Any())
 	res, err := s.reconciler.Reconcile(context.Background(), request)
 	s.Require().Empty(res)
 	s.Require().NoError(err)

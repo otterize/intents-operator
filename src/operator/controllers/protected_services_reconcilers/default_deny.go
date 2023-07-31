@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,20 +18,30 @@ import (
 // DefaultDenyReconciler reconciles a ProtectedServices object
 type DefaultDenyReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	extNetpolHandler ExternalNepolHandler
 	injectablerecorder.InjectableRecorder
 }
 
-func NewDefaultDenyReconciler(client client.Client, scheme *runtime.Scheme) *DefaultDenyReconciler {
+type ExternalNepolHandler interface {
+	HandlePodsByNamespace(ctx context.Context, namespace string) error
+	HandleAllPods(ctx context.Context) error
+}
+
+func NewDefaultDenyReconciler(client client.Client, extNetpolHandler ExternalNepolHandler) *DefaultDenyReconciler {
 	return &DefaultDenyReconciler{
-		Client: client,
-		Scheme: scheme,
+		Client:           client,
+		extNetpolHandler: extNetpolHandler,
 	}
 }
 
 func (r *DefaultDenyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if !viper.GetBool(operatorconfig.EnableProtectedServicesKey) {
-		return r.DeleteAllDefaultDeny(ctx, req.Namespace)
+		res, err := r.DeleteAllDefaultDeny(ctx, req.Namespace)
+		if err != nil || !res.IsZero() {
+			return res, err
+		}
+		return ctrl.Result{}, r.extNetpolHandler.HandleAllPods(ctx)
+
 	}
 
 	var ProtectedServicesResources otterizev1alpha2.ProtectedServicesList
@@ -43,6 +52,11 @@ func (r *DefaultDenyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	err = r.blockAccessToServices(ctx, ProtectedServicesResources, req.Namespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = r.extNetpolHandler.HandlePodsByNamespace(ctx, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
