@@ -38,6 +38,26 @@ spec:
               calls:
                 items:
                   properties:
+                    databaseResources:
+                      items:
+                        properties:
+                          operations:
+                            items:
+                              enum:
+                              - ALL
+                              - SELECT
+                              - INSERT
+                              - UPDATE
+                              - DELETE
+                              type: string
+                            type: array
+                          table:
+                            type: string
+                        required:
+                        - operations
+                        - table
+                        type: object
+                      type: array
                     name:
                       type: string
                     resources:
@@ -93,6 +113,7 @@ spec:
                       enum:
                       - http
                       - kafka
+                      - database
                       type: string
                   required:
                   - name

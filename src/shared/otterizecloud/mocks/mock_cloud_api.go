@@ -35,6 +35,20 @@ func (m *MockCloudClient) EXPECT() *MockCloudClientMockRecorder {
 	return m.recorder
 }
 
+// ApplyDatabaseIntent mocks base method.
+func (m *MockCloudClient) ApplyDatabaseIntent(ctx context.Context, intent *graphqlclient.IntentInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyDatabaseIntent", ctx, intent)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ApplyDatabaseIntent indicates an expected call of ApplyDatabaseIntent.
+func (mr *MockCloudClientMockRecorder) ApplyDatabaseIntent(ctx, intent interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyDatabaseIntent", reflect.TypeOf((*MockCloudClient)(nil).ApplyDatabaseIntent), ctx, intent)
+}
+
 // ReportAppliedIntents mocks base method.
 func (m *MockCloudClient) ReportAppliedIntents(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error {
 	m.ctrl.T.Helper()
