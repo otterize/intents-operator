@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -32,7 +33,6 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
@@ -92,6 +92,7 @@ func main() {
 		EnableNetworkPolicy:        viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
 		EnableKafkaACL:             viper.GetBool(operatorconfig.EnableKafkaACLKey),
 		EnableIstioPolicy:          viper.GetBool(operatorconfig.EnableIstioPolicyKey),
+		EnableProtectedServices:    viper.GetBool(operatorconfig.EnableProtectedServicesKey),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev1alpha2.TLSSource{
@@ -158,7 +159,8 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally)
 
-	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement, enforcementConfig.EnforcementEnabledGlobally)
+	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement, enforcementConfig.EnforcementEnabledGlobally)
+	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
@@ -168,7 +170,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
 	}
 
-	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), mgr.GetScheme(), endpointReconciler)
+	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler)
 	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
 	}
@@ -178,13 +180,13 @@ func main() {
 	}
 
 	signalHandlerCtx := ctrl.SetupSignalHandler()
-	otterizeCloudClient, connectedToCloud, err := otterizecloud.NewClient(signalHandlerCtx)
+	otterizeCloudClient, connectedToCloud, err := operator_cloud_client.NewClient(signalHandlerCtx)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
 		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig)
-		otterizecloud.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
+		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
 	} else {
 		logrus.Info("Not configured for cloud integration")
 	}
@@ -202,7 +204,7 @@ func main() {
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
-		endpointReconciler,
+		extNetpolHandler,
 		watchedNamespaces,
 		enforcementConfig,
 		autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement,
@@ -267,10 +269,9 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
 	}
 
-	if err = (&controllers.ProtectedServicesReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
+	protectedServicesReconciler := controllers.NewProtectedServicesReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient, extNetpolHandler)
+	err = protectedServicesReconciler.SetupWithManager(mgr)
+	if err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "ProtectedServices")
 	}
 
@@ -289,7 +290,7 @@ func main() {
 	}
 }
 
-func uploadConfiguration(ctx context.Context, otterizeCloudClient otterizecloud.CloudClient, config controllers.EnforcementConfig) {
+func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud_client.CloudClient, config controllers.EnforcementConfig) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
 
@@ -298,6 +299,7 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient otterizecloud.
 		NetworkPolicyEnforcementEnabled: config.EnforcementEnabledGlobally && config.EnableNetworkPolicy,
 		KafkaACLEnforcementEnabled:      config.EnforcementEnabledGlobally && config.EnableKafkaACL,
 		IstioPolicyEnforcementEnabled:   config.EnforcementEnabledGlobally && config.EnableIstioPolicy,
+		ProtectedServicesEnabled:        config.EnforcementEnabledGlobally && config.EnableProtectedServices,
 	})
 	if err != nil {
 		logrus.WithError(err).Error("Failed to report configuration to the cloud")

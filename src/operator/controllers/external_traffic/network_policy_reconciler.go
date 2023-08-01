@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/otterizecloud"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
@@ -26,14 +26,14 @@ type NetworkPolicyReconciler struct {
 	client.Client
 	Scheme            *runtime.Scheme
 	serviceIdResolver *serviceidresolver.Resolver
-	otterizeClient    otterizecloud.CloudClient
+	otterizeClient    operator_cloud_client.CloudClient
 	injectablerecorder.InjectableRecorder
 }
 
 func NewNetworkPolicyReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	otterizeClient otterizecloud.CloudClient,
+	otterizeClient operator_cloud_client.CloudClient,
 ) *NetworkPolicyReconciler {
 	return &NetworkPolicyReconciler{
 		Client:            client,
@@ -102,10 +102,10 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 
 		inputs = append(inputs, graphqlclient.NetworkPolicyInput{
-			Namespace:             req.Namespace,
-			Name:                  req.Name,
-			ServerName:            serviceId.Name,
-			ExternalTrafficPolicy: true,
+			Namespace:                    req.Namespace,
+			Name:                         req.Name,
+			ServerName:                   serviceId.Name,
+			ExternalNetworkTrafficPolicy: true,
 		})
 	}
 

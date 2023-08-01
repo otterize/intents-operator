@@ -1,10 +1,11 @@
-package otterizecloud
+package intents_reconcilers
 
 import (
 	"context"
 	"errors"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
 	"github.com/samber/lo"
@@ -17,12 +18,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
-)
-
-const (
-	clientName        string = "test-client"
-	intentsObjectName string = "test-client-intents"
-	testNamespace            = "test-namespace"
 )
 
 type CloudReconcilerTestSuite struct {
@@ -167,7 +162,7 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsRetryWhenUploadFailed() {
 		})
 
 	expectedNamespace := lo.ToPtr(testNamespace)
-	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, GetMatcher(expectedIntents)).
+	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, operator_cloud_client.GetMatcher(expectedIntents)).
 		Return(errors.New("upload failed, try again later, ok? cool")).Times(1)
 
 	objName := types.NamespacedName{
@@ -483,7 +478,7 @@ func (s *CloudReconcilerTestSuite) assertReportedIntents(clientIntents otterizev
 		})
 
 	expectedNamespace := lo.ToPtr(testNamespace)
-	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, GetMatcher(expectedIntents)).Return(nil).Times(1)
+	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, operator_cloud_client.GetMatcher(expectedIntents)).Return(nil).Times(1)
 
 	objName := types.NamespacedName{
 		Namespace: testNamespace,

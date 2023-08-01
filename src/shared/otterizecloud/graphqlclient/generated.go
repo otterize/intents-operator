@@ -121,6 +121,7 @@ type IntentsOperatorConfigurationInput struct {
 	NetworkPolicyEnforcementEnabled bool `json:"networkPolicyEnforcementEnabled"`
 	KafkaACLEnforcementEnabled      bool `json:"kafkaACLEnforcementEnabled"`
 	IstioPolicyEnforcementEnabled   bool `json:"istioPolicyEnforcementEnabled"`
+	ProtectedServicesEnabled        bool `json:"protectedServicesEnabled"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -141,6 +142,11 @@ func (v *IntentsOperatorConfigurationInput) GetKafkaACLEnforcementEnabled() bool
 // GetIstioPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.IstioPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetIstioPolicyEnforcementEnabled() bool {
 	return v.IstioPolicyEnforcementEnabled
+}
+
+// GetProtectedServicesEnabled returns IntentsOperatorConfigurationInput.ProtectedServicesEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetProtectedServicesEnabled() bool {
+	return v.ProtectedServicesEnabled
 }
 
 type IstioStatusInput struct {
@@ -235,10 +241,10 @@ const (
 )
 
 type NetworkPolicyInput struct {
-	Namespace             string `json:"namespace"`
-	Name                  string `json:"name"`
-	ServerName            string `json:"serverName"`
-	ExternalTrafficPolicy bool   `json:"externalTrafficPolicy"`
+	Namespace                    string `json:"namespace"`
+	Name                         string `json:"name"`
+	ServerName                   string `json:"serverName"`
+	ExternalNetworkTrafficPolicy bool   `json:"externalNetworkTrafficPolicy"`
 }
 
 // GetNamespace returns NetworkPolicyInput.Namespace, and is useful for accessing the field via an interface.
@@ -250,8 +256,17 @@ func (v *NetworkPolicyInput) GetName() string { return v.Name }
 // GetServerName returns NetworkPolicyInput.ServerName, and is useful for accessing the field via an interface.
 func (v *NetworkPolicyInput) GetServerName() string { return v.ServerName }
 
-// GetExternalTrafficPolicy returns NetworkPolicyInput.ExternalTrafficPolicy, and is useful for accessing the field via an interface.
-func (v *NetworkPolicyInput) GetExternalTrafficPolicy() bool { return v.ExternalTrafficPolicy }
+// GetExternalNetworkTrafficPolicy returns NetworkPolicyInput.ExternalNetworkTrafficPolicy, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetExternalNetworkTrafficPolicy() bool {
+	return v.ExternalNetworkTrafficPolicy
+}
+
+type ProtectedServiceInput struct {
+	Name string `json:"name"`
+}
+
+// GetName returns ProtectedServiceInput.Name, and is useful for accessing the field via an interface.
+func (v *ProtectedServiceInput) GetName() string { return v.Name }
 
 // ReportAppliedKubernetesIntentsResponse is returned by ReportAppliedKubernetesIntents on success.
 type ReportAppliedKubernetesIntentsResponse struct {
@@ -302,6 +317,16 @@ type ReportNetworkPoliciesResponse struct {
 // GetReportNetworkPolicies returns ReportNetworkPoliciesResponse.ReportNetworkPolicies, and is useful for accessing the field via an interface.
 func (v *ReportNetworkPoliciesResponse) GetReportNetworkPolicies() bool {
 	return v.ReportNetworkPolicies
+}
+
+// ReportProtectedServicesSnapshotResponse is returned by ReportProtectedServicesSnapshot on success.
+type ReportProtectedServicesSnapshotResponse struct {
+	ReportProtectedServicesSnapshot bool `json:"reportProtectedServicesSnapshot"`
+}
+
+// GetReportProtectedServicesSnapshot returns ReportProtectedServicesSnapshotResponse.ReportProtectedServicesSnapshot, and is useful for accessing the field via an interface.
+func (v *ReportProtectedServicesSnapshotResponse) GetReportProtectedServicesSnapshot() bool {
+	return v.ReportProtectedServicesSnapshot
 }
 
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
@@ -359,6 +384,20 @@ func (v *__ReportNetworkPoliciesInput) GetNamespace() string { return v.Namespac
 
 // GetPolicies returns __ReportNetworkPoliciesInput.Policies, and is useful for accessing the field via an interface.
 func (v *__ReportNetworkPoliciesInput) GetPolicies() []NetworkPolicyInput { return v.Policies }
+
+// __ReportProtectedServicesSnapshotInput is used internally by genqlient
+type __ReportProtectedServicesSnapshotInput struct {
+	Namespace string                  `json:"namespace"`
+	Services  []ProtectedServiceInput `json:"services"`
+}
+
+// GetNamespace returns __ReportProtectedServicesSnapshotInput.Namespace, and is useful for accessing the field via an interface.
+func (v *__ReportProtectedServicesSnapshotInput) GetNamespace() string { return v.Namespace }
+
+// GetServices returns __ReportProtectedServicesSnapshotInput.Services, and is useful for accessing the field via an interface.
+func (v *__ReportProtectedServicesSnapshotInput) GetServices() []ProtectedServiceInput {
+	return v.Services
+}
 
 func ReportAppliedKubernetesIntents(
 	ctx context.Context,
@@ -505,6 +544,38 @@ mutation ReportNetworkPolicies ($namespace: String!, $policies: [NetworkPolicyIn
 	var err error
 
 	var data ReportNetworkPoliciesResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func ReportProtectedServicesSnapshot(
+	ctx context.Context,
+	client graphql.Client,
+	namespace string,
+	services []ProtectedServiceInput,
+) (*ReportProtectedServicesSnapshotResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportProtectedServicesSnapshot",
+		Query: `
+mutation ReportProtectedServicesSnapshot ($namespace: String!, $services: [ProtectedServiceInput!]!) {
+	reportProtectedServicesSnapshot(namespace: $namespace, services: $services)
+}
+`,
+		Variables: &__ReportProtectedServicesSnapshotInput{
+			Namespace: namespace,
+			Services:  services,
+		},
+	}
+	var err error
+
+	var data ReportProtectedServicesSnapshotResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

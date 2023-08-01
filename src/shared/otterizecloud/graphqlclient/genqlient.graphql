@@ -18,3 +18,7 @@ mutation ReportIntentsOperatorConfiguration($configuration: IntentsOperatorConfi
 mutation ReportComponentStatus($component: ComponentType!) {
     reportIntegrationComponentStatus(component: $component)
 }
+
+mutation ReportProtectedServicesSnapshot($namespace: String!, $services: [ProtectedServiceInput!]!) {
+    reportProtectedServicesSnapshot(namespace: $namespace, services: $services)
+}
