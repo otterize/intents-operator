@@ -370,11 +370,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 			return nil
 		})
 
-	s.Client.EXPECT().List(gomock.Any(),
-		gomock.Eq(&v1.NetworkPolicyList{}),
-		client.MatchingLabels{otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic: orphanPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]},
-		&client.ListOptions{Namespace: testNamespace}).Return(nil)
-
+	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), orphanPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(orphanPolicy)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -544,6 +540,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	}))
 
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
+	s.ignoreRemoveOrphan()
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
