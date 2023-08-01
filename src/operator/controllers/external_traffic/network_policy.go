@@ -180,6 +180,35 @@ func (r *NetworkPolicyHandler) HandlePodsByLabelSelector(ctx context.Context, na
 	return r.handlePodList(ctx, podList)
 }
 
+func (r *NetworkPolicyHandler) HandlePodsByNamespace(ctx context.Context, namespace string) error {
+	selector, err := r.otterizeServerLabeledPodsSelector()
+	if err != nil {
+		return err
+	}
+	podList := &corev1.PodList{}
+	err = r.client.List(ctx, podList,
+		&client.ListOptions{Namespace: namespace},
+		client.MatchingLabelsSelector{Selector: selector})
+	if err != nil {
+		return err
+	}
+	return r.handlePodList(ctx, podList)
+}
+
+func (r *NetworkPolicyHandler) HandleAllPods(ctx context.Context) error {
+	selector, err := r.otterizeServerLabeledPodsSelector()
+	if err != nil {
+		return err
+	}
+	podList := &corev1.PodList{}
+	err = r.client.List(ctx, podList,
+		client.MatchingLabelsSelector{Selector: selector})
+	if err != nil {
+		return err
+	}
+	return r.handlePodList(ctx, podList)
+}
+
 func (r *NetworkPolicyHandler) handlePodList(ctx context.Context, podList *corev1.PodList) error {
 	for _, pod := range podList.Items {
 		err := r.handlePod(ctx, &pod)
@@ -447,4 +476,15 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeServiceWithoutIntents(ctx
 
 func (r *NetworkPolicyHandler) formatPolicyName(serviceName string) string {
 	return fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+}
+
+func (r *NetworkPolicyHandler) otterizeServerLabeledPodsSelector() (labels.Selector, error) {
+	return metav1.LabelSelectorAsSelector(
+		&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+			{
+				Key:      v1alpha2.OtterizeServerLabelKey,
+				Operator: metav1.LabelSelectorOpExists,
+			},
+		},
+		})
 }
