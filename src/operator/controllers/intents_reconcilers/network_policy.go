@@ -122,7 +122,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	err = r.removeOrphanNetworkPolicies(ctx)
 	if err != nil {
-		r.RecordWarningEventf(intents, ReasonRemovingNetworkPolicyFailed, "could not remove orphan network policies: %s", err.Error())
+		r.RecordWarningEventf(intents, ReasonRemovingNetworkPolicyFailed, "failed to remove network policies: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
