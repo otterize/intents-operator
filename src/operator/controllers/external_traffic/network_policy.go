@@ -154,6 +154,45 @@ func buildNetworkPolicyObjectForEndpoints(
 	return netpol
 }
 
+// HandleBeforeAccessPolicyRemoval - call this function when an access policy is being deleted, and you want to make sure
+//
+//	that related external policies will be removed as well (if needed)
+func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error {
+	// if createEvenIfNoPreexistingNetworkPolicy is on - external policies are not dependent on access policies
+	if r.createEvenIfNoPreexistingNetworkPolicy {
+		return nil
+	}
+
+	nonExternalPolicyList := &v1.NetworkPolicyList{}
+	serviceNameLabel := accessPolicy.Labels[v1alpha2.OtterizeNetworkPolicy]
+
+	// list policies the are not external policies (access + default deny)
+	err := r.client.List(ctx, nonExternalPolicyList, client.MatchingLabels{v1alpha2.OtterizeNetworkPolicy: serviceNameLabel},
+		&client.ListOptions{Namespace: accessPolicy.Namespace})
+	if err != nil {
+		return err
+	}
+	// If more than one related policies still exist don't remove the external policy
+	if len(nonExternalPolicyList.Items) > 1 {
+		return nil
+	}
+
+	externalPolicyList := &v1.NetworkPolicyList{}
+	err = r.client.List(ctx, externalPolicyList, client.MatchingLabels{v1alpha2.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
+		&client.ListOptions{Namespace: accessPolicy.Namespace})
+	if err != nil {
+		return err
+	}
+
+	for _, externalPolicy := range externalPolicyList.Items {
+		err := r.client.Delete(ctx, externalPolicy.DeepCopy())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *NetworkPolicyHandler) HandleEndpointsByName(ctx context.Context, serviceName string, namespace string) error {
 	endpoints := &corev1.Endpoints{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: namespace}, endpoints)

@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
+	v1 "k8s.io/api/networking/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 )
 
@@ -33,6 +34,20 @@ func NewMockexternalNetpolHandler(ctrl *gomock.Controller) *MockexternalNetpolHa
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockexternalNetpolHandler) EXPECT() *MockexternalNetpolHandlerMockRecorder {
 	return m.recorder
+}
+
+// HandleBeforeAccessPolicyRemoval mocks base method.
+func (m *MockexternalNetpolHandler) HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleBeforeAccessPolicyRemoval", ctx, accessPolicy)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HandleBeforeAccessPolicyRemoval indicates an expected call of HandleBeforeAccessPolicyRemoval.
+func (mr *MockexternalNetpolHandlerMockRecorder) HandleBeforeAccessPolicyRemoval(ctx, accessPolicy interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBeforeAccessPolicyRemoval", reflect.TypeOf((*MockexternalNetpolHandler)(nil).HandleBeforeAccessPolicyRemoval), ctx, accessPolicy)
 }
 
 // HandlePodsByLabelSelector mocks base method.
