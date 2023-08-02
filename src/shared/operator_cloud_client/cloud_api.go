@@ -15,7 +15,7 @@ type CloudClient interface {
 	ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType)
 	ReportNetworkPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error
 	ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error
-	ApplyDatabaseIntent(ctx context.Context, intent *graphqlclient.IntentInput) error
+	ApplyDatabaseIntent(ctx context.Context, intent *graphqlclient.IntentInput, action graphqlclient.DBPermissionChange) error
 }
 
 type CloudClientImpl struct {
@@ -95,9 +95,7 @@ func (c *CloudClientImpl) ReportProtectedServices(ctx context.Context, namespace
 	return err
 }
 
-func (c *CloudClientImpl) ApplyDatabaseIntent(ctx context.Context, intent *graphqlclient.IntentInput) error {
-	// TODO: what is action? baby don't hurt me
-	action := graphqlclient.DBPermissionChange("APPLY")
+func (c *CloudClientImpl) ApplyDatabaseIntent(ctx context.Context, intent *graphqlclient.IntentInput, action graphqlclient.DBPermissionChange) error {
 	if _, err := graphqlclient.HandleDatabaseIntents(ctx, c.client, []graphqlclient.IntentInput{*intent}, action); err != nil {
 		return err
 	}

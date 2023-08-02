@@ -5,11 +5,17 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
+
+const (
+	DatabaseFinalizerName = "intents.otterize.com/database-finalizer"
 )
 
 type DatabaseReconciler struct {
@@ -47,17 +53,45 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	// TODO: handle multiple intents
-	intent := intents.GetCallsList()[0]
-	if intent.Type != otterizev1alpha2.IntentTypeDatabase {
+	if r.isMissingDatabaseFinalizer(intents) {
+		logger.Infof("Adding finalizer %s", DatabaseFinalizerName)
+		controllerutil.AddFinalizer(intents, DatabaseFinalizerName)
+		if err := r.client.Update(ctx, intents); err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	}
 
-	input := intent.ConvertToCloudFormat(intents.Namespace, intents.GetServiceName())
+	action := graphqlclient.DBPermissionChangeApply
+	if !intents.ObjectMeta.DeletionTimestamp.IsZero() {
+		action = graphqlclient.DBPermissionChangeDelete
+	}
 
-	if err := r.otterizeClient.ApplyDatabaseIntent(ctx, &input); err != nil {
-		return ctrl.Result{}, err
+	for _, intent := range intents.GetCallsList() {
+		if intent.Type != otterizev1alpha2.IntentTypeDatabase {
+			return ctrl.Result{}, nil
+		}
+
+		input := intent.ConvertToCloudFormat(intents.Namespace, intents.GetServiceName())
+
+		if err := r.otterizeClient.ApplyDatabaseIntent(ctx, &input, action); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	if action == graphqlclient.DBPermissionChangeDelete {
+		removeIntentFinalizers(intents, DatabaseFinalizerName)
+		if err := r.client.Update(ctx, intents); err != nil {
+			if k8serrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, err
+		}
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *DatabaseReconciler) isMissingDatabaseFinalizer(intents *otterizev1alpha2.ClientIntents) bool {
+	return !controllerutil.ContainsFinalizer(intents, DatabaseFinalizerName) && intents.HasDatabaseTypeInCallList()
 }

@@ -494,3 +494,12 @@ func (in *ClientIntents) HasKafkaTypeInCallList() bool {
 	}
 	return false
 }
+
+func (in *ClientIntents) HasDatabaseTypeInCallList() bool {
+	for _, intent := range in.GetCallsList() {
+		if intent.Type == IntentTypeDatabase {
+			return true
+		}
+	}
+	return false
+}
