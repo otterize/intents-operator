@@ -67,16 +67,18 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		action = graphqlclient.DBPermissionChangeDelete
 	}
 
+	var intentInputList []graphqlclient.IntentInput
 	for _, intent := range intents.GetCallsList() {
 		if intent.Type != otterizev1alpha2.IntentTypeDatabase {
-			return ctrl.Result{}, nil
+			continue
 		}
 
-		input := intent.ConvertToCloudFormat(intents.Namespace, intents.GetServiceName())
+		intentInput := intent.ConvertToCloudFormat(intents.Namespace, intents.GetServiceName())
+		intentInputList = append(intentInputList, intentInput)
+	}
 
-		if err := r.otterizeClient.ApplyDatabaseIntent(ctx, &input, action); err != nil {
-			return ctrl.Result{}, err
-		}
+	if err := r.otterizeClient.ApplyDatabaseIntent(ctx, intentInputList, action); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if action == graphqlclient.DBPermissionChangeDelete {
