@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"testing"
 )
 
@@ -93,7 +94,7 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 		},
 	}
 
-	expectedIntent := graphqlclient.IntentInput{
+	expectedIntents := []graphqlclient.IntentInput{{
 		ClientName:      lo.ToPtr(clientName),
 		ServerName:      lo.ToPtr(integrationName),
 		Namespace:       lo.ToPtr(testNamespace),
@@ -106,9 +107,9 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 				lo.ToPtr(graphqlclient.DatabaseOperationInsert),
 			},
 		}},
-	}
+	}}
 
-	s.assertAppliedDatabaseIntents(clientIntents, expectedIntent)
+	s.assertAppliedDatabaseIntents(clientIntents, expectedIntents)
 }
 
 func (s *DatabaseReconcilerTestSuite) TestNoSpecs() {
@@ -137,7 +138,7 @@ func (s *DatabaseReconcilerTestSuite) expectHandleReconcilationErrorGracefully(c
 	s.Require().Equal(ctrl.Result{}, res)
 }
 
-func (s *DatabaseReconcilerTestSuite) assertAppliedDatabaseIntents(clientIntents otterizev1alpha2.ClientIntents, expectedIntent graphqlclient.IntentInput) {
+func (s *DatabaseReconcilerTestSuite) assertAppliedDatabaseIntents(clientIntents otterizev1alpha2.ClientIntents, expectedIntents []graphqlclient.IntentInput) {
 	emptyIntents := otterizev1alpha2.ClientIntents{}
 
 	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&emptyIntents)).DoAndReturn(
@@ -146,10 +147,27 @@ func (s *DatabaseReconcilerTestSuite) assertAppliedDatabaseIntents(clientIntents
 			return nil
 		})
 
-	s.mockCloudClient.EXPECT().ApplyDatabaseIntent(gomock.Any(), &expectedIntent).Return(nil).Times(1)
+	intentsWithFinalizer := otterizev1alpha2.ClientIntents{}
+	clientIntents.DeepCopyInto(&intentsWithFinalizer)
+	controllerutil.AddFinalizer(&intentsWithFinalizer, DatabaseFinalizerName)
+	s.client.EXPECT().Update(gomock.Any(), &intentsWithFinalizer).Return(nil)
 
+	// First reconcilation is just adding a finalizer and bailing.
 	req := ctrl.Request{NamespacedName: s.namespacedName}
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.Require().NoError(err)
+	s.Require().Equal(ctrl.Result{}, res)
+
+	// In the 2nd call, we're expecting the intent with the added finalizer to be applied
+	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+			intentsWithFinalizer.DeepCopyInto(intents)
+			return nil
+		})
+
+	s.mockCloudClient.EXPECT().ApplyDatabaseIntent(gomock.Any(), expectedIntents, graphqlclient.DBPermissionChangeApply).Return(nil).Times(1)
+
+	res, err = s.Reconciler.Reconcile(context.Background(), req)
 	s.Require().NoError(err)
 	s.Require().Equal(ctrl.Result{}, res)
 }
