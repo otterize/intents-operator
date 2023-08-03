@@ -259,7 +259,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesDeleted, len(intents.GetCallsList()))
 
-	removeIntentFinalizers(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+	RemoveIntentFinalizers(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 	if err := r.Update(ctx, intents); err != nil {
 		return err
 	}

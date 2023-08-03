@@ -7,7 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func removeIntentFinalizers(intents *otterizev1alpha2.ClientIntents, finalizerName string) {
+func RemoveIntentFinalizers(intents *otterizev1alpha2.ClientIntents, finalizerName string) {
 	if len(intents.GetFinalizers()) <= 1 {
 		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIntentsDeleted, 1)
 	}

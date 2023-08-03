@@ -1,8 +1,9 @@
-package intents_reconcilers
+package exp
 
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
@@ -82,7 +83,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if action == graphqlclient.DBPermissionChangeDelete {
-		removeIntentFinalizers(intents, DatabaseFinalizerName)
+		intents_reconcilers.RemoveIntentFinalizers(intents, DatabaseFinalizerName)
 		if err := r.client.Update(ctx, intents); err != nil {
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil

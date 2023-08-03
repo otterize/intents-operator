@@ -22,6 +22,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
@@ -85,7 +86,7 @@ func NewIntentsReconciler(
 	}
 
 	if viper.GetBool(operatorconfig.EnableDatabaseReconciler) {
-		databaseReconciler := intents_reconcilers.NewDatabaseReconciler(client, scheme, otterizeClient)
+		databaseReconciler := exp.NewDatabaseReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
 	}
 

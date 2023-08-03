@@ -1,8 +1,9 @@
-package intents_reconcilers
+package exp
 
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	otterizecloudmocks "github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
@@ -48,8 +49,8 @@ func (s *DatabaseReconcilerTestSuite) SetupTest() {
 	s.Reconciler.Recorder = s.recorder
 
 	s.namespacedName = types.NamespacedName{
-		Namespace: testNamespace,
-		Name:      intentsObjectName,
+		Namespace: intents_reconcilers.testNamespace,
+		Name:      intents_reconcilers.intentsObjectName,
 	}
 }
 
@@ -70,13 +71,13 @@ func (s *DatabaseReconcilerTestSuite) expectNoEvent() {
 func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 	clientIntents := otterizev1alpha2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      intentsObjectName,
-			Namespace: testNamespace,
+			Name:      intents_reconcilers.intentsObjectName,
+			Namespace: intents_reconcilers.testNamespace,
 		},
 
 		Spec: &otterizev1alpha2.IntentsSpec{
 			Service: otterizev1alpha2.Service{
-				Name: clientName,
+				Name: intents_reconcilers.clientName,
 			},
 			Calls: []otterizev1alpha2.Intent{
 				{
@@ -95,10 +96,10 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 	}
 
 	expectedIntents := []graphqlclient.IntentInput{{
-		ClientName:      lo.ToPtr(clientName),
+		ClientName:      lo.ToPtr(intents_reconcilers.clientName),
 		ServerName:      lo.ToPtr(integrationName),
-		Namespace:       lo.ToPtr(testNamespace),
-		ServerNamespace: lo.ToPtr(testNamespace),
+		Namespace:       lo.ToPtr(intents_reconcilers.testNamespace),
+		ServerNamespace: lo.ToPtr(intents_reconcilers.testNamespace),
 		Type:            lo.ToPtr(graphqlclient.IntentTypeDatabase),
 		DatabaseResources: []*graphqlclient.DatabaseConfigInput{{
 			Table: lo.ToPtr(tableName),
@@ -115,8 +116,8 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 func (s *DatabaseReconcilerTestSuite) TestNoSpecs() {
 	clientIntents := otterizev1alpha2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      intentsObjectName,
-			Namespace: testNamespace,
+			Name:      intents_reconcilers.intentsObjectName,
+			Namespace: intents_reconcilers.testNamespace,
 		},
 	}
 

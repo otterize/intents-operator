@@ -233,7 +233,7 @@ func (r *KafkaACLReconciler) handleIntentsDeletion(ctx context.Context, intents 
 			return ctrl.Result{}, err
 		}
 
-		removeIntentFinalizers(intents, KafkaACLsFinalizerName)
+		RemoveIntentFinalizers(intents, KafkaACLsFinalizerName)
 		if err := r.client.Update(ctx, intents); err != nil {
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
