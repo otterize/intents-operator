@@ -16,6 +16,13 @@ const (
 	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
 )
 
+type DBPermissionChange string
+
+const (
+	DBPermissionChangeApply  DBPermissionChange = "APPLY"
+	DBPermissionChangeDelete DBPermissionChange = "DELETE"
+)
+
 type DatabaseConfigInput struct {
 	Table      *string              `json:"table"`
 	Operations []*DatabaseOperation `json:"operations"`
@@ -61,6 +68,16 @@ const (
 	HTTPMethodConnect HTTPMethod = "CONNECT"
 	HTTPMethodAll     HTTPMethod = "ALL"
 )
+
+// HandleDatabaseIntentsResponse is returned by HandleDatabaseIntents on success.
+type HandleDatabaseIntentsResponse struct {
+	HandleDatabaseIntents bool `json:"handleDatabaseIntents"`
+}
+
+// GetHandleDatabaseIntents returns HandleDatabaseIntentsResponse.HandleDatabaseIntents, and is useful for accessing the field via an interface.
+func (v *HandleDatabaseIntentsResponse) GetHandleDatabaseIntents() bool {
+	return v.HandleDatabaseIntents
+}
 
 type IntentInput struct {
 	Namespace         *string                `json:"namespace"`
@@ -329,6 +346,18 @@ func (v *ReportProtectedServicesSnapshotResponse) GetReportProtectedServicesSnap
 	return v.ReportProtectedServicesSnapshot
 }
 
+// __HandleDatabaseIntentsInput is used internally by genqlient
+type __HandleDatabaseIntentsInput struct {
+	Intents []IntentInput      `json:"intents"`
+	Action  DBPermissionChange `json:"action"`
+}
+
+// GetIntents returns __HandleDatabaseIntentsInput.Intents, and is useful for accessing the field via an interface.
+func (v *__HandleDatabaseIntentsInput) GetIntents() []IntentInput { return v.Intents }
+
+// GetAction returns __HandleDatabaseIntentsInput.Action, and is useful for accessing the field via an interface.
+func (v *__HandleDatabaseIntentsInput) GetAction() DBPermissionChange { return v.Action }
+
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
 type __ReportAppliedKubernetesIntentsInput struct {
 	Namespace *string        `json:"namespace"`
@@ -397,6 +426,38 @@ func (v *__ReportProtectedServicesSnapshotInput) GetNamespace() string { return 
 // GetServices returns __ReportProtectedServicesSnapshotInput.Services, and is useful for accessing the field via an interface.
 func (v *__ReportProtectedServicesSnapshotInput) GetServices() []ProtectedServiceInput {
 	return v.Services
+}
+
+func HandleDatabaseIntents(
+	ctx context.Context,
+	client graphql.Client,
+	intents []IntentInput,
+	action DBPermissionChange,
+) (*HandleDatabaseIntentsResponse, error) {
+	req := &graphql.Request{
+		OpName: "HandleDatabaseIntents",
+		Query: `
+mutation HandleDatabaseIntents ($intents: [IntentInput!]!, $action: DBPermissionChange!) {
+	handleDatabaseIntents(intents: $intents, action: $action)
+}
+`,
+		Variables: &__HandleDatabaseIntentsInput{
+			Intents: intents,
+			Action:  action,
+		},
+	}
+	var err error
+
+	var data HandleDatabaseIntentsResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
 }
 
 func ReportAppliedKubernetesIntents(

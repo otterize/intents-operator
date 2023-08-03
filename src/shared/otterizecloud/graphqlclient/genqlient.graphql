@@ -22,3 +22,8 @@ mutation ReportComponentStatus($component: ComponentType!) {
 mutation ReportProtectedServicesSnapshot($namespace: String!, $services: [ProtectedServiceInput!]!) {
     reportProtectedServicesSnapshot(namespace: $namespace, services: $services)
 }
+
+
+mutation HandleDatabaseIntents($intents: [IntentInput!]!, $action: DBPermissionChange!) {
+    handleDatabaseIntents(intents: $intents, action: $action)
+}

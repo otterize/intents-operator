@@ -41,6 +41,8 @@ const (
 	IntentsOperatorPodNameKey                                           = "pod-name"
 	IntentsOperatorPodNamespaceKey                                      = "pod-namespace"
 	EnvPrefix                                                           = "OTTERIZE"
+	EnableDatabaseReconciler                                            = "enable-database-reconciler" // Whether to enable the new database reconciler
+	EnableDatabaseReconcilerDefault                                     = false
 )
 
 func init() {
@@ -79,6 +81,7 @@ func InitCLIFlags() {
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
 	pflag.Bool(telemetrysender.TelemetryEnabledKey, telemetrysender.TelemetryEnabledDefault, "Whether telemetry should be enabled")
 	pflag.Bool(EnableProtectedServicesKey, EnableProtectedServicesDefault, "Enable enforcement per service")
+	pflag.Bool(EnableDatabaseReconciler, EnableDatabaseReconcilerDefault, "Enable the database reconciler")
 
 	runtime.Must(viper.BindPFlags(pflag.CommandLine))
 

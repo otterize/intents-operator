@@ -62,12 +62,13 @@ const (
 	MaxNamespaceLength                      = 20
 )
 
-// +kubebuilder:validation:Enum=http;kafka
+// +kubebuilder:validation:Enum=http;kafka;database
 type IntentType string
 
 const (
-	IntentTypeHTTP  IntentType = "http"
-	IntentTypeKafka IntentType = "kafka"
+	IntentTypeHTTP     IntentType = "http"
+	IntentTypeKafka    IntentType = "kafka"
+	IntentTypeDatabase IntentType = "database"
 )
 
 // +kubebuilder:validation:Enum=all;consume;produce;create;alter;delete;describe;ClusterAction;DescribeConfigs;AlterConfigs;IdempotentWrite
@@ -101,6 +102,17 @@ const (
 	HTTPMethodConnect HTTPMethod = "CONNECT"
 )
 
+// +kubebuilder:validation:Enum=ALL;SELECT;INSERT;UPDATE;DELETE
+type DatabaseOperation string
+
+const (
+	DatabaseOperationAll    DatabaseOperation = "ALL"
+	DatabaseOperationSelect DatabaseOperation = "SELECT"
+	DatabaseOperationInsert DatabaseOperation = "INSERT"
+	DatabaseOperationUpdate DatabaseOperation = "UPDATE"
+	DatabaseOperationDelete DatabaseOperation = "DELETE"
+)
+
 // IntentsSpec defines the desired state of ClientIntents
 type IntentsSpec struct {
 	Service Service  `json:"service" yaml:"service"`
@@ -122,6 +134,14 @@ type Intent struct {
 
 	//+optional
 	HTTPResources []HTTPResource `json:"resources,omitempty" yaml:"resources,omitempty"`
+
+	//+optional
+	DatabaseResources []DatabaseResource `json:"databaseResources,omitempty" yaml:"databaseResources,omitempty"`
+}
+
+type DatabaseResource struct {
+	Table      string              `json:"table" yaml:"table"`
+	Operations []DatabaseOperation `json:"operations" yaml:"operations"`
 }
 
 type HTTPResource struct {
@@ -220,6 +240,8 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 		return graphqlclient.IntentTypeHttp
 	case IntentTypeKafka:
 		return graphqlclient.IntentTypeKafka
+	case IntentTypeDatabase:
+		return graphqlclient.IntentTypeDatabase
 	default:
 		panic("Not supposed to reach here")
 	}
@@ -349,6 +371,24 @@ func kafkaOperationK8sToCloud(op KafkaOperation) graphqlclient.KafkaOperation {
 	}
 }
 
+func databaseOperationToCloud(op DatabaseOperation) graphqlclient.DatabaseOperation {
+	switch op {
+	case DatabaseOperationAll:
+		return graphqlclient.DatabaseOperationAll
+	case DatabaseOperationDelete:
+		return graphqlclient.DatabaseOperationDelete
+	case DatabaseOperationInsert:
+		return graphqlclient.DatabaseOperationInsert
+	case DatabaseOperationSelect:
+		return graphqlclient.DatabaseOperationSelect
+	case DatabaseOperationUpdate:
+		return graphqlclient.DatabaseOperationUpdate
+	default:
+		logrus.Panic(fmt.Sprintf("Unknown DatabaseOperation: %s", op))
+		return ""
+	}
+}
+
 func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName string) graphqlclient.IntentInput {
 	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) *graphqlclient.KafkaConfigInput {
 		return lo.ToPtr(graphqlclient.KafkaConfigInput{
@@ -373,6 +413,19 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 
 	if in.HTTPResources != nil {
 		intentInput.Resources = lo.Map(in.HTTPResources, intentsHTTPResourceToCloud)
+	}
+
+	if in.DatabaseResources != nil {
+		intentInput.DatabaseResources = lo.Map(in.DatabaseResources, func(resource DatabaseResource, _ int) *graphqlclient.DatabaseConfigInput {
+			databaseConfigInput := graphqlclient.DatabaseConfigInput{
+				Table: lo.ToPtr(resource.Table),
+				Operations: lo.Map(resource.Operations, func(operation DatabaseOperation, _ int) *graphqlclient.DatabaseOperation {
+					cloudOperation := databaseOperationToCloud(operation)
+					return &cloudOperation
+				}),
+			}
+			return &databaseConfigInput
+		})
 	}
 
 	if len(otterizeTopics) != 0 {
@@ -436,6 +489,15 @@ func (in *ClientIntents) BuildPodLabelSelector() (labels.Selector, error) {
 func (in *ClientIntents) HasKafkaTypeInCallList() bool {
 	for _, intent := range in.GetCallsList() {
 		if intent.Type == IntentTypeKafka {
+			return true
+		}
+	}
+	return false
+}
+
+func (in *ClientIntents) HasDatabaseTypeInCallList() bool {
+	for _, intent := range in.GetCallsList() {
+		if intent.Type == IntentTypeDatabase {
 			return true
 		}
 	}

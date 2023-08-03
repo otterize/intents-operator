@@ -22,12 +22,15 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -80,6 +83,11 @@ func NewIntentsReconciler(
 	if otterizeClient != nil {
 		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
+	}
+
+	if viper.GetBool(operatorconfig.EnableDatabaseReconciler) {
+		databaseReconciler := exp.NewDatabaseReconciler(client, scheme, otterizeClient)
+		intentsReconciler.group.AddToGroup(databaseReconciler)
 	}
 
 	return intentsReconciler
