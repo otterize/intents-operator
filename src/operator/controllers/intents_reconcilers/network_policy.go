@@ -324,7 +324,13 @@ func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Contex
 		// Get all client intents that reference this network policy
 		var intentsList otterizev1alpha2.ClientIntentsList
 		serverName := networkPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
-		err = r.List(ctx, &intentsList, &client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: serverName})
+		clientNamespace := networkPolicy.Spec.Ingress[0].From[0].NamespaceSelector.MatchLabels[otterizev1alpha2.OtterizeNamespaceLabelKey]
+		err = r.List(
+			ctx,
+			&intentsList,
+			&client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: serverName},
+			&client.ListOptions{Namespace: clientNamespace},
+		)
 		if err != nil {
 			return err
 		}
