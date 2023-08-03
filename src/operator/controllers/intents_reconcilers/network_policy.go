@@ -152,10 +152,8 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		return err
 	}
 
-	logrus.Infof("Server %s in namespace %s is in protected list: %t", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), createPolicy)
 	if !createPolicy {
 		logrus.Infof("Server not in protected list, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
-		// TODO: Make sure to delete policy if should not protect server
 		return nil
 	}
 
@@ -166,7 +164,6 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		Name:      policyName,
 		Namespace: intent.GetServerNamespace(intentsObjNamespace)},
 		existingPolicy)
-
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
 		return err
@@ -251,7 +248,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 	}
 	logrus.Infof("Removing network policies for deleted intents for service: %s", intents.Spec.Service.Name)
 	for _, intent := range intents.GetCallsList() {
-		err := r.handleNetworkPolicyRemoval(ctx, intent, intents.Namespace)
+		err := r.handleIntentRemoval(ctx, intent, intents.Namespace)
 		if err != nil {
 			return err
 		}
@@ -267,7 +264,7 @@ func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
 	return nil
 }
 
-func (r *NetworkPolicyReconciler) handleNetworkPolicyRemoval(
+func (r *NetworkPolicyReconciler) handleIntentRemoval(
 	ctx context.Context,
 	intent otterizev1alpha2.Intent,
 	intentsObjNamespace string) error {
@@ -331,17 +328,25 @@ func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Contex
 
 		if len(intentsList.Items) == 0 {
 			logrus.Infof("Removing orphaned network policy: %s server %s ns %s", networkPolicy.Name, serverName, networkPolicy.Namespace)
-			err = r.extNetpolHandler.HandleBeforeAccessPolicyRemoval(ctx, &networkPolicy)
-			if err != nil {
-				return err
-			}
-			err = r.Delete(ctx, &networkPolicy)
+			err = r.removeNetworkPolicy(ctx, networkPolicy)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
+	return nil
+}
+
+func (r *NetworkPolicyReconciler) removeNetworkPolicy(ctx context.Context, networkPolicy v1.NetworkPolicy) error {
+	err := r.extNetpolHandler.HandleBeforeAccessPolicyRemoval(ctx, &networkPolicy)
+	if err != nil {
+		return err
+	}
+	err = r.Delete(ctx, &networkPolicy)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -380,7 +385,7 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 		return err
 	}
 
-	return r.Delete(ctx, policy)
+	return r.removeNetworkPolicy(ctx, *policy)
 }
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
