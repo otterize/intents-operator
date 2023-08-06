@@ -43,5 +43,5 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - protectedservices
+    - protectedservice
   sideEffects: None
