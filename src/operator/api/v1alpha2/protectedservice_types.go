@@ -20,12 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ProtectedServicesSpec defines the desired state of ProtectedServices
+// ProtectedServiceSpec defines the desired state of ProtectedService
 type ProtectedServiceSpec struct {
 	Name string `json:"name,omitempty"`
 }
 
-// ProtectedServiceStatus defines the observed state of ProtectedServices
+// ProtectedServiceStatus defines the observed state of ProtectedService
 type ProtectedServiceStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file

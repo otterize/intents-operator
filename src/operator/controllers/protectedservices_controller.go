@@ -40,9 +40,9 @@ type ProtectedServiceReconciler struct {
 	group *reconcilergroup.Group
 }
 
-//+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservice,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservice/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservice/finalizers,verbs=update
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices/finalizers,verbs=update
 
 func NewProtectedServiceReconciler(
 	client client.Client,
