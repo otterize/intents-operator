@@ -1,9 +1,9 @@
-package protected_services_reconcilers
+package protected_service_reconcilers
 
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	protectedservicesmock "github.com/otterize/intents-operator/src/operator/controllers/protected_services_reconcilers/mocks"
+	protectedservicesmock "github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"

@@ -1,4 +1,4 @@
-package protected_services_reconcilers
+package protected_service_reconcilers
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DefaultDenyReconciler reconciles a ProtectedServices object
+// DefaultDenyReconciler reconciles a ProtectedService object
 type DefaultDenyReconciler struct {
 	client.Client
 	extNetpolHandler ExternalNepolHandler

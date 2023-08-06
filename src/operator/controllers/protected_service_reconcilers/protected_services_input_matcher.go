@@ -1,4 +1,4 @@
-package protected_services_reconcilers
+package protected_service_reconcilers
 
 import (
 	"fmt"

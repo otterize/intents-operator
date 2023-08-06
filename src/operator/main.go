@@ -249,9 +249,9 @@ func main() {
 			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
 		}
 
-		protectedServices := webhooks.NewProtectedServiceValidator(mgr.GetClient())
-		if err = protectedServices.SetupWebhookWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "ProtectedServices")
+		protectedServiceValidator := webhooks.NewProtectedServiceValidator(mgr.GetClient())
+		if err = protectedServiceValidator.SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "ProtectedService")
 		}
 	}
 
@@ -269,7 +269,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
 	}
 
-	protectedServicesReconciler := controllers.NewProtectedServicesReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient, extNetpolHandler)
+	protectedServicesReconciler := controllers.NewProtectedServiceReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient, extNetpolHandler)
 	err = protectedServicesReconciler.SetupWithManager(mgr)
 	if err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "ProtectedServices")
