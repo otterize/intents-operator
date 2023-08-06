@@ -121,7 +121,7 @@ rules:
 - apiGroups:
   - k8s.otterize.com
   resources:
-  - protectedservice
+  - protectedservices
   verbs:
   - create
   - delete
@@ -133,13 +133,13 @@ rules:
 - apiGroups:
   - k8s.otterize.com
   resources:
-  - protectedservice/finalizers
+  - protectedservices/finalizers
   verbs:
   - update
 - apiGroups:
   - k8s.otterize.com
   resources:
-  - protectedservice/status
+  - protectedservices/status
   verbs:
   - get
   - patch
