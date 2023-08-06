@@ -9,16 +9,16 @@ metadata:
 spec:
   group: k8s.otterize.com
   names:
-    kind: ProtectedServices
-    listKind: ProtectedServicesList
+    kind: ProtectedService
+    listKind: ProtectedServiceList
     plural: protectedservices
-    singular: protectedservices
+    singular: protectedservice
   scope: Namespaced
   versions:
   - name: v1alpha2
     schema:
       openAPIV3Schema:
-        description: ProtectedServices is the Schema for the protectedservices API
+        description: ProtectedService is the Schema for the protectedservice API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -35,16 +35,11 @@ spec:
           spec:
             description: ProtectedServicesSpec defines the desired state of ProtectedServices
             properties:
-              protectedServices:
-                items:
-                  properties:
-                    name:
-                      type: string
-                  type: object
-                type: array
+              name:
+                type: string
             type: object
           status:
-            description: ProtectedServicesStatus defines the observed state of ProtectedServices
+            description: ProtectedServiceStatus defines the observed state of ProtectedServices
             type: object
         type: object
     served: true

@@ -249,7 +249,7 @@ func main() {
 			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
 		}
 
-		protectedServices := webhooks.NewProtectedServicesValidator(mgr.GetClient())
+		protectedServices := webhooks.NewProtectedServiceValidator(mgr.GetClient())
 		if err = protectedServices.SetupWebhookWithManager(mgr); err != nil {
 			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "ProtectedServices")
 		}

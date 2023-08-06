@@ -7,6 +7,7 @@ import (
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/testbase"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -27,6 +28,10 @@ type NetworkPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
 	Reconciler            *NetworkPolicyReconciler
 	externalNetpolHandler *mocks.MockexternalNetpolHandler
+}
+
+func init() {
+	logrus.SetLevel(logrus.DebugLevel)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
@@ -81,13 +86,13 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
-	protectedServices := []otterizev1alpha2.ProtectedServices{{
+	protectedService := []otterizev1alpha2.ProtectedService{{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-protected-services",
 			Namespace: testNamespace,
 		},
-		Spec: otterizev1alpha2.ProtectedServicesSpec{
-			ProtectedServices: []otterizev1alpha2.ProtectedService{{Name: "test-server"}},
+		Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Name: "test-server",
 		},
 	}}
 
@@ -98,7 +103,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 		policyName,
 		formattedTargetServer,
 		true,
-		protectedServices,
+		protectedService,
 	)
 	s.ExpectEvent(ReasonCreatedNetworkPolicies)
 }
@@ -111,23 +116,23 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
-	protectedServices := []otterizev1alpha2.ProtectedServices{
+	protectedServices := []otterizev1alpha2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-protected-services",
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServicesSpec{
-				ProtectedServices: []otterizev1alpha2.ProtectedService{{Name: "other-server"}},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: "other-server",
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-protected-services",
+				Name:      "test-protected-services-2",
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServicesSpec{
-				ProtectedServices: []otterizev1alpha2.ProtectedService{{Name: "test-server"}},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: "test-server",
 			},
 		},
 	}
@@ -256,7 +261,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 	s.ExpectEvent(ReasonCreatedNetworkPolicies)
 }
 
@@ -374,7 +379,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(orphanPolicy)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 	s.ExpectEvent(ReasonCreatedNetworkPolicies)
 }
 
@@ -468,7 +473,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
@@ -478,7 +483,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	policyName string,
 	formattedTargetServer string,
 	protectedServicesEnabled bool,
-	protectedServices []otterizev1alpha2.ProtectedServices,
+	protectedServices []otterizev1alpha2.ProtectedService,
 ) {
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
@@ -508,8 +513,8 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 		})
 
 	if protectedServicesEnabled {
-		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServicesList{}), client.InNamespace(serverNamespace)).DoAndReturn(
-			func(ctx context.Context, list *otterizev1alpha2.ProtectedServicesList, opts ...client.ListOption) error {
+		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(serverNamespace)).DoAndReturn(
+			func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
 				list.Items = append(list.Items, protectedServices...)
 				return nil
 			})
@@ -544,7 +549,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
@@ -637,7 +642,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 	s.ExpectEvent(ReasonCreatedNetworkPolicies)
 }
 
@@ -692,55 +697,21 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerNotInProtectionList() {
 	serverNamespace := "other-namespace"
 	serverName := "test-server"
 
-	protectedServices := otterizev1alpha2.ProtectedServices{
+	protectedService := otterizev1alpha2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-protected-services",
 			Namespace: serverNamespace,
 		},
-		Spec: otterizev1alpha2.ProtectedServicesSpec{
-			ProtectedServices: []otterizev1alpha2.ProtectedService{{Name: "other-server"}},
+		Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Name: "other-server",
 		},
 	}
 
-	protectedServicesResources := []otterizev1alpha2.ProtectedServices{protectedServices}
-	s.testServerNotProtected(clientIntentsName, serverName, serverNamespace, serviceName, protectedServicesResources)
+	s.testServerNotProtected(clientIntentsName, serverName, serverNamespace, serviceName, &protectedService)
 	s.ExpectEvent(ReasonCreatedNetworkPolicies)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestServerNotInProtectionList_EmptyList() {
-	viper.Set(operatorconfig.EnableProtectedServicesKey, true)
-	clientIntentsName := "client-intents"
-	serviceName := "test-client"
-	serverNamespace := "other-namespace"
-	serverName := "test-server"
-
-	protectedServices := otterizev1alpha2.ProtectedServices{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-protected-services",
-			Namespace: serverNamespace,
-		},
-		Spec: otterizev1alpha2.ProtectedServicesSpec{
-			ProtectedServices: []otterizev1alpha2.ProtectedService{},
-		},
-	}
-
-	protectedServicesResources := []otterizev1alpha2.ProtectedServices{protectedServices}
-	s.testServerNotProtected(clientIntentsName, serverName, serverNamespace, serviceName, protectedServicesResources)
-	s.ExpectEvent(ReasonCreatedNetworkPolicies)
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) TestServerNotInProtectionList_NoResource() {
-	viper.Set(operatorconfig.EnableProtectedServicesKey, true)
-	clientIntentsName := "client-intents"
-	serviceName := "test-client"
-	serverNamespace := "other-namespace"
-	serverName := "test-server"
-
-	s.testServerNotProtected(clientIntentsName, serverName, serverNamespace, serviceName, []otterizev1alpha2.ProtectedServices{})
-	s.ExpectEvent(ReasonCreatedNetworkPolicies)
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsName string, serverName string, serverNamespace string, serviceName string, protectedServices []otterizev1alpha2.ProtectedServices) {
+func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsName string, serverName string, serverNamespace string, serviceName string, protectedService *otterizev1alpha2.ProtectedService) {
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
 		Name:      clientIntentsName,
@@ -768,9 +739,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 			return nil
 		})
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServicesList{}), client.InNamespace(serverNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServicesList, opts ...client.ListOption) error {
-			list.Items = append(list.Items, protectedServices...)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(serverNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
+			list.Items = append(list.Items, *protectedService)
 			return nil
 		})
 
@@ -778,7 +749,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDisabled() {
@@ -841,7 +812,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWithSameServer() {
@@ -927,7 +898,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func TestNetworkPolicyReconcilerTestSuite(t *testing.T) {
