@@ -24,7 +24,7 @@ const (
 	SelfSignedCertDefault                                               = true
 	DisableWebhookServerKey                                             = "disable-webhook-server" // Disable webhook validator server
 	DisableWebhookServerDefault                                         = false
-	EnforcementDefaultStateKey                                          = "enable-enforcement" // If set to false disables the enforcement globally, superior to the other flags
+	EnforcementDefaultStateKey                                          = "enable-enforcement" // Sets the default state of the enforcement. If true, always enforces. If false, can be overridden using ProtectedService.
 	EnforcementDefaultStateDefault                                      = true
 	AutoCreateNetworkPoliciesForExternalTrafficKey                      = "auto-create-network-policies-for-external-traffic" // Whether to automatically create network policies for external traffic
 	AutoCreateNetworkPoliciesForExternalTrafficDefault                  = true
@@ -66,7 +66,7 @@ func InitCLIFlags() {
 	pflag.String(KafkaServerTLSCAKey, "", "name of tls ca file")
 	pflag.Bool(SelfSignedCertKey, SelfSignedCertDefault, "Whether to generate and use a self signed cert as the CA for webhooks")
 	pflag.Bool(DisableWebhookServerKey, DisableWebhookServerDefault, "Disable webhook validator server")
-	pflag.Bool(EnforcementDefaultStateKey, EnforcementDefaultStateDefault, "If set to false disables the enforcement globally, superior to the other flags")
+	pflag.Bool(EnforcementDefaultStateKey, EnforcementDefaultStateDefault, "Sets the default state of the enforcement. If true, always enforces. If false, can be overridden using ProtectedService.")
 	pflag.Bool(AutoCreateNetworkPoliciesForExternalTrafficKey, AutoCreateNetworkPoliciesForExternalTrafficDefault, "Whether to automatically create network policies for external traffic")
 	pflag.Bool(AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredKey, AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredDefault, "Whether to create network policies for external traffic, even if no intents point to the relevant service")
 	pflag.Bool(EnableNetworkPolicyKey, EnableNetworkPolicyDefault, "Whether to enable Intents network policy creation")
