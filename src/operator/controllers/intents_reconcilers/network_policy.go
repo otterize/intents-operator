@@ -5,12 +5,10 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,7 +22,7 @@ import (
 )
 
 const (
-	ReasonEnforcementGloballyDisabled   = "EnforcementGloballyDisabled"
+	ReasonEnforcementDefaultOff         = "EnforcementGloballyDisabled"
 	ReasonNetworkPolicyCreationDisabled = "NetworkPolicyCreationDisabled"
 	ReasonGettingNetworkPolicyFailed    = "GettingNetworkPolicyFailed"
 	ReasonRemovingNetworkPolicyFailed   = "RemovingNetworkPolicyFailed"
@@ -44,7 +42,7 @@ type NetworkPolicyReconciler struct {
 	extNetpolHandler                              externalNetpolHandler
 	RestrictToNamespaces                          []string
 	enableNetworkPolicyCreation                   bool
-	enforcementEnabledGlobally                    bool
+	enforcementDefaultState                       bool
 	externalNetworkPoliciesCreatedEvenIfNoIntents bool
 	injectablerecorder.InjectableRecorder
 }
@@ -55,7 +53,7 @@ func NewNetworkPolicyReconciler(
 	extNetpolHandler externalNetpolHandler,
 	restrictToNamespaces []string,
 	enableNetworkPolicyCreation bool,
-	enforcementEnabledGlobally bool,
+	enforcementDefaultState bool,
 	externalNetworkPoliciesCreatedEvenIfNoIntents bool) *NetworkPolicyReconciler {
 	return &NetworkPolicyReconciler{
 		Client:                      c,
@@ -63,7 +61,7 @@ func NewNetworkPolicyReconciler(
 		extNetpolHandler:            extNetpolHandler,
 		RestrictToNamespaces:        restrictToNamespaces,
 		enableNetworkPolicyCreation: enableNetworkPolicyCreation,
-		enforcementEnabledGlobally:  enforcementEnabledGlobally,
+		enforcementDefaultState:     enforcementDefaultState,
 		externalNetworkPoliciesCreatedEvenIfNoIntents: externalNetworkPoliciesCreatedEvenIfNoIntents,
 	}
 }
@@ -136,9 +134,15 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intentsObj *otterizev1alpha2.ClientIntents, intent otterizev1alpha2.Intent, intentsObjNamespace string) error {
-	if !r.enforcementEnabledGlobally {
-		logrus.Infof("Enforcement is disabled globally, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
-		r.RecordNormalEvent(intentsObj, ReasonEnforcementGloballyDisabled, "Enforcement is disabled globally, network policy creation skipped")
+
+	shouldCreatePolicy, err := r.shouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
+	if err != nil {
+		return err
+	}
+
+	if !shouldCreatePolicy {
+		logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
+		r.RecordNormalEventf(intentsObj, ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
 		return nil
 	}
 	if !r.enableNetworkPolicyCreation {
@@ -147,13 +151,8 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		return nil
 	}
 
-	createPolicy, err := r.shouldProtectServer(ctx, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
-	if err != nil {
-		return err
-	}
-
-	logrus.Debugf("Server %s in namespace %s is in protected list: %t", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), createPolicy)
-	if !createPolicy {
+	logrus.Debugf("Server %s in namespace %s is in protected list: %t", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), shouldCreatePolicy)
+	if !shouldCreatePolicy {
 		logrus.Debugf("Server not in protected list, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
 		// TODO: Make sure to delete policy if should not protect server
 		return nil
@@ -179,9 +178,9 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	return r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, intentsObjNamespace)
 }
 
-func (r *NetworkPolicyReconciler) shouldProtectServer(ctx context.Context, serverName string, serverNamespace string) (bool, error) {
-	if !viper.GetBool(operatorconfig.EnableProtectedServicesKey) {
-		logrus.Debug("Protected services are disabled, skipping protected service check")
+func (r *NetworkPolicyReconciler) shouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx context.Context, serverName string, serverNamespace string) (bool, error) {
+	if r.enforcementDefaultState {
+		logrus.Debug("Enforcement is default on, so all services should be protected")
 		return true, nil
 	}
 

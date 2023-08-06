@@ -5,7 +5,6 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -72,14 +71,13 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 		serviceName,
 		policyName,
 		formattedTargetServer,
-		false,
+		true,
 		nil,
 	)
 	s.ExpectEvent(ReasonCreatedNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServices() {
-	viper.Set(operatorconfig.EnableProtectedServicesKey, true)
 	clientIntentsName := "client-intents"
 	policyName := "access-to-test-server-from-test-namespace"
 	serviceName := "test-client"
@@ -102,14 +100,13 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 		serviceName,
 		policyName,
 		formattedTargetServer,
-		true,
+		false,
 		protectedService,
 	)
 	s.ExpectEvent(ReasonCreatedNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServicesMultipleResources() {
-	viper.Set(operatorconfig.EnableProtectedServicesKey, true)
 	clientIntentsName := "client-intents"
 	policyName := "access-to-test-server-from-test-namespace"
 	serviceName := "test-client"
@@ -143,7 +140,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 		serviceName,
 		policyName,
 		formattedTargetServer,
-		true,
+		false,
 		protectedServices,
 	)
 	s.ExpectEvent(ReasonCreatedNetworkPolicies)
@@ -162,7 +159,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace
 		serviceName,
 		policyName,
 		formattedTargetServer,
-		false,
+		true,
 		nil,
 	)
 	s.ExpectEvent(ReasonCreatedNetworkPolicies)
@@ -482,9 +479,10 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	serviceName string,
 	policyName string,
 	formattedTargetServer string,
-	protectedServicesEnabled bool,
+	defaultEnforcementState bool,
 	protectedServices []otterizev1alpha2.ProtectedService,
 ) {
+	s.Reconciler.enforcementDefaultState = defaultEnforcementState
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
 		Name:      clientIntentsName,
@@ -512,7 +510,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 			return nil
 		})
 
-	if protectedServicesEnabled {
+	if defaultEnforcementState == false {
 		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(serverNamespace)).DoAndReturn(
 			func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
 				list.Items = append(list.Items, protectedServices...)
@@ -691,11 +689,11 @@ func networkPolicyTemplate(
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestServerNotInProtectionList() {
-	viper.Set(operatorconfig.EnableProtectedServicesKey, true)
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
 	serverName := "test-server"
+	s.Reconciler.enforcementDefaultState = false
 
 	protectedService := otterizev1alpha2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -708,6 +706,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerNotInProtectionList() {
 	}
 
 	s.testServerNotProtected(clientIntentsName, serverName, serverNamespace, serviceName, &protectedService)
+	s.ExpectEvent(ReasonEnforcementDefaultOff)
 	s.ExpectEvent(ReasonCreatedNetworkPolicies)
 }
 
@@ -761,10 +760,10 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDis
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkGlobalEnforcementDisabled() {
-	s.Reconciler.enforcementEnabledGlobally = false
+	s.Reconciler.enforcementDefaultState = false
 
 	s.testEnforcementDisabled()
-	s.ExpectEvent(ReasonEnforcementGloballyDisabled)
+	s.ExpectEvent(ReasonEnforcementDefaultOff)
 	s.ExpectEvent(ReasonCreatedNetworkPolicies)
 }
 
@@ -809,6 +808,10 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 		})
 
 	s.ignoreRemoveOrphan()
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(serverNamespace)).AnyTimes().DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
+			return nil
+		})
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)

@@ -4,7 +4,6 @@ import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	protectedservicesmock "github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/mocks"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -43,7 +42,6 @@ func (s *DefaultDenyReconcilerTestSuite) SetupTest() {
 
 	s.extNetpolHandler = protectedservicesmock.NewMockExternalNepolHandler(s.Controller)
 	s.reconciler = NewDefaultDenyReconciler(s.Client, s.extNetpolHandler)
-	viper.Set(operatorconfig.EnableProtectedServicesKey, true)
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TearDownTest() {
@@ -599,76 +597,6 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
 	res, err := s.reconciler.Reconcile(context.Background(), request)
 	s.Require().Empty(res)
 	s.Require().NoError(err)
-}
-
-func (s *DefaultDenyReconcilerTestSuite) TestDeleteAllWhenFeatureDisabled() {
-	viper.Set(operatorconfig.EnableProtectedServicesKey, false)
-
-	formattedServerName := protectedServiceFormattedName
-	serverPolicy := v1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default-deny-test-service",
-			Namespace: testNamespace,
-			Labels: map[string]string{
-				otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev1alpha2.OtterizeNetworkPolicy:                   formattedServerName,
-			},
-		},
-		Spec: v1.NetworkPolicySpec{
-			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					otterizev1alpha2.OtterizeServerLabelKey: formattedServerName,
-				},
-			},
-			Ingress: []v1.NetworkPolicyIngressRule{},
-		},
-	}
-
-	formattedOtherServerName := anotherProtectedServiceFormattedName
-	otherServerPolicy := v1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default-deny-other-test-service",
-			Namespace: testNamespace,
-			Labels: map[string]string{
-				otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev1alpha2.OtterizeNetworkPolicy:                   formattedOtherServerName,
-			},
-		},
-		Spec: v1.NetworkPolicySpec{
-			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					otterizev1alpha2.OtterizeServerLabelKey: formattedOtherServerName,
-				},
-			},
-			Ingress: []v1.NetworkPolicyIngressRule{},
-		},
-	}
-
-	var networkPolicies v1.NetworkPolicyList
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
-		otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-	}).DoAndReturn(
-		func(ctx context.Context, list *v1.NetworkPolicyList, opts ...client.ListOption) error {
-			list.Items = append(list.Items, serverPolicy, otherServerPolicy)
-			return nil
-		})
-	request := ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: testNamespace,
-			Name:      protectedServicesResourceName,
-		},
-	}
-
-	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(&serverPolicy)).Return(nil)
-	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(&otherServerPolicy)).Return(nil)
-
-	s.extNetpolHandler.EXPECT().HandleAllPods(gomock.Any())
-	res, err := s.reconciler.Reconcile(context.Background(), request)
-	s.Require().Empty(res)
-	s.Require().NoError(err)
-
 }
 
 func TestDefaultDenyReconcilerTestSuite(t *testing.T) {

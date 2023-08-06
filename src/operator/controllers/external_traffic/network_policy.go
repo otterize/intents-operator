@@ -40,11 +40,11 @@ type NetworkPolicyHandler struct {
 	injectablerecorder.InjectableRecorder
 	enabled                                bool
 	createEvenIfNoPreexistingNetworkPolicy bool
-	enforcementEnabledGlobally             bool
+	enforcementDefaultState                bool
 }
 
-func NewNetworkPolicyHandler(client client.Client, scheme *runtime.Scheme, enabled bool, createEvenIfNoPreexistingNetworkPolicy bool, enforcementEnabledGlobally bool) *NetworkPolicyHandler {
-	return &NetworkPolicyHandler{client: client, scheme: scheme, enabled: enabled, createEvenIfNoPreexistingNetworkPolicy: createEvenIfNoPreexistingNetworkPolicy, enforcementEnabledGlobally: enforcementEnabledGlobally}
+func NewNetworkPolicyHandler(client client.Client, scheme *runtime.Scheme, enabled bool, createEvenIfNoPreexistingNetworkPolicy bool, enforcementDefaultState bool) *NetworkPolicyHandler {
+	return &NetworkPolicyHandler{client: client, scheme: scheme, enabled: enabled, createEvenIfNoPreexistingNetworkPolicy: createEvenIfNoPreexistingNetworkPolicy, enforcementDefaultState: enforcementDefaultState}
 }
 
 func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
@@ -471,7 +471,7 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 	}
 
 	// delete policy if disabled
-	if !r.enforcementEnabledGlobally || !r.enabled {
+	if !r.enforcementDefaultState || !r.enabled {
 		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {
@@ -497,7 +497,7 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeServiceWithoutIntents(ctx
 	}
 
 	// delete policy if disabled
-	if !r.enforcementEnabledGlobally || !r.enabled {
+	if !r.enforcementDefaultState || !r.enabled {
 		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {

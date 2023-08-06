@@ -3,7 +3,6 @@ package protected_service_reconcilers
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	otterizecloudmocks "github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -30,7 +29,6 @@ func (s *CloudReconcilerTestSuite) SetupTest() {
 	s.cloudClient = otterizecloudmocks.NewMockCloudClient(s.Controller)
 	scheme := runtime.NewScheme()
 	s.reconciler = NewCloudReconciler(s.Client, scheme, s.cloudClient)
-	viper.Set(operatorconfig.EnableProtectedServicesKey, true)
 }
 
 func (s *CloudReconcilerTestSuite) TearDownTest() {

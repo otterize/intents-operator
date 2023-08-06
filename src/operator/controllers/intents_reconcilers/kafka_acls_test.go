@@ -107,7 +107,7 @@ func (s *KafkaACLReconcilerTestSuite) BeforeTest(_, testName string) {
 	s.initKafkaIntentsAdmin(true, true)
 }
 
-func (s *KafkaACLReconcilerTestSuite) initKafkaIntentsAdmin(enableAclCreation bool, enforcementEnabledGlobally bool) {
+func (s *KafkaACLReconcilerTestSuite) initKafkaIntentsAdmin(enableAclCreation bool, enforcementDefaultState bool) {
 	kafkaServersStore := s.setupServerStore(kafkaServiceName)
 	newTestKafkaIntentsAdmin := getMockIntentsAdminFactory(s.mockKafkaAdmin, usernameMapping)
 	s.Reconciler = NewKafkaACLReconciler(
@@ -116,7 +116,7 @@ func (s *KafkaACLReconcilerTestSuite) initKafkaIntentsAdmin(enableAclCreation bo
 		kafkaServersStore,
 		enableAclCreation,
 		newTestKafkaIntentsAdmin,
-		enforcementEnabledGlobally,
+		enforcementDefaultState,
 		operatorPodName,
 		s.operatorNamespace,
 		s.mockServiceResolver,
@@ -130,8 +130,8 @@ func (s *KafkaACLReconcilerTestSuite) principal() string {
 }
 
 func getMockIntentsAdminFactory(clusterAdmin sarama.ClusterAdmin, usernameMapping string) kafkaacls.IntentsAdminFactoryFunction {
-	return func(kafkaServer otterizev1alpha2.KafkaServerConfig, _ otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementEnabledGlobally bool) (kafkaacls.KafkaIntentsAdmin, error) {
-		return kafkaacls.NewKafkaIntentsAdminImpl(kafkaServer, clusterAdmin, usernameMapping, enableKafkaACLCreation, enforcementEnabledGlobally), nil
+	return func(kafkaServer otterizev1alpha2.KafkaServerConfig, _ otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementDefaultState bool) (kafkaacls.KafkaIntentsAdmin, error) {
+		return kafkaacls.NewKafkaIntentsAdminImpl(kafkaServer, clusterAdmin, usernameMapping, enableKafkaACLCreation, enforcementDefaultState), nil
 	}
 }
 
@@ -376,7 +376,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() 
 	// the actual test is that there are not unexpected calls to the mockKafkaAdmin
 	select {
 	case event := <-s.recorder.Events:
-		s.Require().Contains(event, ReasonEnforcementGloballyDisabled)
+		s.Require().Contains(event, ReasonEnforcementDefaultOff)
 	default:
 		s.Fail("event not raised")
 	}

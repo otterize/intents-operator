@@ -88,11 +88,11 @@ func main() {
 	autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement := viper.GetBool(operatorconfig.AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredKey)
 	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
 	enforcementConfig := controllers.EnforcementConfig{
-		EnforcementEnabledGlobally: viper.GetBool(operatorconfig.EnforcementEnabledGloballyKey),
-		EnableNetworkPolicy:        viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
-		EnableKafkaACL:             viper.GetBool(operatorconfig.EnableKafkaACLKey),
-		EnableIstioPolicy:          viper.GetBool(operatorconfig.EnableIstioPolicyKey),
-		EnableProtectedServices:    viper.GetBool(operatorconfig.EnableProtectedServicesKey),
+		EnforcementDefaultState:  viper.GetBool(operatorconfig.EnforcementDefaultStateKey),
+		EnableNetworkPolicy:      viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
+		EnableKafkaACL:           viper.GetBool(operatorconfig.EnableKafkaACLKey),
+		EnableIstioPolicy:        viper.GetBool(operatorconfig.EnableIstioPolicyKey),
+		EnableDatabaseReconciler: viper.GetBool(operatorconfig.EnableDatabaseReconciler),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev1alpha2.TLSSource{
@@ -157,9 +157,9 @@ func main() {
 	telemetrysender.SetGlobalContextId(telemetrysender.Anonymize(kubeSystemUID))
 	telemetrysender.SetGlobalVersion(version.Version())
 
-	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally)
+	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
-	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement, enforcementConfig.EnforcementEnabledGlobally)
+	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement, enforcementConfig.EnforcementDefaultState)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
@@ -191,7 +191,7 @@ func main() {
 		logrus.Info("Not configured for cloud integration")
 	}
 
-	if !enforcementConfig.EnforcementEnabledGlobally {
+	if !enforcementConfig.EnforcementDefaultState {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
 
@@ -295,11 +295,11 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud
 	defer cancel()
 
 	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
-		GlobalEnforcementEnabled:        config.EnforcementEnabledGlobally,
-		NetworkPolicyEnforcementEnabled: config.EnforcementEnabledGlobally && config.EnableNetworkPolicy,
-		KafkaACLEnforcementEnabled:      config.EnforcementEnabledGlobally && config.EnableKafkaACL,
-		IstioPolicyEnforcementEnabled:   config.EnforcementEnabledGlobally && config.EnableIstioPolicy,
-		ProtectedServicesEnabled:        config.EnforcementEnabledGlobally && config.EnableProtectedServices,
+		GlobalEnforcementEnabled:        config.EnforcementDefaultState,
+		NetworkPolicyEnforcementEnabled: config.EnforcementDefaultState && config.EnableNetworkPolicy,
+		KafkaACLEnforcementEnabled:      config.EnforcementDefaultState && config.EnableKafkaACL,
+		IstioPolicyEnforcementEnabled:   config.EnforcementDefaultState && config.EnableIstioPolicy,
+		ProtectedServicesEnabled:        true, // this version always sends true - tells the cloud the feature exists so it correctly simulates behavior
 	})
 	if err != nil {
 		logrus.WithError(err).Error("Failed to report configuration to the cloud")
