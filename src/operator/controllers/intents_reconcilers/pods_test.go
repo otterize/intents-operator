@@ -107,7 +107,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddedTruncatedNameAndNamespace() {
@@ -178,7 +178,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddedTruncatedNameAnd
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelRemoved() {
@@ -274,7 +274,7 @@ func (s *PodLabelReconcilerTestSuite) testClientAccessLabelRemovedWithParams(pod
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
@@ -344,7 +344,7 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 
 	// Now all the way through again, but with a different server name
 
@@ -379,7 +379,7 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 
 	res, err = s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 
 }
 
@@ -421,7 +421,7 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
@@ -467,7 +467,7 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddFailedPatch() {

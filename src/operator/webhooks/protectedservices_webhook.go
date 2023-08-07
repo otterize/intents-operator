@@ -31,31 +31,31 @@ import (
 	"strings"
 )
 
-type ProtectedServicesValidator struct {
+type ProtectedServiceValidator struct {
 	client.Client
 }
 
-func (v *ProtectedServicesValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (v *ProtectedServiceValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&otterizev1alpha2.ProtectedServices{}).
+		For(&otterizev1alpha2.ProtectedService{}).
 		WithValidator(v).
 		Complete()
 }
 
-func NewProtectedServicesValidator(c client.Client) *ProtectedServicesValidator {
-	return &ProtectedServicesValidator{
+func NewProtectedServiceValidator(c client.Client) *ProtectedServiceValidator {
+	return &ProtectedServiceValidator{
 		Client: c,
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha2-protectedservices,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=protectedservices,verbs=create;update,versions=v1alpha2,name=protectedservices.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha2-protectedservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=protectedservice,verbs=create;update,versions=v1alpha2,name=protectedservice.kb.io,admissionReviewVersions=v1
 
-var _ webhook.CustomValidator = &ProtectedServicesValidator{}
+var _ webhook.CustomValidator = &ProtectedServiceValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *ProtectedServicesValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *ProtectedServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	var allErrs field.ErrorList
-	intentsObj := obj.(*otterizev1alpha2.ProtectedServices)
+	intentsObj := obj.(*otterizev1alpha2.ProtectedService)
 
 	if err := v.validateSpec(intentsObj); err != nil {
 		allErrs = append(allErrs, err)
@@ -72,9 +72,9 @@ func (v *ProtectedServicesValidator) ValidateCreate(ctx context.Context, obj run
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *ProtectedServicesValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (v *ProtectedServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
 	var allErrs field.ErrorList
-	protectedServices := newObj.(*otterizev1alpha2.ProtectedServices)
+	protectedServices := newObj.(*otterizev1alpha2.ProtectedService)
 
 	if err := v.validateSpec(protectedServices); err != nil {
 		allErrs = append(allErrs, err)
@@ -91,25 +91,23 @@ func (v *ProtectedServicesValidator) ValidateUpdate(ctx context.Context, oldObj,
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *ProtectedServicesValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+func (v *ProtectedServiceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
 	return nil
 }
 
 // validateSpec
-func (v *ProtectedServicesValidator) validateSpec(protectedServices *otterizev1alpha2.ProtectedServices) *field.Error {
-	for _, service := range protectedServices.Spec.ProtectedServices {
-		serviceName := strings.ReplaceAll(service.Name, "-", "")
-		serviceName = strings.ReplaceAll(serviceName, "_", "")
-		// Validate Service Name contains only lowercase alphanumeric characters
-		// Service name should be a valid RFC 1123 subdomain name
-		// It's a namespaced resource, we do not expect resources in other namespaces
-		if !govalidator.IsAlphanumeric(serviceName) || !govalidator.IsLowerCase(serviceName) {
-			message := fmt.Sprintf("Invalid Name: %s. Service name must contain only lowercase alphanumeric characters, '-' or '_'", service.Name)
-			return &field.Error{
-				Type:   field.ErrorTypeForbidden,
-				Field:  "Name",
-				Detail: message,
-			}
+func (v *ProtectedServiceValidator) validateSpec(protectedService *otterizev1alpha2.ProtectedService) *field.Error {
+	serviceName := strings.ReplaceAll(protectedService.Spec.Name, "-", "")
+	serviceName = strings.ReplaceAll(serviceName, "_", "")
+	// Validate Service Name contains only lowercase alphanumeric characters
+	// Service name should be a valid RFC 1123 subdomain name
+	// It's a namespaced resource, we do not expect resources in other namespaces
+	if !govalidator.IsAlphanumeric(serviceName) || !govalidator.IsLowerCase(serviceName) {
+		message := fmt.Sprintf("Invalid Name: %s. Service name must contain only lowercase alphanumeric characters, '-' or '_'", protectedService.Spec.Name)
+		return &field.Error{
+			Type:   field.ErrorTypeForbidden,
+			Field:  "Name",
+			Detail: message,
 		}
 	}
 

@@ -145,7 +145,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
 	s.policyAdmin.EXPECT().Create(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func (s *IstioPolicyReconcilerTestSuite) expectValidatingIstioIsInstalled() {
@@ -209,7 +209,7 @@ func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {
@@ -266,7 +266,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
-	s.Equal(ctrl.Result{}, res)
+	s.Empty(res)
 }
 
 func TestIstioPolicyReconcilerTestSuite(t *testing.T) {

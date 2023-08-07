@@ -17,5 +17,5 @@ for src_file in $(ls -p $src_dir | grep -v /); do
 done
 
 # copy webhook and cluster role
-cp ./config/webhook/manifests-patched $TEMPLATE_DIR"/"ValidatingWebhookConfiguration.yaml
+cp ./config/webhook/manifests-patched $TEMPLATE_DIR"/"otterize-validating-webhook-configuration.yaml
 cp ./config/rbac/role.yaml $TEMPLATE_DIR"/"intents-operator-manager-clusterrole.yaml

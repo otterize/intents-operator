@@ -1,4 +1,4 @@
-package protected_services_reconcilers
+package protected_service_reconcilers
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DefaultDenyReconciler reconciles a ProtectedServices object
+// DefaultDenyReconciler reconciles a ProtectedService object
 type DefaultDenyReconciler struct {
 	client.Client
 	extNetpolHandler ExternalNepolHandler
@@ -44,14 +44,14 @@ func (r *DefaultDenyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	}
 
-	var ProtectedServicesResources otterizev1alpha2.ProtectedServicesList
+	var protectedServices otterizev1alpha2.ProtectedServiceList
 
-	err := r.List(ctx, &ProtectedServicesResources, client.InNamespace(req.Namespace))
+	err := r.List(ctx, &protectedServices, client.InNamespace(req.Namespace))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	err = r.blockAccessToServices(ctx, ProtectedServicesResources, req.Namespace)
+	err = r.blockAccessToServices(ctx, protectedServices, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -64,18 +64,16 @@ func (r *DefaultDenyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, ProtectedServicesResources otterizev1alpha2.ProtectedServicesList, namespace string) error {
+func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, protectedServices otterizev1alpha2.ProtectedServiceList, namespace string) error {
 	serversToProtect := map[string]v1.NetworkPolicy{}
-	for _, list := range ProtectedServicesResources.Items {
-		if list.DeletionTimestamp != nil {
+	for _, protectedService := range protectedServices.Items {
+		if protectedService.DeletionTimestamp != nil {
 			continue
 		}
 
-		for _, service := range list.Spec.ProtectedServices {
-			formattedServerName := otterizev1alpha2.GetFormattedOtterizeIdentity(service.Name, namespace)
-			policy := r.buildNetworkPolicyObjectForIntent(formattedServerName, service.Name, namespace)
-			serversToProtect[formattedServerName] = policy
-		}
+		formattedServerName := otterizev1alpha2.GetFormattedOtterizeIdentity(protectedService.Spec.Name, namespace)
+		policy := r.buildNetworkPolicyObjectForIntent(formattedServerName, protectedService.Spec.Name, namespace)
+		serversToProtect[formattedServerName] = policy
 	}
 
 	var networkPolicies v1.NetworkPolicyList

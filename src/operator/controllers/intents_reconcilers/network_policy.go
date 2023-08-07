@@ -152,8 +152,9 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		return err
 	}
 
+	logrus.Debugf("Server %s in namespace %s is in protected list: %t", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), createPolicy)
 	if !createPolicy {
-		logrus.Infof("Server not in protected list, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
+		logrus.Debugf("Server not in protected list, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
 		return nil
 	}
 
@@ -178,12 +179,12 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 
 func (r *NetworkPolicyReconciler) shouldProtectServer(ctx context.Context, serverName string, serverNamespace string) (bool, error) {
 	if !viper.GetBool(operatorconfig.EnableProtectedServicesKey) {
-		logrus.Info("Protected services are disabled, skipping protected service check")
+		logrus.Debug("Protected services are disabled, skipping protected service check")
 		return true, nil
 	}
 
-	logrus.Info("Protected services are enabled, checking if server is in protected list")
-	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
+	logrus.Debug("Protected services are enabled, checking if server is in protected list")
+	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
 	err := r.List(ctx, &protectedServicesResources, client.InNamespace(serverNamespace))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -192,16 +193,14 @@ func (r *NetworkPolicyReconciler) shouldProtectServer(ctx context.Context, serve
 		return false, err
 	}
 
-	for _, protectedServiceList := range protectedServicesResources.Items {
-		for _, protectedService := range protectedServiceList.Spec.ProtectedServices {
-			if protectedService.Name == serverName {
-				logrus.Infof("Server %s in namespace %s is in protected list", serverName, serverNamespace)
-				return true, nil
-			}
+	for _, protectedService := range protectedServicesResources.Items {
+		if protectedService.Spec.Name == serverName {
+			logrus.Debugf("Server %s in namespace %s is in protected list", serverName, serverNamespace)
+			return true, nil
 		}
 	}
 
-	logrus.Infof("Server %s in namespace %s is not in protected list", serverName, serverNamespace)
+	logrus.Debugf("Server %s in namespace %s is not in protected list", serverName, serverNamespace)
 	return false, nil
 }
 
@@ -321,7 +320,13 @@ func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Contex
 		// Get all client intents that reference this network policy
 		var intentsList otterizev1alpha2.ClientIntentsList
 		serverName := networkPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
-		err = r.List(ctx, &intentsList, &client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: serverName})
+		clientNamespace := networkPolicy.Spec.Ingress[0].From[0].NamespaceSelector.MatchLabels[otterizev1alpha2.OtterizeNamespaceLabelKey]
+		err = r.List(
+			ctx,
+			&intentsList,
+			&client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: serverName},
+			&client.ListOptions{Namespace: clientNamespace},
+		)
 		if err != nil {
 			return err
 		}
