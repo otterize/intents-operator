@@ -154,9 +154,9 @@ func (s *IstioPolicyReconcilerTestSuite) expectValidatingIstioIsInstalled() {
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestGlobalEnforcementDisabled() {
-	s.Reconciler.enforcementEnabledGlobally = false
+	s.Reconciler.enforcementDefaultState = false
 	s.assertPolicyIgnored()
-	s.ExpectEvent(ReasonEnforcementGloballyDisabled)
+	s.ExpectEvent(ReasonEnforcementDefaultOff)
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyEnforcementDisabled() {

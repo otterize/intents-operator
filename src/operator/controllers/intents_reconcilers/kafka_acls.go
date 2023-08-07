@@ -29,15 +29,15 @@ const (
 )
 
 type KafkaACLReconciler struct {
-	client                     client.Client
-	scheme                     *runtime.Scheme
-	KafkaServersStore          kafkaacls.ServersStore
-	enforcementEnabledGlobally bool
-	enableKafkaACLCreation     bool
-	getNewKafkaIntentsAdmin    kafkaacls.IntentsAdminFactoryFunction
-	operatorPodName            string
-	operatorPodNamespace       string
-	serviceResolver            serviceidresolver.ServiceResolver
+	client                  client.Client
+	scheme                  *runtime.Scheme
+	KafkaServersStore       kafkaacls.ServersStore
+	enforcementDefaultState bool
+	enableKafkaACLCreation  bool
+	getNewKafkaIntentsAdmin kafkaacls.IntentsAdminFactoryFunction
+	operatorPodName         string
+	operatorPodNamespace    string
+	serviceResolver         serviceidresolver.ServiceResolver
 	injectablerecorder.InjectableRecorder
 }
 
@@ -47,21 +47,21 @@ func NewKafkaACLReconciler(
 	serversStore kafkaacls.ServersStore,
 	enableKafkaACLCreation bool,
 	factoryFunc kafkaacls.IntentsAdminFactoryFunction,
-	enforcementEnabledGlobally bool,
+	enforcementDefaultState bool,
 	operatorPodName string,
 	operatorPodNamespace string,
 	serviceResolver serviceidresolver.ServiceResolver,
 ) *KafkaACLReconciler {
 	return &KafkaACLReconciler{
-		client:                     client,
-		scheme:                     scheme,
-		KafkaServersStore:          serversStore,
-		enableKafkaACLCreation:     enableKafkaACLCreation,
-		getNewKafkaIntentsAdmin:    factoryFunc,
-		enforcementEnabledGlobally: enforcementEnabledGlobally,
-		operatorPodName:            operatorPodName,
-		operatorPodNamespace:       operatorPodNamespace,
-		serviceResolver:            serviceResolver,
+		client:                  client,
+		scheme:                  scheme,
+		KafkaServersStore:       serversStore,
+		enableKafkaACLCreation:  enableKafkaACLCreation,
+		getNewKafkaIntentsAdmin: factoryFunc,
+		enforcementDefaultState: enforcementDefaultState,
+		operatorPodName:         operatorPodName,
+		operatorPodNamespace:    operatorPodNamespace,
+		serviceResolver:         serviceResolver,
 	}
 }
 
@@ -87,7 +87,7 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha2.ClientIntents) 
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Calls)
 
 	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha2.KafkaServerConfig, tls otterizev1alpha2.TLSSource) error {
-		kafkaIntentsAdmin, err := r.getNewKafkaIntentsAdmin(*config, tls, r.enableKafkaACLCreation, r.enforcementEnabledGlobally)
+		kafkaIntentsAdmin, err := r.getNewKafkaIntentsAdmin(*config, tls, r.enableKafkaACLCreation, r.enforcementDefaultState)
 		if err != nil {
 			err = fmt.Errorf("failed to connect to Kafka server %s: %w", serverName, err)
 			r.RecordWarningEventf(intents, ReasonCouldNotConnectToKafkaServer, "Kafka ACL reconcile failed: %s", err.Error())
@@ -105,8 +105,8 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha2.ClientIntents) 
 		return 0, err
 	}
 
-	if !r.enforcementEnabledGlobally {
-		r.RecordNormalEvent(intents, ReasonEnforcementGloballyDisabled, "Enforcement is disabled globally, Kafka ACL creation skipped")
+	if !r.enforcementDefaultState {
+		r.RecordNormalEvent(intents, ReasonEnforcementDefaultOff, "Enforcement is disabled globally, Kafka ACL creation skipped")
 	}
 	if !r.enableKafkaACLCreation {
 		r.RecordNormalEvent(intents, ReasonKafkaACLCreationDisabled, "Kafka ACL creation is disabled, creation skipped")
@@ -124,7 +124,7 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha2.ClientIntents) 
 
 func (r *KafkaACLReconciler) RemoveACLs(intents *otterizev1alpha2.ClientIntents) error {
 	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha2.KafkaServerConfig, tls otterizev1alpha2.TLSSource) error {
-		kafkaIntentsAdmin, err := r.getNewKafkaIntentsAdmin(*config, tls, r.enableKafkaACLCreation, r.enforcementEnabledGlobally)
+		kafkaIntentsAdmin, err := r.getNewKafkaIntentsAdmin(*config, tls, r.enableKafkaACLCreation, r.enforcementDefaultState)
 		if err != nil {
 			return err
 		}

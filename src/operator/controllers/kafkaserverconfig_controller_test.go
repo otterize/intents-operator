@@ -97,7 +97,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) setupServerStore(serviceName stri
 }
 
 func getMockIntentsAdminFactory(mockIntentsAdmin *kafkaaclsmocks.MockKafkaIntentsAdmin) kafkaacls.IntentsAdminFactoryFunction {
-	return func(kafkaServer otterizev1alpha2.KafkaServerConfig, _ otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementEnabledGlobally bool) (kafkaacls.KafkaIntentsAdmin, error) {
+	return func(kafkaServer otterizev1alpha2.KafkaServerConfig, _ otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementDefaultState bool) (kafkaacls.KafkaIntentsAdmin, error) {
 		return mockIntentsAdmin, nil
 	}
 }

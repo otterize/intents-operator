@@ -24,8 +24,8 @@ const (
 	SelfSignedCertDefault                                               = true
 	DisableWebhookServerKey                                             = "disable-webhook-server" // Disable webhook validator server
 	DisableWebhookServerDefault                                         = false
-	EnforcementEnabledGloballyKey                                       = "enable-enforcement" // If set to false disables the enforcement globally, superior to the other flags
-	EnforcementEnabledGloballyDefault                                   = true
+	EnforcementDefaultStateKey                                          = "enable-enforcement" // Sets the default state of the enforcement. If true, always enforces. If false, can be overridden using ProtectedService.
+	EnforcementDefaultStateDefault                                      = true
 	AutoCreateNetworkPoliciesForExternalTrafficKey                      = "auto-create-network-policies-for-external-traffic" // Whether to automatically create network policies for external traffic
 	AutoCreateNetworkPoliciesForExternalTrafficDefault                  = true
 	AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredKey     = "exp-auto-create-network-policies-for-external-traffic-disable-intents-requirement" // Whether to automatically create network policies for external traffic, even if no intents point to the relevant service
@@ -36,8 +36,6 @@ const (
 	EnableIstioPolicyDefault                                            = true
 	EnableKafkaACLKey                                                   = "enable-kafka-acl-creation" // Whether to disable Intents Kafka ACL creation
 	EnableKafkaACLDefault                                               = true
-	EnableProtectedServicesKey                                          = "enable-protected-services" // Whether to enable protected services
-	EnableProtectedServicesDefault                                      = false
 	IntentsOperatorPodNameKey                                           = "pod-name"
 	IntentsOperatorPodNamespaceKey                                      = "pod-namespace"
 	EnvPrefix                                                           = "OTTERIZE"
@@ -50,13 +48,12 @@ func init() {
 	viper.SetDefault(ProbeAddrKey, ProbeAddrDefault)
 	viper.SetDefault(EnableLeaderElectionKey, EnableLeaderElectionDefault)
 	viper.SetDefault(SelfSignedCertKey, SelfSignedCertDefault)
-	viper.SetDefault(EnforcementEnabledGloballyKey, EnforcementEnabledGloballyDefault)
+	viper.SetDefault(EnforcementDefaultStateKey, EnforcementDefaultStateDefault)
 	viper.SetDefault(AutoCreateNetworkPoliciesForExternalTrafficKey, AutoCreateNetworkPoliciesForExternalTrafficDefault)
 	viper.SetDefault(EnableNetworkPolicyKey, EnableNetworkPolicyDefault)
 	viper.SetDefault(EnableKafkaACLKey, EnableKafkaACLDefault)
 	viper.SetDefault(EnableIstioPolicyKey, EnableIstioPolicyDefault)
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
-	viper.SetDefault(EnableProtectedServicesKey, EnableProtectedServicesDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
@@ -69,7 +66,7 @@ func InitCLIFlags() {
 	pflag.String(KafkaServerTLSCAKey, "", "name of tls ca file")
 	pflag.Bool(SelfSignedCertKey, SelfSignedCertDefault, "Whether to generate and use a self signed cert as the CA for webhooks")
 	pflag.Bool(DisableWebhookServerKey, DisableWebhookServerDefault, "Disable webhook validator server")
-	pflag.Bool(EnforcementEnabledGloballyKey, EnforcementEnabledGloballyDefault, "If set to false disables the enforcement globally, superior to the other flags")
+	pflag.Bool(EnforcementDefaultStateKey, EnforcementDefaultStateDefault, "Sets the default state of the enforcement. If true, always enforces. If false, can be overridden using ProtectedService.")
 	pflag.Bool(AutoCreateNetworkPoliciesForExternalTrafficKey, AutoCreateNetworkPoliciesForExternalTrafficDefault, "Whether to automatically create network policies for external traffic")
 	pflag.Bool(AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredKey, AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredDefault, "Whether to create network policies for external traffic, even if no intents point to the relevant service")
 	pflag.Bool(EnableNetworkPolicyKey, EnableNetworkPolicyDefault, "Whether to enable Intents network policy creation")
@@ -80,7 +77,6 @@ func InitCLIFlags() {
 	pflag.StringSlice(WatchedNamespacesKey, nil, "Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
 	pflag.Bool(telemetrysender.TelemetryEnabledKey, telemetrysender.TelemetryEnabledDefault, "Whether telemetry should be enabled")
-	pflag.Bool(EnableProtectedServicesKey, EnableProtectedServicesDefault, "Enable enforcement per service")
 	pflag.Bool(EnableDatabaseReconciler, EnableDatabaseReconcilerDefault, "Enable the database reconciler")
 
 	runtime.Must(viper.BindPFlags(pflag.CommandLine))

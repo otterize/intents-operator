@@ -25,12 +25,10 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,11 +41,11 @@ import (
 )
 
 type EnforcementConfig struct {
-	EnforcementEnabledGlobally bool
-	EnableNetworkPolicy        bool
-	EnableKafkaACL             bool
-	EnableIstioPolicy          bool
-	EnableProtectedServices    bool
+	EnforcementDefaultState  bool
+	EnableNetworkPolicy      bool
+	EnableKafkaACL           bool
+	EnableIstioPolicy        bool
+	EnableDatabaseReconciler bool
 }
 
 // IntentsReconciler reconciles a Intents object
@@ -70,9 +68,9 @@ func NewIntentsReconciler(
 	reconcilersGroup := reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
-		intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, externalNetpolHandler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementEnabledGlobally, externalNetworkPoliciesCreatedEvenIfNoIntents),
-		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementEnabledGlobally, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),
-		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementEnabledGlobally),
+		intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, externalNetpolHandler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, externalNetworkPoliciesCreatedEvenIfNoIntents),
+		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),
+		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
 	)
 
 	intentsReconciler := &IntentsReconciler{
@@ -85,7 +83,7 @@ func NewIntentsReconciler(
 		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
 	}
 
-	if viper.GetBool(operatorconfig.EnableDatabaseReconciler) {
+	if enforcementConfig.EnableDatabaseReconciler {
 		databaseReconciler := exp.NewDatabaseReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
 	}

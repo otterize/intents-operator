@@ -5,9 +5,7 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
@@ -35,15 +33,6 @@ func NewDefaultDenyReconciler(client client.Client, extNetpolHandler ExternalNep
 }
 
 func (r *DefaultDenyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if !viper.GetBool(operatorconfig.EnableProtectedServicesKey) {
-		res, err := r.DeleteAllDefaultDeny(ctx, req.Namespace)
-		if err != nil || !res.IsZero() {
-			return res, err
-		}
-		return ctrl.Result{}, r.extNetpolHandler.HandleAllPods(ctx)
-
-	}
-
 	var protectedServices otterizev1alpha2.ProtectedServiceList
 
 	err := r.List(ctx, &protectedServices, client.InNamespace(req.Namespace))

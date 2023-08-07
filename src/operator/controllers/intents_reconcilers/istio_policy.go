@@ -24,10 +24,10 @@ const (
 
 type IstioPolicyReconciler struct {
 	client.Client
-	Scheme                     *runtime.Scheme
-	RestrictToNamespaces       []string
-	enableIstioPolicyCreation  bool
-	enforcementEnabledGlobally bool
+	Scheme                    *runtime.Scheme
+	RestrictToNamespaces      []string
+	enableIstioPolicyCreation bool
+	enforcementDefaultState   bool
 	injectablerecorder.InjectableRecorder
 	serviceIdResolver serviceidresolver.ServiceResolver
 	policyAdmin       istiopolicy.Admin
@@ -38,14 +38,14 @@ func NewIstioPolicyReconciler(
 	s *runtime.Scheme,
 	restrictToNamespaces []string,
 	enableIstioPolicyCreation bool,
-	enforcementEnabledGlobally bool) *IstioPolicyReconciler {
+	enforcementDefaultState bool) *IstioPolicyReconciler {
 	reconciler := &IstioPolicyReconciler{
-		Client:                     c,
-		Scheme:                     s,
-		RestrictToNamespaces:       restrictToNamespaces,
-		enableIstioPolicyCreation:  enableIstioPolicyCreation,
-		enforcementEnabledGlobally: enforcementEnabledGlobally,
-		serviceIdResolver:          serviceidresolver.NewResolver(c),
+		Client:                    c,
+		Scheme:                    s,
+		RestrictToNamespaces:      restrictToNamespaces,
+		enableIstioPolicyCreation: enableIstioPolicyCreation,
+		enforcementDefaultState:   enforcementDefaultState,
+		serviceIdResolver:         serviceidresolver.NewResolver(c),
 	}
 
 	reconciler.policyAdmin = istiopolicy.NewAdmin(c, &reconciler.InjectableRecorder, restrictToNamespaces)
@@ -92,8 +92,8 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	if !r.enforcementEnabledGlobally {
-		r.RecordNormalEvent(intents, ReasonEnforcementGloballyDisabled, "Enforcement is disabled globally, Istio policy creation skipped")
+	if !r.enforcementDefaultState {
+		r.RecordNormalEvent(intents, ReasonEnforcementDefaultOff, "Enforcement is disabled globally, Istio policy creation skipped")
 		return ctrl.Result{}, nil
 	}
 
