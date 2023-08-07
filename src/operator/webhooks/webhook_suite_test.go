@@ -119,45 +119,51 @@ func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntentsAfterUpdate() {
 }
 
 func (s *ValidationWebhookTestSuite) TestValidateProtectedServices() {
-	fakeValidator := NewProtectedServicesValidator(nil)
+	fakeValidator := NewProtectedServiceValidator(nil)
 
-	protectedServices := otterizev1alpha2.ProtectedServices{
+	protectedServices := []otterizev1alpha2.ProtectedService{{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "protected-services",
 			Namespace: "test-namespace",
 		},
-		Spec: otterizev1alpha2.ProtectedServicesSpec{
-			ProtectedServices: []otterizev1alpha2.ProtectedService{
-				{
-					Name: "my-service",
-				},
-				{
-					Name: "myservice2",
-				},
-				{
-					Name: "my_service3",
-				},
+		Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Name: "my-service",
+		},
+	},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "protected-services",
+				Namespace: "test-namespace",
+			},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: "myservice2",
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "protected-services",
+				Namespace: "test-namespace",
+			},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: "my_service3",
 			},
 		},
 	}
-	err := fakeValidator.validateSpec(&protectedServices)
-	s.Require().True(err == nil)
+	for _, service := range protectedServices {
+		s.Require().True(fakeValidator.validateSpec(&service) == nil)
+	}
 }
 
 func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfDotFound() {
-	fakeValidator := NewProtectedServicesValidator(nil)
+	fakeValidator := NewProtectedServiceValidator(nil)
 
-	protectedServices := otterizev1alpha2.ProtectedServices{
+	protectedServices := otterizev1alpha2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "protected-services",
 			Namespace: "test-namespace",
 		},
-		Spec: otterizev1alpha2.ProtectedServicesSpec{
-			ProtectedServices: []otterizev1alpha2.ProtectedService{
-				{
-					Name: "my-service.test-namespace",
-				},
-			},
+		Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Name: "my-service.test-namespace",
 		},
 	}
 	err := fakeValidator.validateSpec(&protectedServices)
@@ -165,19 +171,15 @@ func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfDotFound
 }
 
 func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfUppercase() {
-	fakeValidator := NewProtectedServicesValidator(nil)
+	fakeValidator := NewProtectedServiceValidator(nil)
 
-	protectedServices := otterizev1alpha2.ProtectedServices{
+	protectedServices := otterizev1alpha2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "protected-services",
 			Namespace: "test-namespace",
 		},
-		Spec: otterizev1alpha2.ProtectedServicesSpec{
-			ProtectedServices: []otterizev1alpha2.ProtectedService{
-				{
-					Name: "MyService",
-				},
-			},
+		Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Name: "MyService",
 		},
 	}
 	err := fakeValidator.validateSpec(&protectedServices)

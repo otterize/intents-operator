@@ -19,7 +19,7 @@ package controllers
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/controllers/protected_services_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/samber/lo"
@@ -34,8 +34,8 @@ const (
 	protectedServicesGroupName = "protected-services"
 )
 
-// ProtectedServicesReconciler reconciles a ProtectedServices object
-type ProtectedServicesReconciler struct {
+// ProtectedServiceReconciler reconciles a ProtectedService object
+type ProtectedServiceReconciler struct {
 	client.Client
 	group *reconcilergroup.Group
 }
@@ -44,34 +44,34 @@ type ProtectedServicesReconciler struct {
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices/finalizers,verbs=update
 
-func NewProtectedServicesReconciler(
+func NewProtectedServiceReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	otterizeClient operator_cloud_client.CloudClient,
-	extNetpolHandler protected_services_reconcilers.ExternalNepolHandler,
-) *ProtectedServicesReconciler {
+	extNetpolHandler protected_service_reconcilers.ExternalNepolHandler,
+) *ProtectedServiceReconciler {
 	group := reconcilergroup.NewGroup(protectedServicesGroupName, client, scheme,
-		protected_services_reconcilers.NewDefaultDenyReconciler(client, extNetpolHandler))
+		protected_service_reconcilers.NewDefaultDenyReconciler(client, extNetpolHandler))
 
 	if otterizeClient != nil {
-		otterizeCloudReconciler := protected_services_reconcilers.NewCloudReconciler(client, scheme, otterizeClient)
+		otterizeCloudReconciler := protected_service_reconcilers.NewCloudReconciler(client, scheme, otterizeClient)
 		group.AddToGroup(otterizeCloudReconciler)
 	}
 
-	return &ProtectedServicesReconciler{
+	return &ProtectedServiceReconciler{
 		Client: client,
 		group:  group,
 	}
 }
 
-func (r *ProtectedServicesReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ProtectedServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	return r.group.Reconcile(ctx, req)
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ProtectedServicesReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ProtectedServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev1alpha2.ProtectedServices{}).
+		For(&otterizev1alpha2.ProtectedService{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 	if err != nil {

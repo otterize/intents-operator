@@ -20,17 +20,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type ProtectedService struct {
+// ProtectedServiceSpec defines the desired state of ProtectedService
+type ProtectedServiceSpec struct {
 	Name string `json:"name,omitempty"`
 }
 
-// ProtectedServicesSpec defines the desired state of ProtectedServices
-type ProtectedServicesSpec struct {
-	ProtectedServices []ProtectedService `json:"protectedServices,omitempty"`
-}
-
-// ProtectedServicesStatus defines the observed state of ProtectedServices
-type ProtectedServicesStatus struct {
+// ProtectedServiceStatus defines the observed state of ProtectedService
+type ProtectedServiceStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 }
@@ -38,24 +34,24 @@ type ProtectedServicesStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// ProtectedServices is the Schema for the protectedservices API
-type ProtectedServices struct {
+// ProtectedService is the Schema for the protectedservice API
+type ProtectedService struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ProtectedServicesSpec   `json:"spec,omitempty"`
-	Status ProtectedServicesStatus `json:"status,omitempty"`
+	Spec   ProtectedServiceSpec   `json:"spec,omitempty"`
+	Status ProtectedServiceStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// ProtectedServicesList contains a list of ProtectedServices
-type ProtectedServicesList struct {
+// ProtectedServiceList contains a list of ProtectedService
+type ProtectedServiceList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ProtectedServices `json:"items"`
+	Items           []ProtectedService `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ProtectedServices{}, &ProtectedServicesList{})
+	SchemeBuilder.Register(&ProtectedService{}, &ProtectedServiceList{})
 }

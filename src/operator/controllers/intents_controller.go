@@ -112,7 +112,7 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev1alpha2.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
-		Watches(&source.Kind{Type: &otterizev1alpha2.ProtectedServices{}}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServicesToClientIntents)).
+		Watches(&source.Kind{Type: &otterizev1alpha2.ProtectedService{}}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
 		Complete(r)
 	if err != nil {
 		return err
@@ -123,11 +123,11 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
-func (r *IntentsReconciler) mapProtectedServicesToClientIntents(obj client.Object) []reconcile.Request {
-	protectedServices := obj.(*otterizev1alpha2.ProtectedServices)
-	logrus.Infof("Enqueueing client intents for protected services %s", protectedServices.Name)
+func (r *IntentsReconciler) mapProtectedServiceToClientIntents(obj client.Object) []reconcile.Request {
+	protectedService := obj.(*otterizev1alpha2.ProtectedService)
+	logrus.Infof("Enqueueing client intents for protected services %s", protectedService.Name)
 
-	intentsToReconcile := r.getIntentsToProtectedServices(protectedServices)
+	intentsToReconcile := r.getIntentsToProtectedService(protectedService)
 	return r.mapIntentsToRequests(intentsToReconcile)
 }
 
@@ -145,21 +145,19 @@ func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1
 	return requests
 }
 
-func (r *IntentsReconciler) getIntentsToProtectedServices(protectedServices *otterizev1alpha2.ProtectedServices) []otterizev1alpha2.ClientIntents {
+func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otterizev1alpha2.ProtectedService) []otterizev1alpha2.ClientIntents {
 	intentsToReconcile := make([]otterizev1alpha2.ClientIntents, 0)
-	for _, protectedService := range protectedServices.Spec.ProtectedServices {
-		fullServerName := fmt.Sprintf("%s.%s", protectedService.Name, protectedServices.Namespace)
-		var intentsToServer otterizev1alpha2.ClientIntentsList
-		err := r.client.List(context.Background(),
-			&intentsToServer,
-			&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fullServerName},
-		)
-		if err != nil {
-			logrus.Errorf("Failed to list client intents for client %s: %v", fullServerName, err)
-		}
-
-		intentsToReconcile = append(intentsToReconcile, intentsToServer.Items...)
+	fullServerName := fmt.Sprintf("%s.%s", protectedService.Name, protectedService.Namespace)
+	var intentsToServer otterizev1alpha2.ClientIntentsList
+	err := r.client.List(context.Background(),
+		&intentsToServer,
+		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fullServerName},
+	)
+	if err != nil {
+		logrus.Errorf("Failed to list client intents for client %s: %v", fullServerName, err)
 	}
+
+	intentsToReconcile = append(intentsToReconcile, intentsToServer.Items...)
 	return intentsToReconcile
 }
 

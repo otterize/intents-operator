@@ -1,4 +1,4 @@
-package protected_services_reconcilers
+package protected_service_reconcilers
 
 import (
 	"context"
@@ -32,21 +32,19 @@ func NewCloudReconciler(
 }
 
 func (r *CloudReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
-	err := r.List(ctx, &protectedServicesResources, client.InNamespace(req.Namespace))
+	var protectedServices otterizev1alpha2.ProtectedServiceList
+	err := r.List(ctx, &protectedServices, client.InNamespace(req.Namespace))
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	services := sets.Set[string]{}
-	for _, list := range protectedServicesResources.Items {
-		if list.DeletionTimestamp != nil {
+	for _, protectedService := range protectedServices.Items {
+		if protectedService.DeletionTimestamp != nil {
 			continue
 		}
 
-		for _, service := range list.Spec.ProtectedServices {
-			services.Insert(service.Name)
-		}
+		services.Insert(protectedService.Spec.Name)
 	}
 
 	protectedServicesInput := r.formatAsCloudProtectedService(sets.List(services))

@@ -1,11 +1,12 @@
-package protected_services_reconcilers
+package protected_service_reconcilers
 
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	protectedservicesmock "github.com/otterize/intents-operator/src/operator/controllers/protected_services_reconcilers/mocks"
+	protectedservicesmock "github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/testbase"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -26,6 +27,10 @@ const (
 	anotherProtectedServiceFormattedName = "other-test-service-test-namespace-398a04"
 	testNamespace                        = "test-namespace"
 )
+
+func init() {
+	logrus.SetLevel(logrus.DebugLevel)
+}
 
 type DefaultDenyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
@@ -48,25 +53,21 @@ func (s *DefaultDenyReconcilerTestSuite) TearDownTest() {
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
-	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
-	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
+	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServicesSpec{
-				ProtectedServices: []otterizev1alpha2.ProtectedService{
-					{
-						Name: protectedService,
-					},
-				},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: protectedService,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServicesList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServicesList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -115,19 +116,15 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultipleLists() {
-	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
-	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
+	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServicesSpec{
-				ProtectedServices: []otterizev1alpha2.ProtectedService{
-					{
-						Name: protectedService,
-					},
-				},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: protectedService,
 			},
 		},
 		{
@@ -135,18 +132,14 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServicesSpec{
-				ProtectedServices: []otterizev1alpha2.ProtectedService{
-					{
-						Name: anotherProtectedService,
-					},
-				},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: anotherProtectedService,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServicesList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServicesList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -218,21 +211,21 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 
 // TestDeleteProtectedServices tests the deletion of a protected service when the service is no longer in the list of protected services
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
-	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
-	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
+	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServicesSpec{
-				ProtectedServices: []otterizev1alpha2.ProtectedService{},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: anotherProtectedService,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServicesList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServicesList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -277,6 +270,26 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 			return nil
 		})
 
+	otherProtectedServicePolicy := v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default-deny-other-test-service",
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev1alpha2.OtterizeNetworkPolicy:                   anotherProtectedServiceFormattedName,
+			},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					otterizev1alpha2.OtterizeServerLabelKey: anotherProtectedServiceFormattedName,
+				},
+			},
+			Ingress: []v1.NetworkPolicyIngressRule{},
+		},
+	}
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(&otherProtectedServicePolicy)).Return(nil).Times(1)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(&policy)).Return(nil).Times(1)
 	s.extNetpolHandler.EXPECT().HandlePodsByNamespace(gomock.Any(), request.Namespace)
 
@@ -286,26 +299,22 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDeleted() {
-	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
-	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
+	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              protectedServicesResourceName,
 				Namespace:         testNamespace,
 				DeletionTimestamp: &metav1.Time{Time: time.Date(2020, 12, 1, 17, 14, 0, 0, time.UTC)},
 			},
-			Spec: otterizev1alpha2.ProtectedServicesSpec{
-				ProtectedServices: []otterizev1alpha2.ProtectedService{
-					{
-						Name: protectedService,
-					},
-				},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: protectedService,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServicesList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServicesList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -358,7 +367,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDelete
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceAlreadyDeleted() {
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServicesList{}), client.InNamespace(testNamespace)).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(testNamespace)).Return(nil)
 
 	request := ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -408,28 +417,30 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceAlreadyDele
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
-	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
-	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
+	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServicesSpec{
-				ProtectedServices: []otterizev1alpha2.ProtectedService{
-					{
-						Name: protectedService,
-					},
-					{
-						Name: anotherProtectedService,
-					},
-				},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: protectedService,
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      protectedServicesResourceName,
+				Namespace: testNamespace,
+			},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: anotherProtectedService,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServicesList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServicesList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -507,25 +518,21 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
-	var protectedServicesResources otterizev1alpha2.ProtectedServicesList
-	protectedServicesResources.Items = []otterizev1alpha2.ProtectedServices{
+	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServicesSpec{
-				ProtectedServices: []otterizev1alpha2.ProtectedService{
-					{
-						Name: protectedService,
-					},
-				},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: protectedService,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServicesList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServicesList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
