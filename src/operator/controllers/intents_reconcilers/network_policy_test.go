@@ -458,6 +458,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 			return nil
 		})
 
+	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), existingPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
 		otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
