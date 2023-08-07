@@ -31,7 +31,7 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-k8s-otterize-com-v1alpha2-protectedservices
+      path: /validate-k8s-otterize-com-v1alpha2-protectedservice
   failurePolicy: Fail
   name: protectedservice.kb.io
   rules:
@@ -43,5 +43,5 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - protectedservices
+    - protectedservice
   sideEffects: None

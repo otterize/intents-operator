@@ -3,6 +3,9 @@ resources:
 patches:
   - patch: |-
       - op: replace
+        path: /metadata/name
+        value: 'otterize-validating-webhook-configuration'
+      - op: replace
         path: /webhooks/0/clientConfig/service/namespace
         value: '{{ .Release.Namespace }}'
       - op: replace
