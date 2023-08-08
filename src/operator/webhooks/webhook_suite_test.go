@@ -170,6 +170,32 @@ func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfDotFound
 	s.Require().Error(err)
 }
 
+func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfSameName() {
+	fakeValidator := NewProtectedServiceValidator(nil)
+
+	protectedServiceList := otterizev1alpha2.ProtectedServiceList{Items: []otterizev1alpha2.ProtectedService{{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "protected-services",
+			Namespace: "test-namespace",
+		},
+		Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Name: "my-service.test-namespace",
+		},
+	}}}
+
+	protectedService := otterizev1alpha2.ProtectedService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "protected-services",
+			Namespace: "test-namespace",
+		},
+		Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Name: "my-service",
+		},
+	}
+	err := fakeValidator.validateNoDuplicateClients(&protectedService, &protectedServiceList)
+	s.Require().Error(err)
+}
+
 func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfUppercase() {
 	fakeValidator := NewProtectedServiceValidator(nil)
 

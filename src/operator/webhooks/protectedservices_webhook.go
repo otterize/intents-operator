@@ -55,9 +55,18 @@ var _ webhook.CustomValidator = &ProtectedServiceValidator{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *ProtectedServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	var allErrs field.ErrorList
-	intentsObj := obj.(*otterizev1alpha2.ProtectedService)
+	protectedService := obj.(*otterizev1alpha2.ProtectedService)
 
-	if err := v.validateSpec(intentsObj); err != nil {
+	protectedServicesList := &otterizev1alpha2.ProtectedServiceList{}
+	if err := v.List(ctx, protectedServicesList, &client.ListOptions{Namespace: protectedService.Namespace}); err != nil {
+		return err
+	}
+
+	if err := v.validateNoDuplicateClients(protectedService, protectedServicesList); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := v.validateSpec(protectedService); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -65,18 +74,27 @@ func (v *ProtectedServiceValidator) ValidateCreate(ctx context.Context, obj runt
 		return nil
 	}
 
-	gvk := intentsObj.GroupVersionKind()
+	gvk := protectedService.GroupVersionKind()
 	return errors.NewInvalid(
 		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-		intentsObj.Name, allErrs)
+		protectedService.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *ProtectedServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
 	var allErrs field.ErrorList
-	protectedServices := newObj.(*otterizev1alpha2.ProtectedService)
+	protectedService := newObj.(*otterizev1alpha2.ProtectedService)
 
-	if err := v.validateSpec(protectedServices); err != nil {
+	protectedServicesList := &otterizev1alpha2.ProtectedServiceList{}
+	if err := v.List(ctx, protectedServicesList, &client.ListOptions{Namespace: protectedService.Namespace}); err != nil {
+		return err
+	}
+
+	if err := v.validateNoDuplicateClients(protectedService, protectedServicesList); err != nil {
+		allErrs = append(allErrs, err)
+	}
+
+	if err := v.validateSpec(protectedService); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -84,14 +102,33 @@ func (v *ProtectedServiceValidator) ValidateUpdate(ctx context.Context, oldObj, 
 		return nil
 	}
 
-	gvk := protectedServices.GroupVersionKind()
+	gvk := protectedService.GroupVersionKind()
 	return errors.NewInvalid(
 		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-		protectedServices.Name, allErrs)
+		protectedService.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (v *ProtectedServiceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+	return nil
+}
+
+func (v *ProtectedServiceValidator) validateNoDuplicateClients(
+	protectedService *otterizev1alpha2.ProtectedService, protectedServicesList *otterizev1alpha2.ProtectedServiceList) *field.Error {
+
+	protectedServiceName := protectedService.Spec.Name
+	for _, protectedServiceFromList := range protectedServicesList.Items {
+		// Deny admission if intents already exist for this client, and it's not the same object being updated
+		if protectedServiceFromList.Spec.Name == protectedServiceName && protectedServiceFromList.Name != protectedService.Spec.Name {
+			return &field.Error{
+				Type:     field.ErrorTypeDuplicate,
+				Field:    "name",
+				BadValue: protectedServiceName,
+				Detail: fmt.Sprintf(
+					"Protected service for service %s already exist in resource %s", protectedServiceName, protectedServiceFromList.Name),
+			}
+		}
+	}
 	return nil
 }
 
