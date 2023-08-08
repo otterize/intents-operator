@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
@@ -157,6 +159,16 @@ func main() {
 	telemetrysender.SetGlobalContextId(telemetrysender.Anonymize(kubeSystemUID))
 	telemetrysender.SetGlobalVersion(version.Version())
 
+	signalHandlerCtx := ctrl.SetupSignalHandler()
+	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
+	if err != nil {
+		logrus.WithError(err).Fatal("unable to create kubernetes API client")
+	}
+	err = protectedservicescrd.EnsureProtectedServicesCRD(signalHandlerCtx, directClient)
+	if err != nil {
+		logrus.WithError(err).Fatal("unable to ensure protected services CRD")
+	}
+
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement, enforcementConfig.EnforcementDefaultState)
@@ -179,7 +191,6 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	signalHandlerCtx := ctrl.SetupSignalHandler()
 	otterizeCloudClient, connectedToCloud, err := operator_cloud_client.NewClient(signalHandlerCtx)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
