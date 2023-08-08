@@ -573,14 +573,16 @@ func (a *KafkaIntentsAdminImpl) ApplyServerTopicsConf(topicsConf []otterizev1alp
 	resourceAclsToCreate, resourceAclsToDelete := a.kafkaResourceAclsDiff(expectedResourceAcls, appliedTopicsConfAcls)
 
 	if len(resourceAclsToCreate) > 0 {
-		logger.Infof("Creating %d resource ACLs for topic configurations", len(resourceAclsToCreate))
-		for _, resourceAcl := range resourceAclsToCreate {
-			for _, acl := range resourceAcl.Acls {
-				logger.Infof("Resource: %v, ACL: %v", resourceAcl.Resource, *acl)
+		if a.enforcementDefaultState && a.enableKafkaACLCreation {
+			logger.Infof("Creating %d resource ACLs for topic configurations", len(resourceAclsToCreate))
+			for _, resourceAcl := range resourceAclsToCreate {
+				for _, acl := range resourceAcl.Acls {
+					logger.Infof("Resource: %v, ACL: %v", resourceAcl.Resource, *acl)
+				}
 			}
-		}
-		if err := a.kafkaAdminClient.CreateACLs(resourceAclsToCreate); err != nil {
-			return fmt.Errorf("failed creating ACLs: %w", err)
+			if err := a.kafkaAdminClient.CreateACLs(resourceAclsToCreate); err != nil {
+				return fmt.Errorf("failed creating ACLs: %w", err)
+			}
 		}
 	} else {
 		logger.Info("No new ACLs to create for topic configuration")
