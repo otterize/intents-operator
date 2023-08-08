@@ -24,7 +24,7 @@ const (
 	SelfSignedCertDefault                                               = true
 	DisableWebhookServerKey                                             = "disable-webhook-server" // Disable webhook validator server
 	DisableWebhookServerDefault                                         = false
-	EnforcementDefaultStateKey                                          = "enable-enforcement" // Sets the default state of the enforcement. If true, always enforces. If false, can be overridden using ProtectedService.
+	EnforcementDefaultStateKey                                          = "enforcement-default-state" // Sets the default state of the enforcement. If true, always enforces. If false, can be overridden using ProtectedService.
 	EnforcementDefaultStateDefault                                      = true
 	AutoCreateNetworkPoliciesForExternalTrafficKey                      = "auto-create-network-policies-for-external-traffic" // Whether to automatically create network policies for external traffic
 	AutoCreateNetworkPoliciesForExternalTrafficDefault                  = true
