@@ -29,7 +29,7 @@ func EnsureProtectedServicesCRD(ctx context.Context, client client.Client) error
 	if k8serrors.IsNotFound(err) {
 		err := client.Create(ctx, &crdToCreate)
 		if err != nil {
-			return fmt.Errorf("could not get protected services CRD: %w", err)
+			return fmt.Errorf("could not create protected services CRD: %w", err)
 		}
 		return nil
 	}
