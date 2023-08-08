@@ -299,7 +299,7 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud
 		NetworkPolicyEnforcementEnabled: config.EnforcementDefaultState && config.EnableNetworkPolicy,
 		KafkaACLEnforcementEnabled:      config.EnforcementDefaultState && config.EnableKafkaACL,
 		IstioPolicyEnforcementEnabled:   config.EnforcementDefaultState && config.EnableIstioPolicy,
-		ProtectedServicesEnabled:        true, // this version always sends true - tells the cloud the feature exists so it correctly simulates behavior
+		ProtectedServicesEnabled:        config.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 	})
 	if err != nil {
 		logrus.WithError(err).Error("Failed to report configuration to the cloud")
