@@ -96,7 +96,7 @@ Read more about it in the [secure Kafka access tutorial](https://docs.otterize.c
 ### Istio AuthorizationPolicy
 The intents operator automatically creates, updates and deletes Istio authorization policies, automatically looks up service accounts for client pods and labels server pods, to reflect precisely the client-to-server calls declared in client intents files.
 
-The intents operator can also be configured to process client intents *without* creating and managing network policies, to provide visibility on what would happen once enforcement via Istio authorization policy is activated. More information can be found in the [shadow vs active enforcement documentation](/shadow-vs-active-enforcement).
+The intents operator can also be configured to process client intents *without* creating and managing network policies, to provide visibility on what would happen once enforcement via Istio authorization policy is activated. More information can be found in the [shadow vs active enforcement documentation](https://docs.otterize.com/shadow-vs-active-enforcement).
 
 In the example above, the `my-client` service intends to call the `web-server`. When the CRD is applied through `kubectl apply`, the intents operator labels the `web-server` pod, looks up `my-client`'s service account, and creates an authorization policy for the `web-server` that references the service account for `my-client` and allows calls to the `web-server` from the `my-client`.
 
