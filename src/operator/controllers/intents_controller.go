@@ -145,7 +145,7 @@ func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1
 
 func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otterizev1alpha2.ProtectedService) []otterizev1alpha2.ClientIntents {
 	intentsToReconcile := make([]otterizev1alpha2.ClientIntents, 0)
-	fullServerName := fmt.Sprintf("%s.%s", protectedService.Name, protectedService.Namespace)
+	fullServerName := fmt.Sprintf("%s.%s", protectedService.Spec.Name, protectedService.Namespace)
 	var intentsToServer otterizev1alpha2.ClientIntentsList
 	err := r.client.List(context.Background(),
 		&intentsToServer,
