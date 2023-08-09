@@ -23,6 +23,7 @@ type DefaultDenyReconciler struct {
 type ExternalNepolHandler interface {
 	HandlePodsByNamespace(ctx context.Context, namespace string) error
 	HandleAllPods(ctx context.Context) error
+	HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error
 }
 
 func NewDefaultDenyReconciler(client client.Client, extNetpolHandler ExternalNepolHandler) *DefaultDenyReconciler {

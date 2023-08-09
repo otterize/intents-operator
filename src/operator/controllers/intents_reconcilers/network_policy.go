@@ -303,7 +303,7 @@ func (r *NetworkPolicyReconciler) handleIntentRemoval(
 func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Context) error {
 	logrus.Info("Searching for orphaned network policies")
 	networkPolicyList := &v1.NetworkPolicyList{}
-	selector, err := r.matchAccessNetworkPolicy()
+	selector, err := MatchAccessNetworkPolicy()
 	if err != nil {
 		return err
 	}
@@ -354,7 +354,7 @@ func (r *NetworkPolicyReconciler) removeNetworkPolicy(ctx context.Context, netwo
 	return nil
 }
 
-func (r *NetworkPolicyReconciler) matchAccessNetworkPolicy() (labels.Selector, error) {
+func MatchAccessNetworkPolicy() (labels.Selector, error) {
 	isOtterizeNetworkPolicy := metav1.LabelSelectorRequirement{
 		Key:      otterizev1alpha2.OtterizeNetworkPolicy,
 		Operator: metav1.LabelSelectorOpExists,

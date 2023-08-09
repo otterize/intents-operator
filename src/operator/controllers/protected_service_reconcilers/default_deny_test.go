@@ -22,6 +22,7 @@ const (
 	protectedServicesResourceName        = "staging-protected-services"
 	protectedService                     = "test-service"
 	protectedServiceFormattedName        = "test-service-test-namespace-b0207e"
+	anotherProtectedServiceResourceName  = "protect-other-services"
 	anotherProtectedService              = "other-test-service"
 	anotherProtectedServiceFormattedName = "other-test-service-test-namespace-398a04"
 	testNamespace                        = "test-namespace"
