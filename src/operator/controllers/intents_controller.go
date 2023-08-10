@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
@@ -50,32 +49,35 @@ type EnforcementConfig struct {
 
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
-	group  *reconcilergroup.Group
-	client client.Client
+	group                   *reconcilergroup.Group
+	client                  client.Client
+	isFirstRun              bool
+	networkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler
 }
 
 func NewIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
-	externalNetpolHandler *external_traffic.NetworkPolicyHandler,
+	networkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
-	externalNetworkPoliciesCreatedEvenIfNoIntents bool,
 	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string) *IntentsReconciler {
 	reconcilersGroup := reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
-		intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, externalNetpolHandler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, externalNetworkPoliciesCreatedEvenIfNoIntents),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
+		networkPolicyReconciler,
 	)
 
 	intentsReconciler := &IntentsReconciler{
-		group:  reconcilersGroup,
-		client: client,
+		group:                   reconcilersGroup,
+		client:                  client,
+		isFirstRun:              true,
+		networkPolicyReconciler: networkPolicyReconciler,
 	}
 
 	if otterizeClient != nil {
@@ -102,6 +104,14 @@ func NewIntentsReconciler(
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if r.isFirstRun {
+		err := r.networkPolicyReconciler.CleanAllNamespaces(ctx)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		r.isFirstRun = false
+	}
+
 	return r.group.Reconcile(ctx, req)
 }
 

@@ -9,7 +9,6 @@ import (
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
-	v1 "k8s.io/api/networking/v1"
 )
 
 // MockExternalNepolHandler is a mock of ExternalNepolHandler interface.
@@ -47,20 +46,6 @@ func (m *MockExternalNepolHandler) HandleAllPods(ctx context.Context) error {
 func (mr *MockExternalNepolHandlerMockRecorder) HandleAllPods(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleAllPods", reflect.TypeOf((*MockExternalNepolHandler)(nil).HandleAllPods), ctx)
-}
-
-// HandleBeforeAccessPolicyRemoval mocks base method.
-func (m *MockExternalNepolHandler) HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HandleBeforeAccessPolicyRemoval", ctx, accessPolicy)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// HandleBeforeAccessPolicyRemoval indicates an expected call of HandleBeforeAccessPolicyRemoval.
-func (mr *MockExternalNepolHandlerMockRecorder) HandleBeforeAccessPolicyRemoval(ctx, accessPolicy interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleBeforeAccessPolicyRemoval", reflect.TypeOf((*MockExternalNepolHandler)(nil).HandleBeforeAccessPolicyRemoval), ctx, accessPolicy)
 }
 
 // HandlePodsByNamespace mocks base method.

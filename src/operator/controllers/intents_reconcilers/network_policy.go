@@ -9,12 +9,14 @@ import (
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -303,7 +305,7 @@ func (r *NetworkPolicyReconciler) handleIntentRemoval(
 func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Context) error {
 	logrus.Info("Searching for orphaned network policies")
 	networkPolicyList := &v1.NetworkPolicyList{}
-	selector, err := MatchAccessNetworkPolicy()
+	selector, err := matchAccessNetworkPolicy()
 	if err != nil {
 		return err
 	}
@@ -354,7 +356,7 @@ func (r *NetworkPolicyReconciler) removeNetworkPolicy(ctx context.Context, netwo
 	return nil
 }
 
-func MatchAccessNetworkPolicy() (labels.Selector, error) {
+func matchAccessNetworkPolicy() (labels.Selector, error) {
 	isOtterizeNetworkPolicy := metav1.LabelSelectorRequirement{
 		Key:      otterizev1alpha2.OtterizeNetworkPolicy,
 		Operator: metav1.LabelSelectorOpExists,
@@ -390,6 +392,64 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 	}
 
 	return r.removeNetworkPolicy(ctx, *policy)
+}
+
+func (r *NetworkPolicyReconciler) CleanPoliciesFromUnprotectedServices(ctx context.Context, namespace string) error {
+	selector, err := matchAccessNetworkPolicy()
+	if err != nil {
+		return err
+	}
+
+	policies := &v1.NetworkPolicyList{}
+	err = r.List(ctx, policies, &client.ListOptions{Namespace: namespace, LabelSelector: selector})
+	if err != nil {
+		return err
+	}
+
+	if len(policies.Items) == 0 {
+		return nil
+	}
+
+	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
+	err = r.List(ctx, &protectedServicesResources, &client.ListOptions{Namespace: namespace})
+	if err != nil {
+		return err
+	}
+
+	protectedServersByNamespace := sets.Set[string]{}
+	for _, protectedService := range protectedServicesResources.Items {
+		serverName := otterizev1alpha2.GetFormattedOtterizeIdentity(protectedService.Spec.Name, namespace)
+		protectedServersByNamespace.Insert(serverName)
+	}
+
+	for _, networkPolicy := range policies.Items {
+		serverName := networkPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
+		if !protectedServersByNamespace.Has(serverName) {
+			err = r.removeNetworkPolicy(ctx, networkPolicy)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *NetworkPolicyReconciler) CleanAllNamespaces(ctx context.Context) error {
+	namespaces := corev1.NamespaceList{}
+	err := r.List(ctx, &namespaces)
+	if err != nil {
+		return err
+	}
+
+	for _, namespace := range namespaces.Items {
+		err = r.CleanPoliciesFromUnprotectedServices(ctx, namespace.Name)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
