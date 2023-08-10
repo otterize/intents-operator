@@ -16,7 +16,6 @@ type PolicyCleanerReconciler struct {
 	client.Client
 	injectablerecorder.InjectableRecorder
 	networkPolicyHandler NetworkPolicyHandler
-	extNetpolHandler     ExternalNepolHandler
 }
 
 func NewPolicyCleanerReconciler(client client.Client, networkPolicyHandler NetworkPolicyHandler) *PolicyCleanerReconciler {
