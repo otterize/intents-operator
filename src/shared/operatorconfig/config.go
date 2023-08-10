@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -41,6 +42,8 @@ const (
 	EnvPrefix                                                           = "OTTERIZE"
 	EnableDatabaseReconciler                                            = "enable-database-reconciler" // Whether to enable the new database reconciler
 	EnableDatabaseReconcilerDefault                                     = false
+	RetryDelayTimeKey                                                   = "retry-delay-time" // Default retry delay time for retrying failed requests
+	RetryDelayTimeDefault                                               = 5 * time.Second
 )
 
 func init() {
@@ -78,6 +81,7 @@ func InitCLIFlags() {
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
 	pflag.Bool(telemetrysender.TelemetryEnabledKey, telemetrysender.TelemetryEnabledDefault, "Whether telemetry should be enabled")
 	pflag.Bool(EnableDatabaseReconciler, EnableDatabaseReconcilerDefault, "Enable the database reconciler")
+	pflag.Duration(RetryDelayTimeKey, RetryDelayTimeDefault, "Default retry delay time for retrying failed requests")
 
 	runtime.Must(viper.BindPFlags(pflag.CommandLine))
 

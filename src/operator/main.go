@@ -280,7 +280,15 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
 	}
 
-	protectedServicesReconciler := controllers.NewProtectedServiceReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient, extNetpolHandler, enforcementConfig.EnforcementDefaultState)
+	protectedServicesReconciler := controllers.NewProtectedServiceReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		otterizeCloudClient,
+		extNetpolHandler,
+		enforcementConfig.EnforcementDefaultState,
+		mgr.GetCache().WaitForCacheSync,
+	)
+
 	err = protectedServicesReconciler.SetupWithManager(mgr)
 	if err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "ProtectedServices")

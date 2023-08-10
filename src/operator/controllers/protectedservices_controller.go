@@ -50,6 +50,7 @@ func NewProtectedServiceReconciler(
 	otterizeClient operator_cloud_client.CloudClient,
 	extNetpolHandler protected_service_reconcilers.ExternalNepolHandler,
 	enforcementDefaultState bool,
+	managerStartFunc protected_service_reconcilers.ManagerStarted,
 ) *ProtectedServiceReconciler {
 	group := reconcilergroup.NewGroup(protectedServicesGroupName, client, scheme,
 		protected_service_reconcilers.NewDefaultDenyReconciler(client, extNetpolHandler))
@@ -57,6 +58,7 @@ func NewProtectedServiceReconciler(
 	if !enforcementDefaultState {
 		policyCleaner := protected_service_reconcilers.NewPolicyCleanerReconciler(client, extNetpolHandler)
 		group.AddToGroup(policyCleaner)
+		policyCleaner.RunInAllNamespacesOnce(managerStartFunc)
 	}
 
 	if otterizeClient != nil {
