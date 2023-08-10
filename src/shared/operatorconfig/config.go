@@ -41,6 +41,8 @@ const (
 	EnvPrefix                                                           = "OTTERIZE"
 	EnableDatabaseReconciler                                            = "enable-database-reconciler" // Whether to enable the new database reconciler
 	EnableDatabaseReconcilerDefault                                     = false
+	DebugLogKey                                                         = "debug" // Whether to enable debug logging
+	DebugLogDefault                                                     = false
 )
 
 func init() {
@@ -78,6 +80,7 @@ func InitCLIFlags() {
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
 	pflag.Bool(telemetrysender.TelemetryEnabledKey, telemetrysender.TelemetryEnabledDefault, "Whether telemetry should be enabled")
 	pflag.Bool(EnableDatabaseReconciler, EnableDatabaseReconcilerDefault, "Enable the database reconciler")
+	pflag.Bool(DebugLogKey, DebugLogDefault, "Enable debug logging")
 
 	runtime.Must(viper.BindPFlags(pflag.CommandLine))
 

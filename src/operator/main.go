@@ -105,8 +105,12 @@ func main() {
 
 	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
+	debugLogs := viper.GetBool(operatorconfig.DebugLogKey)
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
+	if debugLogs {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
 
 	var err error
 
