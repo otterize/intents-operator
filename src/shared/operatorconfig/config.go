@@ -44,6 +44,8 @@ const (
 	EnableDatabaseReconcilerDefault                                     = false
 	RetryDelayTimeKey                                                   = "retry-delay-time" // Default retry delay time for retrying failed requests
 	RetryDelayTimeDefault                                               = 5 * time.Second
+	DebugLogKey                                                         = "debug" // Whether to enable debug logging
+	DebugLogDefault                                                     = false
 )
 
 func init() {
@@ -82,6 +84,7 @@ func InitCLIFlags() {
 	pflag.Bool(telemetrysender.TelemetryEnabledKey, telemetrysender.TelemetryEnabledDefault, "Whether telemetry should be enabled")
 	pflag.Bool(EnableDatabaseReconciler, EnableDatabaseReconcilerDefault, "Enable the database reconciler")
 	pflag.Duration(RetryDelayTimeKey, RetryDelayTimeDefault, "Default retry delay time for retrying failed requests")
+	pflag.Bool(DebugLogKey, DebugLogDefault, "Enable debug logging")
 
 	runtime.Must(viper.BindPFlags(pflag.CommandLine))
 
