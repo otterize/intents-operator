@@ -35,7 +35,7 @@ func NewPolicyCleanerReconciler(client client.Client, extNetpolHandler ExternalN
 func (r *PolicyCleanerReconciler) RunInAllNamespacesOnce(managerStartedFunc ManagerStarted) {
 	defaultDelayTime := viper.GetDuration(operatorconfig.RetryDelayTimeKey)
 	go func() {
-		for managerStartedFunc(context.Background()) == false {
+		for !managerStartedFunc(context.Background()) {
 			time.Sleep(defaultDelayTime)
 		}
 
