@@ -18,7 +18,7 @@ import (
 	"strings"
 )
 
-type IntentsAdminFactoryFunction func(serverConfig otterizev1alpha2.KafkaServerConfig, _ otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementDefaultState bool) (KafkaIntentsAdmin, error)
+type IntentsAdminFactoryFunction func(serverConfig otterizev1alpha2.KafkaServerConfig, _ otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementEnabledForServer bool) (KafkaIntentsAdmin, error)
 
 type TopicToACLList map[sarama.Resource][]sarama.Acl
 
@@ -41,11 +41,11 @@ type KafkaIntentsAdmin interface {
 }
 
 type KafkaIntentsAdminImpl struct {
-	kafkaServer             otterizev1alpha2.KafkaServerConfig
-	kafkaAdminClient        sarama.ClusterAdmin
-	userNameMapping         string
-	enableKafkaACLCreation  bool
-	enforcementDefaultState bool
+	kafkaServer                 otterizev1alpha2.KafkaServerConfig
+	kafkaAdminClient            sarama.ClusterAdmin
+	userNameMapping             string
+	enableKafkaACLCreation      bool
+	enforcementEnabledForServer bool
 }
 
 var (
@@ -122,7 +122,7 @@ func getUserPrincipalMapping(tlsCert tls.Certificate) (string, error) {
 
 }
 
-func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha2.KafkaServerConfig, defaultTls otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementDefaultState bool) (KafkaIntentsAdmin, error) {
+func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha2.KafkaServerConfig, defaultTls otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementEnabledForServer bool) (KafkaIntentsAdmin, error) {
 	logger := logrus.WithField("addr", kafkaServer.Spec.Addr)
 	logger.Info("Connecting to kafka server")
 	addrs := []string{kafkaServer.Spec.Addr}
@@ -154,16 +154,16 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha2.KafkaServerConfig, defaul
 
 	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 
-	a, err := sarama.NewClusterAdmin(addrs, config)
+	saramaAdminClient, err := sarama.NewClusterAdmin(addrs, config)
 	if err != nil {
 		return nil, err
 	}
 
-	return NewKafkaIntentsAdminImpl(kafkaServer, a, usernameMapping, enableKafkaACLCreation, enforcementDefaultState), nil
+	return NewKafkaIntentsAdminImpl(kafkaServer, saramaAdminClient, usernameMapping, enableKafkaACLCreation, enforcementEnabledForServer), nil
 }
 
-func NewKafkaIntentsAdminImpl(kafkaServer otterizev1alpha2.KafkaServerConfig, a sarama.ClusterAdmin, usernameMapping string, enableKafkaACLCreation bool, enforcementDefaultState bool) KafkaIntentsAdmin {
-	return &KafkaIntentsAdminImpl{kafkaServer: kafkaServer, kafkaAdminClient: a, userNameMapping: usernameMapping, enableKafkaACLCreation: enableKafkaACLCreation, enforcementDefaultState: enforcementDefaultState}
+func NewKafkaIntentsAdminImpl(kafkaServer otterizev1alpha2.KafkaServerConfig, saramaAdminClient sarama.ClusterAdmin, usernameMapping string, enableKafkaACLCreation bool, enforcementEnabledForServer bool) KafkaIntentsAdmin {
+	return &KafkaIntentsAdminImpl{kafkaServer: kafkaServer, kafkaAdminClient: saramaAdminClient, userNameMapping: usernameMapping, enableKafkaACLCreation: enableKafkaACLCreation, enforcementEnabledForServer: enforcementEnabledForServer}
 }
 
 func (a *KafkaIntentsAdminImpl) Close() {
@@ -333,7 +333,7 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 	if len(resourceAclsCreate) == 0 {
 		logger.Info("No new ACLs found to apply on server")
 	} else {
-		if a.enforcementDefaultState && a.enableKafkaACLCreation {
+		if a.enforcementEnabledForServer && a.enableKafkaACLCreation {
 			logger.Infof("Creating %d new ACLs", len(resourceAclsCreate))
 			if err := a.kafkaAdminClient.CreateACLs(resourceAclsCreate); err != nil {
 				return fmt.Errorf("failed applying ACLs to server: %w", err)
@@ -341,7 +341,7 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 			telemetrysender.SendIntentOperator(telemetriesgql.EventTypeKafkaAclsCreated, len(resourceAclsCreate))
 		} else if !a.enableKafkaACLCreation {
 			logger.Infof("Skipped creation of %d new ACLs because Kafka ACL Creation is disabled", len(resourceAclsCreate))
-		} else if !a.enforcementDefaultState {
+		} else if !a.enforcementEnabledForServer {
 			logger.Infof("Skipped creation of %d new enforcement is globally disabled", len(resourceAclsCreate))
 		}
 	}
@@ -573,7 +573,7 @@ func (a *KafkaIntentsAdminImpl) ApplyServerTopicsConf(topicsConf []otterizev1alp
 	resourceAclsToCreate, resourceAclsToDelete := a.kafkaResourceAclsDiff(expectedResourceAcls, appliedTopicsConfAcls)
 
 	if len(resourceAclsToCreate) > 0 {
-		if a.enforcementDefaultState && a.enableKafkaACLCreation {
+		if a.enforcementEnabledForServer && a.enableKafkaACLCreation {
 			logger.Infof("Creating %d resource ACLs for topic configurations", len(resourceAclsToCreate))
 			for _, resourceAcl := range resourceAclsToCreate {
 				for _, acl := range resourceAcl.Acls {
