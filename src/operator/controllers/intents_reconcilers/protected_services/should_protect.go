@@ -1,4 +1,4 @@
-package intents_reconcilers
+package protected_services
 
 import (
 	"context"

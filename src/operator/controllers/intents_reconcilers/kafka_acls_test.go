@@ -6,6 +6,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	intentsreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
@@ -376,7 +377,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() 
 	// the actual test is that there are not unexpected calls to the mockKafkaAdmin
 	select {
 	case event := <-s.recorder.Events:
-		s.Require().Contains(event, ReasonEnforcementDefaultOff)
+		s.Require().Contains(event, consts.ReasonEnforcementDefaultOff)
 	default:
 		s.Fail("event not raised")
 	}

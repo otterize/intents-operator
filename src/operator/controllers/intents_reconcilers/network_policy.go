@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
@@ -19,16 +21,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-const (
-	ReasonEnforcementDefaultOff         = "EnforcementGloballyDisabled"
-	ReasonNetworkPolicyCreationDisabled = "NetworkPolicyCreationDisabled"
-	ReasonGettingNetworkPolicyFailed    = "GettingNetworkPolicyFailed"
-	ReasonRemovingNetworkPolicyFailed   = "RemovingNetworkPolicyFailed"
-	ReasonNamespaceNotAllowed           = "NamespaceNotAllowed"
-	ReasonCreatingNetworkPoliciesFailed = "CreatingNetworkPoliciesFailed"
-	ReasonCreatedNetworkPolicies        = "CreatedNetworkPolicies"
 )
 
 type externalNetpolHandler interface {
@@ -91,7 +83,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
-			r.RecordWarningEventf(intents, ReasonRemovingNetworkPolicyFailed, "could not remove network policies: %s", err.Error())
+			r.RecordWarningEventf(intents, consts.ReasonRemovingNetworkPolicyFailed, "could not remove network policies: %s", err.Error())
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
@@ -108,25 +100,25 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		targetNamespace := intent.GetServerNamespace(req.Namespace)
 		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, targetNamespace) {
 			// Namespace is not in list of namespaces we're allowed to act in, so drop it.
-			r.RecordWarningEventf(intents, ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration", targetNamespace)
+			r.RecordWarningEventf(intents, consts.ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration", targetNamespace)
 			continue
 		}
 		err := r.handleNetworkPolicyCreation(ctx, intents, intent, req.Namespace)
 		if err != nil {
-			r.RecordWarningEventf(intents, ReasonCreatingNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
+			r.RecordWarningEventf(intents, consts.ReasonCreatingNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
 			return ctrl.Result{}, err
 		}
 	}
 
 	err = r.removeOrphanNetworkPolicies(ctx)
 	if err != nil {
-		r.RecordWarningEventf(intents, ReasonRemovingNetworkPolicyFailed, "failed to remove network policies: %s", err.Error())
+		r.RecordWarningEventf(intents, consts.ReasonRemovingNetworkPolicyFailed, "failed to remove network policies: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
 	if len(intents.GetCallsList()) > 0 {
 		callsCount := len(intents.GetCallsList())
-		r.RecordNormalEventf(intents, ReasonCreatedNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
+		r.RecordNormalEventf(intents, consts.ReasonCreatedNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
 		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, callsCount)
 	}
 	return ctrl.Result{}, nil
@@ -135,19 +127,19 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intentsObj *otterizev1alpha2.ClientIntents, intent otterizev1alpha2.Intent, intentsObjNamespace string) error {
 
-	shouldCreatePolicy, err := ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx, r.Client, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
+	shouldCreatePolicy, err := protected_services.ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx, r.Client, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
 	if err != nil {
 		return err
 	}
 
 	if !shouldCreatePolicy {
 		logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
-		r.RecordNormalEventf(intentsObj, ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
+		r.RecordNormalEventf(intentsObj, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
 		return nil
 	}
 	if !r.enableNetworkPolicyCreation {
 		logrus.Infof("Network policy creation is disabled, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
-		r.RecordNormalEvent(intentsObj, ReasonNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
+		r.RecordNormalEvent(intentsObj, consts.ReasonNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
 		return nil
 	}
 
@@ -165,7 +157,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		Namespace: intent.GetServerNamespace(intentsObjNamespace)},
 		existingPolicy)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		r.RecordWarningEventf(existingPolicy, ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
+		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
 		return err
 	}
 

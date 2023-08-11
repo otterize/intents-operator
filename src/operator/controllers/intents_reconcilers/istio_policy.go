@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	istiopolicy "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -13,13 +14,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-const (
-	IstioPolicyFinalizerName          = "intents.otterize.com/istio-policy-finalizer"
-	ReasonIstioPolicyCreationDisabled = "IstioPolicyCreationDisabled"
-	ReasonRemovingIstioPolicyFailed   = "RemovingIstioPolicyFailed"
-	ReasonOtterizeServiceNotFound     = "OtterizeServiceNotFound"
 )
 
 type IstioPolicyReconciler struct {
@@ -87,15 +81,15 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
-			r.RecordWarningEventf(intents, ReasonRemovingIstioPolicyFailed, "Could not remove Istio policies: %s", err.Error())
+			r.RecordWarningEventf(intents, consts.ReasonRemovingIstioPolicyFailed, "Could not remove Istio policies: %s", err.Error())
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
 	}
 
-	if !controllerutil.ContainsFinalizer(intents, IstioPolicyFinalizerName) {
-		logrus.WithField("namespacedName", req.String()).Infof("Adding finalizer %s", IstioPolicyFinalizerName)
-		controllerutil.AddFinalizer(intents, IstioPolicyFinalizerName)
+	if !controllerutil.ContainsFinalizer(intents, consts.IstioPolicyFinalizerName) {
+		logrus.WithField("namespacedName", req.String()).Infof("Adding finalizer %s", consts.IstioPolicyFinalizerName)
+		controllerutil.AddFinalizer(intents, consts.IstioPolicyFinalizerName)
 		if err := r.Update(ctx, intents); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -106,7 +100,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if errors.Is(err, serviceidresolver.PodNotFound) {
 			r.RecordWarningEventf(
 				intents,
-				ReasonOtterizeServiceNotFound,
+				consts.ReasonOtterizeServiceNotFound,
 				"Could not find non-terminating pods for service %s in namespace %s",
 				intents.Spec.Service.Name,
 				intents.Namespace)
@@ -169,7 +163,7 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 }
 
 func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
-	if !controllerutil.ContainsFinalizer(intents, IstioPolicyFinalizerName) {
+	if !controllerutil.ContainsFinalizer(intents, consts.IstioPolicyFinalizerName) {
 		return nil
 	}
 
@@ -179,6 +173,6 @@ func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, i
 	if err != nil {
 		return err
 	}
-	RemoveIntentFinalizers(intents, IstioPolicyFinalizerName)
+	RemoveIntentFinalizers(intents, consts.IstioPolicyFinalizerName)
 	return r.Update(ctx, intents)
 }

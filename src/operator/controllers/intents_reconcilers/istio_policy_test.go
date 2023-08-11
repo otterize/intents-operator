@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -99,7 +100,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
 	// Check finalizer is added
 	intentsObj := otterizev1alpha2.ClientIntents{}
 	intentsWithoutFinalizer.DeepCopyInto(&intentsObj)
-	controllerutil.AddFinalizer(&intentsObj, IstioPolicyFinalizerName)
+	controllerutil.AddFinalizer(&intentsObj, consts.IstioPolicyFinalizerName)
 	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&intentsObj)).Return(nil)
 
 	clientServiceAccount := "test-server-sa"
@@ -156,7 +157,7 @@ func (s *IstioPolicyReconcilerTestSuite) expectValidatingIstioIsInstalled() {
 func (s *IstioPolicyReconcilerTestSuite) TestGlobalEnforcementDisabled() {
 	s.Reconciler.enforcementDefaultState = false
 	s.assertPolicyIgnored()
-	s.ExpectEvent(ReasonEnforcementDefaultOff)
+	s.ExpectEvent(consts.ReasonEnforcementDefaultOff)
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyEnforcementDisabled() {
@@ -195,7 +196,7 @@ func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
 		},
 		Spec: intentsSpec,
 	}
-	controllerutil.AddFinalizer(&clientIntentsObj, IstioPolicyFinalizerName)
+	controllerutil.AddFinalizer(&clientIntentsObj, consts.IstioPolicyFinalizerName)
 
 	s.expectValidatingIstioIsInstalled()
 
@@ -244,7 +245,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {
 		},
 		Spec: intentsSpec,
 	}
-	controllerutil.AddFinalizer(&clientIntentsObj, IstioPolicyFinalizerName)
+	controllerutil.AddFinalizer(&clientIntentsObj, consts.IstioPolicyFinalizerName)
 
 	s.expectValidatingIstioIsInstalled()
 
@@ -260,7 +261,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {
 
 	intentsWithoutFinalizer := &otterizev1alpha2.ClientIntents{}
 	clientIntentsObj.DeepCopyInto(intentsWithoutFinalizer)
-	controllerutil.RemoveFinalizer(intentsWithoutFinalizer, IstioPolicyFinalizerName)
+	controllerutil.RemoveFinalizer(intentsWithoutFinalizer, consts.IstioPolicyFinalizerName)
 
 	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(intentsWithoutFinalizer)).Return(nil)
 

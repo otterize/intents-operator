@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -106,7 +107,7 @@ func (r *KafkaACLReconciler) applyACLs(intents *otterizev1alpha2.ClientIntents) 
 	}
 
 	if !r.enforcementDefaultState {
-		r.RecordNormalEvent(intents, ReasonEnforcementDefaultOff, "Enforcement is disabled globally, Kafka ACL creation skipped")
+		r.RecordNormalEvent(intents, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally, Kafka ACL creation skipped")
 	}
 	if !r.enableKafkaACLCreation {
 		r.RecordNormalEvent(intents, ReasonKafkaACLCreationDisabled, "Kafka ACL creation is disabled, creation skipped")

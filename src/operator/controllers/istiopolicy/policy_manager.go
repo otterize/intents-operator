@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
@@ -327,7 +328,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 ) (*goset.Set[PolicyID], error) {
 	updatedPolicies := goset.NewSet[PolicyID]()
 	for _, intent := range clientIntents.GetCallsList() {
-		shouldCreatePolicy, err := intents_reconcilers.ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(
+		shouldCreatePolicy, err := protected_services.ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(
 			ctx, c.client, intent.GetServerName(), intent.GetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState)
 		if err != nil {
 			return nil, err
@@ -335,12 +336,12 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 
 		if !shouldCreatePolicy {
 			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(clientIntents.Namespace))
-			c.recorder.RecordNormalEventf(clientIntents, intents_reconcilers.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
+			c.recorder.RecordNormalEventf(clientIntents, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
 			return updatedPolicies, nil
 		}
 
 		if !c.enableIstioPolicyCreation {
-			c.recorder.RecordNormalEvent(clientIntents, intents_reconcilers.ReasonIstioPolicyCreationDisabled, "Istio policy creation is disabled, creation skipped")
+			c.recorder.RecordNormalEvent(clientIntents, consts.ReasonIstioPolicyCreationDisabled, "Istio policy creation is disabled, creation skipped")
 			return updatedPolicies, nil
 		}
 

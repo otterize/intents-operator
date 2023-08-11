@@ -26,7 +26,7 @@ type AdminTestSuite struct {
 
 func (s *AdminTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.admin = NewPolicyManager(s.Client, &injectablerecorder.InjectableRecorder{Recorder: s.Recorder}, []string{})
+	s.admin = NewPolicyManager(s.Client, &injectablerecorder.InjectableRecorder{Recorder: s.Recorder}, []string{}, true, true)
 }
 
 func (s *AdminTestSuite) TearDownTest() {
@@ -95,6 +95,7 @@ func (s *AdminTestSuite) TestCreate() {
 	}
 
 	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingFields{})).Return(nil)
 	s.Client.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
 	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
