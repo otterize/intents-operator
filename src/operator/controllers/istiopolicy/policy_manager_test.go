@@ -21,12 +21,12 @@ import (
 
 type AdminTestSuite struct {
 	testbase.MocksSuiteBase
-	admin *AdminImpl
+	admin *PolicyManagerImpl
 }
 
 func (s *AdminTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.admin = NewAdmin(s.Client, &injectablerecorder.InjectableRecorder{Recorder: s.Recorder}, []string{})
+	s.admin = NewPolicyManager(s.Client, &injectablerecorder.InjectableRecorder{Recorder: s.Recorder}, []string{})
 }
 
 func (s *AdminTestSuite) TearDownTest() {

@@ -29,13 +29,13 @@ const (
 type PodWatcher struct {
 	client.Client
 	serviceIdResolver *serviceidresolver.Resolver
-	istioPolicyAdmin  istiopolicy.Admin
+	istioPolicyAdmin  istiopolicy.PolicyManager
 	injectablerecorder.InjectableRecorder
 }
 
 func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string) *PodWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
-	creator := istiopolicy.NewAdmin(c, &recorder, watchedNamespaces)
+	creator := istiopolicy.NewPolicyManager(c, &recorder, watchedNamespaces)
 	return &PodWatcher{
 		Client:             c,
 		serviceIdResolver:  serviceidresolver.NewResolver(c),

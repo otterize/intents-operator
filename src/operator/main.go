@@ -236,6 +236,10 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init indices")
 	}
 
+	if err = intentsReconciler.InitProtectedServiceIndexField(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init protected service index")
+	}
+
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
 	}

@@ -210,6 +210,28 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	return nil
 }
 
+// InitProtectedServiceIndexField indexes protected service resources by their service name
+// This is used in finalizers to determine whether a network policy should be removed from the target namespace
+func (r *IntentsReconciler) InitProtectedServiceIndexField(mgr ctrl.Manager) error {
+	err := mgr.GetCache().IndexField(
+		context.Background(),
+		&otterizev1alpha2.ProtectedService{},
+		otterizev1alpha2.OtterizeProtectedServiceNameIndexField,
+		func(object client.Object) []string {
+			protectedService := object.(*otterizev1alpha2.ProtectedService)
+			if protectedService.Spec.Name == "" {
+				return nil
+			}
+
+			return []string{protectedService.Spec.Name}
+		})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *IntentsReconciler) InitEndpointsPodNamesIndex(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),

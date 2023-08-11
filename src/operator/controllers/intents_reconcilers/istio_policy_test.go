@@ -47,7 +47,7 @@ func (s *IstioPolicyReconcilerTestSuite) SetupTest() {
 
 	s.Reconciler.Recorder = s.Recorder
 	s.Reconciler.serviceIdResolver = s.serviceResolver
-	s.Reconciler.policyAdmin = s.policyAdmin
+	s.Reconciler.policyManager = s.policyAdmin
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TearDownTest() {

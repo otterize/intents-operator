@@ -135,7 +135,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intentsObj *otterizev1alpha2.ClientIntents, intent otterizev1alpha2.Intent, intentsObjNamespace string) error {
 
-	shouldCreatePolicy, err := r.shouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
+	shouldCreatePolicy, err := shouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx, r.Client, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
 	if err != nil {
 		return err
 	}
@@ -174,33 +174,6 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	}
 
 	return r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, intentsObjNamespace)
-}
-
-func (r *NetworkPolicyReconciler) shouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx context.Context, serverName string, serverNamespace string) (bool, error) {
-	if r.enforcementDefaultState {
-		logrus.Debug("Enforcement is default on, so all services should be protected")
-		return true, nil
-	}
-
-	logrus.Debug("Protected services are enabled, checking if server is in protected list")
-	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
-	err := r.List(ctx, &protectedServicesResources, client.InNamespace(serverNamespace))
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return false, nil
-		}
-		return false, err
-	}
-
-	for _, protectedService := range protectedServicesResources.Items {
-		if protectedService.Spec.Name == serverName {
-			logrus.Debugf("Server %s in namespace %s is in protected list", serverName, serverNamespace)
-			return true, nil
-		}
-	}
-
-	logrus.Debugf("Server %s in namespace %s is not in protected list", serverName, serverNamespace)
-	return false, nil
 }
 
 func (r *NetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, intent otterizev1alpha2.Intent, intentsObjNamespace string) error {

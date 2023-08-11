@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
@@ -40,28 +41,30 @@ type PolicyID types.UID
 //+kubebuilder:rbac:groups="security.istio.io",resources=authorizationpolicies,verbs=get;update;patch;list;watch;delete;create;deletecollection
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents,verbs=get;list;watch;create;update;patch;delete
 
-type AdminImpl struct {
-	client               client.Client
-	recorder             *injectablerecorder.InjectableRecorder
-	restrictToNamespaces []string
+type PolicyManagerImpl struct {
+	client                    client.Client
+	recorder                  *injectablerecorder.InjectableRecorder
+	restrictToNamespaces      []string
+	enforcementDefaultState   bool
+	enableIstioPolicyCreation bool
 }
 
-type Admin interface {
+type PolicyManager interface {
 	DeleteAll(ctx context.Context, clientIntents *v1alpha2.ClientIntents) error
 	Create(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error
 	UpdateIntentsStatus(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string, missingSideCar bool) error
 	UpdateServerSidecar(ctx context.Context, clientIntents *v1alpha2.ClientIntents, serverName string, missingSideCar bool) error
 }
 
-func NewAdmin(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string) *AdminImpl {
-	return &AdminImpl{
+func NewPolicyManager(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool) *PolicyManagerImpl {
+	return &PolicyManagerImpl{
 		client:               client,
 		recorder:             recorder,
 		restrictToNamespaces: restrictedNamespaces,
 	}
 }
 
-func (c *AdminImpl) DeleteAll(
+func (c *PolicyManagerImpl) DeleteAll(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
 ) error {
@@ -84,7 +87,7 @@ func (c *AdminImpl) DeleteAll(
 	return nil
 }
 
-func (c *AdminImpl) deletePolicy(ctx context.Context, policy *v1beta1.AuthorizationPolicy) error {
+func (c *PolicyManagerImpl) deletePolicy(ctx context.Context, policy *v1beta1.AuthorizationPolicy) error {
 	err := c.client.Delete(ctx, policy)
 	if err != nil {
 		return err
@@ -93,7 +96,7 @@ func (c *AdminImpl) deletePolicy(ctx context.Context, policy *v1beta1.Authorizat
 	return nil
 }
 
-func (c *AdminImpl) Create(
+func (c *PolicyManagerImpl) Create(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
 	clientServiceAccount string,
@@ -127,7 +130,7 @@ func (c *AdminImpl) Create(
 	return nil
 }
 
-func (c *AdminImpl) UpdateIntentsStatus(
+func (c *PolicyManagerImpl) UpdateIntentsStatus(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
 	clientServiceAccount string,
@@ -146,7 +149,7 @@ func (c *AdminImpl) UpdateIntentsStatus(
 	return c.updateSharedServiceAccountsInNamespace(ctx, clientIntents.Namespace)
 }
 
-func (c *AdminImpl) UpdateServerSidecar(
+func (c *PolicyManagerImpl) UpdateServerSidecar(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
 	serverName string,
@@ -186,7 +189,7 @@ func (c *AdminImpl) UpdateServerSidecar(
 	return nil
 }
 
-func (c *AdminImpl) setServersWithoutSidecar(ctx context.Context, clientIntents *v1alpha2.ClientIntents, set sets.Set[string]) error {
+func (c *PolicyManagerImpl) setServersWithoutSidecar(ctx context.Context, clientIntents *v1alpha2.ClientIntents, set sets.Set[string]) error {
 	serversSortedList := sets.List(set)
 	serversValues, err := json.Marshal(serversSortedList)
 	if err != nil {
@@ -205,7 +208,7 @@ func (c *AdminImpl) setServersWithoutSidecar(ctx context.Context, clientIntents 
 	return nil
 }
 
-func (c *AdminImpl) saveServiceAccountName(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {
+func (c *PolicyManagerImpl) saveServiceAccountName(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {
 	serviceAccountLabelValue, ok := clientIntents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
 	if ok && serviceAccountLabelValue == clientServiceAccount {
 		return nil
@@ -228,7 +231,7 @@ func (c *AdminImpl) saveServiceAccountName(ctx context.Context, clientIntents *v
 	return nil
 }
 
-func (c *AdminImpl) saveSideCarStatus(ctx context.Context, clientIntents *v1alpha2.ClientIntents, missingSideCar bool) error {
+func (c *PolicyManagerImpl) saveSideCarStatus(ctx context.Context, clientIntents *v1alpha2.ClientIntents, missingSideCar bool) error {
 	oldValue, ok := clientIntents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
 	if ok && oldValue == strconv.FormatBool(missingSideCar) {
 		return nil
@@ -248,7 +251,7 @@ func (c *AdminImpl) saveSideCarStatus(ctx context.Context, clientIntents *v1alph
 	return nil
 }
 
-func (c *AdminImpl) updateSharedServiceAccountsInNamespace(ctx context.Context, namespace string) error {
+func (c *PolicyManagerImpl) updateSharedServiceAccountsInNamespace(ctx context.Context, namespace string) error {
 	var namespacesClientIntents v1alpha2.ClientIntentsList
 	err := c.client.List(
 		ctx, &namespacesClientIntents,
@@ -270,7 +273,7 @@ func (c *AdminImpl) updateSharedServiceAccountsInNamespace(ctx context.Context, 
 	return nil
 }
 
-func (c *AdminImpl) updateServiceAccountSharedStatus(ctx context.Context, clientIntents []v1alpha2.ClientIntents, serviceAccount string) error {
+func (c *PolicyManagerImpl) updateServiceAccountSharedStatus(ctx context.Context, clientIntents []v1alpha2.ClientIntents, serviceAccount string) error {
 	logrus.Infof("Found %d intents with service account %s", len(clientIntents), serviceAccount)
 	isServiceAccountShared := len(clientIntents) > 1
 	sharedAccountValue := lo.Ternary(isServiceAccountShared, "true", "false")
@@ -316,14 +319,31 @@ func shouldUpdateStatus(intents v1alpha2.ClientIntents, currentName string, curr
 	return false
 }
 
-func (c *AdminImpl) createOrUpdatePolicies(
+func (c *PolicyManagerImpl) createOrUpdatePolicies(
 	ctx context.Context,
 	clientIntents *v1alpha2.ClientIntents,
 	clientServiceAccount string,
 	existingPolicies v1beta1.AuthorizationPolicyList,
-) (goset.Set[PolicyID], error) {
+) (*goset.Set[PolicyID], error) {
 	updatedPolicies := goset.NewSet[PolicyID]()
 	for _, intent := range clientIntents.GetCallsList() {
+		shouldCreatePolicy, err := intents_reconcilers.ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(
+			ctx, c.client, intent.GetServerName(), intent.GetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState)
+		if err != nil {
+			return nil, err
+		}
+
+		if !shouldCreatePolicy {
+			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(clientIntents.Namespace))
+			c.recorder.RecordNormalEventf(clientIntents, intents_reconcilers.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
+			return updatedPolicies, nil
+		}
+
+		if !c.enableIstioPolicyCreation {
+			c.recorder.RecordNormalEvent(clientIntents, intents_reconcilers.ReasonIstioPolicyCreationDisabled, "Istio policy creation is disabled, creation skipped")
+			return updatedPolicies, nil
+		}
+
 		targetNamespace := intent.GetServerNamespace(clientIntents.Namespace)
 		if len(c.restrictToNamespaces) != 0 && !lo.Contains(c.restrictToNamespaces, targetNamespace) {
 			c.recorder.RecordWarningEventf(
@@ -341,24 +361,24 @@ func (c *AdminImpl) createOrUpdatePolicies(
 			err := c.updatePolicy(ctx, existingPolicy, newPolicy)
 			if err != nil {
 				c.recorder.RecordWarningEventf(clientIntents, ReasonUpdatingIstioPolicyFailed, "Failed to update Istio policy: %s", err.Error())
-				return goset.Set[PolicyID]{}, err
+				return nil, err
 			}
 			updatedPolicies.Add(PolicyID(existingPolicy.UID))
 			continue
 		}
 
-		err := c.client.Create(ctx, newPolicy)
+		err = c.client.Create(ctx, newPolicy)
 		if err != nil {
 			c.recorder.RecordWarningEventf(clientIntents, ReasonCreatingIstioPolicyFailed, "Failed to create Istio policy: %s", err.Error())
-			return goset.Set[PolicyID]{}, err
+			return nil, err
 		}
 		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIstioPoliciesCreated, 1)
 	}
 
-	return *updatedPolicies, nil
+	return updatedPolicies, nil
 }
 
-func (c *AdminImpl) findPolicy(existingPolicies v1beta1.AuthorizationPolicyList, newPolicy *v1beta1.AuthorizationPolicy) (*v1beta1.AuthorizationPolicy, bool) {
+func (c *PolicyManagerImpl) findPolicy(existingPolicies v1beta1.AuthorizationPolicyList, newPolicy *v1beta1.AuthorizationPolicy) (*v1beta1.AuthorizationPolicy, bool) {
 	for _, policy := range existingPolicies.Items {
 		if policy.Labels[v1alpha2.OtterizeServerLabelKey] == newPolicy.Labels[v1alpha2.OtterizeServerLabelKey] {
 			return policy, true
@@ -367,7 +387,7 @@ func (c *AdminImpl) findPolicy(existingPolicies v1beta1.AuthorizationPolicyList,
 	return nil, false
 }
 
-func (c *AdminImpl) deleteOutdatedPolicies(ctx context.Context, existingPolicies v1beta1.AuthorizationPolicyList, validPolicies goset.Set[PolicyID]) error {
+func (c *PolicyManagerImpl) deleteOutdatedPolicies(ctx context.Context, existingPolicies v1beta1.AuthorizationPolicyList, validPolicies *goset.Set[PolicyID]) error {
 	for _, existingPolicy := range existingPolicies.Items {
 		if !validPolicies.Contains(PolicyID(existingPolicy.UID)) {
 			err := c.deletePolicy(ctx, existingPolicy)
@@ -379,7 +399,7 @@ func (c *AdminImpl) deleteOutdatedPolicies(ctx context.Context, existingPolicies
 	return nil
 }
 
-func (c *AdminImpl) updatePolicy(ctx context.Context, existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) error {
+func (c *PolicyManagerImpl) updatePolicy(ctx context.Context, existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) error {
 	if c.isPolicyEqual(existingPolicy, newPolicy) {
 		return nil
 	}
@@ -397,13 +417,13 @@ func (c *AdminImpl) updatePolicy(ctx context.Context, existingPolicy *v1beta1.Au
 	return nil
 }
 
-func (c *AdminImpl) getPolicyName(intents *v1alpha2.ClientIntents, intent v1alpha2.Intent) string {
+func (c *PolicyManagerImpl) getPolicyName(intents *v1alpha2.ClientIntents, intent v1alpha2.Intent) string {
 	clientName := fmt.Sprintf("%s.%s", intents.GetServiceName(), intents.Namespace)
 	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.GetServerName(), clientName)
 	return policyName
 }
 
-func (c *AdminImpl) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) bool {
+func (c *PolicyManagerImpl) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) bool {
 	sameServer := existingPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey] == newPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey]
 	samePrincipals := existingPolicy.Spec.Rules[0].From[0].Source.Principals[0] == newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
 	sameHTTPRules := compareHTTPRules(existingPolicy.Spec.Rules[0].To, newPolicy.Spec.Rules[0].To)
@@ -437,7 +457,7 @@ func compareHTTPRules(existingRules []*v1beta1security.Rule_To, newRules []*v1be
 	return true
 }
 
-func (c *AdminImpl) generateAuthorizationPolicy(
+func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 	clientIntents *v1alpha2.ClientIntents,
 	intent v1alpha2.Intent,
 	clientServiceAccountName string,
@@ -497,7 +517,7 @@ func (c *AdminImpl) generateAuthorizationPolicy(
 	return newPolicy
 }
 
-func (c *AdminImpl) intentsHTTPResourceToIstioOperations(resources []v1alpha2.HTTPResource) []*v1beta1security.Operation {
+func (c *PolicyManagerImpl) intentsHTTPResourceToIstioOperations(resources []v1alpha2.HTTPResource) []*v1beta1security.Operation {
 	operations := make([]*v1beta1security.Operation, 0, len(resources))
 
 	for _, resource := range resources {
@@ -510,7 +530,7 @@ func (c *AdminImpl) intentsHTTPResourceToIstioOperations(resources []v1alpha2.HT
 	return operations
 }
 
-func (c *AdminImpl) intentsMethodsToIstioMethods(intent []v1alpha2.HTTPMethod) []string {
+func (c *PolicyManagerImpl) intentsMethodsToIstioMethods(intent []v1alpha2.HTTPMethod) []string {
 	istioMethods := make([]string, 0, len(intent))
 	for _, method := range intent {
 		// Istio documentation specifies "A list of methods as specified in the HTTP request" in uppercase
