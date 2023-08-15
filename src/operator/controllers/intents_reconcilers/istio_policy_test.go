@@ -163,7 +163,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestGlobalEnforcementDisabled() {
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyEnforcementDisabled() {
 	s.Reconciler.enableIstioPolicyCreation = false
 	s.assertPolicyIgnored()
-	s.ExpectEvent(ReasonIstioPolicyCreationDisabled)
+	s.ExpectEvent(consts.ReasonIstioPolicyCreationDisabled)
 }
 
 func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
@@ -211,6 +211,8 @@ func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
+
+	// FIXME: this doesn't actually check that it wasn't created!
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {

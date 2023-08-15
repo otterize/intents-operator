@@ -59,9 +59,11 @@ type PolicyManager interface {
 
 func NewPolicyManager(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool) *PolicyManagerImpl {
 	return &PolicyManagerImpl{
-		client:               client,
-		recorder:             recorder,
-		restrictToNamespaces: restrictedNamespaces,
+		client:                    client,
+		recorder:                  recorder,
+		restrictToNamespaces:      restrictedNamespaces,
+		enforcementDefaultState:   enforcementDefaultState,
+		enableIstioPolicyCreation: istioEnforcementEnabled,
 	}
 }
 

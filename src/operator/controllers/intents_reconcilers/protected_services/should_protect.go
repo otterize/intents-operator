@@ -17,7 +17,7 @@ func ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx context.Contex
 	logrus.Debug("Protected services are enabled, checking if server is in protected list")
 	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
 	err := kube.List(ctx, &protectedServicesResources,
-		&client.MatchingFields{otterizev1alpha2.OtterizeProtectedServiceNameIndexField: serverName},
+		client.MatchingFields{otterizev1alpha2.OtterizeProtectedServiceNameIndexField: serverName},
 		client.InNamespace(serverNamespace))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
