@@ -72,7 +72,6 @@ jobs:
       - name: Wait for Otterize
         run: |-
           kubectl wait pods -n otterize-system -l app=intents-operator --for condition=Ready --timeout=360s
-          kubectl wait pods -n otterize-system -l app=otterize-watcher --for condition=Ready --timeout=360s
 
 
       - name: Wait for Tutorial services
@@ -161,7 +160,6 @@ jobs:
       - name: Wait for Otterize
         run: |-
           kubectl wait pods -n otterize-system -l app=intents-operator --for condition=Ready --timeout=360s
-          kubectl wait pods -n otterize-system -l app=otterize-watcher --for condition=Ready --timeout=360s
 
 
       - name: Apply intents
