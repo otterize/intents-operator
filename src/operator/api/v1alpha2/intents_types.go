@@ -69,6 +69,7 @@ const (
 	IntentTypeHTTP     IntentType = "http"
 	IntentTypeKafka    IntentType = "kafka"
 	IntentTypeDatabase IntentType = "database"
+	IntentTypeAWS      IntentType = "aws"
 )
 
 // +kubebuilder:validation:Enum=all;consume;produce;create;alter;delete;describe;ClusterAction;DescribeConfigs;AlterConfigs;IdempotentWrite
@@ -137,6 +138,9 @@ type Intent struct {
 
 	//+optional
 	DatabaseResources []DatabaseResource `json:"databaseResources,omitempty" yaml:"databaseResources,omitempty"`
+
+	//+optional
+	AWSResources []AWSResource `json:"awsResources,omitempty" yaml:"awsResources,omitempty"`
 }
 
 type DatabaseResource struct {
@@ -152,6 +156,11 @@ type HTTPResource struct {
 type KafkaTopic struct {
 	Name       string           `json:"name" yaml:"name"`
 	Operations []KafkaOperation `json:"operations" yaml:"operations"`
+}
+
+type AWSResource struct {
+	Resource string   `json:"resource" yaml:"resource"`
+	Actions  []string `json:"actions" yaml:"actions"`
 }
 
 // IntentsStatus defines the observed state of ClientIntents

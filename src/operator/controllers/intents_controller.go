@@ -71,6 +71,7 @@ func NewIntentsReconciler(
 		intents_reconcilers.NewNetworkPolicyReconciler(client, scheme, externalNetpolHandler, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, externalNetworkPoliciesCreatedEvenIfNoIntents),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
+		intents_reconcilers.NewAWSIAMReconciler(client, scheme, operatorPodName, operatorPodNamespace),
 	)
 
 	intentsReconciler := &IntentsReconciler{
