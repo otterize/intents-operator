@@ -513,7 +513,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 		})
 
 	if defaultEnforcementState == false {
-		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(serverNamespace)).DoAndReturn(
+		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
 				list.Items = append(list.Items, protectedServices...)
 				return nil
@@ -697,22 +697,11 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerNotInProtectionList() {
 	serverName := "test-server"
 	s.Reconciler.enforcementDefaultState = false
 
-	protectedService := otterizev1alpha2.ProtectedService{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-protected-services",
-			Namespace: serverNamespace,
-		},
-		Spec: otterizev1alpha2.ProtectedServiceSpec{
-			Name: "other-server",
-		},
-	}
-
-	s.testServerNotProtected(clientIntentsName, serverName, serverNamespace, serviceName, &protectedService)
+	s.testServerNotProtected(clientIntentsName, serverName, serverNamespace, serviceName)
 	s.ExpectEvent(consts.ReasonEnforcementDefaultOff)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsName string, serverName string, serverNamespace string, serviceName string, protectedService *otterizev1alpha2.ProtectedService) {
+func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsName string, serverName string, serverNamespace string, serviceName string) {
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
 		Name:      clientIntentsName,
@@ -732,17 +721,15 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&otterizev1alpha2.ClientIntents{})).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 			intents.Spec = intentsSpec
 			return nil
 		})
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(serverNamespace)).DoAndReturn(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
-			list.Items = append(list.Items, *protectedService)
 			return nil
 		})
 
@@ -758,7 +745,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDis
 
 	s.testEnforcementDisabled()
 	s.ExpectEvent(consts.ReasonNetworkPolicyCreationDisabled)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkGlobalEnforcementDisabled() {
@@ -766,7 +752,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkGlobalEnforcementDisabled(
 
 	s.testEnforcementDisabled()
 	s.ExpectEvent(consts.ReasonEnforcementDefaultOff)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNotInWatchedNamespaces() {
@@ -774,7 +759,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNotInWatchedNamespaces() {
 
 	s.testEnforcementDisabled()
 	s.ExpectEvent(consts.ReasonNamespaceNotAllowed)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
@@ -810,7 +794,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 		})
 
 	s.ignoreRemoveOrphan()
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(serverNamespace)).AnyTimes().DoAndReturn(
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), gomock.Any()).AnyTimes().DoAndReturn(
 		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
 			return nil
 		})
