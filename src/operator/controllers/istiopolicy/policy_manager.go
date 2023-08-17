@@ -126,10 +126,6 @@ func (c *PolicyManagerImpl) Create(
 		return err
 	}
 
-	if len(clientIntents.GetCallsList()) > 0 {
-		c.recorder.RecordNormalEventf(clientIntents, ReasonCreatedIstioPolicy, "Istio policy reconcile complete, reconciled %d servers", len(clientIntents.GetCallsList()))
-	}
-
 	return nil
 }
 
@@ -329,6 +325,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 	existingPolicies v1beta1.AuthorizationPolicyList,
 ) (*goset.Set[PolicyID], error) {
 	updatedPolicies := goset.NewSet[PolicyID]()
+	createdAnyPolicies := false
 	for _, intent := range clientIntents.GetCallsList() {
 		shouldCreatePolicy, err := protected_services.ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(
 			ctx, c.client, intent.GetServerName(), intent.GetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState)
@@ -339,7 +336,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 		if !shouldCreatePolicy {
 			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(clientIntents.Namespace))
 			c.recorder.RecordNormalEventf(clientIntents, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
-			return updatedPolicies, nil
+			continue
 		}
 
 		if !c.enableIstioPolicyCreation {
@@ -375,7 +372,12 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 			c.recorder.RecordWarningEventf(clientIntents, ReasonCreatingIstioPolicyFailed, "Failed to create Istio policy: %s", err.Error())
 			return nil, err
 		}
+		createdAnyPolicies = true
 		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIstioPoliciesCreated, 1)
+	}
+
+	if updatedPolicies.Len() != 0 || createdAnyPolicies {
+		c.recorder.RecordNormalEventf(clientIntents, ReasonCreatedIstioPolicy, "Istio policy reconcile complete, reconciled %d servers", len(clientIntents.GetCallsList()))
 	}
 
 	return updatedPolicies, nil

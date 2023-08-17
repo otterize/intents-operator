@@ -5,6 +5,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -33,4 +34,26 @@ func ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx context.Contex
 
 	logrus.Debugf("Server %s in namespace %s is not in protected list", serverName, serverNamespace)
 	return false, nil
+}
+
+// InitProtectedServiceIndexField indexes protected service resources by their service name
+// This is used in finalizers to determine whether a network policy should be removed from the target namespace
+func InitProtectedServiceIndexField(mgr ctrl.Manager) error {
+	err := mgr.GetCache().IndexField(
+		context.Background(),
+		&otterizev1alpha2.ProtectedService{},
+		otterizev1alpha2.OtterizeProtectedServiceNameIndexField,
+		func(object client.Object) []string {
+			protectedService := object.(*otterizev1alpha2.ProtectedService)
+			if protectedService.Spec.Name == "" {
+				return nil
+			}
+
+			return []string{protectedService.Spec.Name}
+		})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

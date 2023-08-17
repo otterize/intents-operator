@@ -156,17 +156,15 @@ func (s *IstioPolicyReconcilerTestSuite) expectValidatingIstioIsInstalled() {
 
 func (s *IstioPolicyReconcilerTestSuite) TestGlobalEnforcementDisabled() {
 	s.Reconciler.enforcementDefaultState = false
-	s.assertPolicyIgnored()
-	s.ExpectEvent(consts.ReasonEnforcementDefaultOff)
+	s.assertPolicyCreateCalledEvenIfDisabledEnforcementConfigHappensInPolicyManager()
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyEnforcementDisabled() {
 	s.Reconciler.enableIstioPolicyCreation = false
-	s.assertPolicyIgnored()
-	s.ExpectEvent(consts.ReasonIstioPolicyCreationDisabled)
+	s.assertPolicyCreateCalledEvenIfDisabledEnforcementConfigHappensInPolicyManager()
 }
 
-func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
+func (s *IstioPolicyReconcilerTestSuite) assertPolicyCreateCalledEvenIfDisabledEnforcementConfigHappensInPolicyManager() {
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 	serverNamespace := "far-far-away"
@@ -208,11 +206,52 @@ func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
 			return nil
 		})
 
+	clientServiceAccount := "test-server-sa"
+	clientPod := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-client-fdae32",
+			Namespace: serverNamespace,
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: clientServiceAccount,
+			Containers: []v1.Container{
+				{
+					Name: "real-application-who-does-something",
+				},
+				{
+					Name: "istio-proxy",
+				},
+			},
+		},
+	}
+
+	serverPod := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-server-2b5e0d",
+			Namespace: serverNamespace,
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: "test-server-sa",
+			Containers: []v1.Container{
+				{
+					Name: "server-who-listens",
+				},
+				{
+					Name: "istio-proxy",
+				},
+			},
+		},
+	}
+
+	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(clientIntentsObj)).Return(clientPod, nil)
+	s.policyAdmin.EXPECT().UpdateIntentsStatus(gomock.Any(), gomock.Eq(&clientIntentsObj), clientServiceAccount, false).Return(nil)
+	s.serviceResolver.EXPECT().ResolveIntentServerToPod(gomock.Any(), gomock.Eq(clientIntentsObj.Spec.Calls[0]), serverNamespace).Return(serverPod, nil)
+	s.policyAdmin.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&clientIntentsObj), "test-server-far-far-away-aa0d79", false).Return(nil)
+	s.policyAdmin.EXPECT().Create(gomock.Any(), gomock.Eq(&clientIntentsObj), clientServiceAccount).Return(nil)
+
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
-
-	// FIXME: this doesn't actually check that it wasn't created!
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {

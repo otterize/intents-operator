@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	pod_reconcilers2 "github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/sirupsen/logrus"
@@ -292,6 +293,29 @@ func main() {
 	err = protectedServicesReconciler.SetupWithManager(mgr)
 	if err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "ProtectedServices")
+	}
+
+	podWatcher := pod_reconcilers2.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy)
+	nsWatcher := pod_reconcilers2.NewNamespaceWatcher(mgr.GetClient())
+
+	err = podWatcher.InitIntentsClientIndices(mgr)
+	if err != nil {
+		logrus.WithError(err).Panic()
+	}
+
+	err = podWatcher.InitIntentsServerIndices(mgr)
+	if err != nil {
+		logrus.WithError(err).Panic()
+	}
+
+	err = podWatcher.Register(mgr)
+	if err != nil {
+		logrus.WithError(err).Panic()
+	}
+
+	err = nsWatcher.Register(mgr)
+	if err != nil {
+		logrus.WithError(err).Panic()
 	}
 
 	//+kubebuilder:scaffold:builder

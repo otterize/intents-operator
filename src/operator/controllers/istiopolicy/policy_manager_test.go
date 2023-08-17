@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
@@ -33,8 +34,6 @@ func (s *PolicyManagerTestSuite) TearDownTest() {
 	s.admin = nil
 	s.MocksSuiteBase.TearDownTest()
 }
-
-//s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingFields{}), gomock.Any()).Return(nil)
 
 func (s *PolicyManagerTestSuite) TestCreateProtectedService() {
 	s.admin.enforcementDefaultState = false
@@ -117,6 +116,118 @@ func (s *PolicyManagerTestSuite) TestCreateProtectedService() {
 	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
 	s.NoError(err)
 	s.ExpectEvent(ReasonCreatedIstioPolicy)
+}
+
+func (s *PolicyManagerTestSuite) TestCreateEnforcementDisabledNoProtectedService() {
+	s.admin.enforcementDefaultState = false
+	clientName := "test-client"
+	serverName := "test-server"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	clientServiceAccountName := "test-client-sa"
+
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&v1alpha2.ProtectedServiceList{}), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, protectedServices *v1alpha2.ProtectedServiceList, options ...client.ListOption) error {
+			return nil
+		})
+
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
+	s.NoError(err)
+	s.ExpectEvent(consts.ReasonEnforcementDefaultOff)
+}
+
+func (s *PolicyManagerTestSuite) TestCreateIstioEnforcementDisabledNoProtectedService() {
+	s.admin.enableIstioPolicyCreation = false
+	clientName := "test-client"
+	serverName := "test-server"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	clientServiceAccountName := "test-client-sa"
+
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
+	s.NoError(err)
+	s.ExpectEvent(consts.ReasonIstioPolicyCreationDisabled)
+}
+
+func (s *PolicyManagerTestSuite) TestCreateProtectedServiceIstioEnforcementDisabled() {
+	s.admin.enableIstioPolicyCreation = false
+	clientName := "test-client"
+	serverName := "test-server"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	clientServiceAccountName := "test-client-sa"
+
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
+	s.NoError(err)
+	s.ExpectEvent(consts.ReasonIstioPolicyCreationDisabled)
 }
 
 func (s *PolicyManagerTestSuite) TestCreate() {
@@ -568,7 +679,6 @@ func (s *PolicyManagerTestSuite) TestNamespaceNotAllowed() {
 	err := s.admin.Create(ctx, intents, clientServiceAccountName)
 	s.NoError(err)
 	s.ExpectEvent(ReasonNamespaceNotAllowed)
-	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
 func (s *PolicyManagerTestSuite) TestNamespaceAllowed() {

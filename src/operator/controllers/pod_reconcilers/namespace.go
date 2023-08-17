@@ -1,4 +1,4 @@
-package reconcilers
+package pod_reconcilers
 
 import (
 	"context"

@@ -67,10 +67,6 @@ func (s *KafkaACLReconcilerTestSuite) SetupSuite() {
 	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
 }
 
-func (s *KafkaACLReconcilerTestSuite) SetupTest() {
-	s.ControllerManagerTestSuiteBase.SetupTest()
-}
-
 func (s *KafkaACLReconcilerTestSuite) setupServerStore(serviceName string) *kafkaacls.ServersStoreImpl {
 	serverConfig := &otterizev1alpha2.KafkaServerConfig{
 		Spec: otterizev1alpha2.KafkaServerConfigSpec{
