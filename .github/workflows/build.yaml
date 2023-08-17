@@ -23,7 +23,6 @@ jobs:
       matrix:
         service:
           - intents-operator
-          - watcher
 
     steps:
       - name: Check out the code
