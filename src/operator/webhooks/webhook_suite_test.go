@@ -71,6 +71,10 @@ func (s *ValidationWebhookTestSuite) SetupTest() {
 	s.Mgr.GetWebhookServer().Host = s.TestEnv.WebhookInstallOptions.LocalServingHost
 }
 
+func (s *ValidationWebhookTestSuite) TearDownTest() {
+	s.Require().NoError(s.TestEnv.Stop())
+}
+
 func (s *ValidationWebhookTestSuite) TestNoDuplicateClientsAllowed() {
 	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha2.Intent{})
 	s.Require().NoError(err)
