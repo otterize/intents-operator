@@ -16,6 +16,8 @@
 package webhooks
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -26,9 +28,12 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"net"
 	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"strconv"
 	"testing"
+	"time"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -44,7 +49,6 @@ func (s *ValidationWebhookTestSuite) SetupSuite() {
 	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "config", "crd")}
 	s.TestEnv.WebhookInstallOptions = envtest.WebhookInstallOptions{
 		Paths:            []string{filepath.Join("..", "config", "webhook")},
-		LocalServingPort: 9443,
 		LocalServingHost: "localhost",
 	}
 
@@ -69,6 +73,22 @@ func (s *ValidationWebhookTestSuite) SetupTest() {
 	s.Require().NoError(intentsValidator.SetupWebhookWithManager(s.Mgr))
 	s.Mgr.GetWebhookServer().CertDir = s.TestEnv.WebhookInstallOptions.LocalServingCertDir
 	s.Mgr.GetWebhookServer().Host = s.TestEnv.WebhookInstallOptions.LocalServingHost
+	s.Mgr.GetWebhookServer().Port = s.TestEnv.WebhookInstallOptions.LocalServingPort
+
+}
+
+func (s *ValidationWebhookTestSuite) BeforeTest(suiteName, testName string) {
+	s.ControllerManagerTestSuiteBase.BeforeTest(suiteName, testName)
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for err := errors.New("dummy"); err != nil; _, err = net.Dial("tcp", net.JoinHostPort(s.TestEnv.WebhookInstallOptions.LocalServingHost, strconv.Itoa(s.TestEnv.WebhookInstallOptions.LocalServingPort))) {
+		select {
+		case <-ctxTimeout.Done():
+			s.Require().FailNow("timeout waiting to connect to webhook server")
+		case <-time.After(200 * time.Millisecond):
+
+		}
+	}
 }
 
 func (s *ValidationWebhookTestSuite) TestNoDuplicateClientsAllowed() {
