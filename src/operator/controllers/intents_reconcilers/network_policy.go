@@ -131,7 +131,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intentsObj *otterizev1alpha2.ClientIntents, intent otterizev1alpha2.Intent, intentsObjNamespace string) (bool, error) {
 
-	shouldCreatePolicy, err := protected_services.ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx, r.Client, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
+	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
 	if err != nil {
 		return false, err
 	}

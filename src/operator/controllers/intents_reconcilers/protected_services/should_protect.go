@@ -9,7 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx context.Context, kube client.Client, serverName string, serverNamespace string, enforcementDefaultState bool) (bool, error) {
+func IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx context.Context, kube client.Client, serverName string, serverNamespace string, enforcementDefaultState bool) (bool, error) {
 	if enforcementDefaultState {
 		logrus.Debug("Enforcement is default on, so all services should be protected")
 		return true, nil

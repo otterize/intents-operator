@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
-	pod_reconcilers2 "github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/sirupsen/logrus"
@@ -295,8 +295,8 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "ProtectedServices")
 	}
 
-	podWatcher := pod_reconcilers2.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy)
-	nsWatcher := pod_reconcilers2.NewNamespaceWatcher(mgr.GetClient())
+	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy)
+	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
 
 	err = podWatcher.InitIntentsClientIndices(mgr)
 	if err != nil {

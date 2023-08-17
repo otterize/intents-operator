@@ -90,7 +90,7 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 
 	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha2.KafkaServerConfig, tls otterizev1alpha2.TLSSource) error {
 		intentsForServer := intentsByServer[serverName]
-		shouldCreatePolicy, err := protected_services.ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState)
+		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState)
 		if err != nil {
 			return err
 		}
@@ -135,7 +135,7 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 
 func (r *KafkaACLReconciler) RemoveACLs(ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
 	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha2.KafkaServerConfig, tls otterizev1alpha2.TLSSource) error {
-		shouldCreatePolicy, err := protected_services.ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState)
+		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState)
 		if err != nil {
 			return err
 		}

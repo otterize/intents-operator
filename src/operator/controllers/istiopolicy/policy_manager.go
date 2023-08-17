@@ -327,7 +327,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 	updatedPolicies := goset.NewSet[PolicyID]()
 	createdAnyPolicies := false
 	for _, intent := range clientIntents.GetCallsList() {
-		shouldCreatePolicy, err := protected_services.ShouldCreateNetworkPoliciesDueToProtectionOrDefaultState(
+		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
 			ctx, c.client, intent.GetServerName(), intent.GetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState)
 		if err != nil {
 			return nil, err
