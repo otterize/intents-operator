@@ -26,6 +26,8 @@ const (
 	OtterizeClientNameIndexField = "spec.service.name"
 )
 
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
+
 type PodWatcher struct {
 	client.Client
 	serviceIdResolver *serviceidresolver.Resolver

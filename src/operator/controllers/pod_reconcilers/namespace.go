@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get
+//+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;update;patch;list;watch
 
 type NamespaceWatcher struct {
 	client.Client
