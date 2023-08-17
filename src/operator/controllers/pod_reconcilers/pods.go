@@ -258,33 +258,6 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 	return nil
 }
 
-func (p *PodWatcher) InitIntentsServerIndices(mgr ctrl.Manager) error {
-	err := mgr.GetCache().IndexField(
-		context.Background(),
-		&otterizev1alpha2.ClientIntents{},
-		otterizev1alpha2.OtterizeTargetServerIndexField,
-		func(object client.Object) []string {
-			var res []string
-			intents := object.(*otterizev1alpha2.ClientIntents)
-			if intents.Spec == nil {
-				return nil
-			}
-
-			for _, intent := range intents.GetCallsList() {
-				fullName := intent.GetServerFullyQualifiedName(intents.Namespace)
-				res = append(res, fullName)
-			}
-
-			return res
-		})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (p *PodWatcher) Register(mgr manager.Manager) error {
 	watcher, err := controller.New("otterize-pod-watcher", mgr, controller.Options{
 		Reconciler:   p,
