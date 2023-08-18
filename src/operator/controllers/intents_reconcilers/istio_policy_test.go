@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -47,7 +48,7 @@ func (s *IstioPolicyReconcilerTestSuite) SetupTest() {
 
 	s.Reconciler.Recorder = s.Recorder
 	s.Reconciler.serviceIdResolver = s.serviceResolver
-	s.Reconciler.policyAdmin = s.policyAdmin
+	s.Reconciler.policyManager = s.policyAdmin
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TearDownTest() {
@@ -99,7 +100,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
 	// Check finalizer is added
 	intentsObj := otterizev1alpha2.ClientIntents{}
 	intentsWithoutFinalizer.DeepCopyInto(&intentsObj)
-	controllerutil.AddFinalizer(&intentsObj, IstioPolicyFinalizerName)
+	controllerutil.AddFinalizer(&intentsObj, consts.IstioPolicyFinalizerName)
 	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&intentsObj)).Return(nil)
 
 	clientServiceAccount := "test-server-sa"
@@ -155,17 +156,15 @@ func (s *IstioPolicyReconcilerTestSuite) expectValidatingIstioIsInstalled() {
 
 func (s *IstioPolicyReconcilerTestSuite) TestGlobalEnforcementDisabled() {
 	s.Reconciler.enforcementDefaultState = false
-	s.assertPolicyIgnored()
-	s.ExpectEvent(ReasonEnforcementDefaultOff)
+	s.assertPolicyCreateCalledEvenIfDisabledEnforcementConfigHappensInPolicyManager()
 }
 
 func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyEnforcementDisabled() {
 	s.Reconciler.enableIstioPolicyCreation = false
-	s.assertPolicyIgnored()
-	s.ExpectEvent(ReasonIstioPolicyCreationDisabled)
+	s.assertPolicyCreateCalledEvenIfDisabledEnforcementConfigHappensInPolicyManager()
 }
 
-func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
+func (s *IstioPolicyReconcilerTestSuite) assertPolicyCreateCalledEvenIfDisabledEnforcementConfigHappensInPolicyManager() {
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 	serverNamespace := "far-far-away"
@@ -195,7 +194,7 @@ func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
 		},
 		Spec: intentsSpec,
 	}
-	controllerutil.AddFinalizer(&clientIntentsObj, IstioPolicyFinalizerName)
+	controllerutil.AddFinalizer(&clientIntentsObj, consts.IstioPolicyFinalizerName)
 
 	s.expectValidatingIstioIsInstalled()
 
@@ -206,6 +205,49 @@ func (s *IstioPolicyReconcilerTestSuite) assertPolicyIgnored() {
 			clientIntentsObj.DeepCopyInto(intents)
 			return nil
 		})
+
+	clientServiceAccount := "test-server-sa"
+	clientPod := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-client-fdae32",
+			Namespace: serverNamespace,
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: clientServiceAccount,
+			Containers: []v1.Container{
+				{
+					Name: "real-application-who-does-something",
+				},
+				{
+					Name: "istio-proxy",
+				},
+			},
+		},
+	}
+
+	serverPod := v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-server-2b5e0d",
+			Namespace: serverNamespace,
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: "test-server-sa",
+			Containers: []v1.Container{
+				{
+					Name: "server-who-listens",
+				},
+				{
+					Name: "istio-proxy",
+				},
+			},
+		},
+	}
+
+	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(clientIntentsObj)).Return(clientPod, nil)
+	s.policyAdmin.EXPECT().UpdateIntentsStatus(gomock.Any(), gomock.Eq(&clientIntentsObj), clientServiceAccount, false).Return(nil)
+	s.serviceResolver.EXPECT().ResolveIntentServerToPod(gomock.Any(), gomock.Eq(clientIntentsObj.Spec.Calls[0]), serverNamespace).Return(serverPod, nil)
+	s.policyAdmin.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&clientIntentsObj), "test-server-far-far-away-aa0d79", false).Return(nil)
+	s.policyAdmin.EXPECT().Create(gomock.Any(), gomock.Eq(&clientIntentsObj), clientServiceAccount).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -244,7 +286,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {
 		},
 		Spec: intentsSpec,
 	}
-	controllerutil.AddFinalizer(&clientIntentsObj, IstioPolicyFinalizerName)
+	controllerutil.AddFinalizer(&clientIntentsObj, consts.IstioPolicyFinalizerName)
 
 	s.expectValidatingIstioIsInstalled()
 
@@ -260,7 +302,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyFinalizerRemoved() {
 
 	intentsWithoutFinalizer := &otterizev1alpha2.ClientIntents{}
 	clientIntentsObj.DeepCopyInto(intentsWithoutFinalizer)
-	controllerutil.RemoveFinalizer(intentsWithoutFinalizer, IstioPolicyFinalizerName)
+	controllerutil.RemoveFinalizer(intentsWithoutFinalizer, consts.IstioPolicyFinalizerName)
 
 	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(intentsWithoutFinalizer)).Return(nil)
 

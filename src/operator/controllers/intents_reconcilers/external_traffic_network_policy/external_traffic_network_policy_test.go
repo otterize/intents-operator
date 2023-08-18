@@ -8,8 +8,8 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/testbase"
-	"github.com/otterize/intents-operator/src/watcher/reconcilers"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
@@ -32,7 +32,7 @@ type ExternalNetworkPolicyReconcilerTestSuite struct {
 	IngressReconciler       *external_traffic.IngressReconciler
 	endpointReconciler      external_traffic.EndpointsReconciler
 	NetworkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler
-	podWatcher              *reconcilers.PodWatcher
+	podWatcher              *pod_reconcilers.PodWatcher
 }
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupSuite() {
@@ -74,7 +74,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	err = s.IngressReconciler.InitNetworkPoliciesByIngressNameIndex(s.Mgr)
 	s.Require().NoError(err)
 
-	s.podWatcher = reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{})
+	s.podWatcher = pod_reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, true, true)
 	err = s.podWatcher.InitIntentsClientIndices(s.Mgr)
 	s.Require().NoError(err)
 

@@ -30,6 +30,10 @@ rules:
   - namespaces
   verbs:
   - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -62,6 +66,7 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
+  - create
   - get
   - list
   - update

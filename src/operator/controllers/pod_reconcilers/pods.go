@@ -1,4 +1,4 @@
-package reconcilers
+package pod_reconcilers
 
 import (
 	"context"
@@ -26,16 +26,18 @@ const (
 	OtterizeClientNameIndexField = "spec.service.name"
 )
 
+//+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
+
 type PodWatcher struct {
 	client.Client
 	serviceIdResolver *serviceidresolver.Resolver
-	istioPolicyAdmin  istiopolicy.Admin
+	istioPolicyAdmin  istiopolicy.PolicyManager
 	injectablerecorder.InjectableRecorder
 }
 
-func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string) *PodWatcher {
+func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool) *PodWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
-	creator := istiopolicy.NewAdmin(c, &recorder, watchedNamespaces)
+	creator := istiopolicy.NewPolicyManager(c, &recorder, watchedNamespaces, enforcementDefaultState, istioEnforcementEnabled)
 	return &PodWatcher{
 		Client:             c,
 		serviceIdResolver:  serviceidresolver.NewResolver(c),
@@ -249,33 +251,6 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 				return nil
 			}
 			return []string{intents.Spec.Service.Name}
-		})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (p *PodWatcher) InitIntentsServerIndices(mgr ctrl.Manager) error {
-	err := mgr.GetCache().IndexField(
-		context.Background(),
-		&otterizev1alpha2.ClientIntents{},
-		otterizev1alpha2.OtterizeTargetServerIndexField,
-		func(object client.Object) []string {
-			var res []string
-			intents := object.(*otterizev1alpha2.ClientIntents)
-			if intents.Spec == nil {
-				return nil
-			}
-
-			for _, intent := range intents.GetCallsList() {
-				fullName := intent.GetServerFullyQualifiedName(intents.Namespace)
-				res = append(res, fullName)
-			}
-
-			return res
 		})
 
 	if err != nil {

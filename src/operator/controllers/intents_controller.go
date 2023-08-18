@@ -23,6 +23,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -97,7 +98,7 @@ func NewIntentsReconciler(
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 //+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list
-//+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update
+//+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -208,6 +209,12 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	}
 
 	return nil
+}
+
+// InitProtectedServiceIndexField indexes protected service resources by their service name
+// This is used in finalizers to determine whether a network policy should be removed from the target namespace
+func (r *IntentsReconciler) InitProtectedServiceIndexField(mgr ctrl.Manager) error {
+	return protected_services.InitProtectedServiceIndexField(mgr)
 }
 
 func (r *IntentsReconciler) InitEndpointsPodNamesIndex(mgr ctrl.Manager) error {
