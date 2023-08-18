@@ -334,9 +334,9 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud
 
 	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
 		GlobalEnforcementEnabled:        config.EnforcementDefaultState,
-		NetworkPolicyEnforcementEnabled: config.EnforcementDefaultState && config.EnableNetworkPolicy,
-		KafkaACLEnforcementEnabled:      config.EnforcementDefaultState && config.EnableKafkaACL,
-		IstioPolicyEnforcementEnabled:   config.EnforcementDefaultState && config.EnableIstioPolicy,
+		NetworkPolicyEnforcementEnabled: config.EnableNetworkPolicy,
+		KafkaACLEnforcementEnabled:      config.EnableKafkaACL,
+		IstioPolicyEnforcementEnabled:   config.EnableIstioPolicy,
 		ProtectedServicesEnabled:        config.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 	})
 	if err != nil {
