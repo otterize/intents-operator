@@ -116,9 +116,6 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 		return 0, err
 	}
 
-	if !r.enforcementDefaultState {
-		r.RecordNormalEvent(intents, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally, Kafka ACL creation skipped")
-	}
 	if !r.enableKafkaACLCreation {
 		r.RecordNormalEvent(intents, ReasonKafkaACLCreationDisabled, "Kafka ACL creation is disabled, creation skipped")
 	}
