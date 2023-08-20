@@ -24,6 +24,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/shared/initonce"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -52,7 +53,7 @@ type EnforcementConfig struct {
 type IntentsReconciler struct {
 	group                   *reconcilergroup.Group
 	client                  client.Client
-	isFirstRun              bool
+	initOnce                initonce.InitOnce
 	networkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler
 }
 
@@ -77,7 +78,6 @@ func NewIntentsReconciler(
 	intentsReconciler := &IntentsReconciler{
 		group:                   reconcilersGroup,
 		client:                  client,
-		isFirstRun:              true,
 		networkPolicyReconciler: networkPolicyReconciler,
 	}
 
@@ -105,12 +105,11 @@ func NewIntentsReconciler(
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if r.isFirstRun {
-		err := r.networkPolicyReconciler.CleanAllNamespaces(ctx)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		r.isFirstRun = false
+	err := r.initOnce.Do(func() error {
+		return r.networkPolicyReconciler.CleanAllNamespaces(ctx)
+	})
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return r.group.Reconcile(ctx, req)
