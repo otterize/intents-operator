@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
@@ -19,22 +20,217 @@ import (
 	"testing"
 )
 
-type AdminTestSuite struct {
+type PolicyManagerTestSuite struct {
 	testbase.MocksSuiteBase
-	admin *AdminImpl
+	admin *PolicyManagerImpl
 }
 
-func (s *AdminTestSuite) SetupTest() {
+func (s *PolicyManagerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.admin = NewAdmin(s.Client, &injectablerecorder.InjectableRecorder{Recorder: s.Recorder}, []string{})
+	s.admin = NewPolicyManager(s.Client, &injectablerecorder.InjectableRecorder{Recorder: s.Recorder}, []string{}, true, true)
 }
 
-func (s *AdminTestSuite) TearDownTest() {
+func (s *PolicyManagerTestSuite) TearDownTest() {
 	s.admin = nil
 	s.MocksSuiteBase.TearDownTest()
 }
 
-func (s *AdminTestSuite) TestCreate() {
+func (s *PolicyManagerTestSuite) TestCreateProtectedService() {
+	s.admin.enforcementDefaultState = false
+	clientName := "test-client"
+	serverName := "test-server"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	clientServiceAccountName := "test-client-sa"
+
+	principal := generatePrincipal(clientIntentsNamespace, clientServiceAccountName)
+	newPolicy := &v1beta1.AuthorizationPolicy{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+		},
+		Spec: v1beta12.AuthorizationPolicy{
+			Selector: &v1beta13.WorkloadSelector{
+				MatchLabels: map[string]string{
+					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+				},
+			},
+			Rules: []*v1beta12.Rule{
+				{
+					From: []*v1beta12.Rule_From{
+						{
+							Source: &v1beta12.Source{
+								Principals: []string{
+									principal,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&v1alpha2.ProtectedServiceList{}), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, protectedServices *v1alpha2.ProtectedServiceList, options ...client.ListOption) error {
+			svc := v1alpha2.ProtectedService{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "protected-service",
+					Namespace: clientIntentsNamespace,
+				},
+				Spec: v1alpha2.ProtectedServiceSpec{
+					Name: serverName,
+				},
+			}
+			protectedServices.Items = append(protectedServices.Items, svc)
+			return nil
+		})
+	s.Client.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
+
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
+	s.NoError(err)
+	s.ExpectEvent(ReasonCreatedIstioPolicy)
+}
+
+func (s *PolicyManagerTestSuite) TestCreateEnforcementDisabledNoProtectedService() {
+	s.admin.enforcementDefaultState = false
+	clientName := "test-client"
+	serverName := "test-server"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	clientServiceAccountName := "test-client-sa"
+
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&v1alpha2.ProtectedServiceList{}), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, protectedServices *v1alpha2.ProtectedServiceList, options ...client.ListOption) error {
+			return nil
+		})
+
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
+	s.NoError(err)
+	s.ExpectEvent(consts.ReasonEnforcementDefaultOff)
+}
+
+func (s *PolicyManagerTestSuite) TestCreateIstioEnforcementDisabledNoProtectedService() {
+	s.admin.enableIstioPolicyCreation = false
+	clientName := "test-client"
+	serverName := "test-server"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	clientServiceAccountName := "test-client-sa"
+
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
+	s.NoError(err)
+	s.ExpectEvent(consts.ReasonIstioPolicyCreationDisabled)
+}
+
+func (s *PolicyManagerTestSuite) TestCreateProtectedServiceIstioEnforcementDisabled() {
+	s.admin.enableIstioPolicyCreation = false
+	clientName := "test-client"
+	serverName := "test-server"
+	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
+	clientIntentsNamespace := "test-namespace"
+
+	intents := &v1alpha2.ClientIntents{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientIntentsNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
+				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+			},
+		},
+		Spec: &v1alpha2.IntentsSpec{
+			Service: v1alpha2.Service{
+				Name: clientName,
+			},
+			Calls: []v1alpha2.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+	clientServiceAccountName := "test-client-sa"
+
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
+
+	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
+	s.NoError(err)
+	s.ExpectEvent(consts.ReasonIstioPolicyCreationDisabled)
+}
+
+func (s *PolicyManagerTestSuite) TestCreate() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -102,7 +298,7 @@ func (s *AdminTestSuite) TestCreate() {
 	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *AdminTestSuite) TestCreateHTTPResources() {
+func (s *PolicyManagerTestSuite) TestCreateHTTPResources() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -204,7 +400,7 @@ func (s *AdminTestSuite) TestCreateHTTPResources() {
 	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *AdminTestSuite) TestUpdateHTTPResources() {
+func (s *PolicyManagerTestSuite) TestUpdateHTTPResources() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -350,7 +546,7 @@ func (s *AdminTestSuite) TestUpdateHTTPResources() {
 	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *AdminTestSuite) TestNothingToUpdateHTTPResources() {
+func (s *PolicyManagerTestSuite) TestNothingToUpdateHTTPResources() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -455,7 +651,7 @@ func (s *AdminTestSuite) TestNothingToUpdateHTTPResources() {
 	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *AdminTestSuite) TestNamespaceNotAllowed() {
+func (s *PolicyManagerTestSuite) TestNamespaceNotAllowed() {
 	ctx := context.Background()
 	clientName := "test-client"
 	serverName := "test-server"
@@ -483,10 +679,9 @@ func (s *AdminTestSuite) TestNamespaceNotAllowed() {
 	err := s.admin.Create(ctx, intents, clientServiceAccountName)
 	s.NoError(err)
 	s.ExpectEvent(ReasonNamespaceNotAllowed)
-	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *AdminTestSuite) TestNamespaceAllowed() {
+func (s *PolicyManagerTestSuite) TestNamespaceAllowed() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -549,7 +744,7 @@ func (s *AdminTestSuite) TestNamespaceAllowed() {
 	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *AdminTestSuite) TestUpdatePolicy() {
+func (s *PolicyManagerTestSuite) TestUpdatePolicy() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -656,7 +851,7 @@ func (s *AdminTestSuite) TestUpdatePolicy() {
 	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *AdminTestSuite) TestDeleteAllPoliciesForClientIntents() {
+func (s *PolicyManagerTestSuite) TestDeleteAllPoliciesForClientIntents() {
 	clientName := "test-client"
 	serverName1 := "test-server-1"
 	serverName2 := "test-server-2"
@@ -693,7 +888,7 @@ func (s *AdminTestSuite) TestDeleteAllPoliciesForClientIntents() {
 	s.NoError(err)
 }
 
-func (s *AdminTestSuite) TestNothingToUpdate() {
+func (s *PolicyManagerTestSuite) TestNothingToUpdate() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -759,7 +954,7 @@ func (s *AdminTestSuite) TestNothingToUpdate() {
 	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *AdminTestSuite) TestDeletePolicy() {
+func (s *PolicyManagerTestSuite) TestDeletePolicy() {
 	clientName := "test-client"
 	serverName := "test-server"
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
@@ -859,7 +1054,7 @@ func (s *AdminTestSuite) TestDeletePolicy() {
 	s.ExpectEvent(ReasonCreatedIstioPolicy)
 }
 
-func (s *AdminTestSuite) TestUpdateStatusServiceAccount() {
+func (s *PolicyManagerTestSuite) TestUpdateStatusServiceAccount() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -943,7 +1138,7 @@ func (s *AdminTestSuite) TestUpdateStatusServiceAccount() {
 	s.NoError(err)
 }
 
-func (s *AdminTestSuite) TestUpdateStatusMissingSidecar() {
+func (s *PolicyManagerTestSuite) TestUpdateStatusMissingSidecar() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1027,7 +1222,7 @@ func (s *AdminTestSuite) TestUpdateStatusMissingSidecar() {
 	s.NoError(err)
 }
 
-func (s *AdminTestSuite) TestUpdateStatusServerMissingSidecar() {
+func (s *PolicyManagerTestSuite) TestUpdateStatusServerMissingSidecar() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1070,7 +1265,7 @@ func emptyIntents(clientIntentsNamespace string, clientName string, serverName s
 	return intents
 }
 
-func (s *AdminTestSuite) TestUpdateStatusServerMissingSidecarAnnotationExists() {
+func (s *PolicyManagerTestSuite) TestUpdateStatusServerMissingSidecarAnnotationExists() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1086,7 +1281,7 @@ func (s *AdminTestSuite) TestUpdateStatusServerMissingSidecarAnnotationExists() 
 	s.NoError(err)
 }
 
-func (s *AdminTestSuite) TestUpdateStatusServerMissingSidecarExistingServers() {
+func (s *PolicyManagerTestSuite) TestUpdateStatusServerMissingSidecarExistingServers() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1114,7 +1309,7 @@ func (s *AdminTestSuite) TestUpdateStatusServerMissingSidecarExistingServers() {
 	s.ExpectEvent(ReasonServerMissingSidecar)
 }
 
-func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList() {
+func (s *PolicyManagerTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1142,7 +1337,7 @@ func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList() {
 	s.NoError(err)
 }
 
-func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarRemovedLastFromList() {
+func (s *PolicyManagerTestSuite) TestUpdateStatusServerHasSidecarRemovedLastFromList() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1170,7 +1365,7 @@ func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarRemovedLastFromList() {
 	s.NoError(err)
 }
 
-func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarAlreadyRemoved() {
+func (s *PolicyManagerTestSuite) TestUpdateStatusServerHasSidecarAlreadyRemoved() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1187,7 +1382,7 @@ func (s *AdminTestSuite) TestUpdateStatusServerHasSidecarAlreadyRemoved() {
 	s.NoError(err)
 }
 
-func (s *AdminTestSuite) TestUpdateStatusSharedServiceAccount() {
+func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 	clientName := "test-client"
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
@@ -1330,5 +1525,5 @@ func generatePrincipal(clientIntentsNamespace string, clientServiceAccountName s
 }
 
 func TestCreatorTestSuite(t *testing.T) {
-	suite.Run(t, new(AdminTestSuite))
+	suite.Run(t, new(PolicyManagerTestSuite))
 }

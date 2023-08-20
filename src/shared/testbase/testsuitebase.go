@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -54,6 +55,8 @@ func (s *ControllerManagerTestSuiteBase) SetupTest() {
 	var err error
 	s.Mgr, err = manager.New(s.RestConfig, manager.Options{MetricsBindAddress: "0"})
 	s.Require().NoError(err)
+	s.Require().NoError(protected_services.InitProtectedServiceIndexField(s.Mgr))
+
 }
 
 // BeforeTest happens AFTER the SetupTest()

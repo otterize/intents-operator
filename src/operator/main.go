@@ -22,6 +22,7 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/sirupsen/logrus"
@@ -237,6 +238,10 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init indices")
 	}
 
+	if err = intentsReconciler.InitProtectedServiceIndexField(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init protected service index")
+	}
+
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
 	}
@@ -299,6 +304,24 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "ProtectedServices")
 	}
 
+	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy)
+	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
+
+	err = podWatcher.InitIntentsClientIndices(mgr)
+	if err != nil {
+		logrus.WithError(err).Panic()
+	}
+
+	err = podWatcher.Register(mgr)
+	if err != nil {
+		logrus.WithError(err).Panic()
+	}
+
+	err = nsWatcher.Register(mgr)
+	if err != nil {
+		logrus.WithError(err).Panic()
+	}
+
 	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		logrus.WithError(err).Fatal("unable to set up health check")
@@ -320,9 +343,9 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud
 
 	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
 		GlobalEnforcementEnabled:        config.EnforcementDefaultState,
-		NetworkPolicyEnforcementEnabled: config.EnforcementDefaultState && config.EnableNetworkPolicy,
-		KafkaACLEnforcementEnabled:      config.EnforcementDefaultState && config.EnableKafkaACL,
-		IstioPolicyEnforcementEnabled:   config.EnforcementDefaultState && config.EnableIstioPolicy,
+		NetworkPolicyEnforcementEnabled: config.EnableNetworkPolicy,
+		KafkaACLEnforcementEnabled:      config.EnableKafkaACL,
+		IstioPolicyEnforcementEnabled:   config.EnableIstioPolicy,
 		ProtectedServicesEnabled:        config.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 	})
 	if err != nil {

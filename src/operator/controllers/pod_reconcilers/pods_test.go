@@ -1,4 +1,4 @@
-package reconcilers
+package pod_reconcilers
 
 import (
 	"context"
@@ -28,7 +28,7 @@ type WatcherPodLabelReconcilerTestSuite struct {
 func (s *WatcherPodLabelReconcilerTestSuite) SetupSuite() {
 	s.TestEnv = &envtest.Environment{}
 	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "operator", "config", "crd")}
+	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd")}
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
@@ -47,7 +47,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) SetupSuite() {
 func (s *WatcherPodLabelReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
-	s.Reconciler = NewPodWatcher(s.Mgr.GetClient(), recorder, []string{})
+	s.Reconciler = NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, true, true)
 	s.Require().NoError(s.Reconciler.InitIntentsClientIndices(s.Mgr))
 }
 

@@ -56,15 +56,10 @@ jobs:
       - name: Push to Docker Hub
         run: |-
           docker pull ${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }}
-          docker pull ${{ env.REGISTRY }}/watcher:${{ github.sha }}
           docker tag ${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }} otterize/intents-operator:${{ github.ref_name }}
           docker tag ${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }} otterize/intents-operator:latest
-          docker tag ${{ env.REGISTRY }}/watcher:${{ github.sha }} otterize/intents-operator-pod-watcher:${{ github.ref_name }}
-          docker tag ${{ env.REGISTRY }}/watcher:${{ github.sha }} otterize/intents-operator-pod-watcher:latest
           docker push otterize/intents-operator:${{ github.ref_name }}
-          docker push otterize/intents-operator-pod-watcher:${{ github.ref_name }}
           docker push otterize/intents-operator:latest
-          docker push otterize/intents-operator-pod-watcher:latest
 
   commit-latest-build-tag-to-helm-chart:
     name: Commit Latest Build Tag
