@@ -4,6 +4,7 @@ import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -26,6 +27,11 @@ func NewPolicyCleanerReconciler(client client.Client, extNetpolHandler ExternalN
 }
 
 func (r *PolicyCleanerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	err := HandleFinalizer(ctx, r.Client, req, consts.PolicyCleanerReconcilerFinalizerName)
+	if client.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, err
+	}
+
 	selector, err := intents_reconcilers.MatchAccessNetworkPolicy()
 	if err != nil {
 		return ctrl.Result{}, err

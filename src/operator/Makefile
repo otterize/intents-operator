@@ -136,13 +136,21 @@ copy-manifests-to-helm: manifests
 deploy: manifests copy-manifests-to-helm helm-dependency
 	helm upgrade --install -n otterize-system --create-namespace otterize $(OTTERIZE_HELM_CHART_DIR)
 
+OTTERIZE_CLIENT_ID=cli_qyipuwwgmr
+OTTERIZE_CLIENT_SECRET=e7cd022bd9706dfb9e308a6eefbe88efd29c072d91e1d716c17e6011cc24a034
+OTTERIZE_API_ADDRESS=https://app.staging.otterize.com/api
+
 .PHONY: deploy-local
 deploy-local: manifests copy-manifests-to-helm helm-dependency ## Deploy images built locally into the cluster.
 	helm upgrade --install -n otterize-system --create-namespace otterize $(OTTERIZE_HELM_CHART_DIR) \
 	--set intentsOperator.operator.tag=$(LOCAL_IMAGE_TAG) \
 	--set intentsOperator.operator.pullPolicy=Never \
 	--set intentsOperator.watcher.tag=$(LOCAL_IMAGE_TAG) \
-	--set intentsOperator.watcher.pullPolicy=Never
+	--set intentsOperator.watcher.pullPolicy=Never \
+	--set intentsOperator.global.otterizeCloud.credentials.clientId=cli_qyipuwwgmr \
+	--set intentsOperator.global.otterizeCloud.credentials.clientSecret=e7cd022bd9706dfb9e308a6eefbe88efd29c072d91e1d716c17e6011cc24a034 \
+	--set intentsOperator.global.otterizeCloud.apiAddress=https://app.staging.otterize.com/api \
+	--set intentsOperator.operator.mode=defaultShadow
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.

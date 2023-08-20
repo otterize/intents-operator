@@ -3,6 +3,7 @@ package protected_service_reconcilers
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/consts"
 	protectedservicesmock "github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
@@ -10,10 +11,13 @@ import (
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"testing"
 	"time"
 )
@@ -52,6 +56,8 @@ func (s *DefaultDenyReconcilerTestSuite) TearDownTest() {
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
+	s.ignoreFinalizerHandling()
+
 	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
@@ -115,6 +121,8 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultipleLists() {
+	s.ignoreFinalizerHandling()
+
 	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
@@ -210,6 +218,8 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 
 // TestDeleteProtectedServices tests the deletion of a protected service when the service is no longer in the list of protected services
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
+	s.ignoreFinalizerHandling()
+
 	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
@@ -298,6 +308,8 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDeleted() {
+	s.ignoreFinalizerHandling()
+
 	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
@@ -366,6 +378,8 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDelete
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceAlreadyDeleted() {
+	s.ignoreFinalizerHandling()
+
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(testNamespace)).Return(nil)
 
 	request := ctrl.Request{
@@ -416,6 +430,8 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceAlreadyDele
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
+	s.ignoreFinalizerHandling()
+
 	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
@@ -517,6 +533,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
+	s.ignoreFinalizerHandling()
 	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
 	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
 		{
@@ -598,6 +615,107 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
 	res, err := s.reconciler.Reconcile(context.Background(), request)
 	s.Require().Empty(res)
 	s.Require().NoError(err)
+}
+
+func (s *DefaultDenyReconcilerTestSuite) TestFinalizerAdd() {
+	resourceWithoutFinalizer := otterizev1alpha2.ProtectedService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      protectedServicesResourceName,
+			Namespace: testNamespace,
+		},
+		Spec: otterizev1alpha2.ProtectedServiceSpec{
+
+			Name: protectedService,
+		},
+	}
+
+	resourceWithFinalizer := resourceWithoutFinalizer.DeepCopy()
+	resourceWithFinalizer.ObjectMeta.Finalizers = []string{
+		consts.DefaultDenyReconcilerFinalizerName,
+	}
+
+	nameSpacedName := types.NamespacedName{
+		Name:      protectedServicesResourceName,
+		Namespace: testNamespace,
+	}
+
+	s.Client.EXPECT().Get(gomock.Any(), gomock.Eq(nameSpacedName), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, protectedService *otterizev1alpha2.ProtectedService, opts ...client.GetOption) error {
+			resourceWithoutFinalizer.DeepCopyInto(protectedService)
+			return nil
+		})
+
+	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(resourceWithFinalizer)).Return(nil)
+
+	// Ignore the rest of the logic, it's tested in other tests
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(testNamespace)).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), client.InNamespace(testNamespace)).Return(nil)
+	s.extNetpolHandler.EXPECT().HandlePodsByNamespace(gomock.Any(), testNamespace)
+
+	request := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: testNamespace,
+			Name:      protectedServicesResourceName,
+		},
+	}
+
+	res, err := s.reconciler.Reconcile(context.Background(), request)
+	s.NoError(err)
+	s.Empty(res)
+}
+
+func (s *DefaultDenyReconcilerTestSuite) TestFinalizerRemoved() {
+	resourceWithFinalizer := otterizev1alpha2.ProtectedService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              protectedServicesResourceName,
+			Namespace:         testNamespace,
+			DeletionTimestamp: &metav1.Time{Time: time.Date(2023, 9, 13, 18, 15, 0, 0, time.UTC)},
+			Finalizers: []string{
+				consts.DefaultDenyReconcilerFinalizerName,
+			},
+		},
+		Spec: otterizev1alpha2.ProtectedServiceSpec{
+
+			Name: protectedService,
+		},
+	}
+
+	resourceWithoutFinalizer := resourceWithFinalizer.DeepCopy()
+	controllerutil.RemoveFinalizer(resourceWithoutFinalizer, consts.DefaultDenyReconcilerFinalizerName)
+
+	nameSpacedName := types.NamespacedName{
+		Name:      protectedServicesResourceName,
+		Namespace: testNamespace,
+	}
+
+	s.Client.EXPECT().Get(gomock.Any(), gomock.Eq(nameSpacedName), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, protectedService *otterizev1alpha2.ProtectedService, opts ...client.GetOption) error {
+			resourceWithFinalizer.DeepCopyInto(protectedService)
+			return nil
+		})
+
+	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(resourceWithoutFinalizer)).Return(nil)
+
+	// Ignore the rest of the logic, it's tested in other tests
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(testNamespace)).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), client.InNamespace(testNamespace)).Return(nil)
+	s.extNetpolHandler.EXPECT().HandlePodsByNamespace(gomock.Any(), testNamespace)
+
+	request := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: testNamespace,
+			Name:      protectedServicesResourceName,
+		},
+	}
+
+	res, err := s.reconciler.Reconcile(context.Background(), request)
+	s.NoError(err)
+	s.Empty(res)
+}
+
+func (s *DefaultDenyReconcilerTestSuite) ignoreFinalizerHandling() {
+	protectedServiceNotFoundErr := errors.NewNotFound(schema.GroupResource{}, "protected-service")
+	s.Client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(protectedServiceNotFoundErr)
 }
 
 func TestDefaultDenyReconcilerTestSuite(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/consts"
 	protectedservicesmock "github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
@@ -11,11 +12,15 @@ import (
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"testing"
+	"time"
 )
 
 func init() {
@@ -42,6 +47,7 @@ func (s *PolicyCleanerReconcilerTestSuite) TearDownTest() {
 }
 
 func (s *PolicyCleanerReconcilerTestSuite) TestAllServerAreProtected() {
+	s.ignoreFinalizerHandling()
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -184,6 +190,7 @@ func (s *PolicyCleanerReconcilerTestSuite) TestAllServerAreProtected() {
 }
 
 func (s *PolicyCleanerReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy() {
+	s.ignoreFinalizerHandling()
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -319,6 +326,7 @@ func (s *PolicyCleanerReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 }
 
 func (s *PolicyCleanerReconcilerTestSuite) TestServerWithoutPolicyNothingShouldHappen() {
+	s.ignoreFinalizerHandling()
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -425,6 +433,7 @@ func (s *PolicyCleanerReconcilerTestSuite) TestServerWithoutPolicyNothingShouldH
 }
 
 func (s *PolicyCleanerReconcilerTestSuite) TestNoNetworkPolicies() {
+	s.ignoreFinalizerHandling()
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -472,6 +481,103 @@ func (s *PolicyCleanerReconcilerTestSuite) TestNoNetworkPolicies() {
 	res, err := s.reconciler.Reconcile(context.Background(), request)
 	s.Require().Empty(res)
 	s.Require().NoError(err)
+}
+
+func (s *PolicyCleanerReconcilerTestSuite) TestFinalizerAdd() {
+	resourceWithoutFinalizer := otterizev1alpha2.ProtectedService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      protectedServicesResourceName,
+			Namespace: testNamespace,
+		},
+		Spec: otterizev1alpha2.ProtectedServiceSpec{
+
+			Name: protectedService,
+		},
+	}
+
+	resourceWithFinalizer := resourceWithoutFinalizer.DeepCopy()
+	resourceWithFinalizer.ObjectMeta.Finalizers = []string{
+		consts.PolicyCleanerReconcilerFinalizerName,
+	}
+
+	nameSpacedName := types.NamespacedName{
+		Name:      protectedServicesResourceName,
+		Namespace: testNamespace,
+	}
+
+	s.Client.EXPECT().Get(gomock.Any(), gomock.Eq(nameSpacedName), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, protectedService *otterizev1alpha2.ProtectedService, opts ...client.GetOption) error {
+			resourceWithoutFinalizer.DeepCopyInto(protectedService)
+			return nil
+		})
+
+	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(resourceWithFinalizer)).Return(nil)
+
+	// Ignore the rest of the logic, it's tested in other tests
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+	request := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: testNamespace,
+			Name:      protectedServicesResourceName,
+		},
+	}
+
+	res, err := s.reconciler.Reconcile(context.Background(), request)
+	s.NoError(err)
+	s.Empty(res)
+}
+
+func (s *PolicyCleanerReconcilerTestSuite) TestFinalizerRemoved() {
+	resourceWithFinalizer := otterizev1alpha2.ProtectedService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              protectedServicesResourceName,
+			Namespace:         testNamespace,
+			DeletionTimestamp: &metav1.Time{Time: time.Date(2023, 9, 13, 18, 15, 0, 0, time.UTC)},
+			Finalizers: []string{
+				consts.PolicyCleanerReconcilerFinalizerName,
+			},
+		},
+		Spec: otterizev1alpha2.ProtectedServiceSpec{
+
+			Name: protectedService,
+		},
+	}
+
+	resourceWithoutFinalizer := resourceWithFinalizer.DeepCopy()
+	controllerutil.RemoveFinalizer(resourceWithoutFinalizer, consts.PolicyCleanerReconcilerFinalizerName)
+
+	nameSpacedName := types.NamespacedName{
+		Name:      protectedServicesResourceName,
+		Namespace: testNamespace,
+	}
+
+	s.Client.EXPECT().Get(gomock.Any(), gomock.Eq(nameSpacedName), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, protectedService *otterizev1alpha2.ProtectedService, opts ...client.GetOption) error {
+			resourceWithFinalizer.DeepCopyInto(protectedService)
+			return nil
+		})
+
+	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(resourceWithoutFinalizer)).Return(nil)
+
+	// Ignore the rest of the logic, it's tested in other tests
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+	request := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: testNamespace,
+			Name:      protectedServicesResourceName,
+		},
+	}
+
+	res, err := s.reconciler.Reconcile(context.Background(), request)
+	s.NoError(err)
+	s.Empty(res)
+}
+
+func (s *PolicyCleanerReconcilerTestSuite) ignoreFinalizerHandling() {
+	protectedServiceNotFoundErr := errors.NewNotFound(schema.GroupResource{}, "protected-service")
+	s.Client.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).Return(protectedServiceNotFoundErr)
 }
 
 func TestPolicyCleanerReconcilerTestSuite(t *testing.T) {

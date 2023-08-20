@@ -3,6 +3,7 @@ package protected_service_reconcilers
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	otterizecloudmocks "github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -47,7 +48,7 @@ func (s *CloudReconcilerTestSuite) TestUploadSingleProtectedService() {
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 				Finalizers: []string{
-					CloudReconcilerFinalizerName,
+					consts.CloudReconcilerFinalizerName,
 				},
 			},
 			Spec: otterizev1alpha2.ProtectedServiceSpec{
@@ -101,7 +102,7 @@ func (s *CloudReconcilerTestSuite) TestUploadMultipleProtectedServices() {
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 				Finalizers: []string{
-					CloudReconcilerFinalizerName,
+					consts.CloudReconcilerFinalizerName,
 				},
 			},
 			Spec: otterizev1alpha2.ProtectedServiceSpec{
@@ -173,7 +174,7 @@ func (s *CloudReconcilerTestSuite) TestFinalizerAdd() {
 
 	resourceWithFinalizer := resourceWithoutFinalizer.DeepCopy()
 	resourceWithFinalizer.ObjectMeta.Finalizers = []string{
-		CloudReconcilerFinalizerName,
+		consts.CloudReconcilerFinalizerName,
 	}
 
 	nameSpacedName := types.NamespacedName{
@@ -212,7 +213,7 @@ func (s *CloudReconcilerTestSuite) TestFinalizerRemoved() {
 			Namespace:         testNamespace,
 			DeletionTimestamp: &metav1.Time{Time: time.Date(2023, 9, 13, 18, 15, 0, 0, time.UTC)},
 			Finalizers: []string{
-				CloudReconcilerFinalizerName,
+				consts.CloudReconcilerFinalizerName,
 			},
 		},
 		Spec: otterizev1alpha2.ProtectedServiceSpec{
@@ -222,7 +223,7 @@ func (s *CloudReconcilerTestSuite) TestFinalizerRemoved() {
 	}
 
 	resourceWithoutFinalizer := resourceWithFinalizer.DeepCopy()
-	controllerutil.RemoveFinalizer(resourceWithoutFinalizer, CloudReconcilerFinalizerName)
+	controllerutil.RemoveFinalizer(resourceWithoutFinalizer, consts.CloudReconcilerFinalizerName)
 
 	nameSpacedName := types.NamespacedName{
 		Name:      protectedServicesResourceName,
