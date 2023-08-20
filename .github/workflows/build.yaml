@@ -29,6 +29,10 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 1
+      - name: Make sure diff is empty after generate
+        run: |
+          cd src/operator && make generate
+          git diff --exit-code
 
       - name: Set up Docker Buildx
         id: buildx
