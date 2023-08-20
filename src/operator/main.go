@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -178,6 +179,7 @@ func main() {
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement, enforcementConfig.EnforcementDefaultState)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
+	networkPolicyHandler := intents_reconcilers.NewNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
@@ -220,10 +222,9 @@ func main() {
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
-		extNetpolHandler,
+		networkPolicyHandler,
 		watchedNamespaces,
 		enforcementConfig,
-		autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement,
 		otterizeCloudClient,
 		podName,
 		podNamespace,
@@ -289,7 +290,15 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
 	}
 
-	protectedServicesReconciler := controllers.NewProtectedServiceReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient, extNetpolHandler, enforcementConfig.EnforcementDefaultState)
+	protectedServicesReconciler := controllers.NewProtectedServiceReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		otterizeCloudClient,
+		extNetpolHandler,
+		enforcementConfig.EnforcementDefaultState,
+		networkPolicyHandler,
+	)
+
 	err = protectedServicesReconciler.SetupWithManager(mgr)
 	if err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "ProtectedServices")

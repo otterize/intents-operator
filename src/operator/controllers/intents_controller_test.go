@@ -29,12 +29,10 @@ func (s *IntentsControllerTestSuite) SetupTest() {
 		nil,
 		nil,
 		EnforcementConfig{},
-		false,
 		nil,
 		"",
 		"",
 	)
-
 }
 
 func (s *IntentsControllerTestSuite) TearDownTest() {
