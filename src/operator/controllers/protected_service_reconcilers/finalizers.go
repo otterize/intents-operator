@@ -8,7 +8,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func HandleFinalizer(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string) error {
+type ReconcilerFunc func(ctx context.Context, req ctrl.Request) error
+
+func WithFinalizer(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc) error {
 	var protectedService otterizev1alpha2.ProtectedService
 	err := client.Get(ctx, req.NamespacedName, &protectedService)
 	if err != nil {
@@ -16,14 +18,30 @@ func HandleFinalizer(ctx context.Context, client client.Client, req ctrl.Request
 	}
 
 	if protectedService.DeletionTimestamp != nil {
-		controllerutil.RemoveFinalizer(&protectedService, finalizerName)
-		return client.Update(ctx, &protectedService)
+		return doAndRemoveFinalizer(ctx, client, req, finalizerName, callBack, err, protectedService)
 	}
 
+	return addFinalizerAndDo(ctx, client, req, finalizerName, callBack, protectedService, err)
+}
+
+func addFinalizerAndDo(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc, protectedService otterizev1alpha2.ProtectedService, err error) error {
 	if !controllerutil.ContainsFinalizer(&protectedService, finalizerName) {
 		controllerutil.AddFinalizer(&protectedService, finalizerName)
-		return client.Update(ctx, &protectedService)
+		err = client.Update(ctx, &protectedService)
+		if err != nil {
+			return err
+		}
 	}
 
-	return nil
+	return callBack(ctx, req)
+}
+
+func doAndRemoveFinalizer(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc, err error, protectedService otterizev1alpha2.ProtectedService) error {
+	err = callBack(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	controllerutil.RemoveFinalizer(&protectedService, finalizerName)
+	return client.Update(ctx, &protectedService)
 }

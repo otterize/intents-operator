@@ -33,13 +33,11 @@ func NewCloudReconciler(
 }
 
 func (r *CloudReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := HandleFinalizer(ctx, r.Client, req, consts.CloudReconcilerFinalizerName)
-	if client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
-	}
+	err := WithFinalizer(ctx, r.Client, req, consts.CloudReconcilerFinalizerName, func(ctx context.Context, req ctrl.Request) error {
+		return r.reportAllProtectedServicesInNamespace(ctx, req.Namespace)
+	})
 
-	err = r.reportAllProtectedServicesInNamespace(ctx, req.Namespace)
-	if err != nil {
+	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}
 

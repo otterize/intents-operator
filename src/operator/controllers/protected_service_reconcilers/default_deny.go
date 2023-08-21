@@ -24,7 +24,6 @@ type DefaultDenyReconciler struct {
 type ExternalNepolHandler interface {
 	HandlePodsByNamespace(ctx context.Context, namespace string) error
 	HandleAllPods(ctx context.Context) error
-	HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error
 }
 
 func NewDefaultDenyReconciler(client client.Client, extNetpolHandler ExternalNepolHandler) *DefaultDenyReconciler {
@@ -35,29 +34,30 @@ func NewDefaultDenyReconciler(client client.Client, extNetpolHandler ExternalNep
 }
 
 func (r *DefaultDenyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := HandleFinalizer(ctx, r.Client, req, consts.DefaultDenyReconcilerFinalizerName)
+	err := WithFinalizer(ctx, r.Client, req, consts.DefaultDenyReconcilerFinalizerName, func(ctx context.Context, req ctrl.Request) error {
+		return r.handleDefaultDenyInNamespace(ctx, req)
+	})
 	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}
 
+	return ctrl.Result{}, nil
+}
+
+func (r *DefaultDenyReconciler) handleDefaultDenyInNamespace(ctx context.Context, req ctrl.Request) error {
 	var protectedServices otterizev1alpha2.ProtectedServiceList
 
-	err = r.List(ctx, &protectedServices, client.InNamespace(req.Namespace))
+	err := r.List(ctx, &protectedServices, client.InNamespace(req.Namespace))
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	err = r.blockAccessToServices(ctx, protectedServices, req.Namespace)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
-	err = r.extNetpolHandler.HandlePodsByNamespace(ctx, req.Namespace)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
+	return r.extNetpolHandler.HandleAllPods(ctx)
 }
 
 func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, protectedServices otterizev1alpha2.ProtectedServiceList, namespace string) error {
