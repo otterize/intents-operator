@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/networking/v1"
@@ -33,24 +34,30 @@ func NewDefaultDenyReconciler(client client.Client, extNetpolHandler ExternalNep
 }
 
 func (r *DefaultDenyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var protectedServices otterizev1alpha2.ProtectedServiceList
-
-	err := r.List(ctx, &protectedServices, client.InNamespace(req.Namespace))
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	err = r.blockAccessToServices(ctx, protectedServices, req.Namespace)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	err = r.extNetpolHandler.HandlePodsByNamespace(ctx, req.Namespace)
-	if err != nil {
+	err := WithFinalizer(ctx, r.Client, req, consts.DefaultDenyReconcilerFinalizerName, func(ctx context.Context, req ctrl.Request) error {
+		return r.handleDefaultDenyInNamespace(ctx, req)
+	})
+	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *DefaultDenyReconciler) handleDefaultDenyInNamespace(ctx context.Context, req ctrl.Request) error {
+	var protectedServices otterizev1alpha2.ProtectedServiceList
+
+	err := r.List(ctx, &protectedServices, client.InNamespace(req.Namespace))
+	if err != nil {
+		return err
+	}
+
+	err = r.blockAccessToServices(ctx, protectedServices, req.Namespace)
+	if err != nil {
+		return err
+	}
+
+	return r.extNetpolHandler.HandleAllPods(ctx)
 }
 
 func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, protectedServices otterizev1alpha2.ProtectedServiceList, namespace string) error {
