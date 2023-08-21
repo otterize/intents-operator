@@ -18,16 +18,16 @@ func WithFinalizer(ctx context.Context, client client.Client, req ctrl.Request, 
 	}
 
 	if protectedService.DeletionTimestamp != nil {
-		return doAndRemoveFinalizer(ctx, client, req, finalizerName, callBack, err, protectedService)
+		return doAndRemoveFinalizer(ctx, client, req, finalizerName, callBack, protectedService)
 	}
 
-	return addFinalizerAndDo(ctx, client, req, finalizerName, callBack, protectedService, err)
+	return addFinalizerAndDo(ctx, client, req, finalizerName, callBack, protectedService)
 }
 
-func addFinalizerAndDo(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc, protectedService otterizev1alpha2.ProtectedService, err error) error {
+func addFinalizerAndDo(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc, protectedService otterizev1alpha2.ProtectedService) error {
 	if !controllerutil.ContainsFinalizer(&protectedService, finalizerName) {
 		controllerutil.AddFinalizer(&protectedService, finalizerName)
-		err = client.Update(ctx, &protectedService)
+		err := client.Update(ctx, &protectedService)
 		if err != nil {
 			return err
 		}
@@ -36,8 +36,8 @@ func addFinalizerAndDo(ctx context.Context, client client.Client, req ctrl.Reque
 	return callBack(ctx, req)
 }
 
-func doAndRemoveFinalizer(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc, err error, protectedService otterizev1alpha2.ProtectedService) error {
-	err = callBack(ctx, req)
+func doAndRemoveFinalizer(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc, protectedService otterizev1alpha2.ProtectedService) error {
+	err := callBack(ctx, req)
 	if err != nil {
 		return err
 	}
