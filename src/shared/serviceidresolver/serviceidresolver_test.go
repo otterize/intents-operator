@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
@@ -99,7 +100,7 @@ func (s *ServiceIdResolverTestSuite) TestGetPodAnnotatedName_PodExists() {
 
 	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: podName, Namespace: podNamespace}, gomock.AssignableToTypeOf(&corev1.Pod{})).Do(
 		func(_ context.Context, _ types.NamespacedName, pod *corev1.Pod, _ ...any) {
-			pod.Annotations = map[string]string{ServiceNameAnnotation: serviceName}
+			pod.Annotations = map[string]string{viper.GetString(serviceNameOverrideAnnotationKey): serviceName}
 		}).Return(nil)
 
 	name, found, err := s.Resolver.GetPodAnnotatedName(context.Background(), podName, podNamespace)
