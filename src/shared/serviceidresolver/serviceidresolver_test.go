@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 )
@@ -244,6 +245,15 @@ func (s *ServiceIdResolverTestSuite) TestDeploymentRead() {
 	service, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
 	s.Require().NoError(err)
 	s.Require().Equal(deploymentName, service.Name)
+}
+
+func (s *ServiceIdResolverTestSuite) TestUserSpecifiedAnnotationForServiceName() {
+	annotationName := "coolAnnotationName"
+	expectedEnvVarName := "OTTERIZE_SERVICE_NAME_OVERRIDE_ANNOTATION"
+	_ = os.Setenv(expectedEnvVarName, annotationName)
+	s.Require().Equal(annotationName, viper.GetString(serviceNameOverrideAnnotationKey))
+	_ = os.Unsetenv(expectedEnvVarName)
+	s.Require().Equal(serviceNameOverrideAnnotationKeyDefault, viper.GetString(serviceNameOverrideAnnotationKey))
 }
 
 func TestServiceIdResolverTestSuite(t *testing.T) {
