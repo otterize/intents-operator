@@ -6,16 +6,13 @@ import (
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
-)
-
-const (
-	ServiceNameAnnotation = "intents.otterize.com/service-name"
 )
 
 var PodNotFound = errors.New("pod not found")
@@ -35,7 +32,7 @@ func NewResolver(c client.Client) *Resolver {
 }
 
 func ResolvePodToServiceIdentityUsingAnnotationOnly(pod *corev1.Pod) (string, bool) {
-	annotation, ok := pod.Annotations[ServiceNameAnnotation]
+	annotation, ok := pod.Annotations[viper.GetString(serviceNameOverrideAnnotationKey)]
 	return annotation, ok
 }
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
@@ -13,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 )
@@ -99,7 +101,7 @@ func (s *ServiceIdResolverTestSuite) TestGetPodAnnotatedName_PodExists() {
 
 	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: podName, Namespace: podNamespace}, gomock.AssignableToTypeOf(&corev1.Pod{})).Do(
 		func(_ context.Context, _ types.NamespacedName, pod *corev1.Pod, _ ...any) {
-			pod.Annotations = map[string]string{ServiceNameAnnotation: serviceName}
+			pod.Annotations = map[string]string{viper.GetString(serviceNameOverrideAnnotationKey): serviceName}
 		}).Return(nil)
 
 	name, found, err := s.Resolver.GetPodAnnotatedName(context.Background(), podName, podNamespace)
@@ -243,6 +245,15 @@ func (s *ServiceIdResolverTestSuite) TestDeploymentRead() {
 	service, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
 	s.Require().NoError(err)
 	s.Require().Equal(deploymentName, service.Name)
+}
+
+func (s *ServiceIdResolverTestSuite) TestUserSpecifiedAnnotationForServiceName() {
+	annotationName := "coolAnnotationName"
+	expectedEnvVarName := "OTTERIZE_SERVICE_NAME_OVERRIDE_ANNOTATION"
+	_ = os.Setenv(expectedEnvVarName, annotationName)
+	s.Require().Equal(annotationName, viper.GetString(serviceNameOverrideAnnotationKey))
+	_ = os.Unsetenv(expectedEnvVarName)
+	s.Require().Equal(serviceNameOverrideAnnotationKeyDefault, viper.GetString(serviceNameOverrideAnnotationKey))
 }
 
 func TestServiceIdResolverTestSuite(t *testing.T) {
