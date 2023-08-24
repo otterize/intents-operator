@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
-	secretstypes "github.com/otterize/spire-integration-operator/src/controllers/secrets/types"
+	secretstypes "github.com/otterize/credentials-operator/src/controllers/secrets/types"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockCertificateDataGenerator is a mock of CertificateDataGenerator interface.

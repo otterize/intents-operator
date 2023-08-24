@@ -3,15 +3,15 @@ package bundles
 import (
 	"context"
 	"crypto/x509"
-	"github.com/golang/mock/gomock"
-	mock_bundlev1 "github.com/otterize/spire-integration-operator/src/mocks/bundlev1"
-	mock_spireclient "github.com/otterize/spire-integration-operator/src/mocks/spireclient"
-	"github.com/otterize/spire-integration-operator/src/testdata"
+	mock_bundlev1 "github.com/otterize/credentials-operator/src/mocks/bundlev1"
+	mock_spireclient "github.com/otterize/credentials-operator/src/mocks/spireclient"
+	"github.com/otterize/credentials-operator/src/testdata"
 	"github.com/samber/lo"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 
 	"testing"
 )

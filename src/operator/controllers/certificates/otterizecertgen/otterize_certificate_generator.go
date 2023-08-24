@@ -3,9 +3,9 @@ package otterizecertgen
 import (
 	"bytes"
 	"context"
-	"github.com/otterize/spire-integration-operator/src/controllers/certificates/jks"
-	"github.com/otterize/spire-integration-operator/src/controllers/otterizeclient/otterizegraphql"
-	secretstypes "github.com/otterize/spire-integration-operator/src/controllers/secrets/types"
+	"github.com/otterize/credentials-operator/src/controllers/certificates/jks"
+	"github.com/otterize/credentials-operator/src/controllers/otterizeclient/otterizegraphql"
+	secretstypes "github.com/otterize/credentials-operator/src/controllers/secrets/types"
 	"github.com/samber/lo"
 	"time"
 )

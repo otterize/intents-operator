@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/amit7itz/goset"
-	"github.com/otterize/spire-integration-operator/src/controllers/spireclient"
+	"github.com/otterize/credentials-operator/src/controllers/spireclient"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"

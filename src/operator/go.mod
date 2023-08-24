@@ -1,4 +1,4 @@
-module github.com/otterize/spire-integration-operator/src
+module github.com/otterize/credentials-operator/src
 
 go 1.19
 
@@ -7,8 +7,7 @@ require (
 	github.com/amit7itz/goset v1.2.1
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/bombsimon/logrusr/v3 v3.0.0
-	github.com/golang/mock v1.6.0
-	github.com/otterize/intents-operator/src v0.0.0-20230625103947-5358f6dba9b9
+	github.com/otterize/intents-operator/src v0.0.0-20230823142133-caf026796b72
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.0
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.0
@@ -18,6 +17,7 @@ require (
 	github.com/spiffe/spire-api-sdk v1.3.1
 	github.com/stretchr/testify v1.8.2
 	github.com/suessflorian/gqlfetch v0.6.0
+	go.uber.org/mock v0.2.0
 	golang.org/x/exp v0.0.0-20230124195608-d38c7dcee874
 	google.golang.org/grpc v1.51.0
 	k8s.io/api v0.26.2

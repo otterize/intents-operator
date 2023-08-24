@@ -4,16 +4,16 @@ import (
 	"context"
 	"fmt"
 	"github.com/amit7itz/goset"
-	"github.com/golang/mock/gomock"
+	"github.com/otterize/credentials-operator/src/controllers/metadata"
+	"github.com/otterize/credentials-operator/src/controllers/secrets/types"
+	"github.com/otterize/credentials-operator/src/mocks/controller-runtime/client"
+	mock_secrets "github.com/otterize/credentials-operator/src/mocks/controllers/secrets"
+	mock_entries "github.com/otterize/credentials-operator/src/mocks/entries"
+	mock_record "github.com/otterize/credentials-operator/src/mocks/eventrecorder"
+	mock_spireclient "github.com/otterize/credentials-operator/src/mocks/spireclient"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/otterize/spire-integration-operator/src/controllers/metadata"
-	"github.com/otterize/spire-integration-operator/src/controllers/secrets/types"
-	"github.com/otterize/spire-integration-operator/src/mocks/controller-runtime/client"
-	mock_secrets "github.com/otterize/spire-integration-operator/src/mocks/controllers/secrets"
-	mock_entries "github.com/otterize/spire-integration-operator/src/mocks/entries"
-	mock_record "github.com/otterize/spire-integration-operator/src/mocks/eventrecorder"
-	mock_spireclient "github.com/otterize/spire-integration-operator/src/mocks/spireclient"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 	"golang.org/x/exp/maps"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,10 +90,10 @@ func (s *PodControllerSuiteWithoutEventRecorder) TestController_Reconcile() {
 			Namespace: namespace,
 			Name:      podname,
 			Annotations: map[string]string{
-				serviceidresolver.ServiceNameAnnotation: servicename,
-				metadata.TLSSecretNameAnnotation:        secretname,
-				metadata.CertTTLAnnotation:              fmt.Sprintf("%d", ttl),
-				metadata.DNSNamesAnnotation:             strings.Join(extraDnsNames, ","),
+				"intents.otterize.com/service-name": servicename,
+				metadata.TLSSecretNameAnnotation:    secretname,
+				metadata.CertTTLAnnotation:          fmt.Sprintf("%d", ttl),
+				metadata.DNSNamesAnnotation:         strings.Join(extraDnsNames, ","),
 			},
 		},
 	}
@@ -277,7 +277,7 @@ func (s *PodControllerSuiteWithEventRecorder) TestController_Reconcile_Deprecate
 			Namespace: namespace,
 			Name:      podname,
 			Annotations: map[string]string{
-				serviceidresolver.ServiceNameAnnotation:    servicename,
+				"intents.otterize.com/service-name":        servicename,
 				metadata.TLSSecretNameAnnotationDeprecated: secretname,
 				metadata.CertTTLAnnotation:                 fmt.Sprintf("%d", ttl),
 				metadata.DNSNamesAnnotation:                strings.Join(extraDnsNames, ","),

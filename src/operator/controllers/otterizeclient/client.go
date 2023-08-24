@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"github.com/Khan/genqlient/graphql"
 	"github.com/amit7itz/goset"
+	"github.com/otterize/credentials-operator/src/controllers/otterizeclient/otterizegraphql"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
-	"github.com/otterize/spire-integration-operator/src/controllers/otterizeclient/otterizegraphql"
 	"github.com/sirupsen/logrus"
 )
 

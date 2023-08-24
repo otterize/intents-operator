@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
-	otterizegraphql "github.com/otterize/spire-integration-operator/src/controllers/otterizeclient/otterizegraphql"
+	otterizegraphql "github.com/otterize/credentials-operator/src/controllers/otterizeclient/otterizegraphql"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockOtterizeCloudClient is a mock of OtterizeCloudClient interface.

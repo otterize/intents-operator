@@ -2,9 +2,9 @@ package spirecertgen
 
 import (
 	"context"
-	"github.com/otterize/spire-integration-operator/src/controllers/secrets/types"
-	"github.com/otterize/spire-integration-operator/src/controllers/spireclient/bundles"
-	"github.com/otterize/spire-integration-operator/src/controllers/spireclient/svids"
+	secretstypes "github.com/otterize/credentials-operator/src/controllers/secrets/types"
+	"github.com/otterize/credentials-operator/src/controllers/spireclient/bundles"
+	"github.com/otterize/credentials-operator/src/controllers/spireclient/svids"
 	"time"
 )
 

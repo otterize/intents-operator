@@ -2,9 +2,9 @@ package spirecertgen
 
 import (
 	"bytes"
-	"github.com/otterize/spire-integration-operator/src/controllers/certificates/jks"
-	"github.com/otterize/spire-integration-operator/src/controllers/spireclient/bundles"
-	"github.com/otterize/spire-integration-operator/src/controllers/spireclient/svids"
+	"github.com/otterize/credentials-operator/src/controllers/certificates/jks"
+	"github.com/otterize/credentials-operator/src/controllers/spireclient/bundles"
+	"github.com/otterize/credentials-operator/src/controllers/spireclient/svids"
 	"github.com/samber/lo"
 )
 
