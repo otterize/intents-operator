@@ -20,9 +20,9 @@ require (
 	go.uber.org/mock v0.2.0
 	golang.org/x/exp v0.0.0-20230124195608-d38c7dcee874
 	google.golang.org/grpc v1.51.0
-	k8s.io/api v0.26.2
-	k8s.io/apimachinery v0.26.2
-	k8s.io/client-go v0.26.2
+	k8s.io/api v0.26.5
+	k8s.io/apimachinery v0.26.5
+	k8s.io/client-go v0.26.5
 	sigs.k8s.io/controller-runtime v0.14.5
 )
 
