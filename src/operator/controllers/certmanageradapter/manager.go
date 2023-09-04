@@ -4,16 +4,17 @@ import (
 	"context"
 	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
-	secretstypes "github.com/otterize/credentials-operator/src/controllers/secrets/types"
-	"github.com/otterize/credentials-operator/src/controllers/secrets"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
+	"github.com/otterize/credentials-operator/src/controllers/secrets"
+	secretstypes "github.com/otterize/credentials-operator/src/controllers/secrets/types"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"k8s.io/apimachinery/pkg/types"
+	"strings"
 	"time"
 )
 
@@ -75,7 +76,7 @@ func (cm *CertManagerSecretsManager) PopulateSecretObject(ctx context.Context, c
 
 	cert.Spec.SecretName = config.SecretName
 	cert.Spec.DNSNames = entry.DnsNames
-	cert.Spec.CommonName = entry.EntryId
+	cert.Spec.CommonName = strings.Join([]string{entry.ServiceName, entry.Namespace}, ".")
 	if cm.useClusterIssuer {
 		cert.Spec.IssuerRef.Kind = "ClusterIssuer"
 	} else {
