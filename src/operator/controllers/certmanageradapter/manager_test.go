@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 	"testing"
 )
 
@@ -140,7 +141,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_NoExistingSecret() {
 		&CertificateMatcher{
 			namespace:        namespace,
 			name:             secretName,
-			dnsNames:         []string{"dns1", "dns2"},
+			dnsNames:         []string{"dns1", "dns2", strings.Join([]string{serviceName, namespace}, ".")},
 			serviceName:      serviceName,
 			issuerName:       "issuer",
 			useClusterIssuer: false,
@@ -191,7 +192,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NeedsRefr
 		&CertificateMatcher{
 			namespace:        namespace,
 			name:             secretName,
-			dnsNames:         []string{"dns1", "dns2"},
+			dnsNames:         []string{"dns1", "dns2", strings.Join([]string{serviceName, namespace}, ".")},
 			serviceName:      serviceName,
 			issuerName:       "issuer",
 			useClusterIssuer: false,
@@ -235,7 +236,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_NoRefresh
 			Spec: certmanager.CertificateSpec{
 				SecretName: secretName,
 				CommonName: fmt.Sprintf("%s.%s", serviceName, namespace),
-				DNSNames:   []string{"dns1", "dns2"},
+				DNSNames:   []string{"dns1", "dns2", strings.Join([]string{serviceName, namespace}, ".")},
 				IssuerRef: cmmeta.ObjectReference{
 					Name: "issuer",
 					Kind: "Issuer",
@@ -286,7 +287,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 			Spec: certmanager.CertificateSpec{
 				SecretName: secretName,
 				CommonName: fmt.Sprintf("%s.%s", serviceName, namespace),
-				DNSNames:   []string{"dns1", "dns2"},
+				DNSNames:   []string{"dns1", "dns2", strings.Join([]string{serviceName, namespace}, ".")},
 				IssuerRef: cmmeta.ObjectReference{
 					Name: "issuer",
 					Kind: "Issuer",
@@ -311,7 +312,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 		&CertificateMatcher{
 			namespace:        namespace,
 			name:             secretName,
-			dnsNames:         []string{"dns1", "dns2"},
+			dnsNames:         []string{"dns1", "dns2", strings.Join([]string{newServiceName, namespace}, ".")},
 			serviceName:      newServiceName,
 			issuerName:       "issuer",
 			useClusterIssuer: false,
@@ -354,7 +355,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 			Spec: certmanager.CertificateSpec{
 				SecretName: secretName,
 				CommonName: fmt.Sprintf("%s.%s", serviceName, namespace),
-				DNSNames:   []string{"dns1", "dns2"},
+				DNSNames:   []string{"dns1", "dns2", strings.Join([]string{serviceName, namespace}, ".")},
 				IssuerRef: cmmeta.ObjectReference{
 					Name: "issuer",
 					Kind: "Issuer",
@@ -375,7 +376,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 		&CertificateMatcher{
 			namespace:        namespace,
 			name:             secretName,
-			dnsNames:         []string{"dns1", "dns2"},
+			dnsNames:         []string{"dns1", "dns2", strings.Join([]string{serviceName, namespace}, ".")},
 			serviceName:      serviceName,
 			issuerName:       "issuer",
 			useClusterIssuer: false,
@@ -418,7 +419,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 			Spec: certmanager.CertificateSpec{
 				SecretName: secretName,
 				CommonName: fmt.Sprintf("%s.%s", serviceName, namespace),
-				DNSNames:   []string{"dns1", "dns2"},
+				DNSNames:   []string{"dns1", "dns2", strings.Join([]string{serviceName, namespace}, ".")},
 				IssuerRef: cmmeta.ObjectReference{
 					Name: "issuer",
 					Kind: "Issuer",
@@ -449,7 +450,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 		&CertificateMatcher{
 			namespace:        namespace,
 			name:             secretName,
-			dnsNames:         []string{"dns1", "dns2"},
+			dnsNames:         []string{"dns1", "dns2", strings.Join([]string{serviceName, namespace}, ".")},
 			serviceName:      serviceName,
 			issuerName:       "issuer",
 			useClusterIssuer: false,
@@ -522,7 +523,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 			Spec: certmanager.CertificateSpec{
 				SecretName: secretName,
 				CommonName: fmt.Sprintf("%s.%s", serviceName, namespace),
-				DNSNames:   []string{"dns1", "dns2"},
+				DNSNames:   []string{"dns1", "dns2", strings.Join([]string{serviceName, namespace}, ".")},
 				IssuerRef: cmmeta.ObjectReference{
 					Name: "issuer",
 					Kind: "Issuer",
@@ -566,7 +567,7 @@ func (s *ManagerSuite) TestManager_EnsureTLSSecret_ExistingSecretFound_UpdateNee
 		&CertificateMatcher{
 			namespace:        namespace,
 			name:             secretName,
-			dnsNames:         []string{"dns1", "dns2"},
+			dnsNames:         []string{"dns1", "dns2", strings.Join([]string{serviceName, namespace}, ".")},
 			serviceName:      serviceName,
 			issuerName:       "issuer",
 			useClusterIssuer: false,

@@ -74,6 +74,7 @@ func (cm *CertManagerSecretsManager) PopulateSecretObject(ctx context.Context, c
 		cert.Spec.Duration = &metav1.Duration{Duration: time.Duration(entry.Ttl) * time.Second}
 	}
 
+	entry.DnsNames = append(entry.DnsNames, strings.Join([]string{entry.ServiceName, entry.Namespace}, "."))
 	cert.Spec.SecretName = config.SecretName
 	cert.Spec.DNSNames = entry.DnsNames
 	cert.Spec.CommonName = strings.Join([]string{entry.ServiceName, entry.Namespace}, ".")
