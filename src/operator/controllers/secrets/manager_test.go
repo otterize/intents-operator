@@ -32,7 +32,7 @@ type ManagerSuite struct {
 	mockCertGen       *mock_certificates.MockCertificateDataGenerator
 	eventRecorder     *mock_record.MockEventRecorder
 	serviceIdResolver *mock_serviceidresolver.MockServiceIdResolver
-	manager           *KubernetesSecretsManager
+	manager           *DirectSecretsManager
 }
 
 func (s *ManagerSuite) SetupTest() {
@@ -41,7 +41,7 @@ func (s *ManagerSuite) SetupTest() {
 	s.mockCertGen = mock_certificates.NewMockCertificateDataGenerator(s.controller)
 	s.eventRecorder = mock_record.NewMockEventRecorder(s.controller)
 	s.serviceIdResolver = mock_serviceidresolver.NewMockServiceIdResolver(s.controller)
-	s.manager = NewSecretManager(s.client, s.mockCertGen, s.serviceIdResolver, s.eventRecorder)
+	s.manager = NewDirectSecretsManager(s.client, s.serviceIdResolver, s.eventRecorder, s.mockCertGen)
 
 	s.client.EXPECT().Scheme().AnyTimes()
 }

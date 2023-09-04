@@ -19,10 +19,13 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"github.com/bombsimon/logrusr/v3"
+	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/otterize/credentials-operator/src/controllers"
 	"github.com/otterize/credentials-operator/src/controllers/certificates/otterizecertgen"
 	"github.com/otterize/credentials-operator/src/controllers/certificates/spirecertgen"
+	"github.com/otterize/credentials-operator/src/controllers/certmanageradapter"
 	"github.com/otterize/credentials-operator/src/controllers/otterizeclient"
 	"github.com/otterize/credentials-operator/src/controllers/secrets"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient"
@@ -32,7 +35,9 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	"golang.org/x/exp/slices"
 	"os"
+	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -56,6 +61,7 @@ const (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(certmanager.AddToScheme(scheme))
 
 	// +kubebuilder:scaffold:scheme
 }
@@ -75,22 +81,61 @@ func initSpireClient(ctx context.Context, spireServerAddr string) (spireclient.S
 	return serverClient, nil
 }
 
+const (
+	ProviderSpire       = "spire"
+	ProviderCloud       = "otterize-cloud"
+	ProviderCertManager = "cert-manager"
+)
+
+type CredsProvider struct {
+	Provider string
+}
+
+func (cpf *CredsProvider) getOptionalValues() []string {
+	return []string{ProviderSpire, ProviderCloud, ProviderCertManager}
+}
+
+func (cpf *CredsProvider) GetPrintableOptionalValues() string {
+	return strings.Join(cpf.getOptionalValues(), ", ")
+}
+
+func (cpf *CredsProvider) Set(v string) error {
+	if v == "" {
+		v = ProviderSpire
+	}
+	if slices.Contains(cpf.getOptionalValues(), v) {
+		cpf.Provider = v
+		return nil
+	}
+	return fmt.Errorf("credentials-provider should be one of: %s", cpf.GetPrintableOptionalValues())
+}
+
+func (cpf *CredsProvider) String() string {
+	return cpf.Provider
+}
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
 	var spireServerAddr string
-	var useOtterizeCloud bool
+	var credProvider CredsProvider
+	var certManagerIssuer string
+	var certManagerUseClusterIssuer bool
 	var secretsManager controllers.SecretsManager
 	var workloadRegistry controllers.WorkloadRegistry
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":7071", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":7072", "The address the probe endpoint binds to.")
 	flag.StringVar(&spireServerAddr, "spire-server-address", "spire-server.spire:8081", "SPIRE server API address.")
-	flag.BoolVar(&useOtterizeCloud, "use-otterize-cloud", false, "Should use otterize cloud instead of spire.")
+	flag.Var(&credProvider, "credentials-provider", fmt.Sprintf("Credentials generation provider (%s)", credProvider.GetPrintableOptionalValues()))
+	flag.StringVar(&certManagerIssuer, "cert-manager-issuer", "ca-issuer", "Name of the Issuer to be used by cert-manager to sign certificates")
+	flag.BoolVar(&certManagerUseClusterIssuer, "cert-manager-use-cluster-issuer", false, "Use ClusterIssuer instead of a (namespace bound) Issuer")
+
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
+	provider := credProvider.String()
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
@@ -112,7 +157,7 @@ func main() {
 	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
 	eventRecorder := mgr.GetEventRecorderFor("spire-integration-operator")
 
-	if useOtterizeCloud {
+	if provider == ProviderCloud {
 		otterizeCloudClient, err := otterizeclient.NewCloudClient(ctx)
 		if err != nil {
 			logrus.WithError(err).Error("failed to connect to otterize cloud")
@@ -121,8 +166,8 @@ func main() {
 		workloadRegistry = otterizeCloudClient
 		otterizeclient.PeriodicallyReportConnectionToCloud(otterizeCloudClient)
 		otterizeCertManager := otterizecertgen.NewOtterizeCertificateGenerator(otterizeCloudClient)
-		secretsManager = secrets.NewSecretManager(mgr.GetClient(), otterizeCertManager, serviceIdResolver, eventRecorder)
-	} else {
+		secretsManager = secrets.NewDirectSecretsManager(mgr.GetClient(), serviceIdResolver, eventRecorder, otterizeCertManager)
+	} else if provider == ProviderSpire {
 		spireClient, err := initSpireClient(ctx, spireServerAddr)
 		if err != nil {
 			logrus.WithError(err).Error("failed to connect to spire server")
@@ -133,12 +178,15 @@ func main() {
 		bundlesStore := bundles.NewBundlesStore(spireClient)
 		svidsStore := svids.NewSVIDsStore(spireClient)
 		certGenerator := spirecertgen.NewSpireCertificateDataGenerator(bundlesStore, svidsStore)
-		secretsManager = secrets.NewSecretManager(mgr.GetClient(), certGenerator, serviceIdResolver, eventRecorder)
+		secretsManager = secrets.NewDirectSecretsManager(mgr.GetClient(), serviceIdResolver, eventRecorder, certGenerator)
 		workloadRegistry = entries.NewSpireRegistry(spireClient)
+	} else { // ProviderCertManager
+		secretsManager, workloadRegistry = certmanageradapter.NewCertManagerSecretsManager(mgr.GetClient(), serviceIdResolver,
+			eventRecorder, certManagerIssuer, certManagerUseClusterIssuer)
 	}
 
 	podReconciler := controllers.NewPodReconciler(mgr.GetClient(), mgr.GetScheme(), workloadRegistry, secretsManager,
-		serviceIdResolver, eventRecorder, useOtterizeCloud)
+		serviceIdResolver, eventRecorder, provider == ProviderCloud)
 
 	if err = podReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithField("controller", "Pod").WithError(err).Error("unable to create controller")
