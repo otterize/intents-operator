@@ -40,11 +40,10 @@ type NetworkPolicyHandler struct {
 	injectablerecorder.InjectableRecorder
 	enabled                                bool
 	createEvenIfNoPreexistingNetworkPolicy bool
-	enforcementDefaultState                bool
 }
 
-func NewNetworkPolicyHandler(client client.Client, scheme *runtime.Scheme, enabled bool, createEvenIfNoPreexistingNetworkPolicy bool, enforcementDefaultState bool) *NetworkPolicyHandler {
-	return &NetworkPolicyHandler{client: client, scheme: scheme, enabled: enabled, createEvenIfNoPreexistingNetworkPolicy: createEvenIfNoPreexistingNetworkPolicy, enforcementDefaultState: enforcementDefaultState}
+func NewNetworkPolicyHandler(client client.Client, scheme *runtime.Scheme, enabled bool, createEvenIfNoPreexistingNetworkPolicy bool) *NetworkPolicyHandler {
+	return &NetworkPolicyHandler{client: client, scheme: scheme, enabled: enabled, createEvenIfNoPreexistingNetworkPolicy: createEvenIfNoPreexistingNetworkPolicy}
 }
 
 func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
@@ -471,7 +470,7 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 	}
 
 	// delete policy if disabled
-	if !r.enforcementDefaultState || !r.enabled {
+	if !r.enabled {
 		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {
@@ -497,7 +496,7 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeServiceWithoutIntents(ctx
 	}
 
 	// delete policy if disabled
-	if !r.enforcementDefaultState || !r.enabled {
+	if !r.enabled {
 		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {

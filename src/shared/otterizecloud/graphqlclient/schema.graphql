@@ -161,11 +161,6 @@ input DatabaseConfigInput {
 	operations: [DatabaseOperation!]!
 }
 
-type DatabaseCredentials {
-	username: String!
-	password: String!
-}
-
 input DatabaseCredentialsInput {
 	username: String!
 	password: String!
@@ -175,7 +170,6 @@ type DatabaseInfo {
 	name: String!
 	address: String!
 	databaseType: DatabaseType
-	credentials: DatabaseCredentials!
 }
 
 input DatabaseInfoInput {
@@ -520,7 +514,9 @@ type Mutation {
 """Operate on the current logged-in user"""
 	me: MeMutation!
 """Create a new organization"""
-	createOrganization: Organization!
+	createOrganization(
+		name: String
+	): Organization!
 """Update organization"""
 	updateOrganization(
 		id: ID!
@@ -532,9 +528,6 @@ type Mutation {
 		id: ID!
 		userId: ID!
 	): ID!
-	initializeOrganizationCAs(
-		organizationId: ID!
-	): Boolean!
 """Register certificate-request details for kubernetes pod owner, returns the service associated with this pod owner"""
 	registerKubernetesPodOwnerCertificateRequest(
 		podOwner: NamespacedPodOwner!
@@ -558,6 +551,9 @@ type Mutation {
 		name: String
 		configuration: ClusterConfigurationInput
 	): Cluster!
+	initializeOrganizationCAs(
+		organizationId: ID!
+	): Boolean!
 """Create a new environment"""
 	createEnvironment(
 		name: String!
@@ -591,6 +587,10 @@ type Mutation {
 		name: String!
 		databaseInfo: DatabaseInfoInput!
 	): Integration
+	updateDatabaseIntegrationCredentials(
+		integrationId: ID!
+		credentials: DatabaseCredentialsInput!
+	): Boolean!
 """Create a new Kubernetes integration"""
 	createKubernetesIntegration(
 		environmentId: ID
@@ -865,14 +865,14 @@ enum ServerProtectionStatusVerdict {
 
 type Service {
 	id: ID!
-	certificateInformation: CertificateInformation
-	tlsKeyPair: KeyPair!
 	name: String!
 	namespace: Namespace
 	environment: Environment!
 """If service is Kafka, its KafkaServerConfig."""
 	kafkaServerConfig: KafkaServerConfig
+	certificateInformation: CertificateInformation
 	serviceAccount: String
+	tlsKeyPair: KeyPair!
 }
 
 type ServiceAccessGraph {
