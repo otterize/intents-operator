@@ -8,7 +8,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/cert-manager/cert-manager v1.12.3
-	github.com/otterize/intents-operator/src v0.0.0-20230823142133-caf026796b72
+	github.com/otterize/intents-operator/src v0.0.0-20230907073856-90e27c4e09a0
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.1
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.0
