@@ -61,6 +61,7 @@ const (
 	EventTypeIstioPoliciesCreated        EventType = "ISTIO_POLICIES_CREATED"
 	EventTypeIstioPoliciesDeleted        EventType = "ISTIO_POLICIES_DELETED"
 	EventTypeStarted                     EventType = "STARTED"
+	EventTypeServiceDiscovered           EventType = "SERVICE_DISCOVERED"
 )
 
 // SendTelemetriesResponse is returned by SendTelemetries on success.
