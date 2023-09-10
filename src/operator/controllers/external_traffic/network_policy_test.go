@@ -20,7 +20,7 @@ type NetworkPolicyHandlerTestSuite struct {
 
 func (s *NetworkPolicyHandlerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, true, false, true)
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, true, false)
 }
 
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleBeforeAccessPolicyRemoval_createWhenNoIntentsEnabled_doNothing() {
