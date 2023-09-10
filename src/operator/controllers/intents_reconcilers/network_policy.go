@@ -384,10 +384,11 @@ func (r *NetworkPolicyReconciler) CleanPoliciesFromUnprotectedServices(ctx conte
 	protectedServersByNamespace := sets.Set[string]{}
 	for _, protectedService := range protectedServicesResources.Items {
 		// skip protected services that are in deletion process
-		if protectedService.DeletionTimestamp == nil {
-			serverName := otterizev1alpha2.GetFormattedOtterizeIdentity(protectedService.Spec.Name, namespace)
-			protectedServersByNamespace.Insert(serverName)
+		if !protectedService.DeletionTimestamp.IsZero() {
+			continue
 		}
+		serverName := otterizev1alpha2.GetFormattedOtterizeIdentity(protectedService.Spec.Name, namespace)
+		protectedServersByNamespace.Insert(serverName)
 	}
 
 	for _, networkPolicy := range policies.Items {
