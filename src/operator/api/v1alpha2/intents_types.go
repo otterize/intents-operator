@@ -63,13 +63,15 @@ const (
 	MaxNamespaceLength                      = 20
 )
 
-// +kubebuilder:validation:Enum=http;kafka;database
+// +kubebuilder:validation:Enum=http;kafka;database;aws;s3
 type IntentType string
 
 const (
 	IntentTypeHTTP     IntentType = "http"
 	IntentTypeKafka    IntentType = "kafka"
 	IntentTypeDatabase IntentType = "database"
+	IntentTypeAWS      IntentType = "aws"
+	IntentTypeS3       IntentType = "s3"
 )
 
 // +kubebuilder:validation:Enum=all;consume;produce;create;alter;delete;describe;ClusterAction;DescribeConfigs;AlterConfigs;IdempotentWrite
@@ -114,6 +116,19 @@ const (
 	DatabaseOperationDelete DatabaseOperation = "DELETE"
 )
 
+// +kubebuilder:validation:Enum=list-buckets;create-bucket;delete-bucket;put-object;delete-object;get-object;list-objects
+type S3Action string
+
+const (
+	S3OperationListBuckets  S3Action = "list-buckets"
+	S3OperationCreateBucket S3Action = "create-bucket"
+	S3OperationDeleteBucket S3Action = "delete-bucket"
+	S3OperationPutObject    S3Action = "put-object"
+	S3OperationDeleteObject S3Action = "delete-object"
+	S3OperationGetObject    S3Action = "get-object"
+	S3OperationListObjects  S3Action = "list-objects"
+)
+
 // IntentsSpec defines the desired state of ClientIntents
 type IntentsSpec struct {
 	Service Service  `json:"service" yaml:"service"`
@@ -138,6 +153,12 @@ type Intent struct {
 
 	//+optional
 	DatabaseResources []DatabaseResource `json:"databaseResources,omitempty" yaml:"databaseResources,omitempty"`
+
+	//+optional
+	AWSResource []AWSResource `json:"awsResources,omitempty" yaml:"awsResources,omitempty"`
+
+	//+optional
+	S3Resource []S3Resource `json:"s3Resource,omitempty" yaml:"s3Resource,omitempty"`
 }
 
 type DatabaseResource struct {
@@ -153,6 +174,16 @@ type HTTPResource struct {
 type KafkaTopic struct {
 	Name       string           `json:"name" yaml:"name"`
 	Operations []KafkaOperation `json:"operations" yaml:"operations"`
+}
+
+type AWSResource struct {
+	Arn     string   `json:"arn" yaml:"arn"`
+	Actions []string `json:"actions" yaml:"actions"`
+}
+
+type S3Resource struct {
+	Name    string     `json:"arn" yaml:"arn"`
+	Actions []S3Action `json:"actions" yaml:"actions"`
 }
 
 // IntentsStatus defines the observed state of ClientIntents
