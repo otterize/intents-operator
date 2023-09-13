@@ -161,6 +161,11 @@ input DatabaseConfigInput {
 	operations: [DatabaseOperation!]!
 }
 
+type DatabaseCredentials {
+	username: String!
+	password: String!
+}
+
 input DatabaseCredentialsInput {
 	username: String!
 	password: String!
