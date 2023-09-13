@@ -67,9 +67,19 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 		r.typedIntentsCounter[hashedName][call.Type]++
 	}
 
+	kafkaCount := 0
+	httpCount := 0
+	databaseCount := 0
+	for _, value := range r.typedIntentsCounter {
+		kafkaCount += value[otterizev1alpha2.IntentTypeKafka]
+		httpCount += value[otterizev1alpha2.IntentTypeHTTP]
+		databaseCount += value[otterizev1alpha2.IntentTypeDatabase]
+	}
+
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIntentsApplied, lo.Sum(lo.Values(r.intentsCounter)))
-	// telemetrysender.SendIntentOperator(telemetriesgql.EventTypeKafkaIntentsApplied, lo.Sum(lo.Values(r.kafkaIntentsCounter)))
-	// telemetrysender.SendIntentOperator(telemetriesgql.EventTypeHTTPIntentsApplied, lo.Sum(lo.Values(r.httpIntentsCounter)))
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIntentsAppliedKafka, kafkaCount)
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIntentsAppliedHttp, httpCount)
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIntentsAppliedDatabase, databaseCount)
 
 	return ctrl.Result{}, nil
 }
