@@ -290,12 +290,17 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
 	}
 
+	if err = kafkaServerConfigReconciler.InitKafkaServerConfigIndices(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init indices for KafkaServerConfig")
+	}
+
 	protectedServicesReconciler := controllers.NewProtectedServiceReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		otterizeCloudClient,
 		extNetpolHandler,
 		enforcementConfig.EnforcementDefaultState,
+		enforcementConfig.EnableNetworkPolicy,
 		networkPolicyHandler,
 	)
 
