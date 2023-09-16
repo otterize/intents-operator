@@ -87,19 +87,19 @@ const (
 	ProviderCertManager = "cert-manager"
 )
 
-type CredsProvider struct {
+type CertProvider struct {
 	Provider string
 }
 
-func (cpf *CredsProvider) getOptionalValues() []string {
+func (cpf *CertProvider) getOptionalValues() []string {
 	return []string{ProviderSpire, ProviderCloud, ProviderCertManager}
 }
 
-func (cpf *CredsProvider) GetPrintableOptionalValues() string {
+func (cpf *CertProvider) GetPrintableOptionalValues() string {
 	return strings.Join(cpf.getOptionalValues(), ", ")
 }
 
-func (cpf *CredsProvider) Set(v string) error {
+func (cpf *CertProvider) Set(v string) error {
 	if v == "" {
 		v = ProviderSpire
 	}
@@ -107,10 +107,10 @@ func (cpf *CredsProvider) Set(v string) error {
 		cpf.Provider = v
 		return nil
 	}
-	return fmt.Errorf("credentials-provider should be one of: %s", cpf.GetPrintableOptionalValues())
+	return fmt.Errorf("certificate-provider should be one of: %s", cpf.GetPrintableOptionalValues())
 }
 
-func (cpf *CredsProvider) String() string {
+func (cpf *CertProvider) String() string {
 	return cpf.Provider
 }
 
@@ -119,23 +119,25 @@ func main() {
 	var enableLeaderElection bool
 	var probeAddr string
 	var spireServerAddr string
-	var credProvider CredsProvider
+	var certProvider CertProvider
 	var certManagerIssuer string
 	var certManagerUseClusterIssuer bool
+	var certManagerApprover bool
 	var secretsManager controllers.SecretsManager
 	var workloadRegistry controllers.WorkloadRegistry
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":7071", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":7072", "The address the probe endpoint binds to.")
 	flag.StringVar(&spireServerAddr, "spire-server-address", "spire-server.spire:8081", "SPIRE server API address.")
-	flag.Var(&credProvider, "credentials-provider", fmt.Sprintf("Credentials generation provider (%s)", credProvider.GetPrintableOptionalValues()))
+	flag.Var(&certProvider, "certificate-provider", fmt.Sprintf("Certificate generation provider (%s)", certProvider.GetPrintableOptionalValues()))
 	flag.StringVar(&certManagerIssuer, "cert-manager-issuer", "ca-issuer", "Name of the Issuer to be used by cert-manager to sign certificates")
 	flag.BoolVar(&certManagerUseClusterIssuer, "cert-manager-use-cluster-issuer", false, "Use ClusterIssuer instead of a (namespace bound) Issuer")
+	flag.BoolVar(&certManagerApprover, "cert-manager-approve-requests", false, "Make credentials-operator approve its own CertificateRequests")
 
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
-	provider := credProvider.String()
+	provider := certProvider.String()
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
@@ -145,7 +147,7 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "spire-integration-operator.otterize.com",
+		LeaderElectionID:       "credentials-operator.otterize.com",
 	})
 	if err != nil {
 		logrus.WithError(err).Error("unable to start manager")
@@ -155,7 +157,7 @@ func main() {
 	ctx := ctrl.SetupSignalHandler()
 
 	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
-	eventRecorder := mgr.GetEventRecorderFor("spire-integration-operator")
+	eventRecorder := mgr.GetEventRecorderFor("credentials-operator")
 
 	if provider == ProviderCloud {
 		otterizeCloudClient, err := otterizeclient.NewCloudClient(ctx)
@@ -191,6 +193,13 @@ func main() {
 	if err = podReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithField("controller", "Pod").WithError(err).Error("unable to create controller")
 		os.Exit(1)
+	}
+
+	if provider == ProviderCertManager && certManagerApprover {
+		if err = secretsManager.(*certmanageradapter.CertManagerSecretsManager).RegisterCertificateApprover(ctx, mgr); err != nil {
+			logrus.WithField("controller", "CertificateRequest").WithError(err).Error("unable to create controller")
+			os.Exit(1)
+		}
 	}
 	// +kubebuilder:scaffold:builder
 

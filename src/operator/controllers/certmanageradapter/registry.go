@@ -54,6 +54,10 @@ func (r *CertManagerWorkloadRegistry) CleanupOrphanK8SPodEntries(_ context.Conte
 	return nil
 }
 
+func (r *CertManagerWorkloadRegistry) getPodEntryById(entryId string) *CertificateEntry {
+	return r.entries[entryId]
+}
+
 func (r *CertManagerWorkloadRegistry) getPodEntry(namespace, serviceName string) *CertificateEntry {
-	return r.entries[r.getEntryId(namespace, serviceName)]
+	return r.getPodEntryById(r.getEntryId(namespace, serviceName))
 }
