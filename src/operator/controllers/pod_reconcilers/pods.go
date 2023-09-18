@@ -88,7 +88,7 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 	}
 
 	if !isIstioInstalled {
-		logrus.Warning("Authorization policies CRD is not installed, Istio policy creation skipped")
+		logrus.Debug("Authorization policies CRD is not installed, Istio policy creation skipped")
 		return nil
 	}
 

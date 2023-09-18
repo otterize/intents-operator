@@ -19,6 +19,7 @@ type DefaultDenyReconciler struct {
 	client.Client
 	extNetpolHandler ExternalNepolHandler
 	injectablerecorder.InjectableRecorder
+	netpolEnforcementEnabled bool
 }
 
 type ExternalNepolHandler interface {
@@ -26,10 +27,11 @@ type ExternalNepolHandler interface {
 	HandleAllPods(ctx context.Context) error
 }
 
-func NewDefaultDenyReconciler(client client.Client, extNetpolHandler ExternalNepolHandler) *DefaultDenyReconciler {
+func NewDefaultDenyReconciler(client client.Client, extNetpolHandler ExternalNepolHandler, netpolEnforcementEnabled bool) *DefaultDenyReconciler {
 	return &DefaultDenyReconciler{
-		Client:           client,
-		extNetpolHandler: extNetpolHandler,
+		Client:                   client,
+		extNetpolHandler:         extNetpolHandler,
+		netpolEnforcementEnabled: netpolEnforcementEnabled,
 	}
 }
 
@@ -69,7 +71,9 @@ func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, prote
 
 		formattedServerName := otterizev1alpha2.GetFormattedOtterizeIdentity(protectedService.Spec.Name, namespace)
 		policy := r.buildNetworkPolicyObjectForIntent(formattedServerName, protectedService.Spec.Name, namespace)
-		serversToProtect[formattedServerName] = policy
+		if r.netpolEnforcementEnabled {
+			serversToProtect[formattedServerName] = policy
+		}
 	}
 
 	var networkPolicies v1.NetworkPolicyList
