@@ -24,6 +24,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
+	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -104,10 +105,16 @@ func main() {
 		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
 		RootCAFile: viper.GetString(operatorconfig.KafkaServerTLSCAKey),
 	}
+	oidcUrl := viper.GetString(awsagent.ClusterOIDCProviderUrlKey)
 
 	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
 	debugLogs := viper.GetBool(operatorconfig.DebugLogKey)
+
+	if viper.GetBool(awsagent.AWSIntentsEnabledKey) {
+		// awsIntentsAgent :=
+		_ = awsagent.NewAWSAgent(context.Background(), oidcUrl)
+	}
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 	if debugLogs {
