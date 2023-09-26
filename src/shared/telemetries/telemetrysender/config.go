@@ -29,3 +29,7 @@ func init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 }
+
+func IsTelemetryEnabled() bool {
+	return viper.GetBool(TelemetryEnabledKey)
+}
