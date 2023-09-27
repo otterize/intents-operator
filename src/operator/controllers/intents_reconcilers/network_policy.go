@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -100,7 +101,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 	createdNetpols := 0
 	for _, intent := range intents.GetCallsList() {
-		targetNamespace := intent.GetServerNamespace(req.Namespace)
+		targetNamespace := intent.GetTargetServerNamespace(req.Namespace)
 		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, targetNamespace) {
 			// Namespace is not in list of namespaces we're allowed to act in, so drop it.
 			r.RecordWarningEventf(intents, consts.ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration", targetNamespace)
@@ -133,30 +134,40 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intentsObj *otterizev1alpha2.ClientIntents, intent otterizev1alpha2.Intent, intentsObjNamespace string) (bool, error) {
 
-	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
+	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
 	if err != nil {
 		return false, err
 	}
 
 	if !shouldCreatePolicy {
-		logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
+		logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
 		r.RecordNormalEventf(intentsObj, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
 		return false, nil
 	}
 	if !r.enableNetworkPolicyCreation {
-		logrus.Infof("Network policy creation is disabled, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
+		logrus.Infof("Network policy creation is disabled, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
 		r.RecordNormalEvent(intentsObj, consts.ReasonNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
 		return false, nil
 	}
 
-	logrus.Debugf("Server %s in namespace %s is in protected list: %t", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), shouldCreatePolicy)
-
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, intent.GetServerName(), intentsObjNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, intent.GetTargetServerName(), intentsObjNamespace)
 	existingPolicy := &v1.NetworkPolicy{}
 	newPolicy := r.buildNetworkPolicyObjectForIntent(intent, policyName, intentsObjNamespace)
+	if intent.IsTargetServerKubernetesService() {
+		// Fetch K8s service, list target ports & add them to the network policy
+		err := r.addPortRestrictionToNetworkPolicy(ctx, intent, intentsObjNamespace, newPolicy)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return false, err
+		} else if k8serrors.IsNotFound(err) {
+			r.RecordWarningEventf(existingPolicy, consts.ReasonKubernetesServiceNotFound,
+				"failed fetching kubernetes service %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
+			return false, err
+		}
+	}
+
 	err = r.Get(ctx, types.NamespacedName{
 		Name:      policyName,
-		Namespace: intent.GetServerNamespace(intentsObjNamespace)},
+		Namespace: intent.GetTargetServerNamespace(intentsObjNamespace)},
 		existingPolicy)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
@@ -259,7 +270,7 @@ func (r *NetworkPolicyReconciler) handleIntentRemoval(
 		if err != nil {
 			return err
 		}
-		if err = r.extNetpolHandler.HandlePodsByLabelSelector(ctx, intent.GetServerNamespace(intentsObjNamespace), selector); err != nil {
+		if err = r.extNetpolHandler.HandlePodsByLabelSelector(ctx, intent.GetTargetServerNamespace(intentsObjNamespace), selector); err != nil {
 			return err
 		}
 
@@ -346,9 +357,9 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 	intent otterizev1alpha2.Intent,
 	intentsObjNamespace string) error {
 
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, intent.GetServerName(), intentsObjNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, intent.GetTargetServerName(), intentsObjNamespace)
 	policy := &v1.NetworkPolicy{}
-	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.GetServerNamespace(intentsObjNamespace)}, policy)
+	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.GetTargetServerNamespace(intentsObjNamespace)}, policy)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -424,9 +435,9 @@ func (r *NetworkPolicyReconciler) CleanAllNamespaces(ctx context.Context) error 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
 func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 	intent otterizev1alpha2.Intent, policyName, intentsObjNamespace string) *v1.NetworkPolicy {
-	targetNamespace := intent.GetServerNamespace(intentsObjNamespace)
+	targetNamespace := intent.GetTargetServerNamespace(intentsObjNamespace)
 	// The intent's target server made of name + namespace + hash
-	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), targetNamespace)
+	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), targetNamespace)
 	podSelector := r.buildPodLabelSelectorFromIntent(intent, intentsObjNamespace)
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -463,13 +474,53 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 }
 
 func (r *NetworkPolicyReconciler) buildPodLabelSelectorFromIntent(intent otterizev1alpha2.Intent, intentsObjNamespace string) metav1.LabelSelector {
-	targetNamespace := intent.GetServerNamespace(intentsObjNamespace)
+	targetNamespace := intent.GetTargetServerNamespace(intentsObjNamespace)
 	// The intent's target server made of name + namespace + hash
-	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), targetNamespace)
+	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), targetNamespace)
 
 	return metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
 		},
 	}
+}
+
+func (r *NetworkPolicyReconciler) addPortRestrictionToNetworkPolicy(
+	ctx context.Context,
+	intent otterizev1alpha2.Intent,
+	intentsObjNamespace string,
+	policy *v1.NetworkPolicy) error {
+
+	svc := corev1.Service{}
+	kubernetesSvcName := intent.GetTargetServerName()
+	kubernetesSvcNamespace := intent.GetTargetServerNamespace(intentsObjNamespace)
+
+	err := r.Get(ctx, types.NamespacedName{
+		Namespace: kubernetesSvcNamespace,
+		Name:      kubernetesSvcName,
+	}, &svc)
+
+	if err != nil {
+		return err
+	}
+
+	portToProtocol := make(map[int]corev1.Protocol)
+	// Gather all target ports (target ports in the pod the service proxies to)
+	for _, port := range svc.Spec.Ports {
+		portToProtocol[port.TargetPort.IntValue()] = port.Protocol
+	}
+
+	networkPolicyPorts := make([]v1.NetworkPolicyPort, 0)
+	// Create a list of network policy ports
+	for port, protocol := range portToProtocol {
+		networkPolicyPorts = append(networkPolicyPorts, v1.NetworkPolicyPort{
+			Protocol: &protocol,
+			Port:     &intstr.IntOrString{IntVal: int32(port)}, // What the hell
+		})
+	}
+
+	// Add ports to network policy spec
+	policy.Spec.Ingress[0].Ports = networkPolicyPorts
+
+	return nil
 }

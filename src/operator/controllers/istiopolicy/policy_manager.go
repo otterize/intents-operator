@@ -328,13 +328,13 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 	createdAnyPolicies := false
 	for _, intent := range clientIntents.GetCallsList() {
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
-			ctx, c.client, intent.GetServerName(), intent.GetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState)
+			ctx, c.client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState)
 		if err != nil {
 			return nil, err
 		}
 
 		if !shouldCreatePolicy {
-			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(clientIntents.Namespace))
+			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace))
 			c.recorder.RecordNormalEventf(clientIntents, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
 			continue
 		}
@@ -344,7 +344,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 			return updatedPolicies, nil
 		}
 
-		targetNamespace := intent.GetServerNamespace(clientIntents.Namespace)
+		targetNamespace := intent.GetTargetServerNamespace(clientIntents.Namespace)
 		if len(c.restrictToNamespaces) != 0 && !lo.Contains(c.restrictToNamespaces, targetNamespace) {
 			c.recorder.RecordWarningEventf(
 				clientIntents,
@@ -424,7 +424,7 @@ func (c *PolicyManagerImpl) updatePolicy(ctx context.Context, existingPolicy *v1
 
 func (c *PolicyManagerImpl) getPolicyName(intents *v1alpha2.ClientIntents, intent v1alpha2.Intent) string {
 	clientName := fmt.Sprintf("%s.%s", intents.GetServiceName(), intents.Namespace)
-	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.GetServerName(), clientName)
+	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.GetTargetServerName(), clientName)
 	return policyName
 }
 
@@ -468,10 +468,10 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 	clientServiceAccountName string,
 ) *v1beta1.AuthorizationPolicy {
 	policyName := c.getPolicyName(clientIntents, intent)
-	logrus.Infof("Creating Istio policy %s for intent %s", policyName, intent.GetServerName())
+	logrus.Infof("Creating Istio policy %s for intent %s", policyName, intent.GetTargetServerName())
 
-	serverNamespace := intent.GetServerNamespace(clientIntents.Namespace)
-	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), serverNamespace)
+	serverNamespace := intent.GetTargetServerNamespace(clientIntents.Namespace)
+	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), serverNamespace)
 	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.GetServiceName(), clientIntents.Namespace)
 
 	var ruleTo []*v1beta1security.Rule_To

@@ -205,8 +205,8 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			}
 
 			for _, intent := range intents.GetCallsList() {
-				serverName := intent.GetServerName()
-				serverNamespace := intent.GetServerNamespace(intents.Namespace)
+				serverName := intent.GetTargetServerName()
+				serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
 				formattedServerName := otterizev1alpha2.GetFormattedOtterizeIdentity(serverName, serverNamespace)
 				res = append(res, formattedServerName)
 			}

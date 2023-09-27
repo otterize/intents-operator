@@ -137,7 +137,7 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha2
 func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha2.Intent, namespace string) (corev1.Pod, error) {
 	podsList := &corev1.PodList{}
 
-	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), namespace)
+	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), namespace)
 	err := r.client.List(
 		ctx,
 		podsList,
