@@ -57,12 +57,6 @@ const (
 	EventTypeMapperVisualize             EventType = "MAPPER_VISUALIZE"
 	EventTypeKafkaServerConfigApplied    EventType = "KAFKA_SERVER_CONFIG_APPLIED"
 	EventTypeKafkaServerConfigDeleted    EventType = "KAFKA_SERVER_CONFIG_DELETED"
-	EventTypeNetworkPoliciesCreated      EventType = "NETWORK_POLICIES_CREATED"
-	EventTypeNetworkPoliciesDeleted      EventType = "NETWORK_POLICIES_DELETED"
-	EventTypeKafkaAclsCreated            EventType = "KAFKA_ACLS_CREATED"
-	EventTypeKafkaAclsDeleted            EventType = "KAFKA_ACLS_DELETED"
-	EventTypeIstioPoliciesCreated        EventType = "ISTIO_POLICIES_CREATED"
-	EventTypeIstioPoliciesDeleted        EventType = "ISTIO_POLICIES_DELETED"
 	EventTypeStarted                     EventType = "STARTED"
 	EventTypeServiceDiscovered           EventType = "SERVICE_DISCOVERED"
 )
