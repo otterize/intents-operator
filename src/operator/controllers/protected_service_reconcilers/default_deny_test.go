@@ -44,13 +44,56 @@ func (s *DefaultDenyReconcilerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 
 	s.extNetpolHandler = protectedservicesmock.NewMockExternalNepolHandler(s.Controller)
-	s.reconciler = NewDefaultDenyReconciler(s.Client, s.extNetpolHandler)
+	s.reconciler = NewDefaultDenyReconciler(s.Client, s.extNetpolHandler, true)
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TearDownTest() {
 	viper.Reset()
 	s.reconciler = nil
 	s.MocksSuiteBase.TearDownTest()
+}
+
+func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateGlobalNetpolDisabled() {
+	s.ignoreFinalizerHandling()
+	s.reconciler.netpolEnforcementEnabled = false
+
+	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      protectedServicesResourceName,
+				Namespace: testNamespace,
+			},
+			Spec: otterizev1alpha2.ProtectedServiceSpec{
+				Name: protectedService,
+			},
+		},
+	}
+
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
+			protectedServicesResources.DeepCopyInto(list)
+			return nil
+		})
+
+	request := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: testNamespace,
+			Name:      protectedServicesResourceName,
+		},
+	}
+
+	// Get all existing network policies
+	// No network policies exist
+	var networkPolicies v1.NetworkPolicyList
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
+		otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+	}).Return(nil).Times(1)
+
+	s.extNetpolHandler.EXPECT().HandleAllPods(gomock.Any())
+	res, err := s.reconciler.Reconcile(context.Background(), request)
+	s.Require().Empty(res)
+	s.Require().NoError(err)
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
