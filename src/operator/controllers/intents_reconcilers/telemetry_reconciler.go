@@ -21,14 +21,16 @@ type TelemetryReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	intentsCounter map[string]int
+	intentsCounter      map[string]int
+	typedIntentsCounter map[string]map[otterizev1alpha2.IntentType]int
 }
 
 func NewTelemetryReconciler(client client.Client, scheme *runtime.Scheme) *TelemetryReconciler {
 	return &TelemetryReconciler{
-		Client:         client,
-		Scheme:         scheme,
-		intentsCounter: make(map[string]int),
+		Client:              client,
+		Scheme:              scheme,
+		intentsCounter:      make(map[string]int),
+		typedIntentsCounter: make(map[string]map[otterizev1alpha2.IntentType]int),
 	}
 }
 
@@ -49,6 +51,7 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 
 	if !intents.DeletionTimestamp.IsZero() {
 		delete(r.intentsCounter, hashedName)
+		delete(r.typedIntentsCounter, hashedName)
 		return r.removeFinalizer(ctx, intents)
 	}
 
@@ -58,8 +61,25 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 	}
 
 	r.intentsCounter[hashedName] = len(intents.Spec.Calls)
+	r.typedIntentsCounter[hashedName] = make(map[otterizev1alpha2.IntentType]int)
+
+	for _, call := range intents.Spec.Calls {
+		r.typedIntentsCounter[hashedName][call.Type]++
+	}
+
+	kafkaCount := 0
+	httpCount := 0
+	databaseCount := 0
+	for _, value := range r.typedIntentsCounter {
+		kafkaCount += value[otterizev1alpha2.IntentTypeKafka]
+		httpCount += value[otterizev1alpha2.IntentTypeHTTP]
+		databaseCount += value[otterizev1alpha2.IntentTypeDatabase]
+	}
 
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIntentsApplied, lo.Sum(lo.Values(r.intentsCounter)))
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIntentsAppliedKafka, kafkaCount)
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIntentsAppliedHttp, httpCount)
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIntentsAppliedDatabase, databaseCount)
 
 	return ctrl.Result{}, nil
 }
