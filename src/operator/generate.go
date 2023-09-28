@@ -9,5 +9,6 @@ package main
 //go:generate go run go.uber.org/mock/mockgen@v0.2.0 -package mock_entries -destination=mocks/entries/mock.go github.com/otterize/credentials-operator/src/controllers WorkloadRegistry
 //go:generate go run go.uber.org/mock/mockgen@v0.2.0 -destination=mocks/spireclient/svids/mock.go github.com/otterize/credentials-operator/src/controllers/spireclient/svids Store
 //go:generate go run go.uber.org/mock/mockgen@v0.2.0 -package mock_secrets -destination=mocks/controllers/secrets/mock.go github.com/otterize/credentials-operator/src/controllers SecretsManager
+//go:generate go run go.uber.org/mock/mockgen@v0.2.0 -package mockserviceaccounts -destination=mocks/controllers/serviceaccounts/mock.go github.com/otterize/credentials-operator/src/controllers ServiceAccountEnsurer
 //go:generate go run go.uber.org/mock/mockgen@v0.2.0 -destination=mocks/eventrecorder/mock.go k8s.io/client-go/tools/record EventRecorder
 //go:generate go run go.uber.org/mock/mockgen@v0.2.0 -destination=mocks/serviceidresolver/mock.go github.com/otterize/credentials-operator/src/controllers/secrets/types ServiceIdResolver

@@ -8,6 +8,7 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/secrets/types"
 	"github.com/otterize/credentials-operator/src/mocks/controller-runtime/client"
 	mock_secrets "github.com/otterize/credentials-operator/src/mocks/controllers/secrets"
+	mockserviceaccounts "github.com/otterize/credentials-operator/src/mocks/controllers/serviceaccounts"
 	mock_entries "github.com/otterize/credentials-operator/src/mocks/entries"
 	mock_record "github.com/otterize/credentials-operator/src/mocks/eventrecorder"
 	mock_spireclient "github.com/otterize/credentials-operator/src/mocks/spireclient"
@@ -29,12 +30,13 @@ import (
 
 type PodControllerSuite struct {
 	suite.Suite
-	controller      *gomock.Controller
-	client          *mock_client.MockClient
-	spireClient     *mock_spireclient.MockServerClient
-	entriesRegistry *mock_entries.MockWorkloadRegistry
-	secretsManager  *mock_secrets.MockSecretsManager
-	podReconciler   *PodReconciler
+	controller            *gomock.Controller
+	client                *mock_client.MockClient
+	spireClient           *mock_spireclient.MockServerClient
+	entriesRegistry       *mock_entries.MockWorkloadRegistry
+	secretsManager        *mock_secrets.MockSecretsManager
+	podReconciler         *PodReconciler
+	ServiceAccountEnsurer *mockserviceaccounts.MockServiceAccountEnsurer
 }
 
 type PodControllerSuiteWithoutEventRecorder struct {
@@ -51,12 +53,14 @@ func (s *PodControllerSuiteWithoutEventRecorder) SetupTest() {
 	eventRecorder := mock_record.NewMockEventRecorder(s.controller)
 	eventRecorder.EXPECT().Event(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	eventRecorder.EXPECT().Eventf(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	s.ServiceAccountEnsurer = mockserviceaccounts.NewMockServiceAccountEnsurer(s.controller)
+	s.ServiceAccountEnsurer.EXPECT().EnsureServiceAccount(gomock.Any(), gomock.Any()).AnyTimes()
 
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	s.client.EXPECT().Scheme().Return(scheme).AnyTimes()
 	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, s.secretsManager,
-		serviceIdResolver, eventRecorder, false)
+		serviceIdResolver, eventRecorder, s.ServiceAccountEnsurer, false)
 }
 
 type ObjectNameMatcher struct {
@@ -256,8 +260,10 @@ func (s *PodControllerSuiteWithEventRecorder) SetupTest() {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	s.client.EXPECT().Scheme().Return(scheme).AnyTimes()
+	s.ServiceAccountEnsurer = mockserviceaccounts.NewMockServiceAccountEnsurer(s.controller)
+	s.ServiceAccountEnsurer.EXPECT().EnsureServiceAccount(gomock.Any(), gomock.Any()).AnyTimes()
 	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, s.secretsManager,
-		serviceIdResolver, s.eventRecorder, false)
+		serviceIdResolver, s.eventRecorder, s.ServiceAccountEnsurer, false)
 }
 
 func (s *PodControllerSuiteWithEventRecorder) TestController_Reconcile_DeprecatedAnnotations() {

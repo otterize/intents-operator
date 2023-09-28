@@ -47,6 +47,10 @@ type SecretsManager interface {
 	RefreshTLSSecrets(ctx context.Context) error
 }
 
+type ServiceAccountEnsurer interface {
+	EnsureServiceAccount(ctx context.Context, pod *corev1.Pod) error
+}
+
 // PodReconciler reconciles a Pod object
 type PodReconciler struct {
 	client.Client
@@ -56,16 +60,18 @@ type PodReconciler struct {
 	serviceIdResolver                    *serviceidresolver.Resolver
 	eventRecorder                        record.EventRecorder
 	registerOnlyPodsWithSecretAnnotation bool
+	serviceAccountEnsurer                ServiceAccountEnsurer
 }
 
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=create;get;list;update;patch;watch
 // +kubebuilder:rbac:groups=apps,resources=replicasets;daemonsets;statefulsets;deployments,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;update;patch;list;watch;create
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;update;patch;list;watch;create
 
 func NewPodReconciler(client client.Client, scheme *runtime.Scheme, workloadRegistry WorkloadRegistry,
 	secretsManager SecretsManager, serviceIdResolver *serviceidresolver.Resolver, eventRecorder record.EventRecorder,
-	registerOnlyPodsWithSecretAnnotation bool) *PodReconciler {
+	ServiceAccountEnsurer ServiceAccountEnsurer, registerOnlyPodsWithSecretAnnotation bool) *PodReconciler {
 	return &PodReconciler{
 		Client:                               client,
 		scheme:                               scheme,
@@ -74,6 +80,7 @@ func NewPodReconciler(client client.Client, scheme *runtime.Scheme, workloadRegi
 		serviceIdResolver:                    serviceIdResolver,
 		eventRecorder:                        eventRecorder,
 		registerOnlyPodsWithSecretAnnotation: registerOnlyPodsWithSecretAnnotation,
+		serviceAccountEnsurer:                ServiceAccountEnsurer,
 	}
 }
 
@@ -175,6 +182,11 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// nothing to reconcile on deletions
 	if !pod.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
+	}
+
+	err := r.serviceAccountEnsurer.EnsureServiceAccount(ctx, pod)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	if !r.shouldRegisterEntryForPod(pod) {

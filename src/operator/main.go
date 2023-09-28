@@ -28,6 +28,7 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/certmanageradapter"
 	"github.com/otterize/credentials-operator/src/controllers/otterizeclient"
 	"github.com/otterize/credentials-operator/src/controllers/secrets"
+	"github.com/otterize/credentials-operator/src/controllers/serviceaccount"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/bundles"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/entries"
@@ -187,8 +188,9 @@ func main() {
 			eventRecorder, certManagerIssuer, certManagerUseClusterIssuer)
 	}
 
-	podReconciler := controllers.NewPodReconciler(mgr.GetClient(), mgr.GetScheme(), workloadRegistry, secretsManager,
-		serviceIdResolver, eventRecorder, provider == ProviderCloud)
+	client := mgr.GetClient()
+	podReconciler := controllers.NewPodReconciler(client, mgr.GetScheme(), workloadRegistry, secretsManager,
+		serviceIdResolver, eventRecorder, serviceaccount.NewServiceAccountEnsurer(client, eventRecorder), provider == ProviderCloud)
 
 	if err = podReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithField("controller", "Pod").WithError(err).Error("unable to create controller")
