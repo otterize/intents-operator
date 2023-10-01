@@ -7,6 +7,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
