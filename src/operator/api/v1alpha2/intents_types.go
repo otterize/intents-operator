@@ -44,10 +44,13 @@ const (
 	OtterizeCreatedForServiceAnnotation     = "intents.otterize.com/created-for-service"
 	OtterizeCreatedForIngressAnnotation     = "intents.otterize.com/created-for-ingress"
 	OtterizeNetworkPolicyNameTemplate       = "access-to-%s-from-%s"
+	OtterizeEgressNetworkPolicyNameTemplate = "egress-to-%s-from-%s"
 	OtterizeNetworkPolicy                   = "intents.otterize.com/network-policy"
+	OtterizeEgressNetworkPolicy             = "intents.otterize.com/egress-network-policy"
 	OtterizeNetworkPolicyServiceDefaultDeny = "intents.otterize.com/network-policy-service-default-deny"
 	OtterizeNetworkPolicyExternalTraffic    = "intents.otterize.com/network-policy-external-traffic"
 	NetworkPolicyFinalizerName              = "intents.otterize.com/network-policy-finalizer"
+	EgressNetworkPolicyFinalizerName        = "intents.otterize.com/egress-network-policy-finalizer"
 	OtterizeIstioClientAnnotationKey        = "intents.otterize.com/istio-client"
 	OtterizeClientServiceAccountAnnotation  = "intents.otterize.com/client-intents-service-account"
 	OtterizeSharedServiceAccountAnnotation  = "intents.otterize.com/shared-service-account"
@@ -472,8 +475,8 @@ func GetFormattedOtterizeIdentity(name, ns string) string {
 
 }
 
-// BuildPodLabelSelector returns a label selector to match the otterize server labels for an intents resource
-func (in *ClientIntents) BuildPodLabelSelector() (labels.Selector, error) {
+// BuildPodLabelSelectorAsServer returns a label selector to match the otterize server labels for an intents resource
+func (in *ClientIntents) BuildPodLabelSelectorAsServer() (labels.Selector, error) {
 	labelSelector, err := labels.Parse(
 		fmt.Sprintf("%s=%s",
 			OtterizeServerLabelKey,

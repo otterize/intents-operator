@@ -73,7 +73,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	intentLabels := intents.GetIntentsLabelMapping(namespace)
 
 	// List the pods in the namespace and update labels if required
-	labelSelector, err := intents.BuildPodLabelSelector()
+	labelSelector, err := intents.BuildPodLabelSelectorAsServer()
 	if err != nil {
 		r.RecordWarningEventf(intents, ReasonListPodsFailed, "could not list pods: %s", err.Error())
 		return ctrl.Result{}, err
@@ -110,7 +110,7 @@ func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
 
 	logrus.Infof("Unlabeling pods for Otterize service %s", intents.Spec.Service.Name)
 
-	labelSelector, err := intents.BuildPodLabelSelector()
+	labelSelector, err := intents.BuildPodLabelSelectorAsServer()
 	if err != nil {
 		return err
 	}

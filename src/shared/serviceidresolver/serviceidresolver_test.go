@@ -56,7 +56,7 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodExists() {
 	SAName := "backendservice"
 
 	intent := v1alpha2.ClientIntents{Spec: &v1alpha2.IntentsSpec{Service: v1alpha2.Service{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
-	ls, err := intent.BuildPodLabelSelector()
+	ls, err := intent.BuildPodLabelSelectorAsServer()
 	s.Require().NoError(err)
 
 	pod := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace}, Spec: corev1.PodSpec{ServiceAccountName: SAName}}
@@ -80,7 +80,7 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodDoesntExist
 	namespace := "coolnamespace"
 
 	intent := v1alpha2.ClientIntents{Spec: &v1alpha2.IntentsSpec{Service: v1alpha2.Service{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
-	ls, err := intent.BuildPodLabelSelector()
+	ls, err := intent.BuildPodLabelSelectorAsServer()
 	s.Require().NoError(err)
 
 	s.Client.EXPECT().List(
