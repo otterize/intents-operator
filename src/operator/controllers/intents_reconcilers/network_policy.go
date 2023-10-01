@@ -24,7 +24,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
 )
 
 type externalNetpolHandler interface {
@@ -164,6 +163,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 				"failed fetching kubernetes service %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
 			return false, err
 		}
+
 	}
 
 	err = r.Get(ctx, types.NamespacedName{
@@ -476,15 +476,18 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 }
 
 func (r *NetworkPolicyReconciler) buildPodLabelSelectorFromIntent(intent otterizev1alpha2.Intent, intentsObjNamespace string) metav1.LabelSelector {
-	targetNamespace := intent.GetTargetServerNamespace(intentsObjNamespace)
-	// The intent's target server made of name + namespace + hash
-	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), targetNamespace)
-
-	return metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
-		},
+	otterizeServerLabel := map[string]string{}
+	if intent.IsTargetServerKubernetesService() {
+		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
+		otterizeServerLabel[fmt.Sprintf(otterizev1alpha2.OtterizeKubernetesServiceLabelKey, formattedTargetServer)] = "true"
+	} else {
+		targetNamespace := intent.GetTargetServerNamespace(intentsObjNamespace)
+		// The intent's target server made of name + namespace + hash
+		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), targetNamespace)
+		otterizeServerLabel[otterizev1alpha2.OtterizeServerLabelKey] = formattedTargetServer
 	}
+
+	return metav1.LabelSelector{MatchLabels: otterizeServerLabel}
 }
 
 func (r *NetworkPolicyReconciler) addPortRestrictionToNetworkPolicy(
@@ -494,7 +497,7 @@ func (r *NetworkPolicyReconciler) addPortRestrictionToNetworkPolicy(
 	policy *v1.NetworkPolicy) error {
 
 	svc := corev1.Service{}
-	kubernetesSvcName := strings.ReplaceAll(intent.GetTargetServerName(), "svc-", "")
+	kubernetesSvcName := intent.GetTargetServerName()
 	kubernetesSvcNamespace := intent.GetTargetServerNamespace(intentsObjNamespace)
 
 	err := r.Get(ctx, types.NamespacedName{

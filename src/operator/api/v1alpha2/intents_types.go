@@ -39,7 +39,8 @@ const (
 	OtterizeAccessLabelKey                    = "intents.otterize.com/access-%s"
 	OtterizeClientLabelKey                    = "intents.otterize.com/client"
 	OtterizeServerLabelKey                    = "intents.otterize.com/server"
-	OtterizeKubernetesServiceLabelKey         = "intents.otterize.com/k8s-svc"
+	OtterizeKubernetesServiceLabelKeyPrefix   = "intents.otterize.com/k8s-svc"
+	OtterizeKubernetesServiceLabelKey         = "intents.otterize.com/k8s-svc-%s"
 	OtterizeNamespaceLabelKey                 = "intents.otterize.com/namespace-name"
 	AllIntentsRemovedAnnotation               = "intents.otterize.com/all-intents-removed"
 	OtterizeCreatedForServiceAnnotation       = "intents.otterize.com/created-for-service"
@@ -237,7 +238,7 @@ func (in *Intent) GetTargetServerName() string {
 	var name string
 
 	if in.IsTargetServerKubernetesService() {
-		name = strings.ReplaceAll(in.Name, ":", "-") // Replace so all chars are valid in K8s label
+		name = strings.ReplaceAll(in.Name, "svc:", "") // Replace so all chars are valid in K8s label
 	} else {
 		name = in.Name
 	}

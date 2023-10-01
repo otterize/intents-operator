@@ -185,27 +185,24 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		return err
 	}
 
-	if len(intents.Items) == 0 {
-		return nil
-	}
-
-	// Update access labels - which servers the client can access (current intents), and remove old access labels (deleted intents)
-	otterizeAccessLabels := map[string]string{}
-	for _, intent := range intents.Items {
-		currIntentLabels := intent.GetIntentsLabelMapping(pod.Namespace)
-		for k, v := range currIntentLabels {
-			otterizeAccessLabels[k] = v
+	if len(intents.Items) != 0 {
+		// Update access labels - which servers the client can access (current intents), and remove old access labels (deleted intents)
+		otterizeAccessLabels := map[string]string{}
+		for _, intent := range intents.Items {
+			currIntentLabels := intent.GetIntentsLabelMapping(pod.Namespace)
+			for k, v := range currIntentLabels {
+				otterizeAccessLabels[k] = v
+			}
+		}
+		if otterizev1alpha2.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
+			logrus.Infof("Updating Otterize access labels for %s", serviceID.Name)
+			updatedPod = otterizev1alpha2.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
+			hasUpdates = true
 		}
 	}
 
-	if otterizev1alpha2.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
-		logrus.Infof("Updating Otterize access labels for %s", serviceID.Name)
-		updatedPod = otterizev1alpha2.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
-		hasUpdates = true
-	}
-
 	// Update Kubernetes service labels - which Kubernetes services use this pod as an endpoint. This allows
-	updatedPod, changed, err := p.updateOtterizeKubernetesServiceLabels(ctx, pod.DeepCopy())
+	updatedPod, changed, err := p.updateOtterizeKubernetesServiceLabels(ctx, updatedPod.DeepCopy())
 	if err != nil {
 		return err
 	}
@@ -297,21 +294,21 @@ func (p *PodWatcher) updateOtterizeKubernetesServiceLabels(ctx context.Context, 
 	podLabelsPreUpdate := pod.Labels
 	services, err := p.serviceIdResolver.GetKubernetesServicesTargetingPod(ctx, pod)
 
-	pod = otterizev1alpha2.CleanupOtterizeKubernetesServiceLabels(pod)
+	updatedPod := otterizev1alpha2.CleanupOtterizeKubernetesServiceLabels(pod)
 
 	if err != nil {
 		return nil, false, err
 	}
 
-	changed := reflect.DeepEqual(pod.Labels, podLabelsPreUpdate)
+	changed := reflect.DeepEqual(updatedPod.Labels, podLabelsPreUpdate)
 
 	if len(services) == 0 {
-		return pod, changed, nil
+		return updatedPod, changed, nil
 	}
-
 	for _, service := range services {
-		pod.Labels[otterizev1alpha2.OtterizeKubernetesServiceLabelKey] = service.Name
+		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(service.Name, service.Namespace)
+		updatedPod.Labels[fmt.Sprintf(otterizev1alpha2.OtterizeKubernetesServiceLabelKey, formattedTargetServer)] = "true"
 	}
 
-	return pod, true, nil
+	return updatedPod, true, nil
 }

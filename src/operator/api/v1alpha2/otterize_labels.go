@@ -67,7 +67,7 @@ func CleanupOtterizeKubernetesServiceLabels(pod *v1.Pod) *v1.Pod {
 }
 
 func isOtterizeKubernetesServiceLabel(s string) bool {
-	return strings.HasPrefix(s, OtterizeKubernetesServiceLabelKey)
+	return strings.HasPrefix(s, OtterizeKubernetesServiceLabelKeyPrefix)
 }
 
 func GetOtterizeLabelsFromPod(pod *v1.Pod) map[string]string {
