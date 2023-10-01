@@ -437,7 +437,6 @@ func (r *NetworkPolicyReconciler) CleanAllNamespaces(ctx context.Context) error 
 func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 	intent otterizev1alpha2.Intent, policyName, intentsObjNamespace string) *v1.NetworkPolicy {
 	targetNamespace := intent.GetTargetServerNamespace(intentsObjNamespace)
-
 	// The intent's target server made of name + namespace + hash
 	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), targetNamespace)
 	podSelector := r.buildPodLabelSelectorFromIntent(intent, intentsObjNamespace)
