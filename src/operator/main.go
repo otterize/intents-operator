@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -179,7 +179,7 @@ func main() {
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
-	networkPolicyHandler := intents_reconcilers.NewNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
+	networkPolicyHandler := ingress_network_policy.NewNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")

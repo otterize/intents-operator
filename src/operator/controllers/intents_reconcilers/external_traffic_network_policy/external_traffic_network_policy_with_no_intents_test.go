@@ -6,7 +6,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +30,7 @@ type ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
 	IngressReconciler       *external_traffic.IngressReconciler
 	endpointReconciler      external_traffic.EndpointsReconciler
-	NetworkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler
+	NetworkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler
 	podWatcher              *pod_reconcilers.PodWatcher
 }
 
@@ -59,7 +59,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupTest() {
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	createEvenIfNoIntentsFound := true
 	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, createEvenIfNoIntentsFound)
-	s.NetworkPolicyReconciler = intents_reconcilers.NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, true, true, createEvenIfNoIntentsFound)
+	s.NetworkPolicyReconciler = ingress_network_policy.NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, true, true, createEvenIfNoIntentsFound)
 	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
 	s.NetworkPolicyReconciler.InjectRecorder(recorder)
 

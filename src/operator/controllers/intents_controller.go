@@ -22,6 +22,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/initonce"
@@ -54,14 +55,14 @@ type IntentsReconciler struct {
 	group                   *reconcilergroup.Group
 	client                  client.Client
 	initOnce                initonce.InitOnce
-	networkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler
+	networkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler
 }
 
 func NewIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
-	networkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler,
+	networkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
 	otterizeClient operator_cloud_client.CloudClient,
