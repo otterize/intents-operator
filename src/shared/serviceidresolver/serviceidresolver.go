@@ -21,6 +21,7 @@ type ServiceResolver interface {
 	GetPodAnnotatedName(ctx context.Context, podName string, podNamespace string) (string, bool, error)
 	ResolveClientIntentToPod(ctx context.Context, intent v1alpha2.ClientIntents) (corev1.Pod, error)
 	ResolveIntentServerToPod(ctx context.Context, intent v1alpha2.Intent, namespace string) (corev1.Pod, error)
+	GetKubernetesServicesTargetingPod(ctx context.Context, pod *corev1.Pod) ([]corev1.Service, error)
 }
 
 type Resolver struct {
@@ -137,7 +138,7 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha2
 func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha2.Intent, namespace string) (corev1.Pod, error) {
 	podsList := &corev1.PodList{}
 
-	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), namespace)
+	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), namespace)
 	err := r.client.List(
 		ctx,
 		podsList,
@@ -160,4 +161,27 @@ func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha2
 	}
 
 	return corev1.Pod{}, PodNotFound
+}
+
+func (r *Resolver) GetKubernetesServicesTargetingPod(ctx context.Context, pod *corev1.Pod) ([]corev1.Service, error) {
+	serviceList := corev1.ServiceList{}
+	if err := r.client.List(ctx, &serviceList, &client.ListOptions{Namespace: pod.Namespace}); err != nil {
+		return nil, err
+	}
+
+	servicesTargetingPod := make([]corev1.Service, 0)
+	podLabels := pod.GetLabels()
+
+	// Iterate over the services in the namespace, check their selector (which pods they are pointing to)
+	// and compare to the pod's labels.
+	for _, service := range serviceList.Items {
+		for podLabelKey, podLabelVal := range podLabels {
+			svcSelectorVal, ok := service.Spec.Selector[podLabelKey]
+			if ok && svcSelectorVal == podLabelVal {
+				servicesTargetingPod = append(servicesTargetingPod, service)
+			}
+		}
+	}
+
+	return servicesTargetingPod, nil
 }

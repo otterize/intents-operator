@@ -14,6 +14,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/record"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -150,29 +151,27 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 }
 
 func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request, serviceID serviceidresolver.ServiceIdentity, pod v1.Pod) error {
-	otterizeServerLabelValue := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
-	if !otterizev1alpha2.HasOtterizeServerLabel(&pod, otterizeServerLabelValue) {
-		// Label pods as destination servers
-		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, serviceID.Name)
-		updatedPod := pod.DeepCopy()
-		if updatedPod.Labels == nil {
-			updatedPod.Labels = make(map[string]string)
-		}
-		updatedPod.Labels[otterizev1alpha2.OtterizeServerLabelKey] = otterizeServerLabelValue
-
-		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
-		if err != nil {
-			logrus.WithError(err).Errorln("Failed labeling pod as server", "Pod name", pod.Name, "Namespace", pod.Namespace)
-			return err
-		}
-		return nil
-	}
-
 	// Intents were deleted and the pod was updated by the operator, skip reconciliation
 	_, ok := pod.Annotations[otterizev1alpha2.AllIntentsRemovedAnnotation]
 	if ok {
 		logrus.Infof("Skipping reconciliation for pod %s - pod is handled by intents-operator", req.Name)
 		return nil
+	}
+
+	otterizeServerLabelValue := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
+	updatedPod := pod.DeepCopy()
+	var hasUpdates = false
+
+	// Update server label - the server identity of the pod.
+	// This is the pod selector used in network policies to grant access to this pod.
+	if !otterizev1alpha2.HasOtterizeServerLabel(&pod, otterizeServerLabelValue) {
+		// Label pods as destination servers
+		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, serviceID.Name)
+		if updatedPod.Labels == nil {
+			updatedPod.Labels = make(map[string]string)
+		}
+		updatedPod.Labels[otterizev1alpha2.OtterizeServerLabelKey] = otterizeServerLabelValue
+		hasUpdates = true
 	}
 
 	var intents otterizev1alpha2.ClientIntentsList
@@ -190,6 +189,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		return nil
 	}
 
+	// Update access labels - which servers the client can access (current intents), and remove old access labels (deleted intents)
 	otterizeAccessLabels := map[string]string{}
 	for _, intent := range intents.Items {
 		currIntentLabels := intent.GetIntentsLabelMapping(pod.Namespace)
@@ -197,16 +197,30 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 			otterizeAccessLabels[k] = v
 		}
 	}
+
 	if otterizev1alpha2.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
 		logrus.Infof("Updating Otterize access labels for %s", serviceID.Name)
-		updatedPod := otterizev1alpha2.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
-		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
+		updatedPod = otterizev1alpha2.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
+		hasUpdates = true
+	}
+
+	// Update Kubernetes service labels - which Kubernetes services use this pod as an endpoint. This allows
+	updatedPod, changed, err := p.updateOtterizeKubernetesServiceLabels(ctx, pod.DeepCopy())
+	if err != nil {
+		return err
+	}
+
+	if changed {
+		hasUpdates = true
+	}
+
+	if hasUpdates {
+		err = p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.Errorf("Failed updating Otterize labels for pod %s in namespace %s", pod.Name, pod.Namespace)
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -274,4 +288,30 @@ func (p *PodWatcher) Register(mgr manager.Manager) error {
 	}
 
 	return nil
+}
+
+// updateOtterizeKubernetesServiceLabels adds a label for each K8s service that points to the pod
+// This allows Otterize to support intents that use the K8s service name as their target server (using the `svc:` prefix) and
+// enables port-specific restrictions in network policies using the Kubernetes service target ports
+func (p *PodWatcher) updateOtterizeKubernetesServiceLabels(ctx context.Context, pod *v1.Pod) (*v1.Pod, bool, error) {
+	podLabelsPreUpdate := pod.Labels
+	services, err := p.serviceIdResolver.GetKubernetesServicesTargetingPod(ctx, pod)
+
+	pod = otterizev1alpha2.CleanupOtterizeKubernetesServiceLabels(pod)
+
+	if err != nil {
+		return nil, false, err
+	}
+
+	changed := reflect.DeepEqual(pod.Labels, podLabelsPreUpdate)
+
+	if len(services) == 0 {
+		return pod, changed, nil
+	}
+
+	for _, service := range services {
+		pod.Labels[otterizev1alpha2.OtterizeKubernetesServiceLabelKey] = service.Name
+	}
+
+	return pod, true, nil
 }

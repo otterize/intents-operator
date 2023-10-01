@@ -13,4 +13,5 @@ const (
 	ReasonIstioPolicyCreationDisabled   = "IstioPolicyCreationDisabled"
 	ReasonRemovingIstioPolicyFailed     = "RemovingIstioPolicyFailed"
 	ReasonOtterizeServiceNotFound       = "OtterizeServiceNotFound"
+	ReasonKubernetesServiceNotFound     = "KubernetesServiceNotFound"
 )
