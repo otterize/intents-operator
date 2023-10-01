@@ -42,7 +42,7 @@ func New() *TelemetrySender {
 	maxBatchSize := viper.GetInt(TelemetryMaxBatchSizeKey)
 	interval := viper.GetInt(TelemetryIntervalKey)
 	telemetriesClient := newGqlClient()
-	snapshotResetInterval := viper.GetDuration(TelemetrySnapshotResetIntervalKey)
+	snapshotResetInterval := viper.GetDuration(TelemetryResetIntervalKey)
 
 	sender := &TelemetrySender{
 		snapshotResetInterval: snapshotResetInterval,
@@ -96,20 +96,11 @@ func (t *TelemetrySender) HandleCounters(batch []UniqueEvent) error {
 		return nil
 	}
 
-	logrus.Infof("Telemetry batch: %v", batch)
-
 	for _, item := range batch {
 		t.uniqueEventsCounter.IncrementCounter(item.Event.Component, item.Event.EventType, item.Key)
 	}
 
 	counts := t.uniqueEventsCounter.Get()
-	logrus.Infof("Sending telemetry snapshot: %v", counts)
-	timeUntilReset := t.lastSnapshotResetTime.Add(t.snapshotResetInterval)
-
-	if time.Now().After(timeUntilReset) {
-		t.uniqueEventsCounter.Reset()
-		t.lastSnapshotResetTime = time.Now()
-	}
 
 	telemetries := make([]telemetriesgql.TelemetryInput, 0)
 	for _, count := range counts {
@@ -123,5 +114,17 @@ func (t *TelemetrySender) HandleCounters(batch []UniqueEvent) error {
 		telemetries = append(telemetries, telemetry)
 	}
 
-	return batchSendTelemetries(context.Background(), t.telemetriesClient, telemetries)
+	err := batchSendTelemetries(context.Background(), t.telemetriesClient, telemetries)
+	if err != nil {
+		return err
+	}
+
+	timeUntilReset := t.lastSnapshotResetTime.Add(t.snapshotResetInterval)
+
+	if time.Now().After(timeUntilReset) {
+		t.uniqueEventsCounter.Reset()
+		t.lastSnapshotResetTime = time.Now()
+	}
+
+	return nil
 }
