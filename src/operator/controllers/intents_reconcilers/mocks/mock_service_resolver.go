@@ -36,6 +36,21 @@ func (m *MockServiceResolver) EXPECT() *MockServiceResolverMockRecorder {
 	return m.recorder
 }
 
+// GetKubernetesServicesTargetingPod mocks base method.
+func (m *MockServiceResolver) GetKubernetesServicesTargetingPod(ctx context.Context, pod *v1.Pod) ([]v1.Service, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetKubernetesServicesTargetingPod", ctx, pod)
+	ret0, _ := ret[0].([]v1.Service)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetKubernetesServicesTargetingPod indicates an expected call of GetKubernetesServicesTargetingPod.
+func (mr *MockServiceResolverMockRecorder) GetKubernetesServicesTargetingPod(ctx, pod interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKubernetesServicesTargetingPod", reflect.TypeOf((*MockServiceResolver)(nil).GetKubernetesServicesTargetingPod), ctx, pod)
+}
+
 // GetPodAnnotatedName mocks base method.
 func (m *MockServiceResolver) GetPodAnnotatedName(ctx context.Context, podName, podNamespace string) (string, bool, error) {
 	m.ctrl.T.Helper()

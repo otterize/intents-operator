@@ -161,6 +161,11 @@ input DatabaseConfigInput {
 	operations: [DatabaseOperation!]!
 }
 
+type DatabaseCredentials {
+	username: String!
+	password: String!
+}
+
 input DatabaseCredentialsInput {
 	username: String!
 	password: String!
@@ -770,16 +775,6 @@ type Query {
 		clusterId: ID
 		name: String
 	): Integration!
-"""Get intent"""
-	intent(
-		id: ID!
-	): Intent!
-"""List intents"""
-	intents(
-		environmentId: ID
-		clientId: ID
-		serverId: ID
-	): [Intent!]!
 """Get namespace"""
 	namespace(
 		id: ID!
