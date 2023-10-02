@@ -7,6 +7,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -30,12 +31,12 @@ type externalNetpolHandler interface {
 
 type NetworkPolicyReconciler struct {
 	client.Client
-	Scheme                                        *runtime.Scheme
-	extNetpolHandler                              externalNetpolHandler
-	RestrictToNamespaces                          []string
-	enableNetworkPolicyCreation                   bool
-	enforcementDefaultState                       bool
-	externalNetworkPoliciesCreatedEvenIfNoIntents bool
+	Scheme                      *runtime.Scheme
+	extNetpolHandler            externalNetpolHandler
+	RestrictToNamespaces        []string
+	enableNetworkPolicyCreation bool
+	enforcementDefaultState     bool
+	allowExternalTraffic        allowexternaltraffic.Enum
 	injectablerecorder.InjectableRecorder
 }
 
@@ -46,7 +47,7 @@ func NewNetworkPolicyReconciler(
 	restrictToNamespaces []string,
 	enableNetworkPolicyCreation bool,
 	enforcementDefaultState bool,
-	externalNetworkPoliciesCreatedEvenIfNoIntents bool) *NetworkPolicyReconciler {
+	allowExternalTraffic allowexternaltraffic.Enum) *NetworkPolicyReconciler {
 	return &NetworkPolicyReconciler{
 		Client:                      c,
 		Scheme:                      s,
@@ -54,7 +55,7 @@ func NewNetworkPolicyReconciler(
 		RestrictToNamespaces:        restrictToNamespaces,
 		enableNetworkPolicyCreation: enableNetworkPolicyCreation,
 		enforcementDefaultState:     enforcementDefaultState,
-		externalNetworkPoliciesCreatedEvenIfNoIntents: externalNetworkPoliciesCreatedEvenIfNoIntents,
+		allowExternalTraffic:        allowExternalTraffic,
 	}
 }
 

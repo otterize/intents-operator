@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -38,12 +39,15 @@ type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	enabled                                bool
-	createEvenIfNoPreexistingNetworkPolicy bool
+	allowExternalTraffic allowexternaltraffic.Enum
 }
 
-func NewNetworkPolicyHandler(client client.Client, scheme *runtime.Scheme, enabled bool, createEvenIfNoPreexistingNetworkPolicy bool) *NetworkPolicyHandler {
-	return &NetworkPolicyHandler{client: client, scheme: scheme, enabled: enabled, createEvenIfNoPreexistingNetworkPolicy: createEvenIfNoPreexistingNetworkPolicy}
+func NewNetworkPolicyHandler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	allowExternalTraffic allowexternaltraffic.Enum,
+) *NetworkPolicyHandler {
+	return &NetworkPolicyHandler{client: client, scheme: scheme, allowExternalTraffic: allowExternalTraffic}
 }
 
 func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
@@ -157,8 +161,8 @@ func buildNetworkPolicyObjectForEndpoints(
 //
 //	that related external policies will be removed as well (if needed)
 func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error {
-	// if createEvenIfNoPreexistingNetworkPolicy is on - external policies are not dependent on access policies
-	if r.createEvenIfNoPreexistingNetworkPolicy {
+	// if allowExternalTraffic is Always - external policies are not dependent on access policies
+	if r.allowExternalTraffic == allowexternaltraffic.Always {
 		return nil
 	}
 
@@ -350,7 +354,7 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		}
 
 		if len(netpolList.Items) == 0 {
-			if r.createEvenIfNoPreexistingNetworkPolicy {
+			if r.allowExternalTraffic == allowexternaltraffic.Always {
 				err := r.handleNetpolsForOtterizeServiceWithoutIntents(ctx, endpoints, serverLabel, ingressList)
 				if err != nil {
 					return err
@@ -367,7 +371,7 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 
 	}
 
-	if !foundOtterizeNetpolsAffectingPods && !r.createEvenIfNoPreexistingNetworkPolicy {
+	if !foundOtterizeNetpolsAffectingPods && r.allowExternalTraffic != allowexternaltraffic.Always {
 		policyName := r.formatPolicyName(endpoints.Name)
 		err := r.handlePolicyDelete(ctx, policyName, endpoints.Namespace)
 		if err != nil {
@@ -470,7 +474,7 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 	}
 
 	// delete policy if disabled
-	if !r.enabled {
+	if r.allowExternalTraffic == allowexternaltraffic.Off {
 		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {
@@ -496,7 +500,7 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeServiceWithoutIntents(ctx
 	}
 
 	// delete policy if disabled
-	if !r.enabled {
+	if r.allowExternalTraffic == allowexternaltraffic.Off {
 		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {

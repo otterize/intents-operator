@@ -9,6 +9,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -58,9 +59,8 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
-	createEvenIfNoIntentsFound := false
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, true, createEvenIfNoIntentsFound)
-	s.NetworkPolicyReconciler = intents_reconcilers.NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, true, true, createEvenIfNoIntentsFound)
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.IfBlockedByOtterize)
+	s.NetworkPolicyReconciler = intents_reconcilers.NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, true, true, allowexternaltraffic.IfBlockedByOtterize)
 	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
 	s.NetworkPolicyReconciler.InjectRecorder(recorder)
 
@@ -472,7 +472,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerNetwor
 
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
 
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, false, false)
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Off)
 	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	recorder := record.NewFakeRecorder(10)
 	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)

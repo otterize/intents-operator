@@ -26,6 +26,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -89,8 +90,7 @@ func main() {
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
 	enableLeaderElection := viper.GetBool(operatorconfig.EnableLeaderElectionKey)
 	selfSignedCert := viper.GetBool(operatorconfig.SelfSignedCertKey)
-	autoCreateNetworkPoliciesForExternalTraffic := viper.GetBool(operatorconfig.AutoCreateNetworkPoliciesForExternalTrafficKey)
-	autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement := viper.GetBool(operatorconfig.AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredKey)
+	allowExternalTraffic := allowexternaltraffic.Enum(viper.GetString(operatorconfig.AllowExternalTrafficKey))
 	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
 	enforcementConfig := controllers.EnforcementConfig{
 		EnforcementDefaultState:  viper.GetBool(operatorconfig.EnforcementDefaultStateKey),
@@ -184,9 +184,17 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
-	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
+	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
-	networkPolicyHandler := intents_reconcilers.NewNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
+	networkPolicyHandler := intents_reconcilers.NewNetworkPolicyReconciler(
+		mgr.GetClient(),
+		scheme,
+		extNetpolHandler,
+		watchedNamespaces,
+		enforcementConfig.EnableNetworkPolicy,
+		enforcementConfig.EnforcementDefaultState,
+		allowExternalTraffic,
+	)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")

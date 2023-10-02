@@ -6,6 +6,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -55,7 +56,7 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 		restrictToNamespaces,
 		true,
 		true,
-		false,
+		allowexternaltraffic.IfBlockedByOtterize,
 	)
 
 	s.Reconciler.Recorder = s.Recorder
