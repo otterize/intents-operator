@@ -79,30 +79,32 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 	for _, clientIntent := range clientIntentsList.Items {
 		callList := make([]otterizev1alpha2.Intent, 0)
 		for _, intent := range clientIntent.GetCallsList() {
-			if intent.IsTargetServerKubernetesService() {
-				svc := corev1.Service{}
-				kubernetesSvcName := intent.GetTargetServerName()
-				kubernetesSvcNamespace := intent.GetTargetServerNamespace(clientIntent.Namespace)
-				err := r.Get(ctx, types.NamespacedName{
-					Namespace: kubernetesSvcNamespace,
-					Name:      kubernetesSvcName,
-				}, &svc)
+			if !intent.IsTargetServerKubernetesService() {
+				callList = append(callList, intent)
+				continue
+			}
+			svc := corev1.Service{}
+			kubernetesSvcName := intent.GetTargetServerName()
+			kubernetesSvcNamespace := intent.GetTargetServerNamespace(clientIntent.Namespace)
+			err := r.Get(ctx, types.NamespacedName{
+				Namespace: kubernetesSvcNamespace,
+				Name:      kubernetesSvcName,
+			}, &svc)
+			if err != nil {
+				return nil, err
+			}
+			podList := corev1.PodList{}
+			err = r.List(ctx, &podList, &client.ListOptions{LabelSelector: labels.SelectorFromSet(svc.Spec.Selector)})
+			if err != nil {
+				return nil, err
+			}
+			if len(podList.Items) != 0 {
+				otterizeIdentity, err := r.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &podList.Items[0])
 				if err != nil {
 					return nil, err
 				}
-				podList := corev1.PodList{}
-				err = r.List(ctx, &podList, &client.ListOptions{LabelSelector: labels.SelectorFromSet(svc.Spec.Selector)})
-				if err != nil {
-					return nil, err
-				}
-				if len(podList.Items) != 0 {
-					otterizeIdentity, err := r.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &podList.Items[0])
-					if err != nil {
-						return nil, err
-					}
-					intent.Name = otterizeIdentity.Name
-					callList = append(callList, intent)
-				}
+				intent.Name = otterizeIdentity.Name
+				callList = append(callList, intent)
 			}
 			clientIntent.Spec.Calls = callList
 		}

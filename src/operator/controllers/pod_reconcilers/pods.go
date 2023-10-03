@@ -196,12 +196,12 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		}
 		if otterizev1alpha2.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
 			logrus.Infof("Updating Otterize access labels for %s", serviceID.Name)
-			updatedPod = otterizev1alpha2.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
+			updatedPod = otterizev1alpha2.UpdateOtterizeAccessLabels(updatedPod.DeepCopy(), otterizeAccessLabels)
 			hasUpdates = true
 		}
 	}
 
-	// Update Kubernetes service labels - which Kubernetes services use this pod as an endpoint. This allows
+	// Update Kubernetes service labels - which Kubernetes services use this pod as an endpoint.
 	updatedPod, changed, err := p.updateOtterizeKubernetesServiceLabels(ctx, updatedPod.DeepCopy())
 	if err != nil {
 		return err
@@ -300,7 +300,7 @@ func (p *PodWatcher) updateOtterizeKubernetesServiceLabels(ctx context.Context, 
 		return nil, false, err
 	}
 
-	changed := reflect.DeepEqual(updatedPod.Labels, podLabelsPreUpdate)
+	changed := !reflect.DeepEqual(updatedPod.Labels, podLabelsPreUpdate)
 
 	if len(services) == 0 {
 		return updatedPod, changed, nil
