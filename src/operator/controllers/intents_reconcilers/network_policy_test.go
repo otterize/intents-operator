@@ -1537,13 +1537,14 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 		formattedTargetServer,
 		testNamespace,
 	)
-	// Add target port
+	// Add target port and change selector in ingress to use svc
 	newPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
-	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
-
-	selector := labels.SelectorFromSet(labels.Set(map[string]string{
+	selector := map[string]string{
 		fmt.Sprintf(otterizev1alpha2.OtterizeKubernetesServiceLabelKey, formattedTargetServer): "true",
-	}))
+	}
+	newPolicy.Spec.PodSelector.MatchLabels = selector
+
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
 	s.ignoreRemoveOrphan()
