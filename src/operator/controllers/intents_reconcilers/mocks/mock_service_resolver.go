@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	v1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	serviceidresolver "github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 )
@@ -95,4 +96,19 @@ func (m *MockServiceResolver) ResolveIntentServerToPod(ctx context.Context, inte
 func (mr *MockServiceResolverMockRecorder) ResolveIntentServerToPod(ctx, intent, namespace interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveIntentServerToPod", reflect.TypeOf((*MockServiceResolver)(nil).ResolveIntentServerToPod), ctx, intent, namespace)
+}
+
+// ResolvePodToServiceIdentity mocks base method.
+func (m *MockServiceResolver) ResolvePodToServiceIdentity(ctx context.Context, pod *v1.Pod) (serviceidresolver.ServiceIdentity, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolvePodToServiceIdentity", ctx, pod)
+	ret0, _ := ret[0].(serviceidresolver.ServiceIdentity)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolvePodToServiceIdentity indicates an expected call of ResolvePodToServiceIdentity.
+func (mr *MockServiceResolverMockRecorder) ResolvePodToServiceIdentity(ctx, pod interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolvePodToServiceIdentity", reflect.TypeOf((*MockServiceResolver)(nil).ResolvePodToServiceIdentity), ctx, pod)
 }

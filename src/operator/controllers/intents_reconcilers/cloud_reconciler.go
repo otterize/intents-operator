@@ -23,7 +23,7 @@ type OtterizeCloudReconciler struct {
 	client.Client
 	Scheme            *runtime.Scheme
 	otterizeClient    operator_cloud_client.CloudClient
-	serviceIdResolver *serviceidresolver.Resolver
+	serviceIdResolver serviceidresolver.ServiceResolver
 	injectablerecorder.InjectableRecorder
 }
 
@@ -31,7 +31,7 @@ func NewOtterizeCloudReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	cloudClient operator_cloud_client.CloudClient,
-	serviceIdResolver *serviceidresolver.Resolver) *OtterizeCloudReconciler {
+	serviceIdResolver serviceidresolver.ServiceResolver) *OtterizeCloudReconciler {
 
 	return &OtterizeCloudReconciler{
 		Client:            client,
