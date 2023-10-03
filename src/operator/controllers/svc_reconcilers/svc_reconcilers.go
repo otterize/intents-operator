@@ -13,9 +13,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 type ServiceWatcher struct {
@@ -62,18 +60,12 @@ func (p *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	return ctrl.Result{}, nil
 }
 
-func (p *ServiceWatcher) Register(mgr manager.Manager) error {
-	watcher, err := controller.New("otterize-service-watcher", mgr, controller.Options{
-		Reconciler:   p,
-		RecoverPanic: lo.ToPtr(true),
-	})
-	if err != nil {
-		return fmt.Errorf("unable to set up service controller: %p", err)
-	}
+func (p *ServiceWatcher) SetupWithManager(mgr manager.Manager) error {
+	recorder := mgr.GetEventRecorderFor("intents-operator")
+	p.InjectRecorder(recorder)
 
-	if err = watcher.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForObject{}); err != nil {
-		return fmt.Errorf("unable to watch Services: %p", err)
-	}
-
-	return nil
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&corev1.Service{}).
+		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
+		Complete(p)
 }
