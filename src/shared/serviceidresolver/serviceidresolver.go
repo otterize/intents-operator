@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
@@ -22,7 +23,7 @@ type ServiceResolver interface {
 	ResolveClientIntentToPod(ctx context.Context, intent v1alpha2.ClientIntents) (corev1.Pod, error)
 	ResolveIntentServerToPod(ctx context.Context, intent v1alpha2.Intent, namespace string) (corev1.Pod, error)
 	GetKubernetesServicesTargetingPod(ctx context.Context, pod *corev1.Pod) ([]corev1.Service, error)
-	ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (ServiceIdentity, error)
+	ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error)
 }
 
 type Resolver struct {
@@ -49,24 +50,18 @@ func (r *Resolver) GetPodAnnotatedName(ctx context.Context, podName string, podN
 	return annotation, ok, nil
 }
 
-type ServiceIdentity struct {
-	Name string
-	// OwnerObject used to resolve the service name. May be nil if service name was resolved using annotation.
-	OwnerObject client.Object
-}
-
 // ResolvePodToServiceIdentity resolves a pod object to its otterize service ID, referenced in intents objects.
 // It calls GetOwnerObject to recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference.
 // In case the pod is annotated with an "intents.otterize.com/service-name" annotation, that annotation's value will override
 // any owner reference name as the service name.
-func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (ServiceIdentity, error) {
+func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error) {
 	annotatedServiceName, ok := ResolvePodToServiceIdentityUsingAnnotationOnly(pod)
 	if ok {
-		return ServiceIdentity{Name: annotatedServiceName}, nil
+		return serviceidentity.ServiceIdentity{Name: annotatedServiceName}, nil
 	}
 	ownerObj, err := r.GetOwnerObject(ctx, pod)
 	if err != nil {
-		return ServiceIdentity{}, err
+		return serviceidentity.ServiceIdentity{}, err
 	}
 
 	resourceName := ownerObj.GetName()
@@ -76,7 +71,7 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 	// So, for example, a deployment named "my-deployment.5.2.0" will be seen by Otterize as "my-deployment_5_2_0"
 	otterizeServiceName := strings.ReplaceAll(resourceName, ".", "_")
 
-	return ServiceIdentity{Name: otterizeServiceName, OwnerObject: ownerObj}, nil
+	return serviceidentity.ServiceIdentity{Name: otterizeServiceName, OwnerObject: ownerObj}, nil
 }
 
 // GetOwnerObject recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference
