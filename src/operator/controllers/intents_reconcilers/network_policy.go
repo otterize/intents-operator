@@ -518,10 +518,13 @@ func (r *NetworkPolicyReconciler) addPortRestrictionToNetworkPolicy(
 	networkPolicyPorts := make([]v1.NetworkPolicyPort, 0)
 	// Create a list of network policy ports
 	for port, protocol := range portToProtocol {
-		networkPolicyPorts = append(networkPolicyPorts, v1.NetworkPolicyPort{
-			Protocol: &protocol,
-			Port:     &intstr.IntOrString{IntVal: int32(port)}, // What the hell
-		})
+		netpolPort := v1.NetworkPolicyPort{
+			Port: &intstr.IntOrString{IntVal: int32(port)}, // What the hell
+		}
+		if len(protocol) != 0 {
+			netpolPort.Protocol = lo.ToPtr(protocol)
+		}
+		networkPolicyPorts = append(networkPolicyPorts, netpolPort)
 	}
 
 	// Add ports to network policy spec
