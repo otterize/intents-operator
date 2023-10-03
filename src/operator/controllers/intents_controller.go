@@ -67,10 +67,12 @@ func NewIntentsReconciler(
 	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string) *IntentsReconciler {
+
+	serviceIdResolver := serviceidresolver.NewResolver(client)
 	reconcilersGroup := reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
-		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),
+		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
 		networkPolicyReconciler,
 	)
@@ -81,10 +83,10 @@ func NewIntentsReconciler(
 		networkPolicyReconciler: networkPolicyReconciler,
 	}
 
-	if otterizeClient != nil {
-		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient)
-		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
-	}
+	//if otterizeClient != nil {
+	otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient, serviceIdResolver)
+	intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
+	//}
 
 	if enforcementConfig.EnableDatabaseReconciler {
 		databaseReconciler := exp.NewDatabaseReconciler(client, scheme, otterizeClient)
