@@ -6,10 +6,10 @@ package serviceidresolvermocks
 
 import (
 	context "context"
-	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	reflect "reflect"
 
 	v1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	serviceidentity "github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 )

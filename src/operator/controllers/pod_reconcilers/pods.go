@@ -8,6 +8,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -78,7 +79,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceID serviceidresolver.ServiceIdentity) error {
+func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceID serviceidentity.ServiceIdentity) error {
 	if !p.istioEnforcementEnabled() || pod.DeletionTimestamp != nil {
 		return nil
 	}
@@ -123,7 +124,7 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 	return nil
 }
 
-func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, serviceID serviceidresolver.ServiceIdentity) error {
+func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, serviceID serviceidentity.ServiceIdentity) error {
 	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 
 	serviceFullName := fmt.Sprintf("%s.%s", serviceID.Name, pod.Namespace)
@@ -150,7 +151,7 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 	return nil
 }
 
-func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request, serviceID serviceidresolver.ServiceIdentity, pod v1.Pod) error {
+func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request, serviceID serviceidentity.ServiceIdentity, pod v1.Pod) error {
 	// Intents were deleted and the pod was updated by the operator, skip reconciliation
 	_, ok := pod.Annotations[otterizev1alpha2.AllIntentsRemovedAnnotation]
 	if ok {
