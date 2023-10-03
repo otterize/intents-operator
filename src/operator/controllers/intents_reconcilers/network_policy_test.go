@@ -1478,9 +1478,10 @@ func (s *NetworkPolicyReconcilerTestSuite) addExpectedKubernetesServiceCall(serv
 		},
 	}
 
-	s.Client.EXPECT().Get(gomock.Any(), kubernetesSvcNamespacedName, gomock.Eq(svcObject)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, service *corev1.Service, options ...client.ListOption) (*corev1.Service, error) {
-			return &svcObject, nil
+	s.Client.EXPECT().Get(gomock.Any(), kubernetesSvcNamespacedName, gomock.AssignableToTypeOf(&svcObject)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, service *corev1.Service, options ...client.ListOption) error {
+			svcObject.DeepCopyInto(service)
+			return nil
 		})
 }
 
