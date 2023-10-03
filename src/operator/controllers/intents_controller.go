@@ -83,10 +83,10 @@ func NewIntentsReconciler(
 		networkPolicyReconciler: networkPolicyReconciler,
 	}
 
-	//if otterizeClient != nil {
-	otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient, serviceIdResolver)
-	intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
-	//}
+	if otterizeClient != nil {
+		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient, serviceIdResolver)
+		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
+	}
 
 	if enforcementConfig.EnableDatabaseReconciler {
 		databaseReconciler := exp.NewDatabaseReconciler(client, scheme, otterizeClient)

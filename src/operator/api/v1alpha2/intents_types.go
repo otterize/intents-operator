@@ -252,7 +252,11 @@ func (in *Intent) GetTargetServerName() string {
 }
 
 func (in *Intent) GetServerFullyQualifiedName(intentsObjNamespace string) string {
-	return fmt.Sprintf("%s.%s", in.GetTargetServerName(), in.GetTargetServerNamespace(intentsObjNamespace))
+	fullyQualifiedName := fmt.Sprintf("%s.%s", in.GetTargetServerName(), in.GetTargetServerNamespace(intentsObjNamespace))
+	if in.IsTargetServerKubernetesService() {
+		fullyQualifiedName = fmt.Sprintf("svc:%s", fullyQualifiedName)
+	}
+	return fullyQualifiedName
 }
 
 func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
