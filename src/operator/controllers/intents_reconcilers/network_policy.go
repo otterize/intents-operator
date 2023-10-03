@@ -2,6 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
@@ -25,6 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+var ErrorTypeStringPortNotSupported = errors.New("port of type string is not supported")
 
 type externalNetpolHandler interface {
 	HandlePodsByLabelSelector(ctx context.Context, namespace string, labelSelector labels.Selector) error
@@ -156,14 +159,19 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	if intent.IsTargetServerKubernetesService() {
 		// Fetch K8s service, list target ports & add them to the network policy
 		err := r.addPortRestrictionToNetworkPolicy(ctx, intent, intentsObjNamespace, newPolicy)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
-		} else if k8serrors.IsNotFound(err) {
-			r.RecordWarningEventf(existingPolicy, consts.ReasonKubernetesServiceNotFound,
-				"failed fetching kubernetes service %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
-			return false, err
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				r.RecordWarningEventf(intentsObj, consts.ReasonKubernetesServiceNotFound,
+					"failed fetching kubernetes service %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
+				return false, err
+			} else if errors.Is(err, ErrorTypeStringPortNotSupported) {
+				r.RecordNormalEventf(intentsObj, consts.ReasonPortRestrictionUnsupportedForStrings,
+					"service spec has one or more target ports as strings which is not supported. Will not add ports to network policy")
+				// We don't need to return here, we just create the network policy without port restriction
+			} else {
+				return false, err
+			}
 		}
-
 	}
 
 	err = r.Get(ctx, types.NamespacedName{
@@ -513,6 +521,9 @@ func (r *NetworkPolicyReconciler) addPortRestrictionToNetworkPolicy(
 	portToProtocol := make(map[int]corev1.Protocol)
 	// Gather all target ports (target ports in the pod the service proxies to)
 	for _, port := range svc.Spec.Ports {
+		if port.TargetPort.IntValue() == 0 { // When a port is specified as a string, IntValue() will be 0
+			return ErrorTypeStringPortNotSupported
+		}
 		portToProtocol[port.TargetPort.IntValue()] = port.Protocol
 	}
 
