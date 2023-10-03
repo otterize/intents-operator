@@ -1542,11 +1542,12 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 	selector := map[string]string{
 		fmt.Sprintf(otterizev1alpha2.OtterizeKubernetesServiceLabelKey, formattedTargetServer): "true",
 	}
+	selectorTyped := labels.SelectorFromSet(selector)
 	newPolicy.Spec.PodSelector.MatchLabels = selector
 
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
-	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selectorTyped)
 	s.ignoreRemoveOrphan()
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
