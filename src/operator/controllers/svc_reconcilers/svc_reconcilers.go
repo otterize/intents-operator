@@ -62,32 +62,6 @@ func (p *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	return ctrl.Result{}, nil
 }
 
-// InitIntentsServerIndices indexes intents by target server name
-// This is used in finalizers to determine whether a network policy should be removed from the target namespace
-func (p *ServiceWatcher) InitIntentsServerIndices(mgr ctrl.Manager) error {
-	err := mgr.GetCache().IndexField(
-		context.Background(),
-		&otterizev1alpha2.ClientIntents{},
-		otterizev1alpha2.OtterizeTargetServerIndexField,
-		func(object client.Object) []string {
-			var res []string
-			intents := object.(*otterizev1alpha2.ClientIntents)
-			if intents.Spec == nil {
-				return nil
-			}
-
-			for _, intent := range intents.GetCallsList() {
-				res = append(res, intent.GetServerFullyQualifiedName(intents.Namespace))
-			}
-
-			return res
-		})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func (p *ServiceWatcher) Register(mgr manager.Manager) error {
 	watcher, err := controller.New("otterize-service-watcher", mgr, controller.Options{
 		Reconciler:   p,
