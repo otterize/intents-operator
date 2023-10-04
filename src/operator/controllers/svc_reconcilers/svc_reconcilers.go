@@ -32,8 +32,9 @@ func NewServiceWatcher(c client.Client, eventRecorder record.EventRecorder, netw
 }
 
 func (p *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// We reconcile everytime a service changes, when a service is deleted netpols should get removed,
-	// when a target port changes netpols should be updated, etc.
+	// We reconcile everytime a service changes.
+	// When a service is deleted, target ports should be removed from the policy.
+	// When a target port changes netpols should be updated, etc.
 	targetServerName := fmt.Sprintf("svc:%s.%s", req.Name, req.Namespace)
 	var intentsList otterizev1alpha2.ClientIntentsList
 	err := p.List(
