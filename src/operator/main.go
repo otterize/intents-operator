@@ -212,17 +212,17 @@ func main() {
 	if connectedToCloud {
 		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig)
 		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
+
+		netpolUploader := external_traffic.NewNetworkPolicyUploaderReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
+		if err = netpolUploader.SetupWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to initialize NetworkPolicy reconciler")
+		}
 	} else {
 		logrus.Info("Not configured for cloud integration")
 	}
 
 	if !enforcementConfig.EnforcementDefaultState {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
-	}
-
-	netpolReconciler := external_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
-	if err = netpolReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to initialize NetworkPolicy reconciler")
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(
