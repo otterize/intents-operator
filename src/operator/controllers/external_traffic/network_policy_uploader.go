@@ -10,7 +10,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	v12 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-type NetworkPolicyReconciler struct {
+type NetworkPolicyUploaderReconciler struct {
 	client.Client
 	Scheme            *runtime.Scheme
 	serviceIdResolver *serviceidresolver.Resolver
@@ -30,12 +30,12 @@ type NetworkPolicyReconciler struct {
 	injectablerecorder.InjectableRecorder
 }
 
-func NewNetworkPolicyReconciler(
+func NewNetworkPolicyUploaderReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	otterizeClient operator_cloud_client.CloudClient,
-) *NetworkPolicyReconciler {
-	return &NetworkPolicyReconciler{
+) *NetworkPolicyUploaderReconciler {
+	return &NetworkPolicyUploaderReconciler{
 		Client:            client,
 		Scheme:            scheme,
 		serviceIdResolver: serviceidresolver.NewResolver(client),
@@ -43,7 +43,7 @@ func NewNetworkPolicyReconciler(
 	}
 }
 
-func (r *NetworkPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *NetworkPolicyUploaderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	recorder := mgr.GetEventRecorderFor("intents-operator")
 	r.InjectRecorder(recorder)
 
@@ -54,7 +54,7 @@ func (r *NetworkPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *NetworkPolicyUploaderReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logrus.WithField("policy", req.NamespacedName.String()).Debug("Reconcile Otterize NetworkPolicy")
 
 	netpol := &v1.NetworkPolicy{}
@@ -75,7 +75,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	var podList v12.PodList
+	var podList corev1.PodList
 	err = r.List(
 		ctx, &podList,
 		&client.MatchingLabelsSelector{Selector: selector},
@@ -109,26 +109,15 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		})
 	}
 
-	err = r.ReportPolicies(ctx, req.Namespace, inputs)
+	err = r.otterizeClient.ReportNetworkPolicies(ctx, req.Namespace, inputs)
 	if err != nil {
+		logrus.WithError(err).
+			WithField("namespace", req.Namespace).
+			Error("failed reporting network policies")
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *NetworkPolicyReconciler) ReportPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error {
-	if r.otterizeClient == nil {
-		return nil
-	}
-
-	err := r.otterizeClient.ReportNetworkPolicies(ctx, namespace, policies)
-	if err != nil {
-		logrus.WithError(err).WithField("namespace", namespace).Error("failed reporting network policies")
-		return err
-	}
-
-	return nil
 }
 
 func filterOtterizeNetworkPolicy() predicate.Predicate {
