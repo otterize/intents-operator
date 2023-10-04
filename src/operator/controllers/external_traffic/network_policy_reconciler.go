@@ -109,17 +109,26 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		})
 	}
 
-	err = r.otterizeClient.ReportNetworkPolicies(ctx, req.Namespace, inputs)
-
+	err = r.ReportPolicies(ctx, req.Namespace, inputs)
 	if err != nil {
-		logrus.WithError(err).
-			WithField("namespace", req.Namespace).
-			Error("failed reporting network policies")
-
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *NetworkPolicyReconciler) ReportPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error {
+	if r.otterizeClient == nil {
+		return nil
+	}
+
+	err := r.otterizeClient.ReportNetworkPolicies(ctx, namespace, policies)
+	if err != nil {
+		logrus.WithError(err).WithField("namespace", namespace).Error("failed reporting network policies")
+		return err
+	}
+
+	return nil
 }
 
 func filterOtterizeNetworkPolicy() predicate.Predicate {
