@@ -1,15 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/created-by: intents-operator
+    app.kubernetes.io/instance: webhook-service
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: service
+    app.kubernetes.io/part-of: intents-operator
+  name: webhook-service
+  namespace: system
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    control-plane: controller-manager
+---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
-  name: otterize-validating-webhook-configuration
+  name: validating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
   - v1
   clientConfig:
     service:
-      name: intents-operator-webhook-service
-      namespace: {{ .Release.Namespace }}
+      name: webhook-service
+      namespace: system
       path: /validate-k8s-otterize-com-v1alpha2-clientintents
   failurePolicy: Fail
   name: clientintents.kb.io
@@ -28,8 +48,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: intents-operator-webhook-service
-      namespace: {{ .Release.Namespace }}
+      name: webhook-service
+      namespace: system
       path: /validate-k8s-otterize-com-v1alpha2-protectedservice
   failurePolicy: Fail
   name: protectedservice.kb.io

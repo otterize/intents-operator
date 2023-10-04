@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -223,9 +224,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -233,9 +234,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 			intents.Spec = intentsSpec
 			return nil
@@ -288,15 +289,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
 		},
 	}
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
@@ -305,9 +306,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)
 			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 			return nil
@@ -364,21 +365,21 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	serverLabelSelector := client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: existingPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]}
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		gomock.Eq(&otterizev1alpha2.ClientIntentsList{}),
+		gomock.Eq(&otterizev1alpha3.ClientIntentsList{}),
 		&serverLabelSelector).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, options ...client.ListOption) error {
-			list.Items = []otterizev1alpha2.ClientIntents{clientIntents}
+		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, options ...client.ListOption) error {
+			list.Items = []otterizev1alpha3.ClientIntents{clientIntents}
 			return nil
 		})
 
 	orphanServerLabelSelector := client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: orphanPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]}
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		gomock.Eq(&otterizev1alpha2.ClientIntentsList{}),
+		gomock.Eq(&otterizev1alpha3.ClientIntentsList{}),
 		&orphanServerLabelSelector).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, options ...client.ListOption) error {
+		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, options ...client.ListOption) error {
 			// There are no ClientIntents for this NetworkPolicy, so it should be deleted
-			list.Items = []otterizev1alpha2.ClientIntents{}
+			list.Items = []otterizev1alpha3.ClientIntents{}
 			return nil
 		})
 
@@ -400,9 +401,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -410,8 +411,8 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	clientIntentsObj := otterizev1alpha2.ClientIntents{
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
+	clientIntentsObj := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         testNamespace,
@@ -421,16 +422,16 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	}
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntentsObj.DeepCopyInto(intents)
 			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 			return nil
 		})
 
 	// Search for client intents with the same target server and delete them if it's the last client intent pointing to the server
-	emptyIntentsList := &otterizev1alpha2.ClientIntentsList{}
-	intentsList := &otterizev1alpha2.ClientIntentsList{
-		Items: []otterizev1alpha2.ClientIntents{
+	emptyIntentsList := &otterizev1alpha3.ClientIntentsList{}
+	intentsList := &otterizev1alpha3.ClientIntentsList{
+		Items: []otterizev1alpha3.ClientIntents{
 			clientIntentsObj,
 		},
 	}
@@ -439,7 +440,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 		gomock.Eq(emptyIntentsList),
 		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serverName},
 		&client.ListOptions{Namespace: testNamespace},
-	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts ...client.ListOption) error {
+	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
 		intentsList.DeepCopyInto(list)
 		return nil
 	})
@@ -503,9 +504,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -513,9 +514,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 			intents.Spec = intentsSpec
 			return nil
@@ -597,9 +598,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -607,8 +608,8 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	intentsWithoutFinalizer := otterizev1alpha2.ClientIntents{
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
+	intentsWithoutFinalizer := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
@@ -617,12 +618,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	}
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			intentsWithoutFinalizer.DeepCopyInto(intents)
 			return nil
 		})
 
-	intentsWithFinalizer := otterizev1alpha2.ClientIntents{}
+	intentsWithFinalizer := otterizev1alpha3.ClientIntents{}
 	intentsWithoutFinalizer.DeepCopyInto(&intentsWithFinalizer)
 	// Add finalizer to ClientIntents
 	controllerutil.AddFinalizer(&intentsWithFinalizer, otterizev1alpha2.NetworkPolicyFinalizerName)
@@ -720,9 +721,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 	}
 
 	serverFullName := fmt.Sprintf("%s.%s", serverName, serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverFullName,
 			},
@@ -730,8 +731,8 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&otterizev1alpha2.ClientIntents{})).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&otterizev1alpha3.ClientIntents{})).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 			intents.Spec = intentsSpec
 			return nil
@@ -784,9 +785,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -794,9 +795,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 			intents.Spec = intentsSpec
 			return nil
@@ -827,9 +828,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -837,8 +838,8 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	clientIntentsObj := otterizev1alpha2.ClientIntents{
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
+	clientIntentsObj := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         testNamespace,
@@ -848,31 +849,31 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	}
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntentsObj.DeepCopyInto(intents)
 			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 			return nil
 		})
 
 	// Search for client intents with the same target server and delete them if it's the last client intent pointing to the server
-	emptyIntentsList := &otterizev1alpha2.ClientIntentsList{}
+	emptyIntentsList := &otterizev1alpha3.ClientIntentsList{}
 
-	otherClientIntentsInTheNamespace := otterizev1alpha2.ClientIntents{
+	otherClientIntentsInTheNamespace := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "other-client-intents",
 			Namespace: testNamespace,
 		},
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{Name: "other-client"},
-			Calls: []otterizev1alpha2.Intent{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: "other-client"},
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: serverName,
 				},
 			},
 		},
 	}
-	intentsList := &otterizev1alpha2.ClientIntentsList{
-		Items: []otterizev1alpha2.ClientIntents{
+	intentsList := &otterizev1alpha3.ClientIntentsList{
+		Items: []otterizev1alpha3.ClientIntents{
 			clientIntentsObj,
 			otherClientIntentsInTheNamespace,
 		},
@@ -882,7 +883,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 		gomock.Eq(emptyIntentsList),
 		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serverName},
 		&client.ListOptions{Namespace: testNamespace},
-	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts ...client.ListOption) error {
+	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
 		intentsList.DeepCopyInto(list)
 		return nil
 	})

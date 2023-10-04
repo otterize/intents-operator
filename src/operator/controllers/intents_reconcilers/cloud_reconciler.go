@@ -2,7 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -36,7 +36,7 @@ func NewOtterizeCloudReconciler(
 
 func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	// Report Applied intents from namespace
-	clientIntentsList := otterizev1alpha2.ClientIntentsList{}
+	clientIntentsList := otterizev1alpha3.ClientIntentsList{}
 	if err := r.List(ctx, &clientIntentsList, &client.ListOptions{Namespace: req.Namespace}); err != nil {
 		return ctrl.Result{}, nil
 	}

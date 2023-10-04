@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -135,7 +136,7 @@ func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
 }
 
 func (r *IntentsReconciler) RemoveFinalizerFromAllResources(ctx context.Context, finalizer string) error {
-	var clientIntentsList otterizev1alpha2.ClientIntentsList
+	var clientIntentsList otterizev1alpha3.ClientIntentsList
 	err := r.client.List(ctx, &clientIntentsList)
 	if err != nil {
 		return err
@@ -155,7 +156,7 @@ func (r *IntentsReconciler) RemoveFinalizerFromAllResources(ctx context.Context,
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev1alpha2.ClientIntents{}).
+		For(&otterizev1alpha3.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Watches(&source.Kind{Type: &otterizev1alpha2.ProtectedService{}}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
 		Complete(r)
@@ -176,7 +177,7 @@ func (r *IntentsReconciler) mapProtectedServiceToClientIntents(obj client.Object
 	return r.mapIntentsToRequests(intentsToReconcile)
 }
 
-func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1alpha2.ClientIntents) []reconcile.Request {
+func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1alpha3.ClientIntents) []reconcile.Request {
 	requests := make([]reconcile.Request, 0)
 	for _, clientIntents := range intentsToReconcile {
 		request := reconcile.Request{
@@ -190,10 +191,10 @@ func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1
 	return requests
 }
 
-func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otterizev1alpha2.ProtectedService) []otterizev1alpha2.ClientIntents {
-	intentsToReconcile := make([]otterizev1alpha2.ClientIntents, 0)
+func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otterizev1alpha2.ProtectedService) []otterizev1alpha3.ClientIntents {
+	intentsToReconcile := make([]otterizev1alpha3.ClientIntents, 0)
 	fullServerName := fmt.Sprintf("%s.%s", protectedService.Spec.Name, protectedService.Namespace)
-	var intentsToServer otterizev1alpha2.ClientIntentsList
+	var intentsToServer otterizev1alpha3.ClientIntentsList
 	err := r.client.List(context.Background(),
 		&intentsToServer,
 		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fullServerName},
@@ -211,11 +212,11 @@ func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otter
 func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha2.ClientIntents{},
+		&otterizev1alpha3.ClientIntents{},
 		otterizev1alpha2.OtterizeTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
-			intents := object.(*otterizev1alpha2.ClientIntents)
+			intents := object.(*otterizev1alpha3.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}
@@ -232,11 +233,11 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 
 	err = mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha2.ClientIntents{},
+		&otterizev1alpha3.ClientIntents{},
 		otterizev1alpha2.OtterizeFormattedTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
-			intents := object.(*otterizev1alpha2.ClientIntents)
+			intents := object.(*otterizev1alpha3.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}

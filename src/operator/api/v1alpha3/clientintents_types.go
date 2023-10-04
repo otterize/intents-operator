@@ -133,10 +133,10 @@ type Intent struct {
 	Type IntentType `json:"type,omitempty" yaml:"type,omitempty"`
 
 	//+optional
-	Topics []KafkaTopic `json:"topics,omitempty" yaml:"topics,omitempty"`
+	Topics []KafkaTopic `json:"kafkaTopics,omitempty" yaml:"kafkaTopics,omitempty"`
 
 	//+optional
-	HTTPResources []HTTPResource `json:"resources,omitempty" yaml:"resources,omitempty"`
+	HTTPResources []HTTPResource `json:"HTTPResources,omitempty" yaml:"HTTPResources,omitempty"`
 
 	//+optional
 	DatabaseResources []DatabaseResource `json:"databaseResources,omitempty" yaml:"databaseResources,omitempty"`

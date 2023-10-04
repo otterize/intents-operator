@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
@@ -282,37 +283,37 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestIntentsGeneratedForOperator()
 
 	// Handle operator intents for the new kafka server
 	operatorIntentsObjectName := fmt.Sprintf("operator-to-kafkaserverconfig-kafka-namespace-%s", testNamespace)
-	operatorIntents := otterizev1alpha2.ClientIntents{
+	operatorIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorIntentsObjectName,
 			Namespace: operatorPodNamespace,
 		},
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: operatorServiceName,
 			},
-			Calls: []otterizev1alpha2.Intent{
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: fmt.Sprintf("%s.%s", kafkaServiceName, testNamespace),
-					Type: otterizev1alpha2.IntentTypeKafka,
-					Topics: []otterizev1alpha2.KafkaTopic{{
+					Type: otterizev1alpha3.IntentTypeKafka,
+					Topics: []otterizev1alpha3.KafkaTopic{{
 						Name: "*",
-						Operations: []otterizev1alpha2.KafkaOperation{
-							otterizev1alpha2.KafkaOperationDescribe,
-							otterizev1alpha2.KafkaOperationAlter,
+						Operations: []otterizev1alpha3.KafkaOperation{
+							otterizev1alpha3.KafkaOperationDescribe,
+							otterizev1alpha3.KafkaOperationAlter,
 						},
 					}},
 				},
 			},
 		},
 	}
-	emptyIntents := otterizev1alpha2.ClientIntents{}
+	emptyIntents := otterizev1alpha3.ClientIntents{}
 	operatorIntentsRequest := types.NamespacedName{
 		Name:      operatorIntentsObjectName,
 		Namespace: operatorPodNamespace,
 	}
 	s.Client.EXPECT().Get(gomock.Any(), operatorIntentsRequest, &emptyIntents).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, _ ...client.GetOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, _ ...client.GetOption) error {
 			return k8serrors.NewNotFound(schema.GroupResource{}, "client intents")
 		})
 
@@ -370,24 +371,24 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestUpdateIntentsGeneratedForOper
 
 	// Set operator intents for the updated kafka server
 	operatorIntentsObjectName := fmt.Sprintf("operator-to-kafkaserverconfig-kafka-namespace-%s", testNamespace)
-	existingOperatorIntents := otterizev1alpha2.ClientIntents{
+	existingOperatorIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorIntentsObjectName,
 			Namespace: operatorPodNamespace,
 		},
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: operatorServiceName,
 			},
-			Calls: []otterizev1alpha2.Intent{
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: "old-kafka-server.another-namespace",
-					Type: otterizev1alpha2.IntentTypeKafka,
-					Topics: []otterizev1alpha2.KafkaTopic{{
+					Type: otterizev1alpha3.IntentTypeKafka,
+					Topics: []otterizev1alpha3.KafkaTopic{{
 						Name: "*",
-						Operations: []otterizev1alpha2.KafkaOperation{
-							otterizev1alpha2.KafkaOperationDescribe,
-							otterizev1alpha2.KafkaOperationAlter,
+						Operations: []otterizev1alpha3.KafkaOperation{
+							otterizev1alpha3.KafkaOperationDescribe,
+							otterizev1alpha3.KafkaOperationAlter,
 						},
 					}},
 				},
@@ -395,27 +396,27 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestUpdateIntentsGeneratedForOper
 		},
 	}
 
-	updatedOperatorIntents := otterizev1alpha2.ClientIntents{}
+	updatedOperatorIntents := otterizev1alpha3.ClientIntents{}
 	existingOperatorIntents.DeepCopyInto(&updatedOperatorIntents)
-	updatedOperatorIntents.Spec.Calls = []otterizev1alpha2.Intent{{
+	updatedOperatorIntents.Spec.Calls = []otterizev1alpha3.Intent{{
 		Name: fmt.Sprintf("%s.%s", kafkaServiceName, testNamespace),
-		Type: otterizev1alpha2.IntentTypeKafka,
-		Topics: []otterizev1alpha2.KafkaTopic{{
+		Type: otterizev1alpha3.IntentTypeKafka,
+		Topics: []otterizev1alpha3.KafkaTopic{{
 			Name: "*",
-			Operations: []otterizev1alpha2.KafkaOperation{
-				otterizev1alpha2.KafkaOperationDescribe,
-				otterizev1alpha2.KafkaOperationAlter,
+			Operations: []otterizev1alpha3.KafkaOperation{
+				otterizev1alpha3.KafkaOperationDescribe,
+				otterizev1alpha3.KafkaOperationAlter,
 			},
 		}},
 	}}
 
-	emptyIntents := otterizev1alpha2.ClientIntents{}
+	emptyIntents := otterizev1alpha3.ClientIntents{}
 	operatorIntentsRequest := types.NamespacedName{
 		Name:      operatorIntentsObjectName,
 		Namespace: operatorPodNamespace,
 	}
 	s.Client.EXPECT().Get(gomock.Any(), operatorIntentsRequest, &emptyIntents).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, _ ...client.GetOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, _ ...client.GetOption) error {
 			existingOperatorIntents.DeepCopyInto(intents)
 			return nil
 		})

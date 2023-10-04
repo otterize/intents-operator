@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	v1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 )
@@ -53,7 +53,7 @@ func (mr *MockServiceResolverMockRecorder) GetPodAnnotatedName(ctx, podName, pod
 }
 
 // ResolveClientIntentToPod mocks base method.
-func (m *MockServiceResolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha2.ClientIntents) (v1.Pod, error) {
+func (m *MockServiceResolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (v1.Pod, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveClientIntentToPod", ctx, intent)
 	ret0, _ := ret[0].(v1.Pod)
@@ -68,7 +68,7 @@ func (mr *MockServiceResolverMockRecorder) ResolveClientIntentToPod(ctx, intent 
 }
 
 // ResolveIntentServerToPod mocks base method.
-func (m *MockServiceResolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha2.Intent, namespace string) (v1.Pod, error) {
+func (m *MockServiceResolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3.Intent, namespace string) (v1.Pod, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveIntentServerToPod", ctx, intent, namespace)
 	ret0, _ := ret[0].(v1.Pod)

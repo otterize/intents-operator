@@ -81,7 +81,7 @@ func convertTopicsV1alpha2toV1alpha3(srcTopics []KafkaTopic) []v1alpha3.KafkaTop
 // ConvertFrom converts the Hub version (v1alpha3) to this ClientIntents.
 func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1alpha3.ClientIntents)
-	in.Spec.Service.Name = in.Spec.Service.Name
+	in.Spec.Service.Name = src.Spec.Service.Name
 	in.Spec.Calls = make([]Intent, len(in.Spec.Calls))
 	for i, call := range src.Spec.Calls {
 		in.Spec.Calls[i].Name = call.Name

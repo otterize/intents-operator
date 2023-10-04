@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/lox"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -32,7 +33,7 @@ var (
 
 type KafkaIntentsAdmin interface {
 	ApplyServerTopicsConf(topicsConf []otterizev1alpha2.TopicConfig) error
-	ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev1alpha2.Intent) error
+	ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev1alpha3.Intent) error
 	RemoveClientIntents(clientName string, clientNamespace string) error
 	RemoveServerIntents(topicsConf []otterizev1alpha2.TopicConfig) error
 	Close()
@@ -47,18 +48,18 @@ type KafkaIntentsAdminImpl struct {
 }
 
 var (
-	kafkaOperationToAclOperation = map[otterizev1alpha2.KafkaOperation]sarama.AclOperation{
-		otterizev1alpha2.KafkaOperationAll:             sarama.AclOperationAll,
-		otterizev1alpha2.KafkaOperationConsume:         sarama.AclOperationRead,
-		otterizev1alpha2.KafkaOperationProduce:         sarama.AclOperationWrite,
-		otterizev1alpha2.KafkaOperationCreate:          sarama.AclOperationCreate,
-		otterizev1alpha2.KafkaOperationDelete:          sarama.AclOperationDelete,
-		otterizev1alpha2.KafkaOperationAlter:           sarama.AclOperationAlter,
-		otterizev1alpha2.KafkaOperationDescribe:        sarama.AclOperationDescribe,
-		otterizev1alpha2.KafkaOperationClusterAction:   sarama.AclOperationClusterAction,
-		otterizev1alpha2.KafkaOperationDescribeConfigs: sarama.AclOperationDescribeConfigs,
-		otterizev1alpha2.KafkaOperationAlterConfigs:    sarama.AclOperationAlterConfigs,
-		otterizev1alpha2.KafkaOperationIdempotentWrite: sarama.AclOperationIdempotentWrite,
+	kafkaOperationToAclOperation = map[otterizev1alpha3.KafkaOperation]sarama.AclOperation{
+		otterizev1alpha3.KafkaOperationAll:             sarama.AclOperationAll,
+		otterizev1alpha3.KafkaOperationConsume:         sarama.AclOperationRead,
+		otterizev1alpha3.KafkaOperationProduce:         sarama.AclOperationWrite,
+		otterizev1alpha3.KafkaOperationCreate:          sarama.AclOperationCreate,
+		otterizev1alpha3.KafkaOperationDelete:          sarama.AclOperationDelete,
+		otterizev1alpha3.KafkaOperationAlter:           sarama.AclOperationAlter,
+		otterizev1alpha3.KafkaOperationDescribe:        sarama.AclOperationDescribe,
+		otterizev1alpha3.KafkaOperationClusterAction:   sarama.AclOperationClusterAction,
+		otterizev1alpha3.KafkaOperationDescribeConfigs: sarama.AclOperationDescribeConfigs,
+		otterizev1alpha3.KafkaOperationAlterConfigs:    sarama.AclOperationAlterConfigs,
+		otterizev1alpha3.KafkaOperationIdempotentWrite: sarama.AclOperationIdempotentWrite,
 	}
 	KafkaOperationToAclOperationBMap = bimap.NewBiMapFromMap(kafkaOperationToAclOperation)
 
@@ -177,7 +178,7 @@ func (a *KafkaIntentsAdminImpl) formatPrincipal(clientName string, clientNamespa
 	return fmt.Sprintf("User:%s", username)
 }
 
-func (a *KafkaIntentsAdminImpl) queryAppliedIntentKafkaTopics(principal string) ([]otterizev1alpha2.KafkaTopic, error) {
+func (a *KafkaIntentsAdminImpl) queryAppliedIntentKafkaTopics(principal string) ([]otterizev1alpha3.KafkaTopic, error) {
 	principalAcls, err := a.kafkaAdminClient.ListAcls(sarama.AclFilter{
 		ResourceType:              sarama.AclResourceTopic,
 		Principal:                 &principal,
@@ -189,16 +190,16 @@ func (a *KafkaIntentsAdminImpl) queryAppliedIntentKafkaTopics(principal string) 
 		return nil, fmt.Errorf("failed listing ACLs on server: %w", err)
 	}
 
-	resourceAppliedKafkaTopics, err := lox.MapErr(principalAcls, func(acls sarama.ResourceAcls, _ int) (otterizev1alpha2.KafkaTopic, error) {
-		operations := make([]otterizev1alpha2.KafkaOperation, 0)
+	resourceAppliedKafkaTopics, err := lox.MapErr(principalAcls, func(acls sarama.ResourceAcls, _ int) (otterizev1alpha3.KafkaTopic, error) {
+		operations := make([]otterizev1alpha3.KafkaOperation, 0)
 		for _, acl := range acls.Acls {
 			operation, ok := KafkaOperationToAclOperationBMap.GetInverse(acl.Operation)
 			if !ok {
-				return otterizev1alpha2.KafkaTopic{}, fmt.Errorf("unknown operation %v", acl.Operation)
+				return otterizev1alpha3.KafkaTopic{}, fmt.Errorf("unknown operation %v", acl.Operation)
 			}
 			operations = append(operations, operation)
 		}
-		return otterizev1alpha2.KafkaTopic{Name: acls.ResourceName, Operations: operations}, nil
+		return otterizev1alpha3.KafkaTopic{Name: acls.ResourceName, Operations: operations}, nil
 	})
 
 	if err != nil {
@@ -208,7 +209,7 @@ func (a *KafkaIntentsAdminImpl) queryAppliedIntentKafkaTopics(principal string) 
 	return resourceAppliedKafkaTopics, nil
 }
 
-func (a *KafkaIntentsAdminImpl) collectTopicsToACLList(principal string, topics []otterizev1alpha2.KafkaTopic) (TopicToACLList, error) {
+func (a *KafkaIntentsAdminImpl) collectTopicsToACLList(principal string, topics []otterizev1alpha3.KafkaTopic) (TopicToACLList, error) {
 	topicToACLList := TopicToACLList{}
 
 	for _, topic := range topics {
@@ -219,7 +220,7 @@ func (a *KafkaIntentsAdminImpl) collectTopicsToACLList(principal string, topics 
 		}
 		acls := make([]sarama.Acl, 0)
 		for _, operation := range topic.Operations {
-			operation, ok := KafkaOperationToAclOperationBMap.Get(operation)
+			operation, ok := KafkaOperationToAclOperationBMap.Get(otterizev1alpha3.KafkaOperation(operation))
 			if !ok {
 				return nil, fmt.Errorf("unknown operation '%v'", operation)
 			}
@@ -297,7 +298,7 @@ func (a *KafkaIntentsAdminImpl) logACLs() error {
 	return nil
 }
 
-func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev1alpha2.Intent) error {
+func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev1alpha3.Intent) error {
 	principal := a.formatPrincipal(clientName, clientNamespace)
 	logger := logrus.WithFields(
 		logrus.Fields{
@@ -317,7 +318,7 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 	}
 
 	expectedIntentKafkaTopics := lo.Flatten(
-		lo.Map(intents, func(intent otterizev1alpha2.Intent, _ int) []otterizev1alpha2.KafkaTopic {
+		lo.Map(intents, func(intent otterizev1alpha3.Intent, _ int) []otterizev1alpha3.KafkaTopic {
 			return intent.Topics
 		}),
 	)

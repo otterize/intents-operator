@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
@@ -64,6 +65,7 @@ func (s *ValidationWebhookTestSuite) SetupSuite() {
 	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 
 }
 
@@ -92,15 +94,15 @@ func (s *ValidationWebhookTestSuite) BeforeTest(suiteName, testName string) {
 }
 
 func (s *ValidationWebhookTestSuite) TestNoDuplicateClientsAllowed() {
-	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha2.Intent{})
+	_, err := s.AddIntentsV1alpha2("intents", "someclient", []otterizev1alpha2.Intent{})
 	s.Require().NoError(err)
 
-	_, err = s.AddIntents("intents2", "someclient", []otterizev1alpha2.Intent{})
+	_, err = s.AddIntentsV1alpha2("intents2", "someclient", []otterizev1alpha2.Intent{})
 	s.Require().ErrorContains(err, "Intents for client someclient already exist in resource")
 }
 
 func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntents() {
-	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha2.Intent{
+	_, err := s.AddIntentsV1alpha2("intents", "someclient", []otterizev1alpha2.Intent{
 		{
 			Type: otterizev1alpha2.IntentTypeHTTP,
 			Topics: []otterizev1alpha2.KafkaTopic{{
@@ -114,7 +116,7 @@ func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntents() {
 }
 
 func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntentsAfterUpdate() {
-	_, err := s.AddIntents("intents", "someclient", []otterizev1alpha2.Intent{
+	_, err := s.AddIntentsV1alpha2("intents", "someclient", []otterizev1alpha2.Intent{
 		{
 			Type: otterizev1alpha2.IntentTypeKafka,
 			Topics: []otterizev1alpha2.KafkaTopic{{
@@ -126,7 +128,7 @@ func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntentsAfterUpdate() {
 	expectedErr := fmt.Sprintf("type %s cannot contain kafka topics", otterizev1alpha2.IntentTypeHTTP)
 	s.Require().NoError(err)
 
-	err = s.UpdateIntents("intents", []otterizev1alpha2.Intent{
+	err = s.UpdateIntentsV1alpha2("intents", []otterizev1alpha2.Intent{
 		{
 			Type: otterizev1alpha2.IntentTypeHTTP,
 			Topics: []otterizev1alpha2.KafkaTopic{{

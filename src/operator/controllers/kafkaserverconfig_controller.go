@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -126,7 +127,7 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRunForOperatorIntents(ctx c
 		return err
 	}
 	operatorIntentsName := formatIntentsName(config)
-	intents := &otterizev1alpha2.ClientIntents{}
+	intents := &otterizev1alpha3.ClientIntents{}
 	err = r.Get(ctx, types.NamespacedName{Name: operatorIntentsName, Namespace: operatorPod.Namespace}, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -197,30 +198,30 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 		return fmt.Errorf("failed resolving intents operator identity - service name annotation required")
 	}
 
-	newIntents := &otterizev1alpha2.ClientIntents{
+	newIntents := &otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      formatIntentsName(config),
 			Namespace: r.operatorPodNamespace,
 		},
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: annotatedServiceName,
 			},
-			Calls: []otterizev1alpha2.Intent{{
-				Type: otterizev1alpha2.IntentTypeKafka,
+			Calls: []otterizev1alpha3.Intent{{
+				Type: otterizev1alpha3.IntentTypeKafka,
 				Name: fmt.Sprintf("%s.%s", config.Spec.Service.Name, config.Namespace),
-				Topics: []otterizev1alpha2.KafkaTopic{{
+				Topics: []otterizev1alpha3.KafkaTopic{{
 					Name: "*",
-					Operations: []otterizev1alpha2.KafkaOperation{
-						otterizev1alpha2.KafkaOperationDescribe,
-						otterizev1alpha2.KafkaOperationAlter,
+					Operations: []otterizev1alpha3.KafkaOperation{
+						otterizev1alpha3.KafkaOperationDescribe,
+						otterizev1alpha3.KafkaOperationAlter,
 					},
 				}},
 			}},
 		},
 	}
 
-	existingIntents := &otterizev1alpha2.ClientIntents{}
+	existingIntents := &otterizev1alpha3.ClientIntents{}
 	err = r.Get(ctx, types.NamespacedName{Name: newIntents.Name, Namespace: newIntents.Namespace}, existingIntents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {

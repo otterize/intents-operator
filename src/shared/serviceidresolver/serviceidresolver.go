@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
@@ -19,8 +20,8 @@ var PodNotFound = errors.New("pod not found")
 
 type ServiceResolver interface {
 	GetPodAnnotatedName(ctx context.Context, podName string, podNamespace string) (string, bool, error)
-	ResolveClientIntentToPod(ctx context.Context, intent v1alpha2.ClientIntents) (corev1.Pod, error)
-	ResolveIntentServerToPod(ctx context.Context, intent v1alpha2.Intent, namespace string) (corev1.Pod, error)
+	ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error)
+	ResolveIntentServerToPod(ctx context.Context, intent v1alpha3.Intent, namespace string) (corev1.Pod, error)
 }
 
 type Resolver struct {
@@ -109,7 +110,7 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 	return obj, nil
 }
 
-func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha2.ClientIntents) (corev1.Pod, error) {
+func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error) {
 	podsList := &corev1.PodList{}
 	labelSelector, err := intent.BuildPodLabelSelector()
 	if err != nil {
@@ -134,7 +135,7 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha2
 	return corev1.Pod{}, PodNotFound
 }
 
-func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha2.Intent, namespace string) (corev1.Pod, error) {
+func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3.Intent, namespace string) (corev1.Pod, error) {
 	podsList := &corev1.PodList{}
 
 	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), namespace)
