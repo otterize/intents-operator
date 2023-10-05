@@ -1,6 +1,5 @@
 resources:
 - manifests.yaml
-- service.yaml
 
 configurations:
 - kustomizeconfig.yaml
@@ -21,6 +20,12 @@ patches:
             value: '{{ .Release.Namespace }}'
           - op: replace
             path: /webhooks/1/clientConfig/service/name
+            value: intents-operator-webhook-service
+          - op: replace
+            path: /webhooks/2/clientConfig/service/namespace
+            value: '{{ .Release.Namespace }}'
+          - op: replace
+            path: /webhooks/2/clientConfig/service/name
             value: intents-operator-webhook-service
       target:
           kind: ValidatingWebhookConfiguration

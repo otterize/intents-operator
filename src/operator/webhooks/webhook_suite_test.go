@@ -73,6 +73,8 @@ func (s *ValidationWebhookTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
 	intentsValidator := NewIntentsValidator(s.Mgr.GetClient())
 	s.Require().NoError(intentsValidator.SetupWebhookWithManager(s.Mgr))
+	intentsValidator3 := NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
+	s.Require().NoError(intentsValidator3.SetupWebhookWithManager(s.Mgr))
 	s.Mgr.GetWebhookServer().CertDir = s.TestEnv.WebhookInstallOptions.LocalServingCertDir
 	s.Mgr.GetWebhookServer().Host = s.TestEnv.WebhookInstallOptions.LocalServingHost
 	s.Mgr.GetWebhookServer().Port = s.TestEnv.WebhookInstallOptions.LocalServingPort

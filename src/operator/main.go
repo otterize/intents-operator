@@ -19,8 +19,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
-
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
@@ -277,6 +275,13 @@ func main() {
 	}
 
 	if !disableWebhookServer {
+		if err = (&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal(err, "unable to create webhook", "webhook", "ClientIntents")
+		}
+		if err = (&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal(err, "unable to create webhook", "webhook", "ClientIntents")
+		}
+
 		intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
 		if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
 			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
@@ -286,6 +291,12 @@ func main() {
 		if err = protectedServiceValidator.SetupWebhookWithManager(mgr); err != nil {
 			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "ProtectedService")
 		}
+
+		intentsValidatorV1alpha3 := webhooks.NewIntentsValidatorV1alpha3(mgr.GetClient())
+		if err = intentsValidatorV1alpha3.SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
+		}
+
 	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(
@@ -337,15 +348,6 @@ func main() {
 	err = nsWatcher.Register(mgr)
 	if err != nil {
 		logrus.WithError(err).Panic()
-	}
-
-	if err = (&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(mgr); err != nil {
-		logrus.Error(err, "unable to create webhook", "webhook", "ClientIntents")
-		os.Exit(1)
-	}
-	if err = (&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(mgr); err != nil {
-		logrus.Error(err, "unable to create webhook", "webhook", "ClientIntents")
-		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
