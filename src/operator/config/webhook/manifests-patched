@@ -22,14 +22,14 @@ apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
   creationTimestamp: null
-  name: validating-webhook-configuration
+  name: otterize-validating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha2-clientintents
   failurePolicy: Fail
   name: clientintents.kb.io
@@ -48,8 +48,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha2-protectedservice
   failurePolicy: Fail
   name: protectedservice.kb.io
