@@ -1457,7 +1457,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetesServ
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) addExpectedKubernetesServiceCall(serverName string) {
+func (s *NetworkPolicyReconcilerTestSuite) addExpectedKubernetesServiceCall(serverName string, port int) {
 	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
 	kubernetesSvcNamespacedName := types.NamespacedName{
 		Namespace: testNamespace,
@@ -1472,7 +1472,7 @@ func (s *NetworkPolicyReconcilerTestSuite) addExpectedKubernetesServiceCall(serv
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{
 				TargetPort: intstr.IntOrString{
-					IntVal: 80,
+					IntVal: int32(port),
 				},
 			}},
 		},
@@ -1518,7 +1518,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 			return nil
 		})
 
-	s.addExpectedKubernetesServiceCall("test-server")
+	s.addExpectedKubernetesServiceCall("test-server", 80)
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{
@@ -1589,7 +1589,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesS
 			return nil
 		})
 
-	s.addExpectedKubernetesServiceCall("test-server")
+	s.addExpectedKubernetesServiceCall("test-server", 80)
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{

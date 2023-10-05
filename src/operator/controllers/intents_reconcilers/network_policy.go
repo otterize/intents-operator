@@ -163,7 +163,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 			if k8serrors.IsNotFound(err) {
 				r.RecordWarningEventf(intentsObj, consts.ReasonKubernetesServiceNotFound,
 					"failed fetching kubernetes service %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
-				return false, err
+				return false, nil
 			} else if errors.Is(err, ErrorTypeStringPortNotSupported) {
 				r.RecordNormalEventf(intentsObj, consts.ReasonPortRestrictionUnsupportedForStrings,
 					"service spec has one or more target ports as strings which is not supported. Will not add ports to network policy")
