@@ -29,7 +29,7 @@ func (e *Enum) Set(value string) error {
 		return nil
 	}
 
-	return errors.New(fmt.Sprintf("invalid value %s for allowExternalTraffic", value))
+	return fmt.Errorf("invalid value %s for allowExternalTraffic", value))
 }
 
 func (e *Enum) Type() string {
