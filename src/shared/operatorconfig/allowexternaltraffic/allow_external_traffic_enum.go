@@ -1,7 +1,6 @@
 package allowexternaltraffic
 
 import (
-	"errors"
 	"fmt"
 	"github.com/spf13/pflag"
 )
@@ -29,7 +28,7 @@ func (e *Enum) Set(value string) error {
 		return nil
 	}
 
-	return fmt.Errorf("invalid value %s for allowExternalTraffic", value))
+	return fmt.Errorf("invalid value %s for allowExternalTraffic", value)
 }
 
 func (e *Enum) Type() string {
