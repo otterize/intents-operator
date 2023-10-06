@@ -161,7 +161,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 
 	otterizeServerLabelValue := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
 	updatedPod := pod.DeepCopy()
-	var hasUpdates = false
+	hasUpdates := false
 
 	// Update server label - the server identity of the pod.
 	// This is the pod selector used in network policies to grant access to this pod.
