@@ -17,7 +17,6 @@ IMG ?= $(IMAGE_TAG_BASE):operator-$(VERSION)
 
 LOCAL_IMAGE_TAG ?= 255.255.255
 OPERATOR_DEBUG_IMAGE ?= otterize/intents-operator:$(LOCAL_IMAGE_TAG)
-WATCHER_DEBUG_IMAGE ?= otterize/intents-operator-pod-watcher:$(LOCAL_IMAGE_TAG)
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.24.1
@@ -97,7 +96,6 @@ docker-build: test ## Build docker image with the manager.
 .PHONY: docker-build-local
 docker-build-local: test ## Build docker image with the manager.
 	docker build --build-arg="VERSION=$(LOCAL_IMAGE_TAG)" -t ${OPERATOR_DEBUG_IMAGE} -f ../intents-operator.Dockerfile ../
-	docker build -f ../watcher.Dockerfile -t ${WATCHER_DEBUG_IMAGE} ../
 
 
 .PHONY: docker-push
@@ -108,8 +106,6 @@ docker-push: ## Push docker image with the manager.
 minikube-push: ## For MacOS users: Push locally built docker images directly into minikube VM since it doesn't access local docker registry directly.
 	minikube ssh "docker rmi -f $(OPERATOR_DEBUG_IMAGE)"
 	minikube image load ${OPERATOR_DEBUG_IMAGE}
-	minikube ssh "docker rmi -f $(WATCHER_DEBUG_IMAGE)"
-	minikube image load ${WATCHER_DEBUG_IMAGE}
 
 
 ##@ Deployment
@@ -140,9 +136,7 @@ deploy: manifests copy-manifests-to-helm helm-dependency
 deploy-local: manifests copy-manifests-to-helm helm-dependency ## Deploy images built locally into the cluster.
 	helm upgrade --install -n otterize-system --create-namespace otterize $(OTTERIZE_HELM_CHART_DIR) \
 	--set intentsOperator.operator.tag=$(LOCAL_IMAGE_TAG) \
-	--set intentsOperator.operator.pullPolicy=Never \
-	--set intentsOperator.watcher.tag=$(LOCAL_IMAGE_TAG) \
-	--set intentsOperator.watcher.pullPolicy=Never
+	--set intentsOperator.operator.pullPolicy=Never
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.

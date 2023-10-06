@@ -26,6 +26,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/svc_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
+	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -40,7 +41,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
-	//"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -106,10 +106,16 @@ func main() {
 		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
 		RootCAFile: viper.GetString(operatorconfig.KafkaServerTLSCAKey),
 	}
+	oidcUrl := viper.GetString(awsagent.ClusterOIDCProviderUrlKey)
 
 	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
 	debugLogs := viper.GetBool(operatorconfig.DebugLogKey)
+
+	if viper.GetBool(awsagent.AWSIntentsEnabledKey) {
+		// awsIntentsAgent :=
+		_ = awsagent.NewAWSAgent(context.Background(), oidcUrl)
+	}
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 	if debugLogs {
@@ -207,17 +213,17 @@ func main() {
 	if connectedToCloud {
 		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig)
 		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
+
+		netpolUploader := external_traffic.NewNetworkPolicyUploaderReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
+		if err = netpolUploader.SetupWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to initialize NetworkPolicy reconciler")
+		}
 	} else {
 		logrus.Info("Not configured for cloud integration")
 	}
 
 	if !enforcementConfig.EnforcementDefaultState {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
-	}
-
-	netpolReconciler := external_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
-	if err = netpolReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to initialize NetworkPolicy reconciler")
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(
