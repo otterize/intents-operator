@@ -68,6 +68,9 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	err = r.reconcileServiceLabelsOnPods(ctx, &service)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
 }
 
