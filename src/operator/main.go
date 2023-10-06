@@ -23,7 +23,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/svc_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
+	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/sirupsen/logrus"
@@ -39,7 +41,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
-	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -318,6 +319,12 @@ func main() {
 
 	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
+	svcWatcher := svc_reconcilers.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), networkPolicyHandler)
+
+	err = svcWatcher.SetupWithManager(mgr)
+	if err != nil {
+		logrus.WithError(err).Panic()
+	}
 
 	err = podWatcher.InitIntentsClientIndices(mgr)
 	if err != nil {
