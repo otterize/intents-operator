@@ -50,6 +50,7 @@ const (
 	OtterizeNetworkPolicyServiceDefaultDeny   = "intents.otterize.com/network-policy-service-default-deny"
 	OtterizeNetworkPolicyExternalTraffic      = "intents.otterize.com/network-policy-external-traffic"
 	NetworkPolicyFinalizerName                = "intents.otterize.com/network-policy-finalizer"
+	OtterizeTelemetryReconcilerFinalizerName  = "intents.otterize.com/telemetry-reconciler-finalizer"
 	OtterizeIstioClientAnnotationKey          = "intents.otterize.com/istio-client"
 	OtterizeClientServiceAccountAnnotation    = "intents.otterize.com/client-intents-service-account"
 	OtterizeSharedServiceAccountAnnotation    = "intents.otterize.com/shared-service-account"

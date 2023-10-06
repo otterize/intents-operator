@@ -28,6 +28,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -83,6 +85,11 @@ func NewIntentsReconciler(
 		networkPolicyReconciler: networkPolicyReconciler,
 	}
 
+	if telemetrysender.IsTelemetryEnabled() {
+		telemetryReconciler := intents_reconcilers.NewTelemetryReconciler(client, scheme)
+		intentsReconciler.group.AddToGroup(telemetryReconciler)
+	}
+
 	if otterizeClient != nil {
 		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient, serviceIdResolver)
 		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
@@ -108,13 +115,43 @@ func NewIntentsReconciler(
 // move the current state of the cluster closer to the desired state.
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	err := r.initOnce.Do(func() error {
-		return r.networkPolicyReconciler.CleanAllNamespaces(ctx)
+		return r.intentsReconcilerInit(ctx)
 	})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return r.group.Reconcile(ctx, req)
+}
+
+func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
+	if !telemetrysender.IsTelemetryEnabled() {
+		// When telemetry is disabled no logic should run by the telemetry reconciler. In case that a previous run of
+		// the operator had telemetry enabled we must remove the telemetry reconciler finalizers from all the CRDs.
+		err := r.RemoveFinalizerFromAllResources(ctx, otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName)
+		if err != nil {
+			return err
+		}
+	}
+	return r.networkPolicyReconciler.CleanAllNamespaces(ctx)
+}
+
+func (r *IntentsReconciler) RemoveFinalizerFromAllResources(ctx context.Context, finalizer string) error {
+	var clientIntentsList otterizev1alpha2.ClientIntentsList
+	err := r.client.List(ctx, &clientIntentsList)
+	if err != nil {
+		return err
+	}
+
+	for _, clientIntents := range clientIntentsList.Items {
+		controllerutil.RemoveFinalizer(&clientIntents, finalizer)
+		err = r.client.Update(ctx, &clientIntents)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
