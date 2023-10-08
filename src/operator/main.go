@@ -273,10 +273,14 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Fatal("failed writing certs to file system")
 		}
-		err = webhooks.UpdateWebHookCA(context.Background(),
+		err = webhooks.UpdateValidationWebHookCA(context.Background(),
 			"otterize-validating-webhook-configuration", certBundle.CertPem)
 		if err != nil {
-			logrus.WithError(err).Fatal("updating webhook certificate failed")
+			logrus.WithError(err).Fatal("updating validation webhook certificate failed")
+		}
+		err = webhooks.UpdateConversionWebHookCA(context.Background(), directClient, certBundle.CertPem)
+		if err != nil {
+			logrus.WithError(err).Fatal("updating conversion webhook certificate failed")
 		}
 	}
 
