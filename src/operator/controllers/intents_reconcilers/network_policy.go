@@ -359,7 +359,7 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 }
 
 func (r *NetworkPolicyReconciler) CleanPoliciesFromUnprotectedServices(ctx context.Context, namespace string) error {
-	if r.enforcementDefaultState == true {
+	if r.enforcementDefaultState {
 		return nil
 	}
 	selector, err := matchAccessNetworkPolicy()
