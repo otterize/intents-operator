@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	"github.com/otterize/intents-operator/src/operator/clientintentscrd"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
@@ -183,6 +184,11 @@ func main() {
 	err = protectedservicescrd.EnsureProtectedServicesCRD(signalHandlerCtx, directClient)
 	if err != nil {
 		logrus.WithError(err).Fatal("unable to ensure protected services CRD")
+	}
+
+	err = clientintentscrd.EnsureClientIntentsCRD(signalHandlerCtx, directClient, podNamespace)
+	if err != nil {
+		logrus.WithError(err).Fatal("unable to ensure ClientIntents CRD")
 	}
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
