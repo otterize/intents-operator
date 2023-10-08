@@ -24,7 +24,7 @@ patches:
   - patch: |-
       - op: replace
         path: /spec/conversion/webhook/clientConfig/service/namespace
-        value: '{{ .Release.Namespace }}'
+        value: otterize-system
       - op: replace
         path: /spec/conversion/webhook/clientConfig/service/name
         value: intents-operator-webhook-service
