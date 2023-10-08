@@ -34,7 +34,9 @@ func EnsureClientIntentsCRD(ctx context.Context, k8sClient client.Client, operat
 		return nil
 	}
 
-	err = k8sClient.Patch(ctx, &crdToCreate, client.MergeFrom(&crd))
+	updatedCRD := crd.DeepCopy()
+	updatedCRD.Spec = crdToCreate.Spec
+	err = k8sClient.Patch(ctx, updatedCRD, client.MergeFrom(&crd))
 	if err != nil {
 		return fmt.Errorf("could not Patch ClientIntents CRD: %w", err)
 	}

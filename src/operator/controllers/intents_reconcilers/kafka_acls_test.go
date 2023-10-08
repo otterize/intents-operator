@@ -282,10 +282,12 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 
 	aclForConsume := []*sarama.ResourceAcls{&createACL}
 
-	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(1)
+	list1 := s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(1)
 	s.mockKafkaAdmin.EXPECT().CreateACLs(MatchSaramaResource(aclForConsume)).Return(nil)
-	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{createACL}, nil).Times(1)
+	list2 := s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{createACL}, nil).Times(1)
 	s.mockKafkaAdmin.EXPECT().Close().Times(1)
+
+	gomock.InOrder(list1, list2)
 
 	// Create intents object with Consume operation
 	intentsConfig := s.generateIntents(otterizev1alpha3.KafkaOperationConsume)
