@@ -11,18 +11,15 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
 	"testing"
 	"time"
 )
@@ -1439,102 +1436,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNoNetworkPolicies() {
 
 	err = s.Reconciler.CleanPoliciesFromUnprotectedServices(context.Background(), testNamespace)
 	s.Require().NoError(err)
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) addExpectedKubernetesServiceCall(serverName string, port int) {
-	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
-	kubernetesSvcNamespacedName := types.NamespacedName{
-		Namespace: testNamespace,
-		Name:      serverStrippedSVCPrefix,
-	}
-	svcObject := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serverStrippedSVCPrefix,
-			Namespace: testNamespace,
-		},
-
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{
-				TargetPort: intstr.IntOrString{
-					IntVal: int32(port),
-				},
-			}},
-		},
-	}
-
-	s.Client.EXPECT().Get(gomock.Any(), kubernetesSvcNamespacedName, gomock.AssignableToTypeOf(&svcObject)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, service *corev1.Service, options ...client.ListOption) error {
-			svcObject.DeepCopyInto(service)
-			return nil
-		})
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesService(
-	clientIntentsName string,
-	serverNamespace string,
-	serviceName string,
-	policyName string,
-	formattedTargetServer string,
-) {
-	namespacedName := types.NamespacedName{
-		Namespace: testNamespace,
-		Name:      clientIntentsName,
-	}
-	req := ctrl.Request{
-		NamespacedName: namespacedName,
-	}
-
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
-			{
-				Name: fmt.Sprintf("svc:test-server.%s", serverNamespace),
-			},
-		},
-	}
-
-	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
-			intents.Spec = intentsSpec
-			return nil
-		})
-
-	s.addExpectedKubernetesServiceCall("test-server", 80)
-	// Search for existing NetworkPolicy
-	emptyNetworkPolicy := &v1.NetworkPolicy{}
-	networkPolicyNamespacedName := types.NamespacedName{
-		Namespace: serverNamespace,
-		Name:      policyName,
-	}
-	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
-			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
-		})
-
-	// Create NetworkPolicy
-	newPolicy := networkPolicyTemplate(
-		policyName,
-		serverNamespace,
-		formattedTargetServer,
-		testNamespace,
-	)
-	// Add target port and change selector in ingress to use svc
-	newPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
-	selector := map[string]string{
-		fmt.Sprintf(otterizev1alpha2.OtterizeKubernetesServiceLabelKey, formattedTargetServer): "true",
-	}
-	newPolicy.Spec.PodSelector.MatchLabels = selector
-
-	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
-
-	s.ignoreRemoveOrphan()
-
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
 }
 
 func TestNetworkPolicyReconcilerTestSuite(t *testing.T) {
