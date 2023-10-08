@@ -140,9 +140,9 @@ func UpdateValidationWebHookCA(ctx context.Context, webHookName string, ca []byt
 	return err
 }
 
-func UpdateConversionWebHookCA(ctx context.Context, k8sClient client.Client, ca []byte) error {
+func UpdateConversionWebHookCA(ctx context.Context, crdName string, k8sClient client.Client, ca []byte) error {
 	crd := apiextensionsv1.CustomResourceDefinition{}
-	err := k8sClient.Get(ctx, types.NamespacedName{Name: "ClientIntents"}, &crd)
+	err := k8sClient.Get(ctx, types.NamespacedName{Name: crdName}, &crd)
 	if err != nil {
 		return fmt.Errorf("could not get ClientIntents CRD: %w", err)
 	}

@@ -278,7 +278,7 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Fatal("updating validation webhook certificate failed")
 		}
-		err = webhooks.UpdateConversionWebHookCA(context.Background(), directClient, certBundle.CertPem)
+		err = webhooks.UpdateConversionWebHookCA(context.Background(), intents_reconcilers.IntentsCRDName, directClient, certBundle.CertPem)
 		if err != nil {
 			logrus.WithError(err).Fatal("updating conversion webhook certificate failed")
 		}
