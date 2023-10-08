@@ -43,15 +43,28 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	targetServerName := fmt.Sprintf("svc:%s.%s", req.Name, req.Namespace)
 	var intentsList otterizev1alpha2.ClientIntentsList
 	err = r.List(
 		ctx, &intentsList,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: targetServerName})
+		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fmt.Sprintf("svc:%s.%s", req.Name, req.Namespace)})
 
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// We call list a second time, but this time limit to the same namespace, and search without the `.namespace` suffix
+	// to cover intents that mention server in the same namespace
+	var sameNSIntentsList otterizev1alpha2.ClientIntentsList
+	err = r.List(
+		ctx, &sameNSIntentsList,
+		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fmt.Sprintf("svc:%s", req.Name)},
+		&client.ListOptions{Namespace: req.Namespace})
+
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	intentsList.Items = append(intentsList.Items, sameNSIntentsList.Items...) // Concatenate the list results
 
 	// Reconcile for any clientIntent in the cluster that points to the service enqueued in the request
 	for _, clientIntent := range intentsList.Items {
@@ -126,9 +139,9 @@ func (r *ServiceWatcher) reconcileServiceLabelsOnPods(ctx context.Context, servi
 	shouldBeLabeledUIDs := lo.Map(shouldBeLabeledPodList.Items, func(pod corev1.Pod, _ int) types.UID {
 		return pod.UID
 	})
+	UIDSet := goset.FromSlice(shouldBeLabeledUIDs)
 
 	// Compare current state with required state, unlabel pods if no longer selected by service
-	UIDSet := goset.FromSlice(shouldBeLabeledUIDs)
 	for _, pod := range currentlyLabeledPodList.Items {
 		if !UIDSet.Contains(pod.UID) { // Pod is labeled for the service but shouldn't be
 			updatedPod := pod.DeepCopy()
