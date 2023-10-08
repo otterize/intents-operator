@@ -21,11 +21,7 @@ import (
 	"github.com/samber/lo"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-// log is for logging in this package.
-var clientintentslog = logf.Log.WithName("clientintents-resource")
 
 func (in *ClientIntents) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
