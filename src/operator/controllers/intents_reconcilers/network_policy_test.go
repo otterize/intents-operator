@@ -473,10 +473,6 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), existingPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
-	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
-	}))
-	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
 
 	// Remove finalizer
 	controllerutil.AddFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)
@@ -901,6 +897,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
+	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1035,6 +1032,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy() {
+	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1162,6 +1160,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAccessPolicy() {
+	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1301,6 +1300,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldHappen() {
+	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1399,6 +1399,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldH
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNoNetworkPolicies() {
+	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1438,23 +1439,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNoNetworkPolicies() {
 
 	err = s.Reconciler.CleanPoliciesFromUnprotectedServices(context.Background(), testNamespace)
 	s.Require().NoError(err)
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetesService() {
-	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
-	serviceName := "test-client"
-	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-8ddecb"
-
-	s.testCreateNetworkPolicyForKubernetesService(
-		clientIntentsName,
-		serverNamespace,
-		serviceName,
-		policyName,
-		formattedTargetServer,
-	)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) addExpectedKubernetesServiceCall(serverName string, port int) {
@@ -1542,191 +1526,12 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 	selector := map[string]string{
 		fmt.Sprintf(otterizev1alpha2.OtterizeKubernetesServiceLabelKey, formattedTargetServer): "true",
 	}
-	selectorTyped := labels.SelectorFromSet(selector)
 	newPolicy.Spec.PodSelector.MatchLabels = selector
 
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
-	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selectorTyped)
 	s.ignoreRemoveOrphan()
 
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesService() {
-	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
-	serviceName := "test-client"
-	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-8ddecb"
-
-	namespacedName := types.NamespacedName{
-		Namespace: testNamespace,
-		Name:      clientIntentsName,
-	}
-	req := ctrl.Request{
-		NamespacedName: namespacedName,
-	}
-
-	serverName := fmt.Sprintf("svc:test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
-			{
-				Name: serverName,
-			},
-		},
-	}
-
-	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
-			intents.Spec = intentsSpec
-			return nil
-		})
-
-	s.addExpectedKubernetesServiceCall("test-server", 80)
-	// Search for existing NetworkPolicy
-	emptyNetworkPolicy := &v1.NetworkPolicy{}
-	networkPolicyNamespacedName := types.NamespacedName{
-		Namespace: serverNamespace,
-		Name:      policyName,
-	}
-
-	newPolicy := networkPolicyTemplate(
-		policyName,
-		serverNamespace,
-		formattedTargetServer,
-		testNamespace,
-	)
-	// Add target port and change selector in ingress to use svc
-	newPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
-	selector := map[string]string{
-		fmt.Sprintf(otterizev1alpha2.OtterizeKubernetesServiceLabelKey, formattedTargetServer): "true",
-	}
-	newPolicy.Spec.PodSelector.MatchLabels = selector
-	existingBadPolicy := newPolicy.DeepCopy()
-	existingBadPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 90}}}
-
-	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
-			existingBadPolicy.DeepCopyInto(networkPolicy)
-			return nil
-		})
-
-	// Update NetworkPolicy
-	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(newPolicy), MatchPatch(client.MergeFrom(existingBadPolicy))).Return(nil)
-	s.ignoreRemoveOrphan()
-
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesService() {
-	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
-	serviceName := "test-client"
-	serverNamespace := "other-namespace"
-	formattedTargetServer := "test-server-other-namespace-f6a461"
-
-	namespacedName := types.NamespacedName{
-		Namespace: testNamespace,
-		Name:      clientIntentsName,
-	}
-	req := ctrl.Request{
-		NamespacedName: namespacedName,
-	}
-
-	serverName := fmt.Sprintf("svc:test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
-			{
-				Name: serverName,
-			},
-		},
-	}
-
-	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	clientIntentsObj := otterizev1alpha2.ClientIntents{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              clientIntentsName,
-			Namespace:         testNamespace,
-			DeletionTimestamp: &metav1.Time{Time: time.Date(2020, 12, 1, 17, 14, 0, 0, time.UTC)},
-		},
-		Spec: intentsSpec,
-	}
-
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			clientIntentsObj.DeepCopyInto(intents)
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
-			return nil
-		})
-
-	// Search for client intents with the same target server and delete them if it's the last client intent pointing to the server
-	emptyIntentsList := &otterizev1alpha2.ClientIntentsList{}
-	intentsList := &otterizev1alpha2.ClientIntentsList{
-		Items: []otterizev1alpha2.ClientIntents{
-			clientIntentsObj,
-		},
-	}
-	s.Client.EXPECT().List(
-		gomock.Any(),
-		gomock.Eq(emptyIntentsList),
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serverName},
-		&client.ListOptions{Namespace: testNamespace},
-	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts ...client.ListOption) error {
-		intentsList.DeepCopyInto(list)
-		return nil
-	})
-
-	// Remove network policy:
-	// 1. get the network policy
-	// 2. delete it
-	// 3.call external netpol handler
-
-	networkPolicyNamespacedName := types.NamespacedName{
-		Namespace: serverNamespace,
-		Name:      policyName,
-	}
-
-	existingPolicy := networkPolicyTemplate(
-		policyName,
-		serverNamespace,
-		formattedTargetServer,
-		testNamespace,
-	)
-	// Add target port and change selector in ingress to use svc
-	existingPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
-	selector := map[string]string{
-		fmt.Sprintf(otterizev1alpha2.OtterizeKubernetesServiceLabelKey, formattedTargetServer): "true",
-	}
-	existingPolicy.Spec.PodSelector.MatchLabels = selector
-	selectorTyped := labels.SelectorFromSet(selector)
-
-	emptyNetworkPolicy := &v1.NetworkPolicy{}
-	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
-			existingPolicy.DeepCopyInto(networkPolicy)
-			return nil
-		})
-
-	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), existingPolicy)
-	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
-	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selectorTyped)
-
-	// Remove finalizer
-	controllerutil.AddFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)
-	controllerutil.RemoveFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)
-	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)

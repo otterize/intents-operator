@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,12 +49,12 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, nil
 	}
 
-	clientIntentsList, err := r.convertK8sServicesToOtterizeIdentities(ctx, clientIntentsList)
+	clientIntentsListConverted, err := r.convertK8sServicesToOtterizeIdentities(ctx, clientIntentsList)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	intentsInput, err := clientIntentsList.FormatAsOtterizeIntents()
+	intentsInput, err := clientIntentsListConverted.FormatAsOtterizeIntents()
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -91,6 +92,9 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 				Name:      kubernetesSvcName,
 			}, &svc)
 			if err != nil {
+				if errors.IsNotFound(err) {
+					return &otterizev1alpha2.ClientIntentsList{Items: nil}, nil
+				}
 				return nil, err
 			}
 			podList := corev1.PodList{}

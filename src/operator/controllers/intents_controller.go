@@ -22,6 +22,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/initonce"
@@ -64,6 +65,7 @@ func NewIntentsReconciler(
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
 	networkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler,
+	portNetpolReconciler *port_network_policy.PortNetworkPolicyReconciler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
 	otterizeClient operator_cloud_client.CloudClient,
@@ -77,6 +79,7 @@ func NewIntentsReconciler(
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
 		networkPolicyReconciler,
+		portNetpolReconciler,
 	)
 
 	intentsReconciler := &IntentsReconciler{
@@ -223,7 +226,13 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			}
 
 			for _, intent := range intents.GetCallsList() {
-				res = append(res, intent.GetServerFullyQualifiedName(intents.Namespace))
+				if !intent.IsTargetServerKubernetesService() {
+					res = append(res, intent.GetServerFullyQualifiedName(intents.Namespace))
+				}
+				fullyQualifiedSvcName, ok := intent.GetK8sServiceFullyQualifiedName(intents.Namespace)
+				if ok {
+					res = append(res, fullyQualifiedSvcName)
+				}
 			}
 
 			return res
@@ -247,7 +256,11 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 				serverName := intent.GetTargetServerName()
 				serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
 				formattedServerName := otterizev1alpha2.GetFormattedOtterizeIdentity(serverName, serverNamespace)
-				res = append(res, formattedServerName)
+				if !intent.IsTargetServerKubernetesService() {
+					res = append(res, formattedServerName)
+				} else {
+					res = append(res, "svc:"+formattedServerName)
+				}
 			}
 
 			return res

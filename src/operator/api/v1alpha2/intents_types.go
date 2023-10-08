@@ -36,7 +36,9 @@ import (
 
 const (
 	OtterizeAccessLabelPrefix                 = "intents.otterize.com/access"
+	OtterizeServiceAccessLabelPrefix          = "intents.otterize.com/svc-access"
 	OtterizeAccessLabelKey                    = "intents.otterize.com/access-%s"
+	OtterizeSvcAccessLabelKey                 = "intents.otterize.com/svc-access-%s"
 	OtterizeClientLabelKey                    = "intents.otterize.com/client"
 	OtterizeServerLabelKey                    = "intents.otterize.com/server"
 	OtterizeKubernetesServiceLabelKeyPrefix   = "intents.otterize.com/k8s-svc"
@@ -46,9 +48,12 @@ const (
 	OtterizeCreatedForServiceAnnotation       = "intents.otterize.com/created-for-service"
 	OtterizeCreatedForIngressAnnotation       = "intents.otterize.com/created-for-ingress"
 	OtterizeNetworkPolicyNameTemplate         = "access-to-%s-from-%s"
+	OtterizeServiceNetworkPolicyNameTemplate  = "svc-access-to-%s-from-%s"
 	OtterizeNetworkPolicy                     = "intents.otterize.com/network-policy"
+	OtterizeSvcNetworkPolicy                  = "intents.otterize.com/svc-network-policy"
 	OtterizeNetworkPolicyServiceDefaultDeny   = "intents.otterize.com/network-policy-service-default-deny"
 	OtterizeNetworkPolicyExternalTraffic      = "intents.otterize.com/network-policy-external-traffic"
+	ServiceNetworkPolicyFinalizerName         = "intents.otterize.com/svc-network-policy-finalizer"
 	NetworkPolicyFinalizerName                = "intents.otterize.com/network-policy-finalizer"
 	OtterizeTelemetryReconcilerFinalizerName  = "intents.otterize.com/telemetry-reconciler-finalizer"
 	OtterizeIstioClientAnnotationKey          = "intents.otterize.com/istio-client"
@@ -204,7 +209,11 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 	for _, intent := range in.GetCallsList() {
 		ns := intent.GetTargetServerNamespace(requestNamespace)
 		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), ns)
-		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)] = "true"
+		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)
+		if intent.IsTargetServerKubernetesService() {
+			labelKey = fmt.Sprintf(OtterizeSvcAccessLabelKey, formattedOtterizeIdentity)
+		}
+		otterizeAccessLabels[labelKey] = "true"
 	}
 
 	return otterizeAccessLabels
@@ -254,10 +263,16 @@ func (in *Intent) GetTargetServerName() string {
 
 func (in *Intent) GetServerFullyQualifiedName(intentsObjNamespace string) string {
 	fullyQualifiedName := fmt.Sprintf("%s.%s", in.GetTargetServerName(), in.GetTargetServerNamespace(intentsObjNamespace))
+	return fullyQualifiedName
+}
+
+func (in *Intent) GetK8sServiceFullyQualifiedName(intentsObjNamespace string) (string, bool) {
+	fullyQualifiedName := fmt.Sprintf("%s.%s", in.GetTargetServerName(), in.GetTargetServerNamespace(intentsObjNamespace))
 	if in.IsTargetServerKubernetesService() {
 		fullyQualifiedName = fmt.Sprintf("svc:%s", fullyQualifiedName)
+		return fullyQualifiedName, true
 	}
-	return fullyQualifiedName
+	return "", false
 }
 
 func (in *Intent) typeAsGQLType() graphqlclient.IntentType {

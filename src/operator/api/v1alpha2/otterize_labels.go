@@ -53,7 +53,7 @@ func cleanupOtterizeLabelsAndAnnotations(pod *v1.Pod) *v1.Pod {
 }
 
 func isOtterizeAccessLabel(s string) bool {
-	return strings.HasPrefix(s, OtterizeAccessLabelPrefix)
+	return strings.HasPrefix(s, OtterizeAccessLabelPrefix) || strings.HasPrefix(s, OtterizeServiceAccessLabelPrefix)
 }
 
 func CleanupOtterizeKubernetesServiceLabels(pod *v1.Pod) *v1.Pod {

@@ -1,11 +1,10 @@
-package svc_reconcilers
+package port_network_policy
 
 import (
 	"context"
 	"fmt"
 	"github.com/amit7itz/goset"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -21,11 +20,11 @@ import (
 
 type ServiceWatcher struct {
 	client.Client
-	networkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler
+	networkPolicyReconciler *PortNetworkPolicyReconciler
 	injectablerecorder.InjectableRecorder
 }
 
-func NewServiceWatcher(c client.Client, eventRecorder record.EventRecorder, networkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler) *ServiceWatcher {
+func NewServiceWatcher(c client.Client, eventRecorder record.EventRecorder, networkPolicyReconciler *PortNetworkPolicyReconciler) *ServiceWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
 	return &ServiceWatcher{
 		Client:                  c,
@@ -52,20 +51,6 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	// We call list a second time, but this time limit to the same namespace, and search without the `.namespace` suffix
-	// to cover intents that mention server in the same namespace
-	var sameNSIntentsList otterizev1alpha2.ClientIntentsList
-	err = r.List(
-		ctx, &sameNSIntentsList,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fmt.Sprintf("svc:%s", req.Name)},
-		&client.ListOptions{Namespace: req.Namespace})
-
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	intentsList.Items = append(intentsList.Items, sameNSIntentsList.Items...) // Concatenate the list results
-
 	// Reconcile for any clientIntent in the cluster that points to the service enqueued in the request
 	for _, clientIntent := range intentsList.Items {
 		res, err := r.networkPolicyReconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{
@@ -75,7 +60,7 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		if res.Requeue {
+		if !res.IsZero() {
 			return res, nil
 		}
 	}
