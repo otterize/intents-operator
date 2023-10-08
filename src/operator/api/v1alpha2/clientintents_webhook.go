@@ -32,6 +32,9 @@ func (in *ClientIntents) SetupWebhookWithManager(mgr ctrl.Manager) error {
 // ConvertTo converts this ClientIntents to the Hub version (v1alpha3).
 func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1alpha3.ClientIntents)
+	if dst.Spec == nil {
+		dst.Spec = &v1alpha3.IntentsSpec{}
+	}
 	dst.Spec.Service.Name = in.Spec.Service.Name
 	dst.Spec.Calls = make([]v1alpha3.Intent, len(in.Spec.Calls))
 	for i, call := range in.Spec.Calls {
@@ -77,6 +80,9 @@ func convertTopicsV1alpha2toV1alpha3(srcTopics []KafkaTopic) []v1alpha3.KafkaTop
 // ConvertFrom converts the Hub version (v1alpha3) to this ClientIntents.
 func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1alpha3.ClientIntents)
+	if in.Spec == nil {
+		in.Spec = &IntentsSpec{}
+	}
 	in.Spec.Service.Name = src.Spec.Service.Name
 	in.Spec.Calls = make([]Intent, len(in.Spec.Calls))
 	for i, call := range src.Spec.Calls {
