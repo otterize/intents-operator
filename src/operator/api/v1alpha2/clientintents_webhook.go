@@ -32,6 +32,7 @@ func (in *ClientIntents) SetupWebhookWithManager(mgr ctrl.Manager) error {
 // ConvertTo converts this ClientIntents to the Hub version (v1alpha3).
 func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v1alpha3.ClientIntents)
+	dst.Name = in.Name
 	if dst.Spec == nil {
 		dst.Spec = &v1alpha3.IntentsSpec{}
 	}
@@ -80,6 +81,7 @@ func convertTopicsV1alpha2toV1alpha3(srcTopics []KafkaTopic) []v1alpha3.KafkaTop
 // ConvertFrom converts the Hub version (v1alpha3) to this ClientIntents.
 func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v1alpha3.ClientIntents)
+	in.Name = src.Name
 	if in.Spec == nil {
 		in.Spec = &IntentsSpec{}
 	}
