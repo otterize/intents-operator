@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/networking/v1"
@@ -36,9 +35,7 @@ func NewDefaultDenyReconciler(client client.Client, extNetpolHandler ExternalNep
 }
 
 func (r *DefaultDenyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := WithFinalizer(ctx, r.Client, req, consts.DefaultDenyReconcilerFinalizerName, func(ctx context.Context, req ctrl.Request) error {
-		return r.handleDefaultDenyInNamespace(ctx, req)
-	})
+	err := r.handleDefaultDenyInNamespace(ctx, req)
 	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}

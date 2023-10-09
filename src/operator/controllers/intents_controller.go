@@ -43,6 +43,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+var intentsLegacyFinalizers = []string{
+	"intents.otterize.com/network-policy-finalizer",
+	"intents.otterize.com/telemetry-reconciler-finalizer",
+	"intents.otterize.com/kafka-finalizer",
+	"intents.otterize.com/istio-policy-finalizer",
+	"intents.otterize.com/database-finalizer",
+	"intents.otterize.com/pods-finalizer",
+}
+
+var protectedServiceLegacyFinalizers = []string{
+	"protectedservice.otterize.com/cloudfinalizer",
+	"protectedservice.otterize.com/defaultdenyfinalizer",
+	"protectedservice.otterize.com/policycleanerfinalizer",
+}
+
 type EnforcementConfig struct {
 	EnforcementDefaultState  bool
 	EnableNetworkPolicy      bool
@@ -69,7 +84,12 @@ func NewIntentsReconciler(
 	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string) *IntentsReconciler {
-	reconcilersGroup := reconcilergroup.NewGroup("intents-reconciler", client, scheme,
+	reconcilersGroup := reconcilergroup.NewGroup(
+		"intents-reconciler",
+		client,
+		scheme,
+		&otterizev1alpha2.ClientIntents{},
+		otterizev1alpha2.ClientIntentsFinalizerName,
 		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),
@@ -123,18 +143,14 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
-	if !telemetrysender.IsTelemetryEnabled() {
-		// When telemetry is disabled no logic should run by the telemetry reconciler. In case that a previous run of
-		// the operator had telemetry enabled we must remove the telemetry reconciler finalizers from all the CRDs.
-		err := r.RemoveFinalizerFromAllResources(ctx, otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName)
-		if err != nil {
-			return err
-		}
+	err := r.RemoveLegacyFinalizer(ctx)
+	if err != nil {
+		return err
 	}
 	return r.networkPolicyReconciler.CleanAllNamespaces(ctx)
 }
 
-func (r *IntentsReconciler) RemoveFinalizerFromAllResources(ctx context.Context, finalizer string) error {
+func (r *IntentsReconciler) RemoveLegacyFinalizer(ctx context.Context) error {
 	var clientIntentsList otterizev1alpha2.ClientIntentsList
 	err := r.client.List(ctx, &clientIntentsList)
 	if err != nil {
@@ -142,7 +158,10 @@ func (r *IntentsReconciler) RemoveFinalizerFromAllResources(ctx context.Context,
 	}
 
 	for _, clientIntents := range clientIntentsList.Items {
-		controllerutil.RemoveFinalizer(&clientIntents, finalizer)
+		for _, finalizer := range intentsLegacyFinalizers {
+			controllerutil.RemoveFinalizer(&clientIntents, finalizer)
+		}
+
 		err = r.client.Update(ctx, &clientIntents)
 		if err != nil {
 			return err

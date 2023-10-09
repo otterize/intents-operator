@@ -20,7 +20,6 @@ import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
-	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/initonce"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -40,9 +39,8 @@ const (
 // ProtectedServiceReconciler reconciles a ProtectedService object
 type ProtectedServiceReconciler struct {
 	client.Client
-	group                *reconcilergroup.Group
-	finalizersForRemoval []string
-	initOnce             initonce.InitOnce
+	group    *reconcilergroup.Group
+	initOnce initonce.InitOnce
 }
 
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices,verbs=get;list;watch;create;update;patch;delete
@@ -58,41 +56,38 @@ func NewProtectedServiceReconciler(
 	netpolEnforcementEnabled bool,
 	networkPolicyHandler protected_service_reconcilers.NetworkPolicyHandler,
 ) *ProtectedServiceReconciler {
-	var finalizersForRemoval []string
-
-	group := reconcilergroup.NewGroup(protectedServicesGroupName, client, scheme)
+	group := reconcilergroup.NewGroup(
+		protectedServicesGroupName,
+		client,
+		scheme,
+		&otterizev1alpha2.ProtectedService{},
+		otterizev1alpha2.ProtectedServicesFinalizerName,
+	)
 
 	if netpolEnforcementEnabled {
 		defaultDenyReconciler := protected_service_reconcilers.NewDefaultDenyReconciler(client, extNetpolHandler, netpolEnforcementEnabled)
 		group.AddToGroup(defaultDenyReconciler)
-	} else {
-		finalizersForRemoval = append(finalizersForRemoval, consts.DefaultDenyReconcilerFinalizerName)
 	}
 
 	if !enforcementDefaultState || !netpolEnforcementEnabled {
 		policyCleaner := protected_service_reconcilers.NewPolicyCleanerReconciler(client, networkPolicyHandler)
 		group.AddToGroup(policyCleaner)
-	} else {
-		finalizersForRemoval = append(finalizersForRemoval, consts.PolicyCleanerReconcilerFinalizerName)
 	}
 
 	if otterizeClient != nil {
 		otterizeCloudReconciler := protected_service_reconcilers.NewCloudReconciler(client, scheme, otterizeClient)
 		group.AddToGroup(otterizeCloudReconciler)
-	} else {
-		finalizersForRemoval = append(finalizersForRemoval, consts.CloudReconcilerFinalizerName)
 	}
 
 	return &ProtectedServiceReconciler{
-		Client:               client,
-		group:                group,
-		finalizersForRemoval: finalizersForRemoval,
+		Client: client,
+		group:  group,
 	}
 }
 
 func (r *ProtectedServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	err := r.initOnce.Do(func() error {
-		return r.protectedServicesReconcilerInit(ctx)
+		return r.RemoveLegacyFinalizer(ctx)
 	})
 	if err != nil {
 		return ctrl.Result{}, err
@@ -101,7 +96,7 @@ func (r *ProtectedServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	return r.group.Reconcile(ctx, req)
 }
 
-func (r *ProtectedServiceReconciler) protectedServicesReconcilerInit(ctx context.Context) error {
+func (r *ProtectedServiceReconciler) RemoveLegacyFinalizer(ctx context.Context) error {
 	var protectedServices otterizev1alpha2.ProtectedServiceList
 	err := r.List(ctx, &protectedServices)
 	if err != nil {
@@ -109,7 +104,7 @@ func (r *ProtectedServiceReconciler) protectedServicesReconcilerInit(ctx context
 	}
 
 	for _, protectedService := range protectedServices.Items {
-		for _, finalizer := range r.finalizersForRemoval {
+		for _, finalizer := range protectedServiceLegacyFinalizers {
 			controllerutil.RemoveFinalizer(&protectedService, finalizer)
 		}
 		err = r.Update(ctx, &protectedService)

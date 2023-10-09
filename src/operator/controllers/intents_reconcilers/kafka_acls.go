@@ -15,11 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
-	KafkaACLsFinalizerName                     = "intents.otterize.com/kafka-finalizer"
 	ReasonCouldNotConnectToKafkaServer         = "CouldNotConnectToKafkaServer"
 	ReasonCouldNotApplyIntentsOnKafkaServer    = "CouldNotApplyIntentsOnKafkaServer"
 	ReasonKafkaACLCreationDisabled             = "KafkaACLCreationDisabled"
@@ -171,14 +169,6 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return r.handleIntentsDeletion(ctx, intents, logger)
 	}
 
-	if r.isMissingKafkaFinalizer(intents) {
-		logger.Infof("Adding finalizer %s", KafkaACLsFinalizerName)
-		controllerutil.AddFinalizer(intents, KafkaACLsFinalizerName)
-		if err := r.client.Update(ctx, intents); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	clientIsOperator, err := r.isIntentsForTheIntentsOperator(ctx, intents)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -231,29 +221,15 @@ func (r *KafkaACLReconciler) applyAcls(ctx context.Context, logger *logrus.Entry
 	return ctrl.Result{}, nil
 }
 
-func (r *KafkaACLReconciler) isMissingKafkaFinalizer(intents *otterizev1alpha2.ClientIntents) bool {
-	return !controllerutil.ContainsFinalizer(intents, KafkaACLsFinalizerName) && intents.HasKafkaTypeInCallList()
-}
-
 func (r *KafkaACLReconciler) intentsObjectUnderDeletion(intents *otterizev1alpha2.ClientIntents) bool {
 	return !intents.ObjectMeta.DeletionTimestamp.IsZero()
 }
 
 func (r *KafkaACLReconciler) handleIntentsDeletion(ctx context.Context, intents *otterizev1alpha2.ClientIntents, logger *logrus.Entry) (ctrl.Result, error) {
-	if controllerutil.ContainsFinalizer(intents, KafkaACLsFinalizerName) {
-		logger.Infof("Removing associated Acls")
-		if err := r.RemoveACLs(ctx, intents); err != nil {
-			r.RecordWarningEventf(intents, ReasonRemovingKafkaACLsFailed, "Could not remove Kafka ACLs: %s", err.Error())
-			return ctrl.Result{}, err
-		}
-
-		RemoveIntentFinalizers(intents, KafkaACLsFinalizerName)
-		if err := r.client.Update(ctx, intents); err != nil {
-			if k8serrors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
-			}
-			return ctrl.Result{}, err
-		}
+	logger.Infof("Removing associated Acls")
+	if err := r.RemoveACLs(ctx, intents); err != nil {
+		r.RecordWarningEventf(intents, ReasonRemovingKafkaACLsFailed, "Could not remove Kafka ACLs: %s", err.Error())
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil

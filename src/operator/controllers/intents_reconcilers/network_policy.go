@@ -20,7 +20,6 @@ import (
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type externalNetpolHandler interface {
@@ -76,9 +75,8 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	logrus.Infof("Reconciling network policies for service %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
 
-	// Object is deleted, handle finalizer and network policy clean up
 	if !intents.DeletionTimestamp.IsZero() {
-		err := r.cleanFinalizerAndPolicies(ctx, intents)
+		err := r.cleanPolicies(ctx, intents)
 		if err != nil {
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
@@ -89,13 +87,6 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	if !controllerutil.ContainsFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName) {
-		logrus.WithField("namespacedName", req.String()).Infof("Adding finalizer %s", otterizev1alpha2.NetworkPolicyFinalizerName)
-		controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
-		if err := r.Update(ctx, intents); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
 	createdNetpols := 0
 	for _, intent := range intents.GetCallsList() {
 		targetNamespace := intent.GetServerNamespace(req.Namespace)
@@ -203,22 +194,13 @@ func (r *NetworkPolicyReconciler) reconcileEndpointsForPolicy(ctx context.Contex
 	return r.extNetpolHandler.HandlePodsByLabelSelector(ctx, newPolicy.Namespace, selector)
 }
 
-func (r *NetworkPolicyReconciler) cleanFinalizerAndPolicies(
-	ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
-	if !controllerutil.ContainsFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName) {
-		return nil
-	}
+func (r *NetworkPolicyReconciler) cleanPolicies(ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
 	logrus.Infof("Removing network policies for deleted intents for service: %s", intents.Spec.Service.Name)
 	for _, intent := range intents.GetCallsList() {
 		err := r.handleIntentRemoval(ctx, intent, intents.Namespace)
 		if err != nil {
 			return err
 		}
-	}
-
-	RemoveIntentFinalizers(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
-	if err := r.Update(ctx, intents); err != nil {
-		return err
 	}
 
 	return nil
