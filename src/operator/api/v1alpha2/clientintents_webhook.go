@@ -84,7 +84,7 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 		in.Spec = &IntentsSpec{}
 	}
 	in.Spec.Service.Name = src.Spec.Service.Name
-	in.Spec.Calls = make([]Intent, len(in.Spec.Calls))
+	in.Spec.Calls = make([]Intent, len(src.Spec.Calls))
 	for i, call := range src.Spec.Calls {
 		in.Spec.Calls[i].Name = call.Name
 		in.Spec.Calls[i].Topics = convertTopicsV1alpha3toV1alpha2(call.Topics)
