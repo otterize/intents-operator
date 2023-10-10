@@ -90,6 +90,7 @@ func NewIntentsReconciler(
 		scheme,
 		&otterizev1alpha2.ClientIntents{},
 		otterizev1alpha2.ClientIntentsFinalizerName,
+		intentsLegacyFinalizers,
 		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),

@@ -19,13 +19,14 @@ type ReconcilerWithEvents interface {
 }
 
 type Group struct {
-	reconcilers []ReconcilerWithEvents
-	name        string
-	client      client.Client
-	scheme      *runtime.Scheme
-	recorder    record.EventRecorder
-	baseObject  client.Object
-	finalizer   string
+	reconcilers      []ReconcilerWithEvents
+	name             string
+	client           client.Client
+	scheme           *runtime.Scheme
+	recorder         record.EventRecorder
+	baseObject       client.Object
+	finalizer        string
+	legacyFinalizers []string
 }
 
 func NewGroup(
@@ -34,6 +35,7 @@ func NewGroup(
 	scheme *runtime.Scheme,
 	resourceObject client.Object,
 	finalizer string,
+	legacyFinalizers []string,
 	reconcilers ...ReconcilerWithEvents,
 ) *Group {
 	return &Group{
@@ -65,24 +67,55 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, nil
 	}
 
-	objectBeingDeleted := resourceObject.GetDeletionTimestamp() != nil
-
-	if !objectBeingDeleted {
-		err = g.assureFinalizer(ctx, resourceObject)
-		if err != nil {
-			return ctrl.Result{}, err
+	err = g.assureFinalizer(ctx, resourceObject)
+	if err != nil {
+		if k8serrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
 		}
+		return ctrl.Result{}, err
+	}
+
+	err = g.removeLegacyFinalizers(ctx, resourceObject)
+	if err != nil {
+		if k8serrors.IsConflict(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
+		return ctrl.Result{}, err
 	}
 
 	finalErr, finalRes = g.runGroup(ctx, req, finalErr, finalRes)
+
+	objectBeingDeleted := resourceObject.GetDeletionTimestamp() != nil
 	if objectBeingDeleted && finalErr == nil && finalRes.IsZero() {
 		err = g.removeFinalizer(ctx, resourceObject)
 		if err != nil {
+			if k8serrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
 			return ctrl.Result{}, err
 		}
 	}
 
 	return finalRes, finalErr
+}
+
+func (g *Group) removeLegacyFinalizers(ctx context.Context, resource client.Object) error {
+	shouldUpdate := false
+	for _, legacyFinalizer := range g.legacyFinalizers {
+		if controllerutil.ContainsFinalizer(resource, legacyFinalizer) {
+			controllerutil.RemoveFinalizer(resource, legacyFinalizer)
+			shouldUpdate = true
+		}
+	}
+
+	if shouldUpdate {
+		err := g.client.Update(ctx, resource)
+		if err != nil {
+			return errors.Wrap(err, "failed to remove legacy finalizers")
+		}
+	}
+
+	return nil
 }
 
 func (g *Group) assureFinalizer(ctx context.Context, resource client.Object) error {

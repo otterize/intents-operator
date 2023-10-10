@@ -34,7 +34,13 @@ type ReconcilerGroupTestSuite struct {
 func (s *ReconcilerGroupTestSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
 	s.client = mocks.NewMockClient(controller)
-	s.group = NewGroup("test", s.client, &runtime.Scheme{}, &otterizev1alpha2.ClientIntents{}, testFinalizer)
+	s.group = NewGroup("test",
+		s.client,
+		&runtime.Scheme{},
+		&otterizev1alpha2.ClientIntents{},
+		testFinalizer,
+		nil,
+	)
 }
 
 type TestReconciler struct {
@@ -189,7 +195,8 @@ func (s *ReconcilerGroupTestSuite) TestDeletedObjectNothingRun() {
 	}
 
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	s.client.EXPECT().Get(gomock.Any(), resourceName, gomock.Eq(emptyIntents)).Return(k8serrors.NewNotFound(schema.GroupResource{}, resourceName.Name))
+	notFoundErr := k8serrors.NewNotFound(schema.GroupResource{}, resourceName.Name)
+	s.client.EXPECT().Get(gomock.Any(), resourceName, gomock.Eq(emptyIntents)).Return(notFoundErr)
 
 	res, err := s.group.Reconcile(context.Background(), reconcile.Request{NamespacedName: resourceName})
 	s.Require().NoError(err)
@@ -214,6 +221,47 @@ func (s *ReconcilerGroupTestSuite) TestDoNothingIfFinalizerIsThere() {
 			*intents = *intentsWithFinalizer
 			return nil
 		})
+
+	res, err := s.group.Reconcile(context.Background(), reconcile.Request{NamespacedName: resourceName})
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+	s.Require().True(reconciler.Reconciled)
+}
+
+func (s *ReconcilerGroupTestSuite) TestRemoveLegacyFinalizer() {
+	legacyFinalizers := []string{
+		"lemon-juice-reconciler-finalizer",
+		"tabasco-reconciler-finalizer",
+	}
+
+	s.group.legacyFinalizers = legacyFinalizers
+
+	reconciler := &TestReconciler{Err: nil, Result: reconcile.Result{}}
+	s.group.AddToGroup(reconciler)
+
+	resourceName := types.NamespacedName{
+		Name:      "my-resource",
+		Namespace: "the-happy-place-we-live-in",
+	}
+
+	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	intentsWithLegacyFinalizers := emptyIntents.DeepCopy()
+	controllerutil.AddFinalizer(intentsWithLegacyFinalizers, legacyFinalizers[0])
+	controllerutil.AddFinalizer(intentsWithLegacyFinalizers, legacyFinalizers[1])
+	s.client.EXPECT().Get(gomock.Any(), resourceName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(_ context.Context, _ types.NamespacedName, intents *otterizev1alpha2.ClientIntents, _ ...client.GetOption) error {
+			intentsWithLegacyFinalizers.DeepCopyInto(intents)
+			return nil
+		})
+
+	intentsWithAllFinalizers := intentsWithLegacyFinalizers.DeepCopy()
+	controllerutil.AddFinalizer(intentsWithAllFinalizers, testFinalizer)
+	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(intentsWithAllFinalizers)).Return(nil)
+
+	intentsWithValidFinalizer := intentsWithAllFinalizers.DeepCopy()
+	controllerutil.RemoveFinalizer(intentsWithValidFinalizer, legacyFinalizers[0])
+	controllerutil.RemoveFinalizer(intentsWithValidFinalizer, legacyFinalizers[1])
+	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(intentsWithValidFinalizer)).Return(nil)
 
 	res, err := s.group.Reconcile(context.Background(), reconcile.Request{NamespacedName: resourceName})
 	s.Require().NoError(err)

@@ -20,16 +20,13 @@ import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
-	"github.com/otterize/intents-operator/src/shared/initonce"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/samber/lo"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
 const (
@@ -39,8 +36,7 @@ const (
 // ProtectedServiceReconciler reconciles a ProtectedService object
 type ProtectedServiceReconciler struct {
 	client.Client
-	group    *reconcilergroup.Group
-	initOnce initonce.InitOnce
+	group *reconcilergroup.Group
 }
 
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=protectedservices,verbs=get;list;watch;create;update;patch;delete
@@ -62,6 +58,7 @@ func NewProtectedServiceReconciler(
 		scheme,
 		&otterizev1alpha2.ProtectedService{},
 		otterizev1alpha2.ProtectedServicesFinalizerName,
+		protectedServiceLegacyFinalizers,
 	)
 
 	if netpolEnforcementEnabled {
@@ -86,34 +83,7 @@ func NewProtectedServiceReconciler(
 }
 
 func (r *ProtectedServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.initOnce.Do(func() error {
-		return r.RemoveLegacyFinalizer(ctx)
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	return r.group.Reconcile(ctx, req)
-}
-
-func (r *ProtectedServiceReconciler) RemoveLegacyFinalizer(ctx context.Context) error {
-	var protectedServices otterizev1alpha2.ProtectedServiceList
-	err := r.List(ctx, &protectedServices)
-	if err != nil {
-		return err
-	}
-
-	for _, protectedService := range protectedServices.Items {
-		for _, finalizer := range protectedServiceLegacyFinalizers {
-			controllerutil.RemoveFinalizer(&protectedService, finalizer)
-		}
-		err = r.Update(ctx, &protectedService)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-
 }
 
 // SetupWithManager sets up the controller with the Manager.
