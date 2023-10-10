@@ -36,15 +36,21 @@ import (
 
 const (
 	OtterizeAccessLabelPrefix                 = "intents.otterize.com/access"
+	OtterizeServiceAccessLabelPrefix          = "intents.otterize.com/svc-access"
 	OtterizeAccessLabelKey                    = "intents.otterize.com/access-%s"
+	OtterizeSvcAccessLabelKey                 = "intents.otterize.com/svc-access-%s"
 	OtterizeClientLabelKey                    = "intents.otterize.com/client"
 	OtterizeServerLabelKey                    = "intents.otterize.com/server"
+	OtterizeKubernetesServiceLabelKeyPrefix   = "intents.otterize.com/k8s-svc"
+	OtterizeKubernetesServiceLabelKey         = "intents.otterize.com/k8s-svc-%s"
 	OtterizeNamespaceLabelKey                 = "intents.otterize.com/namespace-name"
 	AllIntentsRemovedAnnotation               = "intents.otterize.com/all-intents-removed"
 	OtterizeCreatedForServiceAnnotation       = "intents.otterize.com/created-for-service"
 	OtterizeCreatedForIngressAnnotation       = "intents.otterize.com/created-for-ingress"
 	OtterizeNetworkPolicyNameTemplate         = "access-to-%s-from-%s"
+	OtterizeServiceNetworkPolicyNameTemplate  = "svc-access-to-%s-from-%s"
 	OtterizeNetworkPolicy                     = "intents.otterize.com/network-policy"
+	OtterizeSvcNetworkPolicy                  = "intents.otterize.com/svc-network-policy"
 	OtterizeNetworkPolicyServiceDefaultDeny   = "intents.otterize.com/network-policy-service-default-deny"
 	OtterizeNetworkPolicyExternalTraffic      = "intents.otterize.com/network-policy-external-traffic"
 	ClientIntentsFinalizerName                = "intents.otterize.com/client-intents-finalizer"
@@ -200,18 +206,30 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 	otterizeAccessLabels := map[string]string{}
 
 	for _, intent := range in.GetCallsList() {
-		ns := intent.GetServerNamespace(requestNamespace)
-		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.GetServerName(), ns)
-		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)] = "true"
+		ns := intent.GetTargetServerNamespace(requestNamespace)
+		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), ns)
+		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)
+		if intent.IsTargetServerKubernetesService() {
+			labelKey = fmt.Sprintf(OtterizeSvcAccessLabelKey, formattedOtterizeIdentity)
+		}
+		otterizeAccessLabels[labelKey] = "true"
 	}
 
 	return otterizeAccessLabels
 }
 
-// GetServerNamespace returns target namespace for intent if exists
+// GetTargetServerNamespace returns target namespace for intent if exists
 // or the entire resource's namespace if the specific intent has no target namespace, as it's optional
-func (in *Intent) GetServerNamespace(intentsObjNamespace string) string {
-	nameWithNamespace := strings.Split(in.Name, ".")
+func (in *Intent) GetTargetServerNamespace(intentsObjNamespace string) string {
+	var name string
+
+	if in.IsTargetServerKubernetesService() {
+		name = strings.ReplaceAll(in.Name, "svc:", "") // Remove svc: prefix altogether
+	} else {
+		name = in.Name
+	}
+
+	nameWithNamespace := strings.Split(name, ".")
 	if len(nameWithNamespace) == 1 {
 		return intentsObjNamespace
 	}
@@ -220,21 +238,40 @@ func (in *Intent) GetServerNamespace(intentsObjNamespace string) string {
 	return nameWithNamespace[1]
 }
 
-// GetServerName returns server's service name, without namespace
-func (in *Intent) GetServerName() string {
+func (in *Intent) IsTargetServerKubernetesService() bool {
+	return strings.HasPrefix(in.Name, "svc:")
+}
+
+// GetTargetServerName returns server's service name, without namespace, or the Kubernetes service without the `svc:` prefix
+func (in *Intent) GetTargetServerName() string {
 	var name string
-	nameWithNamespace := strings.Split(in.Name, ".")
-	if len(nameWithNamespace) == 1 {
-		name = in.Name
+
+	if in.IsTargetServerKubernetesService() {
+		name = strings.ReplaceAll(in.Name, "svc:", "") // Replace so all chars are valid in K8s label
 	} else {
-		name = nameWithNamespace[0]
+		name = in.Name
 	}
 
-	return name
+	nameWithNamespace := strings.Split(name, ".")
+	if len(nameWithNamespace) == 1 {
+		return name
+	} else {
+		return nameWithNamespace[0]
+	}
 }
 
 func (in *Intent) GetServerFullyQualifiedName(intentsObjNamespace string) string {
-	return fmt.Sprintf("%s.%s", in.GetServerName(), in.GetServerNamespace(intentsObjNamespace))
+	fullyQualifiedName := fmt.Sprintf("%s.%s", in.GetTargetServerName(), in.GetTargetServerNamespace(intentsObjNamespace))
+	return fullyQualifiedName
+}
+
+func (in *Intent) GetK8sServiceFullyQualifiedName(intentsObjNamespace string) (string, bool) {
+	fullyQualifiedName := fmt.Sprintf("%s.%s", in.GetTargetServerName(), in.GetTargetServerNamespace(intentsObjNamespace))
+	if in.IsTargetServerKubernetesService() {
+		fullyQualifiedName = fmt.Sprintf("svc:%s", fullyQualifiedName)
+		return fullyQualifiedName, true
+	}
+	return "", false
 }
 
 func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
@@ -274,7 +311,7 @@ func (in *ClientIntents) IsServerMissingSidecar(intent Intent) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	serverIdentity := GetFormattedOtterizeIdentity(intent.GetServerName(), intent.GetServerNamespace(in.Namespace))
+	serverIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), intent.GetTargetServerNamespace(in.Namespace))
 	return serversSet.Has(serverIdentity), nil
 }
 
@@ -405,9 +442,9 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 
 	intentInput := graphqlclient.IntentInput{
 		ClientName:      lo.ToPtr(clientName),
-		ServerName:      lo.ToPtr(in.GetServerName()),
+		ServerName:      lo.ToPtr(in.GetTargetServerName()),
 		Namespace:       lo.ToPtr(resourceNamespace),
-		ServerNamespace: toPtrOrNil(in.GetServerNamespace(resourceNamespace)),
+		ServerNamespace: toPtrOrNil(in.GetTargetServerNamespace(resourceNamespace)),
 	}
 
 	if in.Type != "" {

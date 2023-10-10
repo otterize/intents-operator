@@ -466,10 +466,6 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), existingPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
-	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
-	}))
-	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -493,13 +489,11 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
 	}
-
-	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
 	intentsSpec := &otterizev1alpha2.IntentsSpec{
 		Service: otterizev1alpha2.Service{Name: serviceName},
 		Calls: []otterizev1alpha2.Intent{
 			{
-				Name: serverName,
+				Name: fmt.Sprintf("test-server.%s", serverNamespace),
 			},
 		},
 	}
@@ -878,6 +872,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
+	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1012,6 +1007,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy() {
+	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1139,6 +1135,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAccessPolicy() {
+	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1278,6 +1275,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldHappen() {
+	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1376,6 +1374,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldH
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNoNetworkPolicies() {
+	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,

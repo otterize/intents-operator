@@ -73,8 +73,8 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha2.Inte
 		}
 
 		serverName := types.NamespacedName{
-			Name:      intent.GetServerName(),
-			Namespace: intent.GetServerNamespace(defaultNamespace),
+			Name:      intent.GetTargetServerName(),
+			Namespace: intent.GetTargetServerNamespace(defaultNamespace),
 		}
 
 		intentsByServer[serverName] = append(intentsByServer[serverName], intent)
