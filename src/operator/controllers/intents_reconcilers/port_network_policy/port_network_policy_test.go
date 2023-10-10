@@ -131,12 +131,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 			return nil
 		})
 
-	intentsWithFinalizer := otterizev1alpha2.ClientIntents{}
-	intentsWithoutFinalizer.DeepCopyInto(&intentsWithFinalizer)
-	// Add finalizer to ClientIntents
-	controllerutil.AddFinalizer(&intentsWithFinalizer, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
-	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&intentsWithFinalizer)).Return(nil)
-
 	svcObject := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-server",
@@ -315,7 +309,6 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
 			intents.Spec = intentsSpec
 			return nil
 		})
@@ -385,7 +378,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesS
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
 			intents.Spec = intentsSpec
 			return nil
 		})
@@ -465,7 +457,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			clientIntentsObj.DeepCopyInto(intents)
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
 			return nil
 		})
 
@@ -489,7 +480,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 	// Remove network policy:
 	// 1. get the network policy
 	// 2. delete it
-	// 3.call external netpol handler
+	// 3. call external netpol handler
 
 	networkPolicyNamespacedName := types.NamespacedName{
 		Namespace: testNamespace,
@@ -536,10 +527,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), existingPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
 
-	//// Remove finalizer
-	controllerutil.AddFinalizer(&clientIntentsObj, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
-	controllerutil.RemoveFinalizer(&clientIntentsObj, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
-	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
