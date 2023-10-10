@@ -39,12 +39,13 @@ func NewGroup(
 	reconcilers ...ReconcilerWithEvents,
 ) *Group {
 	return &Group{
-		reconcilers: reconcilers,
-		name:        name,
-		client:      client,
-		scheme:      scheme,
-		baseObject:  resourceObject,
-		finalizer:   finalizer,
+		reconcilers:      reconcilers,
+		name:             name,
+		client:           client,
+		scheme:           scheme,
+		baseObject:       resourceObject,
+		finalizer:        finalizer,
+		legacyFinalizers: legacyFinalizers,
 	}
 }
 
@@ -83,7 +84,7 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, err
 	}
 
-	finalErr, finalRes = g.runGroup(ctx, req, finalErr, finalRes)
+	finalRes, finalErr = g.runGroup(ctx, req, finalErr, finalRes)
 
 	objectBeingDeleted := resourceObject.GetDeletionTimestamp() != nil
 	if objectBeingDeleted && finalErr == nil && finalRes.IsZero() {
@@ -140,7 +141,7 @@ func (g *Group) removeFinalizer(ctx context.Context, resource client.Object) err
 	return nil
 }
 
-func (g *Group) runGroup(ctx context.Context, req ctrl.Request, finalErr error, finalRes ctrl.Result) (error, ctrl.Result) {
+func (g *Group) runGroup(ctx context.Context, req ctrl.Request, finalErr error, finalRes ctrl.Result) (ctrl.Result, error) {
 	for _, reconciler := range g.reconcilers {
 		logrus.Infof("Starting cycle for %T", reconciler)
 		res, err := reconciler.Reconcile(ctx, req)
@@ -154,7 +155,7 @@ func (g *Group) runGroup(ctx context.Context, req ctrl.Request, finalErr error, 
 			finalRes = shortestRequeue(res, finalRes)
 		}
 	}
-	return finalErr, finalRes
+	return finalRes, finalErr
 }
 
 func (g *Group) InjectRecorder(recorder record.EventRecorder) {
