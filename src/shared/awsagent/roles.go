@@ -10,6 +10,7 @@ import (
 	"github.com/aws/smithy-go"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"strings"
 )
 import "github.com/aws/aws-sdk-go-v2/service/iam"
 
@@ -18,9 +19,9 @@ import "github.com/aws/aws-sdk-go-v2/service/iam"
 // - found (bool), true if role exists, false if not
 // - role (types.Role), aws role
 // - error
-func (a *Agent) GetOtterizeRole(ctx context.Context, accountName string) (bool, *types.Role, error) {
-	logger := logrus.WithField("account", accountName)
-	roleName := generateRoleName(accountName)
+func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName string) (bool, *types.Role, error) {
+	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
+	roleName := generateRoleName(namespaceName, accountName)
 
 	role, err := a.iamClient.GetRole(ctx, &iam.GetRoleInput{
 		RoleName: aws.String(roleName),
@@ -45,9 +46,9 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, accountName string) (bool, 
 }
 
 // CreateOtterizeIAMRole creates a new IAM role for service, if one doesn't exist yet
-func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, accountName string) (*types.Role, error) {
-	logger := logrus.WithField("account", accountName)
-	exists, role, err := a.GetOtterizeRole(ctx, accountName)
+func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accountName string) (*types.Role, error) {
+	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
+	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
 
 	if err != nil {
 		return nil, err
@@ -57,19 +58,23 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, accountName string) (
 		logger.Debugf("found existing role, arn: %s", *role.Arn)
 		return role, nil
 	} else {
-		trustPolicy, err := a.generateTrustPolicy(accountName)
+		trustPolicy, err := a.generateTrustPolicy(namespaceName, accountName)
 
 		if err != nil {
 			return nil, err
 		}
 
 		createRoleOutput, err := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
-			RoleName:                 aws.String(generateRoleName(accountName)),
+			RoleName:                 aws.String(generateRoleName(namespaceName, accountName)),
 			AssumeRolePolicyDocument: aws.String(trustPolicy),
 			Tags: []types.Tag{
 				{
 					Key:   aws.String(serviceAccountNameTagKey),
 					Value: aws.String(accountName),
+				},
+				{
+					Key:   aws.String(serviceAccountNamespaceTagKey),
+					Value: aws.String(namespaceName),
 				},
 			},
 		})
@@ -84,9 +89,9 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, accountName string) (
 	}
 }
 
-func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, accountName string) error {
-	logger := logrus.WithField("account", accountName)
-	exists, role, err := a.GetOtterizeRole(ctx, accountName)
+func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accountName string) error {
+	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
+	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
 
 	if err != nil {
 		return err
@@ -98,23 +103,42 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, accountName string) e
 	}
 
 	_, found := lo.Find(role.Tags, func(tag types.Tag) bool {
-		return *tag.Key == serviceAccountNameTagKey
+		if *tag.Key == serviceAccountNameTagKey && *tag.Value == accountName {
+			return true
+		}
+		if *tag.Key == serviceAccountNamespaceTagKey && *tag.Value == namespaceName {
+			return true
+		}
+
+		return false
 	})
 
 	if !found {
-		errorMessage := fmt.Sprintf("refusing to delete role that's not tagged with %s", serviceAccountNameTagKey)
-		logger.Error(errorMessage)
+		errorMessage := "refusing to delete role that's not tagged with with appropriate tags"
+		logger.WithField("arn", role.Arn).Error(errorMessage)
 		return errors.New(errorMessage)
 	}
 
-	_, err = a.iamClient.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
+	_, err = a.iamClient.GetRolePolicy(ctx, &iam.GetRolePolicyInput{
 		PolicyName: role.RoleName,
 		RoleName:   role.RoleName,
 	})
 
-	if err != nil {
-		logger.WithError(err).Errorf("failed to delete inline policy")
-		return err
+	if err == nil {
+		_, err = a.iamClient.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
+			PolicyName: role.RoleName,
+			RoleName:   role.RoleName,
+		})
+
+		if err != nil {
+			logger.WithError(err).Errorf("failed to delete inline policy")
+			return err
+		}
+	} else {
+		var nse *types.NoSuchEntityException
+		if !errors.As(err, &nse) {
+			return err
+		}
 	}
 
 	_, err = a.iamClient.DeleteRole(ctx, &iam.DeleteRoleInput{
@@ -129,8 +153,8 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, accountName string) e
 	return nil
 }
 
-func (a *Agent) generateTrustPolicy(accountName string) (string, error) {
-	oidcArn := fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", a.accountId, a.oidcUrl)
+func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, error) {
+	oidc := strings.TrimPrefix(a.oidcUrl, "https://")
 
 	policy := PolicyDocument{
 		Version: iamAPIVersion,
@@ -139,12 +163,12 @@ func (a *Agent) generateTrustPolicy(accountName string) (string, error) {
 				Effect: iamEffectAllow,
 				Action: []string{"sts:AssumeRoleWithWebIdentity"},
 				Principal: map[string]string{
-					"Federated": oidcArn,
+					"Federated": fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", a.accountId, a.oidcUrl),
 				},
 				Condition: map[string]any{
 					"StringEquals": map[string]string{
-						fmt.Sprintf("%s:sub", oidcArn): fmt.Sprintf("system:serviceaccount:default:%s", accountName),
-						fmt.Sprintf("%s:aud", oidcArn): "sts.amazonaws.com",
+						fmt.Sprintf("%s:sub", oidc): fmt.Sprintf("system:serviceaccount:%s:%s", namespaceName, accountName),
+						fmt.Sprintf("%s:aud", oidc): "sts.amazonaws.com",
 					},
 				},
 			},
@@ -161,6 +185,6 @@ func (a *Agent) generateTrustPolicy(accountName string) (string, error) {
 	return string(serialized), err
 }
 
-func generateRoleName(accountName string) string {
-	return fmt.Sprintf("otterize-%s", accountName)
+func generateRoleName(namespaceName, accountName string) string {
+	return fmt.Sprintf("otterize-sa-%s-%s", namespaceName, accountName)
 }
