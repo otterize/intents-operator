@@ -27,13 +27,11 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/initonce"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -83,9 +81,7 @@ func NewIntentsReconciler(
 		networkPolicyReconciler,
 	)
 
-	if viper.GetBool(operatorconfig.EnableKubernetesServiceIntentsKey) {
-		reconcilersGroup.AddToGroup(portNetpolReconciler)
-	}
+	reconcilersGroup.AddToGroup(portNetpolReconciler)
 
 	intentsReconciler := &IntentsReconciler{
 		group:                   reconcilersGroup,
