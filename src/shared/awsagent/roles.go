@@ -119,26 +119,10 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 		return errors.New(errorMessage)
 	}
 
-	_, err = a.iamClient.GetRolePolicy(ctx, &iam.GetRolePolicyInput{
-		PolicyName: role.RoleName,
-		RoleName:   role.RoleName,
-	})
+	err = a.deleteInlineRolePolicy(ctx, role)
 
-	if err == nil {
-		_, err = a.iamClient.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
-			PolicyName: role.RoleName,
-			RoleName:   role.RoleName,
-		})
-
-		if err != nil {
-			logger.WithError(err).Errorf("failed to delete inline policy")
-			return err
-		}
-	} else {
-		var nse *types.NoSuchEntityException
-		if !errors.As(err, &nse) {
-			return err
-		}
+	if err != nil {
+		return err
 	}
 
 	_, err = a.iamClient.DeleteRole(ctx, &iam.DeleteRoleInput{
@@ -151,6 +135,30 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	}
 
 	return nil
+}
+
+// deleteInlineRolePolicy deletes the inline role policy, if exists, in preparation to delete the role.
+func (a *Agent) deleteInlineRolePolicy(ctx context.Context, role *types.Role) error {
+	_, err := a.iamClient.GetRolePolicy(ctx, &iam.GetRolePolicyInput{
+		PolicyName: role.RoleName,
+		RoleName:   role.RoleName,
+	})
+
+	if err != nil {
+		var nse *types.NoSuchEntityException
+		if errors.As(err, &nse) {
+			return nil
+		}
+
+		return err
+	}
+
+	_, err = a.iamClient.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
+		PolicyName: role.RoleName,
+		RoleName:   role.RoleName,
+	})
+
+	return err
 }
 
 func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, error) {
