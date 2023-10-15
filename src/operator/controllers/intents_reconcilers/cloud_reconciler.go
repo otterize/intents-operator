@@ -74,11 +74,11 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 	ctx context.Context,
-	clientIntentsList *otterizev1alpha2.ClientIntentsList) (*otterizev1alpha2.ClientIntentsList, error) {
+	clientIntentsList *otterizev1alpha3.ClientIntentsList) (*otterizev1alpha3.ClientIntentsList, error) {
 
 	// TODO: Remove when access graph supports Kubernetes services
 	for _, clientIntent := range clientIntentsList.Items {
-		callList := make([]otterizev1alpha2.Intent, 0)
+		callList := make([]otterizev1alpha3.Intent, 0)
 		for _, intent := range clientIntent.GetCallsList() {
 			if !intent.IsTargetServerKubernetesService() {
 				callList = append(callList, intent)
@@ -93,7 +93,7 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 			}, &svc)
 			if err != nil {
 				if errors.IsNotFound(err) {
-					return &otterizev1alpha2.ClientIntentsList{Items: nil}, nil
+					return &otterizev1alpha3.ClientIntentsList{Items: nil}, nil
 				}
 				return nil, err
 			}
