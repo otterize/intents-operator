@@ -35,12 +35,11 @@ type externalNetpolHandler interface {
 
 type PortNetworkPolicyReconciler struct {
 	client.Client
-	Scheme                                        *runtime.Scheme
-	extNetpolHandler                              externalNetpolHandler
-	RestrictToNamespaces                          []string
-	enableNetworkPolicyCreation                   bool
-	enforcementDefaultState                       bool
-	externalNetworkPoliciesCreatedEvenIfNoIntents bool
+	Scheme                      *runtime.Scheme
+	extNetpolHandler            externalNetpolHandler
+	RestrictToNamespaces        []string
+	enableNetworkPolicyCreation bool
+	enforcementDefaultState     bool
 	injectablerecorder.InjectableRecorder
 }
 
