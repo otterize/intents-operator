@@ -327,17 +327,21 @@ func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *c
 }
 
 func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Context, endpoints *corev1.Endpoints, ingressList *v1.IngressList) error {
-
 	addresses := r.getAddressesFromEndpoints(endpoints)
 	foundOtterizeNetpolsAffectingPods := false
 	for _, address := range addresses {
-		serverLabel, err := r.getOtterizeServerLabel(ctx, address)
+		pod, err := r.getAffectedPod(ctx, address)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
 
 		if err != nil {
 			return err
 		}
+
 		// only act on pods affected by Otterize
-		if len(serverLabel) == 0 {
+		serverLabel, ok := pod.Labels[v1alpha2.OtterizeServerLabelKey]
+		if !ok {
 			continue
 		}
 
@@ -353,7 +357,23 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 			return err
 		}
 
-		if len(netpolList.Items) == 0 {
+		svcNetpolList := &v1.NetworkPolicyList{}
+		svcIdentity := v1alpha2.GetFormattedOtterizeIdentity(
+			endpoints.Name,
+			endpoints.Namespace,
+		)
+		// there's only ever one
+		err = r.client.List(ctx, svcNetpolList, client.MatchingLabels{v1alpha2.OtterizeSvcNetworkPolicy: svcIdentity}, client.Limit(1))
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				// only act on pods affected by Otterize policies - if they were not created yet,
+				// the intents reconciler will call the endpoints reconciler once it does.
+				continue
+			}
+			return err
+		}
+
+		if len(netpolList.Items) == 0 && len(svcNetpolList.Items) == 0 {
 			if r.allowExternalTraffic == allowexternaltraffic.Always {
 				err := r.handleNetpolsForOtterizeServiceWithoutIntents(ctx, endpoints, serverLabel, ingressList)
 				if err != nil {
@@ -363,8 +383,12 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 			continue
 		}
 
+		netpolSlice := make([]v1.NetworkPolicy, 0)
+		netpolSlice = append(netpolSlice, netpolList.Items...)
+		netpolSlice = append(netpolSlice, svcNetpolList.Items...)
+
 		foundOtterizeNetpolsAffectingPods = true
-		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, &netpolList.Items[0])
+		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, netpolSlice)
 		if err != nil {
 			return err
 		}
@@ -382,25 +406,18 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 	return nil
 }
 
-func (r *NetworkPolicyHandler) getOtterizeServerLabel(ctx context.Context, address corev1.EndpointAddress) (string, error) {
+func (r *NetworkPolicyHandler) getAffectedPod(ctx context.Context, address corev1.EndpointAddress) (*corev1.Pod, error) {
 	if address.TargetRef == nil || address.TargetRef.Kind != "Pod" {
-		return "", nil
+		return nil, k8serrors.NewNotFound(corev1.Resource("Pod"), "not-a-pod")
 	}
 
 	pod := &corev1.Pod{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: address.TargetRef.Name, Namespace: address.TargetRef.Namespace}, pod)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return "", nil
-		}
-		return "", err
+		return nil, err
 	}
 
-	serverLabel, ok := pod.Labels[v1alpha2.OtterizeServerLabelKey]
-	if !ok {
-		return "", nil
-	}
-	return serverLabel, nil
+	return pod, nil
 }
 
 func (r *NetworkPolicyHandler) getAddressesFromEndpoints(endpoints *corev1.Endpoints) []corev1.EndpointAddress {
@@ -466,7 +483,7 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 	return nil
 }
 
-func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, netpol *v1.NetworkPolicy) error {
+func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, netpolList []v1.NetworkPolicy) error {
 	svc := &corev1.Service{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
 	if err != nil {
@@ -483,11 +500,13 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 		return nil
 	}
 
-	successMsg := fmt.Sprintf(successMsgNetpolCreate, endpoints.GetName(), netpol.GetName())
-	err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, netpol.Spec.PodSelector, ingressList, successMsg)
+	for _, netpol := range netpolList {
+		successMsg := fmt.Sprintf(successMsgNetpolCreate, endpoints.GetName(), netpol.GetName())
+		err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, netpol.Spec.PodSelector, ingressList, successMsg)
 
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
