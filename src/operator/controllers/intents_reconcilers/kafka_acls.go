@@ -3,6 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
+
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -190,6 +191,13 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	var result ctrl.Result
+
+	intents.Status.UpToDate = false
+
+	defer func() {
+		intents.Status.UpToDate = true
+	}()
+
 	result, err = r.applyAcls(ctx, logger, intents)
 	if err != nil {
 		return result, err

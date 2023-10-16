@@ -3,6 +3,8 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
+	"reflect"
+
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -17,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -76,6 +77,12 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	logrus.Infof("Reconciling network policies for service %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
 
+	intents.Status.UpToDate = false
+
+	defer func() {
+		intents.Status.UpToDate = true
+	}()
+
 	// Object is deleted, handle finalizer and network policy clean up
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.cleanFinalizerAndPolicies(ctx, intents)
@@ -127,6 +134,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		callsCount := len(intents.GetCallsList())
 		r.RecordNormalEventf(intents, consts.ReasonCreatedNetworkPolicies, "reconciled %d servers, created %d policies", callsCount, createdNetpols)
 	}
+
 	return ctrl.Result{}, nil
 }
 

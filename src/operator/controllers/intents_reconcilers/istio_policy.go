@@ -3,6 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"errors"
+
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	istiopolicy "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
@@ -74,6 +75,12 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	logrus.Infof("Reconciling Istio authorization policies for service %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
+
+	intents.Status.UpToDate = false
+
+	defer func() {
+		intents.Status.UpToDate = true
+	}()
 
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.cleanFinalizerAndPolicies(ctx, intents)
