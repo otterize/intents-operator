@@ -3,6 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
+
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
@@ -45,6 +46,12 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if intents.Spec == nil {
 		return ctrl.Result{}, nil
 	}
+
+	intents.Status.UpToDate = false
+
+	defer func() {
+		intents.Status.UpToDate = true
+	}()
 
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.removeLabelsFromPods(ctx, intents)

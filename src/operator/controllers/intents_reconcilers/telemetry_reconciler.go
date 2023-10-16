@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
+
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
@@ -43,6 +44,12 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+
+	intents.Status.UpToDate = false
+
+	defer func() {
+		intents.Status.UpToDate = true
+	}()
 
 	hasher := sha1.New()
 	resourceName := fmt.Sprintf("%s/%s", intents.Namespace, intents.Name)
