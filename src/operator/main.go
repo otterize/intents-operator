@@ -84,6 +84,7 @@ func MustGetEnvVar(name string) string {
 }
 
 func main() {
+	// Dummy comment to trigger CICD
 	operatorconfig.InitCLIFlags()
 
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
