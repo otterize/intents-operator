@@ -56,12 +56,6 @@ var intentsLegacyFinalizers = []string{
 	"intents.otterize.com/pods-finalizer",
 }
 
-var protectedServiceLegacyFinalizers = []string{
-	"protectedservice.otterize.com/cloudfinalizer",
-	"protectedservice.otterize.com/defaultdenyfinalizer",
-	"protectedservice.otterize.com/policycleanerfinalizer",
-}
-
 type EnforcementConfig struct {
 	EnforcementDefaultState  bool
 	EnableNetworkPolicy      bool

@@ -33,6 +33,12 @@ const (
 	protectedServicesGroupName = "protected-services"
 )
 
+var protectedServiceLegacyFinalizers = []string{
+	"protectedservice.otterize.com/cloudfinalizer",
+	"protectedservice.otterize.com/defaultdenyfinalizer",
+	"protectedservice.otterize.com/policycleanerfinalizer",
+}
+
 // ProtectedServiceReconciler reconciles a ProtectedService object
 type ProtectedServiceReconciler struct {
 	client.Client
