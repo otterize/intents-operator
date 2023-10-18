@@ -71,7 +71,7 @@ func (s *ValidationWebhookTestSuite) SetupSuite() {
 
 func (s *ValidationWebhookTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
-	intentsValidator := NewIntentsValidator(s.Mgr.GetClient())
+	intentsValidator := NewIntentsValidatorV1alpha2(s.Mgr.GetClient())
 	s.Require().NoError(intentsValidator.SetupWebhookWithManager(s.Mgr))
 	intentsValidator3 := NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
 	s.Require().NoError(intentsValidator3.SetupWebhookWithManager(s.Mgr))

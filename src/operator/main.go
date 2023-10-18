@@ -204,22 +204,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
-	}
-
-	if err = externalPolicySvcReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
-	}
-
 	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler)
-	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
-	}
-
-	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to init index for ingress")
-	}
 
 	otterizeCloudClient, connectedToCloud, err := operator_cloud_client.NewClient(signalHandlerCtx)
 	if err != nil {
@@ -239,35 +224,6 @@ func main() {
 
 	if !enforcementConfig.EnforcementDefaultState {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
-	}
-
-	intentsReconciler := controllers.NewIntentsReconciler(
-		mgr.GetClient(),
-		mgr.GetScheme(),
-		kafkaServersStore,
-		networkPolicyHandler,
-		svcNetworkPolicyHandler,
-		watchedNamespaces,
-		enforcementConfig,
-		otterizeCloudClient,
-		podName,
-		podNamespace,
-	)
-
-	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to init indices")
-	}
-
-	if err = intentsReconciler.InitEndpointsPodNamesIndex(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to init indices")
-	}
-
-	if err = intentsReconciler.InitProtectedServiceIndexField(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to init protected service index")
-	}
-
-	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
 	}
 
 	if selfSignedCert {
@@ -293,16 +249,13 @@ func main() {
 	}
 
 	if !disableWebhookServer {
-		if err = (&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal(err, "unable to create webhook", "webhook", "ClientIntents")
+		intentsValidator := webhooks.NewIntentsValidatorV1alpha2(mgr.GetClient())
+		if err = (&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidator); err != nil {
+			logrus.WithError(err).Fatal(err, "unable to create webhook for v1alpha2", "webhook", "ClientIntents")
 		}
-		if err = (&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal(err, "unable to create webhook", "webhook", "ClientIntents")
-		}
-
-		intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
-		if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
+		intentsValidatorV1alpha3 := webhooks.NewIntentsValidatorV1alpha3(mgr.GetClient())
+		if err = (&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidatorV1alpha3); err != nil {
+			logrus.WithError(err).Fatal(err, "unable to create webhook v1alpha3", "webhook", "ClientIntents")
 		}
 
 		protectedServiceValidator := webhooks.NewProtectedServiceValidator(mgr.GetClient())
@@ -310,11 +263,49 @@ func main() {
 			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "ProtectedService")
 		}
 
-		intentsValidatorV1alpha3 := webhooks.NewIntentsValidatorV1alpha3(mgr.GetClient())
-		if err = intentsValidatorV1alpha3.SetupWebhookWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
-		}
+	}
 
+	intentsReconciler := controllers.NewIntentsReconciler(
+		mgr.GetClient(),
+		mgr.GetScheme(),
+		kafkaServersStore,
+		networkPolicyHandler,
+		svcNetworkPolicyHandler,
+		watchedNamespaces,
+		enforcementConfig,
+		otterizeCloudClient,
+		podName,
+		podNamespace,
+	)
+
+	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init index for ingress")
+	}
+	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init indices")
+	}
+
+	if err = intentsReconciler.InitEndpointsPodNamesIndex(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init indices")
+	}
+
+	if err = intentsReconciler.InitProtectedServiceIndexField(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init protected service index")
+	}
+
+	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
+	}
+	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
+	}
+
+	if err = externalPolicySvcReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
+	}
+
+	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
 	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(

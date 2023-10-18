@@ -18,11 +18,12 @@ package v1alpha3
 
 import (
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
-func (in *ClientIntents) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (in *ClientIntents) SetupWebhookWithManager(mgr ctrl.Manager, validator webhook.CustomValidator) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(in).
+		For(in).WithValidator(validator).
 		Complete()
 }
 

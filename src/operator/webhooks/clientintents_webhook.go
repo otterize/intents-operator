@@ -41,7 +41,7 @@ func (v *IntentsValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-func NewIntentsValidator(c client.Client) *IntentsValidator {
+func NewIntentsValidatorV1alpha2(c client.Client) *IntentsValidator {
 	return &IntentsValidator{
 		Client: c,
 	}

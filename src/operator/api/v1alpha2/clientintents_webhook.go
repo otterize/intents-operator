@@ -21,11 +21,12 @@ import (
 	"github.com/samber/lo"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-func (in *ClientIntents) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (in *ClientIntents) SetupWebhookWithManager(mgr ctrl.Manager, validator admission.CustomValidator) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(in).
+		For(in).WithValidator(validator).
 		Complete()
 }
 

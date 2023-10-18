@@ -132,7 +132,7 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 	var intentsList otterizev1alpha3.ClientIntentsList
 	err := p.List(
 		ctx, &intentsList,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serviceFullName})
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: serviceFullName})
 	if err != nil {
 		return err
 	}
