@@ -84,13 +84,14 @@ jobs:
           CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
           echo Client: $CLI1_POD      client_other: $CLI2_POD
+          source .github/workflows/test-bashrc.sh
           
           # using 14 because the log repeat itself every 14 lines
           echo check client log
-          kubectl logs --tail 14 -n otterize-tutorial-npol $CLI1_POD | grep "Hi, I am the server, you called, may I help you?"
+          wait_for_log $CLI1_POD 10 "Hi, I am the server, you called, may I help you?"
           
           echo check client other log
-          kubectl logs --tail 14 -n otterize-tutorial-npol $CLI2_POD | grep "Hi, I am the server, you called, may I help you?"
+          wait_for_log $CLI2_POD 10 "Hi, I am the server, you called, may I help you?"
 
       - name: Apply intents and test connectivity
         run: |-
