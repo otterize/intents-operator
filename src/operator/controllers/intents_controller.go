@@ -203,7 +203,7 @@ func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otter
 	var intentsToServer otterizev1alpha3.ClientIntentsList
 	err := r.client.List(context.Background(),
 		&intentsToServer,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fullServerName},
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fullServerName},
 	)
 	if err != nil {
 		logrus.Errorf("Failed to list client intents for client %s: %v", fullServerName, err)
@@ -219,7 +219,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&otterizev1alpha3.ClientIntents{},
-		otterizev1alpha2.OtterizeTargetServerIndexField,
+		otterizev1alpha3.OtterizeTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
 			intents := object.(*otterizev1alpha3.ClientIntents)
@@ -246,7 +246,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	err = mgr.GetCache().IndexField(
 		context.Background(),
 		&otterizev1alpha3.ClientIntents{},
-		otterizev1alpha2.OtterizeFormattedTargetServerIndexField,
+		otterizev1alpha3.OtterizeFormattedTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
 			intents := object.(*otterizev1alpha3.ClientIntents)
