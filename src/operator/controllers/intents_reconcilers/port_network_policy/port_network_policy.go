@@ -36,12 +36,11 @@ type externalNetpolHandler interface {
 
 type PortNetworkPolicyReconciler struct {
 	client.Client
-	Scheme                                        *runtime.Scheme
-	extNetpolHandler                              externalNetpolHandler
-	RestrictToNamespaces                          []string
-	enableNetworkPolicyCreation                   bool
-	enforcementDefaultState                       bool
-	externalNetworkPoliciesCreatedEvenIfNoIntents bool
+	Scheme                      *runtime.Scheme
+	extNetpolHandler            externalNetpolHandler
+	RestrictToNamespaces        []string
+	enableNetworkPolicyCreation bool
+	enforcementDefaultState     bool
 	injectablerecorder.InjectableRecorder
 }
 
@@ -52,7 +51,7 @@ func NewPortNetworkPolicyReconciler(
 	restrictToNamespaces []string,
 	enableNetworkPolicyCreation bool,
 	enforcementDefaultState bool,
-	externalNetworkPoliciesCreatedEvenIfNoIntents bool) *PortNetworkPolicyReconciler {
+) *PortNetworkPolicyReconciler {
 	return &PortNetworkPolicyReconciler{
 		Client:                      c,
 		Scheme:                      s,
@@ -60,7 +59,6 @@ func NewPortNetworkPolicyReconciler(
 		RestrictToNamespaces:        restrictToNamespaces,
 		enableNetworkPolicyCreation: enableNetworkPolicyCreation,
 		enforcementDefaultState:     enforcementDefaultState,
-		externalNetworkPoliciesCreatedEvenIfNoIntents: externalNetworkPoliciesCreatedEvenIfNoIntents,
 	}
 }
 

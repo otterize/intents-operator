@@ -10,17 +10,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (a *Agent) SetRolePolicy(ctx context.Context, accountName string, statements []StatementEntry) error {
-	logger := logrus.WithField("account", accountName)
+func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string, statements []StatementEntry) error {
+	logger := logrus.WithField("account", accountName).WithField("namespace", namespace)
+	roleName := generateRoleName(namespace, accountName)
 
-	exists, role, err := a.GetOtterizeRole(ctx, accountName)
+	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
 
 	if err != nil {
 		return err
 	}
 
 	if !exists {
-		errorMessage := fmt.Sprintf("role not found: %s", generateRoleName(accountName))
+		errorMessage := fmt.Sprintf("role not found: %s", roleName)
 		logger.Error(errorMessage)
 		return errors.New(errorMessage)
 	}
