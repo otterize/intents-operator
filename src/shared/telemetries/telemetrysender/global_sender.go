@@ -31,22 +31,44 @@ func SetGlobalCloudClientId(clientId string) {
 
 func send(componentType telemetriesgql.ComponentType, eventType telemetriesgql.EventType, count int) {
 	senderInitOnce.Do(func() {
-		sender = New()
-		globalComponentInstanceId = uuid.NewString()
-		if flag.Lookup("test.v") != nil {
-			logrus.Infof("Disabling telemetry sender because this is a test")
-			sender.enabled = false
-		}
+		initSender()
 	})
-	if err := sender.Send(
-		telemetriesgql.Component{
-			CloudClientId:       globalCloudClientId,
-			ComponentType:       componentType,
-			ComponentInstanceId: globalComponentInstanceId,
-			ContextId:           globalContextId,
-			Version:             globalVersion,
-		}, eventType, count); err != nil {
+
+	component := currentComponent(componentType)
+	err := sender.Send(component, eventType, count)
+	if err != nil {
 		logrus.Warningf("failed sending telemetry. %s", err)
+	}
+}
+
+func incrementCounter(componentType telemetriesgql.ComponentType, eventType telemetriesgql.EventType, key string) {
+	senderInitOnce.Do(func() {
+		initSender()
+	})
+
+	component := currentComponent(componentType)
+	err := sender.IncrementCounter(component, eventType, key)
+	if err != nil {
+		logrus.Warningf("failed sending telemetry. %s", err)
+	}
+}
+
+func currentComponent(componentType telemetriesgql.ComponentType) telemetriesgql.Component {
+	return telemetriesgql.Component{
+		CloudClientId:       globalCloudClientId,
+		ComponentType:       componentType,
+		ComponentInstanceId: globalComponentInstanceId,
+		ContextId:           globalContextId,
+		Version:             globalVersion,
+	}
+}
+
+func initSender() {
+	sender = New()
+	globalComponentInstanceId = uuid.NewString()
+	if flag.Lookup("test.v") != nil {
+		logrus.Infof("Disabling telemetry sender because this is a test")
+		sender.enabled = false
 	}
 }
 
@@ -60,4 +82,16 @@ func SendNetworkMapper(eventType telemetriesgql.EventType, count int) {
 
 func SendCredentialsOperator(eventType telemetriesgql.EventType, count int) {
 	send(telemetriesgql.ComponentTypeCredentialsOperator, eventType, count)
+}
+
+func IncrementUniqueCounterIntentOperator(eventType telemetriesgql.EventType, key string) {
+	incrementCounter(telemetriesgql.ComponentTypeIntentsOperator, eventType, key)
+}
+
+func IncrementUniqueCounterNetworkMapper(eventType telemetriesgql.EventType, key string) {
+	incrementCounter(telemetriesgql.ComponentTypeNetworkMapper, eventType, key)
+}
+
+func IncrementUniqueCounterCredentialsOperator(eventType telemetriesgql.EventType, key string) {
+	incrementCounter(telemetriesgql.ComponentTypeCredentialsOperator, eventType, key)
 }

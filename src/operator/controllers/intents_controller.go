@@ -23,12 +23,14 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/initonce"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +39,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -63,18 +66,23 @@ func NewIntentsReconciler(
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
 	networkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler,
+	portNetpolReconciler *port_network_policy.PortNetworkPolicyReconciler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
 	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string) *IntentsReconciler {
+
+	serviceIdResolver := serviceidresolver.NewResolver(client)
 	reconcilersGroup := reconcilergroup.NewGroup("intents-reconciler", client, scheme,
 		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
-		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceidresolver.NewResolver(client)),
+		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
 		networkPolicyReconciler,
 	)
+
+	reconcilersGroup.AddToGroup(portNetpolReconciler)
 
 	intentsReconciler := &IntentsReconciler{
 		group:                   reconcilersGroup,
@@ -82,8 +90,13 @@ func NewIntentsReconciler(
 		networkPolicyReconciler: networkPolicyReconciler,
 	}
 
+	if telemetrysender.IsTelemetryEnabled() {
+		telemetryReconciler := intents_reconcilers.NewTelemetryReconciler(client, scheme)
+		intentsReconciler.group.AddToGroup(telemetryReconciler)
+	}
+
 	if otterizeClient != nil {
-		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient)
+		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient, serviceIdResolver)
 		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
 	}
 
@@ -107,13 +120,43 @@ func NewIntentsReconciler(
 // move the current state of the cluster closer to the desired state.
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	err := r.initOnce.Do(func() error {
-		return r.networkPolicyReconciler.CleanAllNamespaces(ctx)
+		return r.intentsReconcilerInit(ctx)
 	})
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return r.group.Reconcile(ctx, req)
+}
+
+func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
+	if !telemetrysender.IsTelemetryEnabled() {
+		// When telemetry is disabled no logic should run by the telemetry reconciler. In case that a previous run of
+		// the operator had telemetry enabled we must remove the telemetry reconciler finalizers from all the CRDs.
+		err := r.RemoveFinalizerFromAllResources(ctx, otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName)
+		if err != nil {
+			return err
+		}
+	}
+	return r.networkPolicyReconciler.CleanAllNamespaces(ctx)
+}
+
+func (r *IntentsReconciler) RemoveFinalizerFromAllResources(ctx context.Context, finalizer string) error {
+	var clientIntentsList otterizev1alpha2.ClientIntentsList
+	err := r.client.List(ctx, &clientIntentsList)
+	if err != nil {
+		return err
+	}
+
+	for _, clientIntents := range clientIntentsList.Items {
+		controllerutil.RemoveFinalizer(&clientIntents, finalizer)
+		err = r.client.Update(ctx, &clientIntents)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -185,7 +228,13 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			}
 
 			for _, intent := range intents.GetCallsList() {
-				res = append(res, intent.GetServerFullyQualifiedName(intents.Namespace))
+				if !intent.IsTargetServerKubernetesService() {
+					res = append(res, intent.GetServerFullyQualifiedName(intents.Namespace))
+				}
+				fullyQualifiedSvcName, ok := intent.GetK8sServiceFullyQualifiedName(intents.Namespace)
+				if ok {
+					res = append(res, fullyQualifiedSvcName)
+				}
 			}
 
 			return res
@@ -206,10 +255,14 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			}
 
 			for _, intent := range intents.GetCallsList() {
-				serverName := intent.GetServerName()
-				serverNamespace := intent.GetServerNamespace(intents.Namespace)
+				serverName := intent.GetTargetServerName()
+				serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
 				formattedServerName := otterizev1alpha2.GetFormattedOtterizeIdentity(serverName, serverNamespace)
-				res = append(res, formattedServerName)
+				if !intent.IsTargetServerKubernetesService() {
+					res = append(res, formattedServerName)
+				} else {
+					res = append(res, "svc:"+formattedServerName)
+				}
 			}
 
 			return res

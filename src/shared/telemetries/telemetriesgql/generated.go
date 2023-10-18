@@ -45,6 +45,9 @@ type EventType string
 const (
 	EventTypeIntentsDeleted              EventType = "INTENTS_DELETED"
 	EventTypeIntentsApplied              EventType = "INTENTS_APPLIED"
+	EventTypeIntentsAppliedKafka         EventType = "INTENTS_APPLIED_KAFKA"
+	EventTypeIntentsAppliedHttp          EventType = "INTENTS_APPLIED_HTTP"
+	EventTypeIntentsAppliedDatabase      EventType = "INTENTS_APPLIED_DATABASE"
 	EventTypeIntentsDiscovered           EventType = "INTENTS_DISCOVERED"
 	EventTypeIntentsDiscoveredSocketScan EventType = "INTENTS_DISCOVERED_SOCKET_SCAN"
 	EventTypeIntentsDiscoveredCapture    EventType = "INTENTS_DISCOVERED_CAPTURE"
@@ -62,6 +65,9 @@ const (
 	EventTypeIstioPoliciesDeleted        EventType = "ISTIO_POLICIES_DELETED"
 	EventTypeStarted                     EventType = "STARTED"
 	EventTypeServiceDiscovered           EventType = "SERVICE_DISCOVERED"
+	EventTypeNamespaceDiscovered         EventType = "NAMESPACE_DISCOVERED"
+	EventTypeProtectedServiceApplied     EventType = "PROTECTED_SERVICE_APPLIED"
+	EventTypeProtectedServiceDeleted     EventType = "PROTECTED_SERVICE_DELETED"
 )
 
 // SendTelemetriesResponse is returned by SendTelemetries on success.

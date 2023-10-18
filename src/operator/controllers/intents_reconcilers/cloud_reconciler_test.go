@@ -37,6 +37,7 @@ func (s *CloudReconcilerTestSuite) SetupTest() {
 		s.client,
 		&runtime.Scheme{},
 		s.mockCloudClient,
+		mocks.NewMockServiceResolver(controller),
 	)
 
 	s.recorder = record.NewFakeRecorder(100)

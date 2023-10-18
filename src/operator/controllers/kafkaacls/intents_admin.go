@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/otterize/lox"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -338,7 +336,6 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 			if err := a.kafkaAdminClient.CreateACLs(resourceAclsCreate); err != nil {
 				return fmt.Errorf("failed applying ACLs to server: %w", err)
 			}
-			telemetrysender.SendIntentOperator(telemetriesgql.EventTypeKafkaAclsCreated, len(resourceAclsCreate))
 		} else if !a.enableKafkaACLCreation {
 			logger.Infof("Skipped creation of %d new ACLs because Kafka ACL Creation is disabled", len(resourceAclsCreate))
 		} else if !a.enforcementEnabledForServer {
@@ -353,7 +350,6 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 		if err := a.deleteResourceAcls(resourceAclsDelete); err != nil {
 			return fmt.Errorf("failed deleting ACLs on server: %w", err)
 		}
-		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeKafkaAclsDeleted, len(resourceAclsCreate))
 	}
 
 	if err := a.logACLs(); err != nil {

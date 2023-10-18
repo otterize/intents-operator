@@ -22,8 +22,11 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
+	"github.com/otterize/intents-operator/src/operator/webhooks"
+	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -38,7 +41,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
-	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -104,10 +106,16 @@ func main() {
 		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
 		RootCAFile: viper.GetString(operatorconfig.KafkaServerTLSCAKey),
 	}
+	oidcUrl := viper.GetString(awsagent.ClusterOIDCProviderUrlKey)
 
 	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
 	debugLogs := viper.GetBool(operatorconfig.DebugLogKey)
+
+	if viper.GetBool(awsagent.AWSIntentsEnabledKey) {
+		// awsIntentsAgent :=
+		_ = awsagent.NewAWSAgent(context.Background(), oidcUrl)
+	}
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 	if debugLogs {
@@ -179,13 +187,19 @@ func main() {
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
+	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
 	networkPolicyHandler := ingress_network_policy.NewNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
+	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
 	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
+	}
+
+	if err = externalPolicySvcReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
 	}
 
@@ -205,6 +219,11 @@ func main() {
 	if connectedToCloud {
 		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig)
 		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
+
+		netpolUploader := external_traffic.NewNetworkPolicyUploaderReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
+		if err = netpolUploader.SetupWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to initialize NetworkPolicy reconciler")
+		}
 	} else {
 		logrus.Info("Not configured for cloud integration")
 	}
@@ -213,16 +232,12 @@ func main() {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
 
-	netpolReconciler := external_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
-	if err = netpolReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to initialize NetworkPolicy reconciler")
-	}
-
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
 		networkPolicyHandler,
+		svcNetworkPolicyHandler,
 		watchedNamespaces,
 		enforcementConfig,
 		otterizeCloudClient,
@@ -290,12 +305,17 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "KafkaServerConfig")
 	}
 
+	if err = kafkaServerConfigReconciler.InitKafkaServerConfigIndices(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init indices for KafkaServerConfig")
+	}
+
 	protectedServicesReconciler := controllers.NewProtectedServiceReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		otterizeCloudClient,
 		extNetpolHandler,
 		enforcementConfig.EnforcementDefaultState,
+		enforcementConfig.EnableNetworkPolicy,
 		networkPolicyHandler,
 	)
 
@@ -306,6 +326,12 @@ func main() {
 
 	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
+	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), svcNetworkPolicyHandler)
+
+	err = svcWatcher.SetupWithManager(mgr)
+	if err != nil {
+		logrus.WithError(err).Panic()
+	}
 
 	err = podWatcher.InitIntentsClientIndices(mgr)
 	if err != nil {
