@@ -1,4 +1,4 @@
-package ingress_network_policy
+package egress_network_policy
 
 import (
 	"context"
@@ -36,7 +36,7 @@ const (
 	testClientNamespace                  = "test-client-namespace"
 )
 
-type NetworkPolicyReconcilerTestSuite struct {
+type EgressNetworkPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
 	Reconciler            *NetworkPolicyReconciler
 	externalNetpolHandler *mocks.MockexternalNetpolHandler
@@ -46,7 +46,7 @@ func init() {
 	logrus.SetLevel(logrus.DebugLevel)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 	s.externalNetpolHandler = mocks.NewMockexternalNetpolHandler(s.Controller)
 	restrictToNamespaces := make([]string, 0)
@@ -62,14 +62,14 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.Reconciler.Recorder = s.Recorder
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TearDownTest() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TearDownTest() {
 	viper.Reset()
 	s.Reconciler = nil
 	s.externalNetpolHandler = nil
 	s.MocksSuiteBase.TearDownTest()
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 	clientIntentsName := "client-intents"
 	policyName := "egress-to-test-server-from-test-client-namespace"
 	serviceName := "test-client"
@@ -90,7 +90,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServices() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServices() {
 	clientIntentsName := "client-intents"
 	policyName := "access-to-test-server-from-test-namespace"
 	serviceName := "test-client"
@@ -121,7 +121,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServicesMultipleResources() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServicesMultipleResources() {
 	clientIntentsName := "client-intents"
 	policyName := "access-to-test-server-from-test-namespace"
 	serviceName := "test-client"
@@ -163,7 +163,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace() {
 	clientIntentsName := "client-intents"
 	policyName := "access-to-test-server-from-test-namespace"
 	serviceName := "test-client"
@@ -184,7 +184,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
 	clientIntentsName := "client-intents"
 	policyName := "access-to-test-server-from-test-namespace"
 	serviceName := "test-client"
@@ -200,7 +200,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
 	)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespace() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespace() {
 	clientIntentsName := "client-intents"
 	policyName := "access-to-test-server-from-test-namespace"
 	serviceName := "test-client"
@@ -216,7 +216,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespac
 	)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	clientIntentsName := "client-intents"
 	policyName := "access-to-test-server-from-test-namespace"
 	serviceName := "test-client"
@@ -282,7 +282,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	clientIntentsName := "client-intents"
 	policyName := "access-to-test-server-from-test-namespace"
 	serviceName := "test-client"
@@ -402,7 +402,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsName string, serverNamespace string, serviceName string, policyName string, formattedTargetServer string) {
+func (s *EgressNetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsName string, serverNamespace string, serviceName string, policyName string, formattedTargetServer string) {
 	namespacedName := types.NamespacedName{
 		Namespace: testServerNamespace,
 		Name:      clientIntentsName,
@@ -497,7 +497,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	s.Empty(res)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
+func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	clientIntentsName string,
 	clientNamespace string,
 	serverNamespace string,
@@ -572,7 +572,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	s.Empty(res)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeEgressNetworkPolicy,
@@ -584,7 +584,7 @@ func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), &client.ListOptions{LabelSelector: selector}).Return(nil)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	clientIntentsName := "client-intents"
 	policyName := "access-to-test-server-from-test-namespace"
 	serviceName := "test-client"
@@ -703,7 +703,7 @@ func networkPolicyTemplate(
 	}
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestServerNotInProtectionList() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestServerNotInProtectionList() {
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
@@ -714,7 +714,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerNotInProtectionList() {
 	s.ExpectEvent(consts.ReasonEnforcementDefaultOff)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsName string, serverName string, serverNamespace string, serviceName string) {
+func (s *EgressNetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsName string, serverName string, serverNamespace string, serviceName string) {
 	namespacedName := types.NamespacedName{
 		Namespace: testServerNamespace,
 		Name:      clientIntentsName,
@@ -753,28 +753,28 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 	s.Empty(res)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDisabled() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDisabled() {
 	s.Reconciler.enableNetworkPolicyCreation = false
 
 	s.testEnforcementDisabled()
 	s.ExpectEvent(consts.ReasonNetworkPolicyCreationDisabled)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestNetworkGlobalEnforcementDisabled() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkGlobalEnforcementDisabled() {
 	s.Reconciler.enforcementDefaultState = false
 
 	s.testEnforcementDisabled()
 	s.ExpectEvent(consts.ReasonEnforcementDefaultOff)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestNotInWatchedNamespaces() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestNotInWatchedNamespaces() {
 	s.Reconciler.RestrictToNamespaces = []string{"namespace-you-never-heard-of"}
 
 	s.testEnforcementDisabled()
 	s.ExpectEvent(consts.ReasonNamespaceNotAllowed)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
@@ -817,7 +817,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 	s.Empty(res)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWithSameServer() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWithSameServer() {
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
@@ -903,7 +903,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	s.Empty(res)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1037,7 +1037,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 	s.Require().NoError(err)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1164,7 +1164,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 	s.Require().NoError(err)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAccessPolicy() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAccessPolicy() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1303,7 +1303,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 	s.Require().NoError(err)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldHappen() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldHappen() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1401,7 +1401,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldH
 	s.Require().NoError(err)
 }
 
-func (s *NetworkPolicyReconcilerTestSuite) TestNoNetworkPolicies() {
+func (s *EgressNetworkPolicyReconcilerTestSuite) TestNoNetworkPolicies() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
 			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
@@ -1443,6 +1443,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNoNetworkPolicies() {
 	s.Require().NoError(err)
 }
 
-func TestNetworkPolicyReconcilerTestSuite(t *testing.T) {
-	suite.Run(t, new(NetworkPolicyReconcilerTestSuite))
+func TestEgressNetworkPolicyReconcilerTestSuite(t *testing.T) {
+	suite.Run(t, new(EgressNetworkPolicyReconcilerTestSuite))
 }

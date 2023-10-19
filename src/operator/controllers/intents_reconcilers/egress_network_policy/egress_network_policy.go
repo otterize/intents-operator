@@ -1,4 +1,4 @@
-package ingress_network_policy
+package egress_network_policy
 
 import (
 	"context"
@@ -141,25 +141,25 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intentsObj *otterizev1alpha2.ClientIntents, intent otterizev1alpha2.Intent, intentsObjNamespace string) (bool, error) {
 
-	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
+	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
 	if err != nil {
 		return false, err
 	}
 
 	if !shouldCreatePolicy {
-		logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
+		logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
 		r.RecordNormalEventf(intentsObj, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
 		return false, nil
 	}
 	if !r.enableNetworkPolicyCreation {
-		logrus.Infof("Network policy creation is disabled, skipping network policy creation for server %s in namespace %s", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace))
+		logrus.Infof("Network policy creation is disabled, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
 		r.RecordNormalEvent(intentsObj, consts.ReasonEgressNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
 		return false, nil
 	}
 
-	logrus.Debugf("Server %s in namespace %s is in protected list: %t", intent.GetServerName(), intent.GetServerNamespace(intentsObjNamespace), shouldCreatePolicy)
+	logrus.Debugf("Server %s in namespace %s is in protected list: %t", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace), shouldCreatePolicy)
 
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeEgressNetworkPolicyNameTemplate, intent.GetServerName(), intentsObjNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeEgressNetworkPolicyNameTemplate, intent.GetTargetServerName(), intentsObjNamespace)
 	existingPolicy := &v1.NetworkPolicy{}
 	newPolicy := r.buildNetworkPolicyObjectForIntents(intentsObj, intent, policyName)
 	err = r.Get(ctx, types.NamespacedName{
@@ -310,9 +310,9 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 	intent otterizev1alpha2.Intent,
 	intentsObjNamespace string) error {
 
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, intent.GetServerName(), intentsObjNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, intent.GetTargetServerName(), intentsObjNamespace)
 	policy := &v1.NetworkPolicy{}
-	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.GetServerNamespace(intentsObjNamespace)}, policy)
+	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.GetTargetServerNamespace(intentsObjNamespace)}, policy)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil
@@ -390,7 +390,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(
 	intentsObj *otterizev1alpha2.ClientIntents, intent otterizev1alpha2.Intent, policyName string) *v1.NetworkPolicy {
 	// The intent's target server made of name + namespace + hash
 	formattedClient := otterizev1alpha2.GetFormattedOtterizeIdentity(intentsObj.GetServiceName(), intentsObj.Namespace)
-	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetServerName(), intent.GetServerNamespace(intentsObj.Namespace))
+	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObj.Namespace))
 	podSelector := r.buildPodLabelSelectorFromIntents(intentsObj)
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -414,7 +414,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(
 							},
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha2.OtterizeNamespaceLabelKey: intent.GetServerNamespace(intentsObj.Namespace),
+									otterizev1alpha2.OtterizeNamespaceLabelKey: intent.GetTargetServerNamespace(intentsObj.Namespace),
 								},
 							},
 						},
