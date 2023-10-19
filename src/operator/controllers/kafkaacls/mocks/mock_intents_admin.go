@@ -7,7 +7,6 @@ package kafkaaclsmocks
 import (
 	reflect "reflect"
 
-	v1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	v1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -50,7 +49,7 @@ func (mr *MockKafkaIntentsAdminMockRecorder) ApplyClientIntents(clientName, clie
 }
 
 // ApplyServerTopicsConf mocks base method.
-func (m *MockKafkaIntentsAdmin) ApplyServerTopicsConf(topicsConf []v1alpha2.TopicConfig) error {
+func (m *MockKafkaIntentsAdmin) ApplyServerTopicsConf(topicsConf []v1alpha3.TopicConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ApplyServerTopicsConf", topicsConf)
 	ret0, _ := ret[0].(error)
@@ -90,7 +89,7 @@ func (mr *MockKafkaIntentsAdminMockRecorder) RemoveClientIntents(clientName, cli
 }
 
 // RemoveServerIntents mocks base method.
-func (m *MockKafkaIntentsAdmin) RemoveServerIntents(topicsConf []v1alpha2.TopicConfig) error {
+func (m *MockKafkaIntentsAdmin) RemoveServerIntents(topicsConf []v1alpha3.TopicConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveServerIntents", topicsConf)
 	ret0, _ := ret[0].(error)

@@ -105,7 +105,7 @@ func main() {
 		EnableDatabaseReconciler: viper.GetBool(operatorconfig.EnableDatabaseReconciler),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
-	tlsSource := otterizev1alpha2.TLSSource{
+	tlsSource := otterizev1alpha3.TLSSource{
 		CertFile:   viper.GetString(operatorconfig.KafkaServerTLSCertKey),
 		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
 		RootCAFile: viper.GetString(operatorconfig.KafkaServerTLSCAKey),
@@ -259,12 +259,12 @@ func main() {
 		}
 
 		protectedServiceValidator := webhooks.NewProtectedServiceValidatorV1alpha2(mgr.GetClient())
-		if err = (&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(mgr, protectedServiceValidator); err != nil {
+		if err = (&otterizev1alpha2.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidator); err != nil {
 			logrus.WithError(err).Fatal("unable to create webhook v1alpha2", "webhook", "ProtectedService")
 		}
 
 		protectedServiceValidatorV1alpha3 := webhooks.NewProtectedServiceValidatorV1alpha3(mgr.GetClient())
-		if err = (&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV1alpha3); err != nil {
+		if err = (&otterizev1alpha3.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV1alpha3); err != nil {
 			logrus.WithError(err).Fatal("unable to create webhook v1alpha3", "webhook", "ProtectedService")
 		}
 

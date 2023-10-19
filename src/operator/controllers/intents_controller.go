@@ -164,7 +164,7 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev1alpha3.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
-		Watches(&source.Kind{Type: &otterizev1alpha2.ProtectedService{}}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
+		Watches(&source.Kind{Type: &otterizev1alpha3.ProtectedService{}}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
 		Complete(r)
 	if err != nil {
 		return err
@@ -176,7 +176,7 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *IntentsReconciler) mapProtectedServiceToClientIntents(obj client.Object) []reconcile.Request {
-	protectedService := obj.(*otterizev1alpha2.ProtectedService)
+	protectedService := obj.(*otterizev1alpha3.ProtectedService)
 	logrus.Infof("Enqueueing client intents for protected services %s", protectedService.Name)
 
 	intentsToReconcile := r.getIntentsToProtectedService(protectedService)
@@ -197,7 +197,7 @@ func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1
 	return requests
 }
 
-func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otterizev1alpha2.ProtectedService) []otterizev1alpha3.ClientIntents {
+func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otterizev1alpha3.ProtectedService) []otterizev1alpha3.ClientIntents {
 	intentsToReconcile := make([]otterizev1alpha3.ClientIntents, 0)
 	fullServerName := fmt.Sprintf("%s.%s", protectedService.Spec.Name, protectedService.Namespace)
 	var intentsToServer otterizev1alpha3.ClientIntentsList

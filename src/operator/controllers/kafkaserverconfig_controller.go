@@ -92,7 +92,7 @@ func NewKafkaServerConfigReconciler(
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=kafkaserverconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=kafkaserverconfigs/finalizers,verbs=update
 
-func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConfig *otterizev1alpha2.KafkaServerConfig) error {
+func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConfig *otterizev1alpha3.KafkaServerConfig) error {
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"name":      kafkaServerConfig.Name,
@@ -120,7 +120,7 @@ func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConf
 	return nil
 }
 
-func (r *KafkaServerConfigReconciler) ensureFinalizerRunForOperatorIntents(ctx context.Context, config *otterizev1alpha2.KafkaServerConfig) error {
+func (r *KafkaServerConfigReconciler) ensureFinalizerRunForOperatorIntents(ctx context.Context, config *otterizev1alpha3.KafkaServerConfig) error {
 	operatorPod := &v1.Pod{}
 	err := r.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, operatorPod)
 	if err != nil {
@@ -139,7 +139,7 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRunForOperatorIntents(ctx c
 	return r.Delete(ctx, intents)
 }
 
-func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, kafkaServerConfig *otterizev1alpha2.KafkaServerConfig) (ctrl.Result, error) {
+func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, kafkaServerConfig *otterizev1alpha3.KafkaServerConfig) (ctrl.Result, error) {
 	if !controllerutil.ContainsFinalizer(kafkaServerConfig, finalizerName) {
 		return ctrl.Result{}, nil
 	}
@@ -166,7 +166,7 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, ka
 }
 
 func (r *KafkaServerConfigReconciler) ensureFinalizerRegistered(
-	ctx context.Context, kafkaServerConfig *otterizev1alpha2.KafkaServerConfig) error {
+	ctx context.Context, kafkaServerConfig *otterizev1alpha3.KafkaServerConfig) error {
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"name":      kafkaServerConfig.Name,
@@ -187,7 +187,7 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRegistered(
 	return nil
 }
 
-func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx context.Context, config *otterizev1alpha2.KafkaServerConfig) error {
+func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx context.Context, config *otterizev1alpha3.KafkaServerConfig) error {
 	annotatedServiceName, ok, err := r.serviceResolver.GetPodAnnotatedName(ctx, r.operatorPodName, r.operatorPodNamespace)
 	if err != nil {
 		return err
@@ -247,7 +247,7 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logrus.WithField("namespaced_name", req.NamespacedName.String())
 
-	kafkaServerConfig := &otterizev1alpha2.KafkaServerConfig{}
+	kafkaServerConfig := &otterizev1alpha3.KafkaServerConfig{}
 
 	err := r.Get(ctx, req.NamespacedName, kafkaServerConfig)
 	if err != nil && k8serrors.IsNotFound(err) {
@@ -270,7 +270,7 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return ctrl.Result{}, nil
 }
 
-func (r *KafkaServerConfigReconciler) reconcileObject(ctx context.Context, kafkaServerConfig *otterizev1alpha2.KafkaServerConfig) (ctrl.Result, error) {
+func (r *KafkaServerConfigReconciler) reconcileObject(ctx context.Context, kafkaServerConfig *otterizev1alpha3.KafkaServerConfig) (ctrl.Result, error) {
 	if !kafkaServerConfig.Spec.NoAutoCreateIntentsForOperator {
 		err := r.createIntentsFromOperatorToKafkaServer(ctx, kafkaServerConfig)
 		if err != nil {
@@ -310,7 +310,7 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfigs(ctx context.Conte
 		return nil
 	}
 
-	kafkaServerConfigs := &otterizev1alpha2.KafkaServerConfigList{}
+	kafkaServerConfigs := &otterizev1alpha3.KafkaServerConfigList{}
 	err := r.List(ctx, kafkaServerConfigs, client.InNamespace(namespace), &client.ListOptions{Namespace: namespace})
 	if err != nil {
 		return err
@@ -335,7 +335,7 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfigs(ctx context.Conte
 	return r.otterizeClient.ReportKafkaServerConfig(timeoutCtx, namespace, inputs)
 }
 
-func kafkaServerConfigCRDToCloudModel(kafkaServerConfig otterizev1alpha2.KafkaServerConfig) (graphqlclient.KafkaServerConfigInput, error) {
+func kafkaServerConfigCRDToCloudModel(kafkaServerConfig otterizev1alpha3.KafkaServerConfig) (graphqlclient.KafkaServerConfigInput, error) {
 	topics := make([]graphqlclient.KafkaTopicInput, 0)
 	for _, topic := range kafkaServerConfig.Spec.Topics {
 		pattern, err := crdPatternToCloudPattern(topic.Pattern)
@@ -361,12 +361,12 @@ func kafkaServerConfigCRDToCloudModel(kafkaServerConfig otterizev1alpha2.KafkaSe
 	return input, nil
 }
 
-func crdPatternToCloudPattern(pattern otterizev1alpha2.ResourcePatternType) (graphqlclient.KafkaTopicPattern, error) {
+func crdPatternToCloudPattern(pattern otterizev1alpha3.ResourcePatternType) (graphqlclient.KafkaTopicPattern, error) {
 	var result graphqlclient.KafkaTopicPattern
 	switch pattern {
-	case otterizev1alpha2.ResourcePatternTypePrefix:
+	case otterizev1alpha3.ResourcePatternTypePrefix:
 		result = graphqlclient.KafkaTopicPatternPrefix
-	case otterizev1alpha2.ResourcePatternTypeLiteral:
+	case otterizev1alpha3.ResourcePatternTypeLiteral:
 		result = graphqlclient.KafkaTopicPatternLiteral
 	default:
 		return "", fmt.Errorf("unknown pattern type: %s", pattern)
@@ -379,9 +379,9 @@ func crdPatternToCloudPattern(pattern otterizev1alpha2.ResourcePatternType) (gra
 func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&otterizev1alpha2.KafkaServerConfig{}).
+		For(&otterizev1alpha3.KafkaServerConfig{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
-		Watches(&source.Kind{Type: &otterizev1alpha2.ProtectedService{}}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToKafkaServerConfig)).
+		Watches(&source.Kind{Type: &otterizev1alpha3.ProtectedService{}}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToKafkaServerConfig)).
 		Complete(r)
 	if err != nil {
 		return err
@@ -394,20 +394,20 @@ func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *KafkaServerConfigReconciler) InitKafkaServerConfigIndices(mgr ctrl.Manager) error {
 	return mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha2.KafkaServerConfig{},
+		&otterizev1alpha3.KafkaServerConfig{},
 		otterizev1alpha2.OtterizeKafkaServerConfigServiceNameField,
 		func(object client.Object) []string {
-			ksc := object.(*otterizev1alpha2.KafkaServerConfig)
+			ksc := object.(*otterizev1alpha3.KafkaServerConfig)
 			return []string{ksc.Spec.Service.Name}
 		})
 }
 
 func (r *KafkaServerConfigReconciler) mapProtectedServiceToKafkaServerConfig(obj client.Object) []reconcile.Request {
-	protectedService := obj.(*otterizev1alpha2.ProtectedService)
+	protectedService := obj.(*otterizev1alpha3.ProtectedService)
 	logrus.Infof("Enqueueing KafkaServerConfigs for protected service %s", protectedService.Name)
 
 	kscsToReconcile := r.getKSCsForProtectedService(protectedService)
-	return lo.Map(kscsToReconcile, func(ksc otterizev1alpha2.KafkaServerConfig, _ int) reconcile.Request {
+	return lo.Map(kscsToReconcile, func(ksc otterizev1alpha3.KafkaServerConfig, _ int) reconcile.Request {
 		return reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      ksc.Name,
@@ -417,9 +417,9 @@ func (r *KafkaServerConfigReconciler) mapProtectedServiceToKafkaServerConfig(obj
 	})
 }
 
-func (r *KafkaServerConfigReconciler) getKSCsForProtectedService(protectedService *otterizev1alpha2.ProtectedService) []otterizev1alpha2.KafkaServerConfig {
-	kscsToReconcile := make([]otterizev1alpha2.KafkaServerConfig, 0)
-	var kafkaServerConfigs otterizev1alpha2.KafkaServerConfigList
+func (r *KafkaServerConfigReconciler) getKSCsForProtectedService(protectedService *otterizev1alpha3.ProtectedService) []otterizev1alpha3.KafkaServerConfig {
+	kscsToReconcile := make([]otterizev1alpha3.KafkaServerConfig, 0)
+	var kafkaServerConfigs otterizev1alpha3.KafkaServerConfigList
 	err := r.Client.List(context.Background(),
 		&kafkaServerConfigs,
 		&client.MatchingFields{otterizev1alpha2.OtterizeKafkaServerConfigServiceNameField: protectedService.Spec.Name},
@@ -433,6 +433,6 @@ func (r *KafkaServerConfigReconciler) getKSCsForProtectedService(protectedServic
 	return kscsToReconcile
 }
 
-func formatIntentsName(conf *otterizev1alpha2.KafkaServerConfig) string {
+func formatIntentsName(conf *otterizev1alpha3.KafkaServerConfig) string {
 	return fmt.Sprintf("operator-to-kafkaserverconfig-%s-namespace-%s", conf.Name, conf.Namespace)
 }

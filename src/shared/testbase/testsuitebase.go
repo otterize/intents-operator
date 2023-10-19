@@ -400,7 +400,7 @@ func (s *ControllerManagerTestSuiteBase) AddKafkaServerConfig(kafkaServerConfig 
 }
 
 func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string) {
-	kafkaServerConfig := &otterizev1alpha2.KafkaServerConfig{}
+	kafkaServerConfig := &otterizev1alpha3.KafkaServerConfig{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, kafkaServerConfig)
 	s.Require().NoError(err)
 

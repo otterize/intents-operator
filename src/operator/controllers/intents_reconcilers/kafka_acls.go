@@ -3,7 +3,6 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -89,7 +88,7 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev1alpha3.Inte
 func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1alpha3.ClientIntents) (serverCount int, err error) {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Calls)
 
-	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha2.KafkaServerConfig, tls otterizev1alpha2.TLSSource) error {
+	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha3.KafkaServerConfig, tls otterizev1alpha3.TLSSource) error {
 		intentsForServer := intentsByServer[serverName]
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState)
 		if err != nil {
@@ -132,7 +131,7 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 }
 
 func (r *KafkaACLReconciler) RemoveACLs(ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
-	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha2.KafkaServerConfig, tls otterizev1alpha2.TLSSource) error {
+	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha3.KafkaServerConfig, tls otterizev1alpha3.TLSSource) error {
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState)
 		if err != nil {
 			return err
