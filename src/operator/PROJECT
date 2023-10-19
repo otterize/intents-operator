@@ -33,7 +33,7 @@ resources:
   path: github.com/otterize/intents-operator/api/v1alpha2
   version: v1alpha2
   webhooks:
-    validation: true
+    conversion: true
     webhookVersion: v1
 - api:
     crdVersion: v1
@@ -44,6 +44,30 @@ resources:
   kind: ProtectedService
   path: github.com/otterize/intents-operator/api/v1alpha2
   version: v1alpha2
+  webhooks:
+    conversion: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: k8s.otterize.com
+  group: otterize
+  kind: KafkaServerConfig
+  path: github.com/otterize/intents-operator/api/v1alpha3
+  version: v1alpha3
+  webhooks:
+    validation: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: k8s.otterize.com
+  group: otterize
+  kind: ProtectedService
+  path: github.com/otterize/intents-operator/api/v1alpha3
+  version: v1alpha3
   webhooks:
     validation: true
     webhookVersion: v1

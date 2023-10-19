@@ -14,12 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha2
+package v1alpha3
 
 import (
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -71,6 +69,7 @@ type KafkaServerConfigStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:storageversion
 
 // KafkaServerConfig is the Schema for the kafkaserverconfigs API
 type KafkaServerConfig struct {
@@ -80,6 +79,8 @@ type KafkaServerConfig struct {
 	Spec   KafkaServerConfigSpec   `json:"spec,omitempty" yaml:"spec,omitempty"`
 	Status KafkaServerConfigStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
+
+func (in *KafkaServerConfig) Hub() {}
 
 //+kubebuilder:object:root=true
 
@@ -92,40 +93,4 @@ type KafkaServerConfigList struct {
 
 func init() {
 	SchemeBuilder.Register(&KafkaServerConfig{}, &KafkaServerConfigList{})
-}
-
-// ConvertTo converts this ProtectedService to the Hub version (v1alpha3).
-func (ksc *KafkaServerConfig) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v1alpha3.KafkaServerConfig)
-	dst.ObjectMeta = ksc.ObjectMeta
-	dst.Spec = v1alpha3.KafkaServerConfigSpec{}
-	dst.Spec.Addr = ksc.Spec.Addr
-	dst.Spec.Service = v1alpha3.Service{Name: ksc.Spec.Service.Name}
-	for _, topic := range ksc.Spec.Topics {
-		dst.Spec.Topics = append(dst.Spec.Topics, v1alpha3.TopicConfig{
-			Topic:                  topic.Topic,
-			Pattern:                v1alpha3.ResourcePatternType(topic.Pattern), // this casting is fine as v1alpha2 == v1alpha3
-			ClientIdentityRequired: topic.ClientIdentityRequired,
-			IntentsRequired:        topic.IntentsRequired,
-		})
-	}
-	return nil
-}
-
-// ConvertFrom converts the Hub version (v1alpha3) to this KafkaServerConfig.
-func (ksc *KafkaServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1alpha3.KafkaServerConfig)
-	ksc.ObjectMeta = src.ObjectMeta
-	ksc.Spec = KafkaServerConfigSpec{}
-	ksc.Spec.Addr = src.Spec.Addr
-	ksc.Spec.Service = Service{Name: src.Spec.Service.Name}
-	for _, topic := range src.Spec.Topics {
-		ksc.Spec.Topics = append(ksc.Spec.Topics, TopicConfig{
-			Topic:                  topic.Topic,
-			Pattern:                ResourcePatternType(topic.Pattern), // this casting is fine as v1alpha2 == v1alpha3
-			ClientIdentityRequired: topic.ClientIdentityRequired,
-			IntentsRequired:        topic.IntentsRequired,
-		})
-	}
-	return nil
 }

@@ -126,7 +126,8 @@ helm-dependency: $(OTTERIZE_HELM_CHART_DIR)
 .PHONY: copy-manifests-to-helm
 copy-manifests-to-helm: manifests
 	kubectl kustomize  ./config/webhook | sed -e "s/[']//g" > ./config/webhook/manifests-patched
-	kubectl kustomize  ./config/crd | sed -e "s/[']{{/{{/g" | sed -e "s/}}[']/}}/g" > ./config/crd/k8s.otterize.com_clientintents-patched.yaml
+	#kubectl kustomize  ./config/crd | sed -e "s/[']{{/{{/g" | sed -e "s/}}[']/}}/g" > ./config/crd/k8s.otterize.com_clientintents-patched.yaml
+	cd ./config/crd && kubectl kustomize . | yq -s '"k8s.otterize.com_" + (.metadata.name | sub(".k8s.otterize.com", "")) + ".yaml"'
 	./copy-manifests-to-helm.sh
 
 .PHONY: deploy
