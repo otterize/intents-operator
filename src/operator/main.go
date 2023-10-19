@@ -258,9 +258,22 @@ func main() {
 			logrus.WithError(err).Fatal(err, "unable to create webhook v1alpha3", "webhook", "ClientIntents")
 		}
 
-		protectedServiceValidator := webhooks.NewProtectedServiceValidator(mgr.GetClient())
-		if err = protectedServiceValidator.SetupWebhookWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "ProtectedService")
+		protectedServiceValidator := webhooks.NewProtectedServiceValidatorV1alpha2(mgr.GetClient())
+		if err = (&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(mgr, protectedServiceValidator); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha2", "webhook", "ProtectedService")
+		}
+
+		protectedServiceValidatorV1alpha3 := webhooks.NewProtectedServiceValidatorV1alpha3(mgr.GetClient())
+		if err = (&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV1alpha3); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha3", "webhook", "ProtectedService")
+		}
+
+		if err = (&otterizev1alpha2.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha2", "webhook", "KafkaServerConfig")
+		}
+
+		if err = (&otterizev1alpha3.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha3", "webhook", "KafkaServerConfig")
 		}
 
 	}

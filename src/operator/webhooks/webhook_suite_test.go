@@ -143,7 +143,7 @@ func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntentsAfterUpdate() {
 }
 
 func (s *ValidationWebhookTestSuite) TestValidateProtectedServices() {
-	fakeValidator := NewProtectedServiceValidator(nil)
+	fakeValidator := NewProtectedServiceValidatorV1alpha2(nil)
 
 	protectedServices := []otterizev1alpha2.ProtectedService{{
 		ObjectMeta: metav1.ObjectMeta{
@@ -179,7 +179,7 @@ func (s *ValidationWebhookTestSuite) TestValidateProtectedServices() {
 }
 
 func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfDotFound() {
-	fakeValidator := NewProtectedServiceValidator(nil)
+	fakeValidator := NewProtectedServiceValidatorV1alpha2(nil)
 
 	protectedServices := otterizev1alpha2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -195,7 +195,7 @@ func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfDotFound
 }
 
 func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfSameName() {
-	fakeValidator := NewProtectedServiceValidator(nil)
+	fakeValidator := NewProtectedServiceValidatorV1alpha2(nil)
 
 	protectedServiceList := otterizev1alpha2.ProtectedServiceList{Items: []otterizev1alpha2.ProtectedService{{
 		ObjectMeta: metav1.ObjectMeta{
@@ -221,7 +221,7 @@ func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfSameName
 }
 
 func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfUppercase() {
-	fakeValidator := NewProtectedServiceValidator(nil)
+	fakeValidator := NewProtectedServiceValidatorV1alpha2(nil)
 
 	protectedServices := otterizev1alpha2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
