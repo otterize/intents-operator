@@ -59,6 +59,8 @@ help: ## Display this help.
 .PHONY: manifests
 manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
 	$(CONTROLLER_GEN) rbac:roleName=otterize-intents-operator-manager-role crd webhook paths="../..."
+	kubectl kustomize  ./config/webhook | sed -e "s/[']//g" > ./config/webhook/manifests-patched
+	cd ./config/crd && kubectl kustomize . | yq -s '"k8s.otterize.com_" + (.metadata.name | sub(".k8s.otterize.com", "")) + ".patched"'
 
 
 .PHONY: generate
@@ -76,7 +78,7 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: test
-test: manifests generate fmt vet envtest ## Run tests.
+test: fmt vet envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
 ##@ Build
@@ -125,9 +127,6 @@ helm-dependency: $(OTTERIZE_HELM_CHART_DIR)
 
 .PHONY: copy-manifests-to-helm
 copy-manifests-to-helm: manifests
-	kubectl kustomize  ./config/webhook | sed -e "s/[']//g" > ./config/webhook/manifests-patched
-	#kubectl kustomize  ./config/crd | sed -e "s/[']{{/{{/g" | sed -e "s/}}[']/}}/g" > ./config/crd/k8s.otterize.com_clientintents-patched.yaml
-	cd ./config/crd && kubectl kustomize . | yq -s '"k8s.otterize.com_" + (.metadata.name | sub(".k8s.otterize.com", "")) + ".yaml"'
 	./copy-manifests-to-helm.sh
 
 .PHONY: deploy

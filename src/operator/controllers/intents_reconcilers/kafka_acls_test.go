@@ -70,14 +70,14 @@ func (s *KafkaACLReconcilerTestSuite) SetupSuite() {
 }
 
 func (s *KafkaACLReconcilerTestSuite) setupServerStore(serviceName string) *kafkaacls.ServersStoreImpl {
-	serverConfig := &otterizev1alpha2.KafkaServerConfig{
-		Spec: otterizev1alpha2.KafkaServerConfigSpec{
-			Service: otterizev1alpha2.Service{
+	serverConfig := &otterizev1alpha3.KafkaServerConfig{
+		Spec: otterizev1alpha3.KafkaServerConfigSpec{
+			Service: otterizev1alpha3.Service{
 				Name: serviceName,
 			},
-			Topics: []otterizev1alpha2.TopicConfig{{
+			Topics: []otterizev1alpha3.TopicConfig{{
 				Topic:                  "*",
-				Pattern:                otterizev1alpha2.ResourcePatternTypePrefix,
+				Pattern:                otterizev1alpha3.ResourcePatternTypePrefix,
 				ClientIdentityRequired: false,
 				IntentsRequired:        false,
 			},
@@ -86,7 +86,7 @@ func (s *KafkaACLReconcilerTestSuite) setupServerStore(serviceName string) *kafk
 	}
 
 	serverConfig.SetNamespace(s.TestNamespace)
-	emptyTls := otterizev1alpha2.TLSSource{}
+	emptyTls := otterizev1alpha3.TLSSource{}
 	kafkaServersStore := kafkaacls.NewServersStore(emptyTls, true, kafkaacls.NewKafkaIntentsAdmin, true)
 	kafkaServersStore.Add(serverConfig)
 	return kafkaServersStore
@@ -129,7 +129,7 @@ func (s *KafkaACLReconcilerTestSuite) principal() string {
 }
 
 func getMockIntentsAdminFactory(clusterAdmin sarama.ClusterAdmin, usernameMapping string) kafkaacls.IntentsAdminFactoryFunction {
-	return func(kafkaServer otterizev1alpha2.KafkaServerConfig, _ otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementDefaultState bool) (kafkaacls.KafkaIntentsAdmin, error) {
+	return func(kafkaServer otterizev1alpha3.KafkaServerConfig, _ otterizev1alpha3.TLSSource, enableKafkaACLCreation bool, enforcementDefaultState bool) (kafkaacls.KafkaIntentsAdmin, error) {
 		return kafkaacls.NewKafkaIntentsAdminImpl(kafkaServer, clusterAdmin, usernameMapping, enableKafkaACLCreation, enforcementDefaultState), nil
 	}
 }

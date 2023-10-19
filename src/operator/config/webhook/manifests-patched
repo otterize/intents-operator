@@ -64,3 +64,23 @@ webhooks:
     resources:
     - protectedservice
   sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-k8s-otterize-com-v1alpha3-protectedservice
+  failurePolicy: Fail
+  name: protectedservicev1alpha3.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v1alpha3
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - protectedservice
+  sideEffects: None

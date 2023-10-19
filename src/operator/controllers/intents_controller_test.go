@@ -42,12 +42,12 @@ func (s *IntentsControllerTestSuite) TearDownTest() {
 }
 
 func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
-	protectedService := otterizev1alpha2.ProtectedService{
+	protectedService := otterizev1alpha3.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "protected-service",
 			Namespace: "test-namespace",
 		},
-		Spec: otterizev1alpha2.ProtectedServiceSpec{
+		Spec: otterizev1alpha3.ProtectedServiceSpec{
 			Name: "checkoutservice",
 		},
 	}
@@ -117,12 +117,12 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
 }
 
 func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntentNoIntents() {
-	protectedService := otterizev1alpha2.ProtectedService{
+	protectedService := otterizev1alpha3.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "protected-service",
 			Namespace: "test-namespace",
 		},
-		Spec: otterizev1alpha2.ProtectedServiceSpec{
+		Spec: otterizev1alpha3.ProtectedServiceSpec{
 			Name: "checkoutservice",
 		},
 	}

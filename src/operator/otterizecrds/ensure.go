@@ -1,4 +1,4 @@
-package clientintentscrd
+package otterizecrds
 
 import (
 	"context"
@@ -12,11 +12,33 @@ import (
 )
 
 //go:embed clientintents-customresourcedefinition.yaml
-var crdContents []byte
+var clientIntentsCRDContents []byte
 
-func EnsureClientIntentsCRD(ctx context.Context, k8sClient client.Client, operatorNamespace string) error {
+//go:embed protectedservices-customresourcedefinition.yaml
+var protectedServiceCRDContents []byte
+
+//go:embed kafkaserverconfigs-customresourcedefinition.yaml
+var KafkaServerConfigContents []byte
+
+func Ensure(ctx context.Context, k8sClient client.Client, operatorNamespace string) error {
+	err := ensureCRD(ctx, k8sClient, operatorNamespace, clientIntentsCRDContents)
+	if err != nil {
+		return fmt.Errorf("failed to ensure CLientIntents CRD: %w", err)
+	}
+	err = ensureCRD(ctx, k8sClient, operatorNamespace, protectedServiceCRDContents)
+	if err != nil {
+		return fmt.Errorf("failed to ensure ProtectedService CRD: %w", err)
+	}
+	err = ensureCRD(ctx, k8sClient, operatorNamespace, KafkaServerConfigContents)
+	if err != nil {
+		return fmt.Errorf("failed to ensure KafkaServerConfig CRD: %w", err)
+	}
+	return nil
+}
+
+func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace string, crdContent []byte) error {
 	crdToCreate := apiextensionsv1.CustomResourceDefinition{}
-	err := yaml.Unmarshal(crdContents, &crdToCreate)
+	err := yaml.Unmarshal(crdContent, &crdToCreate)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal ClientIntents CRD: %w", err)
 	}

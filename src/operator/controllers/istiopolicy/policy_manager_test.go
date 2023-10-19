@@ -98,14 +98,14 @@ func (s *PolicyManagerTestSuite) TestCreateProtectedService() {
 	}
 
 	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
-	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&v1alpha2.ProtectedServiceList{}), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, protectedServices *v1alpha2.ProtectedServiceList, options ...client.ListOption) error {
-			svc := v1alpha2.ProtectedService{
+	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&v1alpha3.ProtectedServiceList{}), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, protectedServices *v1alpha3.ProtectedServiceList, options ...client.ListOption) error {
+			svc := v1alpha3.ProtectedService{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      "protected-service",
 					Namespace: clientIntentsNamespace,
 				},
-				Spec: v1alpha2.ProtectedServiceSpec{
+				Spec: v1alpha3.ProtectedServiceSpec{
 					Name: serverName,
 				},
 			}
@@ -149,8 +149,8 @@ func (s *PolicyManagerTestSuite) TestCreateEnforcementDisabledNoProtectedService
 	clientServiceAccountName := "test-client-sa"
 
 	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
-	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&v1alpha2.ProtectedServiceList{}), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, protectedServices *v1alpha2.ProtectedServiceList, options ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&v1alpha3.ProtectedServiceList{}), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, protectedServices *v1alpha3.ProtectedServiceList, options ...client.ListOption) error {
 			return nil
 		})
 

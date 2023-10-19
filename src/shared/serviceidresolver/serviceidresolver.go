@@ -18,6 +18,8 @@ import (
 
 var PodNotFound = errors.New("pod not found")
 
+//+kubebuilder:rbac:groups="apps",resources=deployments;replicasets;daemonsets;statefulsets,verbs=get;list;watch
+
 type ServiceResolver interface {
 	GetPodAnnotatedName(ctx context.Context, podName string, podNamespace string) (string, bool, error)
 	ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error)

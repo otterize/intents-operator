@@ -3,7 +3,6 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -378,7 +377,7 @@ func (r *NetworkPolicyReconciler) CleanPoliciesFromUnprotectedServices(ctx conte
 		return nil
 	}
 
-	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
+	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
 	err = r.List(ctx, &protectedServicesResources, &client.ListOptions{Namespace: namespace})
 	if err != nil {
 		return err

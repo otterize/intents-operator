@@ -2,7 +2,7 @@ package protected_service_reconcilers
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -11,7 +11,7 @@ import (
 type ReconcilerFunc func(ctx context.Context, req ctrl.Request) error
 
 func WithFinalizer(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc) error {
-	var protectedService otterizev1alpha2.ProtectedService
+	var protectedService otterizev1alpha3.ProtectedService
 	err := client.Get(ctx, req.NamespacedName, &protectedService)
 	if err != nil {
 		return err
@@ -24,7 +24,7 @@ func WithFinalizer(ctx context.Context, client client.Client, req ctrl.Request, 
 	return addFinalizerAndDo(ctx, client, req, finalizerName, callBack, protectedService)
 }
 
-func addFinalizerAndDo(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc, protectedService otterizev1alpha2.ProtectedService) error {
+func addFinalizerAndDo(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc, protectedService otterizev1alpha3.ProtectedService) error {
 	if !controllerutil.ContainsFinalizer(&protectedService, finalizerName) {
 		controllerutil.AddFinalizer(&protectedService, finalizerName)
 		err := client.Update(ctx, &protectedService)
@@ -36,7 +36,7 @@ func addFinalizerAndDo(ctx context.Context, client client.Client, req ctrl.Reque
 	return callBack(ctx, req)
 }
 
-func doAndRemoveFinalizer(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc, protectedService otterizev1alpha2.ProtectedService) error {
+func doAndRemoveFinalizer(ctx context.Context, client client.Client, req ctrl.Request, finalizerName string, callBack ReconcilerFunc, protectedService otterizev1alpha3.ProtectedService) error {
 	err := callBack(ctx, req)
 	if err != nil {
 		return err

@@ -21,11 +21,10 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
-	"github.com/otterize/intents-operator/src/operator/clientintentscrd"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
-	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
+	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -182,14 +181,10 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Fatal("unable to create kubernetes API client")
 	}
-	err = protectedservicescrd.EnsureProtectedServicesCRD(signalHandlerCtx, directClient)
-	if err != nil {
-		logrus.WithError(err).Fatal("unable to ensure protected services CRD")
-	}
 
-	err = clientintentscrd.EnsureClientIntentsCRD(signalHandlerCtx, directClient, podNamespace)
+	err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace)
 	if err != nil {
-		logrus.WithError(err).Fatal("unable to ensure ClientIntents CRD")
+		logrus.WithError(err).Fatal("unable to ensure otterize CRDs")
 	}
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
@@ -242,7 +237,7 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Fatal("updating validation webhook certificate failed")
 		}
-		err = webhooks.UpdateConversionWebHookCA(context.Background(), intents_reconcilers.IntentsCRDName, directClient, certBundle.CertPem)
+		err = webhooks.UpdateConversionWebhookCAs(context.Background(), directClient, certBundle.CertPem)
 		if err != nil {
 			logrus.WithError(err).Fatal("updating conversion webhook certificate failed")
 		}

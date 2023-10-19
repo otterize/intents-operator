@@ -140,7 +140,20 @@ func UpdateValidationWebHookCA(ctx context.Context, webHookName string, ca []byt
 	return err
 }
 
-func UpdateConversionWebHookCA(ctx context.Context, crdName string, k8sClient client.Client, ca []byte) error {
+func UpdateConversionWebhookCAs(ctx context.Context, k8sClient client.Client, ca []byte) error {
+	if err := updateConversionWebHookCA(ctx, "clientintents.k8s.otterize.com", k8sClient, ca); err != nil {
+		return fmt.Errorf("failed updating the CA of clientIntents conversion webhhok: %w", err)
+	}
+	if err := updateConversionWebHookCA(ctx, "protectedservices.k8s.otterize.com", k8sClient, ca); err != nil {
+		return fmt.Errorf("failed updating the CA of protectedServices conversion webhhok: %w", err)
+	}
+	if err := updateConversionWebHookCA(ctx, "kafkaserverconfigs.k8s.otterize.com", k8sClient, ca); err != nil {
+		return fmt.Errorf("failed updating the CA of kafkaServerConfigs conversion webhhok: %w", err)
+	}
+	return nil
+}
+
+func updateConversionWebHookCA(ctx context.Context, crdName string, k8sClient client.Client, ca []byte) error {
 	crd := apiextensionsv1.CustomResourceDefinition{}
 	err := k8sClient.Get(ctx, types.NamespacedName{Name: crdName}, &crd)
 	if err != nil {
