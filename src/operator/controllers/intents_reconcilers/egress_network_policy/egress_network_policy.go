@@ -159,7 +159,7 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 
 	logrus.Debugf("Server %s in namespace %s is in protected list: %t", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace), shouldCreatePolicy)
 
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeEgressNetworkPolicyNameTemplate, intent.GetTargetServerName(), intentsObjNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeEgressNetworkPolicyNameTemplate, intent.GetTargetServerName(), intentsObjNamespace) // TODO: change template to refer to client name
 	existingPolicy := &v1.NetworkPolicy{}
 	newPolicy := r.buildNetworkPolicyObjectForIntents(intentsObj, intent, policyName)
 	err = r.Get(ctx, types.NamespacedName{
