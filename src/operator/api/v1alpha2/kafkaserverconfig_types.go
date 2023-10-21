@@ -101,6 +101,12 @@ func (ksc *KafkaServerConfig) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec = v1alpha3.KafkaServerConfigSpec{}
 	dst.Spec.Addr = ksc.Spec.Addr
 	dst.Spec.Service = v1alpha3.Service{Name: ksc.Spec.Service.Name}
+	dst.Spec.NoAutoCreateIntentsForOperator = ksc.Spec.NoAutoCreateIntentsForOperator
+	dst.Spec.TLS = v1alpha3.TLSSource{
+		CertFile:   ksc.Spec.TLS.CertFile,
+		KeyFile:    ksc.Spec.TLS.KeyFile,
+		RootCAFile: ksc.Spec.TLS.RootCAFile,
+	}
 	for _, topic := range ksc.Spec.Topics {
 		dst.Spec.Topics = append(dst.Spec.Topics, v1alpha3.TopicConfig{
 			Topic:                  topic.Topic,
@@ -119,6 +125,12 @@ func (ksc *KafkaServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
 	ksc.Spec = KafkaServerConfigSpec{}
 	ksc.Spec.Addr = src.Spec.Addr
 	ksc.Spec.Service = Service{Name: src.Spec.Service.Name}
+	ksc.Spec.NoAutoCreateIntentsForOperator = src.Spec.NoAutoCreateIntentsForOperator
+	ksc.Spec.TLS = TLSSource{
+		CertFile:   src.Spec.TLS.CertFile,
+		KeyFile:    src.Spec.TLS.KeyFile,
+		RootCAFile: src.Spec.TLS.RootCAFile,
+	}
 	for _, topic := range src.Spec.Topics {
 		ksc.Spec.Topics = append(ksc.Spec.Topics, TopicConfig{
 			Topic:                  topic.Topic,
