@@ -285,7 +285,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-test-server-from-test-client-namespace"
+	policyName := "egress-to-test-server-from-test-server-namespace"
 	serviceName := "test-client"
 	serverNamespace := testServerNamespace
 	formattedTargetServer := "test-server-test-server-namespac-48aee4"
@@ -334,7 +334,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 	existingPolicy := networkPolicyTemplate(
 		policyName,
 		serverNamespace,
-		"test-client-test-client-namespac-edb3a2",
+		"test-client-test-server-namespac-8e2cac",
 		formattedTargetServer,
 		testServerNamespace,
 	)
@@ -346,25 +346,17 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha2.OtterizeEgressNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
-		},
-		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
-		},
-		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
 	s.Require().NoError(err)
 
 	nonExistingServer := "old-non-existing-server"
 	orphanPolicy := networkPolicyTemplate(
-		"egress-to-old-non-existing-server-from-test-client-namespace",
+		"egress-to-old-non-existing-server-from-test-server-namespace",
 		serverNamespace,
-		"test-client-test-client-namespac-edb3a2",
+		"test-client-test-server-namespac-8e2cac",
 		nonExistingServer,
 		testServerNamespace,
 	)
@@ -374,7 +366,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 			return nil
 		})
 
-	serverLabelSelector := client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: existingPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]}
+	serverLabelSelector := client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: existingPolicy.Labels[otterizev1alpha2.OtterizeEgressNetworkPolicy]}
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		gomock.Eq(&otterizev1alpha2.ClientIntentsList{}),
@@ -384,7 +376,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 			return nil
 		})
 
-	orphanServerLabelSelector := client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: orphanPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]}
+	orphanServerLabelSelector := client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: orphanPolicy.Labels[otterizev1alpha2.OtterizeEgressNetworkPolicy]}
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		gomock.Eq(&otterizev1alpha2.ClientIntentsList{}),
@@ -909,16 +901,8 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClien
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha2.OtterizeEgressNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
-		},
-		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
-		},
-		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
 	s.Require().NoError(err)
@@ -929,7 +913,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 				Name:      "policy-name",
 				Namespace: testServerNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: protectedServiceFormattedName,
+					otterizev1alpha2.OtterizeEgressNetworkPolicy: protectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
@@ -965,7 +949,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 				Name:      "another-policy-name",
 				Namespace: testServerNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: anotherProtectedServiceFormattedName,
+					otterizev1alpha2.OtterizeEgressNetworkPolicy: anotherProtectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
@@ -1043,16 +1027,8 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha2.OtterizeEgressNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
-		},
-		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
-		},
-		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
 	s.Require().NoError(err)
@@ -1063,7 +1039,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccess
 				Name:      "policy-name",
 				Namespace: testServerNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: protectedServiceFormattedName,
+					otterizev1alpha2.OtterizeEgressNetworkPolicy: protectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
@@ -1099,7 +1075,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccess
 				Name:      "another-policy-name",
 				Namespace: testServerNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: anotherProtectedServiceFormattedName,
+					otterizev1alpha2.OtterizeEgressNetworkPolicy: anotherProtectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
@@ -1170,16 +1146,8 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccess
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAccessPolicy() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha2.OtterizeEgressNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
-		},
-		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
-		},
-		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
 	s.Require().NoError(err)
@@ -1190,7 +1158,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionW
 				Name:      "policy-name",
 				Namespace: testServerNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: protectedServiceFormattedName,
+					otterizev1alpha2.OtterizeEgressNetworkPolicy: protectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
@@ -1226,7 +1194,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionW
 				Name:      "another-policy-name",
 				Namespace: testServerNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: anotherProtectedServiceFormattedName,
+					otterizev1alpha2.OtterizeEgressNetworkPolicy: anotherProtectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
@@ -1309,16 +1277,8 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionW
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldHappen() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha2.OtterizeEgressNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
-		},
-		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
-		},
-		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
 	s.Require().NoError(err)
@@ -1329,7 +1289,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingS
 				Name:      "policy-name",
 				Namespace: testServerNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: protectedServiceFormattedName,
+					otterizev1alpha2.OtterizeEgressNetworkPolicy: protectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{

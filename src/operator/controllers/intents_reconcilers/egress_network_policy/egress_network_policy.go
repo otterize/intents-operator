@@ -114,6 +114,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			r.RecordWarningEventf(intents, consts.ReasonNamespaceNotAllowed, "ClientIntents are in namespace %s but namespace is not allowed by configuration", intents.Namespace)
 			continue
 		}
+		// TODO: refactor to use multiple targets in one netpol
 		createdPolicies, err := r.handleNetworkPolicyCreation(ctx, intents, intent, req.Namespace)
 		if err != nil {
 			r.RecordWarningEventf(intents, consts.ReasonCreatingEgressNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
@@ -267,8 +268,9 @@ func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Contex
 	for _, networkPolicy := range networkPolicyList.Items {
 		// Get all client intents that reference this network policy
 		var intentsList otterizev1alpha2.ClientIntentsList
-		serverName := networkPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
-		clientNamespace := networkPolicy.Spec.Ingress[0].From[0].NamespaceSelector.MatchLabels[otterizev1alpha2.OtterizeNamespaceLabelKey]
+		// TODO is this right?
+		serverName := networkPolicy.Labels[otterizev1alpha2.OtterizeEgressNetworkPolicy]
+		clientNamespace := networkPolicy.Spec.Egress[0].To[0].NamespaceSelector.MatchLabels[otterizev1alpha2.OtterizeNamespaceLabelKey]
 		err = r.List(
 			ctx,
 			&intentsList,
