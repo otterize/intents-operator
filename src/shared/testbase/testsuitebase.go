@@ -424,7 +424,14 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
 
 	intents := &otterizev1alpha3.ClientIntents{
-		ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      objName,
+			Namespace: namespace,
+			Finalizers: []string{
+				// Dummy finalizer so the object won't actually be deleted just marked as deleted
+				"dummy-finalizer",
+			},
+		},
 		Spec: &otterizev1alpha3.IntentsSpec{
 			Service: otterizev1alpha3.Service{Name: clientName},
 			Calls:   callList,
