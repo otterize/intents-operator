@@ -94,8 +94,7 @@ func (r *NetworkPolicyUploaderReconciler) Reconcile(ctx context.Context, req ctr
 	for _, pod := range podList.Items {
 		serviceId, err := r.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
 		if err != nil {
-			logrus.WithField("policy", req.NamespacedName.String()).WithError(err).WithField("pod", pod.Name).Errorf("Error resolving pod")
-			continue
+			return ctrl.Result{}, err
 		}
 
 		logrus.
@@ -109,13 +108,6 @@ func (r *NetworkPolicyUploaderReconciler) Reconcile(ctx context.Context, req ctr
 			ServerName:                   serviceId.Name,
 			ExternalNetworkTrafficPolicy: true,
 		})
-	}
-
-	if len(inputs) == 0 {
-		logrus.
-			WithField("policy", req.NamespacedName.String()).
-			Warning("Failed to resolve any pods to otterize services, skipping reporting")
-		return ctrl.Result{}, nil
 	}
 
 	err = r.otterizeClient.ReportNetworkPolicies(ctx, req.Namespace, inputs)
