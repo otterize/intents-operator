@@ -3,7 +3,6 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.9.0
-    "helm.sh/resource-policy": keep
   creationTimestamp: null
   name: clientintents.k8s.otterize.com
 spec:
@@ -186,6 +185,10 @@ spec:
                             - path
                           type: object
                         type: array
+                      awsActions:
+                        items:
+                          type: string
+                        type: array
                       databaseResources:
                         items:
                           properties:
@@ -239,6 +242,7 @@ spec:
                           - http
                           - kafka
                           - database
+                          - aws
                         type: string
                     required:
                       - name

@@ -79,13 +79,14 @@ const (
 	OtterizeEgressNetworkPolicyTarget                    = "intents.otterize.com/egress-network-policy-target"
 )
 
-// +kubebuilder:validation:Enum=http;kafka;database
+// +kubebuilder:validation:Enum=http;kafka;database;aws
 type IntentType string
 
 const (
 	IntentTypeHTTP     IntentType = "http"
 	IntentTypeKafka    IntentType = "kafka"
 	IntentTypeDatabase IntentType = "database"
+	IntentTypeAWS      IntentType = "aws"
 )
 
 // +kubebuilder:validation:Enum=all;consume;produce;create;alter;delete;describe;ClusterAction;DescribeConfigs;AlterConfigs;IdempotentWrite
@@ -154,6 +155,9 @@ type Intent struct {
 
 	//+optional
 	DatabaseResources []DatabaseResource `json:"databaseResources,omitempty" yaml:"databaseResources,omitempty"`
+
+	//+optional
+	AWSActions []string `json:"awsActions,omitempty" yaml:"awsActions,omitempty"`
 }
 
 type DatabaseResource struct {
@@ -215,6 +219,12 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 	otterizeAccessLabels := map[string]string{}
 
 	for _, intent := range in.GetCallsList() {
+		if intent.Type == IntentTypeAWS {
+			// TODO: GetIntentsLabelMapping assumes target is a k8s pod.
+			// exclude calls until a solution is found
+			continue
+		}
+
 		ns := intent.GetTargetServerNamespace(requestNamespace)
 		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), ns)
 		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)
@@ -291,6 +301,8 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 		return graphqlclient.IntentTypeKafka
 	case IntentTypeDatabase:
 		return graphqlclient.IntentTypeDatabase
+	case IntentTypeAWS:
+		return graphqlclient.IntentTypeAws
 	default:
 		panic("Not supposed to reach here")
 	}

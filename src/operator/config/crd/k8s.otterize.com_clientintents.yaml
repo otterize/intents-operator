@@ -184,6 +184,10 @@ spec:
                         - path
                         type: object
                       type: array
+                    awsActions:
+                      items:
+                        type: string
+                      type: array
                     databaseResources:
                       items:
                         properties:
@@ -237,6 +241,7 @@ spec:
                       - http
                       - kafka
                       - database
+                      - aws
                       type: string
                   required:
                   - name

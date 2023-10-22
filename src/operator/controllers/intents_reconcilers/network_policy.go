@@ -92,6 +92,11 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		if intent.IsTargetServerKubernetesService() {
 			continue
 		}
+
+		if intent.Type == otterizev1alpha3.IntentTypeAWS {
+			continue
+		}
+
 		targetNamespace := intent.GetTargetServerNamespace(req.Namespace)
 		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, targetNamespace) {
 			// Namespace is not in list of namespaces we're allowed to act in, so drop it.
