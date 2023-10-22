@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -42,6 +43,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) SetupSuite() {
 	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 }
 
 func (s *WatcherPodLabelReconcilerTestSuite) SetupTest() {
@@ -72,8 +74,8 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels()
 	thisPodIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
 		serviceID.Name, s.TestNamespace)
 
-	_, err = s.AddIntents("test-intents", serviceID.Name, []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: intentTargetServerName,
+	_, err = s.AddIntents("test-intents", serviceID.Name, []otterizev1alpha3.Intent{{
+		Type: otterizev1alpha3.IntentTypeHTTP, Name: intentTargetServerName,
 	},
 	})
 	s.Require().NoError(err)
@@ -130,8 +132,8 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 		map[string]string{"someLabel": "cake"},
 		map[string]string{})
 
-	_, err := s.AddIntents("test-intents", deploymentName, []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: intentTargetServerName,
+	_, err := s.AddIntents("test-intents", deploymentName, []otterizev1alpha3.Intent{{
+		Type: otterizev1alpha3.IntentTypeHTTP, Name: intentTargetServerName,
 	},
 	})
 	s.Require().NoError(err)

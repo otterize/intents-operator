@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"errors"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
@@ -59,17 +59,17 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 
 func (s *CloudReconcilerTestSuite) assertUploadIntent(server string, server2 string, server2Namespace string) {
 	server2FullName := server2 + "." + server2Namespace
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha2.Intent{
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: server,
 					Type: "",
@@ -120,17 +120,17 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUploadUnderscore() {
 func (s *CloudReconcilerTestSuite) TestAppliedIntentsRetryWhenUploadFailed() {
 	server := "test-server"
 
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha2.Intent{
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: server,
 				},
@@ -151,13 +151,13 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsRetryWhenUploadFailed() {
 		expectedIntentInNamespace,
 	}
 
-	emptyList := otterizev1alpha2.ClientIntentsList{}
-	clientIntentsList := otterizev1alpha2.ClientIntentsList{
-		Items: []otterizev1alpha2.ClientIntents{clientIntents},
+	emptyList := otterizev1alpha3.ClientIntentsList{}
+	clientIntentsList := otterizev1alpha3.ClientIntentsList{
+		Items: []otterizev1alpha3.ClientIntents{clientIntents},
 	}
 
 	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts *client.ListOptions) error {
+		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts *client.ListOptions) error {
 			clientIntentsList.DeepCopyInto(list)
 			return nil
 		})
@@ -180,25 +180,25 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsRetryWhenUploadFailed() {
 func (s *CloudReconcilerTestSuite) TestUploadKafkaType() {
 	server := "test-server"
 
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha2.Intent{
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: server,
-					Type: otterizev1alpha2.IntentTypeKafka,
-					Topics: []otterizev1alpha2.KafkaTopic{{
+					Type: otterizev1alpha3.IntentTypeKafka,
+					Topics: []otterizev1alpha3.KafkaTopic{{
 						Name: "test-topic",
-						Operations: []otterizev1alpha2.KafkaOperation{
-							otterizev1alpha2.KafkaOperationCreate,
-							otterizev1alpha2.KafkaOperationDelete,
+						Operations: []otterizev1alpha3.KafkaOperation{
+							otterizev1alpha3.KafkaOperationCreate,
+							otterizev1alpha3.KafkaOperationDelete,
 						}},
 					},
 				},
@@ -227,36 +227,36 @@ func (s *CloudReconcilerTestSuite) TestUploadKafkaType() {
 func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
 	serviceAccountName := "test-service-account"
 	server := "test-server"
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
-				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
-				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
-				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "false",
+				otterizev1alpha3.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha3.OtterizeSharedServiceAccountAnnotation: "false",
+				otterizev1alpha3.OtterizeMissingSidecarAnnotation:       "false",
 			},
 		},
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha2.Intent{
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: server,
-					Type: otterizev1alpha2.IntentTypeHTTP,
-					HTTPResources: []otterizev1alpha2.HTTPResource{
+					Type: otterizev1alpha3.IntentTypeHTTP,
+					HTTPResources: []otterizev1alpha3.HTTPResource{
 						{
 							Path: "/login",
-							Methods: []otterizev1alpha2.HTTPMethod{
-								otterizev1alpha2.HTTPMethodGet,
-								otterizev1alpha2.HTTPMethodPost,
+							Methods: []otterizev1alpha3.HTTPMethod{
+								otterizev1alpha3.HTTPMethodGet,
+								otterizev1alpha3.HTTPMethodPost,
 							},
 						},
 						{
 							Path: "/logout",
-							Methods: []otterizev1alpha2.HTTPMethod{
-								otterizev1alpha2.HTTPMethodPost,
+							Methods: []otterizev1alpha3.HTTPMethod{
+								otterizev1alpha3.HTTPMethodPost,
 							},
 						},
 					},
@@ -297,29 +297,29 @@ func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSharedSA() {
 	serviceAccountName := "test-service-account"
 	server := "test-server"
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
-				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
-				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "false",
+				otterizev1alpha3.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha3.OtterizeMissingSidecarAnnotation:       "false",
 			},
 		},
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha2.Intent{
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: server,
-					Type: otterizev1alpha2.IntentTypeHTTP,
-					HTTPResources: []otterizev1alpha2.HTTPResource{
+					Type: otterizev1alpha3.IntentTypeHTTP,
+					HTTPResources: []otterizev1alpha3.HTTPResource{
 						{
 							Path: "/login",
-							Methods: []otterizev1alpha2.HTTPMethod{
-								otterizev1alpha2.HTTPMethodGet,
-								otterizev1alpha2.HTTPMethodPost,
+							Methods: []otterizev1alpha3.HTTPMethod{
+								otterizev1alpha3.HTTPMethodGet,
+								otterizev1alpha3.HTTPMethodPost,
 							},
 						},
 					},
@@ -334,29 +334,29 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingShared
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSidecar() {
 	serviceAccountName := "test-service-account"
 	server := "test-server"
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
-				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
-				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
+				otterizev1alpha3.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha3.OtterizeSharedServiceAccountAnnotation: "false",
 			},
 		},
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha2.Intent{
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: server,
-					Type: otterizev1alpha2.IntentTypeHTTP,
-					HTTPResources: []otterizev1alpha2.HTTPResource{
+					Type: otterizev1alpha3.IntentTypeHTTP,
+					HTTPResources: []otterizev1alpha3.HTTPResource{
 						{
 							Path: "/login",
-							Methods: []otterizev1alpha2.HTTPMethod{
-								otterizev1alpha2.HTTPMethodGet,
-								otterizev1alpha2.HTTPMethodPost,
+							Methods: []otterizev1alpha3.HTTPMethod{
+								otterizev1alpha3.HTTPMethodGet,
+								otterizev1alpha3.HTTPMethodPost,
 							},
 						},
 					},
@@ -371,30 +371,30 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSideca
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatSharedSA() {
 	serviceAccountName := "test-service-account"
 	server := "test-server"
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
-				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
-				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "sharing-is-caring",
-				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "false",
+				otterizev1alpha3.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha3.OtterizeSharedServiceAccountAnnotation: "sharing-is-caring",
+				otterizev1alpha3.OtterizeMissingSidecarAnnotation:       "false",
 			},
 		},
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha2.Intent{
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: server,
-					Type: otterizev1alpha2.IntentTypeHTTP,
-					HTTPResources: []otterizev1alpha2.HTTPResource{
+					Type: otterizev1alpha3.IntentTypeHTTP,
+					HTTPResources: []otterizev1alpha3.HTTPResource{
 						{
 							Path: "/login",
-							Methods: []otterizev1alpha2.HTTPMethod{
-								otterizev1alpha2.HTTPMethodGet,
-								otterizev1alpha2.HTTPMethodPost,
+							Methods: []otterizev1alpha3.HTTPMethod{
+								otterizev1alpha3.HTTPMethodGet,
+								otterizev1alpha3.HTTPMethodPost,
 							},
 						},
 					},
@@ -409,30 +409,30 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatShar
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatSidecar() {
 	serviceAccountName := "test-service-account"
 	server := "test-server"
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
-				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
-				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
-				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "I-don't-see-any-sidecar",
+				otterizev1alpha3.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha3.OtterizeSharedServiceAccountAnnotation: "false",
+				otterizev1alpha3.OtterizeMissingSidecarAnnotation:       "I-don't-see-any-sidecar",
 			},
 		},
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha2.Intent{
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: server,
-					Type: otterizev1alpha2.IntentTypeHTTP,
-					HTTPResources: []otterizev1alpha2.HTTPResource{
+					Type: otterizev1alpha3.IntentTypeHTTP,
+					HTTPResources: []otterizev1alpha3.HTTPResource{
 						{
 							Path: "/login",
-							Methods: []otterizev1alpha2.HTTPMethod{
-								otterizev1alpha2.HTTPMethodGet,
-								otterizev1alpha2.HTTPMethodPost,
+							Methods: []otterizev1alpha3.HTTPMethod{
+								otterizev1alpha3.HTTPMethodGet,
+								otterizev1alpha3.HTTPMethodPost,
 							},
 						},
 					},
@@ -444,14 +444,14 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatSide
 	s.expectReconcilerError(clientIntents)
 }
 
-func (s *CloudReconcilerTestSuite) expectReconcilerError(clientIntents otterizev1alpha2.ClientIntents) {
-	emptyList := otterizev1alpha2.ClientIntentsList{}
-	clientIntentsList := otterizev1alpha2.ClientIntentsList{
-		Items: []otterizev1alpha2.ClientIntents{clientIntents},
+func (s *CloudReconcilerTestSuite) expectReconcilerError(clientIntents otterizev1alpha3.ClientIntents) {
+	emptyList := otterizev1alpha3.ClientIntentsList{}
+	clientIntentsList := otterizev1alpha3.ClientIntentsList{
+		Items: []otterizev1alpha3.ClientIntents{clientIntents},
 	}
 
 	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts *client.ListOptions) error {
+		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts *client.ListOptions) error {
 			clientIntentsList.DeepCopyInto(list)
 			return nil
 		})
@@ -466,14 +466,14 @@ func (s *CloudReconcilerTestSuite) expectReconcilerError(clientIntents otterizev
 	s.Require().Equal(ctrl.Result{}, res)
 }
 
-func (s *CloudReconcilerTestSuite) assertReportedIntents(clientIntents otterizev1alpha2.ClientIntents, expectedIntents []graphqlclient.IntentInput) {
-	emptyList := otterizev1alpha2.ClientIntentsList{}
-	clientIntentsList := otterizev1alpha2.ClientIntentsList{
-		Items: []otterizev1alpha2.ClientIntents{clientIntents},
+func (s *CloudReconcilerTestSuite) assertReportedIntents(clientIntents otterizev1alpha3.ClientIntents, expectedIntents []graphqlclient.IntentInput) {
+	emptyList := otterizev1alpha3.ClientIntentsList{}
+	clientIntentsList := otterizev1alpha3.ClientIntentsList{
+		Items: []otterizev1alpha3.ClientIntents{clientIntents},
 	}
 
 	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts *client.ListOptions) error {
+		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts *client.ListOptions) error {
 			clientIntentsList.DeepCopyInto(list)
 			return nil
 		})
@@ -493,7 +493,7 @@ func (s *CloudReconcilerTestSuite) assertReportedIntents(clientIntents otterizev
 
 func (s *CloudReconcilerTestSuite) TestNamespaceParseSuccess() {
 	serverName := "server.other-namespace"
-	intent := &otterizev1alpha2.Intent{Name: serverName}
+	intent := &otterizev1alpha3.Intent{Name: serverName}
 
 	cloudIntent := intent.ConvertToCloudFormat(testNamespace, clientName)
 
@@ -505,7 +505,7 @@ func (s *CloudReconcilerTestSuite) TestNamespaceParseSuccess() {
 
 func (s *CloudReconcilerTestSuite) TestTargetNamespaceAsSourceNamespace() {
 	serverName := "server"
-	intent := &otterizev1alpha2.Intent{Name: serverName}
+	intent := &otterizev1alpha3.Intent{Name: serverName}
 	cloudIntent := intent.ConvertToCloudFormat(testNamespace, clientName)
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), testNamespace)
 }

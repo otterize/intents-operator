@@ -9,7 +9,6 @@ const (
 	ReasonNamespaceNotAllowed                  = "NamespaceNotAllowed"
 	ReasonCreatingNetworkPoliciesFailed        = "CreatingNetworkPoliciesFailed"
 	ReasonCreatedNetworkPolicies               = "CreatedNetworkPolicies"
-	IstioPolicyFinalizerName                   = "intents.otterize.com/istio-policy-finalizer"
 	ReasonIstioPolicyCreationDisabled          = "IstioPolicyCreationDisabled"
 	ReasonRemovingIstioPolicyFailed            = "RemovingIstioPolicyFailed"
 	ReasonOtterizeServiceNotFound              = "OtterizeServiceNotFound"

@@ -2,7 +2,7 @@ package exp
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	otterizecloudmocks "github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
@@ -15,7 +15,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"testing"
 )
 
@@ -71,25 +70,25 @@ func (s *DatabaseReconcilerTestSuite) expectNoEvent() {
 }
 
 func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha2.Intent{
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: integrationName,
-					Type: otterizev1alpha2.IntentTypeDatabase,
-					DatabaseResources: []otterizev1alpha2.DatabaseResource{{
+					Type: otterizev1alpha3.IntentTypeDatabase,
+					DatabaseResources: []otterizev1alpha3.DatabaseResource{{
 						Table: tableName,
-						Operations: []otterizev1alpha2.DatabaseOperation{
-							otterizev1alpha2.DatabaseOperationSelect,
-							otterizev1alpha2.DatabaseOperationInsert,
+						Operations: []otterizev1alpha3.DatabaseOperation{
+							otterizev1alpha3.DatabaseOperationSelect,
+							otterizev1alpha3.DatabaseOperationInsert,
 						},
 					}},
 				},
@@ -116,7 +115,7 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 }
 
 func (s *DatabaseReconcilerTestSuite) TestNoSpecs() {
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -126,11 +125,11 @@ func (s *DatabaseReconcilerTestSuite) TestNoSpecs() {
 	s.expectHandleReconcilationErrorGracefully(clientIntents)
 }
 
-func (s *DatabaseReconcilerTestSuite) expectHandleReconcilationErrorGracefully(clientIntents otterizev1alpha2.ClientIntents) {
-	emptyIntents := otterizev1alpha2.ClientIntents{}
+func (s *DatabaseReconcilerTestSuite) expectHandleReconcilationErrorGracefully(clientIntents otterizev1alpha3.ClientIntents) {
+	emptyIntents := otterizev1alpha3.ClientIntents{}
 
 	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)
 			return nil
 		})
@@ -141,36 +140,20 @@ func (s *DatabaseReconcilerTestSuite) expectHandleReconcilationErrorGracefully(c
 	s.Require().Equal(ctrl.Result{}, res)
 }
 
-func (s *DatabaseReconcilerTestSuite) assertAppliedDatabaseIntents(clientIntents otterizev1alpha2.ClientIntents, expectedIntents []graphqlclient.IntentInput) {
-	emptyIntents := otterizev1alpha2.ClientIntents{}
+func (s *DatabaseReconcilerTestSuite) assertAppliedDatabaseIntents(clientIntents otterizev1alpha3.ClientIntents, expectedIntents []graphqlclient.IntentInput) {
+	emptyIntents := otterizev1alpha3.ClientIntents{}
 
 	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)
 			return nil
 		})
 
-	intentsWithFinalizer := otterizev1alpha2.ClientIntents{}
-	clientIntents.DeepCopyInto(&intentsWithFinalizer)
-	controllerutil.AddFinalizer(&intentsWithFinalizer, DatabaseFinalizerName)
-	s.client.EXPECT().Update(gomock.Any(), &intentsWithFinalizer).Return(nil)
-
-	// First reconcilation is just adding a finalizer and bailing.
 	req := ctrl.Request{NamespacedName: s.namespacedName}
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
-	s.Require().NoError(err)
-	s.Require().Equal(ctrl.Result{}, res)
-
-	// In the 2nd call, we're expecting the intent with the added finalizer to be applied
-	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			intentsWithFinalizer.DeepCopyInto(intents)
-			return nil
-		})
 
 	s.mockCloudClient.EXPECT().ApplyDatabaseIntent(gomock.Any(), expectedIntents, graphqlclient.DBPermissionChangeApply).Return(nil).Times(1)
 
-	res, err = s.Reconciler.Reconcile(context.Background(), req)
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.Require().NoError(err)
 	s.Require().Equal(ctrl.Result{}, res)
 }

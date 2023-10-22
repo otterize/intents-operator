@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
@@ -20,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"testing"
 	"time"
 )
@@ -95,12 +94,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
-	protectedService := []otterizev1alpha2.ProtectedService{{
+	protectedService := []otterizev1alpha3.ProtectedService{{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-protected-services",
 			Namespace: testNamespace,
 		},
-		Spec: otterizev1alpha2.ProtectedServiceSpec{
+		Spec: otterizev1alpha3.ProtectedServiceSpec{
 			Name: "test-server",
 		},
 	}}
@@ -124,13 +123,13 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
-	protectedServices := []otterizev1alpha2.ProtectedService{
+	protectedServices := []otterizev1alpha3.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-protected-services",
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Spec: otterizev1alpha3.ProtectedServiceSpec{
 				Name: "other-server",
 			},
 		},
@@ -139,7 +138,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 				Name:      "test-protected-services-2",
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Spec: otterizev1alpha3.ProtectedServiceSpec{
 				Name: "test-server",
 			},
 		},
@@ -224,9 +223,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -234,10 +233,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			intents.Spec = intentsSpec
 			return nil
 		})
@@ -289,15 +287,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
 		},
 	}
-	clientIntents := otterizev1alpha2.ClientIntents{
+	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
@@ -306,11 +304,10 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 			return nil
 		})
 
@@ -335,15 +332,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
@@ -362,24 +359,24 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 			return nil
 		})
 
-	serverLabelSelector := client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: existingPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]}
+	serverLabelSelector := client.MatchingFields{otterizev1alpha3.OtterizeFormattedTargetServerIndexField: existingPolicy.Labels[otterizev1alpha3.OtterizeNetworkPolicy]}
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		gomock.Eq(&otterizev1alpha2.ClientIntentsList{}),
+		gomock.Eq(&otterizev1alpha3.ClientIntentsList{}),
 		&serverLabelSelector).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, options ...client.ListOption) error {
-			list.Items = []otterizev1alpha2.ClientIntents{clientIntents}
+		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, options ...client.ListOption) error {
+			list.Items = []otterizev1alpha3.ClientIntents{clientIntents}
 			return nil
 		})
 
-	orphanServerLabelSelector := client.MatchingFields{otterizev1alpha2.OtterizeFormattedTargetServerIndexField: orphanPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]}
+	orphanServerLabelSelector := client.MatchingFields{otterizev1alpha3.OtterizeFormattedTargetServerIndexField: orphanPolicy.Labels[otterizev1alpha3.OtterizeNetworkPolicy]}
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		gomock.Eq(&otterizev1alpha2.ClientIntentsList{}),
+		gomock.Eq(&otterizev1alpha3.ClientIntentsList{}),
 		&orphanServerLabelSelector).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, options ...client.ListOption) error {
+		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, options ...client.ListOption) error {
 			// There are no ClientIntents for this NetworkPolicy, so it should be deleted
-			list.Items = []otterizev1alpha2.ClientIntents{}
+			list.Items = []otterizev1alpha3.ClientIntents{}
 			return nil
 		})
 
@@ -401,9 +398,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -411,8 +408,8 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	clientIntentsObj := otterizev1alpha2.ClientIntents{
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
+	clientIntentsObj := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         testNamespace,
@@ -422,25 +419,24 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	}
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntentsObj.DeepCopyInto(intents)
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 			return nil
 		})
 
 	// Search for client intents with the same target server and delete them if it's the last client intent pointing to the server
-	emptyIntentsList := &otterizev1alpha2.ClientIntentsList{}
-	intentsList := &otterizev1alpha2.ClientIntentsList{
-		Items: []otterizev1alpha2.ClientIntents{
+	emptyIntentsList := &otterizev1alpha3.ClientIntentsList{}
+	intentsList := &otterizev1alpha3.ClientIntentsList{
+		Items: []otterizev1alpha3.ClientIntents{
 			clientIntentsObj,
 		},
 	}
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		gomock.Eq(emptyIntentsList),
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serverName},
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: serverName},
 		&client.ListOptions{Namespace: testNamespace},
-	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts ...client.ListOption) error {
+	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
 		intentsList.DeepCopyInto(list)
 		return nil
 	})
@@ -472,10 +468,6 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), existingPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
 
-	// Remove finalizer
-	controllerutil.AddFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)
-	controllerutil.RemoveFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)
-	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
@@ -488,7 +480,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	policyName string,
 	formattedTargetServer string,
 	defaultEnforcementState bool,
-	protectedServices []otterizev1alpha2.ProtectedService,
+	protectedServices []otterizev1alpha3.ProtectedService,
 ) {
 	s.Reconciler.enforcementDefaultState = defaultEnforcementState
 	namespacedName := types.NamespacedName{
@@ -498,9 +490,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
 	}
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: fmt.Sprintf("test-server.%s", serverNamespace),
 			},
@@ -508,17 +500,16 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			intents.Spec = intentsSpec
 			return nil
 		})
 
 	if defaultEnforcementState == false {
-		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
+		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
 				list.Items = append(list.Items, protectedServices...)
 				return nil
 			})
@@ -545,7 +536,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
+		otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
 	}))
 
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
@@ -559,15 +550,15 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
@@ -592,9 +583,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -602,8 +593,8 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	intentsWithoutFinalizer := otterizev1alpha2.ClientIntents{
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
+	intentsWithoutFinalizer := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
@@ -612,16 +603,10 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	}
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			intentsWithoutFinalizer.DeepCopyInto(intents)
 			return nil
 		})
-
-	intentsWithFinalizer := otterizev1alpha2.ClientIntents{}
-	intentsWithoutFinalizer.DeepCopyInto(&intentsWithFinalizer)
-	// Add finalizer to ClientIntents
-	controllerutil.AddFinalizer(&intentsWithFinalizer, otterizev1alpha2.NetworkPolicyFinalizerName)
-	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&intentsWithFinalizer)).Return(nil)
 
 	// Just assume policy exist because the rest of the flow is tested in other tests
 	existingPolicy := networkPolicyTemplate(
@@ -661,14 +646,14 @@ func networkPolicyTemplate(
 			Name:      policyName,
 			Namespace: targetNamespace,
 			Labels: map[string]string{
-				otterizev1alpha2.OtterizeNetworkPolicy: formattedTargetServer,
+				otterizev1alpha3.OtterizeNetworkPolicy: formattedTargetServer,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha2.OtterizeServerLabelKey: formattedTargetServer,
+					otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{
@@ -678,12 +663,12 @@ func networkPolicyTemplate(
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									fmt.Sprintf(
-										otterizev1alpha2.OtterizeAccessLabelKey, formattedTargetServer): "true",
+										otterizev1alpha3.OtterizeAccessLabelKey, formattedTargetServer): "true",
 								},
 							},
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha2.OtterizeNamespaceLabelKey: intentsObjNamespace,
+									otterizev1alpha3.OtterizeNamespaceLabelKey: intentsObjNamespace,
 								},
 							},
 						},
@@ -715,9 +700,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 	}
 
 	serverFullName := fmt.Sprintf("%s.%s", serverName, serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverFullName,
 			},
@@ -725,15 +710,14 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&otterizev1alpha2.ClientIntents{})).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&otterizev1alpha3.ClientIntents{})).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			intents.Spec = intentsSpec
 			return nil
 		})
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
 			return nil
 		})
 
@@ -779,9 +763,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -789,17 +773,16 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			intents.Spec = intentsSpec
 			return nil
 		})
 
 	s.ignoreRemoveOrphan()
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), gomock.Any()).AnyTimes().DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).AnyTimes().DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
 			return nil
 		})
 
@@ -822,9 +805,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -832,8 +815,8 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
-	clientIntentsObj := otterizev1alpha2.ClientIntents{
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
+	clientIntentsObj := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         testNamespace,
@@ -843,31 +826,30 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	}
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntentsObj.DeepCopyInto(intents)
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.NetworkPolicyFinalizerName)
 			return nil
 		})
 
 	// Search for client intents with the same target server and delete them if it's the last client intent pointing to the server
-	emptyIntentsList := &otterizev1alpha2.ClientIntentsList{}
+	emptyIntentsList := &otterizev1alpha3.ClientIntentsList{}
 
-	otherClientIntentsInTheNamespace := otterizev1alpha2.ClientIntents{
+	otherClientIntentsInTheNamespace := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "other-client-intents",
 			Namespace: testNamespace,
 		},
-		Spec: &otterizev1alpha2.IntentsSpec{
-			Service: otterizev1alpha2.Service{Name: "other-client"},
-			Calls: []otterizev1alpha2.Intent{
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: "other-client"},
+			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: serverName,
 				},
 			},
 		},
 	}
-	intentsList := &otterizev1alpha2.ClientIntentsList{
-		Items: []otterizev1alpha2.ClientIntents{
+	intentsList := &otterizev1alpha3.ClientIntentsList{
+		Items: []otterizev1alpha3.ClientIntents{
 			clientIntentsObj,
 			otherClientIntentsInTheNamespace,
 		},
@@ -875,9 +857,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		gomock.Eq(emptyIntentsList),
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serverName},
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: serverName},
 		&client.ListOptions{Namespace: testNamespace},
-	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts ...client.ListOption) error {
+	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
 		intentsList.DeepCopyInto(list)
 		return nil
 	})
@@ -885,10 +867,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	// Shouldn't remove NetworkPolicy from this namespace
 	// because there is another client with the same target server
 
-	// Remove finalizer from the ClientIntents object
-	controllerutil.AddFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)
-	controllerutil.RemoveFinalizer(&clientIntentsObj, otterizev1alpha2.NetworkPolicyFinalizerName)
-	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
@@ -898,15 +876,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
@@ -918,14 +896,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 				Name:      "policy-name",
 				Namespace: testNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: protectedServiceFormattedName,
+					otterizev1alpha3.OtterizeNetworkPolicy: protectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
 				PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						otterizev1alpha2.OtterizeServerLabelKey: protectedServiceFormattedName,
+						otterizev1alpha3.OtterizeServerLabelKey: protectedServiceFormattedName,
 					},
 				},
 				Ingress: []v1.NetworkPolicyIngressRule{
@@ -935,12 +913,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 								PodSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
 										fmt.Sprintf(
-											otterizev1alpha2.OtterizeAccessLabelKey, protectedServiceFormattedName): "true",
+											otterizev1alpha3.OtterizeAccessLabelKey, protectedServiceFormattedName): "true",
 									},
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha2.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
 									},
 								},
 							},
@@ -954,14 +932,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 				Name:      "another-policy-name",
 				Namespace: testNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: anotherProtectedServiceFormattedName,
+					otterizev1alpha3.OtterizeNetworkPolicy: anotherProtectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
 				PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						otterizev1alpha2.OtterizeServerLabelKey: anotherProtectedServiceFormattedName,
+						otterizev1alpha3.OtterizeServerLabelKey: anotherProtectedServiceFormattedName,
 					},
 				},
 				Ingress: []v1.NetworkPolicyIngressRule{
@@ -971,12 +949,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 								PodSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
 										fmt.Sprintf(
-											otterizev1alpha2.OtterizeAccessLabelKey, anotherProtectedServiceFormattedName): "true",
+											otterizev1alpha3.OtterizeAccessLabelKey, anotherProtectedServiceFormattedName): "true",
 									},
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha2.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
 									},
 								},
 							},
@@ -997,14 +975,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 			return nil
 		})
 
-	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
+	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha3.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Spec: otterizev1alpha3.ProtectedServiceSpec{
 				Name: protectedService,
 			},
 		},
@@ -1013,14 +991,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 				Name:      anotherProtectedServiceResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Spec: otterizev1alpha3.ProtectedServiceSpec{
 				Name: anotherProtectedService,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -1033,15 +1011,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
@@ -1053,14 +1031,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 				Name:      "policy-name",
 				Namespace: testNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: protectedServiceFormattedName,
+					otterizev1alpha3.OtterizeNetworkPolicy: protectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
 				PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						otterizev1alpha2.OtterizeServerLabelKey: protectedServiceFormattedName,
+						otterizev1alpha3.OtterizeServerLabelKey: protectedServiceFormattedName,
 					},
 				},
 				Ingress: []v1.NetworkPolicyIngressRule{
@@ -1070,12 +1048,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 								PodSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
 										fmt.Sprintf(
-											otterizev1alpha2.OtterizeAccessLabelKey, protectedServiceFormattedName): "true",
+											otterizev1alpha3.OtterizeAccessLabelKey, protectedServiceFormattedName): "true",
 									},
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha2.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
 									},
 								},
 							},
@@ -1089,14 +1067,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 				Name:      "another-policy-name",
 				Namespace: testNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: anotherProtectedServiceFormattedName,
+					otterizev1alpha3.OtterizeNetworkPolicy: anotherProtectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
 				PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						otterizev1alpha2.OtterizeServerLabelKey: anotherProtectedServiceFormattedName,
+						otterizev1alpha3.OtterizeServerLabelKey: anotherProtectedServiceFormattedName,
 					},
 				},
 				Ingress: []v1.NetworkPolicyIngressRule{
@@ -1106,12 +1084,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 								PodSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
 										fmt.Sprintf(
-											otterizev1alpha2.OtterizeAccessLabelKey, anotherProtectedServiceFormattedName): "true",
+											otterizev1alpha3.OtterizeAccessLabelKey, anotherProtectedServiceFormattedName): "true",
 									},
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha2.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
 									},
 								},
 							},
@@ -1132,21 +1110,21 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 			return nil
 		})
 
-	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
+	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha3.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Spec: otterizev1alpha3.ProtectedServiceSpec{
 				Name: protectedService,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -1161,15 +1139,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
@@ -1181,14 +1159,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 				Name:      "policy-name",
 				Namespace: testNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: protectedServiceFormattedName,
+					otterizev1alpha3.OtterizeNetworkPolicy: protectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
 				PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						otterizev1alpha2.OtterizeServerLabelKey: protectedServiceFormattedName,
+						otterizev1alpha3.OtterizeServerLabelKey: protectedServiceFormattedName,
 					},
 				},
 				Ingress: []v1.NetworkPolicyIngressRule{
@@ -1198,12 +1176,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 								PodSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
 										fmt.Sprintf(
-											otterizev1alpha2.OtterizeAccessLabelKey, protectedServiceFormattedName): "true",
+											otterizev1alpha3.OtterizeAccessLabelKey, protectedServiceFormattedName): "true",
 									},
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha2.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
 									},
 								},
 							},
@@ -1217,14 +1195,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 				Name:      "another-policy-name",
 				Namespace: testNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: anotherProtectedServiceFormattedName,
+					otterizev1alpha3.OtterizeNetworkPolicy: anotherProtectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
 				PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						otterizev1alpha2.OtterizeServerLabelKey: anotherProtectedServiceFormattedName,
+						otterizev1alpha3.OtterizeServerLabelKey: anotherProtectedServiceFormattedName,
 					},
 				},
 				Ingress: []v1.NetworkPolicyIngressRule{
@@ -1234,12 +1212,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 								PodSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
 										fmt.Sprintf(
-											otterizev1alpha2.OtterizeAccessLabelKey, anotherProtectedServiceFormattedName): "true",
+											otterizev1alpha3.OtterizeAccessLabelKey, anotherProtectedServiceFormattedName): "true",
 									},
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha2.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
 									},
 								},
 							},
@@ -1262,14 +1240,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 
 	// One service is protected, the other has protectedService with deletion timestamp
 	deletionTimestamp := metav1.Now()
-	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
+	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha3.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Spec: otterizev1alpha3.ProtectedServiceSpec{
 				Name: protectedService,
 			},
 		},
@@ -1279,14 +1257,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 				Namespace:         testNamespace,
 				DeletionTimestamp: &deletionTimestamp,
 			},
-			Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Spec: otterizev1alpha3.ProtectedServiceSpec{
 				Name: anotherProtectedService,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -1301,15 +1279,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldH
 	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
@@ -1321,14 +1299,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldH
 				Name:      "policy-name",
 				Namespace: testNamespace,
 				Labels: map[string]string{
-					otterizev1alpha2.OtterizeNetworkPolicy: protectedServiceFormattedName,
+					otterizev1alpha3.OtterizeNetworkPolicy: protectedServiceFormattedName,
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
 				PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						otterizev1alpha2.OtterizeServerLabelKey: protectedServiceFormattedName,
+						otterizev1alpha3.OtterizeServerLabelKey: protectedServiceFormattedName,
 					},
 				},
 				Ingress: []v1.NetworkPolicyIngressRule{
@@ -1338,12 +1316,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldH
 								PodSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
 										fmt.Sprintf(
-											otterizev1alpha2.OtterizeAccessLabelKey, protectedServiceFormattedName): "true",
+											otterizev1alpha3.OtterizeAccessLabelKey, protectedServiceFormattedName): "true",
 									},
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha2.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
 									},
 								},
 							},
@@ -1364,14 +1342,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldH
 			return nil
 		})
 
-	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
+	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha3.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Spec: otterizev1alpha3.ProtectedServiceSpec{
 				Name: protectedService,
 			},
 		},
@@ -1380,14 +1358,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldH
 				Name:      anotherProtectedServiceResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Spec: otterizev1alpha3.ProtectedServiceSpec{
 				Name: anotherProtectedService,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha2.ProtectedServiceList{}), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -1400,15 +1378,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNoNetworkPolicies() {
 	s.Reconciler.enforcementDefaultState = false
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicy,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyExternalTraffic,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 		{
-			Key:      otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
@@ -1422,14 +1400,14 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNoNetworkPolicies() {
 		&client.ListOptions{Namespace: testNamespace, LabelSelector: selector},
 	).Return(nil).Times(1)
 
-	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev1alpha2.ProtectedService{
+	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha3.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev1alpha2.ProtectedServiceSpec{
+			Spec: otterizev1alpha3.ProtectedServiceSpec{
 				Name: protectedService,
 			},
 		},
