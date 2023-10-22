@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
@@ -47,7 +48,7 @@ func (r *DefaultDenyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 func (r *DefaultDenyReconciler) handleDefaultDenyInNamespace(ctx context.Context, req ctrl.Request) error {
-	var protectedServices otterizev1alpha2.ProtectedServiceList
+	var protectedServices otterizev1alpha3.ProtectedServiceList
 
 	err := r.List(ctx, &protectedServices, client.InNamespace(req.Namespace))
 	if err != nil {
@@ -62,7 +63,7 @@ func (r *DefaultDenyReconciler) handleDefaultDenyInNamespace(ctx context.Context
 	return r.extNetpolHandler.HandleAllPods(ctx)
 }
 
-func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, protectedServices otterizev1alpha2.ProtectedServiceList, namespace string) error {
+func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, protectedServices otterizev1alpha3.ProtectedServiceList, namespace string) error {
 	serversToProtect := map[string]v1.NetworkPolicy{}
 	for _, protectedService := range protectedServices.Items {
 		if protectedService.DeletionTimestamp != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	istiopolicy "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -59,7 +60,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	intents := &otterizev1alpha2.ClientIntents{}
+	intents := &otterizev1alpha3.ClientIntents{}
 	err = r.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -140,7 +141,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
+func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
 	for _, intent := range intents.Spec.Calls {
 		serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
 		pod, err := r.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, serverNamespace)
@@ -162,7 +163,7 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 	return nil
 }
 
-func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
+func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
 	if !controllerutil.ContainsFinalizer(intents, consts.IstioPolicyFinalizerName) {
 		return nil
 	}

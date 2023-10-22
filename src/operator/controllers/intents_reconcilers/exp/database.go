@@ -2,7 +2,7 @@ package exp
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -39,7 +39,7 @@ func NewDatabaseReconciler(
 }
 
 func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	intents := &otterizev1alpha2.ClientIntents{}
+	intents := &otterizev1alpha3.ClientIntents{}
 	logger := logrus.WithField("namespacedName", req.String())
 	err := r.client.Get(ctx, req.NamespacedName, intents)
 	if err != nil && k8serrors.IsNotFound(err) {
@@ -70,7 +70,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	var intentInputList []graphqlclient.IntentInput
 	for _, intent := range intents.GetCallsList() {
-		if intent.Type != otterizev1alpha2.IntentTypeDatabase {
+		if intent.Type != otterizev1alpha3.IntentTypeDatabase {
 			continue
 		}
 
@@ -95,6 +95,6 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *DatabaseReconciler) isMissingDatabaseFinalizer(intents *otterizev1alpha2.ClientIntents) bool {
+func (r *DatabaseReconciler) isMissingDatabaseFinalizer(intents *otterizev1alpha3.ClientIntents) bool {
 	return !controllerutil.ContainsFinalizer(intents, DatabaseFinalizerName) && intents.HasDatabaseTypeInCallList()
 }

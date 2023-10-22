@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -38,7 +39,7 @@ func NewPodLabelReconciler(c client.Client, s *runtime.Scheme) *PodLabelReconcil
 func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	namespace := req.NamespacedName.Namespace
 
-	intents := &otterizev1alpha2.ClientIntents{}
+	intents := &otterizev1alpha3.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		logrus.WithField("namespacedName", req.String()).Infof("Intents deleted")
@@ -102,7 +103,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
-	ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
+	ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
 
 	if !controllerutil.ContainsFinalizer(intents, PodLabelFinalizerName) {
 		return nil

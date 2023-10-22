@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
@@ -113,7 +114,7 @@ func NewIntentsReconciler(
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 //+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list
-//+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create
+//+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -141,7 +142,7 @@ func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
 }
 
 func (r *IntentsReconciler) RemoveFinalizerFromAllResources(ctx context.Context, finalizer string) error {
-	var clientIntentsList otterizev1alpha2.ClientIntentsList
+	var clientIntentsList otterizev1alpha3.ClientIntentsList
 	err := r.client.List(ctx, &clientIntentsList)
 	if err != nil {
 		return err
@@ -161,9 +162,9 @@ func (r *IntentsReconciler) RemoveFinalizerFromAllResources(ctx context.Context,
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev1alpha2.ClientIntents{}).
+		For(&otterizev1alpha3.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
-		Watches(&source.Kind{Type: &otterizev1alpha2.ProtectedService{}}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
+		Watches(&source.Kind{Type: &otterizev1alpha3.ProtectedService{}}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
 		Complete(r)
 	if err != nil {
 		return err
@@ -175,14 +176,14 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *IntentsReconciler) mapProtectedServiceToClientIntents(obj client.Object) []reconcile.Request {
-	protectedService := obj.(*otterizev1alpha2.ProtectedService)
+	protectedService := obj.(*otterizev1alpha3.ProtectedService)
 	logrus.Infof("Enqueueing client intents for protected services %s", protectedService.Name)
 
 	intentsToReconcile := r.getIntentsToProtectedService(protectedService)
 	return r.mapIntentsToRequests(intentsToReconcile)
 }
 
-func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1alpha2.ClientIntents) []reconcile.Request {
+func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1alpha3.ClientIntents) []reconcile.Request {
 	requests := make([]reconcile.Request, 0)
 	for _, clientIntents := range intentsToReconcile {
 		request := reconcile.Request{
@@ -196,13 +197,13 @@ func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1
 	return requests
 }
 
-func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otterizev1alpha2.ProtectedService) []otterizev1alpha2.ClientIntents {
-	intentsToReconcile := make([]otterizev1alpha2.ClientIntents, 0)
+func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otterizev1alpha3.ProtectedService) []otterizev1alpha3.ClientIntents {
+	intentsToReconcile := make([]otterizev1alpha3.ClientIntents, 0)
 	fullServerName := fmt.Sprintf("%s.%s", protectedService.Spec.Name, protectedService.Namespace)
-	var intentsToServer otterizev1alpha2.ClientIntentsList
+	var intentsToServer otterizev1alpha3.ClientIntentsList
 	err := r.client.List(context.Background(),
 		&intentsToServer,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fullServerName},
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fullServerName},
 	)
 	if err != nil {
 		logrus.Errorf("Failed to list client intents for client %s: %v", fullServerName, err)
@@ -217,11 +218,11 @@ func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otter
 func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha2.ClientIntents{},
-		otterizev1alpha2.OtterizeTargetServerIndexField,
+		&otterizev1alpha3.ClientIntents{},
+		otterizev1alpha3.OtterizeTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
-			intents := object.(*otterizev1alpha2.ClientIntents)
+			intents := object.(*otterizev1alpha3.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}
@@ -244,11 +245,11 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 
 	err = mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha2.ClientIntents{},
-		otterizev1alpha2.OtterizeFormattedTargetServerIndexField,
+		&otterizev1alpha3.ClientIntents{},
+		otterizev1alpha3.OtterizeFormattedTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
-			intents := object.(*otterizev1alpha2.ClientIntents)
+			intents := object.(*otterizev1alpha3.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}

@@ -2,7 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -44,7 +44,7 @@ func NewOtterizeCloudReconciler(
 
 func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	// Report Applied intents from namespace
-	clientIntentsList := &otterizev1alpha2.ClientIntentsList{}
+	clientIntentsList := &otterizev1alpha3.ClientIntentsList{}
 	if err := r.List(ctx, clientIntentsList, &client.ListOptions{Namespace: req.Namespace}); err != nil {
 		return ctrl.Result{}, nil
 	}
@@ -74,11 +74,11 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 	ctx context.Context,
-	clientIntentsList *otterizev1alpha2.ClientIntentsList) (*otterizev1alpha2.ClientIntentsList, error) {
+	clientIntentsList *otterizev1alpha3.ClientIntentsList) (*otterizev1alpha3.ClientIntentsList, error) {
 
 	// TODO: Remove when access graph supports Kubernetes services
 	for _, clientIntent := range clientIntentsList.Items {
-		callList := make([]otterizev1alpha2.Intent, 0)
+		callList := make([]otterizev1alpha3.Intent, 0)
 		for _, intent := range clientIntent.GetCallsList() {
 			if !intent.IsTargetServerKubernetesService() {
 				callList = append(callList, intent)
@@ -93,7 +93,7 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 			}, &svc)
 			if err != nil {
 				if errors.IsNotFound(err) {
-					return &otterizev1alpha2.ClientIntentsList{Items: nil}, nil
+					return &otterizev1alpha3.ClientIntentsList{Items: nil}, nil
 				}
 				return nil, err
 			}
