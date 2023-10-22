@@ -2,7 +2,6 @@ package protected_services
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,7 +18,7 @@ func IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx context.Context
 	logrus.Debug("Protected services are enabled, checking if server is in protected list")
 	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
 	err := kube.List(ctx, &protectedServicesResources,
-		client.MatchingFields{otterizev1alpha2.OtterizeProtectedServiceNameIndexField: serverName},
+		client.MatchingFields{otterizev1alpha3.OtterizeProtectedServiceNameIndexField: serverName},
 		client.InNamespace(serverNamespace))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -43,7 +42,7 @@ func InitProtectedServiceIndexField(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&otterizev1alpha3.ProtectedService{},
-		otterizev1alpha2.OtterizeProtectedServiceNameIndexField,
+		otterizev1alpha3.OtterizeProtectedServiceNameIndexField,
 		func(object client.Object) []string {
 			protectedService := object.(*otterizev1alpha3.ProtectedService)
 			if protectedService.Spec.Name == "" {

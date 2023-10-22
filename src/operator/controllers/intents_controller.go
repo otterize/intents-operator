@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
@@ -39,11 +38,20 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
+
+var intentsLegacyFinalizers = []string{
+	"intents.otterize.com/svc-network-policy-finalizer",
+	"intents.otterize.com/network-policy-finalizer",
+	"intents.otterize.com/telemetry-reconciler-finalizer",
+	"intents.otterize.com/kafka-finalizer",
+	"intents.otterize.com/istio-policy-finalizer",
+	"intents.otterize.com/database-finalizer",
+	"intents.otterize.com/pods-finalizer",
+}
 
 type EnforcementConfig struct {
 	EnforcementDefaultState  bool
@@ -72,9 +80,14 @@ func NewIntentsReconciler(
 	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string) *IntentsReconciler {
-
 	serviceIdResolver := serviceidresolver.NewResolver(client)
-	reconcilersGroup := reconcilergroup.NewGroup("intents-reconciler", client, scheme,
+	reconcilersGroup := reconcilergroup.NewGroup(
+		"intents-reconciler",
+		client,
+		scheme,
+		&otterizev1alpha3.ClientIntents{},
+		otterizev1alpha3.ClientIntentsFinalizerName,
+		intentsLegacyFinalizers,
 		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
@@ -130,33 +143,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
-	if !telemetrysender.IsTelemetryEnabled() {
-		// When telemetry is disabled no logic should run by the telemetry reconciler. In case that a previous run of
-		// the operator had telemetry enabled we must remove the telemetry reconciler finalizers from all the CRDs.
-		err := r.RemoveFinalizerFromAllResources(ctx, otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName)
-		if err != nil {
-			return err
-		}
-	}
 	return r.networkPolicyReconciler.CleanAllNamespaces(ctx)
-}
-
-func (r *IntentsReconciler) RemoveFinalizerFromAllResources(ctx context.Context, finalizer string) error {
-	var clientIntentsList otterizev1alpha3.ClientIntentsList
-	err := r.client.List(ctx, &clientIntentsList)
-	if err != nil {
-		return err
-	}
-
-	for _, clientIntents := range clientIntentsList.Items {
-		controllerutil.RemoveFinalizer(&clientIntents, finalizer)
-		err = r.client.Update(ctx, &clientIntents)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -257,7 +244,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			for _, intent := range intents.GetCallsList() {
 				serverName := intent.GetTargetServerName()
 				serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
-				formattedServerName := otterizev1alpha2.GetFormattedOtterizeIdentity(serverName, serverNamespace)
+				formattedServerName := otterizev1alpha3.GetFormattedOtterizeIdentity(serverName, serverNamespace)
 				if !intent.IsTargetServerKubernetesService() {
 					res = append(res, formattedServerName)
 				} else {
@@ -284,7 +271,7 @@ func (r *IntentsReconciler) InitEndpointsPodNamesIndex(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&corev1.Endpoints{},
-		otterizev1alpha2.EndpointsPodNamesIndexField,
+		otterizev1alpha3.EndpointsPodNamesIndexField,
 		func(object client.Object) []string {
 			var res []string
 			endpoints := object.(*corev1.Endpoints)

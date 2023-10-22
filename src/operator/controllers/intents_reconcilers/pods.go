@@ -3,7 +3,6 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
@@ -12,10 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
-
-const PodLabelFinalizerName = "intents.otterize.com/pods-finalizer"
 
 const (
 	ReasonRemovingPodLabelsFailed = "RemovingPodLabelsFailed"
@@ -51,8 +47,9 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if !intents.DeletionTimestamp.IsZero() {
-		err := r.cleanFinalizerAndUnlabelPods(ctx, intents)
+		err := r.removeLabelsFromPods(ctx, intents)
 		if err != nil {
+			// TODO: check IsConflict error next to the actual client call
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
@@ -60,14 +57,6 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
-	}
-
-	if !controllerutil.ContainsFinalizer(intents, PodLabelFinalizerName) {
-		logrus.WithField("namespacedName", req.String()).Infof("Adding finalizer %s", PodLabelFinalizerName)
-		controllerutil.AddFinalizer(intents, PodLabelFinalizerName)
-		if err := r.Update(ctx, intents); err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 
 	serviceName := intents.GetServiceName()
@@ -89,9 +78,9 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	for _, pod := range podList.Items {
-		if otterizev1alpha2.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
+		if otterizev1alpha3.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
 			logrus.Infof("Updating %s pod labels with new intents", serviceName)
-			updatedPod := otterizev1alpha2.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
+			updatedPod := otterizev1alpha3.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				r.RecordWarningEventf(intents, ReasonUpdatePodFailed, "could not update pod: %s", err.Error())
@@ -102,12 +91,8 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
+func (r *PodLabelReconciler) removeLabelsFromPods(
 	ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
-
-	if !controllerutil.ContainsFinalizer(intents, PodLabelFinalizerName) {
-		return nil
-	}
 
 	logrus.Infof("Unlabeling pods for Otterize service %s", intents.Spec.Service.Name)
 
@@ -130,12 +115,12 @@ func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
 		if updatedPod.Annotations == nil {
 			updatedPod.Annotations = make(map[string]string)
 		}
-		updatedPod.Annotations[otterizev1alpha2.AllIntentsRemovedAnnotation] = "true"
+		updatedPod.Annotations[otterizev1alpha3.AllIntentsRemovedAnnotation] = "true"
 		for _, intent := range intents.GetCallsList() {
-			targetServerIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
+			targetServerIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(
 				intent.Name, intent.GetTargetServerNamespace(intents.Namespace))
 
-			accessLabel := fmt.Sprintf(otterizev1alpha2.OtterizeAccessLabelKey, targetServerIdentity)
+			accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity)
 			delete(updatedPod.Labels, accessLabel)
 		}
 
@@ -143,11 +128,6 @@ func (r *PodLabelReconciler) cleanFinalizerAndUnlabelPods(
 		if err != nil {
 			return err
 		}
-	}
-
-	RemoveIntentFinalizers(intents, PodLabelFinalizerName)
-	if err := r.Update(ctx, intents); err != nil {
-		return err
 	}
 
 	return nil

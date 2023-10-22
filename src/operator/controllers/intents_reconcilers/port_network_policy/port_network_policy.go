@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -81,7 +80,7 @@ func (r *PortNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// Object is deleted, handle finalizer and network policy clean up
 	if !intents.DeletionTimestamp.IsZero() {
-		err := r.cleanFinalizerAndPolicies(ctx, intents)
+		err := r.cleanPolicies(ctx, intents)
 		if err != nil {
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
@@ -92,13 +91,6 @@ func (r *PortNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, nil
 	}
 
-	if !controllerutil.ContainsFinalizer(intents, otterizev1alpha3.ServiceNetworkPolicyFinalizerName) {
-		logrus.WithField("namespacedName", req.String()).Infof("Adding finalizer %s", otterizev1alpha3.ServiceNetworkPolicyFinalizerName)
-		controllerutil.AddFinalizer(intents, otterizev1alpha3.ServiceNetworkPolicyFinalizerName)
-		if err := r.Update(ctx, intents); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
 	createdNetpols := 0
 	for _, intent := range intents.GetCallsList() {
 		if !intent.IsTargetServerKubernetesService() {
@@ -220,22 +212,16 @@ func (r *PortNetworkPolicyReconciler) reconcileEndpointsForPolicy(ctx context.Co
 	return r.extNetpolHandler.HandlePodsByLabelSelector(ctx, newPolicy.Namespace, selector)
 }
 
-func (r *PortNetworkPolicyReconciler) cleanFinalizerAndPolicies(
-	ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
-	if !controllerutil.ContainsFinalizer(intents, otterizev1alpha3.ServiceNetworkPolicyFinalizerName) {
-		return nil
-	}
+func (r *PortNetworkPolicyReconciler) cleanPolicies(
+	ctx context.Context,
+	intents *otterizev1alpha3.ClientIntents,
+) error {
 	logrus.Infof("Removing network policies for deleted intents for service: %s", intents.Spec.Service.Name)
 	for _, intent := range intents.GetCallsList() {
 		err := r.handleIntentRemoval(ctx, intent, intents.Namespace)
 		if err != nil {
 			return err
 		}
-	}
-
-	intents_reconcilers.RemoveIntentFinalizers(intents, otterizev1alpha3.ServiceNetworkPolicyFinalizerName)
-	if err := r.Update(ctx, intents); err != nil {
-		return err
 	}
 
 	return nil

@@ -3,7 +3,6 @@ package intents_reconcilers
 import (
 	"context"
 	"errors"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -233,9 +232,9 @@ func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
-				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
-				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
-				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "false",
+				otterizev1alpha3.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha3.OtterizeSharedServiceAccountAnnotation: "false",
+				otterizev1alpha3.OtterizeMissingSidecarAnnotation:       "false",
 			},
 		},
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -303,8 +302,8 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingShared
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
-				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
-				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "false",
+				otterizev1alpha3.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha3.OtterizeMissingSidecarAnnotation:       "false",
 			},
 		},
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -340,8 +339,8 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSideca
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
-				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
-				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
+				otterizev1alpha3.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha3.OtterizeSharedServiceAccountAnnotation: "false",
 			},
 		},
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -377,9 +376,9 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatShar
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
-				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
-				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "sharing-is-caring",
-				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "false",
+				otterizev1alpha3.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha3.OtterizeSharedServiceAccountAnnotation: "sharing-is-caring",
+				otterizev1alpha3.OtterizeMissingSidecarAnnotation:       "false",
 			},
 		},
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -415,9 +414,9 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatSide
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 			Annotations: map[string]string{
-				otterizev1alpha2.OtterizeClientServiceAccountAnnotation: serviceAccountName,
-				otterizev1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
-				otterizev1alpha2.OtterizeMissingSidecarAnnotation:       "I-don't-see-any-sidecar",
+				otterizev1alpha3.OtterizeClientServiceAccountAnnotation: serviceAccountName,
+				otterizev1alpha3.OtterizeSharedServiceAccountAnnotation: "false",
+				otterizev1alpha3.OtterizeMissingSidecarAnnotation:       "I-don't-see-any-sidecar",
 			},
 		},
 		Spec: &otterizev1alpha3.IntentsSpec{
