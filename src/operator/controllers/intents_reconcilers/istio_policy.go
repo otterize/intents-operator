@@ -3,7 +3,6 @@ package intents_reconcilers
 import (
 	"context"
 	"errors"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	istiopolicy "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
@@ -14,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type IstioPolicyReconciler struct {
@@ -77,7 +75,10 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		intents.Spec.Service.Name, req.Namespace)
 
 	if !intents.DeletionTimestamp.IsZero() {
-		err := r.cleanFinalizerAndPolicies(ctx, intents)
+		err := r.policyManager.DeleteAll(ctx, intents)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 		if err != nil {
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
@@ -86,14 +87,6 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{}, nil
-	}
-
-	if !controllerutil.ContainsFinalizer(intents, consts.IstioPolicyFinalizerName) {
-		logrus.WithField("namespacedName", req.String()).Infof("Adding finalizer %s", consts.IstioPolicyFinalizerName)
-		controllerutil.AddFinalizer(intents, consts.IstioPolicyFinalizerName)
-		if err := r.Update(ctx, intents); err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 
 	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, *intents)
@@ -153,7 +146,7 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 		}
 
 		missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
-		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), serverNamespace)
+		formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), serverNamespace)
 		err = r.policyManager.UpdateServerSidecar(ctx, intents, formattedTargetServer, missingSideCar)
 		if err != nil {
 			return err
@@ -161,19 +154,4 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 	}
 
 	return nil
-}
-
-func (r *IstioPolicyReconciler) cleanFinalizerAndPolicies(ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
-	if !controllerutil.ContainsFinalizer(intents, consts.IstioPolicyFinalizerName) {
-		return nil
-	}
-
-	logrus.Infof("Removing Istio policies for deleted intents for service: %s", intents.Spec.Service.Name)
-
-	err := r.policyManager.DeleteAll(ctx, intents)
-	if err != nil {
-		return err
-	}
-	RemoveIntentFinalizers(intents, consts.IstioPolicyFinalizerName)
-	return r.Update(ctx, intents)
 }

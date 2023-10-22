@@ -2,7 +2,6 @@ package intents_reconcilers
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -12,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"testing"
 	"time"
 )
@@ -44,9 +42,6 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -75,9 +70,6 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -101,9 +93,6 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -130,9 +119,6 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -156,9 +142,6 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: "another-test-namespace",
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -192,9 +175,6 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -223,9 +203,6 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -259,9 +236,6 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -307,9 +281,6 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -333,9 +304,6 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -378,9 +346,6 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -409,9 +374,6 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -445,9 +407,6 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -493,9 +452,6 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -519,9 +475,6 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
-			Finalizers: []string{
-				otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName,
-			},
 		},
 
 		Spec: &otterizev1alpha3.IntentsSpec{
@@ -591,10 +544,6 @@ func (s *CountReconcilerTestSuite) removeIntent(clientIntents otterizev1alpha3.C
 			clientIntents.DeepCopyInto(intents)
 			return nil
 		})
-
-	withoutFinalizer := clientIntents.DeepCopy()
-	controllerutil.RemoveFinalizer(withoutFinalizer, otterizev1alpha2.OtterizeTelemetryReconcilerFinalizerName)
-	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(withoutFinalizer)).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.Require().NoError(err)

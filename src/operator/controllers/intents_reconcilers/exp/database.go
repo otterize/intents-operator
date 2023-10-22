@@ -3,7 +3,6 @@ package exp
 import (
 	"context"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
@@ -12,11 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-)
-
-const (
-	DatabaseFinalizerName = "intents.otterize.com/database-finalizer"
 )
 
 type DatabaseReconciler struct {
@@ -54,15 +48,6 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	if r.isMissingDatabaseFinalizer(intents) {
-		logger.Infof("Adding finalizer %s", DatabaseFinalizerName)
-		controllerutil.AddFinalizer(intents, DatabaseFinalizerName)
-		if err := r.client.Update(ctx, intents); err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
-	}
-
 	action := graphqlclient.DBPermissionChangeApply
 	if !intents.ObjectMeta.DeletionTimestamp.IsZero() {
 		action = graphqlclient.DBPermissionChangeDelete
@@ -82,19 +67,5 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	if action == graphqlclient.DBPermissionChangeDelete {
-		intents_reconcilers.RemoveIntentFinalizers(intents, DatabaseFinalizerName)
-		if err := r.client.Update(ctx, intents); err != nil {
-			if k8serrors.IsConflict(err) {
-				return ctrl.Result{Requeue: true}, nil
-			}
-			return ctrl.Result{}, err
-		}
-	}
-
 	return ctrl.Result{}, nil
-}
-
-func (r *DatabaseReconciler) isMissingDatabaseFinalizer(intents *otterizev1alpha3.ClientIntents) bool {
-	return !controllerutil.ContainsFinalizer(intents, DatabaseFinalizerName) && intents.HasDatabaseTypeInCallList()
 }
