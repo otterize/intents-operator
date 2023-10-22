@@ -17,7 +17,9 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -90,4 +92,52 @@ type KafkaServerConfigList struct {
 
 func init() {
 	SchemeBuilder.Register(&KafkaServerConfig{}, &KafkaServerConfigList{})
+}
+
+// ConvertTo converts this ProtectedService to the Hub version (v1alpha3).
+func (ksc *KafkaServerConfig) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1alpha3.KafkaServerConfig)
+	dst.ObjectMeta = ksc.ObjectMeta
+	dst.Spec = v1alpha3.KafkaServerConfigSpec{}
+	dst.Spec.Addr = ksc.Spec.Addr
+	dst.Spec.Service = v1alpha3.Service{Name: ksc.Spec.Service.Name}
+	dst.Spec.NoAutoCreateIntentsForOperator = ksc.Spec.NoAutoCreateIntentsForOperator
+	dst.Spec.TLS = v1alpha3.TLSSource{
+		CertFile:   ksc.Spec.TLS.CertFile,
+		KeyFile:    ksc.Spec.TLS.KeyFile,
+		RootCAFile: ksc.Spec.TLS.RootCAFile,
+	}
+	for _, topic := range ksc.Spec.Topics {
+		dst.Spec.Topics = append(dst.Spec.Topics, v1alpha3.TopicConfig{
+			Topic:                  topic.Topic,
+			Pattern:                v1alpha3.ResourcePatternType(topic.Pattern), // this casting is fine as v1alpha2 == v1alpha3
+			ClientIdentityRequired: topic.ClientIdentityRequired,
+			IntentsRequired:        topic.IntentsRequired,
+		})
+	}
+	return nil
+}
+
+// ConvertFrom converts the Hub version (v1alpha3) to this KafkaServerConfig.
+func (ksc *KafkaServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1alpha3.KafkaServerConfig)
+	ksc.ObjectMeta = src.ObjectMeta
+	ksc.Spec = KafkaServerConfigSpec{}
+	ksc.Spec.Addr = src.Spec.Addr
+	ksc.Spec.Service = Service{Name: src.Spec.Service.Name}
+	ksc.Spec.NoAutoCreateIntentsForOperator = src.Spec.NoAutoCreateIntentsForOperator
+	ksc.Spec.TLS = TLSSource{
+		CertFile:   src.Spec.TLS.CertFile,
+		KeyFile:    src.Spec.TLS.KeyFile,
+		RootCAFile: src.Spec.TLS.RootCAFile,
+	}
+	for _, topic := range src.Spec.Topics {
+		ksc.Spec.Topics = append(ksc.Spec.Topics, TopicConfig{
+			Topic:                  topic.Topic,
+			Pattern:                ResourcePatternType(topic.Pattern), // this casting is fine as v1alpha2 == v1alpha3
+			ClientIdentityRequired: topic.ClientIdentityRequired,
+			IntentsRequired:        topic.IntentsRequired,
+		})
+	}
+	return nil
 }

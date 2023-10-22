@@ -69,7 +69,19 @@ rules:
   - create
   - get
   - list
+  - patch
   - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - k8s.otterize.com

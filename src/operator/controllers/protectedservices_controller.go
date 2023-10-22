@@ -18,7 +18,7 @@ package controllers
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/initonce"
@@ -102,7 +102,7 @@ func (r *ProtectedServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 func (r *ProtectedServiceReconciler) protectedServicesReconcilerInit(ctx context.Context) error {
-	var protectedServices otterizev1alpha2.ProtectedServiceList
+	var protectedServices otterizev1alpha3.ProtectedServiceList
 	err := r.List(ctx, &protectedServices)
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (r *ProtectedServiceReconciler) protectedServicesReconcilerInit(ctx context
 // SetupWithManager sets up the controller with the Manager.
 func (r *ProtectedServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev1alpha2.ProtectedService{}).
+		For(&otterizev1alpha3.ProtectedService{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 	if err != nil {
