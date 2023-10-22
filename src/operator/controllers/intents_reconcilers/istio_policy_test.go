@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -68,16 +68,16 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
 		},
 	}
 
-	intentsWithoutFinalizer := otterizev1alpha2.ClientIntents{
+	intentsWithoutFinalizer := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
@@ -88,14 +88,14 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
 	s.expectValidatingIstioIsInstalled()
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			intentsWithoutFinalizer.DeepCopyInto(intents)
 			return nil
 		})
 
-	intentsObj := otterizev1alpha2.ClientIntents{}
+	intentsObj := otterizev1alpha3.ClientIntents{}
 	intentsWithoutFinalizer.DeepCopyInto(&intentsObj)
 
 	clientServiceAccount := "test-server-sa"
@@ -173,16 +173,16 @@ func (s *IstioPolicyReconcilerTestSuite) assertPolicyCreateCalledEvenIfDisabledE
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
 		},
 	}
 
-	clientIntentsObj := otterizev1alpha2.ClientIntents{
+	clientIntentsObj := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
@@ -193,9 +193,9 @@ func (s *IstioPolicyReconcilerTestSuite) assertPolicyCreateCalledEvenIfDisabledE
 	s.expectValidatingIstioIsInstalled()
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntentsObj.DeepCopyInto(intents)
 			return nil
 		})
@@ -262,9 +262,9 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyDeleted() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha2.IntentsSpec{
-		Service: otterizev1alpha2.Service{Name: serviceName},
-		Calls: []otterizev1alpha2.Intent{
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
 			{
 				Name: serverName,
 			},
@@ -272,7 +272,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyDeleted() {
 	}
 
 	date := metav1.Date(1989, 2, 15, 20, 00, 0, 0, time.UTC)
-	clientIntentsObj := otterizev1alpha2.ClientIntents{
+	clientIntentsObj := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         testNamespace,
@@ -284,9 +284,9 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyDeleted() {
 	s.expectValidatingIstioIsInstalled()
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha2.ClientIntents{}
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntentsObj.DeepCopyInto(intents)
 			return nil
 		})

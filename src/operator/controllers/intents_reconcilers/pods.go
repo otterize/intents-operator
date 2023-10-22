@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -35,7 +35,7 @@ func NewPodLabelReconciler(c client.Client, s *runtime.Scheme) *PodLabelReconcil
 func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	namespace := req.NamespacedName.Namespace
 
-	intents := &otterizev1alpha2.ClientIntents{}
+	intents := &otterizev1alpha3.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		logrus.WithField("namespacedName", req.String()).Infof("Intents deleted")
@@ -78,9 +78,9 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	for _, pod := range podList.Items {
-		if otterizev1alpha2.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
+		if otterizev1alpha3.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
 			logrus.Infof("Updating %s pod labels with new intents", serviceName)
-			updatedPod := otterizev1alpha2.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
+			updatedPod := otterizev1alpha3.UpdateOtterizeAccessLabels(pod.DeepCopy(), intentLabels)
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				r.RecordWarningEventf(intents, ReasonUpdatePodFailed, "could not update pod: %s", err.Error())
@@ -92,7 +92,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *PodLabelReconciler) removeLabelsFromPods(
-	ctx context.Context, intents *otterizev1alpha2.ClientIntents) error {
+	ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
 
 	logrus.Infof("Unlabeling pods for Otterize service %s", intents.Spec.Service.Name)
 
@@ -115,12 +115,12 @@ func (r *PodLabelReconciler) removeLabelsFromPods(
 		if updatedPod.Annotations == nil {
 			updatedPod.Annotations = make(map[string]string)
 		}
-		updatedPod.Annotations[otterizev1alpha2.AllIntentsRemovedAnnotation] = "true"
+		updatedPod.Annotations[otterizev1alpha3.AllIntentsRemovedAnnotation] = "true"
 		for _, intent := range intents.GetCallsList() {
-			targetServerIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
+			targetServerIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(
 				intent.Name, intent.GetTargetServerNamespace(intents.Namespace))
 
-			accessLabel := fmt.Sprintf(otterizev1alpha2.OtterizeAccessLabelKey, targetServerIdentity)
+			accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity)
 			delete(updatedPod.Labels, accessLabel)
 		}
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/amit7itz/goset"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -42,10 +42,10 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	var intentsList otterizev1alpha2.ClientIntentsList
+	var intentsList otterizev1alpha3.ClientIntentsList
 	err = r.List(
 		ctx, &intentsList,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fmt.Sprintf("svc:%s.%s", req.Name, req.Namespace)})
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fmt.Sprintf("svc:%s.%s", req.Name, req.Namespace)})
 
 	if err != nil {
 		return ctrl.Result{}, err
@@ -73,8 +73,8 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 }
 
 func (r *ServiceWatcher) reconcileServiceLabelsOnPods(ctx context.Context, service *corev1.Service) error {
-	formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(service.Name, service.Namespace)
-	kubernetesServiceLabelKey := fmt.Sprintf(otterizev1alpha2.OtterizeKubernetesServiceLabelKey, formattedTargetServer)
+	formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(service.Name, service.Namespace)
+	kubernetesServiceLabelKey := fmt.Sprintf(otterizev1alpha3.OtterizeKubernetesServiceLabelKey, formattedTargetServer)
 
 	currentlyLabeledPodList := corev1.PodList{}
 	err := r.List(ctx, &currentlyLabeledPodList, &client.ListOptions{

@@ -18,7 +18,7 @@ package controllers
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -62,8 +62,8 @@ func NewProtectedServiceReconciler(
 		protectedServicesGroupName,
 		client,
 		scheme,
-		&otterizev1alpha2.ProtectedService{},
-		otterizev1alpha2.ProtectedServicesFinalizerName,
+		&otterizev1alpha3.ProtectedService{},
+		otterizev1alpha3.ProtectedServicesFinalizerName,
 		protectedServiceLegacyFinalizers,
 	)
 
@@ -95,7 +95,7 @@ func (r *ProtectedServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 // SetupWithManager sets up the controller with the Manager.
 func (r *ProtectedServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev1alpha2.ProtectedService{}).
+		For(&otterizev1alpha3.ProtectedService{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
@@ -52,6 +53,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupSuite() {
 	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 }
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
@@ -84,8 +86,8 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIngress() {
 	serviceName := "test-server-ingress-test"
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: serviceName,
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha3.Intent{{
+		Type: otterizev1alpha3.IntentTypeHTTP, Name: serviceName,
 	},
 	})
 	s.Require().NoError(err)
@@ -138,8 +140,8 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancer() {
 	serviceName := "test-server-load-balancer-test"
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
-		Type: otterizev1alpha2.IntentTypeHTTP, Name: serviceName,
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha3.Intent{{
+		Type: otterizev1alpha3.IntentTypeHTTP, Name: serviceName,
 	},
 	})
 	s.Require().NoError(err)
@@ -194,7 +196,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedAndDeletedWhenLastIntentDeleted() {
 	serviceName := "test-server-load-balancer-test"
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha3.Intent{{
 		Name: serviceName,
 	},
 	})
@@ -250,7 +252,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	// Delete the intent and reconcile it
 	s.Require().NoError(s.Mgr.GetClient().Delete(context.Background(), intents))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		intentsDeleted := &otterizev1alpha2.ClientIntents{}
+		intentsDeleted := &otterizev1alpha3.ClientIntents{}
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intents.Name}, intentsDeleted)
 		assert.NoError(err)
 		assert.NotNil(intentsDeleted.DeletionTimestamp)
@@ -278,7 +280,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedAndDoesNotGetDeletedEvenWhenIntentRemovedAsLongAsOneRemains() {
 	serviceName := "test-server-load-balancer-test"
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha3.Intent{{
 		Name: serviceName,
 	},
 	})
@@ -286,7 +288,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 
 	secondaryNamespace := "ns-" + uuid.New().String() + "e"
 	s.CreateNamespace(secondaryNamespace)
-	secondIntents, err := s.AddIntentsInNamespace("test-intents-other-ns", "test-client-other-ns", secondaryNamespace, []otterizev1alpha2.Intent{{
+	secondIntents, err := s.AddIntentsInNamespace("test-intents-other-ns", "test-client-other-ns", secondaryNamespace, []otterizev1alpha3.Intent{{
 		Name: fmt.Sprintf("%s.%s", serviceName, s.TestNamespace),
 	}})
 	s.Require().NoError(err)
@@ -350,7 +352,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	// Delete the intent and reconcile it
 	s.Require().NoError(s.Mgr.GetClient().Delete(context.Background(), intents))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		intentsDeleted := &otterizev1alpha2.ClientIntents{}
+		intentsDeleted := &otterizev1alpha3.ClientIntents{}
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intents.Name}, intentsDeleted)
 		assert.NoError(err)
 		assert.NotNil(intentsDeleted.DeletionTimestamp)
@@ -379,7 +381,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNodePort() {
 	serviceName := "test-server-node-port-test"
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha3.Intent{{
 		Name: serviceName,
 	},
 	})
@@ -434,7 +436,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNod
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerNetworkPoliciesDisabled() {
 	serviceName := "test-endpoints-reconciler-enforcement-disabled"
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha2.Intent{{
+	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha3.Intent{{
 		Name: serviceName,
 	},
 	})
