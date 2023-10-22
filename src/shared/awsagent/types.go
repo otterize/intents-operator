@@ -4,6 +4,7 @@ const iamAPIVersion = "2012-10-17"
 const iamEffectAllow = "Allow"
 
 const serviceAccountNameTagKey = "otterize/serviceAccountName"
+const serviceAccountNamespaceTagKey = "otterize/serviceAccountNamespace"
 
 // PolicyDocument is our definition of our policies to be uploaded to IAM.
 type PolicyDocument struct {
