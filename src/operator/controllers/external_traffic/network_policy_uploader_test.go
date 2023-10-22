@@ -180,7 +180,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNoUploadIfNoPods() {
 
 	res, err := s.reconciler.Reconcile(context.Background(), req)
 	s.Require().NoError(err)
-	s.Require().Empty(res)
+	s.Require().Equal(reconcile.Result{RequeueAfter: retryGettingPodsForPolicy}, res)
 }
 
 func TestNetworkPolicyReconcilerSuite(t *testing.T) {

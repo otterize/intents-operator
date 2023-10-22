@@ -20,6 +20,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"time"
+)
+
+const (
+	retryGettingPodsForPolicy = time.Duration(5) * time.Second
 )
 
 type NetworkPolicyUploaderReconciler struct {
@@ -86,7 +91,7 @@ func (r *NetworkPolicyUploaderReconciler) Reconcile(ctx context.Context, req ctr
 		logrus.
 			WithField("policy", req.NamespacedName.String()).
 			Debug("Failed to resolve any pods, skipping reporting")
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: retryGettingPodsForPolicy}, nil
 	}
 
 	var inputs []graphqlclient.NetworkPolicyInput
