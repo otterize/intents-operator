@@ -20,10 +20,10 @@ import (
 
 const (
 	protectedServicesResourceName        = "staging-protected-services"
-	protectedService                     = "test-service"
+	protectedServiceName                 = "test-service"
 	protectedServiceFormattedName        = "test-service-test-namespace-b0207e"
 	anotherProtectedServiceResourceName  = "protect-other-services"
-	anotherProtectedService              = "other-test-service"
+	anotherProtectedServiceName          = "other-test-service"
 	anotherProtectedServiceFormattedName = "other-test-service-test-namespace-398a04"
 	testNamespace                        = "test-namespace"
 )
@@ -62,7 +62,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateGlobalNetpol
 				Namespace: testNamespace,
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
-				Name: protectedService,
+				Name: protectedServiceName,
 			},
 		},
 	}
@@ -102,7 +102,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
 				Namespace: testNamespace,
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
-				Name: protectedService,
+				Name: protectedServiceName,
 			},
 		},
 	}
@@ -165,7 +165,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 				Namespace: testNamespace,
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
-				Name: protectedService,
+				Name: protectedServiceName,
 			},
 		},
 		{
@@ -174,7 +174,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 				Namespace: testNamespace,
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
-				Name: anotherProtectedService,
+				Name: anotherProtectedServiceName,
 			},
 		},
 	}
@@ -260,7 +260,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 				Namespace: testNamespace,
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
-				Name: anotherProtectedService,
+				Name: anotherProtectedServiceName,
 			},
 		},
 	}
@@ -349,7 +349,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDelete
 				DeletionTimestamp: &metav1.Time{Time: time.Date(2020, 12, 1, 17, 14, 0, 0, time.UTC)},
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
-				Name: protectedService,
+				Name: protectedServiceName,
 			},
 		},
 	}
@@ -466,7 +466,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 				Namespace: testNamespace,
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
-				Name: protectedService,
+				Name: protectedServiceName,
 			},
 		},
 		{
@@ -475,7 +475,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 				Namespace: testNamespace,
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
-				Name: anotherProtectedService,
+				Name: anotherProtectedServiceName,
 			},
 		},
 	}
@@ -567,7 +567,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
 				Namespace: testNamespace,
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
-				Name: protectedService,
+				Name: protectedServiceName,
 			},
 		},
 	}
