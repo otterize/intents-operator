@@ -85,7 +85,8 @@ func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	r.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+	r.kscReconciler.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+
 	return nil
 }
 
