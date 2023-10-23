@@ -20,6 +20,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"time"
+)
+
+const (
+	listPodsForPolicyRetryDelay = 5 * time.Second
 )
 
 type NetworkPolicyUploaderReconciler struct {
@@ -59,18 +64,15 @@ func (r *NetworkPolicyUploaderReconciler) Reconcile(ctx context.Context, req ctr
 
 	netpol := &v1.NetworkPolicy{}
 	err := r.Get(ctx, req.NamespacedName, netpol)
-
 	if k8serrors.IsNotFound(err) {
 		logrus.WithField("policy", req.NamespacedName.String()).Debug("NetPol was deleted")
 		return ctrl.Result{}, nil
 	}
-
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	selector, err := metav1.LabelSelectorAsSelector(&netpol.Spec.PodSelector)
-
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -80,26 +82,30 @@ func (r *NetworkPolicyUploaderReconciler) Reconcile(ctx context.Context, req ctr
 		ctx, &podList,
 		&client.MatchingLabelsSelector{Selector: selector},
 		&client.ListOptions{Namespace: netpol.Namespace})
-
 	if err != nil {
 		logrus.WithError(err).Errorf("error when reading podlist")
 		return ctrl.Result{}, nil
+	}
+
+	if len(podList.Items) == 0 {
+		logrus.
+			WithField("policy", req.NamespacedName.String()).
+			Debug("Failed to resolve any pods, will retry")
+		return ctrl.Result{RequeueAfter: listPodsForPolicyRetryDelay}, nil
 	}
 
 	var inputs []graphqlclient.NetworkPolicyInput
 
 	for _, pod := range podList.Items {
 		serviceId, err := r.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 
 		logrus.
 			WithField("pod", fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)).
 			WithField("service", serviceId.Name).
 			Debug("matching pod to otterize service")
-
-		if err != nil {
-			logrus.WithField("policy", req.NamespacedName.String()).WithError(err).WithField("pod", pod.Name).Errorf("Error resolving pod")
-			continue
-		}
 
 		inputs = append(inputs, graphqlclient.NetworkPolicyInput{
 			Namespace:                    req.Namespace,
