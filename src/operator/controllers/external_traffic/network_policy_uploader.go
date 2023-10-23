@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	retryGettingPodsForPolicy = time.Duration(5) * time.Second
+	listPodsForPolicyRetryDelay = 5 * time.Second
 )
 
 type NetworkPolicyUploaderReconciler struct {
@@ -90,8 +90,8 @@ func (r *NetworkPolicyUploaderReconciler) Reconcile(ctx context.Context, req ctr
 	if len(podList.Items) == 0 {
 		logrus.
 			WithField("policy", req.NamespacedName.String()).
-			Debug("Failed to resolve any pods, skipping reporting")
-		return ctrl.Result{RequeueAfter: retryGettingPodsForPolicy}, nil
+			Debug("Failed to resolve any pods, will retry")
+		return ctrl.Result{RequeueAfter: listPodsForPolicyRetryDelay}, nil
 	}
 
 	var inputs []graphqlclient.NetworkPolicyInput
