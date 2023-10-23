@@ -6,20 +6,17 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -142,14 +139,9 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context, intentsObj *otterizev1alpha2.ClientIntents, intent otterizev1alpha2.Intent, intentsObjNamespace string) (bool, error) {
 
-	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
-	if err != nil {
-		return false, err
-	}
-
-	if !shouldCreatePolicy {
+	if !r.enforcementDefaultState {
 		logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
-		r.RecordNormalEventf(intentsObj, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
+		r.RecordNormalEventf(intentsObj, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally, network policy creation skipped", intent.Name)
 		return false, nil
 	}
 	if !r.enableNetworkPolicyCreation {
@@ -158,12 +150,10 @@ func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
 		return false, nil
 	}
 
-	logrus.Debugf("Server %s in namespace %s is in protected list: %t", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace), shouldCreatePolicy)
-
 	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeEgressNetworkPolicyNameTemplate, intent.GetTargetServerName(), intentsObjNamespace) // TODO: change template to refer to client name
 	existingPolicy := &v1.NetworkPolicy{}
 	newPolicy := r.buildNetworkPolicyObjectForIntents(intentsObj, intent, policyName)
-	err = r.Get(ctx, types.NamespacedName{
+	err := r.Get(ctx, types.NamespacedName{
 		Name:      policyName,
 		Namespace: intentsObjNamespace},
 		existingPolicy)
@@ -229,25 +219,9 @@ func (r *NetworkPolicyReconciler) handleIntentRemoval(
 	intent otterizev1alpha2.Intent,
 	intentsObjNamespace string) error {
 
-	var intentsList otterizev1alpha2.ClientIntentsList
-	err := r.List(
-		ctx, &intentsList,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: intent.GetServerFullyQualifiedName(intentsObjNamespace)},
-		&client.ListOptions{Namespace: intentsObjNamespace})
-
-	if err != nil {
-		return err
-	}
-
-	if len(intentsList.Items) == 1 {
-		// We have only 1 intents resource that has this server as its target - and it's the current one
-		// We need to delete the network policy that allows access from this namespace, as there are no other
-		// clients in that namespace that need to access the target server
-		logrus.Infof("No other intents in the namespace reference target server: %s", intent.Name)
-		logrus.Infoln("Removing matching network policy for server")
-		return r.deleteNetworkPolicy(ctx, intent, intentsObjNamespace)
-	}
-	return nil
+	logrus.Infof("No other intents in the namespace reference target server: %s", intent.Name)
+	logrus.Infoln("Removing matching network policy for server")
+	return r.deleteNetworkPolicy(ctx, intent, intentsObjNamespace)
 }
 
 func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Context) error {
@@ -312,7 +286,7 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 	intent otterizev1alpha2.Intent,
 	intentsObjNamespace string) error {
 
-	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, intent.GetTargetServerName(), intentsObjNamespace)
+	policyName := fmt.Sprintf(otterizev1alpha2.OtterizeEgressNetworkPolicyNameTemplate, intent.GetTargetServerName(), intentsObjNamespace)
 	policy := &v1.NetworkPolicy{}
 	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.GetTargetServerNamespace(intentsObjNamespace)}, policy)
 	if err != nil {
@@ -323,68 +297,6 @@ func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
 	}
 
 	return r.removeNetworkPolicy(ctx, *policy)
-}
-
-func (r *NetworkPolicyReconciler) CleanPoliciesFromUnprotectedServices(ctx context.Context, namespace string) error {
-	selector, err := matchAccessNetworkPolicy()
-	if err != nil {
-		return err
-	}
-
-	policies := &v1.NetworkPolicyList{}
-	err = r.List(ctx, policies, &client.ListOptions{Namespace: namespace, LabelSelector: selector})
-	if err != nil {
-		return err
-	}
-
-	if len(policies.Items) == 0 {
-		return nil
-	}
-
-	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
-	err = r.List(ctx, &protectedServicesResources, &client.ListOptions{Namespace: namespace})
-	if err != nil {
-		return err
-	}
-
-	protectedServersByNamespace := sets.Set[string]{}
-	for _, protectedService := range protectedServicesResources.Items {
-		// skip protected services that are in deletion process
-		if !protectedService.DeletionTimestamp.IsZero() {
-			continue
-		}
-		serverName := otterizev1alpha2.GetFormattedOtterizeIdentity(protectedService.Spec.Name, namespace)
-		protectedServersByNamespace.Insert(serverName)
-	}
-
-	for _, networkPolicy := range policies.Items {
-		serverName := networkPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
-		if !protectedServersByNamespace.Has(serverName) {
-			err = r.removeNetworkPolicy(ctx, networkPolicy)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (r *NetworkPolicyReconciler) CleanAllNamespaces(ctx context.Context) error {
-	namespaces := corev1.NamespaceList{}
-	err := r.List(ctx, &namespaces)
-	if err != nil {
-		return err
-	}
-
-	for _, namespace := range namespaces.Items {
-		err = r.CleanPoliciesFromUnprotectedServices(ctx, namespace.Name)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // buildNetworkPolicyObjectForIntents builds the network policy that represents the intent from the parameter
