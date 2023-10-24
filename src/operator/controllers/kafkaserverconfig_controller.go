@@ -40,6 +40,7 @@ import (
 
 const (
 	finalizerName = "intents.otterize.com/kafkaserverconfig-finalizer"
+	groupName     = "kafka-server-config-reconciler"
 )
 
 // KafkaServerConfigReconciler reconciles a KafkaServerConfig object
@@ -68,7 +69,8 @@ func NewKafkaServerConfigReconciler(
 		serviceResolver,
 	)
 
-	group := reconcilergroup.NewGroup("kafka-server-config-reconciler",
+	group := reconcilergroup.NewGroup(
+		groupName,
 		client,
 		scheme,
 		&otterizev1alpha3.KafkaServerConfig{},
@@ -99,7 +101,7 @@ func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	r.group.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+	r.group.InjectRecorder(mgr.GetEventRecorderFor(groupName))
 
 	return nil
 }
