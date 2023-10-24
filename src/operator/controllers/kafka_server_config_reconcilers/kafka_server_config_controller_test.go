@@ -1,4 +1,4 @@
-package controllers
+package kafka_server_config_reconcilers
 
 import (
 	"context"
