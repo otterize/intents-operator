@@ -47,7 +47,7 @@ func (s *CloudReconcilerTestSuite) TestUploadSingleProtectedService() {
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
 
-				Name: protectedService,
+				Name: protectedServiceName,
 			},
 		},
 	}
@@ -60,7 +60,7 @@ func (s *CloudReconcilerTestSuite) TestUploadSingleProtectedService() {
 
 	services := []graphqlclient.ProtectedServiceInput{
 		{
-			Name: protectedService,
+			Name: protectedServiceName,
 		},
 	}
 	s.cloudClient.EXPECT().ReportProtectedServices(gomock.Any(), gomock.Eq(testNamespace), MatchProtectedServicesMatcher(services)).Return(nil)
@@ -87,7 +87,7 @@ func (s *CloudReconcilerTestSuite) TestUploadMultipleProtectedServices() {
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
 
-				Name: protectedService,
+				Name: protectedServiceName,
 			},
 		},
 		{
@@ -97,7 +97,7 @@ func (s *CloudReconcilerTestSuite) TestUploadMultipleProtectedServices() {
 			},
 			Spec: otterizev1alpha3.ProtectedServiceSpec{
 
-				Name: anotherProtectedService,
+				Name: anotherProtectedServiceName,
 			},
 		},
 	}
@@ -110,10 +110,10 @@ func (s *CloudReconcilerTestSuite) TestUploadMultipleProtectedServices() {
 
 	services := []graphqlclient.ProtectedServiceInput{
 		{
-			Name: protectedService,
+			Name: protectedServiceName,
 		},
 		{
-			Name: anotherProtectedService,
+			Name: anotherProtectedServiceName,
 		},
 	}
 	s.cloudClient.EXPECT().ReportProtectedServices(gomock.Any(), gomock.Eq(testNamespace), MatchProtectedServicesMatcher(services)).Return(nil)
