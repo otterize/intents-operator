@@ -1,4 +1,4 @@
-package port_network_policy
+package port_egress_network_policy
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -38,11 +37,12 @@ const (
 	anotherProtectedService              = "other-test-service"
 	anotherProtectedServiceFormattedName = "other-test-service-test-namespace-398a04"
 	testNamespace                        = "test-namespace"
+	testClientNamespace                  = "test-client-namespace"
 )
 
 type NetworkPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
-	Reconciler            *PortNetworkPolicyReconciler
+	Reconciler            *PortEgressNetworkPolicyReconciler
 	externalNetpolHandler *mocks.MockexternalNetpolHandler
 	scheme                *runtime.Scheme
 }
@@ -58,10 +58,9 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.scheme = runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(s.scheme))
 
-	s.Reconciler = NewPortNetworkPolicyReconciler(
+	s.Reconciler = NewPortEgressNetworkPolicyReconciler(
 		s.Client,
 		s.scheme,
-		s.externalNetpolHandler,
 		restrictToNamespaces,
 		true,
 		true,
@@ -80,7 +79,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TearDownTest() {
 func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha2.OtterizeSvcNetworkPolicy,
+			Key:      otterizev1alpha2.OtterizeSvcEgressNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 	}})
@@ -91,7 +90,7 @@ func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-access-to-test-server-from-test-namespace"
+	policyName := "svc-egress-to-test-server-from-test-namespace"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -133,7 +132,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	intentsWithFinalizer := otterizev1alpha2.ClientIntents{}
 	intentsWithoutFinalizer.DeepCopyInto(&intentsWithFinalizer)
 	// Add finalizer to ClientIntents
-	controllerutil.AddFinalizer(&intentsWithFinalizer, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
+	controllerutil.AddFinalizer(&intentsWithFinalizer, otterizev1alpha2.SvcEgressNetworkPolicyFinalizerName)
 	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&intentsWithFinalizer)).Return(nil)
 
 	svcObject := corev1.Service{
@@ -187,13 +186,13 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
+	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 	policyName string,
 	targetNamespace string,
-	formattedTargetServer string,
+	formattedClient string,
 	intentsObjNamespace string,
 	svcObject *corev1.Service,
 ) *v1.NetworkPolicy {
@@ -202,23 +201,22 @@ func (s *NetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 			Name:      policyName,
 			Namespace: targetNamespace,
 			Labels: map[string]string{
-				otterizev1alpha2.OtterizeSvcNetworkPolicy: formattedTargetServer,
+				otterizev1alpha2.OtterizeSvcEgressNetworkPolicy: formattedClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
-			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
-				MatchLabels: svcObject.Spec.Selector,
+				MatchLabels: map[string]string{
+					otterizev1alpha2.OtterizeClientLabelKey: formattedClient,
+				},
 			},
-			Ingress: []v1.NetworkPolicyIngressRule{
+			Egress: []v1.NetworkPolicyEgressRule{
 				{
-					From: []v1.NetworkPolicyPeer{
+					To: []v1.NetworkPolicyPeer{
 						{
 							PodSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									fmt.Sprintf(
-										otterizev1alpha2.OtterizeSvcAccessLabelKey, formattedTargetServer): "true",
-								},
+								MatchLabels: svcObject.Spec.Selector,
 							},
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
@@ -231,28 +229,24 @@ func (s *NetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 			},
 		},
 	}
-	err := controllerutil.SetOwnerReference(svcObject, netpol, s.scheme)
-	if err != nil {
-		panic(err)
-	}
 	return netpol
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-access-to-test-server-from-test-namespace"
+	policyName := "svc-egress-to-test-server-from-test-client-namespace"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-8ddecb"
+	formattedClient := "test-client-test-client-namespac-edb3a2"
 
 	s.testCreateNetworkPolicyForKubernetesService(
 		clientIntentsName,
 		serverNamespace,
 		serviceName,
 		policyName,
-		formattedTargetServer,
+		formattedClient,
 	)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
+	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) addExpectedKubernetesServiceCall(serverName string, port int, selector map[string]string) *corev1.Service {
@@ -291,10 +285,10 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 	serverNamespace string,
 	serviceName string,
 	policyName string,
-	formattedTargetServer string,
+	formattedClient string,
 ) {
 	namespacedName := types.NamespacedName{
-		Namespace: testNamespace,
+		Namespace: testClientNamespace,
 		Name:      clientIntentsName,
 	}
 	req := ctrl.Request{
@@ -314,7 +308,8 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
+			controllerutil.AddFinalizer(intents, otterizev1alpha2.SvcEgressNetworkPolicyFinalizerName)
+			intents.Namespace = testClientNamespace
 			intents.Spec = intentsSpec
 			return nil
 		})
@@ -324,7 +319,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{
-		Namespace: serverNamespace,
+		Namespace: testClientNamespace,
 		Name:      policyName,
 	}
 	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
@@ -335,19 +330,16 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 	// Create NetworkPolicy
 	newPolicy := s.networkPolicyTemplate(
 		policyName,
-		serverNamespace,
-		formattedTargetServer,
+		testClientNamespace,
+		formattedClient,
 		testNamespace,
 		svcObject,
 	)
 	// Add target port and change selector in ingress to use svc
-	newPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
-	selectorTyped := labels.SelectorFromSet(svcSelector)
-	newPolicy.Spec.PodSelector.MatchLabels = svcSelector
+	newPolicy.Spec.Egress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
 
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
-	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selectorTyped)
 	s.ignoreRemoveOrphan()
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
@@ -357,13 +349,13 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 
 func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-access-to-test-server-from-test-namespace"
+	policyName := "svc-egress-to-test-server-from-test-client-namespace"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-8ddecb"
+	formattedTargetServer := "test-client-test-client-namespac-edb3a2"
 
 	namespacedName := types.NamespacedName{
-		Namespace: testNamespace,
+		Namespace: testClientNamespace,
 		Name:      clientIntentsName,
 	}
 	req := ctrl.Request{
@@ -384,7 +376,8 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesS
 	emptyIntents := &otterizev1alpha2.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
+			controllerutil.AddFinalizer(intents, otterizev1alpha2.SvcEgressNetworkPolicyFinalizerName)
+			intents.Namespace = testClientNamespace
 			intents.Spec = intentsSpec
 			return nil
 		})
@@ -394,21 +387,21 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesS
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{
-		Namespace: serverNamespace,
+		Namespace: testClientNamespace,
 		Name:      policyName,
 	}
 
 	newPolicy := s.networkPolicyTemplate(
 		policyName,
-		serverNamespace,
+		testClientNamespace,
 		formattedTargetServer,
 		testNamespace,
 		svcObject,
 	)
-	// Add target port and change selector in ingress to use svc
-	newPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
+	// Add target port and change selector in egress to use svc
+	newPolicy.Spec.Egress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
 	existingBadPolicy := newPolicy.DeepCopy()
-	existingBadPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 90}}}
+	existingBadPolicy.Spec.Egress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 90}}}
 
 	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
@@ -423,12 +416,12 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesS
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
+	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-access-to-test-server-from-test-namespace"
+	policyName := "svc-egress-to-test-server-from-test-namespace"
 	serviceName := "test-client"
 	formattedTargetServer := "test-server-other-namespace-f6a461"
 
@@ -464,36 +457,15 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha2.ClientIntents, options ...client.ListOption) error {
 			clientIntentsObj.DeepCopyInto(intents)
-			controllerutil.AddFinalizer(intents, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
+			controllerutil.AddFinalizer(intents, otterizev1alpha2.SvcEgressNetworkPolicyFinalizerName)
 			return nil
 		})
-
-	// Search for client intents with the same target server and delete them if it's the last client intent pointing to the server
-	emptyIntentsList := &otterizev1alpha2.ClientIntentsList{}
-	intentsList := &otterizev1alpha2.ClientIntentsList{
-		Items: []otterizev1alpha2.ClientIntents{
-			clientIntentsObj,
-		},
-	}
-	s.Client.EXPECT().List(
-		gomock.Any(),
-		gomock.Eq(emptyIntentsList),
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serverName},
-		&client.ListOptions{Namespace: testNamespace},
-	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts ...client.ListOption) error {
-		intentsList.DeepCopyInto(list)
-		return nil
-	})
-
-	// Remove network policy:
-	// 1. get the network policy
-	// 2. delete it
-	// 3.call external netpol handler
 
 	networkPolicyNamespacedName := types.NamespacedName{
 		Namespace: testNamespace,
 		Name:      policyName,
 	}
+
 	selector := map[string]string{"test": "selector"}
 	svcObject := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -519,8 +491,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 		&svcObject,
 	)
 	// Add target port and change selector in ingress to use svc
-	existingPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
-	existingPolicy.Spec.PodSelector.MatchLabels = selector
+	existingPolicy.Spec.Egress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
 
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
@@ -529,12 +500,11 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 			return nil
 		})
 
-	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), existingPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
 
 	//// Remove finalizer
-	controllerutil.AddFinalizer(&clientIntentsObj, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
-	controllerutil.RemoveFinalizer(&clientIntentsObj, otterizev1alpha2.ServiceNetworkPolicyFinalizerName)
+	controllerutil.AddFinalizer(&clientIntentsObj, otterizev1alpha2.SvcEgressNetworkPolicyFinalizerName)
+	controllerutil.RemoveFinalizer(&clientIntentsObj, otterizev1alpha2.SvcEgressNetworkPolicyFinalizerName)
 	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)

@@ -15,7 +15,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/record"
-	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -202,16 +201,6 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		}
 	}
 
-	// Update Kubernetes service labels - which Kubernetes services use this pod as an endpoint.
-	updatedPod, changed, err := p.updateOtterizeKubernetesServiceLabels(ctx, updatedPod.DeepCopy())
-	if err != nil {
-		return err
-	}
-
-	if changed {
-		hasUpdates = true
-	}
-
 	if hasUpdates {
 		err = p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
@@ -286,30 +275,4 @@ func (p *PodWatcher) Register(mgr manager.Manager) error {
 	}
 
 	return nil
-}
-
-// updateOtterizeKubernetesServiceLabels adds a label for each K8s service that points to the pod
-// This allows Otterize to support intents that use the K8s service name as their target server (using the `svc:` prefix) and
-// enables port-specific restrictions in network policies using the Kubernetes service target ports
-func (p *PodWatcher) updateOtterizeKubernetesServiceLabels(ctx context.Context, pod *v1.Pod) (*v1.Pod, bool, error) {
-	podLabelsPreUpdate := pod.Labels
-	services, err := p.serviceIdResolver.GetKubernetesServicesTargetingPod(ctx, pod)
-
-	updatedPod := otterizev1alpha2.CleanupOtterizeKubernetesServiceLabels(pod)
-
-	if err != nil {
-		return nil, false, err
-	}
-
-	changed := !reflect.DeepEqual(updatedPod.Labels, podLabelsPreUpdate)
-
-	if len(services) == 0 {
-		return updatedPod, changed, nil
-	}
-	for _, service := range services {
-		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(service.Name, service.Namespace)
-		updatedPod.Labels[fmt.Sprintf(otterizev1alpha2.OtterizeKubernetesServiceLabelKey, formattedTargetServer)] = "true"
-	}
-
-	return updatedPod, true, nil
 }
