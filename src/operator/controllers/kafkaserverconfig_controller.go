@@ -24,6 +24,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
+	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -37,11 +38,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+const (
+	finalizerName = "intents.otterize.com/kafkaserverconfig-finalizer"
+	groupName     = "kafka-server-config-reconciler"
+)
+
 // KafkaServerConfigReconciler reconciles a KafkaServerConfig object
 type KafkaServerConfigReconciler struct {
 	client.Client
 	injectablerecorder.InjectableRecorder
-	kscReconciler *kafka_server_config_reconcilers.KafkaServerConfigReconciler
+	group *reconcilergroup.Group
 }
 
 func NewKafkaServerConfigReconciler(
@@ -63,14 +69,24 @@ func NewKafkaServerConfigReconciler(
 		serviceResolver,
 	)
 
+	group := reconcilergroup.NewGroup(
+		groupName,
+		client,
+		scheme,
+		&otterizev1alpha3.KafkaServerConfig{},
+		finalizerName,
+		nil,
+		kscReconciler,
+	)
+
 	return &KafkaServerConfigReconciler{
-		Client:        client,
-		kscReconciler: kscReconciler,
+		Client: client,
+		group:  group,
 	}
 }
 
 func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	return r.kscReconciler.Reconcile(ctx, req)
+	return r.group.Reconcile(ctx, req)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -85,7 +101,7 @@ func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	r.kscReconciler.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+	r.group.InjectRecorder(mgr.GetEventRecorderFor(groupName))
 
 	return nil
 }

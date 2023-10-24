@@ -22,12 +22,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 )
 
 const (
-	finalizerName                              = "intents.otterize.com/kafkaserverconfig-finalizer"
 	ReasonIntentsOperatorIdentityResolveFailed = "IntentsOperatorIdentityResolveFailed"
 	ReasonApplyingKafkaServerConfigFailed      = "ApplyingKafkaServerConfigFailed"
 	ReasonSuccessfullyAppliedKafkaServerConfig = "SuccessfullyAppliedKafkaServerConfig"
@@ -98,7 +96,7 @@ func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConf
 	return nil
 }
 
-func (r *KafkaServerConfigReconciler) ensureFinalizerRunForOperatorIntents(ctx context.Context, config *otterizev1alpha3.KafkaServerConfig) error {
+func (r *KafkaServerConfigReconciler) removeIntentsFromOperatorToKafkaServer(ctx context.Context, config *otterizev1alpha3.KafkaServerConfig) error {
 	operatorPod := &v1.Pod{}
 	err := r.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, operatorPod)
 	if err != nil {
@@ -117,52 +115,21 @@ func (r *KafkaServerConfigReconciler) ensureFinalizerRunForOperatorIntents(ctx c
 	return r.Delete(ctx, intents)
 }
 
-func (r *KafkaServerConfigReconciler) ensureFinalizerRun(ctx context.Context, kafkaServerConfig *otterizev1alpha3.KafkaServerConfig) (ctrl.Result, error) {
-	if !controllerutil.ContainsFinalizer(kafkaServerConfig, finalizerName) {
-		return ctrl.Result{}, nil
-	}
-
+func (r *KafkaServerConfigReconciler) handleResourceDeletion(ctx context.Context, kafkaServerConfig *otterizev1alpha3.KafkaServerConfig) (ctrl.Result, error) {
 	if err := r.removeKafkaServerFromStore(kafkaServerConfig); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	if !kafkaServerConfig.Spec.NoAutoCreateIntentsForOperator {
-		err := r.ensureFinalizerRunForOperatorIntents(ctx, kafkaServerConfig)
+		err := r.removeIntentsFromOperatorToKafkaServer(ctx, kafkaServerConfig)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	controllerutil.RemoveFinalizer(kafkaServerConfig, finalizerName)
-	if err := r.Update(ctx, kafkaServerConfig); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeKafkaServerConfigDeleted, 1)
 
 	return ctrl.Result{}, nil
-}
-
-func (r *KafkaServerConfigReconciler) ensureFinalizerRegistered(
-	ctx context.Context, kafkaServerConfig *otterizev1alpha3.KafkaServerConfig) error {
-	logger := logrus.WithFields(
-		logrus.Fields{
-			"name":      kafkaServerConfig.Name,
-			"namespace": kafkaServerConfig.Namespace,
-		},
-	)
-
-	if controllerutil.ContainsFinalizer(kafkaServerConfig, finalizerName) {
-		return nil
-	}
-
-	logger.Infof("Adding finalizer %s", finalizerName)
-	controllerutil.AddFinalizer(kafkaServerConfig, finalizerName)
-	if err := r.Update(ctx, kafkaServerConfig); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx context.Context, config *otterizev1alpha3.KafkaServerConfig) error {
@@ -257,12 +224,7 @@ func (r *KafkaServerConfigReconciler) reconcileObject(ctx context.Context, kafka
 	}
 
 	if !kafkaServerConfig.ObjectMeta.DeletionTimestamp.IsZero() {
-		// The object is being deleted
-		return r.ensureFinalizerRun(ctx, kafkaServerConfig)
-	}
-
-	if err := r.ensureFinalizerRegistered(ctx, kafkaServerConfig); err != nil {
-		return ctrl.Result{}, err
+		return r.handleResourceDeletion(ctx, kafkaServerConfig)
 	}
 
 	r.ServersStore.Add(kafkaServerConfig)
