@@ -7,7 +7,10 @@ import (
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -66,7 +69,68 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 	}
 
+	err = r.removeOrphanEgressNetpols(ctx)
+	if err != nil {
+		return ctrl.Result{}, nil
+	}
+
 	return ctrl.Result{}, nil
+}
+
+func matchEgressAccessNetworkPolicy() (labels.Selector, error) {
+	isOtterizeNetworkPolicy := metav1.LabelSelectorRequirement{
+		Key:      otterizev1alpha2.OtterizeSvcEgressNetworkPolicy,
+		Operator: metav1.LabelSelectorOpExists,
+	}
+	return metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		isOtterizeNetworkPolicy,
+	}})
+}
+
+func (r *ServiceWatcher) removeOrphanEgressNetpols(ctx context.Context) error {
+	networkPolicyList := &v1.NetworkPolicyList{}
+	selector, err := matchEgressAccessNetworkPolicy()
+	if err != nil {
+		return err
+	}
+
+	err = r.List(ctx, networkPolicyList, &client.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return err
+	}
+
+	for _, netpol := range networkPolicyList.Items {
+		svcName, ok := netpol.Annotations[otterizev1alpha2.OtterizeSvcEgressNetworkPolicyTargetService]
+		if !ok {
+			return err
+		}
+
+		svcNamespace, ok := netpol.Annotations[otterizev1alpha2.OtterizeSvcEgressNetworkPolicyTargetServiceNamespace]
+		if !ok {
+			return err
+		}
+
+		netpolSvc := &corev1.Service{}
+		err := r.Get(ctx, types.NamespacedName{
+			Namespace: svcNamespace,
+			Name:      svcName,
+		}, netpolSvc)
+		if k8serrors.IsNotFound(err) || netpolSvc.DeletionTimestamp != nil {
+			err := r.Delete(ctx, &netpol)
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+		}
+
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
 }
 
 func (r *ServiceWatcher) SetupWithManager(mgr manager.Manager) error {

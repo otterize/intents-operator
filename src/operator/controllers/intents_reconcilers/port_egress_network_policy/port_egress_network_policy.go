@@ -307,6 +307,10 @@ func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
 			Namespace: intentsObj.Namespace,
+			Annotations: map[string]string{
+				otterizev1alpha2.OtterizeSvcEgressNetworkPolicyTargetService:          svc.Name,
+				otterizev1alpha2.OtterizeSvcEgressNetworkPolicyTargetServiceNamespace: svc.Namespace,
+			},
 			Labels: map[string]string{
 				otterizev1alpha2.OtterizeSvcEgressNetworkPolicy:       formattedClient,
 				otterizev1alpha2.OtterizeSvcEgressNetworkPolicyTarget: formattedTargetServer,
