@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -43,27 +44,27 @@ func (s *IntentsControllerTestSuite) TearDownTest() {
 }
 
 func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
-	protectedService := otterizev1alpha2.ProtectedService{
+	protectedService := otterizev1alpha3.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "protected-service",
 			Namespace: "test-namespace",
 		},
-		Spec: otterizev1alpha2.ProtectedServiceSpec{
+		Spec: otterizev1alpha3.ProtectedServiceSpec{
 			Name: "checkoutservice",
 		},
 	}
 
-	clientIntents := []otterizev1alpha2.ClientIntents{
+	clientIntents := []otterizev1alpha3.ClientIntents{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "client-intents",
 				Namespace: "test-namespace",
 			},
-			Spec: &otterizev1alpha2.IntentsSpec{
-				Service: otterizev1alpha2.Service{
+			Spec: &otterizev1alpha3.IntentsSpec{
+				Service: otterizev1alpha3.Service{
 					Name: "checkoutservice",
 				},
-				Calls: []otterizev1alpha2.Intent{
+				Calls: []otterizev1alpha3.Intent{
 					{
 						Name: "payments-service",
 					},
@@ -75,11 +76,11 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
 				Name:      "other-client-intents",
 				Namespace: "test-namespace",
 			},
-			Spec: &otterizev1alpha2.IntentsSpec{
-				Service: otterizev1alpha2.Service{
+			Spec: &otterizev1alpha3.IntentsSpec{
+				Service: otterizev1alpha3.Service{
 					Name: "another-non-related-client",
 				},
-				Calls: []otterizev1alpha2.Intent{
+				Calls: []otterizev1alpha3.Intent{
 					{
 						Name: "totally-unrelated-server.another-namespace",
 					},
@@ -91,10 +92,10 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
 	fullServerName := "checkoutservice.test-namespace"
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		&otterizev1alpha2.ClientIntentsList{},
+		&otterizev1alpha3.ClientIntentsList{},
 		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fullServerName},
 	).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha2.ClientIntentsList, opts ...client.ListOption) error {
+		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
 			list.Items = clientIntents
 			return nil
 		})
@@ -118,12 +119,12 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
 }
 
 func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntentNoIntents() {
-	protectedService := otterizev1alpha2.ProtectedService{
+	protectedService := otterizev1alpha3.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "protected-service",
 			Namespace: "test-namespace",
 		},
-		Spec: otterizev1alpha2.ProtectedServiceSpec{
+		Spec: otterizev1alpha3.ProtectedServiceSpec{
 			Name: "checkoutservice",
 		},
 	}
@@ -131,7 +132,7 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntentNoInten
 	fullServerName := "checkoutservice.test-namespace"
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		&otterizev1alpha2.ClientIntentsList{},
+		&otterizev1alpha3.ClientIntentsList{},
 		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fullServerName},
 	).Return(nil)
 

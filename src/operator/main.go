@@ -26,7 +26,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
-	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
+	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -62,6 +62,8 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -74,6 +76,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(istiosecurityscheme.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -105,7 +108,7 @@ func main() {
 		EnableEgressNetworkPolicyReconcilers: viper.GetBool(operatorconfig.EnableEgressNetworkPolicyReconcilersKey),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
-	tlsSource := otterizev1alpha2.TLSSource{
+	tlsSource := otterizev1alpha3.TLSSource{
 		CertFile:   viper.GetString(operatorconfig.KafkaServerTLSCertKey),
 		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
 		RootCAFile: viper.GetString(operatorconfig.KafkaServerTLSCAKey),
@@ -182,9 +185,10 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Fatal("unable to create kubernetes API client")
 	}
-	err = protectedservicescrd.EnsureProtectedServicesCRD(signalHandlerCtx, directClient)
+
+	err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace)
 	if err != nil {
-		logrus.WithError(err).Fatal("unable to ensure protected services CRD")
+		logrus.WithError(err).Fatal("unable to ensure otterize CRDs")
 	}
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
@@ -202,22 +206,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
-	}
-
-	if err = externalPolicySvcReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
-	}
-
 	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler)
-	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
-	}
-
-	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to init index for ingress")
-	}
 
 	otterizeCloudClient, connectedToCloud, err := operator_cloud_client.NewClient(signalHandlerCtx)
 	if err != nil {
@@ -239,6 +228,58 @@ func main() {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
 
+	if selfSignedCert {
+		logrus.Infoln("Creating self signing certs")
+		certBundle, err :=
+			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
+		}
+		err = webhooks.WriteCertToFiles(certBundle)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed writing certs to file system")
+		}
+		err = webhooks.UpdateValidationWebHookCA(context.Background(),
+			"otterize-validating-webhook-configuration", certBundle.CertPem)
+		if err != nil {
+			logrus.WithError(err).Fatal("updating validation webhook certificate failed")
+		}
+		err = webhooks.UpdateConversionWebhookCAs(context.Background(), directClient, certBundle.CertPem)
+		if err != nil {
+			logrus.WithError(err).Fatal("updating conversion webhook certificate failed")
+		}
+	}
+
+	if !disableWebhookServer {
+		intentsValidator := webhooks.NewIntentsValidatorV1alpha2(mgr.GetClient())
+		if err = (&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidator); err != nil {
+			logrus.WithError(err).Fatal(err, "unable to create webhook for v1alpha2", "webhook", "ClientIntents")
+		}
+		intentsValidatorV1alpha3 := webhooks.NewIntentsValidatorV1alpha3(mgr.GetClient())
+		if err = (&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidatorV1alpha3); err != nil {
+			logrus.WithError(err).Fatal(err, "unable to create webhook v1alpha3", "webhook", "ClientIntents")
+		}
+
+		protectedServiceValidator := webhooks.NewProtectedServiceValidatorV1alpha2(mgr.GetClient())
+		if err = (&otterizev1alpha2.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidator); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha2", "webhook", "ProtectedService")
+		}
+
+		protectedServiceValidatorV1alpha3 := webhooks.NewProtectedServiceValidatorV1alpha3(mgr.GetClient())
+		if err = (&otterizev1alpha3.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV1alpha3); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha3", "webhook", "ProtectedService")
+		}
+
+		if err = (&otterizev1alpha2.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha2", "webhook", "KafkaServerConfig")
+		}
+
+		if err = (&otterizev1alpha3.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha3", "webhook", "KafkaServerConfig")
+		}
+
+	}
+
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
@@ -254,6 +295,9 @@ func main() {
 		podNamespace,
 	)
 
+	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init index for ingress")
+	}
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
 	}
@@ -269,35 +313,16 @@ func main() {
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
 	}
-
-	if selfSignedCert {
-		logrus.Infoln("Creating self signing certs")
-		certBundle, err :=
-			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
-		if err != nil {
-			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
-		}
-		err = webhooks.WriteCertToFiles(certBundle)
-		if err != nil {
-			logrus.WithError(err).Fatal("failed writing certs to file system")
-		}
-		err = webhooks.UpdateWebHookCA(context.Background(),
-			"otterize-validating-webhook-configuration", certBundle.CertPem)
-		if err != nil {
-			logrus.WithError(err).Fatal("updating webhook certificate failed")
-		}
+	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
 	}
 
-	if !disableWebhookServer {
-		intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
-		if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
-		}
+	if err = externalPolicySvcReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
+	}
 
-		protectedServiceValidator := webhooks.NewProtectedServiceValidator(mgr.GetClient())
-		if err = protectedServiceValidator.SetupWebhookWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "ProtectedService")
-		}
+	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
 	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(
@@ -360,7 +385,6 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Panic()
 	}
-
 	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		logrus.WithError(err).Fatal("unable to set up health check")

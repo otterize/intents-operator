@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
@@ -98,7 +99,7 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 		return err
 	}
 
-	var intents otterizev1alpha2.ClientIntentsList
+	var intents otterizev1alpha3.ClientIntentsList
 	err = p.List(
 		ctx,
 		&intents,
@@ -127,10 +128,10 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 
 	serviceFullName := fmt.Sprintf("%s.%s", serviceID.Name, pod.Namespace)
-	var intentsList otterizev1alpha2.ClientIntentsList
+	var intentsList otterizev1alpha3.ClientIntentsList
 	err := p.List(
 		ctx, &intentsList,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serviceFullName})
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: serviceFullName})
 	if err != nil {
 		return err
 	}
@@ -174,7 +175,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		hasUpdates = true
 	}
 
-	var intents otterizev1alpha2.ClientIntentsList
+	var intents otterizev1alpha3.ClientIntentsList
 	err := p.List(
 		ctx, &intents,
 		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
@@ -215,7 +216,7 @@ func (p *PodWatcher) istioEnforcementEnabled() bool {
 	return viper.GetBool(operatorconfig.EnableIstioPolicyKey)
 }
 
-func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha2.ClientIntents, pod v1.Pod) error {
+func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha3.ClientIntents, pod v1.Pod) error {
 	if intents.DeletionTimestamp != nil {
 		return nil
 	}
@@ -244,10 +245,10 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha2.ClientIntents{},
+		&otterizev1alpha3.ClientIntents{},
 		OtterizeClientNameIndexField,
 		func(object client.Object) []string {
-			intents := object.(*otterizev1alpha2.ClientIntents)
+			intents := object.(*otterizev1alpha3.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}

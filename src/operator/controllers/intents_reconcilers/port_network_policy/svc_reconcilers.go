@@ -3,7 +3,7 @@ package port_network_policy
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -44,10 +44,10 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
-	var intentsList otterizev1alpha2.ClientIntentsList
+	var intentsList otterizev1alpha3.ClientIntentsList
 	err = r.List(
 		ctx, &intentsList,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fmt.Sprintf("svc:%s.%s", req.Name, req.Namespace)})
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fmt.Sprintf("svc:%s.%s", req.Name, req.Namespace)})
 
 	if err != nil {
 		return ctrl.Result{}, err
@@ -79,7 +79,7 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 func matchEgressAccessNetworkPolicy() (labels.Selector, error) {
 	isOtterizeNetworkPolicy := metav1.LabelSelectorRequirement{
-		Key:      otterizev1alpha2.OtterizeSvcEgressNetworkPolicy,
+		Key:      otterizev1alpha3.OtterizeSvcEgressNetworkPolicy,
 		Operator: metav1.LabelSelectorOpExists,
 	}
 	return metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -107,12 +107,12 @@ func (r *ServiceWatcher) removeOrphanEgressServiceNetpols(ctx context.Context) e
 	}
 
 	for _, netpol := range networkPolicyList.Items {
-		svcName, ok := netpol.Annotations[otterizev1alpha2.OtterizeSvcEgressNetworkPolicyTargetService]
+		svcName, ok := netpol.Annotations[otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetService]
 		if !ok {
 			return err
 		}
 
-		svcNamespace, ok := netpol.Annotations[otterizev1alpha2.OtterizeSvcEgressNetworkPolicyTargetServiceNamespace]
+		svcNamespace, ok := netpol.Annotations[otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetServiceNamespace]
 		if !ok {
 			return err
 		}

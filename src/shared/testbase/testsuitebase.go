@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
@@ -399,7 +400,7 @@ func (s *ControllerManagerTestSuiteBase) AddKafkaServerConfig(kafkaServerConfig 
 }
 
 func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string) {
-	kafkaServerConfig := &otterizev1alpha2.KafkaServerConfig{}
+	kafkaServerConfig := &otterizev1alpha3.KafkaServerConfig{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, kafkaServerConfig)
 	s.Require().NoError(err)
 
@@ -412,7 +413,7 @@ func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string)
 func (s *ControllerManagerTestSuiteBase) AddIntents(
 	objName,
 	clientName string,
-	callList []otterizev1alpha2.Intent) (*otterizev1alpha2.ClientIntents, error) {
+	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
 	return s.AddIntentsInNamespace(objName, clientName, s.TestNamespace, callList)
 }
 
@@ -420,10 +421,53 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	objName,
 	clientName string,
 	namespace string,
+	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
+
+	intents := &otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      objName,
+			Namespace: namespace,
+			Finalizers: []string{
+				// Dummy finalizer so the object won't actually be deleted just marked as deleted
+				"dummy-finalizer",
+			},
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: clientName},
+			Calls:   callList,
+		},
+	}
+	err := s.Mgr.GetClient().Create(context.Background(), intents)
+	if err != nil {
+		return nil, err
+	}
+	s.waitForObjectToBeCreated(intents)
+
+	return intents, nil
+}
+
+func (s *ControllerManagerTestSuiteBase) AddIntentsV1alpha2(
+	objName,
+	clientName string,
+	callList []otterizev1alpha2.Intent) (*otterizev1alpha2.ClientIntents, error) {
+	return s.AddIntentsInNamespaceV1alpha2(objName, clientName, s.TestNamespace, callList)
+}
+
+func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha2(
+	objName,
+	clientName string,
+	namespace string,
 	callList []otterizev1alpha2.Intent) (*otterizev1alpha2.ClientIntents, error) {
 
 	intents := &otterizev1alpha2.ClientIntents{
-		ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      objName,
+			Namespace: namespace,
+			Finalizers: []string{
+				// Dummy finalizer so the object won't actually be deleted just marked as deleted
+				"dummy-finalizer",
+			},
+		},
 		Spec: &otterizev1alpha2.IntentsSpec{
 			Service: otterizev1alpha2.Service{Name: clientName},
 			Calls:   callList,
@@ -439,6 +483,19 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 }
 
 func (s *ControllerManagerTestSuiteBase) UpdateIntents(
+	objName string,
+	callList []otterizev1alpha3.Intent) error {
+
+	intents := &otterizev1alpha3.ClientIntents{}
+	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
+	s.Require().NoError(err)
+
+	intents.Spec.Calls = callList
+
+	return s.Mgr.GetClient().Update(context.Background(), intents)
+}
+
+func (s *ControllerManagerTestSuiteBase) UpdateIntentsV1alpha2(
 	objName string,
 	callList []otterizev1alpha2.Intent) error {
 
