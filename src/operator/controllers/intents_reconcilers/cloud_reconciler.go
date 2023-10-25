@@ -93,7 +93,7 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 			}, &svc)
 			if err != nil {
 				if errors.IsNotFound(err) {
-					return &otterizev1alpha2.ClientIntentsList{Items: nil}, nil
+					continue
 				}
 				return nil, err
 			}

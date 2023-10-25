@@ -21,8 +21,10 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
@@ -46,11 +48,12 @@ import (
 )
 
 type EnforcementConfig struct {
-	EnforcementDefaultState  bool
-	EnableNetworkPolicy      bool
-	EnableKafkaACL           bool
-	EnableIstioPolicy        bool
-	EnableDatabaseReconciler bool
+	EnforcementDefaultState              bool
+	EnableNetworkPolicy                  bool
+	EnableKafkaACL                       bool
+	EnableIstioPolicy                    bool
+	EnableDatabaseReconciler             bool
+	EnableEgressNetworkPolicyReconcilers bool
 }
 
 // IntentsReconciler reconciles a Intents object
@@ -67,6 +70,8 @@ func NewIntentsReconciler(
 	kafkaServerStore kafkaacls.ServersStore,
 	networkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler,
 	portNetpolReconciler *port_network_policy.PortNetworkPolicyReconciler,
+	egressNetpolReconciler *egress_network_policy.NetworkPolicyReconciler,
+	portEgressNetpolReconciler *port_egress_network_policy.PortEgressNetworkPolicyReconciler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
 	otterizeClient operator_cloud_client.CloudClient,
@@ -103,6 +108,11 @@ func NewIntentsReconciler(
 	if enforcementConfig.EnableDatabaseReconciler {
 		databaseReconciler := exp.NewDatabaseReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
+	}
+
+	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
+		intentsReconciler.group.AddToGroup(egressNetpolReconciler)
+		intentsReconciler.group.AddToGroup(portEgressNetpolReconciler)
 	}
 
 	return intentsReconciler

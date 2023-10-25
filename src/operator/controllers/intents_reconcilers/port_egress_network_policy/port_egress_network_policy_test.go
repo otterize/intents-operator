@@ -90,7 +90,7 @@ func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-egress-to-test-server-from-test-namespace"
+	policyName := "svc-egress-to-test-server.test-namespace-from-test-client"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -155,6 +155,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	existingPolicy := s.networkPolicyTemplate(
 		policyName,
 		serverNamespace,
+		"", // TODO
 		formattedTargetServer,
 		testNamespace,
 		&svcObject,
@@ -193,6 +194,7 @@ func (s *NetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 	policyName string,
 	targetNamespace string,
 	formattedClient string,
+	formattedServer string,
 	intentsObjNamespace string,
 	svcObject *corev1.Service,
 ) *v1.NetworkPolicy {
@@ -201,7 +203,8 @@ func (s *NetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 			Name:      policyName,
 			Namespace: targetNamespace,
 			Labels: map[string]string{
-				otterizev1alpha2.OtterizeSvcEgressNetworkPolicy: formattedClient,
+				otterizev1alpha2.OtterizeSvcEgressNetworkPolicy:       formattedClient,
+				otterizev1alpha2.OtterizeSvcEgressNetworkPolicyTarget: formattedServer,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -234,10 +237,11 @@ func (s *NetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-egress-to-test-server-from-test-client-namespace"
+	policyName := "svc-egress-to-test-server.test-namespace-from-test-client"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedClient := "test-client-test-client-namespac-edb3a2"
+	formattedServer := "test-server-test-namespace-8ddecb"
 
 	s.testCreateNetworkPolicyForKubernetesService(
 		clientIntentsName,
@@ -245,6 +249,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetesServ
 		serviceName,
 		policyName,
 		formattedClient,
+		formattedServer,
 	)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
@@ -286,6 +291,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 	serviceName string,
 	policyName string,
 	formattedClient string,
+	formattedServer string,
 ) {
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
@@ -332,6 +338,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 		policyName,
 		testClientNamespace,
 		formattedClient,
+		formattedServer,
 		testNamespace,
 		svcObject,
 	)
@@ -349,10 +356,11 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 
 func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-egress-to-test-server-from-test-client-namespace"
+	policyName := "svc-egress-to-test-server.test-namespace-from-test-client"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	formattedTargetServer := "test-client-test-client-namespac-edb3a2"
+	formattedClient := "test-client-test-client-namespac-edb3a2"
+	formattedServer := "test-server-test-namespace-8ddecb"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
@@ -394,7 +402,8 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesS
 	newPolicy := s.networkPolicyTemplate(
 		policyName,
 		testClientNamespace,
-		formattedTargetServer,
+		formattedClient,
+		formattedServer,
 		testNamespace,
 		svcObject,
 	)
@@ -421,9 +430,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesS
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-egress-to-test-server-from-test-namespace"
+	policyName := "svc-egress-to-test-server.test-namespace-from-test-client"
 	serviceName := "test-client"
-	formattedTargetServer := "test-server-other-namespace-f6a461"
+	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
@@ -486,6 +495,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 	existingPolicy := s.networkPolicyTemplate(
 		policyName,
 		testNamespace,
+		"", // TODO
 		formattedTargetServer,
 		testNamespace,
 		&svcObject,

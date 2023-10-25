@@ -71,9 +71,11 @@ const (
 	MaxNamespaceLength                         = 20
 	OtterizeSvcEgressNetworkPolicyNameTemplate = "svc-egress-to-%s-from-%s"
 	OtterizeSvcEgressNetworkPolicy             = "intents.otterize.com/svc-egress-network-policy"
+	OtterizeSvcEgressNetworkPolicyTarget       = "intents.otterize.com/svc-egress-network-policy-target"
 	SvcEgressNetworkPolicyFinalizerName        = "intents.otterize.com/svc-egress-network-policy-finalizer"
 	OtterizeEgressNetworkPolicyNameTemplate    = "egress-to-%s-from-%s"
 	OtterizeEgressNetworkPolicy                = "intents.otterize.com/egress-network-policy"
+	OtterizeEgressNetworkPolicyTarget          = "intents.otterize.com/egress-network-policy-target"
 	EgressNetworkPolicyFinalizerName           = "intents.otterize.com/egress-network-policy-finalizer"
 )
 

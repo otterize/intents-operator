@@ -14,20 +14,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 type ServiceWatcher struct {
 	client.Client
-	networkPolicyReconciler *PortNetworkPolicyReconciler
+	reconcilers []reconcile.Reconciler
 	injectablerecorder.InjectableRecorder
 }
 
-func NewServiceWatcher(c client.Client, eventRecorder record.EventRecorder, networkPolicyReconciler *PortNetworkPolicyReconciler) *ServiceWatcher {
+func NewServiceWatcher(c client.Client, eventRecorder record.EventRecorder, reconcilers []reconcile.Reconciler) *ServiceWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
 	return &ServiceWatcher{
-		Client:                  c,
-		InjectableRecorder:      recorder,
-		networkPolicyReconciler: networkPolicyReconciler,
+		Client:             c,
+		InjectableRecorder: recorder,
+		reconcilers:        reconcilers,
 	}
 }
 
@@ -51,15 +52,17 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	// Reconcile for any clientIntent in the cluster that points to the service enqueued in the request
 	for _, clientIntent := range intentsList.Items {
-		res, err := r.networkPolicyReconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{
-			Namespace: clientIntent.Namespace,
-			Name:      clientIntent.Name,
-		}})
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		if !res.IsZero() {
-			return res, nil
+		for _, reconciler := range r.reconcilers {
+			res, err := reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{
+				Namespace: clientIntent.Namespace,
+				Name:      clientIntent.Name,
+			}})
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			if !res.IsZero() {
+				return res, nil
+			}
 		}
 	}
 

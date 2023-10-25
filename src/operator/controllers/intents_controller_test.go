@@ -29,6 +29,8 @@ func (s *IntentsControllerTestSuite) SetupTest() {
 		nil,
 		nil,
 		nil,
+		nil,
+		nil,
 		EnforcementConfig{},
 		nil,
 		"",

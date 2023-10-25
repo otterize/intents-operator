@@ -251,15 +251,14 @@ func (r *NetworkPolicyReconciler) handleIntentRemoval(
 			return err
 		}
 
-		// TODO:is this really necessary? seems like it's already handled in deleteNetworkPolicy
-		//labelSelector := r.buildPodLabelSelectorFromIntent(intent, clientIntents.Namespace)
-		//selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
-		//if err != nil {
-		//	return err
-		//}
-		//if err = r.extNetpolHandler.HandlePodsByLabelSelector(ctx, intent.GetTargetServerNamespace(clientIntents.Namespace), selector); err != nil {
-		//	return err
-		//}
+		labelSelector := r.buildPodLabelSelectorFromIntent(intent, clientIntents.Namespace)
+		selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
+		if err != nil {
+			return err
+		}
+		if err = r.extNetpolHandler.HandlePodsByLabelSelector(ctx, intent.GetTargetServerNamespace(clientIntents.Namespace), selector); err != nil {
+			return err
+		}
 
 	}
 	return nil
