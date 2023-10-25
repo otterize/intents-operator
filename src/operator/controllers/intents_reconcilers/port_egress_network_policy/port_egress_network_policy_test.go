@@ -93,6 +93,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	policyName := "svc-egress-to-test-server.test-namespace-from-test-client"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
+	formattedClient := "test-client-test-client-namespac-edb3a2"
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
 	namespacedName := types.NamespacedName{
@@ -155,7 +156,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	existingPolicy := s.networkPolicyTemplate(
 		policyName,
 		serverNamespace,
-		"", // TODO
+		formattedClient,
 		formattedTargetServer,
 		testNamespace,
 		&svcObject,
@@ -432,6 +433,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 	clientIntentsName := "client-intents"
 	policyName := "svc-egress-to-test-server.test-namespace-from-test-client"
 	serviceName := "test-client"
+	formattedClient := "test-client-test-client-namespac-edb3a2"
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
 	namespacedName := types.NamespacedName{
@@ -495,7 +497,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 	existingPolicy := s.networkPolicyTemplate(
 		policyName,
 		testNamespace,
-		"", // TODO
+		formattedClient,
 		formattedTargetServer,
 		testNamespace,
 		&svcObject,

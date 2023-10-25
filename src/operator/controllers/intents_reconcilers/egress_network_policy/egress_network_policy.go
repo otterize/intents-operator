@@ -115,7 +115,6 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			r.RecordWarningEventf(intents, consts.ReasonNamespaceNotAllowed, "ClientIntents are in namespace %s but namespace is not allowed by configuration", intents.Namespace)
 			continue
 		}
-		// TODO: refactor to use multiple targets in one netpol
 		createdPolicies, err := r.handleNetworkPolicyCreation(ctx, intents, intent, req.Namespace)
 		if err != nil {
 			r.RecordWarningEventf(intents, consts.ReasonCreatingEgressNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
