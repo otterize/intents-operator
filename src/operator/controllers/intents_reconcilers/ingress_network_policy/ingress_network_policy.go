@@ -213,10 +213,6 @@ func (r *NetworkPolicyReconciler) cleanPolicies(
 
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesDeleted, len(intents.GetCallsList()))
 
-	if err := r.Update(ctx, intents); err != nil {
-		return err
-	}
-
 	return nil
 }
 

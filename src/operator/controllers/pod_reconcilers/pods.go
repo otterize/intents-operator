@@ -3,7 +3,6 @@ package pod_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -141,7 +140,7 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 	}
 
 	for _, clientIntents := range intentsList.Items {
-		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
+		formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
 		err = p.istioPolicyAdmin.UpdateServerSidecar(ctx, &clientIntents, formattedTargetServer, missingSideCar)
 		if err != nil {
 			return err
@@ -153,25 +152,25 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 
 func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request, serviceID serviceidentity.ServiceIdentity, pod v1.Pod) error {
 	// Intents were deleted and the pod was updated by the operator, skip reconciliation
-	_, ok := pod.Annotations[otterizev1alpha2.AllIntentsRemovedAnnotation]
+	_, ok := pod.Annotations[otterizev1alpha3.AllIntentsRemovedAnnotation]
 	if ok {
 		logrus.Infof("Skipping reconciliation for pod %s - pod is handled by intents-operator", req.Name)
 		return nil
 	}
 
-	otterizeServerLabelValue := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
+	otterizeServerLabelValue := otterizev1alpha3.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
 	updatedPod := pod.DeepCopy()
 	hasUpdates := false
 
 	// Update server label - the server identity of the pod.
 	// This is the pod selector used in network policies to grant access to this pod.
-	if !otterizev1alpha2.HasOtterizeServerLabel(&pod, otterizeServerLabelValue) {
+	if !otterizev1alpha3.HasOtterizeServerLabel(&pod, otterizeServerLabelValue) {
 		// Label pods as destination servers
 		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, serviceID.Name)
 		if updatedPod.Labels == nil {
 			updatedPod.Labels = make(map[string]string)
 		}
-		updatedPod.Labels[otterizev1alpha2.OtterizeServerLabelKey] = otterizeServerLabelValue
+		updatedPod.Labels[otterizev1alpha3.OtterizeServerLabelKey] = otterizeServerLabelValue
 		hasUpdates = true
 	}
 
@@ -195,9 +194,9 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 				otterizeAccessLabels[k] = v
 			}
 		}
-		if otterizev1alpha2.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
+		if otterizev1alpha3.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
 			logrus.Infof("Updating Otterize access labels for %s", serviceID.Name)
-			updatedPod = otterizev1alpha2.UpdateOtterizeAccessLabels(updatedPod.DeepCopy(), otterizeAccessLabels)
+			updatedPod = otterizev1alpha3.UpdateOtterizeAccessLabels(updatedPod.DeepCopy(), otterizeAccessLabels)
 			hasUpdates = true
 		}
 	}

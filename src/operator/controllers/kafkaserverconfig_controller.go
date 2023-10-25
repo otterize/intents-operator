@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafka_server_config_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
@@ -110,7 +109,7 @@ func (r *KafkaServerConfigReconciler) InitKafkaServerConfigIndices(mgr ctrl.Mana
 	return mgr.GetCache().IndexField(
 		context.Background(),
 		&otterizev1alpha3.KafkaServerConfig{},
-		otterizev1alpha2.OtterizeKafkaServerConfigServiceNameField,
+		otterizev1alpha3.OtterizeKafkaServerConfigServiceNameField,
 		func(object client.Object) []string {
 			ksc := object.(*otterizev1alpha3.KafkaServerConfig)
 			return []string{ksc.Spec.Service.Name}
@@ -137,7 +136,7 @@ func (r *KafkaServerConfigReconciler) getKSCsForProtectedService(protectedServic
 	var kafkaServerConfigs otterizev1alpha3.KafkaServerConfigList
 	err := r.Client.List(context.Background(),
 		&kafkaServerConfigs,
-		&client.MatchingFields{otterizev1alpha2.OtterizeKafkaServerConfigServiceNameField: protectedService.Spec.Name},
+		&client.MatchingFields{otterizev1alpha3.OtterizeKafkaServerConfigServiceNameField: protectedService.Spec.Name},
 		&client.ListOptions{Namespace: protectedService.Namespace},
 	)
 	if err != nil {

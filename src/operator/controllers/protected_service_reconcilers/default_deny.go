@@ -3,7 +3,6 @@ package protected_service_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
@@ -67,7 +66,7 @@ func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, prote
 			continue
 		}
 
-		formattedServerName := otterizev1alpha2.GetFormattedOtterizeIdentity(protectedService.Spec.Name, namespace)
+		formattedServerName := otterizev1alpha3.GetFormattedOtterizeIdentity(protectedService.Spec.Name, namespace)
 		policy := r.buildNetworkPolicyObjectForIntent(formattedServerName, protectedService.Spec.Name, namespace)
 		if r.netpolEnforcementEnabled {
 			serversToProtect[formattedServerName] = policy
@@ -76,14 +75,14 @@ func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, prote
 
 	var networkPolicies v1.NetworkPolicyList
 	err := r.List(ctx, &networkPolicies, client.InNamespace(namespace), client.MatchingLabels{
-		otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	})
 	if err != nil {
 		return err
 	}
 
 	for _, existingPolicy := range networkPolicies.Items {
-		existingPolicyServerName := existingPolicy.Labels[otterizev1alpha2.OtterizeNetworkPolicy]
+		existingPolicyServerName := existingPolicy.Labels[otterizev1alpha3.OtterizeNetworkPolicy]
 		_, found := serversToProtect[existingPolicyServerName]
 		if found {
 			desiredPolicy := serversToProtect[existingPolicyServerName]
@@ -143,15 +142,15 @@ func (r *DefaultDenyReconciler) buildNetworkPolicyObjectForIntent(
 			Name:      policyName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev1alpha2.OtterizeNetworkPolicy:                   formattedServerName,
+				otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev1alpha3.OtterizeNetworkPolicy:                   formattedServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha2.OtterizeServerLabelKey: formattedServerName,
+					otterizev1alpha3.OtterizeServerLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -162,7 +161,7 @@ func (r *DefaultDenyReconciler) buildNetworkPolicyObjectForIntent(
 func (r *DefaultDenyReconciler) DeleteAllDefaultDeny(ctx context.Context, namespace string) (ctrl.Result, error) {
 	var networkPolicies v1.NetworkPolicyList
 	err := r.List(ctx, &networkPolicies, client.InNamespace(namespace), client.MatchingLabels{
-		otterizev1alpha2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	})
 	if err != nil {
 		return ctrl.Result{}, err
