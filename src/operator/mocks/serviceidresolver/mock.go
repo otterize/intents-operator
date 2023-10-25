@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	serviceidresolver "github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	serviceidentity "github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	client "sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,10 +53,10 @@ func (mr *MockServiceIdResolverMockRecorder) GetOwnerObject(arg0, arg1 interface
 }
 
 // ResolvePodToServiceIdentity mocks base method.
-func (m *MockServiceIdResolver) ResolvePodToServiceIdentity(arg0 context.Context, arg1 *v1.Pod) (serviceidresolver.ServiceIdentity, error) {
+func (m *MockServiceIdResolver) ResolvePodToServiceIdentity(arg0 context.Context, arg1 *v1.Pod) (serviceidentity.ServiceIdentity, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolvePodToServiceIdentity", arg0, arg1)
-	ret0, _ := ret[0].(serviceidresolver.ServiceIdentity)
+	ret0, _ := ret[0].(serviceidentity.ServiceIdentity)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

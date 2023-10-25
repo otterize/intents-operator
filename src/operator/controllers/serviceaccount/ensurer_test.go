@@ -50,7 +50,7 @@ func (s *PodServiceAccountEnsurerSuite) SetupTest() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	s.client.EXPECT().Scheme().Return(scheme).AnyTimes()
 	s.mockEventRecorder = mock_record.NewMockEventRecorder(s.controller)
-	s.ServiceAccountEnsurer = NewServiceAccountEnsurer(s.client, s.mockEventRecorder)
+	s.ServiceAccountEnsurer = NewServiceAccountEnsurer(s.client, s.mockEventRecorder, nil)
 }
 
 func (s *PodServiceAccountEnsurerSuite) TestCreate() {

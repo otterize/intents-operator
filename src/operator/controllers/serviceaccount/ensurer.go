@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
+	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,10 +24,19 @@ const (
 type Ensurer struct {
 	client.Client
 	recorder record.EventRecorder
+	awsAgent *awsagent.Agent
 }
 
-func NewServiceAccountEnsurer(client client.Client, eventRecorder record.EventRecorder) *Ensurer {
-	return &Ensurer{Client: client, recorder: eventRecorder}
+func NewServiceAccountEnsurer(
+	client client.Client,
+	eventRecorder record.EventRecorder,
+	awsAgent *awsagent.Agent,
+) *Ensurer {
+	return &Ensurer{
+		Client:   client,
+		recorder: eventRecorder,
+		awsAgent: awsAgent,
+	}
 }
 
 func isServiceAccountNameValid(name string) bool {
@@ -62,21 +72,28 @@ func (e *Ensurer) EnsureServiceAccount(ctx context.Context, pod *v1.Pod) error {
 		return nil
 	}
 
-	logrus.Infof("creating service account named %s for pod %s", serviceAccountName, pod)
+	logrus.Infof("creating service account named %s for pod/%s/%s", serviceAccountName, pod.Namespace, pod.Name)
 	if err := e.createServiceAccount(ctx, serviceAccountName, pod); err != nil {
-		logrus.Errorf("failed creating service account for pod %s: %s", pod, err.Error())
+		logrus.WithError(err).Errorf("failed creating service account for pod/%s/%s", pod.Namespace, pod.Name)
 		e.recorder.Eventf(pod, v1.EventTypeWarning, ReasonCreatingServiceAccountFailed, "Failed creating service account: %s", err.Error())
 		return err
 	}
 	e.recorder.Eventf(pod, v1.EventTypeNormal, ReasonCreateServiceAccount, "Successfully created service account: %s", serviceAccountName)
-	logrus.Infof("successfuly created service account named %s for pod %s", serviceAccountName, pod)
+	logrus.Infof("successfuly created service account named %s for pod/%s/%s", serviceAccountName, pod.Namespace, pod.Name)
 
 	return nil
 }
 
 func (e *Ensurer) createServiceAccount(ctx context.Context, serviceAccountName string, pod *v1.Pod) error {
 	serviceAccount := v1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{Name: serviceAccountName, Namespace: pod.Namespace, Labels: map[string]string{metadata.OtterizeServiceAccountLabel: serviceAccountName}},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceAccountName,
+			Namespace: pod.Namespace,
+			Labels: map[string]string{
+				metadata.OtterizeServiceAccountLabel: serviceAccountName,
+			},
+		},
 	}
+
 	return e.Client.Create(ctx, &serviceAccount)
 }

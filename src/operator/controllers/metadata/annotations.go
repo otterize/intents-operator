@@ -8,6 +8,9 @@ const (
 
 	// ServiceAccountNameAnnotation is the name of the k8s service account that the operator will create
 	ServiceAccountNameAnnotation = "credentials-operator.otterize.com/service-account-name"
+	// ServiceAccountAWSRoleARNAnnotation is used by EKS (Kubernetes at AWS) to link between service accounts
+	// and IAM roles
+	ServiceAccountAWSRoleARNAnnotation = "eks.amazonaws.com/role-arn"
 
 	// DNSNamesAnnotation is a comma-separated list of additional dns names to be registered as part of the
 	// SPIRE-server entry and encoded into the certificate data

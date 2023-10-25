@@ -33,6 +33,7 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/bundles"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/entries"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/svids"
+	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
@@ -126,6 +127,8 @@ func main() {
 	var certManagerApprover bool
 	var secretsManager controllers.SecretsManager
 	var workloadRegistry controllers.WorkloadRegistry
+	var awsServiceAccountBindingEnabled bool
+	var awsEksOidcProviderUrl string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":7071", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":7072", "The address the probe endpoint binds to.")
 	flag.StringVar(&spireServerAddr, "spire-server-address", "spire-server.spire:8081", "SPIRE server API address.")
@@ -133,6 +136,8 @@ func main() {
 	flag.StringVar(&certManagerIssuer, "cert-manager-issuer", "ca-issuer", "Name of the Issuer to be used by cert-manager to sign certificates")
 	flag.BoolVar(&certManagerUseClusterIssuer, "cert-manager-use-cluster-issuer", false, "Use ClusterIssuer instead of a (namespace bound) Issuer")
 	flag.BoolVar(&certManagerApprover, "cert-manager-approve-requests", false, "Make credentials-operator approve its own CertificateRequests")
+	flag.BoolVar(&awsServiceAccountBindingEnabled, "aws-serviceaccount-binding", false, "Create and bind serviceAccounts to AWS IAM roles")
+	flag.StringVar(&awsEksOidcProviderUrl, "eks-oidc-url", "", "EKS OIDC Provider URL")
 
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
@@ -189,11 +194,24 @@ func main() {
 	}
 
 	client := mgr.GetClient()
+
+	var awsAgent *awsagent.Agent
+	if awsServiceAccountBindingEnabled {
+		awsAgent = awsagent.NewAWSAgent(ctx, awsEksOidcProviderUrl)
+	}
+
+	serviceAccountEnsurer := serviceaccount.NewServiceAccountEnsurer(client, eventRecorder, awsAgent)
 	podReconciler := controllers.NewPodReconciler(client, mgr.GetScheme(), workloadRegistry, secretsManager,
-		serviceIdResolver, eventRecorder, serviceaccount.NewServiceAccountEnsurer(client, eventRecorder), provider == ProviderCloud)
+		serviceIdResolver, eventRecorder, serviceAccountEnsurer, provider == ProviderCloud)
 
 	if err = podReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithField("controller", "Pod").WithError(err).Error("unable to create controller")
+		os.Exit(1)
+	}
+
+	serviceAccountReconciler := controllers.NewServiceAccountReconciler(client, mgr.GetScheme(), awsAgent)
+	if err = serviceAccountReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithField("controller", "ServiceAccount").WithError(err).Error("unable to create controller")
 		os.Exit(1)
 	}
 
