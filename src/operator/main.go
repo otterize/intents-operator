@@ -21,7 +21,9 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
@@ -36,6 +38,7 @@ import (
 	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
@@ -97,11 +100,12 @@ func main() {
 	autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement := viper.GetBool(operatorconfig.AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredKey)
 	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
 	enforcementConfig := controllers.EnforcementConfig{
-		EnforcementDefaultState:  viper.GetBool(operatorconfig.EnforcementDefaultStateKey),
-		EnableNetworkPolicy:      viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
-		EnableKafkaACL:           viper.GetBool(operatorconfig.EnableKafkaACLKey),
-		EnableIstioPolicy:        viper.GetBool(operatorconfig.EnableIstioPolicyKey),
-		EnableDatabaseReconciler: viper.GetBool(operatorconfig.EnableDatabaseReconciler),
+		EnforcementDefaultState:              viper.GetBool(operatorconfig.EnforcementDefaultStateKey),
+		EnableNetworkPolicy:                  viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
+		EnableKafkaACL:                       viper.GetBool(operatorconfig.EnableKafkaACLKey),
+		EnableIstioPolicy:                    viper.GetBool(operatorconfig.EnableIstioPolicyKey),
+		EnableDatabaseReconciler:             viper.GetBool(operatorconfig.EnableDatabaseReconciler),
+		EnableEgressNetworkPolicyReconcilers: viper.GetBool(operatorconfig.EnableEgressNetworkPolicyReconcilersKey),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev1alpha3.TLSSource{
@@ -192,8 +196,11 @@ func main() {
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
-	networkPolicyHandler := intents_reconcilers.NewNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
+	networkPolicyHandler := ingress_network_policy.NewNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
+	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+
 	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+	svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
@@ -279,6 +286,8 @@ func main() {
 		kafkaServersStore,
 		networkPolicyHandler,
 		svcNetworkPolicyHandler,
+		egressNetworkPolicyHandler,
+		svcEgressNetworkPolicyHandler,
 		watchedNamespaces,
 		enforcementConfig,
 		otterizeCloudClient,
@@ -351,7 +360,11 @@ func main() {
 
 	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
-	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), svcNetworkPolicyHandler)
+	svcReconcilers := []reconcile.Reconciler{svcNetworkPolicyHandler}
+	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
+		svcReconcilers = append(svcReconcilers, svcEgressNetworkPolicyHandler)
+	}
+	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), svcReconcilers)
 
 	err = svcWatcher.SetupWithManager(mgr)
 	if err != nil {

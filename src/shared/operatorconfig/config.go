@@ -46,8 +46,8 @@ const (
 	RetryDelayTimeDefault                                               = 5 * time.Second
 	DebugLogKey                                                         = "debug" // Whether to enable debug logging
 	DebugLogDefault                                                     = false
-	EnableKubernetesServiceIntentsKey                                   = "exp-enable-kubernetes-service-intents"
-	EnableKubernetesServiceIntentsDefault                               = false
+	EnableEgressNetworkPolicyReconcilersKey                             = "exp-enable-egress-network-policies" // Experimental - enable the generation of egress network policies alongside ingress network policies
+	EnableEgressNetworkPolicyReconcilersDefault                         = false
 )
 
 func init() {
@@ -61,7 +61,7 @@ func init() {
 	viper.SetDefault(EnableKafkaACLKey, EnableKafkaACLDefault)
 	viper.SetDefault(EnableIstioPolicyKey, EnableIstioPolicyDefault)
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
-	viper.SetDefault(EnableKubernetesServiceIntentsKey, EnableKubernetesServiceIntentsDefault)
+	viper.SetDefault(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
@@ -86,7 +86,7 @@ func InitCLIFlags() {
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
 	pflag.Bool(telemetrysender.TelemetryEnabledKey, telemetrysender.TelemetryEnabledDefault, "Whether telemetry should be enabled")
 	pflag.Bool(EnableDatabaseReconciler, EnableDatabaseReconcilerDefault, "Enable the database reconciler")
-	pflag.Bool(EnableKubernetesServiceIntentsKey, EnableKubernetesServiceIntentsDefault, "Experimental - enable Kubernetes service intents, which allow you to refer to services using their Kubernetes service name")
+	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
 	pflag.Duration(RetryDelayTimeKey, RetryDelayTimeDefault, "Default retry delay time for retrying failed requests")
 	pflag.Bool(DebugLogKey, DebugLogDefault, "Enable debug logging")
 

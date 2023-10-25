@@ -14,4 +14,9 @@ const (
 	ReasonOtterizeServiceNotFound              = "OtterizeServiceNotFound"
 	ReasonKubernetesServiceNotFound            = "KubernetesServiceNotFound"
 	ReasonPortRestrictionUnsupportedForStrings = "TypeStringPortNotSupported"
+	ReasonEgressNetworkPolicyCreationDisabled  = "EgressNetworkPolicyCreationDisabled"
+	ReasonGettingEgressNetworkPolicyFailed     = "GettingEgressNetworkPolicyFailed"
+	ReasonRemovingEgressNetworkPolicyFailed    = "RemovingEgressNetworkPolicyFailed"
+	ReasonCreatingEgressNetworkPoliciesFailed  = "CreatingEgressNetworkPoliciesFailed"
+	ReasonCreatedEgressNetworkPolicies         = "CreatedEgressNetworkPolicies"
 )
