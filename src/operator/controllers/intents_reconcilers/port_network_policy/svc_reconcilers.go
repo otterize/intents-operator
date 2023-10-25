@@ -69,7 +69,7 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		}
 	}
 
-	err = r.removeOrphanEgressNetpols(ctx)
+	err = r.removeOrphanEgressServiceNetpols(ctx)
 	if err != nil {
 		return ctrl.Result{}, nil
 	}
@@ -87,7 +87,14 @@ func matchEgressAccessNetworkPolicy() (labels.Selector, error) {
 	}})
 }
 
-func (r *ServiceWatcher) removeOrphanEgressNetpols(ctx context.Context) error {
+// removeOrphanEgressServiceNetpols removes orphaned egress service network policies. Normally, for service network policies,
+// the network policy has an owner reference to the service, which takes care of the deletion.
+// But for egress policies, the network policy is in the client's namespace, which is potentially in a different namespace
+// than the service, and cross-namespace owner references are not possible.
+// To resolve this, we must either use a finalizer on the service (which would be very harmful if for any reason we fail to remove it),
+// or, this implementation, which lists all service egress network policies, and for each of them (O(n)) checks if the service
+// exists (O(1)). If not, it deletes the netpol.
+func (r *ServiceWatcher) removeOrphanEgressServiceNetpols(ctx context.Context) error {
 	networkPolicyList := &v1.NetworkPolicyList{}
 	selector, err := matchEgressAccessNetworkPolicy()
 	if err != nil {
