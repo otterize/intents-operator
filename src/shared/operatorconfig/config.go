@@ -46,7 +46,7 @@ const (
 	RetryDelayTimeDefault                                               = 5 * time.Second
 	DebugLogKey                                                         = "debug" // Whether to enable debug logging
 	DebugLogDefault                                                     = false
-	EnableEgressNetworkPolicyReconcilersKey                             = "exp-enable-egress-network-policies" // Whether to enable the new database reconciler
+	EnableEgressNetworkPolicyReconcilersKey                             = "exp-enable-egress-network-policies" // Experimental - enable the generation of egress network policies alongside ingress network policies
 	EnableEgressNetworkPolicyReconcilersDefault                         = false
 )
 
