@@ -36,7 +36,7 @@ const (
 
 type EgressNetworkPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
-	Reconciler            *NetworkPolicyReconciler
+	Reconciler            *EgressNetworkPolicyReconciler
 	externalNetpolHandler *mocks.MockexternalNetpolHandler
 }
 
@@ -49,7 +49,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.externalNetpolHandler = mocks.NewMockexternalNetpolHandler(s.Controller)
 	restrictToNamespaces := make([]string, 0)
 
-	s.Reconciler = NewNetworkPolicyReconciler(
+	s.Reconciler = NewEgressNetworkPolicyReconciler(
 		s.Client,
 		&runtime.Scheme{},
 		restrictToNamespaces,

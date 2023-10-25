@@ -79,7 +79,7 @@ func NewIntentsReconciler(
 	kafkaServerStore kafkaacls.ServersStore,
 	networkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler,
 	portNetpolReconciler *port_network_policy.PortNetworkPolicyReconciler,
-	egressNetpolReconciler *egress_network_policy.NetworkPolicyReconciler,
+	egressNetpolReconciler *egress_network_policy.EgressNetworkPolicyReconciler,
 	portEgressNetpolReconciler *port_egress_network_policy.PortEgressNetworkPolicyReconciler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,

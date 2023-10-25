@@ -23,6 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// The PortEgressNetworkPolicyReconciler creates network policies that allow egress traffic from pods to specific ports,
+// based on which Kubernetes service is specified in the intents.
 type PortEgressNetworkPolicyReconciler struct {
 	client.Client
 	Scheme                      *runtime.Scheme
