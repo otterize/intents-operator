@@ -1,6 +1,7 @@
 package telemetrysender
 
 import (
+	"context"
 	"flag"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
@@ -97,23 +98,33 @@ func IncrementUniqueCounterCredentialsOperator(eventType telemetriesgql.EventTyp
 	incrementCounter(telemetriesgql.ComponentTypeCredentialsOperator, eventType, key)
 }
 
-func IntentsOperatorRunActiveReporter() {
-	runActiveComponentReporter(telemetriesgql.ComponentTypeIntentsOperator)
+func IntentsOperatorRunActiveReporter(ctx context.Context) {
+	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeIntentsOperator)
 }
 
-func NetworkMapperRunActiveReporter() {
-	runActiveComponentReporter(telemetriesgql.ComponentTypeNetworkMapper)
+func NetworkMapperRunActiveReporter(ctx context.Context) {
+	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeNetworkMapper)
 }
 
-func CredentialsOperatorRunActiveReporter() {
-	runActiveComponentReporter(telemetriesgql.ComponentTypeCredentialsOperator)
+func CredentialsOperatorRunActiveReporter(ctx context.Context) {
+	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeCredentialsOperator)
 }
 
-func runActiveComponentReporter(componentType telemetriesgql.ComponentType) {
+func runActiveComponentReporter(ctx context.Context, componentType telemetriesgql.ComponentType) {
 	go func() {
+		cloudUploadTicker := time.NewTicker(2 * time.Minute)
+		logrus.Info("Starting active component reporter")
+		send(componentType, telemetriesgql.EventTypeActive, 0)
+
 		for {
-			send(componentType, telemetriesgql.EventTypeActive, 0)
-			time.Sleep(2 * time.Minute)
+			select {
+			case <-cloudUploadTicker.C:
+				send(componentType, telemetriesgql.EventTypeActive, 0)
+
+			case <-ctx.Done():
+				logrus.Info("Active component reporter exit")
+				return
+			}
 		}
 	}()
 }
