@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
@@ -36,6 +37,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -158,7 +160,23 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	return r.group.Reconcile(ctx, req)
+	intents := &otterizev1alpha2.ClientIntents{}
+
+	err = r.client.Get(ctx, req.NamespacedName, intents)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	result, err := r.group.Reconcile(ctx, req)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	intents.Status.UpToDate = true
+	return result, nil
 }
 
 func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
