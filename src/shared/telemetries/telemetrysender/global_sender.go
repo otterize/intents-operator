@@ -112,13 +112,13 @@ func CredentialsOperatorRunActiveReporter(ctx context.Context) {
 
 func runActiveComponentReporter(ctx context.Context, componentType telemetriesgql.ComponentType) {
 	go func() {
-		cloudUploadTicker := time.NewTicker(2 * time.Minute)
+		reporterTicker := time.NewTicker(2 * time.Minute)
 		logrus.Info("Starting active component reporter")
 		send(componentType, telemetriesgql.EventTypeActive, 0)
 
 		for {
 			select {
-			case <-cloudUploadTicker.C:
+			case <-reporterTicker.C:
 				send(componentType, telemetriesgql.EventTypeActive, 0)
 
 			case <-ctx.Done():
