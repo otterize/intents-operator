@@ -181,13 +181,6 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	var result ctrl.Result
-
-	intents.Status.UpToDate = false
-
-	defer func() {
-		intents.Status.UpToDate = true
-	}()
-
 	result, err = r.applyAcls(ctx, logger, intents)
 	if err != nil {
 		return result, err

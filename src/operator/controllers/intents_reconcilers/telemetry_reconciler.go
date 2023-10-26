@@ -45,12 +45,6 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 		return ctrl.Result{}, err
 	}
 
-	intents.Status.UpToDate = false
-
-	defer func() {
-		intents.Status.UpToDate = true
-	}()
-
 	hasher := sha1.New()
 	resourceName := fmt.Sprintf("%s/%s", intents.Namespace, intents.Name)
 	hashedName := string(hasher.Sum([]byte(resourceName)))

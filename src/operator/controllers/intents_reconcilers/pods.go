@@ -47,12 +47,6 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	intents.Status.UpToDate = false
-
-	defer func() {
-		intents.Status.UpToDate = true
-	}()
-
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.removeLabelsFromPods(ctx, intents)
 		if err != nil {

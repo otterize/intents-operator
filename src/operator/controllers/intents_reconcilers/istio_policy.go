@@ -75,12 +75,6 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	logrus.Infof("Reconciling Istio authorization policies for service %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
 
-	intents.Status.UpToDate = false
-
-	defer func() {
-		intents.Status.UpToDate = true
-	}()
-
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.policyManager.DeleteAll(ctx, intents)
 		if err != nil {
