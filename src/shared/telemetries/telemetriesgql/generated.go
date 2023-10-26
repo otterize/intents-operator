@@ -68,6 +68,7 @@ const (
 	EventTypeNamespaceDiscovered         EventType = "NAMESPACE_DISCOVERED"
 	EventTypeProtectedServiceApplied     EventType = "PROTECTED_SERVICE_APPLIED"
 	EventTypeProtectedServiceDeleted     EventType = "PROTECTED_SERVICE_DELETED"
+	EventTypeActive                      EventType = "ACTIVE"
 )
 
 // SendTelemetriesResponse is returned by SendTelemetries on success.

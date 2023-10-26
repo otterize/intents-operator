@@ -6,6 +6,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/sirupsen/logrus"
 	"sync"
+	"time"
 )
 
 var (
@@ -94,4 +95,25 @@ func IncrementUniqueCounterNetworkMapper(eventType telemetriesgql.EventType, key
 
 func IncrementUniqueCounterCredentialsOperator(eventType telemetriesgql.EventType, key string) {
 	incrementCounter(telemetriesgql.ComponentTypeCredentialsOperator, eventType, key)
+}
+
+func IntentsOperatorRunActiveReporter() {
+	runActiveComponentReporter(telemetriesgql.ComponentTypeIntentsOperator)
+}
+
+func NetworkMapperRunActiveReporter() {
+	runActiveComponentReporter(telemetriesgql.ComponentTypeNetworkMapper)
+}
+
+func CredentialsOperatorRunActiveReporter() {
+	runActiveComponentReporter(telemetriesgql.ComponentTypeCredentialsOperator)
+}
+
+func runActiveComponentReporter(componentType telemetriesgql.ComponentType) {
+	go func() {
+		for {
+			send(componentType, telemetriesgql.EventTypeActive, 0)
+			time.Sleep(2 * time.Minute)
+		}
+	}()
 }
