@@ -119,9 +119,9 @@ func main() {
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
 	debugLogs := viper.GetBool(operatorconfig.DebugLogKey)
 
+	var awsIntentsAgent *awsagent.Agent = nil
 	if viper.GetBool(awsagent.AWSIntentsEnabledKey) {
-		// awsIntentsAgent :=
-		_ = awsagent.NewAWSAgent(context.Background(), oidcUrl)
+		awsIntentsAgent = awsagent.NewAWSAgent(context.Background(), oidcUrl)
 	}
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
@@ -293,6 +293,7 @@ func main() {
 		otterizeCloudClient,
 		podName,
 		podNamespace,
+		awsIntentsAgent,
 	)
 
 	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {

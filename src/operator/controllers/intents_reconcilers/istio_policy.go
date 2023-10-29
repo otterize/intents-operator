@@ -91,7 +91,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, *intents)
 	if err != nil {
-		if errors.Is(err, serviceidresolver.PodNotFound) {
+		if errors.Is(err, serviceidresolver.ErrPodNotFound) {
 			r.RecordWarningEventf(
 				intents,
 				consts.ReasonOtterizeServiceNotFound,
@@ -139,7 +139,7 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 		serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
 		pod, err := r.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, serverNamespace)
 		if err != nil {
-			if errors.Is(err, serviceidresolver.PodNotFound) {
+			if errors.Is(err, serviceidresolver.ErrPodNotFound) {
 				continue
 			}
 			return err

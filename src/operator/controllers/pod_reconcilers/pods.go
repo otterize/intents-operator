@@ -65,6 +65,19 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// If a new pod starts, check if we need to do something for it.
+	var intents otterizev1alpha3.ClientIntentsList
+	err = p.List(
+		ctx,
+		&intents,
+		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
+		&client.ListOptions{Namespace: pod.Namespace})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	// TODO: now you have the client intents for this pod, now we need to do the logic that AWS reconciler does
+	// with client intents.
+
 	err = p.addOtterizePodLabels(ctx, req, serviceID, pod)
 	if err != nil {
 		return ctrl.Result{}, err

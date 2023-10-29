@@ -88,12 +88,8 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	createdNetpols := 0
-	for _, intent := range intents.GetCallsList() {
+	for _, intent := range intents.GetFilteredCallsList(otterizev1alpha3.IntentTypeHTTP, otterizev1alpha3.IntentTypeKafka) {
 		if intent.IsTargetServerKubernetesService() {
-			continue
-		}
-
-		if intent.Type == otterizev1alpha3.IntentTypeAWS {
 			continue
 		}
 

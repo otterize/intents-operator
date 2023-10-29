@@ -215,16 +215,16 @@ func (in *ClientIntents) GetCallsList() []Intent {
 	return in.Spec.Calls
 }
 
+func (in *ClientIntents) GetFilteredCallsList(intentTypes ...IntentType) []Intent {
+	return lo.Filter(in.GetCallsList(), func(item Intent, index int) bool {
+		return lo.Contains(intentTypes, item.Type)
+	})
+}
+
 func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
 	otterizeAccessLabels := map[string]string{}
 
-	for _, intent := range in.GetCallsList() {
-		if intent.Type == IntentTypeAWS {
-			// TODO: GetIntentsLabelMapping assumes target is a k8s pod.
-			// exclude calls until a solution is found
-			continue
-		}
-
+	for _, intent := range in.GetFilteredCallsList(IntentTypeHTTP, IntentTypeKafka) {
 		ns := intent.GetTargetServerNamespace(requestNamespace)
 		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), ns)
 		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)

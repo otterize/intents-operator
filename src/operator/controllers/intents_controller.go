@@ -28,6 +28,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/initonce"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -85,7 +86,10 @@ func NewIntentsReconciler(
 	enforcementConfig EnforcementConfig,
 	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
-	operatorPodNamespace string) *IntentsReconciler {
+	operatorPodNamespace string,
+	awsAgent *awsagent.Agent,
+) *IntentsReconciler {
+
 	serviceIdResolver := serviceidresolver.NewResolver(client)
 	reconcilersGroup := reconcilergroup.NewGroup(
 		"intents-reconciler",
@@ -98,6 +102,7 @@ func NewIntentsReconciler(
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
+		intents_reconcilers.NewAWSIntentsReconciler(client, scheme, awsAgent, serviceIdResolver),
 		networkPolicyReconciler,
 	)
 
