@@ -93,8 +93,7 @@ type Client {
 }
 
 type ClientIntentsFileRepresentation {
-	clientServiceId: ID!
-	clientName: String!
+	service: Service!
 	rows: [ClientIntentsRow!]!
 	content: String!
 }
