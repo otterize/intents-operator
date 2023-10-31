@@ -30,7 +30,7 @@ and creates the corresponding network policies and Kafka ACLs.
 
 Here is an example of a `ClientIntents` resource enabling traffic from `my-client` to `web-server` and `kafka-server`:
 ```yaml
-apiVersion: k8s.otterize.com/v1alpha2
+apiVersion: k8s.otterize.com/v1alpha3
 kind: ClientIntents
 metadata:
   name: intents-sample
@@ -76,7 +76,7 @@ It works works with the [credentials operator](https://github.com/otterize/crede
 
 With Kafka, you can also control access to individual topics, like so:
 ```yaml
-apiVersion: k8s.otterize.com/v1alpha2
+apiVersion: k8s.otterize.com/v1alpha3
 kind: ClientIntents
 metadata:
   name: kafka-sample
@@ -86,7 +86,7 @@ spec:
   calls:
     - name: kafka-server
       type: kafka
-      topics:
+      kafkaTopics:
         - name: orders
           operations: [ produce ]
 ```
