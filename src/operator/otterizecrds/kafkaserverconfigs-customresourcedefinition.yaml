@@ -4,6 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.9.0
+    "helm.sh/resource-policy": keep
   creationTimestamp: null
   name: kafkaserverconfigs.k8s.otterize.com
 spec:
