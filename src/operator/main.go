@@ -35,6 +35,8 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/svids"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"golang.org/x/exp/slices"
@@ -232,6 +234,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	telemetrysender.SendCredentialsOperator(telemetriesgql.EventTypeStarted, 1)
+	telemetrysender.CredentialsOperatorRunActiveReporter(ctx)
 	logrus.Info("starting manager")
 
 	go podReconciler.MaintenanceLoop(ctx)
