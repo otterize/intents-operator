@@ -27,7 +27,11 @@ type AccessGraph {
 """Clusters for which there are results"""
 	clusters: [Cluster!]!
 	serviceAccessGraphs: [ServiceAccessGraph!]!
+	serviceCount: Int!
 }
+
+"""The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1."""
+scalar Int
 
 type AccessGraphEdge {
 	client: Service!
@@ -76,9 +80,6 @@ input CertificateCustomization {
 
 """The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text."""
 scalar String
-
-"""The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1."""
-scalar Int
 
 type CertificateInformation {
 	commonName: String!
@@ -150,6 +151,56 @@ enum CustomConstraint {
 	ID
 }
 
+type DatabaseConfig {
+	table: String!
+	operations: [DatabaseOperation!]
+}
+
+input DatabaseConfigInput {
+	table: String!
+	operations: [DatabaseOperation!]!
+}
+
+type DatabaseCredentials {
+	username: String!
+	password: String!
+}
+
+input DatabaseCredentialsInput {
+	username: String!
+	password: String!
+}
+
+type DatabaseInfo {
+	name: String!
+	address: String!
+	databaseType: DatabaseType
+}
+
+input DatabaseInfoInput {
+	name: String!
+	address: String!
+	databaseType: DatabaseType!
+	credentials: DatabaseCredentialsInput!
+}
+
+enum DatabaseOperation {
+	ALL
+	SELECT
+	INSERT
+	UPDATE
+	DELETE
+}
+
+enum DatabaseType {
+	POSTGRESQL
+}
+
+enum DBPermissionChange {
+	APPLY
+	DELETE
+}
+
 input DiscoveredIntentInput {
 	discoveredAt: Time!
 	intent: IntentInput!
@@ -169,6 +220,7 @@ enum EdgeAccessStatusReason {
 	ALLOWED_BY_APPLIED_INTENTS_OVERLY_PERMISSIVE
 	ALLOWED_BY_APPLIED_INTENTS_HTTP_OVERLY_PERMISSIVE
 	ALLOWED_BY_APPLIED_INTENTS_KAFKA_OVERLY_PERMISSIVE
+	ALLOWED_BY_EXTERNAL_TRAFFIC_NETWORK_POLICY
 	BLOCKED_BY_APPLIED_INTENTS_UNDER_PERMISSIVE
 	BLOCKED_BY_APPLIED_INTENTS_RESOURCE_MISMATCH
 	BLOCKED_BY_APPLIED_INTENTS_HTTP_UNDER_PERMISSIVE
@@ -184,6 +236,7 @@ enum EdgeAccessStatusReason {
 	INTENTS_OPERATOR_NOT_ENFORCING_MISSING_APPLIED_INTENT
 	INTENTS_OPERATOR_NOT_ENFORCING_KAFKA_INTENTS_NOT_REQUIRED_FOR_TOPIC
 	MISSING_APPLIED_INTENT
+	NOT_IN_PROTECTED_SERVICES
 	INTENTS_OPERATOR_NEVER_CONNECTED
 	NETWORK_MAPPER_NEVER_CONNECTED
 	NO_INTENTS_FOUND_OF_RELEVANT_TYPE
@@ -246,6 +299,7 @@ type Integration {
 	components: IntegrationComponents
 	defaultEnvironment: Environment
 	cluster: Cluster
+	databaseInfo: DatabaseInfo
 }
 
 type IntegrationComponents {
@@ -262,6 +316,7 @@ type IntegrationCredentials {
 enum IntegrationType {
 	GENERIC
 	KUBERNETES
+	DATABASE
 }
 
 type Intent {
@@ -271,6 +326,7 @@ type Intent {
 	type: IntentType
 	kafkaTopics: [KafkaConfig!]
 	httpResources: [HTTPConfig!]
+	databaseResources: [DatabaseConfig!]
 	status: IntentStatus
 }
 
@@ -282,6 +338,7 @@ input IntentInput {
 	type: IntentType
 	topics: [KafkaConfigInput!]
 	resources: [HTTPConfigInput!]
+	databaseResources: [DatabaseConfigInput!]
 	status: IntentStatusInput
 }
 
@@ -296,13 +353,16 @@ type IntentsOperatorConfiguration {
 	networkPolicyEnforcementEnabled: Boolean!
 	kafkaACLEnforcementEnabled: Boolean!
 	istioPolicyEnforcementEnabled: Boolean!
+	protectedServicesEnabled: Boolean!
+	protectedServices: [Service!]!
 }
 
 input IntentsOperatorConfigurationInput {
 	globalEnforcementEnabled: Boolean!
-	networkPolicyEnforcementEnabled: Boolean!
-	kafkaACLEnforcementEnabled: Boolean!
-	istioPolicyEnforcementEnabled: Boolean!
+	networkPolicyEnforcementEnabled: Boolean
+	kafkaACLEnforcementEnabled: Boolean
+	istioPolicyEnforcementEnabled: Boolean
+	protectedServicesEnabled: Boolean
 }
 
 type IntentStatus {
@@ -319,6 +379,7 @@ input IntentStatusInput {
 enum IntentType {
 	HTTP
 	KAFKA
+	DATABASE
 }
 
 type Invite {
@@ -458,7 +519,9 @@ type Mutation {
 """Operate on the current logged-in user"""
 	me: MeMutation!
 """Create a new organization"""
-	createOrganization: Organization!
+	createOrganization(
+		name: String
+	): Organization!
 """Update organization"""
 	updateOrganization(
 		id: ID!
@@ -470,9 +533,6 @@ type Mutation {
 		id: ID!
 		userId: ID!
 	): ID!
-	initializeOrganizationCAs(
-		organizationId: ID!
-	): Boolean!
 """Register certificate-request details for kubernetes pod owner, returns the service associated with this pod owner"""
 	registerKubernetesPodOwnerCertificateRequest(
 		podOwner: NamespacedPodOwner!
@@ -496,6 +556,9 @@ type Mutation {
 		name: String
 		configuration: ClusterConfigurationInput
 	): Cluster!
+	initializeOrganizationCAs(
+		organizationId: ID!
+	): Boolean!
 """Create a new environment"""
 	createEnvironment(
 		name: String!
@@ -525,6 +588,14 @@ type Mutation {
 	createGenericIntegration(
 		name: String!
 	): Integration
+	createDatabaseIntegration(
+		name: String!
+		databaseInfo: DatabaseInfoInput!
+	): Integration
+	updateDatabaseIntegrationCredentials(
+		integrationId: ID!
+		credentials: DatabaseCredentialsInput!
+	): Boolean!
 """Create a new Kubernetes integration"""
 	createKubernetesIntegration(
 		environmentId: ID
@@ -558,6 +629,14 @@ type Mutation {
 		namespace: String!
 		intents: [IntentInput!]!
 	): Boolean!
+	handleDatabaseIntents(
+		intents: [IntentInput!]!
+		action: DBPermissionChange!
+	): Boolean!
+	reportNetworkPolicies(
+		namespace: String!
+		policies: [NetworkPolicyInput!]!
+	): Boolean!
 	reportKafkaServerConfigs(
 		namespace: String!
 		serverConfigs: [KafkaServerConfigInput!]!
@@ -567,6 +646,10 @@ type Mutation {
 		id: ID!
 		environmentId: ID
 	): Namespace!
+	reportProtectedServicesSnapshot(
+		namespace: String!
+		services: [ProtectedServiceInput!]!
+	): Boolean!
 }
 
 type Namespace {
@@ -588,10 +671,21 @@ type NetworkMapperComponent {
 	status: ComponentStatus!
 }
 
+input NetworkPolicyInput {
+	namespace: String!
+	name: String!
+	serverName: String!
+	externalNetworkTrafficPolicy: Boolean!
+}
+
 type Organization {
 	id: ID!
 	name: String
 	imageURL: String
+}
+
+input ProtectedServiceInput {
+	name: String!
 }
 
 type Query {
@@ -645,6 +739,11 @@ type Query {
 	oneCluster(
 		name: String!
 	): Cluster
+	serviceDatabaseCredentials(
+		databaseName: String!
+		service: String!
+		namespace: String!
+	): DatabaseCredentials!
 """Get environment"""
 	environment(
 		id: ID!
@@ -776,14 +875,14 @@ enum ServerProtectionStatusVerdict {
 
 type Service {
 	id: ID!
-	certificateInformation: CertificateInformation
-	tlsKeyPair: KeyPair!
 	name: String!
 	namespace: Namespace
 	environment: Environment!
 """If service is Kafka, its KafkaServerConfig."""
 	kafkaServerConfig: KafkaServerConfig
+	certificateInformation: CertificateInformation
 	serviceAccount: String
+	tlsKeyPair: KeyPair!
 }
 
 type ServiceAccessGraph {

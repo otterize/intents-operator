@@ -131,6 +131,7 @@ func main() {
 	var workloadRegistry controllers.WorkloadRegistry
 	var awsServiceAccountBindingEnabled bool
 	var awsEksOidcProviderUrl string
+	var databaseCredsAcquirer controllers.DatabaseCredentialsAcquirer
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":7071", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":7072", "The address the probe endpoint binds to.")
 	flag.StringVar(&spireServerAddr, "spire-server-address", "spire-server.spire:8081", "SPIRE server API address.")
@@ -174,6 +175,7 @@ func main() {
 			os.Exit(1)
 		}
 		workloadRegistry = otterizeCloudClient
+		databaseCredsAcquirer = otterizeCloudClient
 		otterizeclient.PeriodicallyReportConnectionToCloud(otterizeCloudClient)
 		otterizeCertManager := otterizecertgen.NewOtterizeCertificateGenerator(otterizeCloudClient)
 		secretsManager = secrets.NewDirectSecretsManager(mgr.GetClient(), serviceIdResolver, eventRecorder, otterizeCertManager)
@@ -184,7 +186,6 @@ func main() {
 			os.Exit(1)
 		}
 		defer spireClient.Close()
-
 		bundlesStore := bundles.NewBundlesStore(spireClient)
 		svidsStore := svids.NewSVIDsStore(spireClient)
 		certGenerator := spirecertgen.NewSpireCertificateDataGenerator(bundlesStore, svidsStore)
@@ -194,7 +195,6 @@ func main() {
 		secretsManager, workloadRegistry = certmanageradapter.NewCertManagerSecretsManager(mgr.GetClient(), serviceIdResolver,
 			eventRecorder, certManagerIssuer, certManagerUseClusterIssuer)
 	}
-
 	client := mgr.GetClient()
 
 	var awsAgent *awsagent.Agent
@@ -203,7 +203,7 @@ func main() {
 	}
 
 	serviceAccountEnsurer := serviceaccount.NewServiceAccountEnsurer(client, eventRecorder, awsAgent)
-	podReconciler := controllers.NewPodReconciler(client, mgr.GetScheme(), workloadRegistry, secretsManager,
+	podReconciler := controllers.NewPodReconciler(client, mgr.GetScheme(), workloadRegistry, databaseCredsAcquirer, secretsManager,
 		serviceIdResolver, eventRecorder, serviceAccountEnsurer, provider == ProviderCloud)
 
 	if err = podReconciler.SetupWithManager(mgr); err != nil {

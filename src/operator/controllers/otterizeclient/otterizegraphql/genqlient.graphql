@@ -29,3 +29,14 @@ mutation ReportComponentStatus($component: ComponentType!) {
 mutation ReportActiveCertificateRequesters($existingPodOwners: [NamespacedPodOwner!]!) {
     reportActiveCertificateRequesters(activePodOwners: $existingPodOwners)
 }
+
+query GetDatabaseCredentials($dbName: String!, $serviceName: String!, $namespace: String!) {
+    serviceDatabaseCredentials(databaseName: $dbName, namespace: $namespace, service: $serviceName) {
+        ...DatabaseCredentials
+    }
+}
+
+fragment DatabaseCredentials on DatabaseCredentials {
+    username
+    password
+}

@@ -59,7 +59,7 @@ func (s *PodControllerSuiteWithoutEventRecorder) SetupTest() {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	s.client.EXPECT().Scheme().Return(scheme).AnyTimes()
-	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, s.secretsManager,
+	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, nil, s.secretsManager,
 		serviceIdResolver, eventRecorder, s.ServiceAccountEnsurer, false)
 }
 
@@ -262,7 +262,7 @@ func (s *PodControllerSuiteWithEventRecorder) SetupTest() {
 	s.client.EXPECT().Scheme().Return(scheme).AnyTimes()
 	s.ServiceAccountEnsurer = mockserviceaccounts.NewMockServiceAccountEnsurer(s.controller)
 	s.ServiceAccountEnsurer.EXPECT().EnsureServiceAccount(gomock.Any(), gomock.Any()).AnyTimes()
-	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, s.secretsManager,
+	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, nil, s.secretsManager,
 		serviceIdResolver, s.eventRecorder, s.ServiceAccountEnsurer, false)
 }
 

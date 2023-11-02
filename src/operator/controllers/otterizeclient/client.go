@@ -44,6 +44,14 @@ func (c *CloudClient) RegisterK8SPod(ctx context.Context, namespace string, _ st
 	return res.RegisterKubernetesPodOwnerCertificateRequest.Id, nil
 }
 
+func (c *CloudClient) AcquireServiceDatabaseCredentials(ctx context.Context, serviceName, databaseName, namespace string) (*otterizegraphql.DatabaseCredentials, error) {
+	res, err := otterizegraphql.GetDatabaseCredentials(ctx, c.graphqlClient, databaseName, serviceName, namespace)
+	if err != nil {
+		return nil, err
+	}
+	return &res.ServiceDatabaseCredentials.DatabaseCredentials, nil
+}
+
 func (c *CloudClient) CleanupOrphanK8SPodEntries(ctx context.Context, _ string, existingServicesByNamespace map[string]*goset.Set[string]) error {
 	var namespacedPodOwners []otterizegraphql.NamespacedPodOwner
 	for namespace, podOwnerNames := range existingServicesByNamespace {

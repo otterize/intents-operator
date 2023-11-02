@@ -2,6 +2,10 @@ package metadata
 
 // User input annotations, to be used by users to specify tls certificates settings
 const (
+
+	// DBCredentialsDatabasePrefixAnnotation is the name of the database in which database credentials are stored
+	DBCredentialsDatabasePrefixAnnotation = "credentials-operator.otterize.com/database-credentials-for-"
+
 	// TLSSecretNameAnnotation is the name of the k8s secret in which the certificate data is stored
 	TLSSecretNameAnnotation           = "credentials-operator.otterize.com/tls-secret-name"
 	TLSSecretNameAnnotationDeprecated = "spire-integration.otterize.com/tls-secret-name"
