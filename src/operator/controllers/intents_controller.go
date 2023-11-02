@@ -176,6 +176,9 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	intents.Status.UpToDate = true
+	if err := r.client.Status().Update(ctx, intents); err != nil {
+		return ctrl.Result{}, err
+	}
 	return result, nil
 }
 
