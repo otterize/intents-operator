@@ -85,6 +85,7 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	serviceAccountName, found := pod.Annotations["credentials-operator.otterize.com/service-account-name"]
 
 	if !found {
+		// TODO: this should be a warning
 		return ctrl.Result{}, nil
 	}
 
