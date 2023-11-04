@@ -14,8 +14,6 @@ import (
 )
 
 func (a *Agent) AddRolePolicy(ctx context.Context, namespace, accountName, policyName string, statements []StatementEntry) error {
-	logger := logrus.WithField("account", accountName).WithField("namespace", namespace)
-
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
 
 	if err != nil {
@@ -23,51 +21,44 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace, accountName, polic
 	}
 
 	if !exists {
-		errorMessage := fmt.Sprintf("role not found: %s", generateRoleName(namespace, accountName))
-		logger.Error(errorMessage)
-		return errors.New(errorMessage)
+		// TODO: is this ok? perhaps we need to retry when the pod starts again with a pod
+		return fmt.Errorf("role not found: %s", generateRoleName(namespace, accountName))
 	}
 
 	policyArn := a.generatePolicyArn(namespace, policyName)
 
-	var policy *types.Policy
 	policyOutput, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
 		PolicyArn: aws.String(policyArn),
 	})
-
-	if err == nil {
-		// policy exists, update it
-		policy = policyOutput.Policy
-
-		err = a.updatePolicy(ctx, policy, statements)
-
-		if err != nil {
-			return err
-		}
-
-		err = a.attachPolicy(ctx, role, policy)
-
-		if err != nil {
-			return err
-		}
-	} else {
+	if err != nil {
 		if isNoSuchEntityException(err) {
 			_, err := a.createPolicy(ctx, role, namespace, policyName, statements)
 
-			if err != nil {
-				return err
-			}
-		} else {
 			return err
 		}
+
+		return err
+	}
+
+	// policy exists, update it
+	policy := policyOutput.Policy
+
+	err = a.updatePolicy(ctx, policy, statements)
+
+	if err != nil {
+		return err
+	}
+
+	err = a.attachPolicy(ctx, role, policy)
+
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
 func (a *Agent) DeleteRolePolicy(ctx context.Context, namespace, policyName string) error {
-	_ = logrus.WithField("namespace", namespace).WithField("policy", policyName)
-
 	output, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
 		PolicyArn: aws.String(a.generatePolicyArn(namespace, policyName)),
 	})
@@ -105,12 +96,12 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, namespace, policyName stri
 		return err
 	}
 
-	for _, v := range listPolicyVersionsOutput.Versions {
+	for _, version := range listPolicyVersionsOutput.Versions {
 		// default version is deleted with the policy
-		if !v.IsDefaultVersion {
+		if !version.IsDefaultVersion {
 			_, err = a.iamClient.DeletePolicyVersion(ctx, &iam.DeletePolicyVersionInput{
 				PolicyArn: policy.Arn,
-				VersionId: v.VersionId,
+				VersionId: version.VersionId,
 			})
 
 			if err != nil {
