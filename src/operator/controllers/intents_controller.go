@@ -160,7 +160,11 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	intents := &otterizev1alpha2.ClientIntents{}
+	intents := &otterizev1alpha2.ClientIntents{
+		Status: otterizev1alpha2.IntentsStatus{
+			UpToDate: false,
+		},
+	}
 
 	err = r.client.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
@@ -174,9 +178,12 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	logrus.Info("intents: ", intents)
 
 	intents.Status.UpToDate = true
+	logrus.Info("Ammar unerror ", intents.Status.UpToDate)
 	if err := r.client.Status().Update(ctx, intents); err != nil {
+		logrus.Info("Ammar error ", err)
 		return ctrl.Result{}, err
 	}
 	return result, nil
