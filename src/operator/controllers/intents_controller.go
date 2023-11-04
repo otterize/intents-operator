@@ -178,12 +178,9 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	logrus.Info("intents: ", intents)
 
 	intents.Status.UpToDate = true
-	logrus.Info("Ammar unerror ", intents.Status.UpToDate)
 	if err := r.client.Status().Update(ctx, intents); err != nil {
-		logrus.Info("Ammar error ", err)
 		return ctrl.Result{}, err
 	}
 	return result, nil
