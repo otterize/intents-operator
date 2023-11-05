@@ -75,8 +75,6 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	// TODO: now you have the client intents for this pod, now we need to do the logic that AWS reconciler does
-	// with client intents.
 
 	err = p.addOtterizePodLabels(ctx, req, serviceID, pod)
 	if err != nil {
@@ -200,7 +198,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 
 	if len(intents.Items) != 0 {
 		// Update access labels - which servers the client can access (current intents), and remove old access labels (deleted intents)
-		otterizeAccessLabels := map[string]string{}
+		otterizeAccessLabels := make(map[string]string)
 		for _, intent := range intents.Items {
 			currIntentLabels := intent.GetIntentsLabelMapping(pod.Namespace)
 			for k, v := range currIntentLabels {
@@ -275,7 +273,7 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 }
 
 func (p *PodWatcher) Register(mgr manager.Manager) error {
-	watcher, err := controller.New("otterize-pod-watcher", mgr, controller.Options{
+	watcher, err := controller.New("intents-operator", mgr, controller.Options{
 		Reconciler:   p,
 		RecoverPanic: lo.ToPtr(true),
 	})

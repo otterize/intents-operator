@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	"github.com/otterize/intents-operator/src/operator/controllers/aws_pod_reconciler"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
@@ -30,6 +32,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
+	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -106,6 +109,7 @@ func main() {
 		EnableIstioPolicy:                    viper.GetBool(operatorconfig.EnableIstioPolicyKey),
 		EnableDatabaseReconciler:             viper.GetBool(operatorconfig.EnableDatabaseReconciler),
 		EnableEgressNetworkPolicyReconcilers: viper.GetBool(operatorconfig.EnableEgressNetworkPolicyReconcilersKey),
+		EnableAWSPolicy:                      viper.GetBool(operatorconfig.EnableAWSPolicyKey),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev1alpha3.TLSSource{
@@ -118,11 +122,6 @@ func main() {
 	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
 	debugLogs := viper.GetBool(operatorconfig.DebugLogKey)
-
-	var awsIntentsAgent *awsagent.Agent = nil
-	if viper.GetBool(operatorconfig.AWSIntentsEnabledKey) {
-		awsIntentsAgent = awsagent.NewAWSAgent(context.Background(), oidcUrl)
-	}
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 	if debugLogs {
@@ -196,7 +195,17 @@ func main() {
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
 	networkPolicyHandler := ingress_network_policy.NewNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
 	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-
+	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
+	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
+		awsIntentsAgent := awsagent.NewAWSAgent(context.Background(), oidcUrl)
+		awsIntentsReconciler := intents_reconcilers.NewAWSIntentsReconciler(mgr.GetClient(), scheme, awsIntentsAgent, serviceidresolver.NewResolver(mgr.GetClient()))
+		additionalIntentsReconcilers = append(additionalIntentsReconcilers, awsIntentsReconciler)
+		awsPodWatcher := aws_pod_reconciler.NewAWSPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), awsIntentsReconciler)
+		err := awsPodWatcher.SetupWithManager(mgr)
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to register pod watcher")
+		}
+	}
 	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 	svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 
@@ -291,7 +300,7 @@ func main() {
 		otterizeCloudClient,
 		podName,
 		podNamespace,
-		awsIntentsAgent,
+		additionalIntentsReconcilers...,
 	)
 
 	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {

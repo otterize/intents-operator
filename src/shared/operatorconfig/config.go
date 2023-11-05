@@ -48,8 +48,8 @@ const (
 	DebugLogDefault                                                     = false
 	EnableEgressNetworkPolicyReconcilersKey                             = "exp-enable-egress-network-policies" // Experimental - enable the generation of egress network policies alongside ingress network policies
 	EnableEgressNetworkPolicyReconcilersDefault                         = false
-	AWSIntentsEnabledKey                                                = "aws-intents-enabled"
-	AWSIntentsEnabledDefault                                            = false
+	EnableAWSPolicyKey                                                  = "enable-aws-iam-policy"
+	EnableAWSPolicyDefault                                              = false
 	ClusterOIDCProviderUrlKey                                           = "oidc-url"
 )
 
@@ -65,7 +65,7 @@ func init() {
 	viper.SetDefault(EnableIstioPolicyKey, EnableIstioPolicyDefault)
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
 	viper.SetDefault(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault)
-	viper.SetDefault(AWSIntentsEnabledKey, AWSIntentsEnabledDefault)
+	viper.SetDefault(EnableAWSPolicyKey, EnableAWSPolicyDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
@@ -92,7 +92,7 @@ func InitCLIFlags() {
 	pflag.Bool(EnableDatabaseReconciler, EnableDatabaseReconcilerDefault, "Enable the database reconciler")
 	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
 	pflag.Duration(RetryDelayTimeKey, RetryDelayTimeDefault, "Default retry delay time for retrying failed requests")
-	pflag.Bool(AWSIntentsEnabledKey, AWSIntentsEnabledDefault, "Enable the AWS IAM reconciler")
+	pflag.Bool(EnableAWSPolicyKey, EnableAWSPolicyDefault, "Enable the AWS IAM reconciler")
 	pflag.Bool(DebugLogKey, DebugLogDefault, "Enable debug logging")
 
 	runtime.Must(viper.BindPFlags(pflag.CommandLine))

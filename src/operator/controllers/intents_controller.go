@@ -28,7 +28,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
-	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/initonce"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -64,6 +63,7 @@ type EnforcementConfig struct {
 	EnableIstioPolicy                    bool
 	EnableDatabaseReconciler             bool
 	EnableEgressNetworkPolicyReconcilers bool
+	EnableAWSPolicy                      bool
 }
 
 // IntentsReconciler reconciles a Intents object
@@ -87,10 +87,18 @@ func NewIntentsReconciler(
 	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string,
-	awsAgent *awsagent.Agent,
+	additionalReconcilers ...reconcilergroup.ReconcilerWithEvents,
 ) *IntentsReconciler {
 
 	serviceIdResolver := serviceidresolver.NewResolver(client)
+	reconcilers := []reconcilergroup.ReconcilerWithEvents{
+		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
+		intents_reconcilers.NewPodLabelReconciler(client, scheme),
+		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
+		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
+		networkPolicyReconciler,
+	}
+	reconcilers = append(reconcilers, additionalReconcilers...)
 	reconcilersGroup := reconcilergroup.NewGroup(
 		"intents-reconciler",
 		client,
@@ -98,12 +106,7 @@ func NewIntentsReconciler(
 		&otterizev1alpha3.ClientIntents{},
 		otterizev1alpha3.ClientIntentsFinalizerName,
 		intentsLegacyFinalizers,
-		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
-		intents_reconcilers.NewPodLabelReconciler(client, scheme),
-		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
-		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
-		intents_reconcilers.NewAWSIntentsReconciler(client, scheme, awsAgent, serviceIdResolver),
-		networkPolicyReconciler,
+		reconcilers...,
 	)
 
 	reconcilersGroup.AddToGroup(portNetpolReconciler)

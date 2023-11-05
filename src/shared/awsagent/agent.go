@@ -18,7 +18,7 @@ type Agent struct {
 
 func NewAWSAgent(
 	ctx context.Context,
-	oidcUrl string,
+	oidcUrl string, // TODO: use eks.DescribeCluster to get the OIDC URL.
 ) *Agent {
 	logrus.Info("AWS Intents agent - enabled")
 
