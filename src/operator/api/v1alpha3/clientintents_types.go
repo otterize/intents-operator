@@ -222,9 +222,12 @@ func (in *ClientIntents) GetFilteredCallsList(intentTypes ...IntentType) []Inten
 }
 
 func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
-	otterizeAccessLabels := map[string]string{}
+	otterizeAccessLabels := make(map[string]string)
 
-	for _, intent := range in.GetFilteredCallsList(IntentTypeHTTP, IntentTypeKafka) {
+	for _, intent := range in.GetCallsList() {
+		if intent.Type == IntentTypeAWS || intent.Type == IntentTypeDatabase {
+			continue
+		}
 		ns := intent.GetTargetServerNamespace(requestNamespace)
 		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), ns)
 		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)
