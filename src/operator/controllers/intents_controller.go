@@ -160,11 +160,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	intents := &otterizev1alpha2.ClientIntents{
-		Status: otterizev1alpha2.IntentsStatus{
-			UpToDate: false,
-		},
-	}
+	intents := &otterizev1alpha3.ClientIntents{}
 
 	err = r.client.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
