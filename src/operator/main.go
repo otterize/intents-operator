@@ -113,14 +113,14 @@ func main() {
 		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
 		RootCAFile: viper.GetString(operatorconfig.KafkaServerTLSCAKey),
 	}
-	oidcUrl := viper.GetString(awsagent.ClusterOIDCProviderUrlKey)
+	oidcUrl := viper.GetString(operatorconfig.ClusterOIDCProviderUrlKey)
 
 	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
 	debugLogs := viper.GetBool(operatorconfig.DebugLogKey)
 
 	var awsIntentsAgent *awsagent.Agent = nil
-	if viper.GetBool(awsagent.AWSIntentsEnabledKey) {
+	if viper.GetBool(operatorconfig.AWSIntentsEnabledKey) {
 		awsIntentsAgent = awsagent.NewAWSAgent(context.Background(), oidcUrl)
 	}
 
@@ -128,8 +128,6 @@ func main() {
 	if debugLogs {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
-
-	var err error
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
