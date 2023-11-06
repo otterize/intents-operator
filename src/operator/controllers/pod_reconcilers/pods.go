@@ -196,7 +196,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		}
 		if otterizev1alpha3.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
 			logrus.Infof("Updating Otterize access labels for %s", serviceID.Name)
-			updatedPod = otterizev1alpha3.UpdateOtterizeAccessLabels(updatedPod.DeepCopy(), otterizeAccessLabels)
+			updatedPod = otterizev1alpha3.UpdateOtterizeAccessLabels(updatedPod.DeepCopy(), serviceID.Name, otterizeAccessLabels)
 			hasUpdates = true
 		}
 	}
