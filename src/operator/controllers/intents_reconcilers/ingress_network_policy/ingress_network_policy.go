@@ -207,7 +207,10 @@ func (r *NetworkPolicyReconciler) reconcileEndpointsForPolicy(ctx context.Contex
 func (r *NetworkPolicyReconciler) cleanPolicies(
 	ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
 	logrus.Infof("Removing network policies for deleted intents for service: %s", intents.Spec.Service.Name)
-	for _, intent := range intents.GetFilteredCallsList(otterizev1alpha3.IntentTypeHTTP, otterizev1alpha3.IntentTypeKafka) {
+	for _, intent := range intents.GetCallsList() {
+		if intent.Type != "" && intent.Type != otterizev1alpha3.IntentTypeHTTP && intent.Type != otterizev1alpha3.IntentTypeKafka {
+			continue
+		}
 		err := r.handleIntentRemoval(ctx, intent, intents.Namespace)
 		if err != nil {
 			return err
