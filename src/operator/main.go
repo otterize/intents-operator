@@ -183,11 +183,6 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create kubernetes API client")
 	}
 
-	err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace)
-	if err != nil {
-		logrus.WithError(err).Fatal("unable to ensure otterize CRDs")
-	}
-
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
@@ -246,6 +241,12 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Fatal("failed writing certs to file system")
 		}
+
+		err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace)
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to ensure otterize CRDs")
+		}
+
 		err = webhooks.UpdateValidationWebHookCA(context.Background(),
 			"otterize-validating-webhook-configuration", certBundle.CertPem)
 		if err != nil {
