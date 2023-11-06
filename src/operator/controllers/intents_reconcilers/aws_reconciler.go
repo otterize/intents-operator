@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -40,10 +41,17 @@ func NewAWSIntentsReconciler(
 func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	logger := logrus.WithField("namespace", req.Namespace).WithField("name", req.Name)
 
-	intents := &otterizev1alpha3.ClientIntents{}
-	err := r.Get(ctx, req.NamespacedName, intents)
+	intents := otterizev1alpha3.ClientIntents{}
+	err := r.Get(ctx, req.NamespacedName, &intents)
 
-	if k8serrors.IsNotFound(err) {
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	if intents.DeletionTimestamp != nil {
 		logger.Infof("Intents deleted")
 
 		err := r.awsAgent.DeleteRolePolicy(ctx, req.Namespace, req.Name)
@@ -53,10 +61,6 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		}
 
 		return ctrl.Result{}, nil
-	}
-
-	if err != nil {
-		return ctrl.Result{}, err
 	}
 
 	if intents.Spec == nil {
@@ -69,9 +73,15 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		return ctrl.Result{}, nil
 	}
 
-	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, *intents)
+	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, intents)
 	if err != nil {
 		if errors.Is(err, serviceidresolver.ErrPodNotFound) {
+			r.RecordWarningEventf(
+				&intents,
+				consts.ReasonPodsNotFound,
+				"Could not find non-terminating pods for service %s in namespace %s. Intents could not be reconciled now, but will be reconciled if pods apear later.",
+				intents.Spec.Service.Name,
+				intents.Namespace)
 			// TODO: fix pod watcher logic to handle this case when pod starts later
 			return ctrl.Result{}, nil
 		}
@@ -85,7 +95,7 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	serviceAccountName, found := pod.Annotations["credentials-operator.otterize.com/service-account-name"]
 
 	if !found {
-		// TODO: this should be a warning
+		r.RecordWarningEventf(&intents, consts.ReasonAWSIntentsFoundButNoServiceAccount, "Found AWS intents, but no service account annotation specified for this pod ('%s').", pod.Name)
 		return ctrl.Result{}, nil
 	}
 

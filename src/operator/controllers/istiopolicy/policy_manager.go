@@ -317,6 +317,9 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 	updatedPolicies := goset.NewSet[PolicyID]()
 	createdAnyPolicies := false
 	for _, intent := range clientIntents.GetCallsList() {
+		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP {
+			continue
+		}
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
 			ctx, c.client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState)
 		if err != nil {

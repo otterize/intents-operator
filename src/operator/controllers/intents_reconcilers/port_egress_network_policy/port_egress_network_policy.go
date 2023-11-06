@@ -82,6 +82,9 @@ func (r *PortEgressNetworkPolicyReconciler) Reconcile(ctx context.Context, req c
 
 	createdNetpols := 0
 	for _, intent := range intents.GetCallsList() {
+		if intent.Type != "" && intent.Type != otterizev1alpha3.IntentTypeHTTP && intent.Type != otterizev1alpha3.IntentTypeKafka {
+			continue
+		}
 		if !intent.IsTargetServerKubernetesService() {
 			continue
 		}
