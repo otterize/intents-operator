@@ -1,16 +1,18 @@
-package controllers
+package serviceaccount
 
 import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
 type ServiceAccountReconciler struct {
@@ -29,6 +31,7 @@ func NewServiceAccountReconciler(client client.Client, scheme *runtime.Scheme, a
 
 func (r *ServiceAccountReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		For(&corev1.ServiceAccount{}).
 		Complete(r)
 }

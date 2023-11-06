@@ -1,4 +1,4 @@
-package controllers
+package tls_pod
 
 import (
 	"context"
@@ -59,8 +59,8 @@ func (s *PodControllerSuiteWithoutEventRecorder) SetupTest() {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	s.client.EXPECT().Scheme().Return(scheme).AnyTimes()
-	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, nil, s.secretsManager,
-		serviceIdResolver, eventRecorder, s.ServiceAccountEnsurer, false)
+	s.podReconciler = NewCertificatePodReconciler(s.client, nil, s.entriesRegistry, s.secretsManager,
+		serviceIdResolver, eventRecorder, false)
 }
 
 type ObjectNameMatcher struct {
@@ -262,8 +262,8 @@ func (s *PodControllerSuiteWithEventRecorder) SetupTest() {
 	s.client.EXPECT().Scheme().Return(scheme).AnyTimes()
 	s.ServiceAccountEnsurer = mockserviceaccounts.NewMockServiceAccountEnsurer(s.controller)
 	s.ServiceAccountEnsurer.EXPECT().EnsureServiceAccount(gomock.Any(), gomock.Any()).AnyTimes()
-	s.podReconciler = NewPodReconciler(s.client, nil, s.entriesRegistry, nil, s.secretsManager,
-		serviceIdResolver, s.eventRecorder, s.ServiceAccountEnsurer, false)
+	s.podReconciler = NewCertificatePodReconciler(s.client, nil, s.entriesRegistry, s.secretsManager,
+		serviceIdResolver, s.eventRecorder, false)
 }
 
 func (s *PodControllerSuiteWithEventRecorder) TestController_Reconcile_DeprecatedAnnotations() {

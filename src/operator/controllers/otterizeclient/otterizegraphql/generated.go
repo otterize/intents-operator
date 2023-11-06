@@ -28,90 +28,6 @@ const (
 	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
 )
 
-// DatabaseCredentials includes the GraphQL fields of DatabaseCredentials requested by the fragment DatabaseCredentials.
-type DatabaseCredentials struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-// GetUsername returns DatabaseCredentials.Username, and is useful for accessing the field via an interface.
-func (v *DatabaseCredentials) GetUsername() string { return v.Username }
-
-// GetPassword returns DatabaseCredentials.Password, and is useful for accessing the field via an interface.
-func (v *DatabaseCredentials) GetPassword() string { return v.Password }
-
-// GetDatabaseCredentialsResponse is returned by GetDatabaseCredentials on success.
-type GetDatabaseCredentialsResponse struct {
-	ServiceDatabaseCredentials GetDatabaseCredentialsServiceDatabaseCredentials `json:"serviceDatabaseCredentials"`
-}
-
-// GetServiceDatabaseCredentials returns GetDatabaseCredentialsResponse.ServiceDatabaseCredentials, and is useful for accessing the field via an interface.
-func (v *GetDatabaseCredentialsResponse) GetServiceDatabaseCredentials() GetDatabaseCredentialsServiceDatabaseCredentials {
-	return v.ServiceDatabaseCredentials
-}
-
-// GetDatabaseCredentialsServiceDatabaseCredentials includes the requested fields of the GraphQL type DatabaseCredentials.
-type GetDatabaseCredentialsServiceDatabaseCredentials struct {
-	DatabaseCredentials `json:"-"`
-}
-
-// GetUsername returns GetDatabaseCredentialsServiceDatabaseCredentials.Username, and is useful for accessing the field via an interface.
-func (v *GetDatabaseCredentialsServiceDatabaseCredentials) GetUsername() string {
-	return v.DatabaseCredentials.Username
-}
-
-// GetPassword returns GetDatabaseCredentialsServiceDatabaseCredentials.Password, and is useful for accessing the field via an interface.
-func (v *GetDatabaseCredentialsServiceDatabaseCredentials) GetPassword() string {
-	return v.DatabaseCredentials.Password
-}
-
-func (v *GetDatabaseCredentialsServiceDatabaseCredentials) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*GetDatabaseCredentialsServiceDatabaseCredentials
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.GetDatabaseCredentialsServiceDatabaseCredentials = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.DatabaseCredentials)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalGetDatabaseCredentialsServiceDatabaseCredentials struct {
-	Username string `json:"username"`
-
-	Password string `json:"password"`
-}
-
-func (v *GetDatabaseCredentialsServiceDatabaseCredentials) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *GetDatabaseCredentialsServiceDatabaseCredentials) __premarshalJSON() (*__premarshalGetDatabaseCredentialsServiceDatabaseCredentials, error) {
-	var retval __premarshalGetDatabaseCredentialsServiceDatabaseCredentials
-
-	retval.Username = v.DatabaseCredentials.Username
-	retval.Password = v.DatabaseCredentials.Password
-	return &retval, nil
-}
-
 // GetTLSKeyPairResponse is returned by GetTLSKeyPair on success.
 type GetTLSKeyPairResponse struct {
 	// Get service
@@ -205,6 +121,78 @@ func (v *GetTLSKeyPairServiceTlsKeyPair) __premarshalJSON() (*__premarshalGetTLS
 	return &retval, nil
 }
 
+// GetUserAndPasswordCredentialsResponse is returned by GetUserAndPasswordCredentials on success.
+type GetUserAndPasswordCredentialsResponse struct {
+	ServiceUserAndPassword GetUserAndPasswordCredentialsServiceUserAndPassword `json:"serviceUserAndPassword"`
+}
+
+// GetServiceUserAndPassword returns GetUserAndPasswordCredentialsResponse.ServiceUserAndPassword, and is useful for accessing the field via an interface.
+func (v *GetUserAndPasswordCredentialsResponse) GetServiceUserAndPassword() GetUserAndPasswordCredentialsServiceUserAndPassword {
+	return v.ServiceUserAndPassword
+}
+
+// GetUserAndPasswordCredentialsServiceUserAndPassword includes the requested fields of the GraphQL type UserAndPassword.
+type GetUserAndPasswordCredentialsServiceUserAndPassword struct {
+	UserPasswordCredentials `json:"-"`
+}
+
+// GetUsername returns GetUserAndPasswordCredentialsServiceUserAndPassword.Username, and is useful for accessing the field via an interface.
+func (v *GetUserAndPasswordCredentialsServiceUserAndPassword) GetUsername() string {
+	return v.UserPasswordCredentials.Username
+}
+
+// GetPassword returns GetUserAndPasswordCredentialsServiceUserAndPassword.Password, and is useful for accessing the field via an interface.
+func (v *GetUserAndPasswordCredentialsServiceUserAndPassword) GetPassword() string {
+	return v.UserPasswordCredentials.Password
+}
+
+func (v *GetUserAndPasswordCredentialsServiceUserAndPassword) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetUserAndPasswordCredentialsServiceUserAndPassword
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetUserAndPasswordCredentialsServiceUserAndPassword = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserPasswordCredentials)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetUserAndPasswordCredentialsServiceUserAndPassword struct {
+	Username string `json:"username"`
+
+	Password string `json:"password"`
+}
+
+func (v *GetUserAndPasswordCredentialsServiceUserAndPassword) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetUserAndPasswordCredentialsServiceUserAndPassword) __premarshalJSON() (*__premarshalGetUserAndPasswordCredentialsServiceUserAndPassword, error) {
+	var retval __premarshalGetUserAndPasswordCredentialsServiceUserAndPassword
+
+	retval.Username = v.UserPasswordCredentials.Username
+	retval.Password = v.UserPasswordCredentials.Password
+	return &retval, nil
+}
+
 type NamespacedPodOwner struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
@@ -283,21 +271,17 @@ func (v *TLSKeyPair) GetRootCAPEM() string { return v.RootCAPEM }
 // GetExpiresAt returns TLSKeyPair.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *TLSKeyPair) GetExpiresAt() int { return v.ExpiresAt }
 
-// __GetDatabaseCredentialsInput is used internally by genqlient
-type __GetDatabaseCredentialsInput struct {
-	DbName      string `json:"dbName"`
-	ServiceName string `json:"serviceName"`
-	Namespace   string `json:"namespace"`
+// UserPasswordCredentials includes the GraphQL fields of UserAndPassword requested by the fragment UserPasswordCredentials.
+type UserPasswordCredentials struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
-// GetDbName returns __GetDatabaseCredentialsInput.DbName, and is useful for accessing the field via an interface.
-func (v *__GetDatabaseCredentialsInput) GetDbName() string { return v.DbName }
+// GetUsername returns UserPasswordCredentials.Username, and is useful for accessing the field via an interface.
+func (v *UserPasswordCredentials) GetUsername() string { return v.Username }
 
-// GetServiceName returns __GetDatabaseCredentialsInput.ServiceName, and is useful for accessing the field via an interface.
-func (v *__GetDatabaseCredentialsInput) GetServiceName() string { return v.ServiceName }
-
-// GetNamespace returns __GetDatabaseCredentialsInput.Namespace, and is useful for accessing the field via an interface.
-func (v *__GetDatabaseCredentialsInput) GetNamespace() string { return v.Namespace }
+// GetPassword returns UserPasswordCredentials.Password, and is useful for accessing the field via an interface.
+func (v *UserPasswordCredentials) GetPassword() string { return v.Password }
 
 // __GetTLSKeyPairInput is used internally by genqlient
 type __GetTLSKeyPairInput struct {
@@ -306,6 +290,18 @@ type __GetTLSKeyPairInput struct {
 
 // GetId returns __GetTLSKeyPairInput.Id, and is useful for accessing the field via an interface.
 func (v *__GetTLSKeyPairInput) GetId() *string { return v.Id }
+
+// __GetUserAndPasswordCredentialsInput is used internally by genqlient
+type __GetUserAndPasswordCredentialsInput struct {
+	ServiceName string `json:"serviceName"`
+	Namespace   string `json:"namespace"`
+}
+
+// GetServiceName returns __GetUserAndPasswordCredentialsInput.ServiceName, and is useful for accessing the field via an interface.
+func (v *__GetUserAndPasswordCredentialsInput) GetServiceName() string { return v.ServiceName }
+
+// GetNamespace returns __GetUserAndPasswordCredentialsInput.Namespace, and is useful for accessing the field via an interface.
+func (v *__GetUserAndPasswordCredentialsInput) GetNamespace() string { return v.Namespace }
 
 // __RegisterKubernetesPodOwnerCertificateRequestInput is used internally by genqlient
 type __RegisterKubernetesPodOwnerCertificateRequestInput struct {
@@ -347,52 +343,8 @@ type __ReportComponentStatusInput struct {
 // GetComponent returns __ReportComponentStatusInput.Component, and is useful for accessing the field via an interface.
 func (v *__ReportComponentStatusInput) GetComponent() ComponentType { return v.Component }
 
-// The query or mutation executed by GetDatabaseCredentials.
-const GetDatabaseCredentials_Operation = `
-query GetDatabaseCredentials ($dbName: String!, $serviceName: String!, $namespace: String!) {
-	serviceDatabaseCredentials(databaseName: $dbName, namespace: $namespace, service: $serviceName) {
-		... DatabaseCredentials
-	}
-}
-fragment DatabaseCredentials on DatabaseCredentials {
-	username
-	password
-}
-`
-
-func GetDatabaseCredentials(
-	ctx context.Context,
-	client graphql.Client,
-	dbName string,
-	serviceName string,
-	namespace string,
-) (*GetDatabaseCredentialsResponse, error) {
-	req := &graphql.Request{
-		OpName: "GetDatabaseCredentials",
-		Query:  GetDatabaseCredentials_Operation,
-		Variables: &__GetDatabaseCredentialsInput{
-			DbName:      dbName,
-			ServiceName: serviceName,
-			Namespace:   namespace,
-		},
-	}
-	var err error
-
-	var data GetDatabaseCredentialsResponse
-	resp := &graphql.Response{Data: &data}
-
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
-	)
-
-	return &data, err
-}
-
 // The query or mutation executed by GetTLSKeyPair.
 const GetTLSKeyPair_Operation = `
-# @genqlient(pointer: true)
 query GetTLSKeyPair ($id: ID!) {
 	service(id: $id) {
 		tlsKeyPair {
@@ -424,6 +376,47 @@ func GetTLSKeyPair(
 	var err error
 
 	var data GetTLSKeyPairResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+// The query or mutation executed by GetUserAndPasswordCredentials.
+const GetUserAndPasswordCredentials_Operation = `
+query GetUserAndPasswordCredentials ($serviceName: String!, $namespace: String!) {
+	serviceUserAndPassword(namespace: $namespace, service: $serviceName) {
+		... UserPasswordCredentials
+	}
+}
+fragment UserPasswordCredentials on UserAndPassword {
+	username
+	password
+}
+`
+
+func GetUserAndPasswordCredentials(
+	ctx context.Context,
+	client graphql.Client,
+	serviceName string,
+	namespace string,
+) (*GetUserAndPasswordCredentialsResponse, error) {
+	req := &graphql.Request{
+		OpName: "GetUserAndPasswordCredentials",
+		Query:  GetUserAndPasswordCredentials_Operation,
+		Variables: &__GetUserAndPasswordCredentialsInput{
+			ServiceName: serviceName,
+			Namespace:   namespace,
+		},
+	}
+	var err error
+
+	var data GetUserAndPasswordCredentialsResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

@@ -2,7 +2,6 @@ package otterizeclient
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/Khan/genqlient/graphql"
 	"github.com/amit7itz/goset"
@@ -17,15 +16,17 @@ type CloudClient struct {
 	injectablerecorder.InjectableRecorder
 }
 
-func NewCloudClient(ctx context.Context) (*CloudClient, error) {
+func NewCloudClient(ctx context.Context) (*CloudClient, bool, error) {
 	client, ok, err := otterizecloudclient.NewClient(ctx)
 	if err != nil {
-		return nil, err
-	} else if !ok {
-		return nil, errors.New("missing cloud client credentials")
+		return nil, false, err
 	}
 
-	return &CloudClient{graphqlClient: client}, err
+	if !ok {
+		return nil, false, nil
+	}
+
+	return &CloudClient{graphqlClient: client}, true, err
 }
 func (c *CloudClient) GetTLSKeyPair(ctx context.Context, serviceId string) (otterizegraphql.TLSKeyPair, error) {
 	res, err := otterizegraphql.GetTLSKeyPair(ctx, c.graphqlClient, &serviceId)
@@ -44,12 +45,12 @@ func (c *CloudClient) RegisterK8SPod(ctx context.Context, namespace string, _ st
 	return res.RegisterKubernetesPodOwnerCertificateRequest.Id, nil
 }
 
-func (c *CloudClient) AcquireServiceDatabaseCredentials(ctx context.Context, serviceName, databaseName, namespace string) (*otterizegraphql.DatabaseCredentials, error) {
-	res, err := otterizegraphql.GetDatabaseCredentials(ctx, c.graphqlClient, databaseName, serviceName, namespace)
+func (c *CloudClient) AcquireServiceUserAndPassword(ctx context.Context, serviceName, namespace string) (*otterizegraphql.UserPasswordCredentials, error) {
+	res, err := otterizegraphql.GetUserAndPasswordCredentials(ctx, c.graphqlClient, serviceName, namespace)
 	if err != nil {
 		return nil, err
 	}
-	return &res.ServiceDatabaseCredentials.DatabaseCredentials, nil
+	return &res.ServiceUserAndPassword.UserPasswordCredentials, nil
 }
 
 func (c *CloudClient) CleanupOrphanK8SPodEntries(ctx context.Context, _ string, existingServicesByNamespace map[string]*goset.Set[string]) error {

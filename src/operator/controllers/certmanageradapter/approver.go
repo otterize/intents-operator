@@ -8,9 +8,11 @@ import (
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	utilpki "github.com/cert-manager/cert-manager/pkg/util/pki"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -33,6 +35,7 @@ func NewCertificateApprover(issuerRef cmmeta.ObjectReference, client client.Clie
 
 func (a *CertificateApprover) Register(ctx context.Context, mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
+		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		For(new(cmapi.CertificateRequest)).
 		Complete(a)
 }

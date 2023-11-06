@@ -30,13 +30,13 @@ mutation ReportActiveCertificateRequesters($existingPodOwners: [NamespacedPodOwn
     reportActiveCertificateRequesters(activePodOwners: $existingPodOwners)
 }
 
-query GetDatabaseCredentials($dbName: String!, $serviceName: String!, $namespace: String!) {
-    serviceDatabaseCredentials(databaseName: $dbName, namespace: $namespace, service: $serviceName) {
-        ...DatabaseCredentials
+query GetUserAndPasswordCredentials($serviceName: String!, $namespace: String!) {
+    serviceUserAndPassword(namespace: $namespace, service: $serviceName) {
+        ...UserPasswordCredentials
     }
 }
 
-fragment DatabaseCredentials on DatabaseCredentials {
+fragment UserPasswordCredentials on UserAndPassword {
     username
     password
 }
