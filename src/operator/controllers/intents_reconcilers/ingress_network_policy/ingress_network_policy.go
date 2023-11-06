@@ -91,7 +91,10 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	createdNetpols := 0
-	for _, intent := range intents.GetFilteredCallsList(otterizev1alpha3.IntentTypeHTTP, otterizev1alpha3.IntentTypeKafka) {
+	for _, intent := range intents.GetCallsList() {
+		if intent.Type != "" && intent.Type != otterizev1alpha3.IntentTypeHTTP && intent.Type != otterizev1alpha3.IntentTypeKafka {
+			continue
+		}
 		if intent.IsTargetServerKubernetesService() {
 			continue
 		}
