@@ -22,8 +22,8 @@ func IsMissingOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]
 }
 
 // UpdateOtterizeAccessLabels updates a pod's labels with Otterize labels representing their intents
-// The pod is also labeled with "otterize-client=true" to mark it as having intents
-func UpdateOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) *v1.Pod {
+// The pod is also labeled with "otterize-client=<hashed-client-name>" to mark it as having intents or being the client-side of an egress netpol
+func UpdateOtterizeAccessLabels(pod *v1.Pod, serviceName string, otterizeAccessLabels map[string]string) *v1.Pod {
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
 	}
@@ -31,7 +31,7 @@ func UpdateOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]str
 	for k, v := range otterizeAccessLabels {
 		pod.Labels[k] = v
 	}
-	pod.Labels[OtterizeClientLabelKey] = "true"
+	pod.Labels[OtterizeClientLabelKey] = GetFormattedOtterizeIdentity(serviceName, pod.Namespace)
 	return pod
 }
 
