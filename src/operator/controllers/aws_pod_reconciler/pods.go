@@ -42,11 +42,14 @@ func NewAWSPodReconciler(c client.Client, eventRecorder record.EventRecorder, aw
 }
 
 func (p *AWSPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Infof("Reconciling due to pod change: %s", req.Name)
+	logger := logrus.WithField("namespace", req.Namespace).WithField("name", req.Name)
+	logger.Infof("Reconciling due to pod change")
+
 	pod := v1.Pod{}
 	err := p.Get(ctx, req.NamespacedName, &pod)
+
 	if k8serrors.IsNotFound(err) {
-		logrus.Infoln("Pod was deleted")
+		logger.Infoln("Pod was deleted")
 		return ctrl.Result{}, nil
 	}
 
