@@ -131,6 +131,8 @@ const (
 	IntentTypeHttp     IntentType = "HTTP"
 	IntentTypeKafka    IntentType = "KAFKA"
 	IntentTypeDatabase IntentType = "DATABASE"
+	IntentTypeAws      IntentType = "AWS"
+	IntentTypeS3       IntentType = "S3"
 )
 
 type IntentsOperatorConfigurationInput struct {

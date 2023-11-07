@@ -71,7 +71,7 @@ func isOtterizeKubernetesServiceLabel(s string) bool {
 }
 
 func GetOtterizeLabelsFromPod(pod *v1.Pod) map[string]string {
-	otterizeLabels := map[string]string{}
+	otterizeLabels := make(map[string]string)
 	for k, v := range pod.Labels {
 		if isOtterizeAccessLabel(k) {
 			otterizeLabels[k] = v

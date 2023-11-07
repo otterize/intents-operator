@@ -36,6 +36,7 @@ func (s *IntentsControllerTestSuite) SetupTest() {
 		nil,
 		"",
 		"",
+		nil,
 	)
 }
 

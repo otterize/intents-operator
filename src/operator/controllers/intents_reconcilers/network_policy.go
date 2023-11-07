@@ -89,9 +89,13 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	createdNetpols := 0
 	for _, intent := range intents.GetCallsList() {
+		if intent.Type != "" && intent.Type != otterizev1alpha3.IntentTypeHTTP && intent.Type != otterizev1alpha3.IntentTypeKafka {
+			continue
+		}
 		if intent.IsTargetServerKubernetesService() {
 			continue
 		}
+
 		targetNamespace := intent.GetTargetServerNamespace(req.Namespace)
 		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, targetNamespace) {
 			// Namespace is not in list of namespaces we're allowed to act in, so drop it.

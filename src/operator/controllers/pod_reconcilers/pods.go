@@ -65,6 +65,17 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
+	// If a new pod starts, check if we need to do something for it.
+	var intents otterizev1alpha3.ClientIntentsList
+	err = p.List(
+		ctx,
+		&intents,
+		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
+		&client.ListOptions{Namespace: pod.Namespace})
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	err = p.addOtterizePodLabels(ctx, req, serviceID, pod)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -187,7 +198,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 
 	if len(intents.Items) != 0 {
 		// Update access labels - which servers the client can access (current intents), and remove old access labels (deleted intents)
-		otterizeAccessLabels := map[string]string{}
+		otterizeAccessLabels := make(map[string]string)
 		for _, intent := range intents.Items {
 			currIntentLabels := intent.GetIntentsLabelMapping(pod.Namespace)
 			for k, v := range currIntentLabels {
@@ -262,7 +273,7 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 }
 
 func (p *PodWatcher) Register(mgr manager.Manager) error {
-	watcher, err := controller.New("otterize-pod-watcher", mgr, controller.Options{
+	watcher, err := controller.New("intents-operator", mgr, controller.Options{
 		Reconciler:   p,
 		RecoverPanic: lo.ToPtr(true),
 	})
