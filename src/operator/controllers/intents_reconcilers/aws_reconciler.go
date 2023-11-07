@@ -79,7 +79,7 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 			r.RecordWarningEventf(
 				&intents,
 				consts.ReasonPodsNotFound,
-				"Could not find non-terminating pods for service %s in namespace %s. Intents could not be reconciled now, but will be reconciled if pods apear later.",
+				"Could not find non-terminating pods for service %s in namespace %s. Intents could not be reconciled now, but will be reconciled if pods appear later.",
 				intents.Spec.Service.Name,
 				intents.Namespace)
 			// TODO: fix pod watcher logic to handle this case when pod starts later
