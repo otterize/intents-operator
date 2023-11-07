@@ -67,7 +67,7 @@ func (p *AWSPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	err = p.List(
 		ctx,
 		&intents,
-		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
+		client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
 		&client.ListOptions{Namespace: pod.Namespace})
 	if err != nil {
 		return ctrl.Result{}, err
