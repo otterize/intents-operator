@@ -388,7 +388,7 @@ type Intent {
 	kafkaTopics: [KafkaConfig!]
 	httpResources: [HTTPConfig!]
 	databaseResources: [DatabaseConfig!]
-	AWSActions: [String!]
+	awsActions: [String!]
 	status: IntentStatus
 }
 
@@ -401,7 +401,7 @@ input IntentInput {
 	topics: [KafkaConfigInput!]
 	resources: [HTTPConfigInput!]
 	databaseResources: [DatabaseConfigInput!]
-	AWSActions: [String!]
+	awsActions: [String!]
 	status: IntentStatusInput
 }
 
