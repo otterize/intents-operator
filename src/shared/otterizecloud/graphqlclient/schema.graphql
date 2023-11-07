@@ -120,10 +120,10 @@ type CertificateInformation {
 }
 
 enum CertificateProvider {
-	Spire
-	CertManager
-	Cloud
-	None
+	SPIRE
+	CERT_MANAGER
+	CLOUD
+	NONE
 }
 
 type Client {
@@ -223,11 +223,6 @@ type DatabaseConfig {
 input DatabaseConfigInput {
 	table: String!
 	operations: [DatabaseOperation!]!
-}
-
-type DatabaseCredentials {
-	username: String!
-	password: String!
 }
 
 input DatabaseCredentialsInput {
@@ -393,6 +388,7 @@ type Intent {
 	kafkaTopics: [KafkaConfig!]
 	httpResources: [HTTPConfig!]
 	databaseResources: [DatabaseConfig!]
+	AWSActions: [String!]
 	status: IntentStatus
 }
 
@@ -405,6 +401,7 @@ input IntentInput {
 	topics: [KafkaConfigInput!]
 	resources: [HTTPConfigInput!]
 	databaseResources: [DatabaseConfigInput!]
+	AWSActions: [String!]
 	status: IntentStatusInput
 }
 
@@ -624,9 +621,6 @@ type Mutation {
 		name: String
 		configuration: ClusterConfigurationInput
 	): Cluster!
-	initializeOrganizationCAs(
-		organizationId: ID!
-	): Boolean!
 """Create a new environment"""
 	createEnvironment(
 		name: String!
@@ -669,10 +663,17 @@ type Mutation {
 		environmentId: ID
 		clusterId: ID!
 	): Integration
-"""Create a new Kubernetes integration"""
+"""Create a new AWS integration"""
 	createAWSIntegration(
 		name: String!
 		awsIntegration: AWSInfoInput!
+	): Integration
+"""Update AWS integration"""
+	updateAWSIntegration(
+		id: ID!
+		name: String
+		environmentId: ID
+		awsIntegration: AWSInfoInput
 	): Integration
 """Update Generic integration"""
 	updateGenericIntegration(
@@ -816,11 +817,10 @@ type Query {
 	oneCluster(
 		name: String!
 	): Cluster
-	serviceDatabaseCredentials(
-		databaseName: String!
+	serviceUserAndPassword(
 		service: String!
 		namespace: String!
-	): DatabaseCredentials!
+	): UserAndPassword!
 """Get environment"""
 	environment(
 		id: ID!
@@ -937,6 +937,7 @@ enum ServerProtectionStatusReason {
 	SERVER_HAS_KAFKASERVERCONFIG_NO_ENFORCEMENT
 	SERVER_HAS_NO_KAFKA_SERVER_CONFIG
 	IGNORED_IN_CALCULATION
+	PROTECTED_BY_DATABASE_INTEGRATION
 }
 
 enum ServerProtectionStatusVerdict {
@@ -996,6 +997,11 @@ type User {
 	name: String!
 	imageURL: String!
 	authProviderUserId: String!
+}
+
+type UserAndPassword {
+	username: String!
+	password: String!
 }
 
 
