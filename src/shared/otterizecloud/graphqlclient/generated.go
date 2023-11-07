@@ -88,7 +88,7 @@ type IntentInput struct {
 	Topics            []*KafkaConfigInput    `json:"topics"`
 	Resources         []*HTTPConfigInput     `json:"resources"`
 	DatabaseResources []*DatabaseConfigInput `json:"databaseResources"`
-	AWSActions        []*string              `json:"AWSActions"`
+	AwsActions        []*string              `json:"awsActions"`
 	Status            *IntentStatusInput     `json:"status"`
 }
 
@@ -116,8 +116,8 @@ func (v *IntentInput) GetResources() []*HTTPConfigInput { return v.Resources }
 // GetDatabaseResources returns IntentInput.DatabaseResources, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetDatabaseResources() []*DatabaseConfigInput { return v.DatabaseResources }
 
-// GetAWSActions returns IntentInput.AWSActions, and is useful for accessing the field via an interface.
-func (v *IntentInput) GetAWSActions() []*string { return v.AWSActions }
+// GetAwsActions returns IntentInput.AwsActions, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetAwsActions() []*string { return v.AwsActions }
 
 // GetStatus returns IntentInput.Status, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetStatus() *IntentStatusInput { return v.Status }
