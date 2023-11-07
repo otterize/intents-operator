@@ -492,6 +492,10 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		})
 	}
 
+	if len(in.AWSActions) != 0 {
+		intentInput.AWSActions = lo.ToSlicePtr(in.AWSActions)
+	}
+
 	if len(otterizeTopics) != 0 {
 		intentInput.Topics = otterizeTopics
 	}
