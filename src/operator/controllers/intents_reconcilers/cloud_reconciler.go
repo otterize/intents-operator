@@ -49,6 +49,10 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, nil
 	}
 
+	clientIntentsList.Items = lo.Filter(clientIntentsList.Items, func(intents otterizev1alpha3.ClientIntents, _ int) bool {
+		return intents.DeletionTimestamp == nil
+	})
+
 	clientIntentsListConverted, err := r.convertK8sServicesToOtterizeIdentities(ctx, clientIntentsList)
 	if err != nil {
 		return ctrl.Result{}, err
