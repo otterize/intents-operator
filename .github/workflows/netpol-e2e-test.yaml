@@ -62,8 +62,8 @@ jobs:
       - name: Load Docker images from GCR
         if: (github.event_name == 'push' && github.repository == 'otterize/intents-operator') || github.event.pull_request.head.repo.full_name == 'otterize/intents-operator'
         run: |-
-          docker pull ${{ env.REGISTRY }}/intents-operator:${{ inputs.mapper-tag }}
-          minikube image load ${{ env.REGISTRY }}/intents-operator:${{ inputs.mapper-tag }}
+          docker pull ${{ env.REGISTRY }}/intents-operator:${{ inputs.operator-tag }}
+          minikube image load ${{ env.REGISTRY }}/intents-operator:${{ inputs.operator-tag }}
 
       - name: Set up Helm
         uses: azure/setup-helm@v3
@@ -169,8 +169,8 @@ jobs:
       - name: Load Docker images from GCR
         if: (github.event_name == 'push' && github.repository == 'otterize/intents-operator') || github.event.pull_request.head.repo.full_name == 'otterize/intents-operator'
         run: |-
-          docker pull ${{ env.REGISTRY }}/intents-operator:${{ inputs.mapper-tag }}
-          minikube image load ${{ env.REGISTRY }}/intents-operator:${{ inputs.mapper-tag }}
+          docker pull ${{ env.REGISTRY }}/intents-operator:${{ inputs.operator-tag }}
+          minikube image load ${{ env.REGISTRY }}/intents-operator:${{ inputs.operator-tag }}
 
       - name: Set up Helm
         uses: azure/setup-helm@v3
