@@ -72,9 +72,7 @@ jobs:
     with:
       registry: ${{ needs.build.outputs.registry }}
       operator-tag: ${{ github.sha }}
-      watcher-tag: ${{ github.sha }}
       operator-image:  ${{ github.actor }}/operator
-      watcher-image:  ${{ github.actor }}/watcher
 
     needs:
       - build
