@@ -4,10 +4,8 @@ on:
     # When triggering a workflow from another workflow the triggered workflow does not have access to any secrets,
     # and they must be passed from the caller
     secrets:
-      OTTERIZEBOT_GITHUB_TOKEN:
-        required: true
       B64_GCLOUD_SERVICE_ACCOUNT_JSON:
-        required: true
+        required: false
 
     inputs:
       operator-tag:
