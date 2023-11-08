@@ -78,7 +78,7 @@ jobs:
     with:
       registry: ${{ needs.build.outputs.registry }}
       operator-tag: ${{ github.sha }}
-      operator-image: operator
+      operator-image: intents-operator
     needs:
       - build
 
