@@ -73,7 +73,6 @@ jobs:
     name: Trigger e2e tests
     # Must pass the secrets as the called workflow does not have access to the same context
     secrets:
-      OTTERIZEBOT_GITHUB_TOKEN: ${{ secrets.OTTERIZEBOT_GITHUB_TOKEN }}
       B64_GCLOUD_SERVICE_ACCOUNT_JSON: ${{ secrets.B64_GCLOUD_SERVICE_ACCOUNT_JSON }}
     with:
       registry: ${{ needs.build.outputs.registry }}
