@@ -47,14 +47,13 @@ jobs:
         with:
           driver-opts: network=host
 
-      - name: Test & Build production image
+      - name: Build & Test
         uses: docker/build-push-action@v2
         with:
           context: src/
-          file: build/${{ matrix.service }}.Dockerfile
+          file: src/${{ matrix.service }}.Dockerfile
           tags: ${{ env.REGISTRY }}/${{ github.actor }}/${{ matrix.service }}:${{ github.sha }}
           network: host
-          platforms: linux/amd64
           outputs: type=docker,dest=${{ matrix.service }}.tar
           cache-from: type=gha
           cache-to: type=gha,mode=max
