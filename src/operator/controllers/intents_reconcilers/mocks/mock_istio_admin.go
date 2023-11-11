@@ -6,9 +6,9 @@ package intentsreconcilersmocks
 
 import (
 	context "context"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	reflect "reflect"
 
-	v1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -36,7 +36,7 @@ func (m *MockAdmin) EXPECT() *MockAdminMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockAdmin) Create(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string) error {
+func (m *MockAdmin) Create(ctx context.Context, clientIntents *v1alpha3.ClientIntents, clientServiceAccount string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", ctx, clientIntents, clientServiceAccount)
 	ret0, _ := ret[0].(error)
@@ -50,7 +50,7 @@ func (mr *MockAdminMockRecorder) Create(ctx, clientIntents, clientServiceAccount
 }
 
 // DeleteAll mocks base method.
-func (m *MockAdmin) DeleteAll(ctx context.Context, clientIntents *v1alpha2.ClientIntents) error {
+func (m *MockAdmin) DeleteAll(ctx context.Context, clientIntents *v1alpha3.ClientIntents) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteAll", ctx, clientIntents)
 	ret0, _ := ret[0].(error)
@@ -64,7 +64,7 @@ func (mr *MockAdminMockRecorder) DeleteAll(ctx, clientIntents interface{}) *gomo
 }
 
 // UpdateIntentsStatus mocks base method.
-func (m *MockAdmin) UpdateIntentsStatus(ctx context.Context, clientIntents *v1alpha2.ClientIntents, clientServiceAccount string, missingSideCar bool) error {
+func (m *MockAdmin) UpdateIntentsStatus(ctx context.Context, clientIntents *v1alpha3.ClientIntents, clientServiceAccount string, missingSideCar bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateIntentsStatus", ctx, clientIntents, clientServiceAccount, missingSideCar)
 	ret0, _ := ret[0].(error)
@@ -78,7 +78,7 @@ func (mr *MockAdminMockRecorder) UpdateIntentsStatus(ctx, clientIntents, clientS
 }
 
 // UpdateServerSidecar mocks base method.
-func (m *MockAdmin) UpdateServerSidecar(ctx context.Context, clientIntents *v1alpha2.ClientIntents, serverName string, missingSideCar bool) error {
+func (m *MockAdmin) UpdateServerSidecar(ctx context.Context, clientIntents *v1alpha3.ClientIntents, serverName string, missingSideCar bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateServerSidecar", ctx, clientIntents, serverName, missingSideCar)
 	ret0, _ := ret[0].(error)

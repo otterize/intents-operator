@@ -1,11 +1,14 @@
 package telemetrysender
 
 import (
+	"context"
 	"flag"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"sync"
+	"time"
 )
 
 var (
@@ -94,4 +97,36 @@ func IncrementUniqueCounterNetworkMapper(eventType telemetriesgql.EventType, key
 
 func IncrementUniqueCounterCredentialsOperator(eventType telemetriesgql.EventType, key string) {
 	incrementCounter(telemetriesgql.ComponentTypeCredentialsOperator, eventType, key)
+}
+
+func IntentsOperatorRunActiveReporter(ctx context.Context) {
+	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeIntentsOperator)
+}
+
+func NetworkMapperRunActiveReporter(ctx context.Context) {
+	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeNetworkMapper)
+}
+
+func CredentialsOperatorRunActiveReporter(ctx context.Context) {
+	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeCredentialsOperator)
+}
+
+func runActiveComponentReporter(ctx context.Context, componentType telemetriesgql.ComponentType) {
+	go func() {
+		activeInterval := viper.GetDuration(TelemetryActiveIntervalKey)
+		reporterTicker := time.NewTicker(activeInterval)
+		logrus.Info("Starting active component reporter")
+		send(componentType, telemetriesgql.EventTypeActive, 0)
+
+		for {
+			select {
+			case <-reporterTicker.C:
+				send(componentType, telemetriesgql.EventTypeActive, 0)
+
+			case <-ctx.Done():
+				logrus.Info("Active component reporter exit")
+				return
+			}
+		}
+	}()
 }

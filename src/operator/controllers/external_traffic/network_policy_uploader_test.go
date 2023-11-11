@@ -124,6 +124,65 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUploadNetworkPolicy() {
 	s.Require().Empty(res)
 }
 
+func (s *NetworkPolicyReconcilerTestSuite) TestNoUploadIfNoPods() {
+	accessNetworkPolicy := &v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "external-access-to-client-A",
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				v1alpha2.OtterizeNetworkPolicyExternalTraffic: "client-A",
+			},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
+			PodSelector: metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      v1alpha2.OtterizeServerLabelKey,
+						Operator: metav1.LabelSelectorOpExists,
+					},
+				},
+			},
+			Ingress: []v1.NetworkPolicyIngressRule{
+				{},
+			},
+		},
+	}
+
+	emptyNetworkPolicy := v1.NetworkPolicy{}
+	req := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: testNamespace,
+			Name:      accessNetworkPolicy.Name,
+		},
+	}
+
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(&emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, namespacedName types.NamespacedName, networkPolicy *v1.NetworkPolicy, _ ...client.GetOption) error {
+			accessNetworkPolicy.DeepCopyInto(networkPolicy)
+			return nil
+		})
+
+	podList := &corev1.PodList{}
+	selector, err := metav1.LabelSelectorAsSelector(&accessNetworkPolicy.Spec.PodSelector)
+	s.Require().NoError(err)
+
+	s.Client.EXPECT().List(gomock.Any(),
+		gomock.Eq(podList),
+		&client.MatchingLabelsSelector{Selector: selector},
+		&client.ListOptions{Namespace: testNamespace}).DoAndReturn(
+		func(ctx context.Context, podList *corev1.PodList, listOptions ...client.ListOption) error {
+			podList.Items = []corev1.Pod{}
+			return nil
+		})
+
+	// Expect no calls to cloud client
+
+	res, err := s.reconciler.Reconcile(context.Background(), req)
+	s.Require().NoError(err)
+	s.Require().Equal(reconcile.Result{RequeueAfter: listPodsForPolicyRetryDelay}, res)
+}
+
 func TestNetworkPolicyReconcilerSuite(t *testing.T) {
 	suite.Run(t, new(NetworkPolicyReconcilerTestSuite))
 }

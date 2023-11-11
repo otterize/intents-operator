@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -16,12 +16,14 @@ import (
 	"strings"
 )
 
-var PodNotFound = errors.New("pod not found")
+var ErrPodNotFound = errors.New("pod not found")
+
+//+kubebuilder:rbac:groups="apps",resources=deployments;replicasets;daemonsets;statefulsets,verbs=get;list;watch
 
 type ServiceResolver interface {
 	GetPodAnnotatedName(ctx context.Context, podName string, podNamespace string) (string, bool, error)
-	ResolveClientIntentToPod(ctx context.Context, intent v1alpha2.ClientIntents) (corev1.Pod, error)
-	ResolveIntentServerToPod(ctx context.Context, intent v1alpha2.Intent, namespace string) (corev1.Pod, error)
+	ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error)
+	ResolveIntentServerToPod(ctx context.Context, intent v1alpha3.Intent, namespace string) (corev1.Pod, error)
 	GetKubernetesServicesTargetingPod(ctx context.Context, pod *corev1.Pod) ([]corev1.Service, error)
 	ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error)
 }
@@ -106,7 +108,7 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 	return obj, nil
 }
 
-func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha2.ClientIntents) (corev1.Pod, error) {
+func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error) {
 	podsList := &corev1.PodList{}
 	labelSelector, err := intent.BuildPodLabelSelector()
 	if err != nil {
@@ -117,7 +119,7 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha2
 		return corev1.Pod{}, err
 	}
 	if len(podsList.Items) == 0 {
-		return corev1.Pod{}, PodNotFound
+		return corev1.Pod{}, ErrPodNotFound
 	}
 
 	for _, pod := range podsList.Items {
@@ -128,24 +130,24 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha2
 		return pod, nil
 	}
 
-	return corev1.Pod{}, PodNotFound
+	return corev1.Pod{}, ErrPodNotFound
 }
 
-func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha2.Intent, namespace string) (corev1.Pod, error) {
+func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3.Intent, namespace string) (corev1.Pod, error) {
 	podsList := &corev1.PodList{}
 
-	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), namespace)
+	formattedTargetServer := v1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), namespace)
 	err := r.client.List(
 		ctx,
 		podsList,
-		client.MatchingLabels{v1alpha2.OtterizeServerLabelKey: formattedTargetServer},
+		client.MatchingLabels{v1alpha3.OtterizeServerLabelKey: formattedTargetServer},
 		client.InNamespace(namespace),
 	)
 	if err != nil {
 		return corev1.Pod{}, err
 	}
 	if len(podsList.Items) == 0 {
-		return corev1.Pod{}, PodNotFound
+		return corev1.Pod{}, ErrPodNotFound
 	}
 
 	for _, pod := range podsList.Items {
@@ -156,7 +158,7 @@ func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha2
 		return pod, nil
 	}
 
-	return corev1.Pod{}, PodNotFound
+	return corev1.Pod{}, ErrPodNotFound
 }
 
 func (r *Resolver) GetKubernetesServicesTargetingPod(ctx context.Context, pod *corev1.Pod) ([]corev1.Service, error) {

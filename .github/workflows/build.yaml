@@ -17,14 +17,20 @@ env:
 
 jobs:
   build:
+    if: (github.event_name == 'push' && github.repository == 'otterize/intents-operator') || github.event.pull_request.head.repo.full_name == 'otterize/intents-operator'
     name: Build
     runs-on: ubuntu-latest
+    outputs:
+      registry: ${{ steps.registry.outputs.registry }} # workaround since env is not available outside of steps, i.e. in calling external workflows like we later do in e2e-test
     strategy:
       matrix:
         service:
           - intents-operator
 
     steps:
+      - id: registry
+        run: echo "registry=${{ env.REGISTRY }}" >> "$GITHUB_OUTPUT"
+
       - name: Check out the code
         uses: actions/checkout@v2
         with:
@@ -42,6 +48,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: _json_key_base64
           password: ${{ secrets.B64_GCLOUD_SERVICE_ACCOUNT_JSON}}
+
       - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
@@ -66,13 +73,11 @@ jobs:
     name: Trigger e2e tests
     # Must pass the secrets as the called workflow does not have access to the same context
     secrets:
-      OTTERIZEBOT_GITHUB_TOKEN: ${{ secrets.OTTERIZEBOT_GITHUB_TOKEN }}
       B64_GCLOUD_SERVICE_ACCOUNT_JSON: ${{ secrets.B64_GCLOUD_SERVICE_ACCOUNT_JSON }}
-
     with:
+      registry: ${{ needs.build.outputs.registry }}
       operator-tag: ${{ github.sha }}
-      watcher-tag: ${{ github.sha }}
-
+      operator-image: intents-operator
     needs:
       - build
 
@@ -101,4 +106,3 @@ jobs:
         run: |-
           retag_image_as_latest() { if [[ $(gcloud container images add-tag "${{ env.REGISTRY }}/$1:${{ github.sha }}" "${{ env.REGISTRY }}/$1:latest" --quiet) ]]; then echo "Failed tagging $1 as latest"; exit 1; fi } # using --quiet to avoid prompt
           retag_image_as_latest intents-operator
-          retag_image_as_latest watcher

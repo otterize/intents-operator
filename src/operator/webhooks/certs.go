@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -19,6 +20,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
 
@@ -108,7 +110,7 @@ type patchValue struct {
 	Value interface{} `json:"value"`
 }
 
-func UpdateWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
+func UpdateValidationWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
 	kubeClient, err := getKubeClient()
 	if err != nil {
 		return err
@@ -136,4 +138,38 @@ func UpdateWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
 	logrus.Infof("Installing new certificate in %s", webHookName)
 	_, err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(ctx, webHookName, types.JSONPatchType, newCAByte, metav1.PatchOptions{})
 	return err
+}
+
+func UpdateConversionWebhookCAs(ctx context.Context, k8sClient client.Client, ca []byte) error {
+	if err := updateConversionWebHookCA(ctx, "clientintents.k8s.otterize.com", k8sClient, ca); err != nil {
+		return fmt.Errorf("failed updating the CA of clientIntents conversion webhhok: %w", err)
+	}
+	if err := updateConversionWebHookCA(ctx, "protectedservices.k8s.otterize.com", k8sClient, ca); err != nil {
+		return fmt.Errorf("failed updating the CA of protectedServices conversion webhhok: %w", err)
+	}
+	if err := updateConversionWebHookCA(ctx, "kafkaserverconfigs.k8s.otterize.com", k8sClient, ca); err != nil {
+		return fmt.Errorf("failed updating the CA of kafkaServerConfigs conversion webhhok: %w", err)
+	}
+	return nil
+}
+
+func updateConversionWebHookCA(ctx context.Context, crdName string, k8sClient client.Client, ca []byte) error {
+	crd := apiextensionsv1.CustomResourceDefinition{}
+	err := k8sClient.Get(ctx, types.NamespacedName{Name: crdName}, &crd)
+	if err != nil {
+		return fmt.Errorf("could not get ClientIntents CRD: %w", err)
+	}
+
+	updatedCRD := crd.DeepCopy()
+
+	if updatedCRD.Spec.Conversion == nil || updatedCRD.Spec.Conversion.Webhook == nil || updatedCRD.Spec.Conversion.Webhook.ClientConfig == nil {
+		return fmt.Errorf("clientsIntents CRD does not contain a proper conversion webhook defenition")
+	}
+	updatedCRD.Spec.Conversion.Webhook.ClientConfig.CABundle = ca
+	err = k8sClient.Patch(ctx, updatedCRD, client.MergeFrom(&crd))
+	if err != nil {
+		return fmt.Errorf("could not Patch ClientIntents CRD: %w", err)
+	}
+
+	return nil
 }

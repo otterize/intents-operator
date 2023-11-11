@@ -3,7 +3,7 @@ package serviceidresolver
 import (
 	"context"
 	"errors"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
@@ -55,7 +55,7 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodExists() {
 	namespace := "coolnamespace"
 	SAName := "backendservice"
 
-	intent := v1alpha2.ClientIntents{Spec: &v1alpha2.IntentsSpec{Service: v1alpha2.Service{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
+	intent := v1alpha3.ClientIntents{Spec: &v1alpha3.IntentsSpec{Service: v1alpha3.Service{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
 	ls, err := intent.BuildPodLabelSelector()
 	s.Require().NoError(err)
 
@@ -79,7 +79,7 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodDoesntExist
 	serviceName := "coolservice"
 	namespace := "coolnamespace"
 
-	intent := v1alpha2.ClientIntents{Spec: &v1alpha2.IntentsSpec{Service: v1alpha2.Service{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
+	intent := v1alpha3.ClientIntents{Spec: &v1alpha3.IntentsSpec{Service: v1alpha3.Service{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
 	ls, err := intent.BuildPodLabelSelector()
 	s.Require().NoError(err)
 
@@ -90,7 +90,7 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodDoesntExist
 	).Do(func(_ any, podList *corev1.PodList, _ ...any) {})
 
 	pod, err := s.Resolver.ResolveClientIntentToPod(context.Background(), intent)
-	s.Require().Equal(err, PodNotFound)
+	s.Require().Equal(err, ErrPodNotFound)
 	s.Require().Equal(corev1.Pod{}, pod)
 }
 

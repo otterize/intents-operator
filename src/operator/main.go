@@ -21,13 +21,18 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	"github.com/otterize/intents-operator/src/operator/controllers/aws_pod_reconciler"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
-	"github.com/otterize/intents-operator/src/operator/protectedservicescrd"
+	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
+	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -36,6 +41,7 @@ import (
 	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
@@ -59,6 +65,8 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -71,6 +79,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(istiosecurityscheme.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -94,35 +103,30 @@ func main() {
 	autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement := viper.GetBool(operatorconfig.AutoCreateNetworkPoliciesForExternalTrafficNoIntentsRequiredKey)
 	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
 	enforcementConfig := controllers.EnforcementConfig{
-		EnforcementDefaultState:  viper.GetBool(operatorconfig.EnforcementDefaultStateKey),
-		EnableNetworkPolicy:      viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
-		EnableKafkaACL:           viper.GetBool(operatorconfig.EnableKafkaACLKey),
-		EnableIstioPolicy:        viper.GetBool(operatorconfig.EnableIstioPolicyKey),
-		EnableDatabaseReconciler: viper.GetBool(operatorconfig.EnableDatabaseReconciler),
+		EnforcementDefaultState:              viper.GetBool(operatorconfig.EnforcementDefaultStateKey),
+		EnableNetworkPolicy:                  viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
+		EnableKafkaACL:                       viper.GetBool(operatorconfig.EnableKafkaACLKey),
+		EnableIstioPolicy:                    viper.GetBool(operatorconfig.EnableIstioPolicyKey),
+		EnableDatabaseReconciler:             viper.GetBool(operatorconfig.EnableDatabaseReconciler),
+		EnableEgressNetworkPolicyReconcilers: viper.GetBool(operatorconfig.EnableEgressNetworkPolicyReconcilersKey),
+		EnableAWSPolicy:                      viper.GetBool(operatorconfig.EnableAWSPolicyKey),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
-	tlsSource := otterizev1alpha2.TLSSource{
+	tlsSource := otterizev1alpha3.TLSSource{
 		CertFile:   viper.GetString(operatorconfig.KafkaServerTLSCertKey),
 		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
 		RootCAFile: viper.GetString(operatorconfig.KafkaServerTLSCAKey),
 	}
-	oidcUrl := viper.GetString(awsagent.ClusterOIDCProviderUrlKey)
+	oidcUrl := viper.GetString(operatorconfig.ClusterOIDCProviderUrlKey)
 
 	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
 	debugLogs := viper.GetBool(operatorconfig.DebugLogKey)
 
-	if viper.GetBool(awsagent.AWSIntentsEnabledKey) {
-		// awsIntentsAgent :=
-		_ = awsagent.NewAWSAgent(context.Background(), oidcUrl)
-	}
-
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 	if debugLogs {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
-
-	var err error
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -178,39 +182,33 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Fatal("unable to create kubernetes API client")
 	}
-	err = protectedservicescrd.EnsureProtectedServicesCRD(signalHandlerCtx, directClient)
-	if err != nil {
-		logrus.WithError(err).Fatal("unable to ensure protected services CRD")
-	}
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), autoCreateNetworkPoliciesForExternalTraffic, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
-	networkPolicyHandler := intents_reconcilers.NewNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
-	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
+	networkPolicyHandler := ingress_network_policy.NewNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, autoCreateNetworkPoliciesForExternalTrafficDisableIntentsRequirement)
+	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
+	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
+		awsIntentsAgent := awsagent.NewAWSAgent(context.Background(), oidcUrl)
+		awsIntentsReconciler := intents_reconcilers.NewAWSIntentsReconciler(mgr.GetClient(), scheme, awsIntentsAgent, serviceidresolver.NewResolver(mgr.GetClient()))
+		additionalIntentsReconcilers = append(additionalIntentsReconcilers, awsIntentsReconciler)
+		awsPodWatcher := aws_pod_reconciler.NewAWSPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), awsIntentsReconciler)
+		err := awsPodWatcher.SetupWithManager(mgr)
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to register pod watcher")
+		}
+	}
+	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+	svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
 	}
 
-	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
-	}
-
-	if err = externalPolicySvcReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
-	}
-
 	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler)
-	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
-	}
-
-	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {
-		logrus.WithError(err).Fatal("unable to init index for ingress")
-	}
 
 	otterizeCloudClient, connectedToCloud, err := operator_cloud_client.NewClient(signalHandlerCtx)
 	if err != nil {
@@ -232,19 +230,83 @@ func main() {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
 
+	if selfSignedCert {
+		logrus.Infoln("Creating self signing certs")
+		certBundle, err :=
+			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
+		}
+		err = webhooks.WriteCertToFiles(certBundle)
+		if err != nil {
+			logrus.WithError(err).Fatal("failed writing certs to file system")
+		}
+
+		err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace)
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to ensure otterize CRDs")
+		}
+
+		err = webhooks.UpdateValidationWebHookCA(context.Background(),
+			"otterize-validating-webhook-configuration", certBundle.CertPem)
+		if err != nil {
+			logrus.WithError(err).Fatal("updating validation webhook certificate failed")
+		}
+		err = webhooks.UpdateConversionWebhookCAs(context.Background(), directClient, certBundle.CertPem)
+		if err != nil {
+			logrus.WithError(err).Fatal("updating conversion webhook certificate failed")
+		}
+	}
+
+	if !disableWebhookServer {
+		intentsValidator := webhooks.NewIntentsValidatorV1alpha2(mgr.GetClient())
+		if err = (&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidator); err != nil {
+			logrus.WithError(err).Fatal(err, "unable to create webhook for v1alpha2", "webhook", "ClientIntents")
+		}
+		intentsValidatorV1alpha3 := webhooks.NewIntentsValidatorV1alpha3(mgr.GetClient())
+		if err = (&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidatorV1alpha3); err != nil {
+			logrus.WithError(err).Fatal(err, "unable to create webhook v1alpha3", "webhook", "ClientIntents")
+		}
+
+		protectedServiceValidator := webhooks.NewProtectedServiceValidatorV1alpha2(mgr.GetClient())
+		if err = (&otterizev1alpha2.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidator); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha2", "webhook", "ProtectedService")
+		}
+
+		protectedServiceValidatorV1alpha3 := webhooks.NewProtectedServiceValidatorV1alpha3(mgr.GetClient())
+		if err = (&otterizev1alpha3.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV1alpha3); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha3", "webhook", "ProtectedService")
+		}
+
+		if err = (&otterizev1alpha2.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha2", "webhook", "KafkaServerConfig")
+		}
+
+		if err = (&otterizev1alpha3.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
+			logrus.WithError(err).Fatal("unable to create webhook v1alpha3", "webhook", "KafkaServerConfig")
+		}
+
+	}
+
 	intentsReconciler := controllers.NewIntentsReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
 		networkPolicyHandler,
 		svcNetworkPolicyHandler,
+		egressNetworkPolicyHandler,
+		svcEgressNetworkPolicyHandler,
 		watchedNamespaces,
 		enforcementConfig,
 		otterizeCloudClient,
 		podName,
 		podNamespace,
+		additionalIntentsReconcilers...,
 	)
 
+	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to init index for ingress")
+	}
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init indices")
 	}
@@ -260,35 +322,16 @@ func main() {
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to create controller", "controller", "Intents")
 	}
-
-	if selfSignedCert {
-		logrus.Infoln("Creating self signing certs")
-		certBundle, err :=
-			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
-		if err != nil {
-			logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
-		}
-		err = webhooks.WriteCertToFiles(certBundle)
-		if err != nil {
-			logrus.WithError(err).Fatal("failed writing certs to file system")
-		}
-		err = webhooks.UpdateWebHookCA(context.Background(),
-			"otterize-validating-webhook-configuration", certBundle.CertPem)
-		if err != nil {
-			logrus.WithError(err).Fatal("updating webhook certificate failed")
-		}
+	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
 	}
 
-	if !disableWebhookServer {
-		intentsValidator := webhooks.NewIntentsValidator(mgr.GetClient())
-		if err = intentsValidator.SetupWebhookWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "Intents")
-		}
+	if err = externalPolicySvcReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Endpoints")
+	}
 
-		protectedServiceValidator := webhooks.NewProtectedServiceValidator(mgr.GetClient())
-		if err = protectedServiceValidator.SetupWebhookWithManager(mgr); err != nil {
-			logrus.WithError(err).Fatal("unable to create webhook", "webhook", "ProtectedService")
-		}
+	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Fatal("unable to create controller", "controller", "Ingress")
 	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(
@@ -326,7 +369,11 @@ func main() {
 
 	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
-	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), svcNetworkPolicyHandler)
+	svcReconcilers := []reconcile.Reconciler{svcNetworkPolicyHandler}
+	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
+		svcReconcilers = append(svcReconcilers, svcEgressNetworkPolicyHandler)
+	}
+	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), svcReconcilers)
 
 	err = svcWatcher.SetupWithManager(mgr)
 	if err != nil {
@@ -347,7 +394,6 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Panic()
 	}
-
 	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		logrus.WithError(err).Fatal("unable to set up health check")
@@ -358,6 +404,7 @@ func main() {
 
 	logrus.Info("starting manager")
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 0)
+	telemetrysender.IntentsOperatorRunActiveReporter(signalHandlerCtx)
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Fatal("problem running manager")
 	}

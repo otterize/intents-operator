@@ -17,7 +17,9 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // ProtectedServiceSpec defines the desired state of ProtectedService
@@ -54,4 +56,22 @@ type ProtectedServiceList struct {
 
 func init() {
 	SchemeBuilder.Register(&ProtectedService{}, &ProtectedServiceList{})
+}
+
+// ConvertTo converts this ProtectedService to the Hub version (v1alpha3).
+func (ps *ProtectedService) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v1alpha3.ProtectedService)
+	dst.ObjectMeta = ps.ObjectMeta
+	dst.Spec = v1alpha3.ProtectedServiceSpec{}
+	dst.Spec.Name = ps.Spec.Name
+	return nil
+}
+
+// ConvertFrom converts the Hub version (v1alpha3) to this ProtectedService.
+func (ps *ProtectedService) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v1alpha3.ProtectedService)
+	ps.ObjectMeta = src.ObjectMeta
+	ps.Spec = ProtectedServiceSpec{}
+	ps.Spec.Name = src.Spec.Name
+	return nil
 }
