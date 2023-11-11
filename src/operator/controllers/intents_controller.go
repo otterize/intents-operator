@@ -43,7 +43,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -185,24 +184,6 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
 	return r.networkPolicyReconciler.CleanAllNamespaces(ctx)
-}
-
-func (r *IntentsReconciler) RemoveFinalizerFromAllResources(ctx context.Context, finalizer string) error {
-	var clientIntentsList otterizev1alpha3.ClientIntentsList
-	err := r.client.List(ctx, &clientIntentsList)
-	if err != nil {
-		return err
-	}
-
-	for _, clientIntents := range clientIntentsList.Items {
-		controllerutil.RemoveFinalizer(&clientIntents, finalizer)
-		err = r.client.Update(ctx, &clientIntents)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
