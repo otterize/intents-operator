@@ -184,14 +184,6 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
-	if !telemetrysender.IsTelemetryEnabled() {
-		// When telemetry is disabled no logic should run by the telemetry reconciler. In case that a previous run of
-		// the operator had telemetry enabled we must remove the telemetry reconciler finalizers from all the CRDs.
-		err := r.RemoveFinalizerFromAllResources(ctx, otterizev1alpha3.OtterizeTelemetryReconcilerFinalizerName)
-		if err != nil {
-			return err
-		}
-	}
 	return r.networkPolicyReconciler.CleanAllNamespaces(ctx)
 }
 
