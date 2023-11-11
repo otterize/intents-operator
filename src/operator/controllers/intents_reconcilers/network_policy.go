@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"reflect"
 
-	"reflect"
-
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
