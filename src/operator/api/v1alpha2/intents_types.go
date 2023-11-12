@@ -166,8 +166,8 @@ type KafkaTopic struct {
 
 // IntentsStatus defines the observed state of ClientIntents
 type IntentsStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// upToDate field reflects whether the client intents have successfully been applied
+	// to the cluster to the state specified
 	UpToDate bool `json:"upToDate,omitempty"`
 }
 
