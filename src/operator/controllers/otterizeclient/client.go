@@ -54,7 +54,7 @@ func (c *CloudClient) AcquireServiceUserAndPassword(ctx context.Context, service
 }
 
 func (c *CloudClient) CleanupOrphanK8SPodEntries(ctx context.Context, _ string, existingServicesByNamespace map[string]*goset.Set[string]) error {
-	var namespacedPodOwners []otterizegraphql.NamespacedPodOwner
+	namespacedPodOwners := make([]otterizegraphql.NamespacedPodOwner, 0)
 	for namespace, podOwnerNames := range existingServicesByNamespace {
 		for _, podOwner := range podOwnerNames.Items() {
 			namespacedPodOwners = append(namespacedPodOwners, otterizegraphql.NamespacedPodOwner{Namespace: namespace, Name: podOwner})
