@@ -91,11 +91,11 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, *intents)
 	if err != nil {
-		if errors.Is(err, serviceidresolver.PodNotFound) {
+		if errors.Is(err, serviceidresolver.ErrPodNotFound) {
 			r.RecordWarningEventf(
 				intents,
-				consts.ReasonOtterizeServiceNotFound,
-				"Could not find non-terminating pods for service %s in namespace %s",
+				consts.ReasonPodsNotFound,
+				"Could not find non-terminating pods for service %s in namespace %s. Intents could not be reconciled now, but will be reconciled if pods appear later.",
 				intents.Spec.Service.Name,
 				intents.Namespace)
 			return ctrl.Result{}, nil
@@ -139,7 +139,7 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 		serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
 		pod, err := r.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, serverNamespace)
 		if err != nil {
-			if errors.Is(err, serviceidresolver.PodNotFound) {
+			if errors.Is(err, serviceidresolver.ErrPodNotFound) {
 				continue
 			}
 			return err

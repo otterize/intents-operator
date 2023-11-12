@@ -35,49 +35,58 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
-	OtterizeAccessLabelPrefix                 = "intents.otterize.com/access"
-	OtterizeServiceAccessLabelPrefix          = "intents.otterize.com/svc-access"
-	OtterizeAccessLabelKey                    = "intents.otterize.com/access-%s"
-	OtterizeSvcAccessLabelKey                 = "intents.otterize.com/svc-access-%s"
-	OtterizeClientLabelKey                    = "intents.otterize.com/client"
-	OtterizeServerLabelKey                    = "intents.otterize.com/server"
-	OtterizeKubernetesServiceLabelKeyPrefix   = "intents.otterize.com/k8s-svc"
-	OtterizeKubernetesServiceLabelKey         = "intents.otterize.com/k8s-svc-%s"
-	OtterizeNamespaceLabelKey                 = "intents.otterize.com/namespace-name"
-	AllIntentsRemovedAnnotation               = "intents.otterize.com/all-intents-removed"
-	OtterizeCreatedForServiceAnnotation       = "intents.otterize.com/created-for-service"
-	OtterizeCreatedForIngressAnnotation       = "intents.otterize.com/created-for-ingress"
-	OtterizeNetworkPolicyNameTemplate         = "access-to-%s-from-%s"
-	OtterizeServiceNetworkPolicyNameTemplate  = "svc-access-to-%s-from-%s"
-	OtterizeNetworkPolicy                     = "intents.otterize.com/network-policy"
-	OtterizeSvcNetworkPolicy                  = "intents.otterize.com/svc-network-policy"
-	OtterizeNetworkPolicyServiceDefaultDeny   = "intents.otterize.com/network-policy-service-default-deny"
-	OtterizeNetworkPolicyExternalTraffic      = "intents.otterize.com/network-policy-external-traffic"
-	ClientIntentsFinalizerName                = "intents.otterize.com/client-intents-finalizer"
-	ProtectedServicesFinalizerName            = "intents.otterize.com/protected-services-finalizer"
-	OtterizeIstioClientAnnotationKey          = "intents.otterize.com/istio-client"
-	OtterizeClientServiceAccountAnnotation    = "intents.otterize.com/client-intents-service-account"
-	OtterizeSharedServiceAccountAnnotation    = "intents.otterize.com/shared-service-account"
-	OtterizeMissingSidecarAnnotation          = "intents.otterize.com/service-missing-sidecar"
-	OtterizeServersWithoutSidecarAnnotation   = "intents.otterize.com/servers-without-sidecar"
-	OtterizeTargetServerIndexField            = "spec.service.calls.server"
-	OtterizeKafkaServerConfigServiceNameField = "spec.service.name"
-	OtterizeProtectedServiceNameIndexField    = "spec.name"
-	OtterizeFormattedTargetServerIndexField   = "formattedTargetServer"
-	EndpointsPodNamesIndexField               = "endpointsPodNames"
-	IngressServiceNamesIndexField             = "ingressServiceNames"
-	NetworkPoliciesByIngressNameIndexField    = "networkPoliciesByIngressName"
-	MaxOtterizeNameLength                     = 20
-	MaxNamespaceLength                        = 20
+	OtterizeAccessLabelPrefix                            = "intents.otterize.com/access"
+	OtterizeServiceAccessLabelPrefix                     = "intents.otterize.com/svc-access"
+	OtterizeAccessLabelKey                               = "intents.otterize.com/access-%s"
+	OtterizeSvcAccessLabelKey                            = "intents.otterize.com/svc-access-%s"
+	OtterizeClientLabelKey                               = "intents.otterize.com/client"
+	OtterizeServerLabelKey                               = "intents.otterize.com/server"
+	OtterizeKubernetesServiceLabelKeyPrefix              = "intents.otterize.com/k8s-svc"
+	OtterizeKubernetesServiceLabelKey                    = "intents.otterize.com/k8s-svc-%s"
+	OtterizeNamespaceLabelKey                            = "intents.otterize.com/namespace-name"
+	AllIntentsRemovedAnnotation                          = "intents.otterize.com/all-intents-removed"
+	OtterizeCreatedForServiceAnnotation                  = "intents.otterize.com/created-for-service"
+	OtterizeCreatedForIngressAnnotation                  = "intents.otterize.com/created-for-ingress"
+	OtterizeNetworkPolicyNameTemplate                    = "access-to-%s-from-%s"
+	OtterizeServiceNetworkPolicyNameTemplate             = "svc-access-to-%s-from-%s"
+	OtterizeNetworkPolicy                                = "intents.otterize.com/network-policy"
+	OtterizeSvcNetworkPolicy                             = "intents.otterize.com/svc-network-policy"
+	OtterizeNetworkPolicyServiceDefaultDeny              = "intents.otterize.com/network-policy-service-default-deny"
+	OtterizeNetworkPolicyExternalTraffic                 = "intents.otterize.com/network-policy-external-traffic"
+	ClientIntentsFinalizerName                           = "intents.otterize.com/client-intents-finalizer"
+	ProtectedServicesFinalizerName                       = "intents.otterize.com/protected-services-finalizer"
+	OtterizeIstioClientAnnotationKey                     = "intents.otterize.com/istio-client"
+	OtterizeClientServiceAccountAnnotation               = "intents.otterize.com/client-intents-service-account"
+	OtterizeSharedServiceAccountAnnotation               = "intents.otterize.com/shared-service-account"
+	OtterizeMissingSidecarAnnotation                     = "intents.otterize.com/service-missing-sidecar"
+	OtterizeServersWithoutSidecarAnnotation              = "intents.otterize.com/servers-without-sidecar"
+	OtterizeTargetServerIndexField                       = "spec.service.calls.server"
+	OtterizeKafkaServerConfigServiceNameField            = "spec.service.name"
+	OtterizeProtectedServiceNameIndexField               = "spec.name"
+	OtterizeFormattedTargetServerIndexField              = "formattedTargetServer"
+	EndpointsPodNamesIndexField                          = "endpointsPodNames"
+	IngressServiceNamesIndexField                        = "ingressServiceNames"
+	NetworkPoliciesByIngressNameIndexField               = "networkPoliciesByIngressName"
+	MaxOtterizeNameLength                                = 20
+	MaxNamespaceLength                                   = 20
+	OtterizeSvcEgressNetworkPolicyNameTemplate           = "svc-egress-to-%s-from-%s"
+	OtterizeSvcEgressNetworkPolicy                       = "intents.otterize.com/svc-egress-network-policy"
+	OtterizeSvcEgressNetworkPolicyTarget                 = "intents.otterize.com/svc-egress-network-policy-target"
+	OtterizeSvcEgressNetworkPolicyTargetService          = "intents.otterize.com/svc-egress-network-policy-target-service"
+	OtterizeSvcEgressNetworkPolicyTargetServiceNamespace = "intents.otterize.com/svc-egress-network-policy-target-service-namespace"
+	OtterizeEgressNetworkPolicyNameTemplate              = "egress-to-%s-from-%s"
+	OtterizeEgressNetworkPolicy                          = "intents.otterize.com/egress-network-policy"
+	OtterizeEgressNetworkPolicyTarget                    = "intents.otterize.com/egress-network-policy-target"
 )
 
-// +kubebuilder:validation:Enum=http;kafka;database
+// +kubebuilder:validation:Enum=http;kafka;database;aws
 type IntentType string
 
 const (
 	IntentTypeHTTP     IntentType = "http"
 	IntentTypeKafka    IntentType = "kafka"
 	IntentTypeDatabase IntentType = "database"
+	IntentTypeAWS      IntentType = "aws"
 )
 
 // +kubebuilder:validation:Enum=all;consume;produce;create;alter;delete;describe;ClusterAction;DescribeConfigs;AlterConfigs;IdempotentWrite
@@ -146,6 +155,9 @@ type Intent struct {
 
 	//+optional
 	DatabaseResources []DatabaseResource `json:"databaseResources,omitempty" yaml:"databaseResources,omitempty"`
+
+	//+optional
+	AWSActions []string `json:"awsActions,omitempty" yaml:"awsActions,omitempty"`
 }
 
 type DatabaseResource struct {
@@ -203,10 +215,19 @@ func (in *ClientIntents) GetCallsList() []Intent {
 	return in.Spec.Calls
 }
 
+func (in *ClientIntents) GetFilteredCallsList(intentTypes ...IntentType) []Intent {
+	return lo.Filter(in.GetCallsList(), func(item Intent, index int) bool {
+		return lo.Contains(intentTypes, item.Type)
+	})
+}
+
 func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
-	otterizeAccessLabels := map[string]string{}
+	otterizeAccessLabels := make(map[string]string)
 
 	for _, intent := range in.GetCallsList() {
+		if intent.Type == IntentTypeAWS || intent.Type == IntentTypeDatabase {
+			continue
+		}
 		ns := intent.GetTargetServerNamespace(requestNamespace)
 		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), ns)
 		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)
@@ -283,6 +304,8 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 		return graphqlclient.IntentTypeKafka
 	case IntentTypeDatabase:
 		return graphqlclient.IntentTypeDatabase
+	case IntentTypeAWS:
+		return graphqlclient.IntentTypeAws
 	default:
 		panic("Not supposed to reach here")
 	}
@@ -467,6 +490,10 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 			}
 			return &databaseConfigInput
 		})
+	}
+
+	if len(in.AWSActions) != 0 {
+		intentInput.AwsActions = lo.ToSlicePtr(in.AWSActions)
 	}
 
 	if len(otterizeTopics) != 0 {

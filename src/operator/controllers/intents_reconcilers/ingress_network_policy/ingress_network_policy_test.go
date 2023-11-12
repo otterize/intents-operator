@@ -1,9 +1,10 @@
-package intents_reconcilers
+package ingress_network_policy
 
 import (
 	"context"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
@@ -31,6 +32,7 @@ const (
 	anotherProtectedServiceResourceName  = "protect-other-services"
 	anotherProtectedService              = "other-test-service"
 	anotherProtectedServiceFormattedName = "other-test-service-test-namespace-398a04"
+	testNamespace                        = "test-namespace"
 )
 
 type NetworkPolicyReconcilerTestSuite struct {
@@ -262,7 +264,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 		})
 
 	// Update NetworkPolicy
-	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(newPolicy), MatchPatch(client.MergeFrom(existingBadPolicy))).Return(nil)
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(newPolicy), intents_reconcilers.MatchPatch(client.MergeFrom(existingBadPolicy))).Return(nil)
 	s.ignoreRemoveOrphan()
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
@@ -467,6 +469,10 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), existingPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{
+		otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
+	}))
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)

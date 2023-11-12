@@ -41,6 +41,7 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Calls = make([]v1alpha3.Intent, len(in.Spec.Calls))
 	for i, call := range in.Spec.Calls {
 		dst.Spec.Calls[i].Name = call.Name
+		dst.Spec.Calls[i].Type = v1alpha3.IntentType(call.Type)
 		dst.Spec.Calls[i].Topics = convertTopicsV1alpha2toV1alpha3(call.Topics)
 		dst.Spec.Calls[i].HTTPResources = convertHTTPResourcesV1alpha2toV1alpha3(call.HTTPResources)
 		dst.Spec.Calls[i].DatabaseResources = convertDatabaseResourcesV1alpha2toV1alpha3(call.DatabaseResources)
@@ -90,6 +91,7 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	in.Spec.Calls = make([]Intent, len(src.Spec.Calls))
 	for i, call := range src.Spec.Calls {
 		in.Spec.Calls[i].Name = call.Name
+		in.Spec.Calls[i].Type = IntentType(call.Type)
 		in.Spec.Calls[i].Topics = convertTopicsV1alpha3toV1alpha2(call.Topics)
 		in.Spec.Calls[i].HTTPResources = convertHTTPResourcesV1alpha3toV1alpha2(call.HTTPResources)
 		in.Spec.Calls[i].DatabaseResources = convertDatabaseResourcesV1alpha3toV1alpha2(call.DatabaseResources)

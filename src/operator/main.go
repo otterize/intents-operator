@@ -21,7 +21,11 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	"github.com/otterize/intents-operator/src/operator/controllers/aws_pod_reconciler"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
@@ -29,6 +33,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -37,6 +42,7 @@ import (
 	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
@@ -97,11 +103,13 @@ func main() {
 	allowExternalTraffic := allowexternaltraffic.Enum(viper.GetString(operatorconfig.AllowExternalTrafficKey))
 	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
 	enforcementConfig := controllers.EnforcementConfig{
-		EnforcementDefaultState:  viper.GetBool(operatorconfig.EnforcementDefaultStateKey),
-		EnableNetworkPolicy:      viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
-		EnableKafkaACL:           viper.GetBool(operatorconfig.EnableKafkaACLKey),
-		EnableIstioPolicy:        viper.GetBool(operatorconfig.EnableIstioPolicyKey),
-		EnableDatabaseReconciler: viper.GetBool(operatorconfig.EnableDatabaseReconciler),
+		EnforcementDefaultState:              viper.GetBool(operatorconfig.EnforcementDefaultStateKey),
+		EnableNetworkPolicy:                  viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
+		EnableKafkaACL:                       viper.GetBool(operatorconfig.EnableKafkaACLKey),
+		EnableIstioPolicy:                    viper.GetBool(operatorconfig.EnableIstioPolicyKey),
+		EnableDatabaseReconciler:             viper.GetBool(operatorconfig.EnableDatabaseReconciler),
+		EnableEgressNetworkPolicyReconcilers: viper.GetBool(operatorconfig.EnableEgressNetworkPolicyReconcilersKey),
+		EnableAWSPolicy:                      viper.GetBool(operatorconfig.EnableAWSPolicyKey),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev1alpha3.TLSSource{
@@ -109,23 +117,16 @@ func main() {
 		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
 		RootCAFile: viper.GetString(operatorconfig.KafkaServerTLSCAKey),
 	}
-	oidcUrl := viper.GetString(awsagent.ClusterOIDCProviderUrlKey)
+	oidcUrl := viper.GetString(operatorconfig.ClusterOIDCProviderUrlKey)
 
 	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
 	debugLogs := viper.GetBool(operatorconfig.DebugLogKey)
 
-	if viper.GetBool(awsagent.AWSIntentsEnabledKey) {
-		// awsIntentsAgent :=
-		_ = awsagent.NewAWSAgent(context.Background(), oidcUrl)
-	}
-
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 	if debugLogs {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
-
-	var err error
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -182,16 +183,12 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create kubernetes API client")
 	}
 
-	err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace)
-	if err != nil {
-		logrus.WithError(err).Fatal("unable to ensure otterize CRDs")
-	}
-
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
-	networkPolicyHandler := intents_reconcilers.NewNetworkPolicyReconciler(
+	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
+	networkPolicyHandler := ingress_network_policy.NewNetworkPolicyReconciler(
 		mgr.GetClient(),
 		scheme,
 		extNetpolHandler,
@@ -200,15 +197,20 @@ func main() {
 		enforcementConfig.EnforcementDefaultState,
 		allowExternalTraffic,
 	)
-	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
-	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(
-		mgr.GetClient(),
-		scheme,
-		extNetpolHandler,
-		watchedNamespaces,
-		enforcementConfig.EnableNetworkPolicy,
-		enforcementConfig.EnforcementDefaultState,
-	)
+	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
+	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
+		awsIntentsAgent := awsagent.NewAWSAgent(context.Background(), oidcUrl)
+		awsIntentsReconciler := intents_reconcilers.NewAWSIntentsReconciler(mgr.GetClient(), scheme, awsIntentsAgent, serviceidresolver.NewResolver(mgr.GetClient()))
+		additionalIntentsReconcilers = append(additionalIntentsReconcilers, awsIntentsReconciler)
+		awsPodWatcher := aws_pod_reconciler.NewAWSPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), awsIntentsReconciler)
+		err := awsPodWatcher.SetupWithManager(mgr)
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to register pod watcher")
+		}
+	}
+	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+	svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Fatal("unable to init index for ingress")
@@ -247,6 +249,12 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Fatal("failed writing certs to file system")
 		}
+
+		err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace)
+		if err != nil {
+			logrus.WithError(err).Fatal("unable to ensure otterize CRDs")
+		}
+
 		err = webhooks.UpdateValidationWebHookCA(context.Background(),
 			"otterize-validating-webhook-configuration", certBundle.CertPem)
 		if err != nil {
@@ -294,11 +302,14 @@ func main() {
 		kafkaServersStore,
 		networkPolicyHandler,
 		svcNetworkPolicyHandler,
+		egressNetworkPolicyHandler,
+		svcEgressNetworkPolicyHandler,
 		watchedNamespaces,
 		enforcementConfig,
 		otterizeCloudClient,
 		podName,
 		podNamespace,
+		additionalIntentsReconcilers...,
 	)
 
 	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {
@@ -366,7 +377,11 @@ func main() {
 
 	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
-	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), svcNetworkPolicyHandler)
+	svcReconcilers := []reconcile.Reconciler{svcNetworkPolicyHandler}
+	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
+		svcReconcilers = append(svcReconcilers, svcEgressNetworkPolicyHandler)
+	}
+	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), svcReconcilers)
 
 	err = svcWatcher.SetupWithManager(mgr)
 	if err != nil {
@@ -397,6 +412,7 @@ func main() {
 
 	logrus.Info("starting manager")
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 0)
+	telemetrysender.IntentsOperatorRunActiveReporter(signalHandlerCtx)
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Fatal("problem running manager")
 	}

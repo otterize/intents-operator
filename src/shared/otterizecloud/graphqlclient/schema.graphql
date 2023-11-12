@@ -73,18 +73,57 @@ enum ApiMethod {
 	DELETE
 }
 
-input CertificateCustomization {
-	dnsNames: [String!]
-	ttl: Int
+type AWSGeneralResource {
+	resource: String!
+	isWildcard: Boolean!
 }
 
 """The `String` scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text."""
 scalar String
 
+type AWSInfo {
+	region: String!
+	namespace: String!
+}
+
+input AWSInfoInput {
+	clusterId: ID!
+	region: String!
+	namespace: String!
+}
+
+type AWSResource {
+	type: AWSResourceType!
+	info: AWSResourceInfo!
+}
+
+union AWSResourceInfo =AWSS3Resource | AWSGeneralResource
+
+enum AWSResourceType {
+	GENERAL
+	S3
+}
+
+type AWSS3Resource {
+	bucketName: String!
+}
+
+input CertificateCustomization {
+	dnsNames: [String!]
+	ttl: Int
+}
+
 type CertificateInformation {
 	commonName: String!
 	dnsNames: [String!]
 	ttl: Int
+}
+
+enum CertificateProvider {
+	SPIRE
+	CERT_MANAGER
+	CLOUD
+	NONE
 }
 
 type Client {
@@ -93,8 +132,7 @@ type Client {
 }
 
 type ClientIntentsFileRepresentation {
-	clientServiceId: ID!
-	clientName: String!
+	service: Service!
 	rows: [ClientIntentsRow!]!
 	content: String!
 }
@@ -112,6 +150,7 @@ type Cluster {
 	namespaces: [Namespace!]!
 	serviceCount: Int!
 	integration: Integration
+	integrations: [Integration!]!
 	defaultEnvironment: Environment
 	components: IntegrationComponents!
 	createdAt: Time!
@@ -123,6 +162,7 @@ type ClusterConfiguration {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
+	clusterFormSettings: ClusterFormSettings!
 }
 
 input ClusterConfigurationInput {
@@ -131,6 +171,17 @@ input ClusterConfigurationInput {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean
 	useKafkaACLsInAccessGraphStates: Boolean
+	clusterFormSettings: ClusterFormSettingsInput
+}
+
+type ClusterFormSettings {
+	certificateProvider: CertificateProvider!
+	enforcement: Boolean!
+}
+
+input ClusterFormSettingsInput {
+	certificateProvider: CertificateProvider!
+	enforcement: Boolean!
 }
 
 type ComponentStatus {
@@ -174,11 +225,6 @@ input DatabaseConfigInput {
 	operations: [DatabaseOperation!]!
 }
 
-type DatabaseCredentials {
-	username: String!
-	password: String!
-}
-
 input DatabaseCredentialsInput {
 	username: String!
 	password: String!
@@ -187,7 +233,7 @@ input DatabaseCredentialsInput {
 type DatabaseInfo {
 	name: String!
 	address: String!
-	databaseType: DatabaseType
+	databaseType: DatabaseType!
 }
 
 input DatabaseInfoInput {
@@ -313,6 +359,7 @@ type Integration {
 	defaultEnvironment: Environment
 	cluster: Cluster
 	databaseInfo: DatabaseInfo
+	awsInfo: AWSInfo
 }
 
 type IntegrationComponents {
@@ -330,6 +377,7 @@ enum IntegrationType {
 	GENERIC
 	KUBERNETES
 	DATABASE
+	AWS
 }
 
 type Intent {
@@ -340,6 +388,7 @@ type Intent {
 	kafkaTopics: [KafkaConfig!]
 	httpResources: [HTTPConfig!]
 	databaseResources: [DatabaseConfig!]
+	awsActions: [String!]
 	status: IntentStatus
 }
 
@@ -352,6 +401,7 @@ input IntentInput {
 	topics: [KafkaConfigInput!]
 	resources: [HTTPConfigInput!]
 	databaseResources: [DatabaseConfigInput!]
+	awsActions: [String!]
 	status: IntentStatusInput
 }
 
@@ -393,6 +443,8 @@ enum IntentType {
 	HTTP
 	KAFKA
 	DATABASE
+	AWS
+	S3
 }
 
 type Invite {
@@ -569,9 +621,6 @@ type Mutation {
 		name: String
 		configuration: ClusterConfigurationInput
 	): Cluster!
-	initializeOrganizationCAs(
-		organizationId: ID!
-	): Boolean!
 """Create a new environment"""
 	createEnvironment(
 		name: String!
@@ -613,6 +662,18 @@ type Mutation {
 	createKubernetesIntegration(
 		environmentId: ID
 		clusterId: ID!
+	): Integration
+"""Create a new AWS integration"""
+	createAWSIntegration(
+		name: String!
+		awsIntegration: AWSInfoInput!
+	): Integration
+"""Update AWS integration"""
+	updateAWSIntegration(
+		id: ID!
+		name: String
+		environmentId: ID
+		awsIntegration: AWSInfoInput
 	): Integration
 """Update Generic integration"""
 	updateGenericIntegration(
@@ -756,11 +817,10 @@ type Query {
 	oneCluster(
 		name: String!
 	): Cluster
-	serviceDatabaseCredentials(
-		databaseName: String!
+	serviceUserAndPassword(
 		service: String!
 		namespace: String!
-	): DatabaseCredentials!
+	): UserAndPassword!
 """Get environment"""
 	environment(
 		id: ID!
@@ -877,6 +937,7 @@ enum ServerProtectionStatusReason {
 	SERVER_HAS_KAFKASERVERCONFIG_NO_ENFORCEMENT
 	SERVER_HAS_NO_KAFKA_SERVER_CONFIG
 	IGNORED_IN_CALCULATION
+	PROTECTED_BY_DATABASE_INTEGRATION
 }
 
 enum ServerProtectionStatusVerdict {
@@ -894,11 +955,13 @@ type Service {
 	kafkaServerConfig: KafkaServerConfig
 	certificateInformation: CertificateInformation
 	serviceAccount: String
+	awsResource: AWSResource
 	tlsKeyPair: KeyPair!
 }
 
 type ServiceAccessGraph {
 	service: Service!
+	types: [ServiceType!]!
 	accessStatus: ServiceAccessStatus!
 	calls: [AccessGraphEdge!]!
 	serves: [AccessGraphEdge!]!
@@ -919,6 +982,13 @@ type ServiceClientIntents {
 	asServer: [ClientIntentsFileRepresentation!]!
 }
 
+enum ServiceType {
+	KUBERNETES
+	KAFKA
+	AWS
+	DATABASE
+}
+
 scalar Time
 
 type User {
@@ -927,6 +997,11 @@ type User {
 	name: String!
 	imageURL: String!
 	authProviderUserId: String!
+}
+
+type UserAndPassword {
+	username: String!
+	password: String!
 }
 
 

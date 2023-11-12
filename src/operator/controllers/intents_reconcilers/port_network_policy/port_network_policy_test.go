@@ -485,7 +485,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 		Namespace: testNamespace,
 		Name:      policyName,
 	}
-
+	selector := map[string]string{"test": "selector"}
 	svcObject := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-server",
@@ -493,7 +493,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 		},
 
 		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{"test": "selector"},
+			Selector: selector,
 			Ports: []corev1.ServicePort{{
 				TargetPort: intstr.IntOrString{
 					IntVal: int32(8080),
@@ -511,9 +511,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesSe
 	)
 	// Add target port and change selector in ingress to use svc
 	existingPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
-	selector := map[string]string{
-		fmt.Sprintf(otterizev1alpha3.OtterizeKubernetesServiceLabelKey, formattedTargetServer): "true",
-	}
 	existingPolicy.Spec.PodSelector.MatchLabels = selector
 
 	emptyNetworkPolicy := &v1.NetworkPolicy{}

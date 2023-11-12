@@ -21,7 +21,10 @@ import (
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
@@ -54,11 +57,13 @@ var intentsLegacyFinalizers = []string{
 }
 
 type EnforcementConfig struct {
-	EnforcementDefaultState  bool
-	EnableNetworkPolicy      bool
-	EnableKafkaACL           bool
-	EnableIstioPolicy        bool
-	EnableDatabaseReconciler bool
+	EnforcementDefaultState              bool
+	EnableNetworkPolicy                  bool
+	EnableKafkaACL                       bool
+	EnableIstioPolicy                    bool
+	EnableDatabaseReconciler             bool
+	EnableEgressNetworkPolicyReconcilers bool
+	EnableAWSPolicy                      bool
 }
 
 // IntentsReconciler reconciles a Intents object
@@ -66,21 +71,34 @@ type IntentsReconciler struct {
 	group                   *reconcilergroup.Group
 	client                  client.Client
 	initOnce                initonce.InitOnce
-	networkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler
+	networkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler
 }
 
 func NewIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
-	networkPolicyReconciler *intents_reconcilers.NetworkPolicyReconciler,
+	networkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler,
 	portNetpolReconciler *port_network_policy.PortNetworkPolicyReconciler,
+	egressNetpolReconciler *egress_network_policy.EgressNetworkPolicyReconciler,
+	portEgressNetpolReconciler *port_egress_network_policy.PortEgressNetworkPolicyReconciler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
 	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
-	operatorPodNamespace string) *IntentsReconciler {
+	operatorPodNamespace string,
+	additionalReconcilers ...reconcilergroup.ReconcilerWithEvents,
+) *IntentsReconciler {
+
 	serviceIdResolver := serviceidresolver.NewResolver(client)
+	reconcilers := []reconcilergroup.ReconcilerWithEvents{
+		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
+		intents_reconcilers.NewPodLabelReconciler(client, scheme),
+		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
+		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
+		networkPolicyReconciler,
+	}
+	reconcilers = append(reconcilers, additionalReconcilers...)
 	reconcilersGroup := reconcilergroup.NewGroup(
 		"intents-reconciler",
 		client,
@@ -88,11 +106,7 @@ func NewIntentsReconciler(
 		&otterizev1alpha3.ClientIntents{},
 		otterizev1alpha3.ClientIntentsFinalizerName,
 		intentsLegacyFinalizers,
-		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
-		intents_reconcilers.NewPodLabelReconciler(client, scheme),
-		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
-		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
-		networkPolicyReconciler,
+		reconcilers...,
 	)
 
 	reconcilersGroup.AddToGroup(portNetpolReconciler)
@@ -116,6 +130,11 @@ func NewIntentsReconciler(
 	if enforcementConfig.EnableDatabaseReconciler {
 		databaseReconciler := exp.NewDatabaseReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
+	}
+
+	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
+		intentsReconciler.group.AddToGroup(egressNetpolReconciler)
+		intentsReconciler.group.AddToGroup(portEgressNetpolReconciler)
 	}
 
 	return intentsReconciler

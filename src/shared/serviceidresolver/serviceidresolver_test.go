@@ -90,7 +90,7 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodDoesntExist
 	).Do(func(_ any, podList *corev1.PodList, _ ...any) {})
 
 	pod, err := s.Resolver.ResolveClientIntentToPod(context.Background(), intent)
-	s.Require().Equal(err, PodNotFound)
+	s.Require().Equal(err, ErrPodNotFound)
 	s.Require().Equal(corev1.Pod{}, pod)
 }
 

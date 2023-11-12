@@ -63,6 +63,10 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		intentInputList = append(intentInputList, intentInput)
 	}
 
+	if len(intentInputList) == 0 {
+		return ctrl.Result{}, nil
+	}
+
 	if err := r.otterizeClient.ApplyDatabaseIntent(ctx, intentInputList, action); err != nil {
 		return ctrl.Result{}, err
 	}

@@ -1,4 +1,4 @@
-package controllers
+package kafka_server_config_reconcilers
 
 import (
 	"context"
@@ -22,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"testing"
 	"time"
 )
@@ -130,7 +129,6 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {
 	// Create kafka server config resource
 	kafkaServerConfig := s.generateKafkaServerConfig()
 	kafkaServerConfig.SetNamespace(testNamespace)
-	controllerutil.AddFinalizer(&kafkaServerConfig, finalizerName)
 
 	// Get the resource
 	emptyKSC := otterizev1alpha3.KafkaServerConfig{}
@@ -181,7 +179,6 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestRequeueKafkaServerConfigOnFai
 	// Create kafka server config resource
 	kafkaServerConfig := s.generateKafkaServerConfig()
 	kafkaServerConfig.SetNamespace(testNamespace)
-	controllerutil.AddFinalizer(&kafkaServerConfig, finalizerName)
 
 	// Get the resource
 	emptyKSC := otterizev1alpha3.KafkaServerConfig{}
@@ -223,11 +220,9 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestRequeueKafkaServerConfigOnFai
 
 func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 	// Return deleted kafka server config resource
-	kscWithoutFinializer := s.generateKafkaServerConfig()
-	kscWithoutFinializer.SetNamespace(testNamespace)
-	kscWithoutFinializer.DeletionTimestamp = &metav1.Time{Time: time.Date(2022, 9, 16, 0, 55, 0, 0, time.UTC)}
-	controllerutil.AddFinalizer(&kscWithoutFinializer, finalizerName)
-	controllerutil.RemoveFinalizer(&kscWithoutFinializer, finalizerName)
+	deletedKSC := s.generateKafkaServerConfig()
+	deletedKSC.SetNamespace(testNamespace)
+	deletedKSC.DeletionTimestamp = &metav1.Time{Time: time.Date(2022, 9, 16, 0, 55, 0, 0, time.UTC)}
 
 	// Get the resource
 	emptyKSC := otterizev1alpha3.KafkaServerConfig{}
@@ -237,8 +232,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 	}
 	s.Client.EXPECT().Get(gomock.Any(), objectName, &emptyKSC).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev1alpha3.KafkaServerConfig, _ ...client.GetOption) error {
-			kscWithoutFinializer.DeepCopyInto(actualKSC)
-			controllerutil.AddFinalizer(actualKSC, finalizerName)
+			deletedKSC.DeepCopyInto(actualKSC)
 			return nil
 		})
 
@@ -246,7 +240,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 	emptyList := &otterizev1alpha3.KafkaServerConfigList{}
 	s.Client.EXPECT().List(gomock.Any(), emptyList, client.InNamespace(testNamespace), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
 		func(ctx context.Context, list *otterizev1alpha3.KafkaServerConfigList, _ ...client.ListOption) error {
-			list.Items = append(list.Items, kscWithoutFinializer)
+			list.Items = append(list.Items, deletedKSC)
 			return nil
 		})
 
@@ -255,9 +249,8 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 	)
 
 	gomock.InOrder(
-		s.mockIntentsAdmin.EXPECT().RemoveServerIntents(kscWithoutFinializer.Spec.Topics).Return(nil),
+		s.mockIntentsAdmin.EXPECT().RemoveServerIntents(deletedKSC.Spec.Topics).Return(nil),
 		s.mockIntentsAdmin.EXPECT().Close().Times(1),
-		s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(&kscWithoutFinializer)).Return(nil),
 	)
 
 	res, err := s.reconciler.Reconcile(context.Background(), ctrl.Request{
@@ -278,7 +271,6 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestIntentsGeneratedForOperator()
 	// Create kafka server config resource
 	kafkaServerConfig := s.generateKafkaServerConfig()
 	kafkaServerConfig.SetNamespace(testNamespace)
-	controllerutil.AddFinalizer(&kafkaServerConfig, finalizerName)
 	kafkaServerConfig.Spec.NoAutoCreateIntentsForOperator = false
 
 	// Handle operator intents for the new kafka server
@@ -366,7 +358,6 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestUpdateIntentsGeneratedForOper
 	// Create kafka server config resource
 	kafkaServerConfig := s.generateKafkaServerConfig()
 	kafkaServerConfig.SetNamespace(testNamespace)
-	controllerutil.AddFinalizer(&kafkaServerConfig, finalizerName)
 	kafkaServerConfig.Spec.NoAutoCreateIntentsForOperator = false
 
 	// Set operator intents for the updated kafka server

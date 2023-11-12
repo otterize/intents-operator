@@ -90,9 +90,13 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	createdNetpols := 0
 	for _, intent := range intents.GetCallsList() {
+		if intent.Type != "" && intent.Type != otterizev1alpha3.IntentTypeHTTP && intent.Type != otterizev1alpha3.IntentTypeKafka {
+			continue
+		}
 		if intent.IsTargetServerKubernetesService() {
 			continue
 		}
+
 		targetNamespace := intent.GetTargetServerNamespace(req.Namespace)
 		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, targetNamespace) {
 			// Namespace is not in list of namespaces we're allowed to act in, so drop it.
@@ -234,15 +238,14 @@ func (r *NetworkPolicyReconciler) handleIntentRemoval(
 			return err
 		}
 
-		// TODO:is this really necessary? seems like it's already handled in deleteNetworkPolicy
-		//labelSelector := r.buildPodLabelSelectorFromIntent(intent, clientIntents.Namespace)
-		//selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
-		//if err != nil {
-		//	return err
-		//}
-		//if err = r.extNetpolHandler.HandlePodsByLabelSelector(ctx, intent.GetTargetServerNamespace(clientIntents.Namespace), selector); err != nil {
-		//	return err
-		//}
+		labelSelector := r.buildPodLabelSelectorFromIntent(intent, clientIntents.Namespace)
+		selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
+		if err != nil {
+			return err
+		}
+		if err = r.extNetpolHandler.HandlePodsByLabelSelector(ctx, intent.GetTargetServerNamespace(clientIntents.Namespace), selector); err != nil {
+			return err
+		}
 
 	}
 	return nil
