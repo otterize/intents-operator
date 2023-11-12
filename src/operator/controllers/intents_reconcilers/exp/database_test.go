@@ -114,6 +114,40 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 	s.assertAppliedDatabaseIntents(clientIntents, expectedIntents)
 }
 
+func (s *DatabaseReconcilerTestSuite) TestDontReportIntentsWithoutDatabaseType() {
+	clientIntents := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+		},
+
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "server",
+				},
+			},
+		},
+	}
+
+	emptyIntents := otterizev1alpha3.ClientIntents{}
+
+	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
+			clientIntents.DeepCopyInto(intents)
+			return nil
+		})
+
+	req := ctrl.Request{NamespacedName: s.namespacedName}
+
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.Require().NoError(err)
+	s.Require().Equal(ctrl.Result{}, res)
+}
+
 func (s *DatabaseReconcilerTestSuite) TestNoSpecs() {
 	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
