@@ -10,8 +10,8 @@ const (
 	TLSSecretNameAnnotation           = "credentials-operator.otterize.com/tls-secret-name"
 	TLSSecretNameAnnotationDeprecated = "spire-integration.otterize.com/tls-secret-name"
 
-	// ServiceAccountNameAnnotation is the name of the K8s service account that the operator will create
-	ServiceAccountNameAnnotation = "credentials-operator.otterize.com/service-account-name"
+	// CreateAWSRoleAnnotation by using this annotation a pod marks that the operator should create an AWS IAM role for its service account
+	CreateAWSRoleAnnotation = "credentials-operator.otterize.com/create-aws-role"
 	// ServiceAccountAWSRoleARNAnnotation is used by EKS (Kubernetes at AWS) to link between service accounts
 	// and IAM roles
 	ServiceAccountAWSRoleARNAnnotation = "eks.amazonaws.com/role-arn"
