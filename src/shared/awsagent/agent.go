@@ -18,10 +18,11 @@ import (
 )
 
 type Agent struct {
-	stsClient *sts.Client
-	iamClient *iam.Client
-	accountId string
-	oidcUrl   string
+	stsClient   *sts.Client
+	iamClient   *iam.Client
+	accountId   string
+	oidcUrl     string
+	clusterName string
 }
 
 func NewAWSAgent(
@@ -36,16 +37,17 @@ func NewAWSAgent(
 		panic(err)
 	}
 
+	currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
+
+	if err != nil {
+		logrus.WithError(err).Fatal("failed to get current EKS cluster")
+	}
+
 	oidcUrl := ""
 
 	if oidcUrlFromEnv == "" {
-		retrieved, err := tryRetrieveOIDCUrl(ctx, awsConfig)
-
-		if err != nil {
-			logrus.WithError(err).Fatal("OIDC URL not provided, and not retrieved")
-		}
-
-		oidcUrl = retrieved
+		oidcUrl = *currentCluster.Identity.Oidc.Issuer
+		logrus.Infof("Retreieved OIDC URL for current EKS cluster: %s", oidcUrl)
 	} else {
 		logrus.Infof("OIDC URL provided from config: %s", oidcUrlFromEnv)
 		oidcUrl = oidcUrlFromEnv
@@ -61,25 +63,12 @@ func NewAWSAgent(
 	}
 
 	return &Agent{
-		stsClient: stsClient,
-		iamClient: iamClient,
-		accountId: *callerIdent.Account,
-		oidcUrl:   strings.Split(oidcUrl, "://")[1],
+		stsClient:   stsClient,
+		iamClient:   iamClient,
+		accountId:   *callerIdent.Account,
+		oidcUrl:     strings.Split(oidcUrl, "://")[1],
+		clusterName: *currentCluster.Name,
 	}
-}
-
-func tryRetrieveOIDCUrl(ctx context.Context, awsConfig aws.Config) (string, error) {
-	currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
-
-	if err != nil {
-		return "", err
-	}
-
-	oidcUrl := *currentCluster.Identity.Oidc.Issuer
-
-	logrus.Infof("Retreieved OIDC URL for current EKS cluster: %s", oidcUrl)
-
-	return oidcUrl, nil
 }
 
 func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Cluster, error) {

@@ -21,7 +21,7 @@ import "github.com/aws/aws-sdk-go-v2/service/iam"
 // - error
 func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName string) (bool, *types.Role, error) {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
-	roleName := generateRoleName(namespaceName, accountName)
+	roleName := generateRoleName(a.clusterName, namespaceName, accountName)
 
 	role, err := a.iamClient.GetRole(ctx, &iam.GetRoleInput{
 		RoleName: aws.String(roleName),
@@ -65,7 +65,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 		}
 
 		createRoleOutput, err := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
-			RoleName:                 aws.String(generateRoleName(namespaceName, accountName)),
+			RoleName:                 aws.String(generateRoleName(a.clusterName, namespaceName, accountName)),
 			AssumeRolePolicyDocument: aws.String(trustPolicy),
 			Tags: []types.Tag{
 				{
@@ -193,6 +193,6 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 	return string(serialized), err
 }
 
-func generateRoleName(namespaceName, accountName string) string {
-	return fmt.Sprintf("otterize-sa-%s-%s", namespaceName, accountName)
+func generateRoleName(clusterName, namespaceName, accountName string) string {
+	return fmt.Sprintf("otr+%s.%s@%s", namespaceName, accountName, clusterName)
 }
