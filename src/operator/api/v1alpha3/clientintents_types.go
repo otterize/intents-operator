@@ -27,6 +27,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -139,7 +140,8 @@ type IntentsSpec struct {
 }
 
 type Service struct {
-	Name string `json:"name" yaml:"name"`
+	Name                 string            `json:"name" yaml:"name"`
+	CreateServiceAccount v1.ServiceAccount `json:"createServiceAccount" yaml:"createServiceAccount"`
 }
 
 type Intent struct {
@@ -178,8 +180,8 @@ type KafkaTopic struct {
 
 // IntentsStatus defines the observed state of ClientIntents
 type IntentsStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// upToDate field reflects whether the client intents have successfully been applied
+	// to the cluster to the state specified
 	UpToDate bool `json:"upToDate,omitempty"`
 }
 
