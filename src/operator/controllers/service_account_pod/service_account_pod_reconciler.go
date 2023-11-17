@@ -50,6 +50,9 @@ func (e *PodServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	var pod v1.Pod
 	err := e.client.Get(ctx, req.NamespacedName, &pod)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
 		return ctrl.Result{}, err
 	}
 
