@@ -162,7 +162,9 @@ func (a *Agent) deleteInlineRolePolicy(ctx context.Context, role *types.Role) er
 }
 
 func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, error) {
+	logrus.Infof("%s", a.oidcUrl)
 	oidc := strings.TrimPrefix(a.oidcUrl, "https://")
+	logrus.Errorf("%s", oidc)
 
 	policy := PolicyDocument{
 		Version: iamAPIVersion,
