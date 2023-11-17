@@ -3,11 +3,13 @@ package intents_reconcilers
 import (
 	"context"
 	"errors"
+	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -92,10 +94,20 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		return ctrl.Result{}, nil
 	}
 
-	serviceAccountName, found := pod.Annotations["credentials-operator.otterize.com/service-account-name"]
+	serviceAccountName := pod.Spec.ServiceAccountName
 
-	if !found {
-		r.RecordWarningEventf(&intents, consts.ReasonAWSIntentsFoundButNoServiceAccount, "Found AWS intents, but no service account annotation specified for this pod ('%s').", pod.Name)
+	serviceAcooutsUsedByMultipleClients, err := r.hasMultipleClientsForServiceAccount(ctx, serviceAccountName, pod.Namespace)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed checking if the service account: %s is used by multiple aws clients: %w", serviceAccountName, err)
+	}
+
+	if serviceAcooutsUsedByMultipleClients {
+		r.RecordWarningEventf(&intents, consts.ReasonAWSIntentsServiceAccountUsedByMultipleClients, "found multiple clients using the service account: %s", serviceAccountName)
+		return ctrl.Result{}, nil
+	}
+
+	if len(serviceAccountName) == 0 {
+		r.RecordWarningEventf(&intents, consts.ReasonAWSIntentsFoundButNoServiceAccount, "Found AWS intents, but no service account found for pod ('%s').", pod.Name)
 		return ctrl.Result{}, nil
 	}
 
@@ -117,4 +129,37 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	err = r.awsAgent.AddRolePolicy(ctx, req.Namespace, serviceAccountName, req.Name, policy.Statement)
 
 	return ctrl.Result{}, err
+}
+
+func (r *AWSIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.Context, serviceAccountName string, namespace string) (bool, error) {
+	var intents otterizev1alpha3.ClientIntentsList
+	err := r.List(
+		ctx,
+		&intents,
+		&client.ListOptions{Namespace: namespace})
+	if err != nil {
+		return false, err
+	}
+
+	if len(intents.Items) <= 1 {
+		return false, nil
+	}
+
+	intentsWithAWSInSameNamespace := lo.Filter(intents.Items, func(intent otterizev1alpha3.ClientIntents, _ int) bool {
+		return len(intent.GetFilteredCallsList(otterizev1alpha3.IntentTypeAWS)) != 0
+	})
+
+	countUsesOfServiceAccountName := 0
+	for _, intent := range intentsWithAWSInSameNamespace {
+		pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, intent)
+		if err != nil {
+			return false, err
+		}
+		if pod.Spec.ServiceAccountName == serviceAccountName {
+			countUsesOfServiceAccountName++
+		}
+	}
+
+	return countUsesOfServiceAccountName > 1, nil
+
 }
