@@ -21,7 +21,7 @@ import "github.com/aws/aws-sdk-go-v2/service/iam"
 // - error
 func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName string) (bool, *types.Role, error) {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
-	roleName := generateRoleName(namespaceName, accountName)
+	roleName := generateRoleName(a.clusterName, namespaceName, accountName)
 
 	role, err := a.iamClient.GetRole(ctx, &iam.GetRoleInput{
 		RoleName: aws.String(roleName),
@@ -65,7 +65,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 		}
 
 		createRoleOutput, err := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
-			RoleName:                 aws.String(generateRoleName(namespaceName, accountName)),
+			RoleName:                 aws.String(generateRoleName(a.clusterName, namespaceName, accountName)),
 			AssumeRolePolicyDocument: aws.String(trustPolicy),
 			Tags: []types.Tag{
 				{
@@ -162,7 +162,7 @@ func (a *Agent) deleteInlineRolePolicy(ctx context.Context, role *types.Role) er
 }
 
 func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, error) {
-	oidc := strings.TrimPrefix(a.oidcUrl, "https://")
+	oidc := strings.TrimPrefix(a.oidcURL, "https://")
 
 	policy := PolicyDocument{
 		Version: iamAPIVersion,
@@ -171,7 +171,7 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 				Effect: iamEffectAllow,
 				Action: []string{"sts:AssumeRoleWithWebIdentity"},
 				Principal: map[string]string{
-					"Federated": fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", a.accountId, a.oidcUrl),
+					"Federated": fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", a.accountID, a.oidcURL),
 				},
 				Condition: map[string]any{
 					"StringEquals": map[string]string{
@@ -193,6 +193,6 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 	return string(serialized), err
 }
 
-func generateRoleName(namespaceName, accountName string) string {
-	return fmt.Sprintf("otterize-sa-%s-%s", namespaceName, accountName)
+func generateRoleName(clusterName, namespaceName, accountName string) string {
+	return fmt.Sprintf("otr+%s.%s@%s", namespaceName, accountName, clusterName)
 }
