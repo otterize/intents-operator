@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (a *Agent) AddRolePolicy(ctx context.Context, namespace, accountName, policyName string, statements []StatementEntry) error {
+func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName string, policyName string, statements []StatementEntry) error {
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
 
 	if err != nil {

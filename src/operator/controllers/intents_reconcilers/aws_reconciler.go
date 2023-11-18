@@ -54,10 +54,9 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	}
 
 	if intents.DeletionTimestamp != nil {
-		logger.Infof("Intents deleted")
+		logger.Debug("Intents deleted, deleting IAM role policy for this service")
 
-		err := r.awsAgent.DeleteRolePolicy(ctx, req.Namespace, req.Name)
-
+		err := r.awsAgent.DeleteRolePolicy(ctx, req.Namespace, intents.Spec.Service.Name)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -84,7 +83,6 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 				"Could not find non-terminating pods for service %s in namespace %s. Intents could not be reconciled now, but will be reconciled if pods appear later.",
 				intents.Spec.Service.Name,
 				intents.Namespace)
-			// TODO: fix pod watcher logic to handle this case when pod starts later
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -94,14 +92,18 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		return ctrl.Result{}, nil
 	}
 
+	if _, ok := pod.Annotations["credentials-operator.otterize.com/create-aws-role"]; !ok {
+		return ctrl.Result{}, nil
+	}
+
 	serviceAccountName := pod.Spec.ServiceAccountName
 
-	serviceAcooutsUsedByMultipleClients, err := r.hasMultipleClientsForServiceAccount(ctx, serviceAccountName, pod.Namespace)
+	hasMultipleClientsForServiceAccount, err := r.hasMultipleClientsForServiceAccount(ctx, serviceAccountName, pod.Namespace)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed checking if the service account: %s is used by multiple aws clients: %w", serviceAccountName, err)
 	}
 
-	if serviceAcooutsUsedByMultipleClients {
+	if hasMultipleClientsForServiceAccount {
 		r.RecordWarningEventf(&intents, consts.ReasonAWSIntentsServiceAccountUsedByMultipleClients, "found multiple clients using the service account: %s", serviceAccountName)
 		return ctrl.Result{}, nil
 	}
@@ -126,8 +128,7 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		})
 	}
 
-	err = r.awsAgent.AddRolePolicy(ctx, req.Namespace, serviceAccountName, req.Name, policy.Statement)
-
+	err = r.awsAgent.AddRolePolicy(ctx, req.Namespace, serviceAccountName, intents.Spec.Service.Name, policy.Statement)
 	return ctrl.Result{}, err
 }
 
