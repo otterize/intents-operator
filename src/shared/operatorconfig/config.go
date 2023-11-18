@@ -49,7 +49,7 @@ const (
 	EnableEgressNetworkPolicyReconcilersDefault = false
 	EnableAWSPolicyKey                          = "enable-aws-iam-policy"
 	EnableAWSPolicyDefault                      = false
-	ClusterOIDCProviderUrlKey                   = "eks-oidc-url"
+	EKSClusterNameKey                           = "eks-cluster-name"
 )
 
 func init() {

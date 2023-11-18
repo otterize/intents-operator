@@ -162,7 +162,7 @@ func (a *Agent) deleteInlineRolePolicy(ctx context.Context, role *types.Role) er
 }
 
 func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, error) {
-	oidc := strings.TrimPrefix(a.oidcUrl, "https://")
+	oidc := strings.TrimPrefix(a.oidcURL, "https://")
 
 	policy := PolicyDocument{
 		Version: iamAPIVersion,
@@ -171,7 +171,7 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 				Effect: iamEffectAllow,
 				Action: []string{"sts:AssumeRoleWithWebIdentity"},
 				Principal: map[string]string{
-					"Federated": fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", a.accountId, a.oidcUrl),
+					"Federated": fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", a.accountID, a.oidcURL),
 				},
 				Condition: map[string]any{
 					"StringEquals": map[string]string{
