@@ -84,7 +84,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 			return nil, err
 		}
 
-		logger.Debugf("created existing role, arn: %s", *createRoleOutput.Role.Arn)
+		logger.Debugf("created new role, arn: %s", *createRoleOutput.Role.Arn)
 		return createRoleOutput.Role, nil
 	}
 }
