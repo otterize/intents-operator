@@ -198,6 +198,6 @@ func (a *Agent) GenerateRoleName(namespace string, accountName string) string {
 }
 
 func (a *Agent) GenerateRoleARN(namespace string, accountName string) string {
-	roleName := a.GenerateRoleARN(namespace, accountName)
+	roleName := a.GenerateRoleName(namespace, accountName)
 	return fmt.Sprintf("arn:aws:iam::%s:role/%s", a.accountID, roleName)
 }
