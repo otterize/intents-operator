@@ -84,12 +84,14 @@ scalar String
 type AWSInfo {
 	region: String!
 	namespace: String!
+	eksClusterName: String!
 }
 
 input AWSInfoInput {
 	clusterId: ID!
 	region: String!
 	namespace: String!
+	eksClusterName: String!
 }
 
 type AWSResource {
