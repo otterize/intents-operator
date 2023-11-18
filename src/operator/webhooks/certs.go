@@ -76,6 +76,36 @@ func GenerateSelfSignedCertificate(hostname string, namespace string) (Certifica
 	}, nil
 }
 
+func UpdateMutationWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
+	kubeClient, err := getKubeClient()
+	if err != nil {
+		return err
+	}
+
+	webhookConfig, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, webHookName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	var newCA []patchValue
+	for i := range webhookConfig.Webhooks {
+		newCA = append(newCA, patchValue{
+			Op:    "replace",
+			Path:  fmt.Sprintf("/webhooks/%d/clientConfig/caBundle", i),
+			Value: base64.StdEncoding.EncodeToString(ca),
+		})
+	}
+
+	newCAByte, err := json.Marshal(newCA)
+	if err != nil {
+		return err
+	}
+
+	logrus.Infof("Installing new certificate in %s", webHookName)
+	_, err = kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Patch(ctx, webHookName, types.JSONPatchType, newCAByte, metav1.PatchOptions{})
+	return err
+}
+
 func WriteCertToFiles(bundle CertificateBundle) error {
 	err := os.MkdirAll(CertDirPath, 0600)
 	if err != nil {
