@@ -27,6 +27,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strings"
 )
 
@@ -52,12 +53,12 @@ func NewIntentsValidatorV1alpha2(c client.Client) *IntentsValidator {
 var _ webhook.CustomValidator = &IntentsValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *IntentsValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *IntentsValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 	intentsObj := obj.(*otterizev1alpha2.ClientIntents)
 	intentsList := &otterizev1alpha2.ClientIntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
-		return err
+		return nil, err
 	}
 	if err := v.validateNoDuplicateClients(intentsObj, intentsList); err != nil {
 		allErrs = append(allErrs, err)
@@ -68,22 +69,22 @@ func (v *IntentsValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 	}
 
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	gvk := intentsObj.GroupVersionKind()
-	return errors.NewInvalid(
+	return nil, errors.NewInvalid(
 		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
 		intentsObj.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *IntentsValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (v *IntentsValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 	intentsObj := newObj.(*otterizev1alpha2.ClientIntents)
 	intentsList := &otterizev1alpha2.ClientIntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
-		return err
+		return nil, err
 	}
 	if err := v.validateNoDuplicateClients(intentsObj, intentsList); err != nil {
 		allErrs = append(allErrs, err)
@@ -94,18 +95,18 @@ func (v *IntentsValidator) ValidateUpdate(ctx context.Context, oldObj, newObj ru
 	}
 
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	gvk := intentsObj.GroupVersionKind()
-	return errors.NewInvalid(
+	return nil, errors.NewInvalid(
 		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
 		intentsObj.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *IntentsValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
-	return nil
+func (v *IntentsValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }
 
 func (v *IntentsValidator) validateNoDuplicateClients(

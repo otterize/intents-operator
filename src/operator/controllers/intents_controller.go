@@ -45,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 var intentsLegacyFinalizers = []string{
@@ -191,7 +190,7 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev1alpha3.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
-		Watches(&source.Kind{Type: &otterizev1alpha3.ProtectedService{}}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
+		Watches(&otterizev1alpha3.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
 		Complete(r)
 	if err != nil {
 		return err
@@ -202,7 +201,7 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
-func (r *IntentsReconciler) mapProtectedServiceToClientIntents(obj client.Object) []reconcile.Request {
+func (r *IntentsReconciler) mapProtectedServiceToClientIntents(_ context.Context, obj client.Object) []reconcile.Request {
 	protectedService := obj.(*otterizev1alpha3.ProtectedService)
 	logrus.Infof("Enqueueing client intents for protected services %s", protectedService.Name)
 

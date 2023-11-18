@@ -28,6 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strings"
 )
 
@@ -53,13 +54,13 @@ func NewProtectedServiceValidatorV1alpha3(c client.Client) *ProtectedServiceVali
 var _ webhook.CustomValidator = &ProtectedServiceValidatorV1alpha3{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *ProtectedServiceValidatorV1alpha3) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (v *ProtectedServiceValidatorV1alpha3) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 	protectedService := obj.(*otterizev1alpha3.ProtectedService)
 
 	protectedServicesList := &otterizev1alpha3.ProtectedServiceList{}
 	if err := v.List(ctx, protectedServicesList, &client.ListOptions{Namespace: protectedService.Namespace}); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := v.validateNoDuplicateClients(protectedService, protectedServicesList); err != nil {
@@ -71,23 +72,23 @@ func (v *ProtectedServiceValidatorV1alpha3) ValidateCreate(ctx context.Context, 
 	}
 
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	gvk := protectedService.GroupVersionKind()
-	return errors.NewInvalid(
+	return nil, errors.NewInvalid(
 		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
 		protectedService.Name, allErrs)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *ProtectedServiceValidatorV1alpha3) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (v *ProtectedServiceValidatorV1alpha3) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	var allErrs field.ErrorList
 	protectedService := newObj.(*otterizev1alpha3.ProtectedService)
 
 	protectedServicesList := &otterizev1alpha3.ProtectedServiceList{}
 	if err := v.List(ctx, protectedServicesList, &client.ListOptions{Namespace: protectedService.Namespace}); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := v.validateNoDuplicateClients(protectedService, protectedServicesList); err != nil {
@@ -99,18 +100,18 @@ func (v *ProtectedServiceValidatorV1alpha3) ValidateUpdate(ctx context.Context, 
 	}
 
 	if len(allErrs) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	gvk := protectedService.GroupVersionKind()
-	return errors.NewInvalid(
+	return nil, errors.NewInvalid(
 		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
 		protectedService.Name, allErrs)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *ProtectedServiceValidatorV1alpha3) ValidateDelete(ctx context.Context, obj runtime.Object) error {
-	return nil
+func (v *ProtectedServiceValidatorV1alpha3) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	return nil, nil
 }
 
 func (v *ProtectedServiceValidatorV1alpha3) validateNoDuplicateClients(
