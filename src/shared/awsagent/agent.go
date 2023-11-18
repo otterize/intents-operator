@@ -3,6 +3,7 @@ package awsagent
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
@@ -12,8 +13,10 @@ import (
 	eksTypes "github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"strings"
 )
 
@@ -26,29 +29,21 @@ type Agent struct {
 
 func NewAWSAgent(
 	ctx context.Context,
-	oidcUrlFromEnv string,
-) *Agent {
-	logrus.Info("AWS Intents agent - enabled")
+) (*Agent, error) {
+	logrus.Info("Initializing AWS Intents agent")
 
-	awsConfig, err := config.LoadDefaultConfig(context.Background())
+	awsConfig, err := config.LoadDefaultConfig(ctx)
 
 	if err != nil {
-		panic(err)
+		return nil, fmt.Errorf("could not load AWS config")
 	}
 
-	oidcUrl := ""
-
-	if oidcUrlFromEnv == "" {
-		retrieved, err := tryRetrieveOIDCUrl(ctx, awsConfig)
-
+	oidcUrl := viper.GetString(operatorconfig.ClusterOIDCProviderUrlKey)
+	if !viper.IsSet(operatorconfig.ClusterOIDCProviderUrlKey) {
+		oidcUrl, err = tryRetrieveOIDCURL(ctx, awsConfig)
 		if err != nil {
-			logrus.WithError(err).Fatal("OIDC URL not provided, and not retrieved")
+			return nil, fmt.Errorf("failed to retrieve OIDC URL from AWS API: %w", err)
 		}
-
-		oidcUrl = retrieved
-	} else {
-		logrus.Infof("OIDC URL provided from config: %s", oidcUrlFromEnv)
-		oidcUrl = oidcUrlFromEnv
 	}
 
 	iamClient := iam.NewFromConfig(awsConfig)
@@ -57,7 +52,7 @@ func NewAWSAgent(
 	callerIdent, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 
 	if err != nil {
-		logrus.WithError(err).Panic("unable to get STS caller identity")
+		return nil, fmt.Errorf("unable to get STS caller identity: %w", err)
 	}
 
 	return &Agent{
@@ -65,21 +60,21 @@ func NewAWSAgent(
 		iamClient: iamClient,
 		accountId: *callerIdent.Account,
 		oidcUrl:   strings.Split(oidcUrl, "://")[1],
-	}
+	}, nil
 }
 
-func tryRetrieveOIDCUrl(ctx context.Context, awsConfig aws.Config) (string, error) {
+func tryRetrieveOIDCURL(ctx context.Context, awsConfig aws.Config) (string, error) {
 	currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
 
 	if err != nil {
 		return "", err
 	}
 
-	oidcUrl := *currentCluster.Identity.Oidc.Issuer
+	OIDCURL := *currentCluster.Identity.Oidc.Issuer
 
-	logrus.Infof("Retreieved OIDC URL for current EKS cluster: %s", oidcUrl)
+	logrus.Infof("Retrieved OIDC URL for current EKS cluster: %s", OIDCURL)
 
-	return oidcUrl, nil
+	return OIDCURL, nil
 }
 
 func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Cluster, error) {

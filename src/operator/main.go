@@ -117,7 +117,6 @@ func main() {
 		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
 		RootCAFile: viper.GetString(operatorconfig.KafkaServerTLSCAKey),
 	}
-	oidcUrl := viper.GetString(operatorconfig.ClusterOIDCProviderUrlKey)
 
 	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
@@ -157,6 +156,7 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Fatal(err, "unable to start manager")
 	}
+	signalHandlerCtx := ctrl.SetupSignalHandler()
 
 	metadataClient, err := metadata.NewForConfig(ctrl.GetConfigOrDie())
 	if err != nil {
@@ -167,7 +167,7 @@ func main() {
 		logrus.WithError(err).Fatal("unable to create Kubernetes API REST mapping")
 	}
 	kubeSystemUID := ""
-	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(context.Background(), "kube-system", metav1.GetOptions{})
+	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(signalHandlerCtx, "kube-system", metav1.GetOptions{})
 	if err != nil || kubeSystemNs == nil {
 		logrus.Warningf("failed getting kubesystem UID: %s", err)
 		kubeSystemUID = fmt.Sprintf("rand-%s", uuid.New().String())
@@ -177,7 +177,6 @@ func main() {
 	telemetrysender.SetGlobalContextId(telemetrysender.Anonymize(kubeSystemUID))
 	telemetrysender.SetGlobalVersion(version.Version())
 
-	signalHandlerCtx := ctrl.SetupSignalHandler()
 	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
 	if err != nil {
 		logrus.WithError(err).Fatal("unable to create kubernetes API client")
@@ -200,11 +199,14 @@ func main() {
 	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
-		awsIntentsAgent := awsagent.NewAWSAgent(context.Background(), oidcUrl)
+		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
+		if err != nil {
+			logrus.WithError(err).Fatal("could not initialize AWS agent")
+		}
 		awsIntentsReconciler := intents_reconcilers.NewAWSIntentsReconciler(mgr.GetClient(), scheme, awsIntentsAgent, serviceidresolver.NewResolver(mgr.GetClient()))
 		additionalIntentsReconcilers = append(additionalIntentsReconcilers, awsIntentsReconciler)
 		awsPodWatcher := aws_pod_reconciler.NewAWSPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), awsIntentsReconciler)
-		err := awsPodWatcher.SetupWithManager(mgr)
+		err = awsPodWatcher.SetupWithManager(mgr)
 		if err != nil {
 			logrus.WithError(err).Fatal("unable to register pod watcher")
 		}
@@ -255,12 +257,12 @@ func main() {
 			logrus.WithError(err).Fatal("unable to ensure otterize CRDs")
 		}
 
-		err = webhooks.UpdateValidationWebHookCA(context.Background(),
+		err = webhooks.UpdateValidationWebHookCA(signalHandlerCtx,
 			"otterize-validating-webhook-configuration", certBundle.CertPem)
 		if err != nil {
 			logrus.WithError(err).Fatal("updating validation webhook certificate failed")
 		}
-		err = webhooks.UpdateConversionWebhookCAs(context.Background(), directClient, certBundle.CertPem)
+		err = webhooks.UpdateConversionWebhookCAs(signalHandlerCtx, directClient, certBundle.CertPem)
 		if err != nil {
 			logrus.WithError(err).Fatal("updating conversion webhook certificate failed")
 		}
