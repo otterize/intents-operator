@@ -88,11 +88,11 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		return ctrl.Result{}, err
 	}
 
-	if pod.Annotations == nil {
+	if pod.Labels == nil {
 		return ctrl.Result{}, nil
 	}
 
-	if _, ok := pod.Annotations["credentials-operator.otterize.com/create-aws-role"]; !ok {
+	if _, ok := pod.Labels["credentials-operator.otterize.com/create-aws-role"]; !ok {
 		return ctrl.Result{}, nil
 	}
 
