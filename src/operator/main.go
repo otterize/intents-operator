@@ -40,7 +40,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -148,7 +147,7 @@ func main() {
 	}
 
 	if len(watchedNamespaces) != 0 {
-		options.NewCache = cache.MultiNamespacedCacheBuilder(watchedNamespaces)
+		options.Cache.Namespaces = watchedNamespaces
 		logrus.Infof("Will only watch the following namespaces: %v", watchedNamespaces)
 	}
 

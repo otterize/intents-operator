@@ -87,7 +87,7 @@ func (s *ControllerManagerTestSuiteBase) TearDownTest() {
 type Condition func() bool
 
 func (s *ControllerManagerTestSuiteBase) WaitUntilCondition(cond func(assert *assert.Assertions)) {
-	err := wait.PollImmediate(waitForCreationInterval, waitForCreationTimeout, func() (done bool, err error) {
+	err := wait.PollUntilContextTimeout(context.Background(), waitForCreationInterval, waitForCreationTimeout, true, func(ctx context.Context) (done bool, err error) {
 		localT := &testing.T{}
 		asrt := assert.New(localT)
 		cond(asrt)
@@ -101,7 +101,7 @@ func (s *ControllerManagerTestSuiteBase) WaitUntilCondition(cond func(assert *as
 
 // waitForObjectToBeCreated tries to get an object multiple times until it is available in the k8s API server
 func (s *ControllerManagerTestSuiteBase) waitForObjectToBeCreated(obj client.Object) {
-	s.Require().NoError(wait.PollImmediate(waitForCreationInterval, waitForCreationTimeout, func() (done bool, err error) {
+	s.Require().NoError(wait.PollUntilContextTimeout(context.Background(), waitForCreationInterval, waitForCreationTimeout, true, func(ctx context.Context) (done bool, err error) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if errors.IsNotFound(err) {
 			return false, nil
@@ -115,7 +115,7 @@ func (s *ControllerManagerTestSuiteBase) waitForObjectToBeCreated(obj client.Obj
 
 // WaitForDeletionToBeMarked tries to get an object multiple times until its deletion timestamp is set in K8S
 func (s *ControllerManagerTestSuiteBase) WaitForDeletionToBeMarked(obj client.Object) {
-	s.Require().NoError(wait.PollImmediate(waitForCreationInterval, waitForDeletionTSTimeout, func() (done bool, err error) {
+	s.Require().NoError(wait.PollUntilContextTimeout(context.Background(), waitForCreationInterval, waitForDeletionTSTimeout, true, func(ctx context.Context) (done bool, err error) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if !obj.GetDeletionTimestamp().IsZero() {
 			return true, nil
