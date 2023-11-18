@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"strings"
 	"testing"
 	"time"
@@ -53,8 +54,13 @@ func (s *ControllerManagerTestSuiteBase) TearDownSuite() {
 func (s *ControllerManagerTestSuiteBase) SetupTest() {
 	s.mgrCtx, s.mgrCtxCancelFunc = context.WithCancel(context.Background())
 
+	webhookServer := webhook.NewServer(webhook.Options{
+		Host:    s.TestEnv.WebhookInstallOptions.LocalServingHost,
+		Port:    s.TestEnv.WebhookInstallOptions.LocalServingPort,
+		CertDir: s.TestEnv.WebhookInstallOptions.LocalServingCertDir,
+	})
 	var err error
-	s.Mgr, err = manager.New(s.RestConfig, manager.Options{MetricsBindAddress: "0"})
+	s.Mgr, err = manager.New(s.RestConfig, manager.Options{MetricsBindAddress: "0", WebhookServer: webhookServer})
 	s.Require().NoError(err)
 	s.Require().NoError(protected_services.InitProtectedServiceIndexField(s.Mgr))
 

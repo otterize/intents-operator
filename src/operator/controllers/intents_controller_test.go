@@ -115,7 +115,7 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
 			},
 		},
 	}
-	res := s.intentsReconciler.mapProtectedServiceToClientIntents(&protectedService)
+	res := s.intentsReconciler.mapProtectedServiceToClientIntents(context.Background(), &protectedService)
 	s.Require().Equal(expected, res)
 }
 
@@ -138,7 +138,7 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntentNoInten
 	).Return(nil)
 
 	expected := make([]reconcile.Request, 0)
-	res := s.intentsReconciler.mapProtectedServiceToClientIntents(&protectedService)
+	res := s.intentsReconciler.mapProtectedServiceToClientIntents(context.Background(), &protectedService)
 	s.Require().Equal(expected, res)
 }
 
