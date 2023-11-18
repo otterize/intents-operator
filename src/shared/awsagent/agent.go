@@ -21,10 +21,11 @@ import (
 )
 
 type Agent struct {
-	stsClient *sts.Client
-	iamClient *iam.Client
-	accountId string
-	oidcUrl   string
+	stsClient   *sts.Client
+	iamClient   *iam.Client
+	accountID   string
+	oidcURL     string
+	clusterName string
 }
 
 func NewAWSAgent(
@@ -38,13 +39,13 @@ func NewAWSAgent(
 		return nil, fmt.Errorf("could not load AWS config")
 	}
 
-	oidcUrl := viper.GetString(operatorconfig.ClusterOIDCProviderUrlKey)
-	if !viper.IsSet(operatorconfig.ClusterOIDCProviderUrlKey) {
-		oidcUrl, err = tryRetrieveOIDCURL(ctx, awsConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to retrieve OIDC URL from AWS API: %w", err)
-		}
+	currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current EKS cluster: %w", err)
 	}
+
+	OIDCURL := *currentCluster.Identity.Oidc.Issuer
 
 	iamClient := iam.NewFromConfig(awsConfig)
 	stsClient := sts.NewFromConfig(awsConfig)
@@ -56,33 +57,24 @@ func NewAWSAgent(
 	}
 
 	return &Agent{
-		stsClient: stsClient,
-		iamClient: iamClient,
-		accountId: *callerIdent.Account,
-		oidcUrl:   strings.Split(oidcUrl, "://")[1],
+		stsClient:   stsClient,
+		iamClient:   iamClient,
+		accountID:   *callerIdent.Account,
+		oidcURL:     strings.Split(OIDCURL, "://")[1],
+		clusterName: *currentCluster.Name,
 	}, nil
 }
 
-func tryRetrieveOIDCURL(ctx context.Context, awsConfig aws.Config) (string, error) {
-	currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
-
-	if err != nil {
-		return "", err
+func getEKSClusterName(ctx context.Context, config aws.Config) (string, error) {
+	if viper.IsSet(operatorconfig.EKSClusterNameOverrideKey) {
+		return viper.GetString(operatorconfig.EKSClusterNameOverrideKey), nil
 	}
 
-	OIDCURL := *currentCluster.Identity.Oidc.Issuer
-
-	logrus.Infof("Retrieved OIDC URL for current EKS cluster: %s", OIDCURL)
-
-	return OIDCURL, nil
-}
-
-func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Cluster, error) {
 	imdsClient := imds.NewFromConfig(config)
 	output, err := imdsClient.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
 
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	ec2Client := ec2.NewFromConfig(config)
@@ -91,7 +83,7 @@ func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Clu
 	})
 
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	clusterName, found := lo.Find(describeInstancesOutput.Reservations[0].Instances[0].Tags, func(item types.Tag) bool {
@@ -99,12 +91,21 @@ func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Clu
 	})
 
 	if !found {
-		return nil, errors.New("EKS cluster name tag not found")
+		return "", errors.New("EKS cluster name tag not found")
+	}
+
+	return *clusterName.Value, nil
+}
+
+func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Cluster, error) {
+	clusterName, err := getEKSClusterName(ctx, config)
+	if err != nil {
+		return nil, fmt.Errorf("could not get EKS cluster name: %w", err)
 	}
 
 	eksClient := eks.NewFromConfig(config)
 
-	describeClusterOutput, err := eksClient.DescribeCluster(ctx, &eks.DescribeClusterInput{Name: clusterName.Value})
+	describeClusterOutput, err := eksClient.DescribeCluster(ctx, &eks.DescribeClusterInput{Name: &clusterName})
 
 	if err != nil {
 		return nil, err
