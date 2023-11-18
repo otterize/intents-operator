@@ -281,7 +281,7 @@ func (p *PodWatcher) Register(mgr manager.Manager) error {
 		return fmt.Errorf("unable to set up pods controller: %p", err)
 	}
 
-	if err = watcher.Watch(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err = watcher.Watch(source.Kind(mgr.GetCache(), &v1.Pod{}), &handler.EnqueueRequestForObject{}); err != nil {
 		return fmt.Errorf("unable to watch Pods: %p", err)
 	}
 

@@ -67,7 +67,7 @@ func (ns *NamespaceWatcher) Register(mgr manager.Manager) error {
 		return fmt.Errorf("unable to set up namespace controller: %w", err)
 	}
 
-	if err = watcher.Watch(&source.Kind{Type: &v1.Namespace{}}, &handler.EnqueueRequestForObject{}); err != nil {
+	if err = watcher.Watch(source.Kind(mgr.GetCache(), &v1.Namespace{}), &handler.EnqueueRequestForObject{}); err != nil {
 		return fmt.Errorf("unable to watch Namespaces: %w", err)
 	}
 
