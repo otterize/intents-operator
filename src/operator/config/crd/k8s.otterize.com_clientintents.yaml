@@ -267,9 +267,8 @@ spec:
             description: IntentsStatus defines the observed state of ClientIntents
             properties:
               upToDate:
-                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                  of cluster Important: Run "make" to regenerate code after modifying
-                  this file'
+                description: upToDate field reflects whether the client intents have
+                  successfully been applied to the cluster to the state specified
                 type: boolean
             type: object
         type: object
