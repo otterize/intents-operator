@@ -66,8 +66,8 @@ func NewAWSAgent(
 }
 
 func getEKSClusterName(ctx context.Context, config aws.Config) (string, error) {
-	if viper.IsSet(operatorconfig.EKSClusterNameKey) {
-		return viper.GetString(operatorconfig.EKSClusterNameKey), nil
+	if viper.IsSet(operatorconfig.EKSClusterNameOverrideKey) {
+		return viper.GetString(operatorconfig.EKSClusterNameOverrideKey), nil
 	}
 
 	imdsClient := imds.NewFromConfig(config)
