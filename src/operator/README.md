@@ -41,7 +41,7 @@ This project aims to follow the Kubernetes [Operator pattern](https://kubernetes
 It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) 
 which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster 
 
-### Test It Out
+### Test it out
 1. Install a SPIRE server. You can use the [SPIRE server from the helm-charts repository](https://github.com/otterize/helm-charts/tree/main/spire).
 
 2. If you are running this locally against a SPIRE server, and did not install it using the [Otterize all-in-one helm chart](https://github.com/otterize/helm-charts/tree/main/otterize-kubernetes), then you need to create a SPIRE server entry for the operator:

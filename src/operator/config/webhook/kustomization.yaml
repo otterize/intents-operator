@@ -1,0 +1,22 @@
+resources:
+- manifests.yaml
+
+configurations:
+- kustomizeconfig.yaml
+
+patches:
+    - patch: |-
+          - op: replace
+            path: /metadata/name
+            value: 'otterize-credentials-operator-validating-webhook-configuration'
+          - op: replace
+            path: /webhooks/0/clientConfig/service/namespace
+            value: '{{ .Release.Namespace }}'
+          - op: replace
+            path: /webhooks/0/clientConfig/service/name
+            value: credentials-operator-webhook-service
+          - op: replace
+            path: /webhooks/0/clientConfig/service/namespace
+            value: '{{ .Release.Namespace }}'
+      target:
+          kind: MutatingWebhookConfiguration

@@ -3,13 +3,14 @@ layout:
 - go.kubebuilder.io/v3
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
-  scorecard.sdk.operatorframework.io/v2: {}
-projectName: spire-integration-operator
-repo: github.com/otterize/spire-integration-operator
+projectName: credentials-operator
+repo: github.com/otterize/credentials-operator
 resources:
 - controller: true
   group: core
   kind: Pod
   path: k8s.io/api/core/v1
   version: v1
+  webhooks:
+    webhookVersion: v1
 version: "3"

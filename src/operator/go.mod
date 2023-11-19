@@ -6,10 +6,10 @@ require (
 	github.com/Khan/genqlient v0.6.0
 	github.com/amit7itz/goset v1.2.1
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
-	github.com/aws/aws-sdk-go-v2/service/iam v1.22.5
+	github.com/aws/aws-sdk-go-v2/service/iam v1.27.2
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/cert-manager/cert-manager v1.12.3
-	github.com/otterize/intents-operator/src v0.0.0-20231029112047-8981c2356ed0
+	github.com/otterize/intents-operator/src v0.0.0-20231119211508-00d52205eecc
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.1
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.0
@@ -32,22 +32,22 @@ require (
 	github.com/Azure/go-ntlmssp v0.0.0-20220621081337-cb9428e4ac1e // indirect
 	github.com/DataDog/datadog-go v3.2.0+incompatible // indirect
 	github.com/Microsoft/go-winio v0.6.0 // indirect
-	github.com/agnivade/levenshtein v1.1.1 // indirect
-	github.com/alexflint/go-arg v1.4.2 // indirect
-	github.com/alexflint/go-scalar v1.0.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/aws/aws-sdk-go-v2 v1.21.0 // indirect
-	github.com/aws/aws-sdk-go-v2/config v1.18.42 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.13.40 // indirect
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.13.11 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.1.41 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.35 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/ini v1.3.43 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.35 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.14.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.17.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.22.0 // indirect
-	github.com/aws/smithy-go v1.14.2 // indirect
+	github.com/aws/aws-sdk-go-v2 v1.23.0 // indirect
+	github.com/aws/aws-sdk-go-v2/config v1.25.3 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.16.2 // indirect
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.14.4 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.2.3 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.5.3 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.136.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/eks v1.33.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.1 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.3 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.17.2 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.20.0 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.25.3 // indirect
+	github.com/aws/smithy-go v1.17.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
@@ -75,6 +75,7 @@ require (
 	github.com/hashicorp/hcl v1.0.1-0.20190430135223-99e2f22d1c94 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
@@ -135,3 +136,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+//replace github.com/otterize/intents-operator/src => ../../../intents-operator/src

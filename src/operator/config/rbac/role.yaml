@@ -3,7 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: manager-role
+  name: credentials-operator-manager-role
 rules:
 - apiGroups:
   - ""
@@ -27,6 +27,15 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - patch
+  - update
 - apiGroups:
   - apps
   resources:
