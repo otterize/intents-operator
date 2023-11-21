@@ -2,6 +2,7 @@ package awsagent
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,7 +22,7 @@ import "github.com/aws/aws-sdk-go-v2/service/iam"
 // - error
 func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName string) (bool, *types.Role, error) {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
-	roleName := a.GenerateRoleName(namespaceName, accountName)
+	roleName := a.generateRoleName(namespaceName, accountName)
 
 	role, err := a.iamClient.GetRole(ctx, &iam.GetRoleInput{
 		RoleName: aws.String(roleName),
@@ -64,8 +65,8 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 			return nil, err
 		}
 
-		createRoleOutput, err := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
-			RoleName:                 aws.String(a.GenerateRoleName(namespaceName, accountName)),
+		createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
+			RoleName:                 aws.String(a.generateRoleName(namespaceName, accountName)),
 			AssumeRolePolicyDocument: aws.String(trustPolicy),
 			Tags: []types.Tag{
 				{
@@ -76,12 +77,17 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 					Key:   aws.String(serviceAccountNamespaceTagKey),
 					Value: aws.String(namespaceName),
 				},
+				{
+					Key:   aws.String(clusterNameTagKey),
+					Value: aws.String(a.clusterName),
+				},
 			},
+			Description: aws.String(iamRoleDescription),
 		})
 
-		if err != nil {
-			logger.WithError(err).Error("failed to create role")
-			return nil, err
+		if createRoleError != nil {
+			logger.WithError(createRoleError).Error("failed to create role")
+			return nil, createRoleError
 		}
 
 		logger.Debugf("created new role, arn: %s", *createRoleOutput.Role.Arn)
@@ -103,19 +109,17 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	}
 
 	_, found := lo.Find(role.Tags, func(tag types.Tag) bool {
-		if *tag.Key == serviceAccountNameTagKey && *tag.Value == accountName {
-			return true
-		}
-		if *tag.Key == serviceAccountNamespaceTagKey && *tag.Value == namespaceName {
-			return true
-		}
+		response := false
+		response = response && (*tag.Key == serviceAccountNameTagKey && *tag.Value == accountName)
+		response = response && (*tag.Key == serviceAccountNamespaceTagKey && *tag.Value == namespaceName)
+		response = response && (*tag.Key == clusterNameTagKey && *tag.Value == a.clusterName)
 
-		return false
+		return response
 	})
 
 	if !found {
 		errorMessage := "refusing to delete role that's not tagged with with appropriate tags"
-		logger.WithField("arn", role.Arn).Error(errorMessage)
+		logger.WithField("arn", *role.Arn).Error(errorMessage)
 		return errors.New(errorMessage)
 	}
 
@@ -193,11 +197,23 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 	return string(serialized), err
 }
 
-func (a *Agent) GenerateRoleName(namespace string, accountName string) string {
-	return fmt.Sprintf("otterize-%s.%s@%s", namespace, accountName, a.clusterName)
+func (a *Agent) generateRoleName(namespace string, accountName string) string {
+	fullName := fmt.Sprintf("otr-%s.%s@%s", namespace, accountName, a.clusterName)
+
+	var truncatedName string
+	if len(fullName) >= (maxTruncatedLength) {
+		truncatedName = fullName[:maxTruncatedLength]
+	} else {
+		truncatedName = fullName
+	}
+
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fullName)))
+	hash = hash[:truncatedHashLength]
+
+	return fmt.Sprintf("%s-%s", truncatedName, hash)
 }
 
 func (a *Agent) GenerateRoleARN(namespace string, accountName string) string {
-	roleName := a.GenerateRoleName(namespace, accountName)
+	roleName := a.generateRoleName(namespace, accountName)
 	return fmt.Sprintf("arn:aws:iam::%s:role/%s", a.accountID, roleName)
 }
