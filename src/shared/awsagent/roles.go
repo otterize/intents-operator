@@ -109,7 +109,7 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	}
 
 	_, found := lo.Find(role.Tags, func(tag types.Tag) bool {
-		response := false
+		response := true
 		response = response && (*tag.Key == serviceAccountNameTagKey && *tag.Value == accountName)
 		response = response && (*tag.Key == serviceAccountNamespaceTagKey && *tag.Value == namespaceName)
 		response = response && (*tag.Key == clusterNameTagKey && *tag.Value == a.clusterName)
