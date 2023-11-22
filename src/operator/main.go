@@ -42,6 +42,7 @@ import (
 	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
@@ -119,6 +120,9 @@ func main() {
 
 	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
+	logrus.SetFormatter(&logrus.JSONFormatter{
+		TimestampFormat: time.RFC3339,
+	})
 	debugLogs := viper.GetBool(operatorconfig.DebugLogKey)
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
