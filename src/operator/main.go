@@ -218,6 +218,7 @@ func main() {
 		awsAgent, err := awsagent.NewAWSAgent(ctx)
 		if err != nil {
 			logrus.WithError(err).Error("failed to initialize AWS agent")
+			os.Exit(1)
 		}
 		serviceAccountReconciler := serviceaccount.NewServiceAccountReconciler(client, mgr.GetScheme(), awsAgent)
 		if err = serviceAccountReconciler.SetupWithManager(mgr); err != nil {
