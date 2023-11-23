@@ -85,6 +85,7 @@ type AWSInfo {
 	region: String!
 	namespace: String!
 	eksClusterName: String!
+	awsAccountId: String!
 }
 
 input AWSInfoInput {
@@ -92,6 +93,7 @@ input AWSInfoInput {
 	region: String!
 	namespace: String!
 	eksClusterName: String!
+	awsAccountId: String!
 }
 
 type AWSResource {
@@ -126,11 +128,6 @@ enum CertificateProvider {
 	CERT_MANAGER
 	CLOUD
 	NONE
-}
-
-type Client {
-	id: ID!
-	secret: String!
 }
 
 type ClientIntentsFileRepresentation {
@@ -218,11 +215,13 @@ enum CustomConstraint {
 }
 
 type DatabaseConfig {
+	dbname: String!
 	table: String!
 	operations: [DatabaseOperation!]
 }
 
 input DatabaseConfigInput {
+	dbname: String!
 	table: String!
 	operations: [DatabaseOperation!]!
 }
@@ -233,13 +232,11 @@ input DatabaseCredentialsInput {
 }
 
 type DatabaseInfo {
-	name: String!
 	address: String!
 	databaseType: DatabaseType!
 }
 
 input DatabaseInfoInput {
-	name: String!
 	address: String!
 	databaseType: DatabaseType!
 	credentials: DatabaseCredentialsInput!
@@ -565,41 +562,6 @@ type MeMutation {
 type Mutation {
 """This is just a placeholder since currently GraphQL does not allow empty types"""
 	dummy: Boolean
-"""Create client"""
-	createClient: Client!
-"""Delete client"""
-	deleteClient(
-		id: ID!
-	): ID!
-"""Create user invite"""
-	createInvite(
-		email: String!
-	): Invite!
-"""Delete user invite"""
-	deleteInvite(
-		id: ID!
-	): ID!
-"""Accept user invite"""
-	acceptInvite(
-		id: ID!
-	): Invite!
-"""Operate on the current logged-in user"""
-	me: MeMutation!
-"""Create a new organization"""
-	createOrganization(
-		name: String
-	): Organization!
-"""Update organization"""
-	updateOrganization(
-		id: ID!
-		name: String
-		imageURL: String
-	): Organization!
-"""Remove user from organization"""
-	removeUserFromOrganization(
-		id: ID!
-		userId: ID!
-	): ID!
 """Register certificate-request details for kubernetes pod owner, returns the service associated with this pod owner"""
 	registerKubernetesPodOwnerCertificateRequest(
 		podOwner: NamespacedPodOwner!
@@ -713,15 +675,44 @@ type Mutation {
 		namespace: String!
 		policies: [NetworkPolicyInput!]!
 	): Boolean!
+"""Create user invite"""
+	createInvite(
+		email: String!
+	): Invite!
+"""Delete user invite"""
+	deleteInvite(
+		id: ID!
+	): ID!
+"""Accept user invite"""
+	acceptInvite(
+		id: ID!
+	): Invite!
 	reportKafkaServerConfigs(
 		namespace: String!
 		serverConfigs: [KafkaServerConfigInput!]!
 	): Boolean!
+"""Operate on the current logged-in user"""
+	me: MeMutation!
 """Associate namespace to environment"""
 	associateNamespaceToEnv(
 		id: ID!
 		environmentId: ID
 	): Namespace!
+"""Create a new organization"""
+	createOrganization(
+		name: String
+	): Organization!
+"""Update organization"""
+	updateOrganization(
+		id: ID!
+		name: String
+		imageURL: String
+	): Organization!
+"""Remove user from organization"""
+	removeUserFromOrganization(
+		id: ID!
+		userId: ID!
+	): ID!
 	reportProtectedServicesSnapshot(
 		namespace: String!
 		services: [ProtectedServiceInput!]!
@@ -767,38 +758,6 @@ input ProtectedServiceInput {
 type Query {
 """This is just a placeholder since currently GraphQL does not allow empty types"""
 	dummy: Boolean
-"""Get client"""
-	client(
-		id: ID!
-	): Client!
-"""List user invites"""
-	invites(
-		email: String
-		status: InviteStatus
-	): [Invite!]!
-"""Get user invite"""
-	invite(
-		id: ID!
-	): Invite!
-"""Get one user invite"""
-	oneInvite(
-		email: String
-		status: InviteStatus
-	): Invite!
-"""Get information regarding the current logged-in user"""
-	me: Me!
-"""List organizations"""
-	organizations: [Organization!]!
-"""Get organization"""
-	organization(
-		id: ID!
-	): Organization!
-"""List users"""
-	users: [User!]!
-"""Get user"""
-	user(
-		id: ID!
-	): User!
 """Get access graph"""
 	accessGraph(
 		filter: InputAccessGraphFilter
@@ -854,6 +813,22 @@ type Query {
 		clusterId: ID
 		name: String
 	): Integration!
+"""List user invites"""
+	invites(
+		email: String
+		status: InviteStatus
+	): [Invite!]!
+"""Get user invite"""
+	invite(
+		id: ID!
+	): Invite!
+"""Get one user invite"""
+	oneInvite(
+		email: String
+		status: InviteStatus
+	): Invite!
+"""Get information regarding the current logged-in user"""
+	me: Me!
 """Get namespace"""
 	namespace(
 		id: ID!
@@ -870,6 +845,12 @@ type Query {
 		clusterId: ID
 		name: String
 	): Namespace!
+"""List organizations"""
+	organizations: [Organization!]!
+"""Get organization"""
+	organization(
+		id: ID!
+	): Organization!
 """Get service"""
 	service(
 		id: ID!
@@ -886,6 +867,12 @@ type Query {
 		namespaceId: ID
 		name: String
 	): Service
+"""List users"""
+	users: [User!]!
+"""Get user"""
+	user(
+		id: ID!
+	): User!
 }
 
 enum RowDiff {
@@ -1005,6 +992,16 @@ type User {
 type UserAndPassword {
 	username: String!
 	password: String!
+}
+
+enum UserErrorType {
+	UNAUTHENTICATED
+	NOT_FOUND
+	INTERNAL_SERVER_ERROR
+	BAD_REQUEST
+	FORBIDDEN
+	CONFLICT
+	BAD_USER_INPUT
 }
 
 
