@@ -79,7 +79,7 @@ metadata:
   "credentials-operator.otterize.com/create-aws-role": "true"
 ```
 
-3. Declare ClientIntents to specify which AWS resources it needs access to:
+2. Declare ClientIntents to specify which AWS resources it needs access to:
 ```yaml
 apiVersion: k8s.otterize.com/v1alpha3
 kind: ClientIntents
