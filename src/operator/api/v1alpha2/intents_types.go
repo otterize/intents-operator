@@ -150,8 +150,9 @@ type Intent struct {
 }
 
 type DatabaseResource struct {
-	Table      string              `json:"table" yaml:"table"`
-	Operations []DatabaseOperation `json:"operations" yaml:"operations"`
+	DatabaseName string              `json:"databaseName" yaml:"databaseName"`
+	Table        string              `json:"table" yaml:"table"`
+	Operations   []DatabaseOperation `json:"operations" yaml:"operations"`
 }
 
 type HTTPResource struct {

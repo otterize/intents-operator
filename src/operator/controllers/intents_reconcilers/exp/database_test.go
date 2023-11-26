@@ -24,6 +24,7 @@ const (
 	clientName        string = "test-client"
 	integrationName   string = "test-integration"
 	tableName         string = "test-table"
+	dbName            string = "testdb"
 )
 
 type DatabaseReconcilerTestSuite struct {
@@ -85,7 +86,8 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 					Name: integrationName,
 					Type: otterizev1alpha3.IntentTypeDatabase,
 					DatabaseResources: []otterizev1alpha3.DatabaseResource{{
-						Table: tableName,
+						DatabaseName: dbName,
+						Table:        tableName,
 						Operations: []otterizev1alpha3.DatabaseOperation{
 							otterizev1alpha3.DatabaseOperationSelect,
 							otterizev1alpha3.DatabaseOperationInsert,
@@ -103,7 +105,8 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 		ServerNamespace: lo.ToPtr(testNamespace),
 		Type:            lo.ToPtr(graphqlclient.IntentTypeDatabase),
 		DatabaseResources: []*graphqlclient.DatabaseConfigInput{{
-			Table: lo.ToPtr(tableName),
+			Table:  lo.ToPtr(tableName),
+			Dbname: lo.ToPtr(dbName),
 			Operations: []*graphqlclient.DatabaseOperation{
 				lo.ToPtr(graphqlclient.DatabaseOperationSelect),
 				lo.ToPtr(graphqlclient.DatabaseOperationInsert),

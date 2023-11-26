@@ -162,8 +162,9 @@ type Intent struct {
 }
 
 type DatabaseResource struct {
-	Table      string              `json:"table" yaml:"table"`
-	Operations []DatabaseOperation `json:"operations" yaml:"operations"`
+	DatabaseName string              `json:"databaseName" yaml:"databaseName"`
+	Table        string              `json:"table" yaml:"table"`
+	Operations   []DatabaseOperation `json:"operations" yaml:"operations"`
 }
 
 type HTTPResource struct {
@@ -484,7 +485,8 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 	if in.DatabaseResources != nil {
 		intentInput.DatabaseResources = lo.Map(in.DatabaseResources, func(resource DatabaseResource, _ int) *graphqlclient.DatabaseConfigInput {
 			databaseConfigInput := graphqlclient.DatabaseConfigInput{
-				Table: lo.ToPtr(resource.Table),
+				Table:  lo.ToPtr(resource.Table),
+				Dbname: lo.ToPtr(resource.DatabaseName),
 				Operations: lo.Map(resource.Operations, func(operation DatabaseOperation, _ int) *graphqlclient.DatabaseOperation {
 					cloudOperation := databaseOperationToCloud(operation)
 					return &cloudOperation

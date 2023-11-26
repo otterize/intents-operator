@@ -53,6 +53,7 @@ func convertDatabaseResourcesV1alpha2toV1alpha3(srcResources []DatabaseResource)
 	dstResources := make([]v1alpha3.DatabaseResource, len(srcResources))
 	for i, resource := range srcResources {
 		dstResources[i].Table = resource.Table
+		dstResources[i].DatabaseName = resource.DatabaseName
 		dstResources[i].Operations = lo.Map(resource.Operations, func(operation DatabaseOperation, _ int) v1alpha3.DatabaseOperation {
 			return v1alpha3.DatabaseOperation(operation)
 		})
@@ -102,6 +103,7 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 func convertDatabaseResourcesV1alpha3toV1alpha2(srcResources []v1alpha3.DatabaseResource) []DatabaseResource {
 	dstResources := make([]DatabaseResource, len(srcResources))
 	for i, resource := range srcResources {
+		dstResources[i].DatabaseName = resource.DatabaseName
 		dstResources[i].Table = resource.Table
 		dstResources[i].Operations = lo.Map(resource.Operations, func(operation v1alpha3.DatabaseOperation, _ int) DatabaseOperation {
 			return DatabaseOperation(operation)
