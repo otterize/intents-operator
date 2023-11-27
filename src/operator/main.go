@@ -178,18 +178,22 @@ func main() {
 	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
 	eventRecorder := mgr.GetEventRecorderFor("credentials-operator")
 
+	otterizeCloudClient, clientInitializedWithCredentials, err := otterizeclient.NewCloudClient(ctx)
+	if err != nil {
+		logrus.WithError(err).Error("failed to initialize cloud client")
+		os.Exit(1)
+	}
+
+	if clientInitializedWithCredentials {
+		otterizeclient.PeriodicallyReportConnectionToCloud(otterizeCloudClient)
+	}
+
 	if certProvider == CertProviderCloud {
-		otterizeCloudClient, hasCredentials, err := otterizeclient.NewCloudClient(ctx)
-		if err != nil {
-			logrus.WithError(err).Error("failed to connect to otterize cloud")
-			os.Exit(1)
-		}
-		if !hasCredentials {
+		if !clientInitializedWithCredentials {
 			logrus.Fatal("using cloud, but cloud credentials not specified")
 		}
 		workloadRegistry = otterizeCloudClient
 		userAndPassAcquirer = otterizeCloudClient
-		otterizeclient.PeriodicallyReportConnectionToCloud(otterizeCloudClient)
 		otterizeCertManager := otterizecertgen.NewOtterizeCertificateGenerator(otterizeCloudClient)
 		secretsManager = secrets.NewDirectSecretsManager(mgr.GetClient(), serviceIdResolver, eventRecorder, otterizeCertManager)
 	} else if certProvider == CertProviderSPIRE {

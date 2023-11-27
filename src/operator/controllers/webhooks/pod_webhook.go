@@ -85,12 +85,12 @@ func (a *ServiceAccountAnnotatingPodWebhook) handleOnce(ctx context.Context, pod
 }
 
 // dryRun: should not cause any modifications except to the Pod in the request.
-func (a *ServiceAccountAnnotatingPodWebhook) handleWithRetriesOnConflict(ctx context.Context, pod corev1.Pod, dryRun bool) (outputPod corev1.Pod, patched bool, successMsg string, err error) {
-	for attempt := 0; attempt < 3; attempt++ {
+func (a *ServiceAccountAnnotatingPodWebhook) handleWithRetriesOnConflictOrNotFound(ctx context.Context, pod corev1.Pod, dryRun bool) (outputPod corev1.Pod, patched bool, successMsg string, err error) {
+	for attempt := 0; attempt < 5; attempt++ {
 		logrus.Debugf("Handling pod '%s' in namespace '%s' (attempt %d out of %d)", pod.Name, pod.Namespace, attempt+1, 3)
 		outputPod, patched, successMsg, err = a.handleOnce(ctx, *pod.DeepCopy(), dryRun)
 		if err != nil {
-			if k8serrors.IsConflict(err) {
+			if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) {
 				logrus.WithError(err).Errorf("failed to handle pod '%s' in namespace '%s' due to conflict, retrying in 1 second (attempt %d out of %d)", pod.Name, pod.Namespace, attempt+1, 3)
 				time.Sleep(1 * time.Second)
 				continue
@@ -113,9 +113,9 @@ func (a *ServiceAccountAnnotatingPodWebhook) Handle(ctx context.Context, req adm
 	}
 	logrus.Debugf("Got webhook call for pod '%s' in namespace '%s'", pod.Name, pod.Namespace)
 
-	pod, patched, successMsg, err := a.handleWithRetriesOnConflict(ctx, pod, req.DryRun != nil && *req.DryRun)
+	pod, patched, successMsg, err := a.handleWithRetriesOnConflictOrNotFound(ctx, pod, req.DryRun != nil && *req.DryRun)
 	if err != nil {
-		return admission.Errored(http.StatusInternalServerError, err)
+		return admission.Allowed("pod admitted, but failed to annotate service account, see warnings").WithWarnings(err.Error())
 	}
 
 	if !patched {
