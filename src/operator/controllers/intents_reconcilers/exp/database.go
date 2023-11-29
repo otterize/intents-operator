@@ -2,6 +2,7 @@ package exp
 
 import (
 	"context"
+	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -11,6 +12,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	ReasonApplyingDatabaseIntentsFailed = "ApplyingDatabaseIntentsFailed"
+	ReasonAppliedDatabaseIntents        = "AppliedDatabaseIntents"
 )
 
 type DatabaseReconciler struct {
@@ -68,8 +74,16 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if err := r.otterizeClient.ApplyDatabaseIntent(ctx, intentInputList, action); err != nil {
+		errType, errMsg, ok := graphqlclient.GetGraphQLUserError(err)
+		if !ok || errType != graphqlclient.UserErrorTypeAppliedIntentsError {
+			r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents")
+			return ctrl.Result{}, err
+		}
+		r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, fmt.Sprintf("%s", errMsg))
 		return ctrl.Result{}, err
 	}
+
+	r.RecordNormalEventf(intents, ReasonAppliedDatabaseIntents, "Successfully applied database intents")
 
 	return ctrl.Result{}, nil
 }
