@@ -2,7 +2,6 @@ package exp
 
 import (
 	"context"
-	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -76,14 +75,14 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err := r.otterizeClient.ApplyDatabaseIntent(ctx, intentInputList, action); err != nil {
 		errType, errMsg, ok := graphqlclient.GetGraphQLUserError(err)
 		if !ok || errType != graphqlclient.UserErrorTypeAppliedIntentsError {
-			r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents")
+			r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", err.Error())
 			return ctrl.Result{}, err
 		}
-		r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, fmt.Sprintf("%s", errMsg))
+		r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", errMsg)
 		return ctrl.Result{}, err
 	}
 
-	r.RecordNormalEventf(intents, ReasonAppliedDatabaseIntents, "Successfully applied database intents")
+	r.RecordNormalEventf(intents, ReasonAppliedDatabaseIntents, "Database intents reconcile complete, reconciled %d intent calls", len(intentInputList))
 
 	return ctrl.Result{}, nil
 }
