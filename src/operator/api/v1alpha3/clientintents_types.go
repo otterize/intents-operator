@@ -21,14 +21,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"strconv"
-	"strings"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -161,8 +162,9 @@ type Intent struct {
 }
 
 type DatabaseResource struct {
-	Table      string              `json:"table" yaml:"table"`
-	Operations []DatabaseOperation `json:"operations" yaml:"operations"`
+	DatabaseName string              `json:"databaseName" yaml:"databaseName"`
+	Table        string              `json:"table" yaml:"table"`
+	Operations   []DatabaseOperation `json:"operations" yaml:"operations"`
 }
 
 type HTTPResource struct {
@@ -177,8 +179,9 @@ type KafkaTopic struct {
 
 // IntentsStatus defines the observed state of ClientIntents
 type IntentsStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// upToDate field reflects whether the client intents have successfully been applied
+	// to the cluster to the state specified
+	UpToDate bool `json:"upToDate,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -190,8 +193,8 @@ type ClientIntents struct {
 	metav1.TypeMeta   `json:",inline" yaml:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
-	Spec   *IntentsSpec   `json:"spec,omitempty" yaml:"spec,omitempty"`
-	Status *IntentsStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Spec   *IntentsSpec  `json:"spec,omitempty" yaml:"spec,omitempty"`
+	Status IntentsStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -482,7 +485,8 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 	if in.DatabaseResources != nil {
 		intentInput.DatabaseResources = lo.Map(in.DatabaseResources, func(resource DatabaseResource, _ int) *graphqlclient.DatabaseConfigInput {
 			databaseConfigInput := graphqlclient.DatabaseConfigInput{
-				Table: lo.ToPtr(resource.Table),
+				Table:  lo.ToPtr(resource.Table),
+				Dbname: lo.ToPtr(resource.DatabaseName),
 				Operations: lo.Map(resource.Operations, func(operation DatabaseOperation, _ int) *graphqlclient.DatabaseOperation {
 					cloudOperation := databaseOperationToCloud(operation)
 					return &cloudOperation

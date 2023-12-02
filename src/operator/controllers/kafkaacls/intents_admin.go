@@ -21,6 +21,7 @@ type IntentsAdminFactoryFunction func(serverConfig otterizev1alpha3.KafkaServerC
 type TopicToACLList map[sarama.Resource][]sarama.Acl
 
 const (
+	intentsOperatorClientID    = "intents-operator"
 	AnonymousUserPrincipalName = "User:ANONYMOUS"
 	AnyUserPrincipalName       = "User:*"
 )
@@ -149,6 +150,7 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha3.KafkaServerConfig, defaul
 
 	config.Net.TLS.Config = tlsConfig
 	config.Net.TLS.Enable = true
+	config.ClientID = intentsOperatorClientID
 
 	sarama.Logger = log.New(os.Stdout, "[sarama] ", log.LstdFlags)
 

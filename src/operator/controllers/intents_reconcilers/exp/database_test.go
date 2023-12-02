@@ -24,6 +24,7 @@ const (
 	clientName        string = "test-client"
 	integrationName   string = "test-integration"
 	tableName         string = "test-table"
+	dbName            string = "testdb"
 )
 
 type DatabaseReconcilerTestSuite struct {
@@ -85,7 +86,8 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 					Name: integrationName,
 					Type: otterizev1alpha3.IntentTypeDatabase,
 					DatabaseResources: []otterizev1alpha3.DatabaseResource{{
-						Table: tableName,
+						DatabaseName: dbName,
+						Table:        tableName,
 						Operations: []otterizev1alpha3.DatabaseOperation{
 							otterizev1alpha3.DatabaseOperationSelect,
 							otterizev1alpha3.DatabaseOperationInsert,
@@ -103,7 +105,8 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 		ServerNamespace: lo.ToPtr(testNamespace),
 		Type:            lo.ToPtr(graphqlclient.IntentTypeDatabase),
 		DatabaseResources: []*graphqlclient.DatabaseConfigInput{{
-			Table: lo.ToPtr(tableName),
+			Table:  lo.ToPtr(tableName),
+			Dbname: lo.ToPtr(dbName),
 			Operations: []*graphqlclient.DatabaseOperation{
 				lo.ToPtr(graphqlclient.DatabaseOperationSelect),
 				lo.ToPtr(graphqlclient.DatabaseOperationInsert),
@@ -112,6 +115,40 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 	}}
 
 	s.assertAppliedDatabaseIntents(clientIntents, expectedIntents)
+}
+
+func (s *DatabaseReconcilerTestSuite) TestDontReportIntentsWithoutDatabaseType() {
+	clientIntents := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+		},
+
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "server",
+				},
+			},
+		},
+	}
+
+	emptyIntents := otterizev1alpha3.ClientIntents{}
+
+	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
+			clientIntents.DeepCopyInto(intents)
+			return nil
+		})
+
+	req := ctrl.Request{NamespacedName: s.namespacedName}
+
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.Require().NoError(err)
+	s.Require().Equal(ctrl.Result{}, res)
 }
 
 func (s *DatabaseReconcilerTestSuite) TestNoSpecs() {

@@ -12,9 +12,11 @@ func serviceNamesFromIngress(ingress *v1.Ingress) sets.Set[string] {
 	}
 
 	for _, rule := range ingress.Spec.Rules {
-		for _, path := range rule.HTTP.Paths {
-			if path.Backend.Service != nil {
-				serviceNames.Insert(path.Backend.Service.Name)
+		if rule.HTTP != nil {
+			for _, path := range rule.HTTP.Paths {
+				if path.Backend.Service != nil {
+					serviceNames.Insert(path.Backend.Service.Name)
+				}
 			}
 		}
 	}

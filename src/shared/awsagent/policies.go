@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (a *Agent) AddRolePolicy(ctx context.Context, namespace, accountName, policyName string, statements []StatementEntry) error {
+func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName string, policyName string, statements []StatementEntry) error {
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
 
 	if err != nil {
@@ -21,8 +21,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace, accountName, polic
 	}
 
 	if !exists {
-		// TODO: is this ok? perhaps we need to retry when the pod starts again with a pod
-		return fmt.Errorf("role not found: %s", generateRoleName(namespace, accountName))
+		return fmt.Errorf("role not found: %s", a.generateRoleName(namespace, accountName))
 	}
 
 	policyArn := a.generatePolicyArn(namespace, policyName)
@@ -64,6 +63,10 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, namespace, policyName stri
 	})
 
 	if err != nil {
+		if isNoSuchEntityException(err) {
+			return nil
+		}
+
 		return err
 	}
 
@@ -123,7 +126,7 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, namespace, policyName stri
 
 func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string, statements []StatementEntry) error {
 	logger := logrus.WithField("account", accountName).WithField("namespace", namespace)
-	roleName := generateRoleName(namespace, accountName)
+	roleName := a.generateRoleName(namespace, accountName)
 
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
 
@@ -306,5 +309,5 @@ func generatePolicyName(ns, policyName string) string {
 }
 
 func (a *Agent) generatePolicyArn(ns, policyName string) string {
-	return fmt.Sprintf("arn:aws:iam::%s:policy/%s", a.accountId, generatePolicyName(ns, policyName))
+	return fmt.Sprintf("arn:aws:iam::%s:policy/%s", a.accountID, generatePolicyName(ns, policyName))
 }

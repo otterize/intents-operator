@@ -3,11 +3,13 @@ package intents_reconcilers
 import (
 	"context"
 	"errors"
+	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -52,10 +54,9 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	}
 
 	if intents.DeletionTimestamp != nil {
-		logger.Infof("Intents deleted")
+		logger.Debug("Intents deleted, deleting IAM role policy for this service")
 
-		err := r.awsAgent.DeleteRolePolicy(ctx, req.Namespace, req.Name)
-
+		err := r.awsAgent.DeleteRolePolicy(ctx, req.Namespace, intents.Spec.Service.Name)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -82,20 +83,33 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 				"Could not find non-terminating pods for service %s in namespace %s. Intents could not be reconciled now, but will be reconciled if pods appear later.",
 				intents.Spec.Service.Name,
 				intents.Namespace)
-			// TODO: fix pod watcher logic to handle this case when pod starts later
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
 
-	if pod.Annotations == nil {
+	if pod.Labels == nil {
 		return ctrl.Result{}, nil
 	}
 
-	serviceAccountName, found := pod.Annotations["credentials-operator.otterize.com/service-account-name"]
+	if _, ok := pod.Labels["credentials-operator.otterize.com/create-aws-role"]; !ok {
+		return ctrl.Result{}, nil
+	}
 
-	if !found {
-		r.RecordWarningEventf(&intents, consts.ReasonAWSIntentsFoundButNoServiceAccount, "Found AWS intents, but no service account annotation specified for this pod ('%s').", pod.Name)
+	serviceAccountName := pod.Spec.ServiceAccountName
+
+	hasMultipleClientsForServiceAccount, err := r.hasMultipleClientsForServiceAccount(ctx, serviceAccountName, pod.Namespace)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed checking if the service account: %s is used by multiple aws clients: %w", serviceAccountName, err)
+	}
+
+	if hasMultipleClientsForServiceAccount {
+		r.RecordWarningEventf(&intents, consts.ReasonAWSIntentsServiceAccountUsedByMultipleClients, "found multiple clients using the service account: %s", serviceAccountName)
+		return ctrl.Result{}, nil
+	}
+
+	if len(serviceAccountName) == 0 {
+		r.RecordWarningEventf(&intents, consts.ReasonAWSIntentsFoundButNoServiceAccount, "Found AWS intents, but no service account found for pod ('%s').", pod.Name)
 		return ctrl.Result{}, nil
 	}
 
@@ -114,7 +128,39 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		})
 	}
 
-	err = r.awsAgent.AddRolePolicy(ctx, req.Namespace, serviceAccountName, req.Name, policy.Statement)
-
+	err = r.awsAgent.AddRolePolicy(ctx, req.Namespace, serviceAccountName, intents.Spec.Service.Name, policy.Statement)
 	return ctrl.Result{}, err
+}
+
+func (r *AWSIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.Context, serviceAccountName string, namespace string) (bool, error) {
+	var intents otterizev1alpha3.ClientIntentsList
+	err := r.List(
+		ctx,
+		&intents,
+		&client.ListOptions{Namespace: namespace})
+	if err != nil {
+		return false, err
+	}
+
+	if len(intents.Items) <= 1 {
+		return false, nil
+	}
+
+	intentsWithAWSInSameNamespace := lo.Filter(intents.Items, func(intent otterizev1alpha3.ClientIntents, _ int) bool {
+		return len(intent.GetFilteredCallsList(otterizev1alpha3.IntentTypeAWS)) != 0
+	})
+
+	countUsesOfServiceAccountName := 0
+	for _, intent := range intentsWithAWSInSameNamespace {
+		pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, intent)
+		if err != nil {
+			return false, err
+		}
+		if pod.Spec.ServiceAccountName == serviceAccountName {
+			countUsesOfServiceAccountName++
+		}
+	}
+
+	return countUsesOfServiceAccountName > 1, nil
+
 }

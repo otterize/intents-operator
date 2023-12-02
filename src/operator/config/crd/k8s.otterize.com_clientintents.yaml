@@ -41,6 +41,8 @@ spec:
                     databaseResources:
                       items:
                         properties:
+                          databaseName:
+                            type: string
                           operations:
                             items:
                               enum:
@@ -54,6 +56,7 @@ spec:
                           table:
                             type: string
                         required:
+                        - databaseName
                         - operations
                         - table
                         type: object
@@ -132,6 +135,11 @@ spec:
             type: object
           status:
             description: IntentsStatus defines the observed state of ClientIntents
+            properties:
+              upToDate:
+                description: upToDate field reflects whether the client intents have
+                  successfully been applied to the cluster to the state specified
+                type: boolean
             type: object
         type: object
     served: true
@@ -191,6 +199,8 @@ spec:
                     databaseResources:
                       items:
                         properties:
+                          databaseName:
+                            type: string
                           operations:
                             items:
                               enum:
@@ -204,6 +214,7 @@ spec:
                           table:
                             type: string
                         required:
+                        - databaseName
                         - operations
                         - table
                         type: object
@@ -260,6 +271,11 @@ spec:
             type: object
           status:
             description: IntentsStatus defines the observed state of ClientIntents
+            properties:
+              upToDate:
+                description: upToDate field reflects whether the client intents have
+                  successfully been applied to the cluster to the state specified
+                type: boolean
             type: object
         type: object
     served: true
