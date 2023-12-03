@@ -322,7 +322,7 @@ func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(
 							PodSelector: &svcPodSelector,
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha3.OtterizeNamespaceLabelKey: intent.GetTargetServerNamespace(intentsObj.Namespace),
+									otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intent.GetTargetServerNamespace(intentsObj.Namespace),
 								},
 							},
 						},

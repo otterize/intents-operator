@@ -124,7 +124,7 @@ func (s *NetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 							},
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha3.OtterizeNamespaceLabelKey: intentsObjNamespace,
+									otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intentsObjNamespace,
 								},
 							},
 						},
