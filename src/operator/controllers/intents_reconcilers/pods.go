@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/prometheus"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -86,6 +87,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				r.RecordWarningEventf(intents, ReasonUpdatePodFailed, "could not update pod: %s", err.Error())
 				return ctrl.Result{}, err
 			}
+			prometheus.IncrementPodsLabeledForNetworkPolicies(1)
 		}
 	}
 	return ctrl.Result{}, nil
@@ -124,6 +126,7 @@ func (r *PodLabelReconciler) removeLabelsFromPods(
 			delete(updatedPod.Labels, accessLabel)
 		}
 
+		prometheus.IncrementPodsUnlabeledForNetworkPolicies(1)
 		err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			return err

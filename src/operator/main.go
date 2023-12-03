@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	"github.com/labstack/echo-contrib/echoprometheus"
+	"github.com/labstack/echo/v4"
 	"github.com/otterize/intents-operator/src/operator/controllers/aws_pod_reconciler"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
@@ -129,6 +131,9 @@ func main() {
 	if debugLogs {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
+
+	metricsServer := echo.New()
+	metricsServer.GET("/metrics", echoprometheus.NewHandler())
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -418,6 +423,7 @@ func main() {
 	logrus.Info("starting manager")
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 0)
 	telemetrysender.IntentsOperatorRunActiveReporter(signalHandlerCtx)
+
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Fatal("problem running manager")
 	}
