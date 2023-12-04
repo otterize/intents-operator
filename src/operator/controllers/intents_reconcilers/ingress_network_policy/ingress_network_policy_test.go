@@ -674,7 +674,7 @@ func networkPolicyTemplate(
 							},
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha3.OtterizeNamespaceLabelKey: intentsObjNamespace,
+									otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intentsObjNamespace,
 								},
 							},
 						},
@@ -924,7 +924,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: testNamespace,
 									},
 								},
 							},
@@ -960,7 +960,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: testNamespace,
 									},
 								},
 							},
@@ -1059,7 +1059,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: testNamespace,
 									},
 								},
 							},
@@ -1095,7 +1095,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUnprotectedServerWithAccessPolicy
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: testNamespace,
 									},
 								},
 							},
@@ -1187,7 +1187,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: testNamespace,
 									},
 								},
 							},
@@ -1223,7 +1223,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestProtectedServiceInDeletionWithAcc
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: testNamespace,
 									},
 								},
 							},
@@ -1327,7 +1327,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerWithoutPolicyNothingShouldH
 								},
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchLabels: map[string]string{
-										otterizev1alpha3.OtterizeNamespaceLabelKey: testNamespace,
+										otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: testNamespace,
 									},
 								},
 							},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/prometheus"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
@@ -50,6 +51,7 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 	r.protectedServicesCounter.Insert(anonymizedServerName)
 
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeProtectedServiceApplied, r.protectedServicesCounter.Len())
+	prometheus.SetProtectedServicesApplied(r.protectedServicesCounter.Len())
 
 	return ctrl.Result{}, nil
 }
