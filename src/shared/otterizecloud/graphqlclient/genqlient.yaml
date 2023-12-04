@@ -2,6 +2,7 @@
 # https://github.com/Khan/genqlient/blob/main/docs/genqlient.yaml
 schema:
   - ./schema.graphql
+  - ./dummyForErrors.graphql
 operations:
   - genqlient.graphql
 generated: generated.go
