@@ -3,6 +3,8 @@ package basicbatch
 // it's britney batch
 
 import (
+	"context"
+	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
@@ -64,7 +66,9 @@ func (b *Batcher[T]) runForever() {
 }
 func (b *Batcher[T]) AddNoWait(item T) bool {
 	b.startOnce.Do(func() {
-		go b.runForever()
+		errorreporter.RunWithErrorReportAndRecover(context.Background(), "batcher", func(_ context.Context) {
+			b.runForever()
+		})
 	})
 	select {
 	case b.items <- item:

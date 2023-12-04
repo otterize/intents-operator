@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetryconfig"
 
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
@@ -33,7 +34,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -118,7 +118,7 @@ func NewIntentsReconciler(
 		networkPolicyReconciler: networkPolicyReconciler,
 	}
 
-	if telemetrysender.IsTelemetryEnabled() {
+	if telemetryconfig.IsTelemetryEnabled() {
 		telemetryReconciler := intents_reconcilers.NewTelemetryReconciler(client, scheme)
 		intentsReconciler.group.AddToGroup(telemetryReconciler)
 	}

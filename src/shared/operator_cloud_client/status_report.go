@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
+	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"time"
@@ -11,9 +12,9 @@ import (
 
 func StartPeriodicallyReportConnectionToCloud(client CloudClient, ctx context.Context) {
 	interval := viper.GetInt(otterizecloudclient.ComponentReportIntervalKey)
-	go func() {
+	errorreporter.RunWithErrorReport(ctx, func(ctx context.Context) {
 		runPeriodicReportConnection(interval, client, ctx)
-	}()
+	})
 }
 
 func runPeriodicReportConnection(interval int, client CloudClient, ctx context.Context) {

@@ -34,6 +34,8 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
+	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
+	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -94,6 +96,8 @@ func MustGetEnvVar(name string) string {
 }
 
 func main() {
+	errorreporter.Init("intents-operator", version.Version())
+
 	operatorconfig.InitCLIFlags()
 
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
@@ -177,8 +181,8 @@ func main() {
 	} else {
 		kubeSystemUID = string(kubeSystemNs.UID)
 	}
-	telemetrysender.SetGlobalContextId(telemetrysender.Anonymize(kubeSystemUID))
-	telemetrysender.SetGlobalVersion(version.Version())
+	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(kubeSystemUID))
+	componentinfo.SetGlobalVersion(version.Version())
 
 	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
 	if err != nil {
