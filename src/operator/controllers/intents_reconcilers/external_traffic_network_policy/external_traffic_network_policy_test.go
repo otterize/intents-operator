@@ -258,21 +258,28 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 		assert.NotNil(intentsDeleted.DeletionTimestamp)
 	})
 
-	res, err = s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: s.TestNamespace,
-			Name:      intents.Name,
-		},
-	})
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		res, err = s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: s.TestNamespace,
+				Name:      intents.Name,
+			},
+		})
+		s.Require().NoError(err)
+		s.Require().Empty(res)
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, &v1.NetworkPolicy{})
 		assert.True(errors.IsNotFound(err))
 	})
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		res, err = s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: s.TestNamespace,
+				Name:      intents.Name,
+			},
+		})
+		s.Require().NoError(err)
+		s.Require().Empty(res)
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, &v1.NetworkPolicy{})
 		assert.True(errors.IsNotFound(err))
 	})
