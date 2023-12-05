@@ -2,7 +2,6 @@ package operatorconfig
 
 import (
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -55,26 +54,6 @@ const (
 )
 
 func init() {
-	viper.SetDefault(MetricsAddrKey, MetricsAddrDefault)
-	viper.SetDefault(ProbeAddrKey, ProbeAddrDefault)
-	viper.SetDefault(EnableLeaderElectionKey, EnableLeaderElectionDefault)
-	viper.SetDefault(SelfSignedCertKey, SelfSignedCertDefault)
-	viper.SetDefault(EnforcementDefaultStateKey, EnforcementDefaultStateDefault)
-	viper.SetDefault(AllowExternalTrafficKey, AllowExternalTrafficDefault)
-	viper.SetDefault(EnableNetworkPolicyKey, EnableNetworkPolicyDefault)
-	viper.SetDefault(EnableKafkaACLKey, EnableKafkaACLDefault)
-	viper.SetDefault(EnableIstioPolicyKey, EnableIstioPolicyDefault)
-	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
-	viper.SetDefault(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault)
-	viper.SetDefault(EnableAWSPolicyKey, EnableAWSPolicyDefault)
-	viper.SetDefault(PrometheusMetricsPortKey, PrometheusMetricsPortDefault)
-	viper.SetEnvPrefix(EnvPrefix)
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	viper.AutomaticEnv()
-}
-
-func InitCLIFlags() {
-	// Backwards compatibility, new flags should be added to as ENV variables using viper
 	pflag.String(KafkaServerTLSCertKey, "", "name of tls certificate file")
 	pflag.String(KafkaServerTLSKeyKey, "", "name of tls private key file")
 	pflag.String(KafkaServerTLSCAKey, "", "name of tls ca file")
@@ -88,15 +67,23 @@ func InitCLIFlags() {
 	pflag.Bool(EnableLeaderElectionKey, EnableLeaderElectionDefault, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	pflag.StringSlice(WatchedNamespacesKey, nil, "Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
-	pflag.Bool(telemetrysender.TelemetryEnabledKey, telemetrysender.TelemetryEnabledDefault, "Whether telemetry should be enabled")
 	pflag.Bool(EnableDatabaseReconciler, EnableDatabaseReconcilerDefault, "Enable the database reconciler")
 	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
 	pflag.Duration(RetryDelayTimeKey, RetryDelayTimeDefault, "Default retry delay time for retrying failed requests")
 	pflag.Bool(EnableAWSPolicyKey, EnableAWSPolicyDefault, "Enable the AWS IAM reconciler")
 	pflag.Bool(DebugLogKey, DebugLogDefault, "Enable debug logging")
+	pflag.Int(PrometheusMetricsPortKey, PrometheusMetricsPortDefault, "Port to expose Prometheus metrics on")
 
 	allowExternalTrafficDefault := AllowExternalTrafficDefault
 	pflag.Var(&allowExternalTrafficDefault, AllowExternalTrafficKey, "Whether to automatically create network policies for external traffic")
+}
+
+func InitCLIFlags() {
+	viper.SetEnvPrefix(EnvPrefix)
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.AutomaticEnv()
+
+	// This will make any flag set using pflag available via viper.Get functions
 	runtime.Must(viper.BindPFlags(pflag.CommandLine))
 
 	pflag.Parse()

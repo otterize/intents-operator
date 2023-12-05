@@ -25,7 +25,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -78,7 +78,7 @@ func NewKafkaServerConfigReconciler(
 		kscReconciler,
 	)
 
-	if telemetrysender.IsTelemetryEnabled() {
+	if telemetriesconfig.IsTelemetryEnabled() {
 		telemetryReconciler := kafka_server_config_reconcilers.NewTelemetryReconciler(client)
 		group.AddToGroup(telemetryReconciler)
 	}

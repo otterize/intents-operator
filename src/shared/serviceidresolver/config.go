@@ -1,19 +1,13 @@
 package serviceidresolver
 
-import (
-	"github.com/spf13/viper"
-	"strings"
-)
+import "github.com/spf13/pflag"
 
 const (
 	serviceNameOverrideAnnotationKey        = "service-name-override-annotation"
 	serviceNameOverrideAnnotationKeyDefault = "intents.otterize.com/service-name"
-	EnvPrefix                               = "OTTERIZE"
 )
 
 func init() {
-	viper.SetDefault(serviceNameOverrideAnnotationKey, serviceNameOverrideAnnotationKeyDefault)
-	viper.SetEnvPrefix(EnvPrefix)
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	viper.AutomaticEnv()
+	// To access pflags using viper, call viper.Bind after main() start: viper.BindPFlags(pflag.CommandLine))
+	pflag.String(serviceNameOverrideAnnotationKey, serviceNameOverrideAnnotationKeyDefault, "Service name override annotation")
 }
