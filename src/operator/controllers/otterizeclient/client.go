@@ -46,11 +46,15 @@ func (c *CloudClient) RegisterK8SPod(ctx context.Context, namespace string, _ st
 }
 
 func (c *CloudClient) AcquireServiceUserAndPassword(ctx context.Context, serviceName, namespace string) (*otterizegraphql.UserPasswordCredentials, error) {
-	res, err := otterizegraphql.GetUserAndPasswordCredentials(ctx, c.graphqlClient, serviceName, namespace)
+	userAndPasswordResponse, err := otterizegraphql.RequestUserAndPassword(ctx, c.graphqlClient, serviceName, namespace)
 	if err != nil {
 		return nil, err
 	}
-	return &res.ServiceUserAndPassword.UserPasswordCredentials, nil
+	getUserAndPasswordResponse, err := otterizegraphql.GetUserAndPasswordCredentials(ctx, c.graphqlClient, userAndPasswordResponse.RegisterKubernetesServiceUserAndPasswordRequest.Id)
+	if err != nil {
+		return nil, err
+	}
+	return &getUserAndPasswordResponse.Service.UserAndPassword.UserPasswordCredentials, nil
 }
 
 func (c *CloudClient) CleanupOrphanK8SPodEntries(ctx context.Context, _ string, existingServicesByNamespace map[string]*goset.Set[string]) error {

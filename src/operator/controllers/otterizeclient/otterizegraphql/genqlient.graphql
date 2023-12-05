@@ -30,9 +30,17 @@ mutation ReportActiveCertificateRequesters($existingPodOwners: [NamespacedPodOwn
     reportActiveCertificateRequesters(activePodOwners: $existingPodOwners)
 }
 
-query GetUserAndPasswordCredentials($serviceName: String!, $namespace: String!) {
-    serviceUserAndPassword(namespace: $namespace, service: $serviceName) {
-        ...UserPasswordCredentials
+mutation RequestUserAndPassword($serviceName: String!, $namespace: String!) {
+    registerKubernetesServiceUserAndPasswordRequest(podOwner: {name: $serviceName, namespace: $namespace}) {
+        id
+    }
+}
+
+query GetUserAndPasswordCredentials($id: ID!) {
+    service(id: $id) {
+        userAndPassword{
+            ...UserPasswordCredentials
+        }
     }
 }
 

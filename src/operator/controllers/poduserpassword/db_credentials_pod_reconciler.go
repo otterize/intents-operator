@@ -84,7 +84,7 @@ func (e *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, err
 	}
 
-	err = e.ensurePodUserAndPasswordSecret(ctx, &pod, serviceID.Name, pod.Annotations[metadata.UserAndPasswordSecretNameAnnotation])
+	err = e.ensurePodUserAndPasswordPostgresSecret(ctx, &pod, serviceID.Name, pod.Annotations[metadata.UserAndPasswordSecretNameAnnotation])
 	if err != nil {
 		e.recorder.Eventf(&pod, v1.EventTypeWarning, ReasonEnsuringPodUserAndPasswordFailed, "Failed to ensure user-password credentials secret: %s", err.Error())
 		return ctrl.Result{}, err
@@ -94,7 +94,7 @@ func (e *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (e *Reconciler) ensurePodUserAndPasswordSecret(ctx context.Context, pod *v1.Pod, serviceName string, secretName string) error {
+func (e *Reconciler) ensurePodUserAndPasswordPostgresSecret(ctx context.Context, pod *v1.Pod, serviceName string, secretName string) error {
 	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace})
 	err := e.client.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: secretName}, &v1.Secret{})
 	if apierrors.IsNotFound(err) {

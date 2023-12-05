@@ -123,12 +123,23 @@ func (v *GetTLSKeyPairServiceTlsKeyPair) __premarshalJSON() (*__premarshalGetTLS
 
 // GetUserAndPasswordCredentialsResponse is returned by GetUserAndPasswordCredentials on success.
 type GetUserAndPasswordCredentialsResponse struct {
-	ServiceUserAndPassword GetUserAndPasswordCredentialsServiceUserAndPassword `json:"serviceUserAndPassword"`
+	// Get service
+	Service GetUserAndPasswordCredentialsService `json:"service"`
 }
 
-// GetServiceUserAndPassword returns GetUserAndPasswordCredentialsResponse.ServiceUserAndPassword, and is useful for accessing the field via an interface.
-func (v *GetUserAndPasswordCredentialsResponse) GetServiceUserAndPassword() GetUserAndPasswordCredentialsServiceUserAndPassword {
-	return v.ServiceUserAndPassword
+// GetService returns GetUserAndPasswordCredentialsResponse.Service, and is useful for accessing the field via an interface.
+func (v *GetUserAndPasswordCredentialsResponse) GetService() GetUserAndPasswordCredentialsService {
+	return v.Service
+}
+
+// GetUserAndPasswordCredentialsService includes the requested fields of the GraphQL type Service.
+type GetUserAndPasswordCredentialsService struct {
+	UserAndPassword GetUserAndPasswordCredentialsServiceUserAndPassword `json:"userAndPassword"`
+}
+
+// GetUserAndPassword returns GetUserAndPasswordCredentialsService.UserAndPassword, and is useful for accessing the field via an interface.
+func (v *GetUserAndPasswordCredentialsService) GetUserAndPassword() GetUserAndPasswordCredentialsServiceUserAndPassword {
+	return v.UserAndPassword
 }
 
 // GetUserAndPasswordCredentialsServiceUserAndPassword includes the requested fields of the GraphQL type UserAndPassword.
@@ -247,6 +258,27 @@ func (v *ReportComponentStatusResponse) GetReportIntegrationComponentStatus() bo
 	return v.ReportIntegrationComponentStatus
 }
 
+// RequestUserAndPasswordRegisterKubernetesServiceUserAndPasswordRequestService includes the requested fields of the GraphQL type Service.
+type RequestUserAndPasswordRegisterKubernetesServiceUserAndPasswordRequestService struct {
+	Id string `json:"id"`
+}
+
+// GetId returns RequestUserAndPasswordRegisterKubernetesServiceUserAndPasswordRequestService.Id, and is useful for accessing the field via an interface.
+func (v *RequestUserAndPasswordRegisterKubernetesServiceUserAndPasswordRequestService) GetId() string {
+	return v.Id
+}
+
+// RequestUserAndPasswordResponse is returned by RequestUserAndPassword on success.
+type RequestUserAndPasswordResponse struct {
+	// Register user-password request for a pod owner, returns the service associated with this pod owner
+	RegisterKubernetesServiceUserAndPasswordRequest RequestUserAndPasswordRegisterKubernetesServiceUserAndPasswordRequestService `json:"registerKubernetesServiceUserAndPasswordRequest"`
+}
+
+// GetRegisterKubernetesServiceUserAndPasswordRequest returns RequestUserAndPasswordResponse.RegisterKubernetesServiceUserAndPasswordRequest, and is useful for accessing the field via an interface.
+func (v *RequestUserAndPasswordResponse) GetRegisterKubernetesServiceUserAndPasswordRequest() RequestUserAndPasswordRegisterKubernetesServiceUserAndPasswordRequestService {
+	return v.RegisterKubernetesServiceUserAndPasswordRequest
+}
+
 // TLSKeyPair includes the GraphQL fields of KeyPair requested by the fragment TLSKeyPair.
 type TLSKeyPair struct {
 	KeyPEM    string `json:"keyPEM"`
@@ -293,15 +325,11 @@ func (v *__GetTLSKeyPairInput) GetId() *string { return v.Id }
 
 // __GetUserAndPasswordCredentialsInput is used internally by genqlient
 type __GetUserAndPasswordCredentialsInput struct {
-	ServiceName string `json:"serviceName"`
-	Namespace   string `json:"namespace"`
+	Id string `json:"id"`
 }
 
-// GetServiceName returns __GetUserAndPasswordCredentialsInput.ServiceName, and is useful for accessing the field via an interface.
-func (v *__GetUserAndPasswordCredentialsInput) GetServiceName() string { return v.ServiceName }
-
-// GetNamespace returns __GetUserAndPasswordCredentialsInput.Namespace, and is useful for accessing the field via an interface.
-func (v *__GetUserAndPasswordCredentialsInput) GetNamespace() string { return v.Namespace }
+// GetId returns __GetUserAndPasswordCredentialsInput.Id, and is useful for accessing the field via an interface.
+func (v *__GetUserAndPasswordCredentialsInput) GetId() string { return v.Id }
 
 // __RegisterKubernetesPodOwnerCertificateRequestInput is used internally by genqlient
 type __RegisterKubernetesPodOwnerCertificateRequestInput struct {
@@ -342,6 +370,18 @@ type __ReportComponentStatusInput struct {
 
 // GetComponent returns __ReportComponentStatusInput.Component, and is useful for accessing the field via an interface.
 func (v *__ReportComponentStatusInput) GetComponent() ComponentType { return v.Component }
+
+// __RequestUserAndPasswordInput is used internally by genqlient
+type __RequestUserAndPasswordInput struct {
+	ServiceName string `json:"serviceName"`
+	Namespace   string `json:"namespace"`
+}
+
+// GetServiceName returns __RequestUserAndPasswordInput.ServiceName, and is useful for accessing the field via an interface.
+func (v *__RequestUserAndPasswordInput) GetServiceName() string { return v.ServiceName }
+
+// GetNamespace returns __RequestUserAndPasswordInput.Namespace, and is useful for accessing the field via an interface.
+func (v *__RequestUserAndPasswordInput) GetNamespace() string { return v.Namespace }
 
 // The query or mutation executed by GetTLSKeyPair.
 const GetTLSKeyPair_Operation = `
@@ -389,9 +429,11 @@ func GetTLSKeyPair(
 
 // The query or mutation executed by GetUserAndPasswordCredentials.
 const GetUserAndPasswordCredentials_Operation = `
-query GetUserAndPasswordCredentials ($serviceName: String!, $namespace: String!) {
-	serviceUserAndPassword(namespace: $namespace, service: $serviceName) {
-		... UserPasswordCredentials
+query GetUserAndPasswordCredentials ($id: ID!) {
+	service(id: $id) {
+		userAndPassword {
+			... UserPasswordCredentials
+		}
 	}
 }
 fragment UserPasswordCredentials on UserAndPassword {
@@ -403,15 +445,13 @@ fragment UserPasswordCredentials on UserAndPassword {
 func GetUserAndPasswordCredentials(
 	ctx context.Context,
 	client graphql.Client,
-	serviceName string,
-	namespace string,
+	id string,
 ) (*GetUserAndPasswordCredentialsResponse, error) {
 	req := &graphql.Request{
 		OpName: "GetUserAndPasswordCredentials",
 		Query:  GetUserAndPasswordCredentials_Operation,
 		Variables: &__GetUserAndPasswordCredentialsInput{
-			ServiceName: serviceName,
-			Namespace:   namespace,
+			Id: id,
 		},
 	}
 	var err error
@@ -522,6 +562,43 @@ func ReportComponentStatus(
 	var err error
 
 	var data ReportComponentStatusResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+// The query or mutation executed by RequestUserAndPassword.
+const RequestUserAndPassword_Operation = `
+mutation RequestUserAndPassword ($serviceName: String!, $namespace: String!) {
+	registerKubernetesServiceUserAndPasswordRequest(podOwner: {name:$serviceName,namespace:$namespace}) {
+		id
+	}
+}
+`
+
+func RequestUserAndPassword(
+	ctx context.Context,
+	client graphql.Client,
+	serviceName string,
+	namespace string,
+) (*RequestUserAndPasswordResponse, error) {
+	req := &graphql.Request{
+		OpName: "RequestUserAndPassword",
+		Query:  RequestUserAndPassword_Operation,
+		Variables: &__RequestUserAndPasswordInput{
+			ServiceName: serviceName,
+			Namespace:   namespace,
+		},
+	}
+	var err error
+
+	var data RequestUserAndPasswordResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(
