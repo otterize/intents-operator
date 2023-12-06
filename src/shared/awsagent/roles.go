@@ -108,22 +108,21 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 		return nil
 	}
 
-	_, found := lo.Find(role.Tags, func(tag types.Tag) bool {
-		response := true
-		response = response && (*tag.Key == serviceAccountNameTagKey && *tag.Value == accountName)
-		response = response && (*tag.Key == serviceAccountNamespaceTagKey && *tag.Value == namespaceName)
-		response = response && (*tag.Key == clusterNameTagKey && *tag.Value == a.clusterName)
-
-		return response
+	tags := lo.SliceToMap(role.Tags, func(item types.Tag) (string, string) {
+		return *item.Key, *item.Value
 	})
 
-	if !found {
-		errorMessage := "refusing to delete role that's not tagged with with appropriate tags"
-		logger.WithField("arn", *role.Arn).Error(errorMessage)
-		return errors.New(errorMessage)
+	if taggedServiceAccountName, ok := tags[serviceAccountNameTagKey]; !ok || taggedServiceAccountName != accountName {
+		return fmt.Errorf("attempted to delete role with incorrect service account name: expected '%s' but got '%s'", accountName, taggedServiceAccountName)
+	}
+	if taggedNamespace, ok := tags[serviceAccountNamespaceTagKey]; !ok || taggedNamespace != namespaceName {
+		return fmt.Errorf("attempted to delete role with incorrect namespace: expected '%s' but got '%s'", namespaceName, taggedNamespace)
+	}
+	if taggedClusterName, ok := tags[clusterNameTagKey]; !ok || taggedClusterName != a.clusterName {
+		return fmt.Errorf("attempted to delete role with incorrect cluster name: expected '%s' but got '%s'", a.clusterName, taggedClusterName)
 	}
 
-	err = a.deleteInlineRolePolicy(ctx, role)
+	err = a.deleteAllRolePolicies(ctx, namespaceName, role)
 
 	if err != nil {
 		return err
@@ -141,28 +140,24 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	return nil
 }
 
-// deleteInlineRolePolicy deletes the inline role policy, if exists, in preparation to delete the role.
-func (a *Agent) deleteInlineRolePolicy(ctx context.Context, role *types.Role) error {
-	_, err := a.iamClient.GetRolePolicy(ctx, &iam.GetRolePolicyInput{
-		PolicyName: role.RoleName,
-		RoleName:   role.RoleName,
-	})
+// deleteAllRolePolicies deletes the inline role policy, if exists, in preparation to delete the role.
+func (a *Agent) deleteAllRolePolicies(ctx context.Context, namespace string, role *types.Role) error {
+	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
 
 	if err != nil {
-		var nse *types.NoSuchEntityException
-		if errors.As(err, &nse) {
-			return nil
-		}
-
-		return err
+		return fmt.Errorf("failed to list role attached policies: %w", err)
 	}
 
-	_, err = a.iamClient.DeleteRolePolicy(ctx, &iam.DeleteRolePolicyInput{
-		PolicyName: role.RoleName,
-		RoleName:   role.RoleName,
-	})
+	for _, policy := range listOutput.AttachedPolicies {
+		if strings.HasPrefix(*policy.PolicyName, "otterize-") || strings.HasPrefix(*policy.PolicyName, "otr-") {
+			err = a.DeleteRolePolicy(ctx, *policy.PolicyName)
+			if err != nil {
+				return fmt.Errorf("failed to delete policy: %w", err)
+			}
+		}
+	}
 
-	return err
+	return nil
 }
 
 func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, error) {

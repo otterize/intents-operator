@@ -56,7 +56,7 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	if intents.DeletionTimestamp != nil {
 		logger.Debug("Intents deleted, deleting IAM role policy for this service")
 
-		err := r.awsAgent.DeleteRolePolicy(ctx, req.Namespace, intents.Spec.Service.Name)
+		err := r.awsAgent.DeleteRolePolicyFromIntents(ctx, intents)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
