@@ -5,8 +5,8 @@ import (
 	"flag"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetryconfig"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"sync"
@@ -99,7 +99,7 @@ func CredentialsOperatorRunActiveReporter(ctx context.Context) {
 
 func runActiveComponentReporter(ctx context.Context, componentType telemetriesgql.ComponentType) {
 	errorreporter.RunWithErrorReport(ctx, func(ctx context.Context) {
-		activeInterval := viper.GetDuration(telemetryconfig.TelemetryActiveIntervalKey)
+		activeInterval := viper.GetDuration(telemetriesconfig.TelemetryActiveIntervalKey)
 		reporterTicker := time.NewTicker(activeInterval)
 		logrus.Info("Starting active component reporter")
 		send(componentType, telemetriesgql.EventTypeActive, 0)

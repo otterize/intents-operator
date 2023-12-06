@@ -96,9 +96,8 @@ func MustGetEnvVar(name string) string {
 }
 
 func main() {
-	errorreporter.Init("intents-operator", version.Version())
-
 	operatorconfig.InitCLIFlags()
+	errorreporter.Init("intents-operator", version.Version())
 
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)

@@ -22,7 +22,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetryconfig"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -83,7 +83,7 @@ func NewProtectedServiceReconciler(
 		group.AddToGroup(otterizeCloudReconciler)
 	}
 
-	if telemetryconfig.IsTelemetryEnabled() {
+	if telemetriesconfig.IsTelemetryEnabled() {
 		telemetryReconciler := protected_service_reconcilers.NewTelemetryReconciler(client)
 		group.AddToGroup(telemetryReconciler)
 	}

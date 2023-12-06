@@ -5,13 +5,10 @@ import (
 	"github.com/bugsnag/bugsnag-go/v2"
 	"github.com/otterize/intents-operator/src/shared/logrus_bugsnag"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetryconfig"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
+
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-)
-
-const (
-	bugSnagDummyAPIKey = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 )
 
 type GoRoutineFunc func(ctx context.Context)
@@ -44,8 +41,8 @@ func addComponentInfoToBugsnagEvent(componentType string, event *bugsnag.Event) 
 }
 
 func Init(componentName string, version string) {
-	if !viper.GetBool(telemetryconfig.TelemetryErrorsEnabledKey) {
-		logrus.Info("error reporting is disabled")
+	if !viper.GetBool(telemetriesconfig.TelemetryErrorsEnabledKey) {
+		logrus.Info("error reporting disabled")
 		return
 	}
 
@@ -54,13 +51,17 @@ func Init(componentName string, version string) {
 		return nil
 	})
 
+	errorsServerAddress := viper.GetString(telemetriesconfig.TelemetryErrorsAddressKey)
+	releaseStage := viper.GetString(telemetriesconfig.TelemetryErrorsStageKey)
+	apiKey := viper.GetString(telemetriesconfig.TelemetryErrorsAPIKeyKey)
+
 	conf := bugsnag.Configuration{
 		Endpoints: bugsnag.Endpoints{
-			Sessions: "http://localhost:8081/api/errors/sessions",
-			Notify:   "http://localhost:8081/api/errors/notify",
+			Sessions: errorsServerAddress + "/sessions",
+			Notify:   errorsServerAddress + "/notify",
 		},
-		ReleaseStage:    componentName,
-		APIKey:          bugSnagDummyAPIKey, // Bugsnag check internally for API key string length
+		ReleaseStage:    releaseStage,
+		APIKey:          apiKey,
 		AppVersion:      version,
 		AppType:         componentName,
 		ProjectPackages: []string{"main*", "github.com/otterize/**"},
