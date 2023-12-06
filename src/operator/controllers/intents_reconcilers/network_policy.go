@@ -270,7 +270,7 @@ func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Contex
 		// Get all client intents that reference this network policy
 		var intentsList otterizev1alpha3.ClientIntentsList
 		serverName := networkPolicy.Labels[otterizev1alpha3.OtterizeNetworkPolicy]
-		clientNamespace := networkPolicy.Spec.Ingress[0].From[0].NamespaceSelector.MatchLabels[otterizev1alpha3.OtterizeNamespaceLabelKey]
+		clientNamespace := networkPolicy.Spec.Ingress[0].From[0].NamespaceSelector.MatchLabels[otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey]
 		err = r.List(
 			ctx,
 			&intentsList,
@@ -440,7 +440,7 @@ func (r *NetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 							},
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha3.OtterizeNamespaceLabelKey: intentsObjNamespace,
+									otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intentsObjNamespace,
 								},
 							},
 						},

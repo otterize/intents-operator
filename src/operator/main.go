@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	"github.com/labstack/echo-contrib/echoprometheus"
+	"github.com/labstack/echo/v4"
 	"github.com/otterize/intents-operator/src/operator/controllers/aws_pod_reconciler"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
@@ -62,14 +64,12 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -133,6 +133,9 @@ func main() {
 	if debugLogs {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
+
+	metricsServer := echo.New()
+	metricsServer.GET("/metrics", echoprometheus.NewHandler())
 
 	options := ctrl.Options{
 		Scheme:                 scheme,
@@ -411,17 +414,19 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Panic()
 	}
+
 	//+kubebuilder:scaffold:builder
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+	if err := mgr.AddHealthzCheck("healthz", mgr.GetWebhookServer().StartedChecker()); err != nil {
 		logrus.WithError(err).Fatal("unable to set up health check")
 	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+	if err := mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {
 		logrus.WithError(err).Fatal("unable to set up ready check")
 	}
 
 	logrus.Info("starting manager")
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 0)
 	telemetrysender.IntentsOperatorRunActiveReporter(signalHandlerCtx)
+
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Fatal("problem running manager")
 	}

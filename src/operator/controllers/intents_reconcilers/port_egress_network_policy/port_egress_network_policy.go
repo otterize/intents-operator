@@ -5,6 +5,7 @@ import (
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
+	"github.com/otterize/intents-operator/src/prometheus"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
@@ -114,6 +115,8 @@ func (r *PortEgressNetworkPolicyReconciler) Reconcile(ctx context.Context, req c
 		callsCount := len(intents.GetCallsList())
 		r.RecordNormalEventf(intents, consts.ReasonCreatedEgressNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
 		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, createdNetpols)
+		prometheus.IncrementNetpolCreated(createdNetpols)
+
 	}
 	return ctrl.Result{}, nil
 }
@@ -195,6 +198,7 @@ func (r *PortEgressNetworkPolicyReconciler) cleanPolicies(
 	}
 
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesDeleted, len(intents.GetCallsList()))
+	prometheus.IncrementNetpolCreated(len(intents.GetCallsList()))
 
 	if err := r.Update(ctx, intents); err != nil {
 		return err
@@ -318,7 +322,7 @@ func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(
 							PodSelector: &svcPodSelector,
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha3.OtterizeNamespaceLabelKey: intent.GetTargetServerNamespace(intentsObj.Namespace),
+									otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intent.GetTargetServerNamespace(intentsObj.Namespace),
 								},
 							},
 						},

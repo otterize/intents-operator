@@ -6,6 +6,7 @@ import (
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	otterizecloudmocks "github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
+	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -28,18 +29,17 @@ const (
 )
 
 type DatabaseReconcilerTestSuite struct {
-	suite.Suite
+	testbase.MocksSuiteBase
 	Reconciler      *DatabaseReconciler
-	recorder        *record.FakeRecorder
 	client          *mocks.MockClient
 	mockCloudClient *otterizecloudmocks.MockCloudClient
 	namespacedName  types.NamespacedName
 }
 
 func (s *DatabaseReconcilerTestSuite) SetupTest() {
-	controller := gomock.NewController(s.T())
-	s.client = mocks.NewMockClient(controller)
-	s.mockCloudClient = otterizecloudmocks.NewMockCloudClient(controller)
+	s.Controller = gomock.NewController(s.T())
+	s.client = mocks.NewMockClient(s.Controller)
+	s.mockCloudClient = otterizecloudmocks.NewMockCloudClient(s.Controller)
 
 	s.Reconciler = NewDatabaseReconciler(
 		s.client,
@@ -47,26 +47,12 @@ func (s *DatabaseReconcilerTestSuite) SetupTest() {
 		s.mockCloudClient,
 	)
 
-	s.recorder = record.NewFakeRecorder(100)
-	s.Reconciler.Recorder = s.recorder
+	s.Recorder = record.NewFakeRecorder(100)
+	s.Reconciler.Recorder = s.Recorder
 
 	s.namespacedName = types.NamespacedName{
 		Namespace: testNamespace,
 		Name:      intentsObjectName,
-	}
-}
-
-func (s *DatabaseReconcilerTestSuite) TearDownTest() {
-	s.Reconciler = nil
-	s.expectNoEvent()
-}
-
-func (s *DatabaseReconcilerTestSuite) expectNoEvent() {
-	select {
-	case event := <-s.recorder.Events:
-		s.Fail("Unexpected event found", event)
-	default:
-		// Amazing, no events left behind!
 	}
 }
 
@@ -115,6 +101,7 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 	}}
 
 	s.assertAppliedDatabaseIntents(clientIntents, expectedIntents)
+	s.ExpectEvent(ReasonAppliedDatabaseIntents)
 }
 
 func (s *DatabaseReconcilerTestSuite) TestDontReportIntentsWithoutDatabaseType() {

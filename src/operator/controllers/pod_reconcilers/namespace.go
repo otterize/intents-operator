@@ -31,7 +31,6 @@ func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	namespace := &v1.Namespace{}
 	err := ns.Get(ctx, req.NamespacedName, namespace)
 	if k8serrors.IsNotFound(err) {
-		logrus.Infoln("namespace was deleted")
 		return ctrl.Result{}, nil
 	}
 
@@ -39,22 +38,23 @@ func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
-	if !ns.hasOtterizeLabel(namespace) {
-		// Add Otterize namespace label so this namespace is a viable selector in network policies
-		updatedNS := namespace.DeepCopy()
-		updatedNS.Labels[otterizev1alpha3.OtterizeNamespaceLabelKey] = req.Name
-		err := ns.Patch(ctx, updatedNS, client.MergeFrom(namespace))
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	if ns.hasKubernetesNameLabel(namespace) {
 		return ctrl.Result{}, nil
 	}
 
+	// Add Kubernetes standard namespace label so this namespace is a viable selector in network policies
+	updatedNS := namespace.DeepCopy()
+	updatedNS.Labels[otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey] = req.Name
+	err = ns.Patch(ctx, updatedNS, client.MergeFrom(namespace))
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
+
 }
 
-func (ns *NamespaceWatcher) hasOtterizeLabel(namespace *v1.Namespace) bool {
-	_, exists := namespace.Labels[otterizev1alpha3.OtterizeNamespaceLabelKey]
+func (ns *NamespaceWatcher) hasKubernetesNameLabel(namespace *v1.Namespace) bool {
+	_, exists := namespace.Labels[otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey]
 	return exists
 }
 
