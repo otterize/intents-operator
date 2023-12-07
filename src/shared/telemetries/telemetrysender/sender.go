@@ -39,7 +39,7 @@ func batchSendTelemetries(ctx context.Context, telemetriesClient graphql.Client,
 }
 
 func New() *TelemetrySender {
-	enabled := viper.GetBool(telemetriesconfig.TelemetryUsageEnabledKey)
+	enabled := telemetriesconfig.IsUsageTelemetryEnabled()
 	maxBatchSize := viper.GetInt(telemetriesconfig.TelemetryMaxBatchSizeKey)
 	interval := viper.GetInt(telemetriesconfig.TelemetryIntervalKey)
 	telemetriesClient := newGqlClient()

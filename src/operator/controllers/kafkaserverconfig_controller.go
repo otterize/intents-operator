@@ -78,7 +78,7 @@ func NewKafkaServerConfigReconciler(
 		kscReconciler,
 	)
 
-	if telemetriesconfig.IsTelemetryEnabled() {
+	if telemetriesconfig.IsUsageTelemetryEnabled() {
 		telemetryReconciler := kafka_server_config_reconcilers.NewTelemetryReconciler(client)
 		group.AddToGroup(telemetryReconciler)
 	}

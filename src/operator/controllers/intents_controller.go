@@ -117,7 +117,7 @@ func NewIntentsReconciler(
 		networkPolicyReconciler: networkPolicyReconciler,
 	}
 
-	if telemetriesconfig.IsTelemetryEnabled() {
+	if telemetriesconfig.IsUsageTelemetryEnabled() {
 		telemetryReconciler := intents_reconcilers.NewTelemetryReconciler(client, scheme)
 		intentsReconciler.group.AddToGroup(telemetryReconciler)
 	}

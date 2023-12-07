@@ -83,7 +83,7 @@ func NewProtectedServiceReconciler(
 		group.AddToGroup(otterizeCloudReconciler)
 	}
 
-	if telemetriesconfig.IsTelemetryEnabled() {
+	if telemetriesconfig.IsUsageTelemetryEnabled() {
 		telemetryReconciler := protected_service_reconcilers.NewTelemetryReconciler(client)
 		group.AddToGroup(telemetryReconciler)
 	}

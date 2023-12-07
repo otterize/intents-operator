@@ -9,6 +9,8 @@ const (
 	TelemetryAPIAddressKey         = "telemetry-address"
 	TimeoutKey                     = "telemetry-client-timeout"
 	CloudClientTimeoutDefault      = "30s"
+	TelemetryEnabledKey            = "telemetry-enabled"
+	TelemetryEnabledDefault        = false
 	TelemetryUsageEnabledKey       = "telemetry-usage-enabled"
 	TelemetryUsageEnabledDefault   = false
 	TelemetryMaxBatchSizeKey       = "telemetry-max-batch-size"
@@ -36,6 +38,7 @@ func init() {
 	viper.SetDefault(TimeoutKey, CloudClientTimeoutDefault)
 	viper.SetDefault(TelemetryIntervalKey, TelemetryIntervalDefault)
 	viper.SetDefault(TelemetryMaxBatchSizeKey, TelemetryMaxBatchSizeDefault)
+	viper.SetDefault(TelemetryEnabledKey, TelemetryEnabledDefault)
 	viper.SetDefault(TelemetryUsageEnabledKey, TelemetryUsageEnabledDefault)
 	viper.SetDefault(TelemetryResetIntervalKey, TelemetryResetIntervalDefault)
 	viper.SetDefault(TelemetryActiveIntervalKey, TelemetryActiveIntervalDefault)
@@ -48,6 +51,10 @@ func init() {
 	viper.AutomaticEnv()
 }
 
-func IsTelemetryEnabled() bool {
-	return viper.GetBool(TelemetryUsageEnabledKey)
+func IsUsageTelemetryEnabled() bool {
+	return viper.GetBool(TelemetryEnabledKey) && viper.GetBool(TelemetryUsageEnabledKey)
+}
+
+func IsErrorsTelemetryEnabled() bool {
+	return viper.GetBool(TelemetryEnabledKey) && viper.GetBool(TelemetryErrorsEnabledKey)
 }

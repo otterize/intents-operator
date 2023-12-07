@@ -41,7 +41,7 @@ func addComponentInfoToBugsnagEvent(componentType string, event *bugsnag.Event) 
 }
 
 func Init(componentName string, version string) {
-	if !viper.GetBool(telemetriesconfig.TelemetryErrorsEnabledKey) {
+	if !telemetriesconfig.IsErrorsTelemetryEnabled() {
 		logrus.Info("error reporting disabled")
 		return
 	}
