@@ -316,23 +316,3 @@ func (a *Agent) generatePolicyName(ns, intentsServiceName string) string {
 func (a *Agent) generatePolicyArn(policyName string) string {
 	return fmt.Sprintf("arn:aws:iam::%s:policy/%s", a.accountID, policyName)
 }
-
-func (a *Agent) aageneratePolicyName(namespace string, policyName string) string {
-	fullName := fmt.Sprintf("otr-%s.%s@%s", namespace, policyName, a.clusterName)
-
-	var truncatedName string
-	if len(fullName) >= (maxTruncatedLength) {
-		truncatedName = fullName[:maxTruncatedLength]
-	} else {
-		truncatedName = fullName
-	}
-
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fullName)))
-	hash = hash[:truncatedHashLength]
-
-	return fmt.Sprintf("%s-%s", truncatedName, hash)
-}
-
-func (a *Agent) aageneratePolicyArn(namespace string, policyName string) string {
-	return fmt.Sprintf("arn:aws:iam::%s:policy/%s", a.accountID, a.generatePolicyName(namespace, policyName))
-}
