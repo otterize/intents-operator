@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"time"
@@ -67,7 +68,7 @@ func (a *ServiceAccountAnnotatingPodWebhook) handleOnce(ctx context.Context, pod
 
 	// we don't actually create the role here, so that the webhook returns quickly - a ServiceAccount reconciler takes care of it for us.
 	updatedServiceAccount.Annotations[metadata.ServiceAccountAWSRoleARNAnnotation] = roleArn
-	updatedServiceAccount.Labels[metadata.OtterizeServiceAccountLabel] = "true"
+	updatedServiceAccount.Labels[metadata.OtterizeServiceAccountLabel] = metadata.OtterizeServiceAccountHasPodsValue
 	if !dryRun {
 		err = a.client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
 		if err != nil {
@@ -81,6 +82,7 @@ func (a *ServiceAccountAnnotatingPodWebhook) handleOnce(ctx context.Context, pod
 	}
 
 	pod.Annotations[metadata.OtterizeServiceAccountAWSRoleARNAnnotation] = roleArn
+	controllerutil.AddFinalizer(&pod, metadata.AWSRoleFinalizer)
 	return pod, true, "pod and service account updated to create AWS role", nil
 }
 

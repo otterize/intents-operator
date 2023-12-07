@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.27.2
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/cert-manager/cert-manager v1.12.3
-	github.com/otterize/intents-operator/src v0.0.0-20231121123451-d892801be004
+	github.com/otterize/intents-operator/src v0.0.0-20231207171817-9ec35db3bcb6
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.1
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.0
@@ -17,7 +17,7 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.1.1
 	github.com/spiffe/spire v1.4.3
 	github.com/spiffe/spire-api-sdk v1.3.1
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	github.com/suessflorian/gqlfetch v0.6.0
 	go.uber.org/mock v0.2.0
 	golang.org/x/exp v0.0.0-20230124195608-d38c7dcee874
@@ -112,7 +112,7 @@ require (
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/mod v0.13.0 // indirect
-	golang.org/x/net v0.16.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.6.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
 	golang.org/x/term v0.13.0 // indirect

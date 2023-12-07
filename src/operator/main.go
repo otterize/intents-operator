@@ -22,19 +22,20 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/otterize/credentials-operator/src/controllers/aws_iam/pods"
+	"github.com/otterize/credentials-operator/src/controllers/aws_iam/serviceaccount"
+	"github.com/otterize/credentials-operator/src/controllers/aws_iam/webhooks"
 	"github.com/otterize/credentials-operator/src/controllers/certificates/otterizecertgen"
 	"github.com/otterize/credentials-operator/src/controllers/certificates/spirecertgen"
 	"github.com/otterize/credentials-operator/src/controllers/certmanageradapter"
 	"github.com/otterize/credentials-operator/src/controllers/otterizeclient"
 	"github.com/otterize/credentials-operator/src/controllers/poduserpassword"
 	"github.com/otterize/credentials-operator/src/controllers/secrets"
-	"github.com/otterize/credentials-operator/src/controllers/serviceaccount"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/bundles"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/entries"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/svids"
 	"github.com/otterize/credentials-operator/src/controllers/tls_pod"
-	"github.com/otterize/credentials-operator/src/controllers/webhooks"
 	operatorwebhooks "github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -224,8 +225,14 @@ func main() {
 			logrus.WithError(err).Error("failed to initialize AWS agent")
 			os.Exit(1)
 		}
-		serviceAccountReconciler := serviceaccount.NewServiceAccountReconciler(client, mgr.GetScheme(), awsAgent)
+		serviceAccountReconciler := serviceaccount.NewServiceAccountReconciler(client, awsAgent)
 		if err = serviceAccountReconciler.SetupWithManager(mgr); err != nil {
+			logrus.WithField("controller", "ServiceAccount").WithError(err).Error("unable to create controller")
+			os.Exit(1)
+		}
+
+		podCleanupReconciler := pods.NewPodAWSRoleCleanupReconciler(client)
+		if err = podCleanupReconciler.SetupWithManager(mgr); err != nil {
 			logrus.WithField("controller", "ServiceAccount").WithError(err).Error("unable to create controller")
 			os.Exit(1)
 		}
@@ -247,10 +254,9 @@ func main() {
 			if err != nil {
 				logrus.WithError(err).Fatal("updating validation webhook certificate failed")
 			}
+			podAnnotatorWebhook := webhooks.NewServiceAccountAnnotatingPodWebhook(mgr, awsAgent)
+			mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{Handler: podAnnotatorWebhook})
 		}
-
-		podAnnotatorWebhook := webhooks.NewServiceAccountAnnotatingPodWebhook(mgr, awsAgent)
-		mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{Handler: podAnnotatorWebhook})
 
 	}
 

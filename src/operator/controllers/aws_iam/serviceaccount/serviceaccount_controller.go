@@ -5,27 +5,31 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
-	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+type AWSRolePolicyManager interface {
+	DeleteOtterizeIAMRole(ctx context.Context, namespace string, name string) error
+	GenerateRoleARN(namespace string, name string) string
+	GetOtterizeRole(ctx context.Context, namespaceName, accountName string) (bool, *types.Role, error)
+	CreateOtterizeIAMRole(ctx context.Context, namespace string, name string) (*types.Role, error)
+}
 
 type ServiceAccountReconciler struct {
 	client.Client
-	scheme   *runtime.Scheme
-	awsAgent *awsagent.Agent
+	awsAgent AWSRolePolicyManager
 }
 
-func NewServiceAccountReconciler(client client.Client, scheme *runtime.Scheme, awsAgent *awsagent.Agent) *ServiceAccountReconciler {
+func NewServiceAccountReconciler(client client.Client, awsAgent AWSRolePolicyManager) *ServiceAccountReconciler {
 	return &ServiceAccountReconciler{
 		Client:   client,
-		scheme:   scheme,
 		awsAgent: awsAgent,
 	}
 }
@@ -42,21 +46,55 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	serviceAccount := corev1.ServiceAccount{}
 
-	if err := r.Get(ctx, req.NamespacedName, &serviceAccount); err != nil {
+	err := r.Get(ctx, req.NamespacedName, &serviceAccount)
+	if err != nil {
 		if apierrors.IsNotFound(err) {
-			err = r.awsAgent.DeleteOtterizeIAMRole(ctx, req.Namespace, req.Name)
-
-			if err != nil {
-				logger.WithError(err).Errorf("failed to remove service account")
-			}
-
-			return ctrl.Result{}, err
+			return ctrl.Result{}, nil
 		}
-
-		logger.WithError(err).Error("unable to fetch ServiceAccount")
 		return ctrl.Result{}, err
 	}
 
+	isReferencedByPods, exists := getServiceAccountLabelValue(&serviceAccount)
+	if !exists {
+		logger.Debug("serviceAccount not labeled with credentials-operator.otterize.com/service-account, skipping")
+		return ctrl.Result{}, nil
+	}
+
+	isNoLongerReferencedByPodsOrIsBeingDeleted := serviceAccount.DeletionTimestamp != nil || !isReferencedByPods
+
+	if isNoLongerReferencedByPodsOrIsBeingDeleted {
+		err = r.awsAgent.DeleteOtterizeIAMRole(ctx, req.Namespace, req.Name)
+
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to remove service account: %w", err)
+		}
+
+		if serviceAccount.DeletionTimestamp != nil {
+			updatedServiceAccount := serviceAccount.DeepCopy()
+			if controllerutil.RemoveFinalizer(updatedServiceAccount, metadata.AWSRoleFinalizer) {
+				err := r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
+				if err != nil {
+					if apierrors.IsConflict(err) {
+						return ctrl.Result{Requeue: true}, nil
+					}
+					return ctrl.Result{}, err
+				}
+			}
+
+		}
+		return ctrl.Result{}, nil
+	}
+
+	updatedServiceAccount := serviceAccount.DeepCopy()
+	if controllerutil.AddFinalizer(updatedServiceAccount, metadata.AWSRoleFinalizer) {
+		err := r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
+		if err != nil {
+			if apierrors.IsConflict(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, err
+		}
+	}
 	shouldUpdateAnnotation, role, err := r.reconcileAWSRole(ctx, &serviceAccount)
 
 	if err != nil {
@@ -64,7 +102,6 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if shouldUpdateAnnotation {
-		updatedServiceAccount := serviceAccount.DeepCopy()
 		if updatedServiceAccount.Annotations == nil {
 			updatedServiceAccount.Annotations = make(map[string]string)
 		}
@@ -89,11 +126,6 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 // - err
 func (r *ServiceAccountReconciler) reconcileAWSRole(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updateAnnotation bool, role *types.Role, err error) {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
-
-	if !hasOtterizeServiceAccountLabel(serviceAccount) {
-		logger.Debug("serviceAccount not labeled with credentials-operator.otterize.com/service-account, skipping")
-		return false, nil, nil
-	}
 
 	if roleARN, ok := hasAWSAnnotation(serviceAccount); ok {
 		generatedRoleARN := r.awsAgent.GenerateRoleARN(serviceAccount.Namespace, serviceAccount.Name)
@@ -131,11 +163,11 @@ func hasAWSAnnotation(serviceAccount *corev1.ServiceAccount) (string, bool) {
 	return roleARN, ok
 }
 
-func hasOtterizeServiceAccountLabel(serviceAccount *corev1.ServiceAccount) bool {
+func getServiceAccountLabelValue(serviceAccount *corev1.ServiceAccount) (hasPods bool, exists bool) {
 	if serviceAccount.Labels == nil {
-		return false
+		return false, false
 	}
 
-	_, ok := serviceAccount.Labels[metadata.OtterizeServiceAccountLabel]
-	return ok
+	value, ok := serviceAccount.Labels[metadata.OtterizeServiceAccountLabel]
+	return value == "true", ok
 }

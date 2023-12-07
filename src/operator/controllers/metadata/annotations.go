@@ -14,6 +14,9 @@ const (
 	// and IAM roles
 	ServiceAccountAWSRoleARNAnnotation = "eks.amazonaws.com/role-arn"
 
+	// AWSRoleFinalizer indicates that cleanup on AWS is needed upon termination.
+	AWSRoleFinalizer = "credentials-operator.otterize.com/aws-role"
+
 	// OtterizeServiceAccountAWSRoleARNAnnotation is used to update a Pod in the mutating webhook with the role ARN
 	// so that reinvocation is triggered for the EKS pod identity mutating webhook.
 	OtterizeServiceAccountAWSRoleARNAnnotation = "credentials-operator.otterize.com/eks-role-arn"
