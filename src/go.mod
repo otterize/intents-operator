@@ -31,6 +31,7 @@ require (
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.4
 	github.com/suessflorian/gqlfetch v0.6.0
+	github.com/vektah/gqlparser/v2 v2.4.5
 	github.com/vishalkuo/bimap v0.0.0-20220726225509-e0b4f20de28b
 	go.uber.org/mock v0.2.0
 	golang.org/x/exp v0.0.0-20230124195608-d38c7dcee874
@@ -118,7 +119,6 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/vektah/gqlparser v1.3.1 // indirect
-	github.com/vektah/gqlparser/v2 v2.4.5 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
