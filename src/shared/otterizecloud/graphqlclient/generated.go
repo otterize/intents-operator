@@ -356,6 +356,19 @@ func (v *ReportProtectedServicesSnapshotResponse) GetReportProtectedServicesSnap
 	return v.ReportProtectedServicesSnapshot
 }
 
+type UserErrorType string
+
+const (
+	UserErrorTypeUnauthenticated     UserErrorType = "UNAUTHENTICATED"
+	UserErrorTypeNotFound            UserErrorType = "NOT_FOUND"
+	UserErrorTypeInternalServerError UserErrorType = "INTERNAL_SERVER_ERROR"
+	UserErrorTypeBadRequest          UserErrorType = "BAD_REQUEST"
+	UserErrorTypeForbidden           UserErrorType = "FORBIDDEN"
+	UserErrorTypeConflict            UserErrorType = "CONFLICT"
+	UserErrorTypeBadUserInput        UserErrorType = "BAD_USER_INPUT"
+	UserErrorTypeAppliedIntentsError UserErrorType = "APPLIED_INTENTS_ERROR"
+)
+
 // __HandleDatabaseIntentsInput is used internally by genqlient
 type __HandleDatabaseIntentsInput struct {
 	Intents []IntentInput      `json:"intents"`
@@ -437,6 +450,14 @@ func (v *__ReportProtectedServicesSnapshotInput) GetNamespace() string { return 
 func (v *__ReportProtectedServicesSnapshotInput) GetServices() []ProtectedServiceInput {
 	return v.Services
 }
+
+// dummyResponse is returned by dummy on success.
+type dummyResponse struct {
+	DummyError UserErrorType `json:"dummyError"`
+}
+
+// GetDummyError returns dummyResponse.DummyError, and is useful for accessing the field via an interface.
+func (v *dummyResponse) GetDummyError() UserErrorType { return v.DummyError }
 
 func HandleDatabaseIntents(
 	ctx context.Context,
@@ -647,6 +668,32 @@ mutation ReportProtectedServicesSnapshot ($namespace: String!, $services: [Prote
 	var err error
 
 	var data ReportProtectedServicesSnapshotResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func dummy(
+	ctx context.Context,
+	client graphql.Client,
+) (*dummyResponse, error) {
+	req := &graphql.Request{
+		OpName: "dummy",
+		Query: `
+query dummy {
+	dummyError
+}
+`,
+	}
+	var err error
+
+	var data dummyResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

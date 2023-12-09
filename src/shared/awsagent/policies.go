@@ -9,11 +9,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 )
 
-func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName string, policyName string, statements []StatementEntry) error {
+func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName string, intentsServiceName string, statements []StatementEntry) error {
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
 
 	if err != nil {
@@ -24,14 +25,14 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 		return fmt.Errorf("role not found: %s", a.generateRoleName(namespace, accountName))
 	}
 
-	policyArn := a.generatePolicyArn(namespace, policyName)
+	policyArn := a.generatePolicyArn(a.generatePolicyName(namespace, intentsServiceName))
 
 	policyOutput, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
 		PolicyArn: aws.String(policyArn),
 	})
 	if err != nil {
 		if isNoSuchEntityException(err) {
-			_, err := a.createPolicy(ctx, role, namespace, policyName, statements)
+			_, err := a.createPolicy(ctx, role, namespace, intentsServiceName, statements)
 
 			return err
 		}
@@ -57,9 +58,13 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	return nil
 }
 
-func (a *Agent) DeleteRolePolicy(ctx context.Context, namespace, policyName string) error {
+func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents v1alpha3.ClientIntents) error {
+	return a.DeleteRolePolicy(ctx, a.generatePolicyName(intents.Namespace, intents.Spec.Service.Name))
+}
+
+func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 	output, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
-		PolicyArn: aws.String(a.generatePolicyArn(namespace, policyName)),
+		PolicyArn: aws.String(a.generatePolicyArn(policyName)),
 	})
 
 	if err != nil {
@@ -160,8 +165,8 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 	return nil
 }
 
-func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace, policyName string, statements []StatementEntry) (*types.Policy, error) {
-	fullPolicyName := generatePolicyName(namespace, policyName)
+func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace string, intentsServiceName string, statements []StatementEntry) (*types.Policy, error) {
+	fullPolicyName := a.generatePolicyName(namespace, intentsServiceName)
 	policyDoc, policyHash, err := generatePolicyDocument(statements)
 
 	if err != nil {
@@ -174,7 +179,7 @@ func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace, p
 		Tags: []types.Tag{
 			{
 				Key:   aws.String(policyNameTagKey),
-				Value: aws.String(policyName),
+				Value: aws.String(intentsServiceName),
 			},
 			{
 				Key:   aws.String(policyNamespaceTagKey),
@@ -303,11 +308,11 @@ func generatePolicyDocument(statements []StatementEntry) (string, string, error)
 	return string(serialized), fmt.Sprintf("%x", sum), nil
 }
 
-func generatePolicyName(ns, policyName string) string {
-	return fmt.Sprintf("otterize-policy-%s-%s", ns, policyName)
+func (a *Agent) generatePolicyName(ns, intentsServiceName string) string {
+	return fmt.Sprintf("otterize-policy-%s-%s", ns, intentsServiceName)
 
 }
 
-func (a *Agent) generatePolicyArn(ns, policyName string) string {
-	return fmt.Sprintf("arn:aws:iam::%s:policy/%s", a.accountID, generatePolicyName(ns, policyName))
+func (a *Agent) generatePolicyArn(policyName string) string {
+	return fmt.Sprintf("arn:aws:iam::%s:policy/%s", a.accountID, policyName)
 }

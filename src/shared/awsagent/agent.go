@@ -20,9 +20,26 @@ import (
 	"strings"
 )
 
+type IAMClient interface {
+	ListAttachedRolePolicies(ctx context.Context, i *iam.ListAttachedRolePoliciesInput, opts ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error)
+	DeleteRole(ctx context.Context, i *iam.DeleteRoleInput, opts ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
+	CreateRole(ctx context.Context, i *iam.CreateRoleInput, opts ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
+	GetRole(ctx context.Context, i *iam.GetRoleInput, opts ...func(*iam.Options)) (*iam.GetRoleOutput, error)
+	GetPolicy(ctx context.Context, i *iam.GetPolicyInput, opts ...func(*iam.Options)) (*iam.GetPolicyOutput, error)
+	ListEntitiesForPolicy(ctx context.Context, i *iam.ListEntitiesForPolicyInput, opts ...func(*iam.Options)) (*iam.ListEntitiesForPolicyOutput, error)
+	DetachRolePolicy(ctx context.Context, i *iam.DetachRolePolicyInput, opts ...func(*iam.Options)) (*iam.DetachRolePolicyOutput, error)
+	ListPolicyVersions(ctx context.Context, i *iam.ListPolicyVersionsInput, opts ...func(*iam.Options)) (*iam.ListPolicyVersionsOutput, error)
+	DeletePolicyVersion(ctx context.Context, i *iam.DeletePolicyVersionInput, opts ...func(*iam.Options)) (*iam.DeletePolicyVersionOutput, error)
+	DeletePolicy(ctx context.Context, i *iam.DeletePolicyInput, opts ...func(*iam.Options)) (*iam.DeletePolicyOutput, error)
+	PutRolePolicy(ctx context.Context, i *iam.PutRolePolicyInput, opts ...func(*iam.Options)) (*iam.PutRolePolicyOutput, error)
+	CreatePolicy(ctx context.Context, i *iam.CreatePolicyInput, opts ...func(*iam.Options)) (*iam.CreatePolicyOutput, error)
+	CreatePolicyVersion(ctx context.Context, i *iam.CreatePolicyVersionInput, opts ...func(*iam.Options)) (*iam.CreatePolicyVersionOutput, error)
+	TagPolicy(ctx context.Context, i *iam.TagPolicyInput, opts ...func(*iam.Options)) (*iam.TagPolicyOutput, error)
+	AttachRolePolicy(ctx context.Context, i *iam.AttachRolePolicyInput, opts ...func(*iam.Options)) (*iam.AttachRolePolicyOutput, error)
+}
+
 type Agent struct {
-	stsClient   *sts.Client
-	iamClient   *iam.Client
+	iamClient   IAMClient
 	accountID   string
 	oidcURL     string
 	clusterName string
@@ -57,7 +74,6 @@ func NewAWSAgent(
 	}
 
 	return &Agent{
-		stsClient:   stsClient,
 		iamClient:   iamClient,
 		accountID:   *callerIdent.Account,
 		oidcURL:     strings.Split(OIDCURL, "://")[1],

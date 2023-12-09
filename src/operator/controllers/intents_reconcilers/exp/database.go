@@ -13,6 +13,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	ReasonApplyingDatabaseIntentsFailed = "ApplyingDatabaseIntentsFailed"
+	ReasonAppliedDatabaseIntents        = "AppliedDatabaseIntents"
+)
+
 type DatabaseReconciler struct {
 	client         client.Client
 	scheme         *runtime.Scheme
@@ -68,8 +73,16 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if err := r.otterizeClient.ApplyDatabaseIntent(ctx, intentInputList, action); err != nil {
+		errType, errMsg, ok := graphqlclient.GetGraphQLUserError(err)
+		if !ok || errType != graphqlclient.UserErrorTypeAppliedIntentsError {
+			r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", err.Error())
+			return ctrl.Result{}, err
+		}
+		r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", errMsg)
 		return ctrl.Result{}, err
 	}
+
+	r.RecordNormalEventf(intents, ReasonAppliedDatabaseIntents, "Database intents reconcile complete, reconciled %d intent calls", len(intentInputList))
 
 	return ctrl.Result{}, nil
 }

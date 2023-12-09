@@ -44,7 +44,7 @@ const (
 	OtterizeServerLabelKey                    = "intents.otterize.com/server"
 	OtterizeKubernetesServiceLabelKeyPrefix   = "intents.otterize.com/k8s-svc"
 	OtterizeKubernetesServiceLabelKey         = "intents.otterize.com/k8s-svc-%s"
-	OtterizeNamespaceLabelKey                 = "intents.otterize.com/namespace-name"
+	KubernetesStandardNamespaceNameLabelKey   = "kubernetes.io/metadata.name"
 	AllIntentsRemovedAnnotation               = "intents.otterize.com/all-intents-removed"
 	OtterizeCreatedForServiceAnnotation       = "intents.otterize.com/created-for-service"
 	OtterizeCreatedForIngressAnnotation       = "intents.otterize.com/created-for-ingress"
