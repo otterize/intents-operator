@@ -1,15 +1,16 @@
 package operatorconfig
 
 import (
+	"os"
+	"strings"
+	"time"
+
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/util/runtime"
-	"os"
-	"strings"
-	"time"
 )
 
 const (
@@ -51,13 +52,16 @@ const (
 	EnableAWSPolicyKey                          = "enable-aws-iam-policy"
 	EnableAWSPolicyDefault                      = false
 	EKSClusterNameOverrideKey                   = "eks-cluster-name-override"
-	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
-	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"
+	PrometheusMetricsPortKey                    = "metrics-port"
+	EnableLinkerdPolicyKey                      = "enable-linkerd-policy"
+	LinkerdPolicyDefault                        = true
+	PrometheusMetricsPortDefault                = 2112
 )
 
 func init() {
 	viper.SetDefault(MetricsAddrKey, MetricsAddrDefault)
 	viper.SetDefault(ProbeAddrKey, ProbeAddrDefault)
+	viper.SetDefault(EnableLinkerdPolicyKey, LinkerdPolicyDefault)
 	viper.SetDefault(EnableLeaderElectionKey, EnableLeaderElectionDefault)
 	viper.SetDefault(SelfSignedCertKey, SelfSignedCertDefault)
 	viper.SetDefault(EnforcementDefaultStateKey, EnforcementDefaultStateDefault)
