@@ -65,6 +65,7 @@ type EnforcementConfig struct {
 	EnableDatabasePolicy                 bool
 	EnableEgressNetworkPolicyReconcilers bool
 	EnableAWSPolicy                      bool
+	EnableLinkerdPolicies                bool
 }
 
 // IntentsReconciler reconciles a Intents object
@@ -97,6 +98,7 @@ func NewIntentsReconciler(
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
+		intents_reconcilers.NewLinkerdReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableLinkerdPolicies, enforcementConfig.EnforcementDefaultState),
 		networkPolicyReconciler,
 	}
 	reconcilers = append(reconcilers, additionalReconcilers...)
