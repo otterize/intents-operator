@@ -43,6 +43,8 @@ func NewLinkerdReconciler(c client.Client,
 }
 
 func (r *LinkerdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logrus.Info("Starting linkerd reconcile logic")
+
 	installed, err := linkerdmanager.IsLinkerdServerInstalled(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -54,19 +56,22 @@ func (r *LinkerdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	intents := &otterizev1alpha3.ClientIntents{}
+
 	err = r.Get(ctx, req.NamespacedName, intents)
+
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
+	logrus.Infof("Got intents object with name %s", intents.Name)
 
 	if intents.Spec == nil {
 		return ctrl.Result{}, nil
 	}
 
-	logrus.Infof("Reconciling Istio authorization policies for service %s in namespace %s",
+	logrus.Infof("Reconciling Linkerd authorization policies for service %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
 
 	if !intents.DeletionTimestamp.IsZero() {
@@ -82,6 +87,8 @@ func (r *LinkerdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, *intents)
+	logrus.Infof("Got pod with name %s", pod.Name)
+
 	if err != nil {
 		if errors.Is(err, serviceidresolver.ErrPodNotFound) {
 			r.RecordWarningEventf(
