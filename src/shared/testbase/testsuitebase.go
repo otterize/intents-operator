@@ -3,6 +3,11 @@ package testbase
 import (
 	"context"
 	"fmt"
+	_ "os"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
@@ -20,16 +25,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	_ "os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"strings"
-	"testing"
-	"time"
 )
 
 const waitForCreationInterval = 20 * time.Millisecond
@@ -63,7 +64,7 @@ func (s *ControllerManagerTestSuiteBase) SetupTest() {
 		CertDir: s.TestEnv.WebhookInstallOptions.LocalServingCertDir,
 	})
 	var err error
-	s.Mgr, err = manager.New(s.RestConfig, manager.Options{MetricsBindAddress: "0", WebhookServer: webhookServer})
+	s.Mgr, err = manager.New(s.RestConfig, manager.Options{WebhookServer: webhookServer})
 	s.Require().NoError(err)
 	s.Require().NoError(protected_services.InitProtectedServiceIndexField(s.Mgr))
 
