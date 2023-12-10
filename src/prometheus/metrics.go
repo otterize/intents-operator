@@ -3,30 +3,34 @@ package prometheus
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
+func init() {
+}
+
 var (
-	intentsApplied = promauto.NewCounter(prometheus.CounterOpts{
+	intentsApplied = promauto.With(metrics.Registry).NewCounter(prometheus.CounterOpts{
 		Name: "clientintents_applied",
 		Help: "The total number of ClientIntents applied",
 	})
-	netpolCreated = promauto.NewCounter(prometheus.CounterOpts{
+	netpolCreated = promauto.With(metrics.Registry).NewCounter(prometheus.CounterOpts{
 		Name: "network_policies_created",
 		Help: "The total number of network policies created",
 	})
-	netpolDeleted = promauto.NewCounter(prometheus.CounterOpts{
+	netpolDeleted = promauto.With(metrics.Registry).NewCounter(prometheus.CounterOpts{
 		Name: "network_policies_deleted",
 		Help: "The total number of network policies deleted",
 	})
-	podsLabeledForAccess = promauto.NewCounter(prometheus.CounterOpts{
+	podsLabeledForAccess = promauto.With(metrics.Registry).NewCounter(prometheus.CounterOpts{
 		Name: "pods_labeled_for_network_policy",
 		Help: "The total number of pods labeled to participate in a network policy",
 	})
-	podsUnlabeledForAccess = promauto.NewCounter(prometheus.CounterOpts{
+	podsUnlabeledForAccess = promauto.With(metrics.Registry).NewCounter(prometheus.CounterOpts{
 		Name: "pods_unlabeled_for_network_policy",
 		Help: "The total number of pods unlabeled so they no longer participate in a network policy",
 	})
-	protectedServiceApplied = promauto.NewGauge(prometheus.GaugeOpts{
+	protectedServiceApplied = promauto.With(metrics.Registry).NewGauge(prometheus.GaugeOpts{
 		Name: "protected_services_applied",
 		Help: "The total number of ProtectedService resources applied",
 	})

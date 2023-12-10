@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 
@@ -406,11 +407,19 @@ func main() {
 		logrus.WithError(err).Panic()
 	}
 
+	healthChecker := healthz.Ping
+	readyChecker := healthz.Ping
+
+	if !disableWebhookServer {
+		healthChecker = mgr.GetWebhookServer().StartedChecker()
+		readyChecker = mgr.GetWebhookServer().StartedChecker()
+	}
+
 	//+kubebuilder:scaffold:builder
-	if err := mgr.AddHealthzCheck("healthz", mgr.GetWebhookServer().StartedChecker()); err != nil {
+	if err := mgr.AddHealthzCheck("healthz", healthChecker); err != nil {
 		logrus.WithError(err).Fatal("unable to set up health check")
 	}
-	if err := mgr.AddReadyzCheck("readyz", mgr.GetWebhookServer().StartedChecker()); err != nil {
+	if err := mgr.AddReadyzCheck("readyz", readyChecker); err != nil {
 		logrus.WithError(err).Fatal("unable to set up ready check")
 	}
 
