@@ -14,7 +14,7 @@ import (
 
 const (
 	MetricsAddrKey                              = "metrics-bind-address" // The address the metric endpoint binds to
-	MetricsAddrDefault                          = ":8180"
+	MetricsAddrDefault                          = ":2112"
 	ProbeAddrKey                                = "health-probe-bind-address" // The address the probe endpoint binds to
 	ProbeAddrDefault                            = ":8181"
 	EnableLeaderElectionKey                     = "leader-elect" // Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager
@@ -51,8 +51,6 @@ const (
 	EnableAWSPolicyKey                          = "enable-aws-iam-policy"
 	EnableAWSPolicyDefault                      = false
 	EKSClusterNameOverrideKey                   = "eks-cluster-name-override"
-	PrometheusMetricsPortKey                    = "metrics-port"
-	PrometheusMetricsPortDefault                = 2112
 )
 
 func init() {
@@ -68,7 +66,6 @@ func init() {
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
 	viper.SetDefault(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault)
 	viper.SetDefault(EnableAWSPolicyKey, EnableAWSPolicyDefault)
-	viper.SetDefault(PrometheusMetricsPortKey, PrometheusMetricsPortDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
