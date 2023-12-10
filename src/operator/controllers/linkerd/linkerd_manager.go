@@ -144,6 +144,7 @@ func (ldm *LinkerdManager) createPolicies(
 		if err != nil {
 			return nil, err
 		}
+		logrus.Infof("Should create server ? %+v", shouldCreateServer)
 
 		if shouldCreateServer {
 			port := pod.Spec.Containers[0].Ports[0].HostPort // get proper port
@@ -264,6 +265,7 @@ func (ldm *LinkerdManager) generateLinkerdServer(
 	name := ldm.getServerName(intent, port)
 	serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
 	linkerdServerServiceFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
+	logrus.Infof("Generating server with details: %+v, %+v, %d", linkerdServerServiceFormattedIdentity, serverNamespace, port)
 
 	s := linkerdserver.Server{
 		TypeMeta: metav1.TypeMeta{
