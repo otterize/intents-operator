@@ -150,10 +150,10 @@ func (ldm *LinkerdManager) createPolicies(
 			for _, container := range pod.Spec.Containers {
 				logrus.Infof("container: %+v", container.Name)
 				for _, port := range container.Ports {
-					logrus.Infof("port: %+v", port.HostPort)
+					logrus.Infof("port: %+v", port.ContainerPort)
 				}
 			}
-			port := pod.Spec.Containers[0].Ports[0].HostPort // get proper port
+			port := pod.Spec.Containers[0].Ports[0].ContainerPort // get proper port
 
 			podSelector := ldm.BuildPodLabelSelectorFromIntent(intent, clientIntents.Namespace)
 
