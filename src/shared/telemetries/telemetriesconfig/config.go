@@ -10,9 +10,9 @@ const (
 	TimeoutKey                     = "telemetry-client-timeout"
 	CloudClientTimeoutDefault      = "30s"
 	TelemetryEnabledKey            = "telemetry-enabled"
-	TelemetryEnabledDefault        = false
+	TelemetryEnabledDefault        = true
 	TelemetryUsageEnabledKey       = "telemetry-usage-enabled"
-	TelemetryUsageEnabledDefault   = false
+	TelemetryUsageEnabledDefault   = true
 	TelemetryMaxBatchSizeKey       = "telemetry-max-batch-size"
 	TelemetryMaxBatchSizeDefault   = 100
 	TelemetryIntervalKey           = "telemetry-interval-seconds"
@@ -23,13 +23,11 @@ const (
 	TelemetryActiveIntervalKey     = "telemetry-active-interval-duration"
 	TelemetryActiveIntervalDefault = "2m"
 	TelemetryErrorsEnabledKey      = "telemetry-errors-enabled"
-	TelemetryErrorEnabledDefault   = false
+	TelemetryErrorEnabledDefault   = true
 	TelemetryErrorsStageKey        = "telemetry-errors-stage"
 	TelemetryErrorsStageDefault    = "production"
 	TelemetryErrorsAddressKey      = "telemetry-errors-address"
 	TelemetryErrorsAddressDefault  = "https://app.otterize.com/api/errors"
-	TelemetryErrorsAPIKeyKey       = "telemetry-errors-api-key"
-	TelemetryErrorsAPIKeyDefault   = ""
 	EnvPrefix                      = "OTTERIZE"
 )
 
@@ -45,7 +43,6 @@ func init() {
 	viper.SetDefault(TelemetryErrorsEnabledKey, TelemetryErrorEnabledDefault)
 	viper.SetDefault(TelemetryErrorsStageKey, TelemetryErrorsStageDefault)
 	viper.SetDefault(TelemetryErrorsAddressKey, TelemetryErrorsAddressDefault)
-	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()

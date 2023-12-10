@@ -51,6 +51,8 @@ const (
 	EnableAWSPolicyKey                          = "enable-aws-iam-policy"
 	EnableAWSPolicyDefault                      = false
 	EKSClusterNameOverrideKey                   = "eks-cluster-name-override"
+	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
+	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"
 )
 
 func init() {
@@ -66,6 +68,7 @@ func init() {
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
 	viper.SetDefault(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault)
 	viper.SetDefault(EnableAWSPolicyKey, EnableAWSPolicyDefault)
+	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()

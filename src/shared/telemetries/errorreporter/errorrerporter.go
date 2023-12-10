@@ -20,7 +20,7 @@ func addComponentInfoToBugsnagEvent(componentType string, event *bugsnag.Event) 
 	event.MetaData.Add("component", "cloudClientId", componentinfo.GlobalCloudClientId())
 }
 
-func Init(componentName string, version string) {
+func Init(componentName string, version string, apiKey string) {
 	if !telemetriesconfig.IsErrorsTelemetryEnabled() {
 		logrus.Info("error reporting disabled")
 		return
@@ -33,7 +33,6 @@ func Init(componentName string, version string) {
 
 	errorsServerAddress := viper.GetString(telemetriesconfig.TelemetryErrorsAddressKey)
 	releaseStage := viper.GetString(telemetriesconfig.TelemetryErrorsStageKey)
-	apiKey := viper.GetString(telemetriesconfig.TelemetryErrorsAPIKeyKey)
 
 	conf := bugsnag.Configuration{
 		Endpoints: bugsnag.Endpoints{
