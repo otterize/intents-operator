@@ -10,9 +10,9 @@ const (
 	TimeoutKey                     = "telemetry-client-timeout"
 	CloudClientTimeoutDefault      = "30s"
 	TelemetryEnabledKey            = "telemetry-enabled"
-	TelemetryEnabledDefault        = false
+	TelemetryEnabledDefault        = true
 	TelemetryUsageEnabledKey       = "telemetry-usage-enabled"
-	TelemetryUsageEnabledDefault   = false
+	TelemetryUsageEnabledDefault   = true
 	TelemetryMaxBatchSizeKey       = "telemetry-max-batch-size"
 	TelemetryMaxBatchSizeDefault   = 100
 	TelemetryIntervalKey           = "telemetry-interval-seconds"
@@ -23,7 +23,7 @@ const (
 	TelemetryActiveIntervalKey     = "telemetry-active-interval-duration"
 	TelemetryActiveIntervalDefault = "2m"
 	TelemetryErrorsEnabledKey      = "telemetry-errors-enabled"
-	TelemetryErrorEnabledDefault   = false
+	TelemetryErrorEnabledDefault   = true
 	TelemetryErrorsStageKey        = "telemetry-errors-stage"
 	TelemetryErrorsStageDefault    = "production"
 	TelemetryErrorsAddressKey      = "telemetry-errors-address"
