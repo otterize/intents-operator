@@ -2,9 +2,9 @@ package operator_cloud_client
 
 import (
 	"context"
+	"github.com/bugsnag/bugsnag-go/v2"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
-	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"time"
@@ -12,9 +12,10 @@ import (
 
 func StartPeriodicallyReportConnectionToCloud(client CloudClient, ctx context.Context) {
 	interval := viper.GetInt(otterizecloudclient.ComponentReportIntervalKey)
-	errorreporter.RunWithErrorReport(ctx, func(ctx context.Context) {
+	go func() {
+		defer bugsnag.AutoNotify(ctx)
 		runPeriodicReportConnection(interval, client, ctx)
-	})
+	}()
 }
 
 func runPeriodicReportConnection(interval int, client CloudClient, ctx context.Context) {

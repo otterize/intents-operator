@@ -3,8 +3,8 @@ package telemetrysender
 import (
 	"context"
 	"flag"
+	"github.com/bugsnag/bugsnag-go/v2"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
-	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/sirupsen/logrus"
@@ -98,7 +98,8 @@ func CredentialsOperatorRunActiveReporter(ctx context.Context) {
 }
 
 func runActiveComponentReporter(ctx context.Context, componentType telemetriesgql.ComponentType) {
-	errorreporter.RunWithErrorReport(ctx, func(ctx context.Context) {
+	go func() {
+		defer bugsnag.AutoNotify(ctx)
 		activeInterval := viper.GetDuration(telemetriesconfig.TelemetryActiveIntervalKey)
 		reporterTicker := time.NewTicker(activeInterval)
 		logrus.Info("Starting active component reporter")
@@ -114,5 +115,5 @@ func runActiveComponentReporter(ctx context.Context, componentType telemetriesgq
 				return
 			}
 		}
-	})
+	}()
 }

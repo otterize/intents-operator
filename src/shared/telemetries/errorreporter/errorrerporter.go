@@ -13,26 +13,6 @@ import (
 
 type GoRoutineFunc func(ctx context.Context)
 
-func RunWithErrorReport(ctx context.Context, callback GoRoutineFunc) {
-	go func(c context.Context) {
-		defer bugsnag.AutoNotify(c)
-		callback(c)
-	}(ctx)
-}
-
-func RunWithErrorReportAndRecover(ctx context.Context, name string, callback GoRoutineFunc) {
-	go func(c context.Context) {
-		defer bugsnag.Recover(c)
-		defer func() {
-			r := recover()
-			if r != nil {
-				logrus.Errorf("recovered from panic in %s", name)
-			}
-		}()
-		callback(c)
-	}(ctx)
-}
-
 func addComponentInfoToBugsnagEvent(componentType string, event *bugsnag.Event) {
 	event.MetaData.Add("component", "componentType", componentType)
 	event.MetaData.Add("component", "componentInstanceId", componentinfo.GlobalComponentInstanceId())
