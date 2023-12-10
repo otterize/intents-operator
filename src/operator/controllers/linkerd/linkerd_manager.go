@@ -147,7 +147,14 @@ func (ldm *LinkerdManager) createPolicies(
 		logrus.Infof("Should create server ? %+v", shouldCreateServer)
 
 		if shouldCreateServer {
+			for _, container := range pod.Spec.Containers {
+				logrus.Infof("container: %+v", container.Name)
+				for _, port := range container.Ports {
+					logrus.Infof("port: %+v", port.HostPort)
+				}
+			}
 			port := pod.Spec.Containers[0].Ports[0].HostPort // get proper port
+
 			podSelector := ldm.BuildPodLabelSelectorFromIntent(intent, clientIntents.Namespace)
 
 			s = ldm.generateLinkerdServer(*clientIntents, intent, podSelector, port)
