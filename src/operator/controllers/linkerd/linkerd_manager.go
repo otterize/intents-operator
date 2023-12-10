@@ -49,8 +49,8 @@ type LinkerdPolicyManager interface {
 
 type LinkerdManager struct {
 	client.Client
-	serviceIdResolver serviceidresolver.ServiceResolver
-	injectablerecorder.InjectableRecorder
+	serviceIdResolver           serviceidresolver.ServiceResolver
+	recorder                    *injectablerecorder.InjectableRecorder
 	restrictedToNamespaces      []string
 	enforcementDefaultState     bool
 	enableLinkerdPolicyCreation bool
@@ -58,12 +58,14 @@ type LinkerdManager struct {
 
 func NewLinkerdManager(c client.Client,
 	namespaces []string,
+	r *injectablerecorder.InjectableRecorder,
 	enforcementDefaultState,
 	enableLinkerdPolicyCreation bool) *LinkerdManager {
 	return &LinkerdManager{
 		Client:                      c,
 		serviceIdResolver:           serviceidresolver.NewResolver(c),
 		restrictedToNamespaces:      namespaces,
+		recorder:                    r,
 		enforcementDefaultState:     enforcementDefaultState,
 		enableLinkerdPolicyCreation: enableLinkerdPolicyCreation,
 	}
@@ -81,7 +83,7 @@ func (ldm *LinkerdManager) Create(
 		&existingPolicies,
 		client.MatchingLabels{v1alpha3.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
 	if err != nil {
-		ldm.RecordWarningEventf(clientIntents, ReasonGettingLinkerdPolicyFailed, "Could not get Linkerd policies: %s", err.Error())
+		ldm.recorder.RecordWarningEventf(clientIntents, ReasonGettingLinkerdPolicyFailed, "Could not get Linkerd policies: %s", err.Error())
 		return err
 	}
 
@@ -112,18 +114,18 @@ func (ldm *LinkerdManager) createPolicies(
 
 		if !shouldCreatePolicy {
 			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace))
-			ldm.RecordNormalEventf(clientIntents, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
+			ldm.recorder.RecordNormalEventf(clientIntents, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
 			continue
 		}
 
 		if !ldm.enableLinkerdPolicyCreation {
-			ldm.RecordNormalEvent(clientIntents, consts.ReasonIstioPolicyCreationDisabled, "Linkerd policy creation is disabled, creation skipped")
+			ldm.recorder.RecordNormalEvent(clientIntents, consts.ReasonIstioPolicyCreationDisabled, "Linkerd policy creation is disabled, creation skipped")
 			return updatedPolicies, nil
 		}
 
 		targetNamespace := intent.GetTargetServerNamespace(clientIntents.Namespace)
 		if len(ldm.restrictedToNamespaces) != 0 && !lo.Contains(ldm.restrictedToNamespaces, targetNamespace) {
-			ldm.RecordWarningEventf(
+			ldm.recorder.RecordWarningEventf(
 				clientIntents,
 				ReasonNamespaceNotAllowed,
 				"Namespace %s was specified in intent, but is not allowed by configuration, Linkerd policy ignored",
@@ -151,7 +153,7 @@ func (ldm *LinkerdManager) createPolicies(
 
 			err = ldm.Client.Create(ctx, s)
 			if err != nil {
-				ldm.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd server: %s", err.Error())
+				ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd server: %s", err.Error())
 				return nil, err
 			}
 		}
@@ -167,13 +169,13 @@ func (ldm *LinkerdManager) createPolicies(
 
 			err = ldm.Client.Create(ctx, mtls)
 			if err != nil {
-				ldm.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd meshTLS: %s", err.Error())
+				ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd meshTLS: %s", err.Error())
 				return nil, err
 			}
 
 			err = ldm.Client.Create(ctx, newPolicy)
 			if err != nil {
-				ldm.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
+				ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
 				return nil, err
 			}
 			createdAnyPolicies = true
@@ -181,7 +183,7 @@ func (ldm *LinkerdManager) createPolicies(
 	}
 
 	if updatedPolicies.Len() != 0 || createdAnyPolicies { // TODO: understand this
-		ldm.RecordNormalEventf(clientIntents, ReasonLinkerdPolicy, "Linkerd policy reconcile complete, reconciled %d servers", len(clientIntents.GetCallsList()))
+		ldm.recorder.RecordNormalEventf(clientIntents, ReasonLinkerdPolicy, "Linkerd policy reconcile complete, reconciled %d servers", len(clientIntents.GetCallsList()))
 	}
 
 	return updatedPolicies, nil

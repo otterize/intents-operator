@@ -112,7 +112,7 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error) {
 	podsList := &corev1.PodList{}
 	labelSelector, err := intent.BuildPodLabelSelector()
-	logrus.Infof("getting pods with label, %s\n", labelSelector.String())
+	logrus.Infof("getting pods with label, %s", labelSelector.String())
 	if err != nil {
 		return corev1.Pod{}, err
 	}

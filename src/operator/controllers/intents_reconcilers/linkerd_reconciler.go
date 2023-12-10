@@ -38,7 +38,7 @@ func NewLinkerdReconciler(c client.Client,
 		serviceIdResolver:      serviceidresolver.NewResolver(c),
 	}
 
-	linkerdreconciler.linkerdManager = linkerdmanager.NewLinkerdManager(c, namespaces, enforcementDefaultState, enableLinkerdPolicyCreation)
+	linkerdreconciler.linkerdManager = linkerdmanager.NewLinkerdManager(c, namespaces, &linkerdreconciler.InjectableRecorder, enforcementDefaultState, enableLinkerdPolicyCreation)
 	return linkerdreconciler
 }
 
@@ -112,7 +112,7 @@ func (r *LinkerdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	err = r.linkerdManager.Create(ctx, intents, clientServiceAccountName)
+	err = r.linkerdManager.Create(ctx, intents, clientServiceAccountName) // the injectable recorder is null pointer
 	if err != nil {
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
