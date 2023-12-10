@@ -3,8 +3,13 @@ package basicbatch
 // it's britney batch
 
 import (
+	"context"
+	"github.com/bugsnag/bugsnag-go/v2"
 	"github.com/sirupsen/logrus"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -47,12 +52,15 @@ func (b *Batcher[T]) getBatch() []T {
 }
 
 func (b *Batcher[T]) runForever() {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 	defer func() {
 		r := recover()
 		if r != nil {
 			logrus.Error("recovered from panic in batcher")
 		}
 	}()
+	defer bugsnag.AutoNotify(ctx)
 	for {
 		batchItems := b.getBatch()
 		err := b.handleBatch(batchItems)

@@ -2,7 +2,8 @@ package operatorconfig
 
 import (
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
+
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -88,7 +89,9 @@ func InitCLIFlags() {
 	pflag.Bool(EnableLeaderElectionKey, EnableLeaderElectionDefault, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	pflag.StringSlice(WatchedNamespacesKey, nil, "Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
-	pflag.Bool(telemetrysender.TelemetryEnabledKey, telemetrysender.TelemetryEnabledDefault, "Whether telemetry should be enabled")
+	pflag.Bool(telemetriesconfig.TelemetryEnabledKey, telemetriesconfig.TelemetryEnabledDefault, "When set to false, all telemetries are disabled")
+	pflag.Bool(telemetriesconfig.TelemetryUsageEnabledKey, telemetriesconfig.TelemetryUsageEnabledDefault, "Whether usage telemetry should be enabled")
+	pflag.Bool(telemetriesconfig.TelemetryErrorsEnabledKey, telemetriesconfig.TelemetryErrorEnabledDefault, "Whether errors telemetry should be enabled")
 	pflag.Bool(EnableDatabaseReconciler, EnableDatabaseReconcilerDefault, "Enable the database reconciler")
 	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
 	pflag.Duration(RetryDelayTimeKey, RetryDelayTimeDefault, "Default retry delay time for retrying failed requests")

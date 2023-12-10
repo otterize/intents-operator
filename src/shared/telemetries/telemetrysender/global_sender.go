@@ -3,7 +3,9 @@ package telemetrysender
 import (
 	"context"
 	"flag"
-	"github.com/google/uuid"
+	"github.com/bugsnag/bugsnag-go/v2"
+	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -12,25 +14,9 @@ import (
 )
 
 var (
-	senderInitOnce            = sync.Once{}
-	sender                    *TelemetrySender
-	globalContextId           string
-	globalComponentInstanceId string
-	globalVersion             string
-	globalCloudClientId       string
+	senderInitOnce = sync.Once{}
+	sender         *TelemetrySender
 )
-
-func SetGlobalContextId(contextId string) {
-	globalContextId = contextId
-}
-
-func SetGlobalVersion(version string) {
-	globalVersion = version
-}
-
-func SetGlobalCloudClientId(clientId string) {
-	globalCloudClientId = clientId
-}
 
 func send(componentType telemetriesgql.ComponentType, eventType telemetriesgql.EventType, count int) {
 	senderInitOnce.Do(func() {
@@ -58,17 +44,17 @@ func incrementCounter(componentType telemetriesgql.ComponentType, eventType tele
 
 func currentComponent(componentType telemetriesgql.ComponentType) telemetriesgql.Component {
 	return telemetriesgql.Component{
-		CloudClientId:       globalCloudClientId,
+		CloudClientId:       componentinfo.GlobalCloudClientId(),
 		ComponentType:       componentType,
-		ComponentInstanceId: globalComponentInstanceId,
-		ContextId:           globalContextId,
-		Version:             globalVersion,
+		ComponentInstanceId: componentinfo.GlobalComponentInstanceId(),
+		ContextId:           componentinfo.GlobalContextId(),
+		Version:             componentinfo.GlobalVersion(),
 	}
 }
 
 func initSender() {
 	sender = New()
-	globalComponentInstanceId = uuid.NewString()
+	componentinfo.SetGlobalComponentInstanceId()
 	if flag.Lookup("test.v") != nil {
 		logrus.Infof("Disabling telemetry sender because this is a test")
 		sender.enabled = false
@@ -113,7 +99,8 @@ func CredentialsOperatorRunActiveReporter(ctx context.Context) {
 
 func runActiveComponentReporter(ctx context.Context, componentType telemetriesgql.ComponentType) {
 	go func() {
-		activeInterval := viper.GetDuration(TelemetryActiveIntervalKey)
+		defer bugsnag.AutoNotify(ctx)
+		activeInterval := viper.GetDuration(telemetriesconfig.TelemetryActiveIntervalKey)
 		reporterTicker := time.NewTicker(activeInterval)
 		logrus.Info("Starting active component reporter")
 		send(componentType, telemetriesgql.EventTypeActive, 0)
