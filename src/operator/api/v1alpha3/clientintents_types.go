@@ -155,6 +155,9 @@ type Intent struct {
 	Type IntentType `json:"type,omitempty" yaml:"type,omitempty"`
 
 	//+optional
+	Port int32 `json:"port,omitempty" yaml:"port,omitempty"`
+
+	//+optional
 	Topics []KafkaTopic `json:"kafkaTopics,omitempty" yaml:"kafkaTopics,omitempty"`
 
 	//+optional

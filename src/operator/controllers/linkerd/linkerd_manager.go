@@ -134,11 +134,6 @@ func (ldm *LinkerdManager) createPolicies(
 			continue
 		}
 
-		pod, err := ldm.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, clientIntents.Namespace)
-		if err != nil {
-			return nil, err
-		}
-
 		// check if there's a server for that service
 		s, shouldCreateServer, err := ldm.shouldCreateServer(ctx, *clientIntents, intent)
 		if err != nil {
@@ -147,13 +142,7 @@ func (ldm *LinkerdManager) createPolicies(
 		logrus.Infof("Should create server ? %+v", shouldCreateServer)
 
 		if shouldCreateServer {
-			for _, container := range pod.Spec.Containers {
-				logrus.Infof("container: %+v", container.Name)
-				for _, port := range container.Ports {
-					logrus.Infof("port: %+v", port.ContainerPort)
-				}
-			}
-			port := pod.Spec.Containers[0].Ports[0].ContainerPort // get proper port
+			port := intent.Port // get proper port: the target port of the service. if there are multiple create several servers
 
 			podSelector := ldm.BuildPodLabelSelectorFromIntent(intent, clientIntents.Namespace)
 
@@ -212,14 +201,9 @@ func (ldm *LinkerdManager) getServerName(intent otterizev1alpha3.Intent, port in
 }
 
 func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent) (*linkerdserver.Server, bool, error) {
-	pod, err := ldm.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, intents.Namespace)
-	if err != nil {
-		return nil, true, err
-	}
-
 	linkerdServerServiceFormattedIdentity := v1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
 	servers := &linkerdserver.ServerList{}
-	err = ldm.Client.List(ctx, servers, client.MatchingLabels{v1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity})
+	err := ldm.Client.List(ctx, servers, client.MatchingLabels{v1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity})
 	if err != nil {
 		return nil, false, err
 	}
@@ -231,12 +215,8 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otter
 
 	// get servers in the namespace and if any of them has a label selector similar to the intents label return that server
 	for _, server := range servers.Items {
-		for _, container := range pod.Spec.Containers {
-			for _, port := range container.Ports {
-				if port.HostPort == server.Spec.Port.IntVal {
-					return &server, false, nil
-				}
-			}
+		if intent.Port == server.Spec.Port.IntVal {
+			return &server, false, nil
 		}
 	}
 	return nil, true, nil
