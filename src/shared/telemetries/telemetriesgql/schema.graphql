@@ -1,12 +1,44 @@
+"""@auth indicates that the specified query / mutation / subscription requires user authentication"""
+directive @auth on FIELD_DEFINITION
+
+directive @constraint(
+	tag: String!
+	pattern: String!
+	example: String!
+) on ENUM_VALUE
+
 """The @deprecated built-in directive is used within the type system definition language to indicate deprecated portions of a GraphQL service's schema, such as deprecated fields on a type, arguments on a field, input fields on an input type, or values of an enum type."""
 directive @deprecated(
 	reason: String
 ) on FIELD_DEFINITION | ARGUMENT_DEFINITION | INPUT_FIELD_DEFINITION | ENUM_VALUE
 
+directive @goField(
+	forceResolver: Boolean
+	name: String
+) on INPUT_FIELD_DEFINITION | FIELD_DEFINITION
+
+directive @httpError(
+	statusCode: Int!
+) on ENUM_VALUE
+
 """The @include directive may be provided for fields, fragment spreads, and inline fragments, and allows for conditional inclusion during execution as described by the if argument."""
 directive @include(
 	if: Boolean!
 ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"""@noauth indicates that the specified query / mutation / subscription can be executed anonymously without
+user authentication, meaning anyone and everyone can execute it. USE WITH CAUTION."""
+directive @noauth on FIELD_DEFINITION
+
+directive @restApiField(
+	action: ApiFieldAction
+) on FIELD_DEFINITION
+
+directive @restApiRoute(
+	method: ApiMethod!
+	path: String!
+	tags: [String!]!
+) on FIELD_DEFINITION
 
 """The @skip directive may be provided for fields, fragment spreads, and inline fragments, and allows for conditional exclusion during execution as described by the if argument."""
 directive @skip(
@@ -17,6 +49,93 @@ directive @skip(
 directive @specifiedBy(
 	url: String!
 ) on SCALAR
+
+"""@validate should be applied on API input fields / arguments, to enforce API input validation.
+See https://github.com/go-playground/validator for possible built-in constraints,
+and github.com/otterize/cloud/src/backend-service/pkg/lib/graphql/directives for custom contraints."""
+directive @validate(
+	constraint: String
+	customConstraint: CustomConstraint
+) on INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION
+
+type AWSGeneralResource {
+	resource: String!
+	isWildcard: Boolean!
+}
+
+type AWSInfo {
+	region: String!
+	namespace: String!
+	eksClusterName: String!
+	awsAccountId: String!
+}
+
+input AWSInfoInput {
+	clusterId: ID!
+	region: String!
+	namespace: String!
+	eksClusterName: String!
+	awsAccountId: String!
+}
+
+type AWSResource {
+	type: AWSResourceType!
+	info: AWSResourceInfo!
+}
+
+union AWSResourceInfo =AWSS3Resource | AWSGeneralResource
+
+enum AWSResourceType {
+	GENERAL
+	S3
+}
+
+type AWSS3Resource {
+	bucketName: String!
+}
+
+type AccessGraph {
+	filter: AccessGraphFilter!
+"""Clusters for which there are results"""
+	clusters: [Cluster!]!
+	serviceAccessGraphs: [ServiceAccessGraph!]!
+	serviceCount: Int!
+}
+
+type AccessGraphEdge {
+	client: Service!
+	server: Service!
+	discoveredIntents: [Intent!]!
+	externalTrafficDiscoveredIntents: [ExternalTrafficIntent!]!
+	appliedIntents: [Intent!]!
+	accessStatus: EdgeAccessStatus!
+}
+
+type AccessGraphFilter {
+	environmentIds: [ID!]
+	clusterIds: [ID!]
+	namespaceIds: [ID!]
+	serviceIds: [ID!]
+	lastSeenAfter: Time
+	includeServicesWithNoEdges: Boolean
+}
+
+enum ApiFieldAction {
+"""Do nothing, expose models to the REST API as id-only structs (Default behaviour)"""
+	COLLAPSE_MODEL
+"""Expand model field, returning its full data and not just its ID"""
+	EXPAND_MODEL
+"""Drop this field from the REST API"""
+	DROP_FIELD
+}
+
+enum ApiMethod {
+	GET
+	POST
+	PUT
+	PATCH
+	DELETE
+}
 
 """The `Boolean` scalar type represents `true` or `false`."""
 scalar Boolean
@@ -38,19 +157,243 @@ input CLITelemetry {
 	command: CLICommand!
 }
 
+input CertificateCustomization {
+	dnsNames: [String!]
+	ttl: Int
+}
+
+type CertificateInformation {
+	commonName: String!
+	dnsNames: [String!]
+	ttl: Int
+}
+
+enum CertificateProvider {
+	SPIRE
+	CERT_MANAGER
+	CLOUD
+	NONE
+}
+
+type ClientIntentsFileRepresentation {
+	fileName: String!
+	service: Service!
+	rows: [ClientIntentsRow!]!
+	content: String!
+}
+
+type ClientIntentsFiles {
+	files: [ClientIntentsFileRepresentation!]!
+	mergedYAMLFile: MergedYAMLFile
+}
+
+type ClientIntentsRow {
+	text: String!
+	diff: RowDiff
+	calledServerId: ID
+}
+
+type Cluster {
+	id: ID!
+	name: String!
+	configuration: ClusterConfiguration
+	namespaces: [Namespace!]!
+	serviceCount: Int!
+	integration: Integration
+	integrations: [Integration!]!
+	defaultEnvironment: Environment
+	components: IntegrationComponents!
+	createdAt: Time!
+}
+
+type ClusterConfiguration {
+	globalDefaultDeny: Boolean!
+	istioGlobalDefaultDeny: Boolean!
+	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
+	useKafkaACLsInAccessGraphStates: Boolean!
+	clusterFormSettings: ClusterFormSettings!
+}
+
+input ClusterConfigurationInput {
+	globalDefaultDeny: Boolean!
+	istioGlobalDefaultDeny: Boolean
+	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean
+	useKafkaACLsInAccessGraphStates: Boolean
+	clusterFormSettings: ClusterFormSettingsInput
+}
+
+type ClusterFormSettings {
+	certificateProvider: CertificateProvider!
+	enforcement: Boolean!
+}
+
+input ClusterFormSettingsInput {
+	certificateProvider: CertificateProvider!
+	enforcement: Boolean!
+}
+
 input Component {
-	componentType: ComponentType!
+	componentType: TelemetryComponentType!
 	componentInstanceId: ID!
 	contextId: ID!
 	version: String!
 	cloudClientId: String
 }
 
+type ComponentStatus {
+	type: ComponentStatusType!
+	lastSeen: Time
+}
+
+enum ComponentStatusType {
+	NOT_INTEGRATED
+	CONNECTED
+	DISCONNECTED
+}
+
 enum ComponentType {
 	INTENTS_OPERATOR
 	CREDENTIALS_OPERATOR
 	NETWORK_MAPPER
-	CLI
+}
+
+type CredentialsOperatorComponent {
+	type: ComponentType!
+	status: ComponentStatus!
+}
+
+"""The set of custom constraints supported by our API schema."""
+enum CustomConstraint {
+	CUSTOM_NAME
+	K8S_NAME
+	LABEL_NAME
+	NONEMPTY
+	ID
+}
+
+enum DBPermissionChange {
+	APPLY
+	DELETE
+}
+
+type DNSIPPair {
+	dnsName: String!
+	ips: [String!]
+}
+
+input DNSIPPairInput {
+	dnsName: String!
+	ips: [String!]
+}
+
+type DatabaseConfig {
+	dbname: String!
+	table: String!
+	operations: [DatabaseOperation!]
+}
+
+input DatabaseConfigInput {
+	dbname: String!
+	table: String
+	operations: [DatabaseOperation!]
+}
+
+type DatabaseCredentials {
+	username: String!
+	password: String!
+}
+
+input DatabaseCredentialsInput {
+	username: String!
+	password: String!
+}
+
+type DatabaseInfo {
+	address: String!
+	databaseType: DatabaseType!
+	credentials: DatabaseCredentials!
+	logConsumerSettings: GCPCloudSQLConsumerSettings
+}
+
+input DatabaseInfoInput {
+	address: String!
+	databaseType: DatabaseType!
+	credentials: DatabaseCredentialsInput!
+	logConsumerSettings: GCPCloudSQLConsumerSettingsInput
+}
+
+enum DatabaseOperation {
+	ALL
+	SELECT
+	INSERT
+	UPDATE
+	DELETE
+}
+
+enum DatabaseType {
+	POSTGRESQL
+}
+
+input DiscoveredIntentInput {
+	discoveredAt: Time!
+	intent: IntentInput!
+}
+
+type EdgeAccessStatus {
+	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
+	useKafkaPoliciesInAccessGraphStates: Boolean!
+	verdict: EdgeAccessStatusVerdict!
+	reason: EdgeAccessStatusReason!
+	reasons: [EdgeAccessStatusReason!]!
+}
+
+enum EdgeAccessStatusReason {
+	ALLOWED_BY_APPLIED_INTENTS
+	ALLOWED_BY_APPLIED_INTENTS_OVERLY_PERMISSIVE
+	ALLOWED_BY_APPLIED_INTENTS_HTTP_OVERLY_PERMISSIVE
+	ALLOWED_BY_APPLIED_INTENTS_KAFKA_OVERLY_PERMISSIVE
+	ALLOWED_BY_EXTERNAL_TRAFFIC_NETWORK_POLICY
+	BLOCKED_BY_APPLIED_INTENTS_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_RESOURCE_MISMATCH
+	BLOCKED_BY_APPLIED_INTENTS_HTTP_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_HTTP_RESOURCE_MISMATCH
+	BLOCKED_BY_APPLIED_INTENTS_KAFKA_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_KAFKA_RESOURCE_MISMATCH
+	BLOCKED_BY_KAFKA_ENFORCEMENT_CONFIG_MISSING_APPLIED_INTENTS
+	BLOCKED_BY_DEFAULT_DENY
+	SHARED_SERVICE_ACCOUNT
+	CLIENT_ISTIO_SIDECAR_MISSING
+	SERVER_ISTIO_SIDECAR_MISSING
+	INTENTS_OPERATOR_NOT_ENFORCING
+	INTENTS_OPERATOR_NOT_ENFORCING_MISSING_APPLIED_INTENT
+	INTENTS_OPERATOR_NOT_ENFORCING_KAFKA_INTENTS_NOT_REQUIRED_FOR_TOPIC
+	MISSING_APPLIED_INTENT
+	NOT_IN_PROTECTED_SERVICES
+	INTENTS_OPERATOR_NEVER_CONNECTED
+	NETWORK_MAPPER_NEVER_CONNECTED
+	INTERNET_ACCESS_STATUS_UNKNOWN
+	NO_INTENTS_FOUND_OF_RELEVANT_TYPE
+	IGNORED_IN_CALCULATION
+}
+
+enum EdgeAccessStatusVerdict {
+	EXPLICITLY_ALLOWED
+	IMPLICITLY_ALLOWED
+	WOULD_BE_BLOCKED
+	BLOCKED
+	UNKNOWN
+}
+
+type Environment {
+	id: ID!
+	name: String!
+	labels: [Label!]
+	namespaces: [Namespace!]!
+	serviceCount: Int!
+	appliedIntentsCount: Int!
 }
 
 enum EventType {
@@ -82,30 +425,778 @@ enum EventType {
 	ACTIVE
 }
 
+input ExternalTrafficDiscoveredIntentInput {
+	discoveredAt: Time!
+	intent: ExternalTrafficIntentInput!
+}
+
+type ExternalTrafficIntent {
+	id: ID!
+	server: Service!
+	client: Service!
+	target: DNSIPPair!
+}
+
+input ExternalTrafficIntentInput {
+	namespace: String!
+	clientName: String!
+	target: DNSIPPairInput!
+}
+
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
 scalar Float
+
+type GCPCloudSQLConsumerSettings {
+	projectId: String!
+	topic: String!
+}
+
+input GCPCloudSQLConsumerSettingsInput {
+	projectId: String!
+	topic: String!
+}
+
+type HTTPConfig {
+	path: String!
+	methods: [HTTPMethod!]
+}
+
+input HTTPConfigInput {
+	path: String!
+	methods: [HTTPMethod!]
+}
+
+enum HTTPMethod {
+	GET
+	POST
+	PUT
+	DELETE
+	OPTIONS
+	TRACE
+	PATCH
+	CONNECT
+	ALL
+}
 
 """The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as "4") or integer (such as 4) input value will be accepted as an ID."""
 scalar ID
 
+input InputAccessGraphFilter {
+	environmentIds: [ID!]
+	clusterIds: [ID!]
+	serviceIds: [ID!]
+	namespaceIds: [ID!]
+	lastSeenAfter: Time
+	includeServicesWithNoEdges: Boolean
+}
+
 """The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1."""
 scalar Int
 
+type Integration {
+	id: ID!
+	name: String!
+	type: IntegrationType!
+	credentials: IntegrationCredentials!
+	components: IntegrationComponents
+	defaultEnvironment: Environment
+	cluster: Cluster
+	databaseInfo: DatabaseInfo
+	awsInfo: AWSInfo
+}
+
+type IntegrationComponents {
+	intentsOperator: IntentsOperatorComponent!
+	credentialsOperator: CredentialsOperatorComponent!
+	networkMapper: NetworkMapperComponent!
+}
+
+type IntegrationCredentials {
+	clientId: String!
+	clientSecret: String!
+}
+
+enum IntegrationType {
+	GENERIC
+	KUBERNETES
+	DATABASE
+	AWS
+}
+
+type Intent {
+	id: ID!
+	server: Service!
+	client: Service!
+	type: IntentType
+	kafkaTopics: [KafkaConfig!]
+	httpResources: [HTTPConfig!]
+	databaseResources: [DatabaseConfig!]
+	awsActions: [String!]
+	status: IntentStatus
+}
+
+input IntentInput {
+	namespace: String!
+	clientName: String!
+	serverName: String!
+	serverNamespace: String
+	type: IntentType
+	topics: [KafkaConfigInput!]
+	resources: [HTTPConfigInput!]
+	databaseResources: [DatabaseConfigInput!]
+	awsActions: [String!]
+	status: IntentStatusInput
+}
+
+type IntentStatus {
+	serviceAccountName: String!
+	isServiceAccountShared: Boolean!
+	isServerMissingSidecar: Boolean!
+	isClientMissingSidecar: Boolean!
+}
+
+input IntentStatusInput {
+	istioStatus: IstioStatusInput
+}
+
+enum IntentType {
+	HTTP
+	KAFKA
+	DATABASE
+	AWS
+	S3
+}
+
+type IntentsOperatorComponent {
+	type: ComponentType!
+	status: ComponentStatus!
+	configuration: IntentsOperatorConfiguration
+}
+
+type IntentsOperatorConfiguration {
+	globalEnforcementEnabled: Boolean!
+	networkPolicyEnforcementEnabled: Boolean!
+	kafkaACLEnforcementEnabled: Boolean!
+	istioPolicyEnforcementEnabled: Boolean!
+	protectedServicesEnabled: Boolean!
+	protectedServices: [Service!]!
+}
+
+input IntentsOperatorConfigurationInput {
+	globalEnforcementEnabled: Boolean!
+	networkPolicyEnforcementEnabled: Boolean
+	kafkaACLEnforcementEnabled: Boolean
+	istioPolicyEnforcementEnabled: Boolean
+	protectedServicesEnabled: Boolean
+}
+
+type Invite {
+	id: ID!
+	email: String!
+	organization: Organization!
+	inviter: User!
+	created: Time!
+	acceptedAt: Time
+	status: InviteStatus!
+}
+
+enum InviteStatus {
+	PENDING
+	ACCEPTED
+}
+
+input IstioStatusInput {
+	serviceAccountName: String!
+	isServiceAccountShared: Boolean!
+	isServerMissingSidecar: Boolean!
+	isClientMissingSidecar: Boolean!
+}
+
+type KafkaConfig {
+	name: String!
+	operations: [KafkaOperation!]
+}
+
+input KafkaConfigInput {
+	name: String!
+	operations: [KafkaOperation!]
+}
+
+enum KafkaOperation {
+	ALL
+	CONSUME
+	PRODUCE
+	CREATE
+	ALTER
+	DELETE
+	DESCRIBE
+	CLUSTER_ACTION
+	DESCRIBE_CONFIGS
+	ALTER_CONFIGS
+	IDEMPOTENT_WRITE
+}
+
+type KafkaServerConfig {
+	address: String
+	topics: [KafkaTopic!]!
+}
+
+input KafkaServerConfigInput {
+	name: String!
+	namespace: String!
+	address: String!
+	topics: [KafkaTopicInput!]!
+}
+
+type KafkaTopic {
+	clientIdentityRequired: Boolean!
+	intentsRequired: Boolean!
+	pattern: KafkaTopicPattern!
+	topic: String!
+}
+
+input KafkaTopicInput {
+	clientIdentityRequired: Boolean!
+	intentsRequired: Boolean!
+	pattern: KafkaTopicPattern!
+	topic: String!
+}
+
+enum KafkaTopicPattern {
+	LITERAL
+	PREFIX
+}
+
+type KeyPair {
+	keyPEM: String!
+	caPEM: String!
+	certPEM: String!
+	rootCAPEM: String!
+	expiresAt: Int!
+}
+
+type Label {
+	key: String!
+	value: String
+}
+
+input LabelInput {
+	key: String!
+	value: String
+}
+
+type Me {
+"""The logged-in user details."""
+	user: User!
+"""The organizations to which the current logged-in user belongs."""
+	organizations: [Organization!]!
+"""Organizations to which the current logged-in user may join."""
+	invites: [Invite!]!
+"""The organization under which the current user request acts.
+This is selected by the X-Otterize-Organization header,
+or, for users with a single organization, this is that single selected organization."""
+	selectedOrganization: Organization!
+}
+
+type MeMutation {
+"""Register the user defined by the active session token into the otterize users store."""
+	registerUser: Me!
+}
+
+type MergedYAMLFile {
+	fileName: String!
+	rows: [ClientIntentsRow!]!
+	content: String!
+}
+
 type Mutation {
+"""This is just a placeholder since currently GraphQL does not allow empty types"""
+	dummy: Boolean
+"""Register certificate-request details for kubernetes pod owner, returns the service associated with this pod owner"""
+	registerKubernetesPodOwnerCertificateRequest(
+		podOwner: NamespacedPodOwner!
+		certificateCustomization: CertificateCustomization
+	): Service!
+"""Report active pod owners to the cloud, as a result the cloud removes certificate requests of inactive pod owners """
+	reportActiveCertificateRequesters(
+		activePodOwners: [NamespacedPodOwner!]!
+	): Boolean!
+"""Create cluster"""
+	createCluster(
+		name: String!
+	): Cluster!
+"""Delete cluster"""
+	deleteCluster(
+		id: ID!
+	): ID!
+"""Update cluster"""
+	updateCluster(
+		id: ID!
+		name: String
+		configuration: ClusterConfigurationInput
+	): Cluster!
+"""Register user-password request for a pod owner, returns the service associated with this pod owner"""
+	registerKubernetesServiceUserAndPasswordRequest(
+		podOwner: NamespacedPodOwner!
+	): Service!
+"""Create a new environment"""
+	createEnvironment(
+		name: String!
+		labels: [LabelInput!]
+	): Environment!
+"""Update environment"""
+	updateEnvironment(
+		id: ID!
+		name: String
+		labels: [LabelInput!]
+	): Environment!
+"""Delete environment"""
+	deleteEnvironment(
+		id: ID!
+	): ID!
+"""Add label to environment"""
+	addEnvironmentLabel(
+		id: ID!
+		label: LabelInput!
+	): Environment!
+"""Remove label from environment"""
+	deleteEnvironmentLabel(
+		id: ID!
+		key: String!
+	): Environment!
+"""Create a new generic integration"""
+	createGenericIntegration(
+		name: String!
+	): Integration
+	createDatabaseIntegration(
+		name: String!
+		databaseInfo: DatabaseInfoInput!
+	): Integration
+	updateDatabaseIntegrationCredentials(
+		integrationId: ID!
+		credentials: DatabaseCredentialsInput!
+	): Boolean!
+"""Create a new Kubernetes integration"""
+	createKubernetesIntegration(
+		environmentId: ID
+		clusterId: ID!
+	): Integration
+"""Create a new AWS integration"""
+	createAWSIntegration(
+		name: String!
+		awsIntegration: AWSInfoInput!
+	): Integration
+"""Update AWS integration"""
+	updateAWSIntegration(
+		id: ID!
+		name: String
+		environmentId: ID
+		awsIntegration: AWSInfoInput
+	): Integration
+"""Update Generic integration"""
+	updateGenericIntegration(
+		id: ID!
+		name: String
+	): Integration
+"""Update Kubernetes integration"""
+	updateKubernetesIntegration(
+		id: ID!
+		environmentId: ID
+	): Integration
+"""Update Database integration"""
+	updateDatabaseIntegration(
+		id: ID!
+		name: String
+		databaseInfo: DatabaseInfoInput!
+	): Integration
+"""Delete integration"""
+	deleteIntegration(
+		id: ID!
+	): ID!
+"""Report integration components status"""
+	reportIntegrationComponentStatus(
+		component: ComponentType!
+	): Boolean!
+	reportIntentsOperatorConfiguration(
+		configuration: IntentsOperatorConfigurationInput!
+	): Boolean!
+	reportDiscoveredIntents(
+		intents: [DiscoveredIntentInput!]!
+	): Boolean!
+	reportExternalTrafficDiscoveredIntents(
+		intents: [ExternalTrafficDiscoveredIntentInput!]!
+	): Boolean!
+	reportAppliedKubernetesIntents(
+		namespace: String!
+		intents: [IntentInput!]!
+	): Boolean!
+	handleDatabaseIntents(
+		intents: [IntentInput!]!
+		action: DBPermissionChange!
+	): Boolean!
+	reportNetworkPolicies(
+		namespace: String!
+		policies: [NetworkPolicyInput!]!
+	): Boolean!
+"""Create user invite"""
+	createInvite(
+		email: String!
+	): Invite!
+"""Delete user invite"""
+	deleteInvite(
+		id: ID!
+	): ID!
+"""Accept user invite"""
+	acceptInvite(
+		id: ID!
+	): Invite!
+	reportKafkaServerConfigs(
+		namespace: String!
+		serverConfigs: [KafkaServerConfigInput!]!
+	): Boolean!
+"""Operate on the current logged-in user"""
+	me: MeMutation!
+"""Associate namespace to environment"""
+	associateNamespaceToEnv(
+		id: ID!
+		environmentId: ID
+	): Namespace!
+"""Create a new organization"""
+	createOrganization(
+		name: String
+	): Organization!
+"""Update organization"""
+	updateOrganization(
+		id: ID!
+		name: String
+		imageURL: String
+	): Organization!
+"""Remove user from organization"""
+	removeUserFromOrganization(
+		id: ID!
+		userId: ID!
+	): ID!
+	reportProtectedServicesSnapshot(
+		namespace: String!
+		services: [ProtectedServiceInput!]!
+	): Boolean!
 	sendTelemetries(
 		telemetries: [TelemetryInput!]!
 	): Boolean!
 	sendCLITelemetries(
 		telemetries: [CLITelemetry!]!
 	): Boolean!
+	notifyQuestLogStepAdvanced(
+		id: ID!
+		step: QuestLogStep!
+	): Boolean!
+	notifyQuestLogStepSeenAdvanced(
+		id: ID!
+		step: QuestLogStep!
+	): Boolean!
+	saveOnboardingSelection(
+		id: ID!
+		selection: OnboardingSelection!
+	): Boolean!
+	saveOnboardingSelectionOther(
+		id: ID!
+		selection: String!
+	): Boolean!
+}
+
+type Namespace {
+	id: ID!
+	name: String!
+	cluster: Cluster!
+	environment: Environment!
+	services: [Service!]!
+	serviceCount: Int!
+}
+
+input NamespacedPodOwner {
+	name: String!
+	namespace: String!
+}
+
+type NetworkMapperComponent {
+	type: ComponentType!
+	status: ComponentStatus!
+}
+
+input NetworkPolicyInput {
+	namespace: String!
+	name: String!
+	serverName: String!
+	externalNetworkTrafficPolicy: Boolean!
+}
+
+enum OnboardingSelection {
+	DEFAULT
+	AWS_IAM
+	OTHER
+}
+
+type Organization {
+	id: ID!
+	name: String
+	imageURL: String
+}
+
+input ProtectedServiceInput {
+	name: String!
 }
 
 type Query {
+"""This is just a placeholder since currently GraphQL does not allow empty types"""
 	dummy: Boolean
+"""Get access graph"""
+	accessGraph(
+		filter: InputAccessGraphFilter
+	): AccessGraph!
+	serviceClientIntents(
+		id: ID!
+		lastSeenAfter: Time!
+	): ServiceClientIntents!
+"""Get cluster"""
+	cluster(
+		id: ID!
+	): Cluster!
+"""List clusters"""
+	clusters(
+		name: String
+	): [Cluster!]!
+"""Get cluster by filters"""
+	oneCluster(
+		name: String!
+	): Cluster
+"""Get environment"""
+	environment(
+		id: ID!
+	): Environment!
+"""List environments"""
+	environments(
+		name: String
+		labels: [LabelInput!]
+	): [Environment!]!
+"""Get environment by filters"""
+	oneEnvironment(
+		name: String!
+	): Environment!
+"""List integrations"""
+	integrations(
+		name: String
+		integrationType: IntegrationType
+		environmentId: ID
+		clusterId: ID
+	): [Integration!]!
+"""Get integration"""
+	integration(
+		id: ID!
+	): Integration!
+"""Get integration by filters"""
+	oneIntegration(
+		integrationType: IntegrationType
+		environmentId: ID
+		clusterId: ID
+		name: String
+	): Integration!
+	testDatabaseConnection(
+		databaseInfo: DatabaseInfoInput!
+		integrationId: ID
+	): TestDatabaseConnectionResponse!
+"""List user invites"""
+	invites(
+		email: String
+		status: InviteStatus
+	): [Invite!]!
+"""Get user invite"""
+	invite(
+		id: ID!
+	): Invite!
+"""Get one user invite"""
+	oneInvite(
+		email: String
+		status: InviteStatus
+	): Invite!
+"""Get information regarding the current logged-in user"""
+	me: Me!
+"""Get namespace"""
+	namespace(
+		id: ID!
+	): Namespace!
+"""List namespaces"""
+	namespaces(
+		environmentId: ID
+		clusterId: ID
+		name: String
+	): [Namespace!]!
+"""Get one namespace"""
+	oneNamespace(
+		environmentId: ID
+		clusterId: ID
+		name: String
+	): Namespace!
+"""List organizations"""
+	organizations: [Organization!]!
+"""Get organization"""
+	organization(
+		id: ID!
+	): Organization!
+"""Get service"""
+	service(
+		id: ID!
+	): Service!
+"""List services"""
+	services(
+		environmentId: ID
+		namespaceId: ID
+		name: String
+	): [Service!]!
+"""Get service by filters"""
+	oneService(
+		environmentId: ID
+		namespaceId: ID
+		name: String
+	): Service
+"""List users"""
+	users: [User!]!
+"""Get user"""
+	user(
+		id: ID!
+	): User!
+}
+
+enum QuestLogStep {
+"""Connect cluster"""
+	CONNECT_CLUSTER
+"""Get to know your network map"""
+	EXPLORE_NETWORK_MAP_ADD_NS_FILTER
+	EXPLORE_NETWORK_MAP_ADD_SVC_FILTER
+	EXPLORE_NETWORK_MAP_CLEAR_FILTERS
+"""Declare intents"""
+	DECLARE_INTENTS_CLICK_ON_SERVICE
+	DECLARE_INTENTS_DOWNLOAD_YAML
+	DECLARE_INTENTS_DO_APPLY
+"""Enable intents"""
+	ENABLE_ENFORCEMENT_CREATE_PROTECTED_SERVICE
+	COMPLETED
+}
+
+enum RowDiff {
+	ADDED
+	REMOVED
+}
+
+type ServerBlockingStatus {
+	verdict: ServerBlockingStatusVerdict!
+	reason: ServerBlockingStatusReason!
+}
+
+enum ServerBlockingStatusReason {
+	INTENTS_OPERATOR_NEVER_CONNECTED
+	NETWORK_MAPPER_NEVER_CONNECTED
+	INTENTS_IMPLICITLY_ALLOWED
+	ALL_INTENTS_APPLIED
+	MISSING_APPLIED_INTENTS
+	INTENTS_OPERATOR_NOT_ENFORCING
+}
+
+enum ServerBlockingStatusVerdict {
+	UNKNOWN
+	NOT_BLOCKING
+	WOULD_BLOCK
+	BLOCKING
+}
+
+type ServerProtectionStatus {
+	verdict: ServerProtectionStatusVerdict!
+	reason: ServerProtectionStatusReason!
+}
+
+enum ServerProtectionStatusReason {
+	INTENTS_OPERATOR_NEVER_CONNECTED
+	INTENTS_OPERATOR_NOT_ENFORCING
+	SERVER_HAS_NO_NETWORK_POLICY
+	SERVER_HAS_NO_ISTIO_POLICY
+	SERVER_HAS_NO_ISTIO_SIDECAR
+	PROTECTED_BY_DEFAULT_DENY
+	PROTECTED_BY_SERVER_NETWORK_POLICY
+	PROTECTED_BY_SERVER_ISTIO_POLICY
+	PROTECTED_BY_KAFKA_IDENTITY_REQUIRED_NO_INTENTS_REQUIRED
+	PROTECTED_BY_KAFKA_INTENTS_REQUIRED
+	SERVER_HAS_KAFKASERVERCONFIG_NO_ENFORCEMENT
+	SERVER_HAS_NO_KAFKA_SERVER_CONFIG
+	IGNORED_IN_CALCULATION
+	PROTECTED_BY_DATABASE_INTEGRATION
+	PROTECTED_BY_AWS_IAM_INTEGRATION
+}
+
+enum ServerProtectionStatusVerdict {
+	UNKNOWN
+	UNPROTECTED
+	PROTECTED
+}
+
+type ServerProtectionStatuses {
+	networkPolicies: ServerProtectionStatus!
+	kafkaACLs: ServerProtectionStatus!
+	istioPolicies: ServerProtectionStatus!
+}
+
+type Service {
+	id: ID!
+	name: String!
+	namespace: Namespace
+	environment: Environment!
+"""If service is Kafka, its KafkaServerConfig."""
+	kafkaServerConfig: KafkaServerConfig
+	certificateInformation: CertificateInformation
+	serviceAccount: String
+	awsResource: AWSResource
+	tlsKeyPair: KeyPair!
+	userAndPassword: UserAndPassword!
+}
+
+type ServiceAccessGraph {
+	service: Service!
+	types: [ServiceType!]!
+	accessStatus: ServiceAccessStatus!
+	calls: [AccessGraphEdge!]!
+	serves: [AccessGraphEdge!]!
+}
+
+type ServiceAccessStatus {
+	useNetworkPoliciesInAccessGraphStates: Boolean!
+	useKafkaACLsInAccessGraphStates: Boolean!
+	useIstioPoliciesInAccessGraphStates: Boolean!
+	protectionStatus: ServerProtectionStatus!
+	protectionStatuses: ServerProtectionStatuses!
+	blockingStatus: ServerBlockingStatus!
+	hasAppliedIntents: Boolean!
+}
+
+type ServiceClientIntents {
+	asClient: ClientIntentsFiles
+	asServer: ClientIntentsFiles
+}
+
+enum ServiceType {
+	KUBERNETES
+	KAFKA
+	AWS
+	DATABASE
+	INTERNET
 }
 
 """The `String`scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text."""
 scalar String
+
+enum TelemetryComponentType {
+	INTENTS_OPERATOR
+	CREDENTIALS_OPERATOR
+	NETWORK_MAPPER
+	CLI
+}
 
 input TelemetryData {
 	eventType: EventType!
@@ -115,6 +1206,41 @@ input TelemetryData {
 input TelemetryInput {
 	component: Component!
 	data: TelemetryData!
+}
+
+type TestDatabaseConnectionResponse {
+	success: Boolean!
+	errorMessage: String!
+}
+
+scalar Time
+
+type User {
+	id: ID!
+	email: String!
+	name: String!
+	imageURL: String!
+	authProviderUserId: String!
+	questLogStep: QuestLogStep!
+	questLogStepSeen: QuestLogStep!
+	onboardingSelection: OnboardingSelection!
+	onboardingSelectionOther: String!
+}
+
+type UserAndPassword {
+	username: String!
+	password: String!
+}
+
+enum UserErrorType {
+	UNAUTHENTICATED
+	NOT_FOUND
+	INTERNAL_SERVER_ERROR
+	BAD_REQUEST
+	FORBIDDEN
+	CONFLICT
+	BAD_USER_INPUT
+	APPLIED_INTENTS_ERROR
 }
 
 
