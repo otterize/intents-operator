@@ -18,7 +18,7 @@ var (
 	sender         *TelemetrySender
 )
 
-func send(componentType telemetriesgql.ComponentType, eventType telemetriesgql.EventType, count int) {
+func send(componentType telemetriesgql.TelemetryComponentType, eventType telemetriesgql.EventType, count int) {
 	senderInitOnce.Do(func() {
 		initSender()
 	})
@@ -30,7 +30,7 @@ func send(componentType telemetriesgql.ComponentType, eventType telemetriesgql.E
 	}
 }
 
-func incrementCounter(componentType telemetriesgql.ComponentType, eventType telemetriesgql.EventType, key string) {
+func incrementCounter(componentType telemetriesgql.TelemetryComponentType, eventType telemetriesgql.EventType, key string) {
 	senderInitOnce.Do(func() {
 		initSender()
 	})
@@ -42,7 +42,7 @@ func incrementCounter(componentType telemetriesgql.ComponentType, eventType tele
 	}
 }
 
-func currentComponent(componentType telemetriesgql.ComponentType) telemetriesgql.Component {
+func currentComponent(componentType telemetriesgql.TelemetryComponentType) telemetriesgql.Component {
 	return telemetriesgql.Component{
 		CloudClientId:       componentinfo.GlobalCloudClientId(),
 		ComponentType:       componentType,
@@ -62,42 +62,42 @@ func initSender() {
 }
 
 func SendIntentOperator(eventType telemetriesgql.EventType, count int) {
-	send(telemetriesgql.ComponentTypeIntentsOperator, eventType, count)
+	send(telemetriesgql.TelemetryComponentTypeIntentsOperator, eventType, count)
 }
 
 func SendNetworkMapper(eventType telemetriesgql.EventType, count int) {
-	send(telemetriesgql.ComponentTypeNetworkMapper, eventType, count)
+	send(telemetriesgql.TelemetryComponentTypeNetworkMapper, eventType, count)
 }
 
 func SendCredentialsOperator(eventType telemetriesgql.EventType, count int) {
-	send(telemetriesgql.ComponentTypeCredentialsOperator, eventType, count)
+	send(telemetriesgql.TelemetryComponentTypeCredentialsOperator, eventType, count)
 }
 
 func IncrementUniqueCounterIntentOperator(eventType telemetriesgql.EventType, key string) {
-	incrementCounter(telemetriesgql.ComponentTypeIntentsOperator, eventType, key)
+	incrementCounter(telemetriesgql.TelemetryComponentTypeIntentsOperator, eventType, key)
 }
 
 func IncrementUniqueCounterNetworkMapper(eventType telemetriesgql.EventType, key string) {
-	incrementCounter(telemetriesgql.ComponentTypeNetworkMapper, eventType, key)
+	incrementCounter(telemetriesgql.TelemetryComponentTypeNetworkMapper, eventType, key)
 }
 
 func IncrementUniqueCounterCredentialsOperator(eventType telemetriesgql.EventType, key string) {
-	incrementCounter(telemetriesgql.ComponentTypeCredentialsOperator, eventType, key)
+	incrementCounter(telemetriesgql.TelemetryComponentTypeCredentialsOperator, eventType, key)
 }
 
 func IntentsOperatorRunActiveReporter(ctx context.Context) {
-	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeIntentsOperator)
+	runActiveComponentReporter(ctx, telemetriesgql.TelemetryComponentTypeIntentsOperator)
 }
 
 func NetworkMapperRunActiveReporter(ctx context.Context) {
-	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeNetworkMapper)
+	runActiveComponentReporter(ctx, telemetriesgql.TelemetryComponentTypeNetworkMapper)
 }
 
 func CredentialsOperatorRunActiveReporter(ctx context.Context) {
-	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeCredentialsOperator)
+	runActiveComponentReporter(ctx, telemetriesgql.TelemetryComponentTypeCredentialsOperator)
 }
 
-func runActiveComponentReporter(ctx context.Context, componentType telemetriesgql.ComponentType) {
+func runActiveComponentReporter(ctx context.Context, componentType telemetriesgql.TelemetryComponentType) {
 	go func() {
 		defer bugsnag.AutoNotify(ctx)
 		activeInterval := viper.GetDuration(telemetriesconfig.TelemetryActiveIntervalKey)
