@@ -41,7 +41,7 @@ const (
 	IntentsOperatorPodNamespaceKey              = "pod-namespace"
 	EnvPrefix                                   = "OTTERIZE"
 	EnableDatabaseReconciler                    = "enable-database-reconciler" // Whether to enable the new database reconciler
-	EnableDatabaseReconcilerDefault             = false
+	EnableDatabaseReconcilerDefault             = true
 	RetryDelayTimeKey                           = "retry-delay-time" // Default retry delay time for retrying failed requests
 	RetryDelayTimeDefault                       = 5 * time.Second
 	DebugLogKey                                 = "debug" // Whether to enable debug logging
