@@ -21,7 +21,9 @@ import (
 	"flag"
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
+	"github.com/bugsnag/bugsnag-go/v2"
 	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/google/uuid"
 	"github.com/otterize/credentials-operator/src/controllers/aws_iam/pods"
 	"github.com/otterize/credentials-operator/src/controllers/aws_iam/serviceaccount"
 	"github.com/otterize/credentials-operator/src/controllers/aws_iam/webhooks"
@@ -36,18 +38,25 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/entries"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/svids"
 	"github.com/otterize/credentials-operator/src/controllers/tls_pod"
+	"github.com/otterize/credentials-operator/src/operatorconfig"
 	operatorwebhooks "github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
+	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
+	"github.com/otterize/intents-operator/src/shared/version"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"golang.org/x/exp/slices"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/metadata"
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"strings"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -120,6 +129,9 @@ func (cpf *CertProvider) String() string {
 }
 
 func main() {
+	errorreporter.Init("credentials-operator", version.Version(), viper.GetString(operatorconfig.TelemetryErrorsAPIKeyKey))
+	defer bugsnag.AutoNotify(context.Background())
+
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
@@ -165,24 +177,25 @@ func main() {
 		LeaderElectionID:       "credentials-operator.otterize.com",
 	})
 	if err != nil {
-		logrus.WithError(err).Error("unable to start manager")
-		os.Exit(1)
+		logrus.WithError(err).Panic("unable to start manager")
 	}
 
 	ctx := ctrl.SetupSignalHandler()
 	podNamespace := os.Getenv("POD_NAMESPACE")
 	if podNamespace == "" {
-		logrus.Fatal("'POD_NAMESPACE' environment variable is required")
-		os.Exit(1)
+		logrus.Panic("POD_NAMESPACE environment variable is required")
 	}
+
+	kubeSystemUID := getClusterContextId(ctx, mgr)
+	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(kubeSystemUID))
+	componentinfo.SetGlobalVersion(version.Version())
 
 	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
 	eventRecorder := mgr.GetEventRecorderFor("credentials-operator")
 
 	otterizeCloudClient, clientInitializedWithCredentials, err := otterizeclient.NewCloudClient(ctx)
 	if err != nil {
-		logrus.WithError(err).Error("failed to initialize cloud client")
-		os.Exit(1)
+		logrus.WithError(err).Panic("failed to initialize cloud client")
 	}
 
 	if clientInitializedWithCredentials {
@@ -191,7 +204,7 @@ func main() {
 
 	if certProvider == CertProviderCloud {
 		if !clientInitializedWithCredentials {
-			logrus.Fatal("using cloud, but cloud credentials not specified")
+			logrus.WithError(err).Panic("using cloud, but cloud credentials not specified")
 		}
 		workloadRegistry = otterizeCloudClient
 		userAndPassAcquirer = otterizeCloudClient
@@ -200,8 +213,7 @@ func main() {
 	} else if certProvider == CertProviderSPIRE {
 		spireClient, err := initSpireClient(ctx, spireServerAddr)
 		if err != nil {
-			logrus.WithError(err).Error("failed to connect to spire server")
-			os.Exit(1)
+			logrus.WithError(err).Panic("failed to connect to spire server")
 		}
 		defer spireClient.Close()
 		bundlesStore := bundles.NewBundlesStore(spireClient)
@@ -215,26 +227,23 @@ func main() {
 	} else if certProvider == CertProviderNone {
 		// intentionally do nothing
 	} else {
-		logrus.Fatalf("unexpected value for provider: '%s'", certProvider)
+		logrus.WithField("provider", certProvider).Panic("unexpected value for provider")
 	}
 	client := mgr.GetClient()
 
 	if enableAWSServiceAccountManagement {
 		awsAgent, err := awsagent.NewAWSAgent(ctx)
 		if err != nil {
-			logrus.WithError(err).Error("failed to initialize AWS agent")
-			os.Exit(1)
+			logrus.WithError(err).Panic("failed to initialize AWS agent")
 		}
 		serviceAccountReconciler := serviceaccount.NewServiceAccountReconciler(client, awsAgent)
 		if err = serviceAccountReconciler.SetupWithManager(mgr); err != nil {
-			logrus.WithField("controller", "ServiceAccount").WithError(err).Error("unable to create controller")
-			os.Exit(1)
+			logrus.WithField("controller", "ServiceAccount").WithError(err).Panic("unable to create controller")
 		}
 
 		podCleanupReconciler := pods.NewPodAWSRoleCleanupReconciler(client)
 		if err = podCleanupReconciler.SetupWithManager(mgr); err != nil {
-			logrus.WithField("controller", "ServiceAccount").WithError(err).Error("unable to create controller")
-			os.Exit(1)
+			logrus.WithField("controller", "PodAWSRoleCleanup").WithError(err).Panic("unable to create controller")
 		}
 
 		if selfSignedCert {
@@ -242,17 +251,17 @@ func main() {
 			certBundle, err :=
 				operatorwebhooks.GenerateSelfSignedCertificate("credentials-operator-webhook-service", podNamespace)
 			if err != nil {
-				logrus.WithError(err).Fatal("unable to create self signed certs for webhook")
+				logrus.WithError(err).Panic("unable to create self signed certs for webhook")
 			}
 			err = operatorwebhooks.WriteCertToFiles(certBundle)
 			if err != nil {
-				logrus.WithError(err).Fatal("failed writing certs to file system")
+				logrus.WithError(err).Panic("failed writing certs to file system")
 			}
 
 			err = operatorwebhooks.UpdateMutationWebHookCA(context.Background(),
 				"otterize-credentials-operator-mutating-webhook-configuration", certBundle.CertPem)
 			if err != nil {
-				logrus.WithError(err).Fatal("updating validation webhook certificate failed")
+				logrus.WithError(err).Panic("updating validation webhook certificate failed")
 			}
 			podAnnotatorWebhook := webhooks.NewServiceAccountAnnotatingPodWebhook(mgr, awsAgent)
 			mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{Handler: podAnnotatorWebhook})
@@ -265,36 +274,31 @@ func main() {
 			serviceIdResolver, eventRecorder, certProvider == CertProviderCloud)
 
 		if err = certPodReconciler.SetupWithManager(mgr); err != nil {
-			logrus.WithField("controller", "certPod").WithError(err).Error("unable to create controller")
-			os.Exit(1)
+			logrus.WithField("controller", "certPod").WithError(err).Panic("unable to create controller")
 		}
 		go certPodReconciler.MaintenanceLoop(ctx)
 	}
 
 	if certProvider == CertProviderCertManager && useCertManagerApprover {
 		if err = secretsManager.(*certmanageradapter.CertManagerSecretsManager).RegisterCertificateApprover(ctx, mgr); err != nil {
-			logrus.WithField("controller", "CertificateRequest").WithError(err).Error("unable to create controller")
-			os.Exit(1)
+			logrus.WithField("controller", "CertificateRequest").WithError(err).Panic("unable to create controller")
 		}
 	}
 
 	if userAndPassAcquirer != nil {
 		podUserAndPasswordReconciler := poduserpassword.NewReconciler(client, scheme, eventRecorder, serviceIdResolver, userAndPassAcquirer)
 		if err = podUserAndPasswordReconciler.SetupWithManager(mgr); err != nil {
-			logrus.WithField("controller", "podUserAndPassword").WithError(err).Error("unable to create controller")
-			os.Exit(1)
+			logrus.WithField("controller", "podUserAndPassword").WithError(err).Panic("unable to create controller")
 		}
 	}
 
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
-		logrus.WithError(err).Error("unable to set up health check")
-		os.Exit(1)
+		logrus.WithError(err).Panic("unable to set up health check")
 	}
 	if err := mgr.AddReadyzCheck("check", healthz.Ping); err != nil {
-		logrus.WithError(err).Error("unable to set up ready check")
-		os.Exit(1)
+		logrus.WithError(err).Panic("unable to set up ready check")
 	}
 
 	telemetrysender.SendCredentialsOperator(telemetriesgql.EventTypeStarted, 1)
@@ -302,7 +306,26 @@ func main() {
 	logrus.Info("starting manager")
 
 	if err := mgr.Start(ctx); err != nil {
-		logrus.WithError(err).Error("problem running manager")
-		os.Exit(1)
+		logrus.WithError(err).Panic("problem running manager")
 	}
+}
+
+func getClusterContextId(ctx context.Context, mgr ctrl.Manager) string {
+	metadataClient, err := metadata.NewForConfig(ctrl.GetConfigOrDie())
+	if err != nil {
+		logrus.WithError(err).Fatal("unable to create metadata client")
+	}
+	mapping, err := mgr.GetRESTMapper().RESTMapping(schema.GroupKind{Group: "", Kind: "Namespace"}, "v1")
+	if err != nil {
+		logrus.WithError(err).Fatal("unable to create Kubernetes API REST mapping")
+	}
+	kubeSystemUID := ""
+	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(ctx, "kube-system", metav1.GetOptions{})
+	if err != nil || kubeSystemNs == nil {
+		logrus.Warningf("failed getting kubesystem UID: %s", err)
+		return fmt.Sprintf("rand-%s", uuid.New().String())
+	}
+	kubeSystemUID = string(kubeSystemNs.UID)
+
+	return kubeSystemUID
 }
