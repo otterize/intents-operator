@@ -320,7 +320,7 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 				{
 					Group: "policy.linkerd.io",
 					Kind:  "MeshTLSAuthentication",
-					Name:  v1beta1.ObjectName("meshtls-" + intent.Name),
+					Name:  v1beta1.ObjectName(fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, intents.Spec.Service.Name)),
 				},
 			},
 		},
