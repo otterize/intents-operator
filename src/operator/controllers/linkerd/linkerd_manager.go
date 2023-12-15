@@ -161,6 +161,10 @@ func (ldm *LinkerdManager) createPolicies(
 		}
 
 		shouldCreateMeshTLS, err := ldm.shouldCreateMeshTLS(ctx, clientIntents, intent.Name)
+		if err != nil {
+			return nil, err
+		}
+
 		if shouldCreateMeshTLS {
 			mtls := ldm.generateMeshTLS(*clientIntents, intent, []string{clientServiceAccount})
 			err = ldm.Client.Create(ctx, mtls)
