@@ -254,6 +254,9 @@ spec:
                       type: array
                     name:
                       type: string
+                    port:
+                      format: int32
+                      type: integer
                     type:
                       enum:
                       - http
