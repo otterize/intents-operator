@@ -171,7 +171,7 @@ func (ldm *LinkerdManager) createPolicies(
 		}
 
 		if shouldCreatePolicy { // separate these
-			newPolicy := ldm.generateAuthorizationPolicy(*clientIntents, s.Name, intent.Name, intent.Port)
+			newPolicy := ldm.generateAuthorizationPolicy(*clientIntents, intent, s.Name)
 			err = ldm.Client.Create(ctx, newPolicy)
 			if err != nil {
 				ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
@@ -203,7 +203,7 @@ func (ldm *LinkerdManager) getServerName(intent otterizev1alpha3.Intent, port in
 }
 
 func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent) (*linkerdserver.Server, bool, error) {
-	linkerdServerServiceFormattedIdentity := v1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
+	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
 	servers := &linkerdserver.ServerList{}
 	err := ldm.Client.List(ctx, servers, client.MatchingLabels{v1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity})
 	if err != nil {
@@ -280,7 +280,7 @@ func (ldm *LinkerdManager) generateLinkerdServer(
 			Name:      name,
 			Namespace: serverNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
+				otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
 			},
 		},
 		Spec: linkerdserver.ServerSpec{
@@ -293,9 +293,8 @@ func (ldm *LinkerdManager) generateLinkerdServer(
 
 func (ldm *LinkerdManager) generateAuthorizationPolicy(
 	intents otterizev1alpha3.ClientIntents,
-	serverTargetName,
-	meshtls string,
-	port int32,
+	intent otterizev1alpha3.Intent,
+	serverTargetName string,
 ) *authpolicy.AuthorizationPolicy {
 	linkerdServerServiceFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
 
@@ -305,10 +304,10 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 			Kind:       "AuthorizationPolicy",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(OtterizeLinkerdAuthPolicyNameTemplate, serverTargetName, port, meshtls),
+			Name:      fmt.Sprintf(OtterizeLinkerdAuthPolicyNameTemplate, intent.Name, intent.Port, intents.Spec.Service.Name),
 			Namespace: intents.Namespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
+				otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
 			},
 		},
 		Spec: authpolicy.AuthorizationPolicySpec{
@@ -321,7 +320,7 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 				{
 					Group: "policy.linkerd.io",
 					Kind:  "MeshTLSAuthentication",
-					Name:  v1beta1.ObjectName(meshtls),
+					Name:  v1beta1.ObjectName("meshtls-" + intent.Name),
 				},
 			},
 		},
@@ -343,7 +342,7 @@ func (ldm *LinkerdManager) generateMeshTLS(
 			Kind:       "MeshTLSAuthentication",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, intent.Name),
+			Name:      fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, intents.Spec.Service.Name),
 			Namespace: intents.Namespace,
 			Labels:    map[string]string{otterizev1alpha3.OtterizeLinkerdMeshTLSAnnotationKey: formattedMeshTLSTarget},
 		},
