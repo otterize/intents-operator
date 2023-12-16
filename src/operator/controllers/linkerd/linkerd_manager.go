@@ -16,6 +16,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayapiv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -152,13 +153,17 @@ func (ldm *LinkerdManager) createPolicies(
 			}
 		}
 
-		// if an intent is a http intent create a httproute resource with the server as parent
-		// check if this breaks k8s probes and if yes a network authentication shoukd bs created
-
 		// if intent.Type == otterizev1alpha3.IntentTypeHTTP {
 		/*
-			parse the intent as linkerd http route resource
-			check if you should create the resouce
+			1- parse the intent as linkerd http route resource
+
+			2- check if its the first httproute wih this server as parent, if its not skip to 5
+
+			3- if it is check if this deployment uses a httpget or tcp socket for probes
+
+			4- if it does create a httproute and network authentication
+
+			5- check if you should create the resouce
 			if you should then create
 		*/
 		// }
@@ -214,6 +219,65 @@ func (ldm *LinkerdManager) getServerName(intent otterizev1alpha3.Intent, port in
 	name := intent.GetTargetServerName()
 	return fmt.Sprintf(OtterizeLinkerdServerNameTemplate, name, port)
 }
+
+func (ldm *LinkerdManager) otterizeHTTPIntentToLinkerd() {}
+
+func (ldm *LinkerdManager) checkFirstHTTPRoute() {}
+
+func (ldm *LinkerdManager) getLivenessProbePath(ctx context.Context, intents otterizev1alpha3.ClientIntents,
+	intent otterizev1alpha3.Intent) (string, error) {
+	pod, err := ldm.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, intents.Namespace)
+	if err != nil {
+		return "", err
+	}
+	// should be the container that defines the port
+	c := ldm.getContainerWithIntentPort(intent, &pod)
+	if c == nil {
+		return "", fmt.Errorf("no container in the pod specifies the intent port, skip HTTPRoute creation")
+	}
+
+	// TODO: check of the other probe types will break
+	if c.LivenessProbe.HTTPGet != nil {
+		return c.LivenessProbe.HTTPGet.Path, nil
+	}
+	return "", fmt.Errorf("probe path could not be found!, should skip HTTPRoute creation")
+}
+
+// kosom el fesa bsra7a
+func pointershenanigans(ap authpolicy.PathMatchType) *authpolicy.PathMatchType {
+	return &ap
+}
+
+func (ldm *LinkerdManager) generateHTTPProbeRoute(intent otterizev1alpha3.Intent, isProbeRoute bool,
+	serverName, path, namespace string) *authpolicy.HTTPRoute {
+	routeName := fmt.Sprintf("%s-probe-http-route-on-port-%s", intent.Name, intent.Port)
+	return &authpolicy.HTTPRoute{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "policy.linkerd.io/v1beta1",
+			Kind:       "Server",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      routeName,
+			Namespace: namespace,
+		},
+		Spec: authpolicy.HTTPRouteSpec{
+			Rules: []authpolicy.HTTPRouteRule{
+				{
+					Matches: []authpolicy.HTTPRouteMatch{
+						{
+							Path: &authpolicy.HTTPPathMatch{
+								Type:  pointershenanigans(authpolicy.PathMatchPathPrefix),
+								Value: &path,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (ldm *LinkerdManager) generateNetworkAuthentication() {}
 
 func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent) (*linkerdserver.Server, bool, error) {
 	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
@@ -283,8 +347,6 @@ func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context, intents o
 	}
 	return true, nil
 }
-
-// func (ldm *LinkerdManager) otterizeHTTPIntentToLinkerd(intent otterizev1alpha3.Intent) {}
 
 func (ldm *LinkerdManager) generateLinkerdServer(
 	intents otterizev1alpha3.ClientIntents,
@@ -368,4 +430,15 @@ func (ldm *LinkerdManager) generateMeshTLS(
 		},
 	}
 	return &mtls
+}
+
+func (ldm *LinkerdManager) getContainerWithIntentPort(intent otterizev1alpha3.Intent, pod *corev1.Pod) *corev1.Container {
+	for _, container := range pod.Spec.Containers {
+		for _, port := range container.Ports {
+			if port.ContainerPort == intent.Port {
+				return &container
+			}
+		}
+	}
+	return nil
 }
