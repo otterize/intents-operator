@@ -38,6 +38,7 @@ const (
 	ReasonMissingSidecar                  = "MissingSideCar"
 	ReasonCreatingLinkerdPolicyFailed     = "CreatingLinkerdPolicyFailed"
 	ReasonUpdatingLinkerdPolicyFailed     = "UpdatingLinkerdPolicyFailed"
+	FullServiceAccountName                = "%s.%s.serviceaccount.identity.linkerd.cluster.local"
 )
 
 type LinkerdPolicyManager interface {
@@ -151,13 +152,25 @@ func (ldm *LinkerdManager) createPolicies(
 			}
 		}
 
+		// if an intent is a http intent create a httproute resource with the server as parent
+		// check if this breaks k8s probes and if yes a network authentication shoukd bs created
+
+		// if intent.Type == otterizev1alpha3.IntentTypeHTTP {
+		/*
+			parse the intent as linkerd http route resource
+			check if you should create the resouce
+			if you should then create
+		*/
+		// }
+
 		shouldCreateMeshTLS, err := ldm.shouldCreateMeshTLS(ctx, *clientIntents, intent.Name)
 		if err != nil {
 			return nil, err
 		}
+		fullServiceAccountName := fmt.Sprintf(FullServiceAccountName, clientServiceAccount, clientIntents.Namespace)
 
 		if shouldCreateMeshTLS {
-			mtls := ldm.generateMeshTLS(*clientIntents, intent, []string{clientServiceAccount})
+			mtls := ldm.generateMeshTLS(*clientIntents, intent, []string{fullServiceAccountName})
 			err = ldm.Client.Create(ctx, mtls)
 			if err != nil {
 				ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd meshTLS: %s", err.Error())
@@ -225,6 +238,7 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otter
 }
 
 func (ldm *LinkerdManager) shouldCreateMeshTLS(ctx context.Context, intents otterizev1alpha3.ClientIntents, clientName string) (bool, error) {
+	// network authentication ?
 	meshes := &authpolicy.MeshTLSAuthenticationList{}
 
 	err := ldm.Client.List(ctx, meshes, &client.ListOptions{Namespace: intents.Namespace})
@@ -266,6 +280,8 @@ func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context, intents o
 	}
 	return true, nil
 }
+
+// func (ldm *LinkerdManager) otterizeHTTPIntentToLinkerd(intent otterizev1alpha3.Intent) {}
 
 func (ldm *LinkerdManager) generateLinkerdServer(
 	intents otterizev1alpha3.ClientIntents,
@@ -345,7 +361,7 @@ func (ldm *LinkerdManager) generateMeshTLS(
 			Namespace: intents.Namespace,
 		},
 		Spec: authpolicy.MeshTLSAuthenticationSpec{
-			Identities: targets,
+			Identities: targets, // MUST USE FULL NAME
 		},
 	}
 	return &mtls
