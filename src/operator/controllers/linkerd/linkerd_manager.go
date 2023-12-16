@@ -29,7 +29,7 @@ type PolicyID types.UID
 
 const (
 	ReasonGettingLinkerdPolicyFailed      = "GettingLinkerdPolicyFailed"
-	OtterizeLinkerdServerNameTemplate     = "server-for-service-%s-port-%d"
+	OtterizeLinkerdServerNameTemplate     = "server-for-%s-port-%d"
 	OtterizeLinkerdMeshTLSNameTemplate    = "meshtls-for-client-%s"
 	OtterizeLinkerdAuthPolicyNameTemplate = "authorization-policy-to-%s-port-%d-from-client-%s"
 	ReasonDeleteLinkerdPolicyFailed       = "DeleteLinkerdPolicyFailed"
@@ -103,9 +103,10 @@ func (ldm *LinkerdManager) createPolicies(
 	updatedPolicies := goset.NewSet[PolicyID]()
 	createdAnyPolicies := false
 	for _, intent := range clientIntents.GetCallsList() {
-		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP {
+		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP && intent.Port != 0 { // this will skip non http ones, db for example, skip port doesnt exist as well
 			continue
 		}
+		// if http intent logic
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState( //TODO:  check what that does
 			ctx, ldm.Client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace), ldm.enforcementDefaultState)
 		if err != nil {
@@ -139,15 +140,10 @@ func (ldm *LinkerdManager) createPolicies(
 		if err != nil {
 			return nil, err
 		}
-		logrus.Infof("Should create server ? %+v", shouldCreateServer)
 
 		if shouldCreateServer {
-			port := intent.Port // get proper port: the target port of the service. if there are multiple create several servers
-
 			podSelector := ldm.BuildPodLabelSelectorFromIntent(intent, clientIntents.Namespace)
-
-			s = ldm.generateLinkerdServer(*clientIntents, intent, podSelector, port)
-
+			s = ldm.generateLinkerdServer(*clientIntents, intent, podSelector, intent.Port)
 			err = ldm.Client.Create(ctx, s)
 			if err != nil {
 				ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd server: %s", err.Error())
@@ -155,12 +151,7 @@ func (ldm *LinkerdManager) createPolicies(
 			}
 		}
 
-		shouldCreatePolicy, err = ldm.shouldCreateAuthPolicy(ctx, *clientIntents, s.Name, int(intent.Port), clientServiceAccount)
-		if err != nil {
-			return nil, err
-		}
-
-		shouldCreateMeshTLS, err := ldm.shouldCreateMeshTLS(ctx, clientIntents, intent.Name)
+		shouldCreateMeshTLS, err := ldm.shouldCreateMeshTLS(ctx, *clientIntents, intent.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -174,7 +165,12 @@ func (ldm *LinkerdManager) createPolicies(
 			}
 		}
 
-		if shouldCreatePolicy { // separate these
+		shouldCreatePolicy, err = ldm.shouldCreateAuthPolicy(ctx, *clientIntents, s.Name, int(intent.Port), clientServiceAccount)
+		if err != nil {
+			return nil, err
+		}
+
+		if shouldCreatePolicy {
 			newPolicy := ldm.generateAuthorizationPolicy(*clientIntents, intent, s.Name)
 			err = ldm.Client.Create(ctx, newPolicy)
 			if err != nil {
@@ -228,7 +224,7 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otter
 	return nil, true, nil
 }
 
-func (ldm *LinkerdManager) shouldCreateMeshTLS(ctx context.Context, intents *otterizev1alpha3.ClientIntents, clientName string) (bool, error) {
+func (ldm *LinkerdManager) shouldCreateMeshTLS(ctx context.Context, intents otterizev1alpha3.ClientIntents, clientName string) (bool, error) {
 	meshes := &authpolicy.MeshTLSAuthenticationList{}
 
 	err := ldm.Client.List(ctx, meshes, &client.ListOptions{Namespace: intents.Namespace})
@@ -239,16 +235,23 @@ func (ldm *LinkerdManager) shouldCreateMeshTLS(ctx context.Context, intents *ott
 		if mesh.Name == fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, clientName) {
 			return false, nil
 		}
+		/*
+			create a meshtls for the client if a meshtls with the same name doesnt exist,
+			even if the clientsa is authorized in different meshtls this is to not authorize other identities that are not needed
+			these other identities can have their own auth policies later
+		*/
 	}
 	return true, nil
 }
 
 func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context, intents otterizev1alpha3.ClientIntents, targetServer string, targetPort int, targetClient string) (bool, error) {
-	// check if this service exists in a meshtls that is applied to an auth policy that works for that server
-	// list auth policies for a server and if one matches check the meshtls name
+	/*
+		this should say an auth policy should be created if there doesnt exist an auth policy that targets the server
+		in question and in its required auth ref is a meshtls with name as meshtls client
+	*/
 	authPolicies := &authpolicy.AuthorizationPolicyList{}
 
-	err := ldm.Client.List(ctx, authPolicies, &client.ListOptions{Namespace: intents.Namespace})
+	err := ldm.Client.List(ctx, authPolicies, &client.ListOptions{Namespace: intents.Namespace}) // check if auth policies can work across namespaces, in this case this wont work
 	if err != nil {
 		return false, err
 	}
@@ -300,8 +303,6 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 	intent otterizev1alpha3.Intent,
 	serverTargetName string,
 ) *authpolicy.AuthorizationPolicy {
-	linkerdServerServiceFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
-
 	a := authpolicy.AuthorizationPolicy{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy.linkerd.io/v1alpha1",
@@ -310,9 +311,6 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf(OtterizeLinkerdAuthPolicyNameTemplate, intent.Name, intent.Port, intents.Spec.Service.Name),
 			Namespace: intents.Namespace,
-			Labels: map[string]string{
-				otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
-			},
 		},
 		Spec: authpolicy.AuthorizationPolicySpec{
 			TargetRef: gatewayapiv1alpha2.PolicyTargetReference{
@@ -337,9 +335,6 @@ func (ldm *LinkerdManager) generateMeshTLS(
 	intent otterizev1alpha3.Intent,
 	targets []string,
 ) *authpolicy.MeshTLSAuthentication {
-	serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
-	formattedMeshTLSTarget := v1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), serverNamespace)
-
 	mtls := authpolicy.MeshTLSAuthentication{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy.linkerd.io/v1alpha1",
@@ -348,7 +343,6 @@ func (ldm *LinkerdManager) generateMeshTLS(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, intents.Spec.Service.Name),
 			Namespace: intents.Namespace,
-			Labels:    map[string]string{otterizev1alpha3.OtterizeLinkerdMeshTLSAnnotationKey: formattedMeshTLSTarget},
 		},
 		Spec: authpolicy.MeshTLSAuthenticationSpec{
 			Identities: targets,
