@@ -178,7 +178,7 @@ func (ldm *LinkerdManager) createPolicies(
 			}
 		}
 
-		shouldCreatePolicy, err = ldm.shouldCreateAuthPolicy(ctx, *clientIntents, s.Name, int(intent.Port), intent.Name)
+		shouldCreatePolicy, err = ldm.shouldCreateAuthPolicy(ctx, *clientIntents, s.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -259,12 +259,12 @@ func (ldm *LinkerdManager) shouldCreateMeshTLS(ctx context.Context, intents otte
 	return true, nil
 }
 
-func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context, intents otterizev1alpha3.ClientIntents, targetServer string, targetPort int, targetClient string) (bool, error) {
+func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context, intents otterizev1alpha3.ClientIntents, targetServer string) (bool, error) {
 	/*
 		this should say an auth policy should be created if there doesnt exist an auth policy that targets the server
 		in question and in its required auth ref is a meshtls with name as meshtls client
 	*/
-	logrus.Infof("checking if i should create an authpolicy for %s and %s", targetServer, targetClient)
+	logrus.Infof("checking if i should create an authpolicy for %s and %s", targetServer, intents.Spec.Service.Name)
 	authPolicies := &authpolicy.AuthorizationPolicyList{}
 
 	err := ldm.Client.List(ctx, authPolicies, &client.ListOptions{Namespace: intents.Namespace}) // check if auth policies can work across namespaces, in this case this wont work
@@ -274,7 +274,7 @@ func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context, intents o
 	for _, policy := range authPolicies.Items {
 		if policy.Spec.TargetRef.Name == v1beta1.ObjectName(targetServer) && policy.Spec.TargetRef.Kind == "Server" {
 			for _, authRef := range policy.Spec.RequiredAuthenticationRefs {
-				if authRef.Kind == "MeshTLSAuthetication" && authRef.Name == v1beta1.ObjectName("meshtls-for-client-"+targetClient) {
+				if authRef.Kind == "MeshTLSAuthetication" && authRef.Name == v1beta1.ObjectName("meshtls-for-client-"+intents.Spec.Service.Name) {
 					logrus.Infof("not creating policy for policy with details, %s, %s", policy.Spec.TargetRef.Name, authRef.Name)
 					return false, nil
 				}
