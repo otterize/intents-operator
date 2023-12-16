@@ -217,6 +217,7 @@ func (ldm *LinkerdManager) getServerName(intent otterizev1alpha3.Intent, port in
 
 func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent) (*linkerdserver.Server, bool, error) {
 	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
+	podSelector := ldm.BuildPodLabelSelectorFromIntent(intent, intents.Namespace)
 	servers := &linkerdserver.ServerList{}
 	err := ldm.Client.List(ctx, servers, client.MatchingLabels{v1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity})
 	if err != nil {
@@ -230,7 +231,7 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otter
 
 	// get servers in the namespace and if any of them has a label selector similar to the intents label return that server
 	for _, server := range servers.Items {
-		if intent.Port == server.Spec.Port.IntVal {
+		if intent.Port == server.Spec.Port.IntVal && server.Spec.PodSelector == &podSelector {
 			return &server, false, nil
 		}
 	}
