@@ -163,7 +163,7 @@ func (ldm *LinkerdManager) createPolicies(
 		*/
 		// }
 
-		shouldCreateMeshTLS, err := ldm.shouldCreateMeshTLS(ctx, *clientIntents, intent.Name)
+		shouldCreateMeshTLS, err := ldm.shouldCreateMeshTLS(ctx, *clientIntents, clientIntents.Spec.Service.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -178,7 +178,7 @@ func (ldm *LinkerdManager) createPolicies(
 			}
 		}
 
-		shouldCreatePolicy, err = ldm.shouldCreateAuthPolicy(ctx, *clientIntents, s.Name, int(intent.Port), clientServiceAccount)
+		shouldCreatePolicy, err = ldm.shouldCreateAuthPolicy(ctx, *clientIntents, s.Name, int(intent.Port), intent.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -264,6 +264,7 @@ func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context, intents o
 		this should say an auth policy should be created if there doesnt exist an auth policy that targets the server
 		in question and in its required auth ref is a meshtls with name as meshtls client
 	*/
+	logrus.Infof("checking if i should create an authpolicy for %s and %s", targetServer, targetClient)
 	authPolicies := &authpolicy.AuthorizationPolicyList{}
 
 	err := ldm.Client.List(ctx, authPolicies, &client.ListOptions{Namespace: intents.Namespace}) // check if auth policies can work across namespaces, in this case this wont work
@@ -273,7 +274,8 @@ func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context, intents o
 	for _, policy := range authPolicies.Items {
 		if policy.Spec.TargetRef.Name == v1beta1.ObjectName(targetServer) && policy.Spec.TargetRef.Kind == "Server" {
 			for _, authRef := range policy.Spec.RequiredAuthenticationRefs {
-				if authRef.Kind == "MeshTLSAuthetication" && authRef.Name == v1beta1.ObjectName("meshtls-"+targetClient) {
+				if authRef.Kind == "MeshTLSAuthetication" && authRef.Name == v1beta1.ObjectName("meshtls-for-client-"+targetClient) {
+					logrus.Infof("not creating policy for policy with details, %s, %s", policy.Spec.TargetRef.Name, authRef.Name)
 					return false, nil
 				}
 			}
@@ -362,7 +364,7 @@ func (ldm *LinkerdManager) generateMeshTLS(
 			Namespace: intents.Namespace,
 		},
 		Spec: authpolicy.MeshTLSAuthenticationSpec{
-			Identities: targets, // MUST USE FULL NAME
+			Identities: targets,
 		},
 	}
 	return &mtls
