@@ -40,8 +40,8 @@ const (
 	IntentsOperatorPodNameKey                   = "pod-name"
 	IntentsOperatorPodNamespaceKey              = "pod-namespace"
 	EnvPrefix                                   = "OTTERIZE"
-	EnableDatabaseCredentials                   = "enable-database-credentials-creation" // Whether to enable the new database reconciler
-	EnableDatabaseCredentialsDefault            = true
+	EnableDatabasePolicy                        = "enable-database-policy-creation" // Whether to enable the new database reconciler
+	EnableDatabasePolicyDefault                 = true
 	RetryDelayTimeKey                           = "retry-delay-time" // Default retry delay time for retrying failed requests
 	RetryDelayTimeDefault                       = 5 * time.Second
 	DebugLogKey                                 = "debug" // Whether to enable debug logging
@@ -92,7 +92,7 @@ func InitCLIFlags() {
 	pflag.Bool(telemetriesconfig.TelemetryEnabledKey, telemetriesconfig.TelemetryEnabledDefault, "When set to false, all telemetries are disabled")
 	pflag.Bool(telemetriesconfig.TelemetryUsageEnabledKey, telemetriesconfig.TelemetryUsageEnabledDefault, "Whether usage telemetry should be enabled")
 	pflag.Bool(telemetriesconfig.TelemetryErrorsEnabledKey, telemetriesconfig.TelemetryErrorEnabledDefault, "Whether errors telemetry should be enabled")
-	pflag.Bool(EnableDatabaseCredentials, EnableDatabaseCredentialsDefault, "Enable the database reconciler")
+	pflag.Bool(EnableDatabasePolicy, EnableDatabasePolicyDefault, "Enable the database reconciler")
 	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
 	pflag.Duration(RetryDelayTimeKey, RetryDelayTimeDefault, "Default retry delay time for retrying failed requests")
 	pflag.Bool(EnableAWSPolicyKey, EnableAWSPolicyDefault, "Enable the AWS IAM reconciler")

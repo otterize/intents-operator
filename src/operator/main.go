@@ -109,7 +109,7 @@ func main() {
 		EnableNetworkPolicy:                  viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
 		EnableKafkaACL:                       viper.GetBool(operatorconfig.EnableKafkaACLKey),
 		EnableIstioPolicy:                    viper.GetBool(operatorconfig.EnableIstioPolicyKey),
-		EnableDatabaseCredentials:            viper.GetBool(operatorconfig.EnableDatabaseCredentials),
+		EnableDatabasePolicy:                 viper.GetBool(operatorconfig.EnableDatabasePolicy),
 		EnableEgressNetworkPolicyReconcilers: viper.GetBool(operatorconfig.EnableEgressNetworkPolicyReconcilersKey),
 		EnableAWSPolicy:                      viper.GetBool(operatorconfig.EnableAWSPolicyKey),
 	}
