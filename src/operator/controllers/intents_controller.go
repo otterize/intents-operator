@@ -61,7 +61,7 @@ type EnforcementConfig struct {
 	EnableNetworkPolicy                  bool
 	EnableKafkaACL                       bool
 	EnableIstioPolicy                    bool
-	EnableDatabaseReconciler             bool
+	EnableDatabaseCredentials            bool
 	EnableEgressNetworkPolicyReconcilers bool
 	EnableAWSPolicy                      bool
 }
@@ -127,7 +127,7 @@ func NewIntentsReconciler(
 		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
 	}
 
-	if enforcementConfig.EnableDatabaseReconciler {
+	if enforcementConfig.EnableDatabaseCredentials {
 		databaseReconciler := database.NewDatabaseReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
 	}
