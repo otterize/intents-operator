@@ -21,8 +21,8 @@ import (
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
@@ -128,7 +128,7 @@ func NewIntentsReconciler(
 	}
 
 	if enforcementConfig.EnableDatabaseReconciler {
-		databaseReconciler := exp.NewDatabaseReconciler(client, scheme, otterizeClient)
+		databaseReconciler := database.NewDatabaseReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
 	}
 
