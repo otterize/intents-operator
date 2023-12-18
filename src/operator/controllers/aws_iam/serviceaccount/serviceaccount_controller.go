@@ -137,10 +137,10 @@ func (r *ServiceAccountReconciler) reconcileAWSRole(ctx context.Context, service
 
 		if found {
 			if generatedRoleARN != roleARN {
-				logger.WithField("arn", role.Arn).Debug("ServiceAccount AWS role exists, but annotation is misconfigured, should be updated")
+				logger.WithField("arn", *role.Arn).Debug("ServiceAccount AWS role exists, but annotation is misconfigured, should be updated")
 				return true, role, nil
 			}
-			logger.WithField("arn", role.Arn).Debug("ServiceAccount has matching AWS role")
+			logger.WithField("arn", *role.Arn).Debug("ServiceAccount has matching AWS role")
 			return false, role, nil
 		}
 	}
@@ -150,7 +150,7 @@ func (r *ServiceAccountReconciler) reconcileAWSRole(ctx context.Context, service
 		return true, nil, fmt.Errorf("failed creating AWS role for service account: %w", err)
 	}
 
-	logger.WithField("arn", role.Arn).Info("created AWS role for ServiceAccount")
+	logger.WithField("arn", *role.Arn).Info("created AWS role for ServiceAccount")
 	return true, role, nil
 }
 

@@ -57,6 +57,8 @@ import (
 	"os"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"strings"
+	"time"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -165,6 +167,9 @@ func main() {
 	if debug {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
+	logrus.SetFormatter(&logrus.JSONFormatter{
+		TimestampFormat: time.RFC3339,
+	})
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 

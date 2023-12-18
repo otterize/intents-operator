@@ -117,6 +117,7 @@ func (a *ServiceAccountAnnotatingPodWebhook) Handle(ctx context.Context, req adm
 
 	pod, patched, successMsg, err := a.handleWithRetriesOnConflictOrNotFound(ctx, pod, req.DryRun != nil && *req.DryRun)
 	if err != nil {
+		logrus.WithError(err).Errorf("failed to annotate service account, but pod admitted to ensure success")
 		return admission.Allowed("pod admitted, but failed to annotate service account, see warnings").WithWarnings(err.Error())
 	}
 
