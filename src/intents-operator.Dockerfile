@@ -15,8 +15,9 @@ COPY . .
 RUN go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 RUN cd ./operator && make test
 
-# Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -a -o manager ./operator/main.go
+ARG TARGETOS
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -a -o manager ./operator/main.go
 
 ARG VERSION
 RUN echo -n $VERSION > /version
