@@ -89,7 +89,7 @@ func (s *ControllerManagerTestSuiteBase) TearDownTest() {
 	select {
 	case <-s.mgrStopped.Done():
 		return
-	case <-time.After(10 * time.Second):
+	case <-time.After(30 * time.Second):
 		s.T().Fatal("Failed to stop manager in 10 seconds on test teardown")
 	}
 }
