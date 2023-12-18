@@ -1,4 +1,4 @@
-# Build the manager binary
+# Upgraded Go version? Make sure to upgrade it in the GitHub Actions setup, the Dockerfile and the go.mod as well, so the linter and tests run the same version.
 FROM golang:1.21 as builder
 
 WORKDIR /workspace
@@ -11,10 +11,6 @@ RUN go mod download
 
 # Copy the go source
 COPY . .
-
-RUN go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-RUN cd ./operator && make test
-
 ARG TARGETOS
 ARG TARGETARCH
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -a -o manager ./operator/main.go
