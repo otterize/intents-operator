@@ -236,6 +236,11 @@ func main() {
 	}
 	client := mgr.GetClient()
 
+	podCleanupReconciler := pods.NewPodAWSRoleCleanupReconciler(client)
+	if err = podCleanupReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithField("controller", "PodAWSRoleCleanup").WithError(err).Panic("unable to create controller")
+	}
+
 	if enableAWSServiceAccountManagement {
 		awsAgent, err := awsagent.NewAWSAgent(ctx)
 		if err != nil {
@@ -244,11 +249,6 @@ func main() {
 		serviceAccountReconciler := serviceaccount.NewServiceAccountReconciler(client, awsAgent)
 		if err = serviceAccountReconciler.SetupWithManager(mgr); err != nil {
 			logrus.WithField("controller", "ServiceAccount").WithError(err).Panic("unable to create controller")
-		}
-
-		podCleanupReconciler := pods.NewPodAWSRoleCleanupReconciler(client)
-		if err = podCleanupReconciler.SetupWithManager(mgr); err != nil {
-			logrus.WithField("controller", "PodAWSRoleCleanup").WithError(err).Panic("unable to create controller")
 		}
 
 		if selfSignedCert {

@@ -36,6 +36,10 @@ func NewServiceAccountAnnotatingPodWebhook(mgr manager.Manager, awsAgent *awsage
 }
 
 func (a *ServiceAccountAnnotatingPodWebhook) handleOnce(ctx context.Context, pod corev1.Pod, dryRun bool) (outputPod corev1.Pod, patched bool, successMsg string, err error) {
+	if pod.DeletionTimestamp != nil {
+		return pod, false, "no webhook handling if pod is terminating", nil
+	}
+
 	if pod.Labels == nil {
 		return pod, false, "no create AWS role label - no modifications made", nil
 	}
