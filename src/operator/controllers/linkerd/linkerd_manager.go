@@ -40,6 +40,7 @@ const (
 	ReasonCreatingLinkerdPolicyFailed     = "CreatingLinkerdPolicyFailed"
 	ReasonUpdatingLinkerdPolicyFailed     = "UpdatingLinkerdPolicyFailed"
 	FullServiceAccountName                = "%s.%s.serviceaccount.identity.linkerd.cluster.local"
+	NetworkAuthenticationNameTemplate     = "network-auth-for-%s-probe-route"
 )
 
 type LinkerdPolicyManager interface {
@@ -222,7 +223,22 @@ func (ldm *LinkerdManager) getServerName(intent otterizev1alpha3.Intent, port in
 
 func (ldm *LinkerdManager) otterizeHTTPIntentToLinkerd() {}
 
-func (ldm *LinkerdManager) checkFirstHTTPRoute() {}
+func (ldm *LinkerdManager) doesServerHaveHTTPRoute(ctx context.Context, intents otterizev1alpha3.ClientIntents, serverName string) (bool, error) {
+	httpRoutes := &authpolicy.HTTPRouteList{}
+	err := ldm.Client.List(ctx, httpRoutes, &client.ListOptions{Namespace: intents.Namespace})
+	if err != nil {
+		return false, err
+	}
+	for _, route := range httpRoutes.Items {
+		for _, parent := range route.Spec.ParentRefs {
+			// check for potential nil pointer derefrence
+			if *parent.Kind == "Server" && parent.Name == v1beta1.ObjectName(serverName) {
+				return false, nil
+			}
+		}
+	}
+	return true, nil
+}
 
 func (ldm *LinkerdManager) getLivenessProbePath(ctx context.Context, intents otterizev1alpha3.ClientIntents,
 	intent otterizev1alpha3.Intent) (string, error) {
@@ -248,9 +264,9 @@ func pointershenanigans(ap authpolicy.PathMatchType) *authpolicy.PathMatchType {
 	return &ap
 }
 
-func (ldm *LinkerdManager) generateHTTPProbeRoute(intent otterizev1alpha3.Intent, isProbeRoute bool,
+func (ldm *LinkerdManager) generateHTTPProbeRoute(intent otterizev1alpha3.Intent,
 	serverName, path, namespace string) *authpolicy.HTTPRoute {
-	routeName := fmt.Sprintf("%s-probe-http-route-on-port-%s", intent.Name, intent.Port)
+	routeName := fmt.Sprintf("%s-probe-http-route-on-port-%d", intent.Name, intent.Port)
 	return &authpolicy.HTTPRoute{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy.linkerd.io/v1beta1",
@@ -277,7 +293,33 @@ func (ldm *LinkerdManager) generateHTTPProbeRoute(intent otterizev1alpha3.Intent
 	}
 }
 
-func (ldm *LinkerdManager) generateNetworkAuthentication() {}
+func (ldm *LinkerdManager) generateNetworkAuthentication(intents otterizev1alpha3.ClientIntents,
+	intent otterizev1alpha3.Intent) *authpolicy.NetworkAuthentication {
+	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
+	return &authpolicy.NetworkAuthentication{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "policy.linkerd.io/v1alpha1",
+			Kind:       "NetworkAuthentication",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf(NetworkAuthenticationNameTemplate, intent.Name),
+			Namespace: intents.Namespace,
+			Labels: map[string]string{
+				otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
+			},
+		},
+		Spec: authpolicy.NetworkAuthenticationSpec{
+			Networks: []*authpolicy.Network{
+				{
+					Cidr: "0.0.0.0/0",
+				},
+				{
+					Cidr: "::0",
+				},
+			},
+		},
+	}
+}
 
 func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent) (*linkerdserver.Server, bool, error) {
 	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
