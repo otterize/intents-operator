@@ -365,10 +365,6 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
-			if intent.Type == IntentTypeInternet {
-				continue
-			}
-
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
 			statusInput, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {
