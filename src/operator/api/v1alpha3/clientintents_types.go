@@ -78,9 +78,11 @@ const (
 	OtterizeEgressNetworkPolicyNameTemplate              = "egress-to-%s-from-%s"
 	OtterizeEgressNetworkPolicy                          = "intents.otterize.com/egress-network-policy"
 	OtterizeEgressNetworkPolicyTarget                    = "intents.otterize.com/egress-network-policy-target"
+	OtterizeInternetNetworkPolicy                        = "intents.otterize.com/egress-internet-network-policy"
+	OtterizeInternetTargetName                           = "internet"
 )
 
-// +kubebuilder:validation:Enum=http;kafka;database;aws
+// +kubebuilder:validation:Enum=http;kafka;database;aws;internet
 type IntentType string
 
 const (
@@ -88,6 +90,7 @@ const (
 	IntentTypeKafka    IntentType = "kafka"
 	IntentTypeDatabase IntentType = "database"
 	IntentTypeAWS      IntentType = "aws"
+	IntentTypeInternet IntentType = "internet"
 )
 
 // +kubebuilder:validation:Enum=all;consume;produce;create;alter;delete;describe;ClusterAction;DescribeConfigs;AlterConfigs;IdempotentWrite
@@ -143,6 +146,7 @@ type Service struct {
 }
 
 type Intent struct {
+	//+optional
 	Name string `json:"name" yaml:"name"`
 
 	//+optional
@@ -159,6 +163,15 @@ type Intent struct {
 
 	//+optional
 	AWSActions []string `json:"awsActions,omitempty" yaml:"awsActions,omitempty"`
+
+	//+optional
+	Internet Internet `json:"internet,omitempty" yaml:"internet,omitempty"`
+}
+
+type Internet struct {
+	Ips []string `json:"ips,omitempty" yaml:"ips,omitempty"`
+	//+optional
+	Ports []int `json:"ports,omitempty" yaml:"ports,omitempty"`
 }
 
 type DatabaseResource struct {
@@ -273,6 +286,10 @@ func (in *Intent) IsTargetServerKubernetesService() bool {
 func (in *Intent) GetTargetServerName() string {
 	var name string
 
+	if in.Type == IntentTypeInternet {
+		return "internet"
+	}
+
 	if in.IsTargetServerKubernetesService() {
 		name = strings.ReplaceAll(in.Name, "svc:", "") // Replace so all chars are valid in K8s label
 	} else {
@@ -348,6 +365,10 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
+			if intent.Type == IntentTypeInternet {
+				continue
+			}
+
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
 			statusInput, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {
