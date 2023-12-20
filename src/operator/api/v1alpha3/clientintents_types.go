@@ -287,7 +287,7 @@ func (in *Intent) GetTargetServerName() string {
 	var name string
 
 	if in.Type == IntentTypeInternet {
-		return "internet"
+		return OtterizeInternetTargetName
 	}
 
 	if in.IsTargetServerKubernetesService() {

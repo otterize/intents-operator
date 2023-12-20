@@ -154,7 +154,7 @@ func (r *InternetNetworkPolicyReconciler) handleNetworkPolicyCreation(
 }
 
 func policyNameFor(clientName string) string {
-	return fmt.Sprintf(otterizev1alpha3.OtterizeEgressNetworkPolicyNameTemplate, "internet", clientName)
+	return fmt.Sprintf(otterizev1alpha3.OtterizeEgressNetworkPolicyNameTemplate, otterizev1alpha3.OtterizeInternetTargetName, clientName)
 }
 
 func (r *InternetNetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) error {
