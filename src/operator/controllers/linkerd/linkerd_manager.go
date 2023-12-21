@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-type PolicyID types.UID
+type IntentID types.UID
 
 const (
 	ReasonGettingLinkerdPolicyFailed      = "GettingLinkerdPolicyFailed"
@@ -41,7 +41,21 @@ const (
 	ReasonUpdatingLinkerdPolicyFailed     = "UpdatingLinkerdPolicyFailed"
 	FullServiceAccountName                = "%s.%s.serviceaccount.identity.linkerd.cluster.local"
 	NetworkAuthenticationNameTemplate     = "network-auth-for-%s-probe-route"
+	HTTPRouteNameTemplate                 = "http-route-for-%s-port-%d-path-%s"
 )
+
+var IntentsMethodsToLinkerdMethodsMap = map[otterizev1alpha3.HTTPMethod]authpolicy.HTTPMethod{
+	otterizev1alpha3.HTTPMethodGet:     authpolicy.HTTPMethodGet,
+	otterizev1alpha3.HTTPMethodDelete:  authpolicy.HTTPMethodDelete,
+	otterizev1alpha3.HTTPMethodPost:    authpolicy.HTTPMethodPost,
+	otterizev1alpha3.HTTPMethodPut:     authpolicy.HTTPMethodPut,
+	otterizev1alpha3.HTTPMethodTrace:   authpolicy.HTTPMethodTrace,
+	otterizev1alpha3.HTTPMethodConnect: authpolicy.HTTPMethodConnect,
+	otterizev1alpha3.HTTPMethodPatch:   authpolicy.HTTPMethodPatch,
+	otterizev1alpha3.HTTPMethodOptions: authpolicy.HTTPMethodOptions,
+}
+
+func generateIntentUUID() {}
 
 type LinkerdPolicyManager interface {
 	DeleteAll(ctx context.Context, clientIntents *v1alpha3.ClientIntents) error
@@ -102,14 +116,12 @@ func (ldm *LinkerdManager) createPolicies(
 	clientIntents *v1alpha3.ClientIntents,
 	clientServiceAccount string, // supplied in the create method
 	existingPolicies authpolicy.AuthorizationPolicyList,
-) (*goset.Set[PolicyID], error) {
-	updatedPolicies := goset.NewSet[PolicyID]()
-	createdAnyPolicies := false
+) (*goset.Set[IntentID], error) {
+	activeIntents := goset.NewSet[IntentID]()
 	for _, intent := range clientIntents.GetCallsList() {
 		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP && intent.Port != 0 { // this will skip non http ones, db for example, skip port doesnt exist as well
 			continue
 		}
-		// if http intent logic
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState( //TODO:  check what that does
 			ctx, ldm.Client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace), ldm.enforcementDefaultState)
 		if err != nil {
@@ -124,7 +136,7 @@ func (ldm *LinkerdManager) createPolicies(
 
 		if !ldm.enableLinkerdPolicyCreation {
 			ldm.recorder.RecordNormalEvent(clientIntents, consts.ReasonIstioPolicyCreationDisabled, "Linkerd policy creation is disabled, creation skipped")
-			return updatedPolicies, nil
+			return activeIntents, nil
 		}
 
 		targetNamespace := intent.GetTargetServerNamespace(clientIntents.Namespace)
@@ -154,20 +166,57 @@ func (ldm *LinkerdManager) createPolicies(
 			}
 		}
 
-		// if intent.Type == otterizev1alpha3.IntentTypeHTTP {
-		/*
-			1- parse the intent as linkerd http route resource
+		if intent.Type == otterizev1alpha3.IntentTypeHTTP {
+			linkerdRoutes := []*authpolicy.HTTPRoute{}
+			for _, httpResource := range intent.HTTPResources {
+				httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, intent.Name, intent.Port, httpResource.Path)
+				linkerdRoute := ldm.generateHTTPRoute(intent, s.Name, httpResource.Path, httpRouteName, clientIntents.Namespace)
+				linkerdRoutes = append(linkerdRoutes, linkerdRoute)
+			}
 
-			2- check if its the first httproute wih this server as parent, if its not skip to 5
+			serverHasHTTPRoute, err := ldm.doesServerHaveHTTPRoute(ctx, *clientIntents, s.Name)
+			if err != nil {
+				return nil, err
+			}
 
-			3- if it is check if this deployment uses a httpget or tcp socket for probes
+			probePath, err := ldm.getLivenessProbePath(ctx, *clientIntents, intent)
+			if err != nil {
+				return nil, err
+			}
 
-			4- if it does create a httproute and network authentication
+			if !serverHasHTTPRoute && probePath != "" {
+				httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, intent.Name, intent.Port, probePath)
+				probePathRoute := ldm.generateHTTPRoute(intent, s.Name, probePath, httpRouteName, clientIntents.Namespace)
+				err = ldm.Client.Create(ctx, probePathRoute)
+				if err != nil {
+					return nil, err
+				}
 
-			5- check if you should create the resouce
-			if you should then create
-		*/
-		// }
+				netAuth := ldm.generateNetworkAuthentication(*clientIntents, intent)
+				err = ldm.Client.Create(ctx, netAuth)
+				if err != nil {
+					return nil, err
+				}
+
+				authPolicy := ldm.generateAuthorizationPolicy(*clientIntents, intent, httpRouteName, "HTTPRoute")
+				err = ldm.Client.Create(ctx, authPolicy)
+				if err != nil {
+					return nil, err
+				}
+			}
+			/*
+				1- parse the intent as linkerd http route resource
+
+				2- check if its the first httproute wih this server as parent, if its not skip to 5
+
+				3- if it is check if this deployment uses a httpget or tcp socket for probes
+
+				4- if it does create a httproute and network authentication
+
+				5- check if you should create the resouce
+				if you should then create
+			*/
+		}
 
 		shouldCreateMeshTLS, err := ldm.shouldCreateMeshTLS(ctx, *clientIntents, clientIntents.Spec.Service.Name)
 		if err != nil {
@@ -190,21 +239,20 @@ func (ldm *LinkerdManager) createPolicies(
 		}
 
 		if shouldCreatePolicy {
-			newPolicy := ldm.generateAuthorizationPolicy(*clientIntents, intent, s.Name)
+			newPolicy := ldm.generateAuthorizationPolicy(*clientIntents, intent, s.Name, "Server")
 			err = ldm.Client.Create(ctx, newPolicy)
 			if err != nil {
 				ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
 				return nil, err
 			}
-			createdAnyPolicies = true
 		}
 	}
 
-	if updatedPolicies.Len() != 0 || createdAnyPolicies { // TODO: understand this
+	if activeIntents.Len() != 0 { // TODO: understand this
 		ldm.recorder.RecordNormalEventf(clientIntents, ReasonLinkerdPolicy, "Linkerd policy reconcile complete, reconciled %d servers", len(clientIntents.GetCallsList()))
 	}
 
-	return updatedPolicies, nil
+	return activeIntents, nil
 }
 
 func (ldm *LinkerdManager) BuildPodLabelSelectorFromIntent(intent otterizev1alpha3.Intent, intentsObjNamespace string) metav1.LabelSelector {
@@ -220,8 +268,6 @@ func (ldm *LinkerdManager) getServerName(intent otterizev1alpha3.Intent, port in
 	name := intent.GetTargetServerName()
 	return fmt.Sprintf(OtterizeLinkerdServerNameTemplate, name, port)
 }
-
-func (ldm *LinkerdManager) otterizeHTTPIntentToLinkerd() {}
 
 func (ldm *LinkerdManager) doesServerHaveHTTPRoute(ctx context.Context, intents otterizev1alpha3.ClientIntents, serverName string) (bool, error) {
 	httpRoutes := &authpolicy.HTTPRouteList{}
@@ -259,21 +305,23 @@ func (ldm *LinkerdManager) getLivenessProbePath(ctx context.Context, intents ott
 	return "", fmt.Errorf("probe path could not be found!, should skip HTTPRoute creation")
 }
 
-// kosom el fesa bsra7a
-func pointershenanigans(ap authpolicy.PathMatchType) *authpolicy.PathMatchType {
+func getPathMatchPointer(ap authpolicy.PathMatchType) *authpolicy.PathMatchType {
 	return &ap
 }
 
-func (ldm *LinkerdManager) generateHTTPProbeRoute(intent otterizev1alpha3.Intent,
-	serverName, path, namespace string) *authpolicy.HTTPRoute {
-	routeName := fmt.Sprintf("%s-probe-http-route-on-port-%d", intent.Name, intent.Port)
+func getHTTPMethodPointer(ap authpolicy.HTTPMethod) *authpolicy.HTTPMethod {
+	return &ap
+}
+
+func (ldm *LinkerdManager) generateHTTPRoute(intent otterizev1alpha3.Intent,
+	serverName, path, name, namespace string) *authpolicy.HTTPRoute {
 	return &authpolicy.HTTPRoute{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "policy.linkerd.io/v1beta1",
-			Kind:       "Server",
+			APIVersion: "policy.linkerd.io/v1beta3",
+			Kind:       "HTTPRoute",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      routeName,
+			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: authpolicy.HTTPRouteSpec{
@@ -282,9 +330,10 @@ func (ldm *LinkerdManager) generateHTTPProbeRoute(intent otterizev1alpha3.Intent
 					Matches: []authpolicy.HTTPRouteMatch{
 						{
 							Path: &authpolicy.HTTPPathMatch{
-								Type:  pointershenanigans(authpolicy.PathMatchPathPrefix),
+								Type:  getPathMatchPointer(authpolicy.PathMatchPathPrefix),
 								Value: &path,
 							},
+							// Method: getHTTPMethodPointer(authpolicy.HTTPMethodGet), add support for that later
 						},
 					},
 				},
@@ -425,6 +474,7 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 	intents otterizev1alpha3.ClientIntents,
 	intent otterizev1alpha3.Intent,
 	serverTargetName string,
+	targetRefType string,
 ) *authpolicy.AuthorizationPolicy {
 	a := authpolicy.AuthorizationPolicy{
 		TypeMeta: metav1.TypeMeta{
@@ -438,7 +488,7 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 		Spec: authpolicy.AuthorizationPolicySpec{
 			TargetRef: gatewayapiv1alpha2.PolicyTargetReference{
 				Group: "policy.linkerd.io",
-				Kind:  "Server",
+				Kind:  v1beta1.Kind(targetRefType),
 				Name:  v1beta1.ObjectName(serverTargetName),
 			},
 			RequiredAuthenticationRefs: []gatewayapiv1alpha2.PolicyTargetReference{
