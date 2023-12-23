@@ -8,7 +8,6 @@ import (
 	authpolicy "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
 	linkerdserver "github.com/linkerd/linkerd2/controller/gen/apis/server/v1beta1"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -46,6 +45,9 @@ const (
 	LinkerdServerKindName                             = "Server"
 	LinkerdHTTPRouteKindName                          = "HTTPRoute"
 	LinkerdNetAuthKindName                            = "NetworkAuthentication"
+	Servers                                           = "servers"
+	Routes                                            = "httproutes"
+	AuthorizationPolicies                             = "authpolicies"
 )
 
 var IntentsMethodsToLinkerdMethodsMap = map[otterizev1alpha3.HTTPMethod]authpolicy.HTTPMethod{
@@ -60,10 +62,10 @@ var IntentsMethodsToLinkerdMethodsMap = map[otterizev1alpha3.HTTPMethod]authpoli
 }
 
 type LinkerdPolicyManager interface {
-	DeleteAll(ctx context.Context, clientIntents *v1alpha3.ClientIntents) error
-	Create(ctx context.Context, clientIntents *v1alpha3.ClientIntents, clientServiceAccount string) error
-	UpdateIntentsStatus(ctx context.Context, clientIntents *v1alpha3.ClientIntents, clientServiceAccount string, missingSideCar bool) error
-	UpdateServerSidecar(ctx context.Context, clientIntents *v1alpha3.ClientIntents, serverName string, missingSideCar bool) error
+	DeleteAll(ctx context.Context, clientIntents *otterizev1alpha3.ClientIntents) error
+	Create(ctx context.Context, clientIntents *otterizev1alpha3.ClientIntents, clientServiceAccount string) error
+	UpdateIntentsStatus(ctx context.Context, clientIntents *otterizev1alpha3.ClientIntents, clientServiceAccount string, missingSideCar bool) error
+	UpdateServerSidecar(ctx context.Context, clientIntents *otterizev1alpha3.ClientIntents, serverName string, missingSideCar bool) error
 }
 
 type LinkerdManager struct {
@@ -92,45 +94,104 @@ func NewLinkerdManager(c client.Client,
 
 func (ldm *LinkerdManager) Create(
 	ctx context.Context,
-	clientIntents *v1alpha3.ClientIntents,
+	clientIntents *otterizev1alpha3.ClientIntents,
 	clientServiceAccount string,
 ) error {
 	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, clientIntents.Namespace)
 
 	var (
-		existingPolicies authpolicy.AuthorizationPolicyList
-		// existingServers    linkerdserver.ServerList
-		// existingHttpRoutes authpolicy.HTTPRouteList
+		existingPolicies   authpolicy.AuthorizationPolicyList
+		existingServers    linkerdserver.ServerList
+		existingHttpRoutes authpolicy.HTTPRouteList
 	)
 	err := ldm.Client.List(ctx,
 		&existingPolicies,
-		client.MatchingLabels{v1alpha3.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
+		client.MatchingLabels{otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
 	if err != nil {
 		ldm.recorder.RecordWarningEventf(clientIntents, ReasonGettingLinkerdPolicyFailed, "Could not get Linkerd policies: %s", err.Error())
 		return err
 	}
 
-	_, err = ldm.createPolicies(ctx, clientIntents, clientServiceAccount, existingPolicies)
+	err = ldm.Client.List(ctx,
+		&existingServers,
+		client.MatchingLabels{otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
+	if err != nil {
+		ldm.recorder.RecordWarningEventf(clientIntents, ReasonGettingLinkerdPolicyFailed, "Could not get Linkerd servers: %s", err.Error())
+		return err
+	}
+
+	err = ldm.Client.List(ctx,
+		&existingHttpRoutes,
+		client.MatchingLabels{otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
+	if err != nil {
+		ldm.recorder.RecordWarningEventf(clientIntents, ReasonGettingLinkerdPolicyFailed, "Could not get Linkerd servers: %s", err.Error())
+		return err
+	}
+
+	validResources, err := ldm.createResources(ctx, clientIntents, clientServiceAccount)
+	if err != nil {
+		return err
+	}
+
+	err = ldm.deleteOutdatedResources(ctx, validResources,
+		existingPolicies,
+		existingServers,
+		existingHttpRoutes,
+	)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (ldm *LinkerdManager) createPolicies(
-	ctx context.Context,
-	clientIntents *v1alpha3.ClientIntents,
-	clientServiceAccount string, // supplied in the create method
+func (ldm *LinkerdManager) deleteOutdatedResources(ctx context.Context,
+	validResources map[string]*goset.Set[types.UID],
 	existingPolicies authpolicy.AuthorizationPolicyList,
+	existingServers linkerdserver.ServerList,
+	existingRoutes authpolicy.HTTPRouteList) error {
+	for _, existingPolicy := range existingPolicies.Items {
+		if !validResources[AuthorizationPolicies].Contains(existingPolicy.UID) {
+			err := ldm.Client.Delete(ctx, &existingPolicy)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, existingServer := range existingServers.Items {
+		if !validResources[Servers].Contains(existingServer.UID) {
+			err := ldm.Client.Delete(ctx, &existingServer)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, existingRoute := range existingRoutes.Items {
+		if !validResources[Routes].Contains(existingRoute.UID) {
+			err := ldm.Client.Delete(ctx, &existingRoute)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (ldm *LinkerdManager) createResources(
+	ctx context.Context,
+	clientIntents *otterizev1alpha3.ClientIntents,
+	clientServiceAccount string, // supplied in the create method
 ) (map[string]*goset.Set[types.UID], error) {
 	currentResources := map[string]*goset.Set[types.UID]{
-		"servers":      goset.NewSet[types.UID](),
-		"authpolicies": goset.NewSet[types.UID](),
-		"httproutes":   goset.NewSet[types.UID](),
+		Servers:               goset.NewSet[types.UID](),
+		AuthorizationPolicies: goset.NewSet[types.UID](),
+		Routes:                goset.NewSet[types.UID](),
 	}
 
 	for _, intent := range clientIntents.GetCallsList() {
-		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP && intent.Port != 0 { // this will skip non http ones, db for example, skip port doesnt exist as well
+		if intent.Type != "" && intent.Type != otterizev1alpha3.IntentTypeHTTP && intent.Port != 0 { // this will skip non http ones, db for example, skip port doesnt exist as well
 			continue
 		}
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState( //TODO:  check what that does
@@ -179,7 +240,7 @@ func (ldm *LinkerdManager) createPolicies(
 				ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd server: %s", err.Error())
 				return nil, err
 			}
-			currentResources["servers"].Add(s.UID)
+			currentResources[Servers].Add(s.UID)
 		}
 
 		switch intent.Type {
@@ -229,7 +290,7 @@ func (ldm *LinkerdManager) createPolicies(
 					if err != nil { // TODO: return errors but continue processing
 						return nil, err
 					}
-					currentResources["httproutes"].Add(route.UID)
+					currentResources[Routes].Add(route.UID)
 				}
 				// should create authpolicy
 				shouldCreatePolicy, err := ldm.shouldCreateAuthPolicy(ctx,
@@ -249,7 +310,7 @@ func (ldm *LinkerdManager) createPolicies(
 						ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
 						return nil, err
 					}
-					currentResources["authpolicies"].Add(newPolicy.UID)
+					currentResources[AuthorizationPolicies].Add(newPolicy.UID)
 				}
 			}
 		default:
@@ -270,7 +331,7 @@ func (ldm *LinkerdManager) createPolicies(
 					ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
 					return nil, err
 				}
-				currentResources["authpolicies"].Add(newPolicy.UID)
+				currentResources[AuthorizationPolicies].Add(newPolicy.UID)
 			}
 		}
 	}
@@ -362,7 +423,7 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otter
 	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
 	podSelector := ldm.BuildPodLabelSelectorFromIntent(intent, intents.Namespace)
 	servers := &linkerdserver.ServerList{}
-	err := ldm.Client.List(ctx, servers, client.MatchingLabels{v1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity})
+	err := ldm.Client.List(ctx, servers, client.MatchingLabels{otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity})
 	if err != nil {
 		return nil, false, err
 	}
