@@ -36,6 +36,11 @@ jobs:
         with:
           fetch-depth: 1
 
+      - uses: actions/setup-go@v3
+        with:
+          # Upgraded Go version? Make sure to upgrade it in the GitHub Actions setup, the Dockerfile and the go.mod as well, so the linter and tests run the same version.
+          go-version: 1.21
+
       - name: Set up Docker Buildx
         id: buildx
         uses: docker/setup-buildx-action@master
@@ -55,7 +60,14 @@ jobs:
           username: otterize
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build & Test
+      - name: Test
+        run: |-
+          cd ./src/operator
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+          make test
+          
+
+      - name: Build
         uses: docker/build-push-action@v2
         with:
           context: src/
@@ -63,6 +75,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ matrix.service }}:${{ github.sha }}
           push: true
           network: host
+          platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |

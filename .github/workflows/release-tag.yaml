@@ -40,6 +40,7 @@ jobs:
           tags: ${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }}
           push: true
           network: host
+          platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |

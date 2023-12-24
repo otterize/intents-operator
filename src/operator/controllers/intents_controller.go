@@ -19,11 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
-
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/exp"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
@@ -33,7 +32,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -62,7 +61,7 @@ type EnforcementConfig struct {
 	EnableNetworkPolicy                  bool
 	EnableKafkaACL                       bool
 	EnableIstioPolicy                    bool
-	EnableDatabaseReconciler             bool
+	EnableDatabasePolicy                 bool
 	EnableEgressNetworkPolicyReconcilers bool
 	EnableAWSPolicy                      bool
 }
@@ -118,7 +117,7 @@ func NewIntentsReconciler(
 		networkPolicyReconciler: networkPolicyReconciler,
 	}
 
-	if telemetrysender.IsTelemetryEnabled() {
+	if telemetriesconfig.IsUsageTelemetryEnabled() {
 		telemetryReconciler := intents_reconcilers.NewTelemetryReconciler(client, scheme)
 		intentsReconciler.group.AddToGroup(telemetryReconciler)
 	}
@@ -128,8 +127,8 @@ func NewIntentsReconciler(
 		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
 	}
 
-	if enforcementConfig.EnableDatabaseReconciler {
-		databaseReconciler := exp.NewDatabaseReconciler(client, scheme, otterizeClient)
+	if enforcementConfig.EnableDatabasePolicy {
+		databaseReconciler := database.NewDatabaseReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
 	}
 

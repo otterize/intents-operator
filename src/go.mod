@@ -16,6 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.25.3
 	github.com/aws/smithy-go v1.17.0
 	github.com/bombsimon/logrusr/v3 v3.0.0
+	github.com/bugsnag/bugsnag-go/v2 v2.2.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.5.9
 	github.com/google/uuid v1.3.0
@@ -30,10 +31,12 @@ require (
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.4
 	github.com/suessflorian/gqlfetch v0.6.0
+	github.com/vektah/gqlparser/v2 v2.4.5
 	github.com/vishalkuo/bimap v0.0.0-20220726225509-e0b4f20de28b
 	go.uber.org/mock v0.2.0
 	golang.org/x/exp v0.0.0-20230124195608-d38c7dcee874
 	golang.org/x/oauth2 v0.6.0
+	gopkg.in/yaml.v3 v3.0.1
 	istio.io/api v0.0.0-20230310175855-3be9c0870417
 	istio.io/client-go v1.17.1
 	k8s.io/api v0.27.2
@@ -56,6 +59,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.17.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.20.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bugsnag/panicwrap v1.3.4 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.2.0 // indirect
@@ -88,6 +92,7 @@ require (
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/klauspost/compress v1.15.6 // indirect
 	github.com/labstack/gommon v0.4.0 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
@@ -114,7 +119,6 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/vektah/gqlparser v1.3.1 // indirect
-	github.com/vektah/gqlparser/v2 v2.4.5 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/crypto v0.14.0 // indirect
 	golang.org/x/mod v0.10.0 // indirect
@@ -131,7 +135,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/component-base v0.27.2 // indirect
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect

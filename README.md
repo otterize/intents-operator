@@ -97,7 +97,44 @@ spec:
 
 Done! The pod can access AWS. Try the [AWS IAM tutorial](https://docs.otterize.com/quickstart/access-control/aws-iam-eks) to learn more.
 
+### Otterize for PostgreSQL
+Otterize automates PostgreSQL access management and secrets for your workloads, all in Kubernetes.
 
+Here is how:
+1. Annotate a pod, requesting a user and a password to be provisioned and bound to the pod.
+
+Annotate the pod with this annotation:
+
+`credentials-operator.otterize.com/user-password-secret-name: booking-service-secret`
+
+2. Declare your workload’s ClientIntents, specifying desired permissions.
+
+```yaml
+apiVersion: k8s.otterize.com/v1alpha3
+kind: ClientIntents
+metadata:
+  name: booking-service
+  namespace: flight-search
+spec:
+  service:
+    name: booking-service
+  calls:
+    - name: bookings
+      type: database
+      databaseResources:
+        - table: users
+          databaseName: bookings-db
+          operations:
+            - SELECT
+        - table: products
+          databaseName: bookings-db
+          operations:
+            - ALL
+```
+
+Otterize then creates a user and matching grants on the target database.
+
+Try the [Just-in-time PostgreSQL users & access](https://docs.otterize.com/quickstart/access-control/postgresql) to learn more.
 
 ### Kafka mTLS & ACLs
 The intents operator automatically creates, updates, and deletes ACLs in Kafka clusters running within your Kubernetes cluster. 

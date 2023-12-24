@@ -45,6 +45,8 @@ type ControllerManagerTestSuiteBase struct {
 	mgrCtx           context.Context
 	mgrCtxCancelFunc context.CancelFunc
 	Mgr              manager.Manager
+	mgrStopped       context.Context
+	mgrStoppedSignal context.CancelFunc
 }
 
 func (s *ControllerManagerTestSuiteBase) TearDownSuite() {
@@ -53,6 +55,7 @@ func (s *ControllerManagerTestSuiteBase) TearDownSuite() {
 
 func (s *ControllerManagerTestSuiteBase) SetupTest() {
 	s.mgrCtx, s.mgrCtxCancelFunc = context.WithCancel(context.Background())
+	s.mgrStopped, s.mgrStoppedSignal = context.WithCancel(context.Background())
 
 	webhookServer := webhook.NewServer(webhook.Options{
 		Host:    s.TestEnv.WebhookInstallOptions.LocalServingHost,
@@ -72,6 +75,7 @@ func (s *ControllerManagerTestSuiteBase) BeforeTest(_, testName string) {
 		// We start the manager in "Before test" to allow operations that should happen before start to be run at SetupTest()
 		err := s.Mgr.Start(s.mgrCtx)
 		s.Require().NoError(err)
+		s.mgrStoppedSignal()
 	}()
 
 	const maxNamespaceLength = 63
@@ -82,6 +86,12 @@ func (s *ControllerManagerTestSuiteBase) BeforeTest(_, testName string) {
 
 func (s *ControllerManagerTestSuiteBase) TearDownTest() {
 	s.mgrCtxCancelFunc()
+	select {
+	case <-s.mgrStopped.Done():
+		return
+	case <-time.After(30 * time.Second):
+		s.T().Fatal("Failed to stop manager in 30 seconds on test teardown")
+	}
 }
 
 type Condition func() bool

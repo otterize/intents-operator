@@ -15,7 +15,7 @@ IMAGE_TAG_BASE ?= 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMAGE_TAG_BASE):operator-$(VERSION)
 
-LOCAL_IMAGE_TAG ?= 255.255.255
+LOCAL_IMAGE_TAG ?= 0.0.0
 OPERATOR_DEBUG_IMAGE ?= otterize/intents-operator:$(LOCAL_IMAGE_TAG)
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
