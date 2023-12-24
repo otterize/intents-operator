@@ -58,7 +58,6 @@ func (r *LinkerdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	intents := &otterizev1alpha3.ClientIntents{}
 
 	err = r.Get(ctx, req.NamespacedName, intents)
-
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
