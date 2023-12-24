@@ -50,17 +50,6 @@ const (
 	AuthorizationPolicies                             = "authpolicies"
 )
 
-var IntentsMethodsToLinkerdMethodsMap = map[otterizev1alpha3.HTTPMethod]authpolicy.HTTPMethod{
-	otterizev1alpha3.HTTPMethodGet:     authpolicy.HTTPMethodGet,
-	otterizev1alpha3.HTTPMethodDelete:  authpolicy.HTTPMethodDelete,
-	otterizev1alpha3.HTTPMethodPost:    authpolicy.HTTPMethodPost,
-	otterizev1alpha3.HTTPMethodPut:     authpolicy.HTTPMethodPut,
-	otterizev1alpha3.HTTPMethodTrace:   authpolicy.HTTPMethodTrace,
-	otterizev1alpha3.HTTPMethodConnect: authpolicy.HTTPMethodConnect,
-	otterizev1alpha3.HTTPMethodPatch:   authpolicy.HTTPMethodPatch,
-	otterizev1alpha3.HTTPMethodOptions: authpolicy.HTTPMethodOptions,
-}
-
 type LinkerdPolicyManager interface {
 	DeleteAll(ctx context.Context, clientIntents *otterizev1alpha3.ClientIntents) error
 	Create(ctx context.Context, clientIntents *otterizev1alpha3.ClientIntents, clientServiceAccount string) error
@@ -257,7 +246,7 @@ func (ldm *LinkerdManager) createResources(
 
 			if !serverHasHTTPRoute && probePath != "" {
 				httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, intent.Name, intent.Port, probePath)
-				probePathRoute := ldm.generateHTTPRoute(intent, s.Name, probePath, httpRouteName, clientIntents.Namespace)
+				probePathRoute := ldm.generateHTTPRoute(*clientIntents, intent, s.Name, probePath, httpRouteName, clientIntents.Namespace)
 				err = ldm.Client.Create(ctx, probePathRoute)
 				if err != nil {
 					return nil, err
@@ -283,7 +272,7 @@ func (ldm *LinkerdManager) createResources(
 				}
 
 				if shouldCreateRoute {
-					route = ldm.generateHTTPRoute(intent, s.Name, httpResource.Path,
+					route = ldm.generateHTTPRoute(*clientIntents, intent, s.Name, httpResource.Path,
 						httpRouteName,
 						clientIntents.Namespace)
 					err = ldm.Client.Create(ctx, route)
@@ -304,7 +293,8 @@ func (ldm *LinkerdManager) createResources(
 				if shouldCreatePolicy {
 					newPolicy := ldm.generateAuthorizationPolicy(*clientIntents, intent, s.Name,
 						LinkerdHTTPRouteKindName,
-						LinkerdMeshTLSAuthenticationKindName)
+						LinkerdMeshTLSAuthenticationKindName,
+						addPath(httpResource.Path))
 					err = ldm.Client.Create(ctx, newPolicy)
 					if err != nil {
 						ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
@@ -402,7 +392,6 @@ func (ldm *LinkerdManager) getLivenessProbePath(ctx context.Context, intents ott
 	if err != nil {
 		return "", err
 	}
-	// should be the container that defines the port
 	c := ldm.getContainerWithIntentPort(intent, &pod)
 	if c == nil {
 		return "", fmt.Errorf("no container in the pod specifies the intent port, skip HTTPRoute creation")
@@ -535,7 +524,7 @@ type policyOpts func(*authpolicy.AuthorizationPolicy)
 
 func addPath(path string) policyOpts {
 	return func(policy *authpolicy.AuthorizationPolicy) {
-		policy.Name += "-path" + path
+		policy.Name += "-path-" + path
 	}
 }
 
@@ -556,6 +545,7 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 	case LinkerdMeshTLSAuthenticationKindName:
 		targetRefName = v1beta1.ObjectName(fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, intents.Spec.Service.Name))
 	}
+	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
 	a := authpolicy.AuthorizationPolicy{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy.linkerd.io/v1alpha1",
@@ -564,6 +554,9 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf(OtterizeLinkerdAuthPolicyNameTemplate, intent.Name, intent.Port, intents.Spec.Service.Name),
 			Namespace: intents.Namespace,
+			Labels: map[string]string{
+				otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
+			},
 		},
 		Spec: authpolicy.AuthorizationPolicySpec{
 			TargetRef: gatewayapiv1alpha2.PolicyTargetReference{
@@ -583,8 +576,9 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 	return &a
 }
 
-func (ldm *LinkerdManager) generateHTTPRoute(intent otterizev1alpha3.Intent,
+func (ldm *LinkerdManager) generateHTTPRoute(intents otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent,
 	serverName, path, name, namespace string) *authpolicy.HTTPRoute { // TODO: dont take name as an argument
+	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
 	return &authpolicy.HTTPRoute{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy.linkerd.io/v1beta3",
@@ -593,6 +587,9 @@ func (ldm *LinkerdManager) generateHTTPRoute(intent otterizev1alpha3.Intent,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels: map[string]string{
+				otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
+			},
 		},
 		Spec: authpolicy.HTTPRouteSpec{
 			Rules: []authpolicy.HTTPRouteRule{
@@ -617,6 +614,7 @@ func (ldm *LinkerdManager) generateMeshTLS(
 	intent otterizev1alpha3.Intent,
 	targets []string,
 ) *authpolicy.MeshTLSAuthentication {
+	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
 	mtls := authpolicy.MeshTLSAuthentication{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy.linkerd.io/v1alpha1",
@@ -625,6 +623,9 @@ func (ldm *LinkerdManager) generateMeshTLS(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, intents.Spec.Service.Name),
 			Namespace: intents.Namespace,
+			Labels: map[string]string{
+				otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
+			},
 		},
 		Spec: authpolicy.MeshTLSAuthenticationSpec{
 			Identities: targets,

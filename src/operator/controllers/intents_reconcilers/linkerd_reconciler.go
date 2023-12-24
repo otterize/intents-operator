@@ -74,6 +74,7 @@ func (r *LinkerdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	logrus.Infof("Reconciling Linkerd authorization policies for service %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
 
+	// TODO: implement delete all
 	if !intents.DeletionTimestamp.IsZero() {
 		// replace with a manager for linkerd policy
 
