@@ -9,15 +9,15 @@ import (
 )
 
 type Component struct {
-	ComponentType       TelemetryComponentType `json:"componentType"`
-	ComponentInstanceId string                 `json:"componentInstanceId"`
-	ContextId           string                 `json:"contextId"`
-	Version             string                 `json:"version"`
-	CloudClientId       string                 `json:"cloudClientId"`
+	ComponentType       ComponentType `json:"componentType"`
+	ComponentInstanceId string        `json:"componentInstanceId"`
+	ContextId           string        `json:"contextId"`
+	Version             string        `json:"version"`
+	CloudClientId       string        `json:"cloudClientId"`
 }
 
 // GetComponentType returns Component.ComponentType, and is useful for accessing the field via an interface.
-func (v *Component) GetComponentType() TelemetryComponentType { return v.ComponentType }
+func (v *Component) GetComponentType() ComponentType { return v.ComponentType }
 
 // GetComponentInstanceId returns Component.ComponentInstanceId, and is useful for accessing the field via an interface.
 func (v *Component) GetComponentInstanceId() string { return v.ComponentInstanceId }
@@ -30,6 +30,15 @@ func (v *Component) GetVersion() string { return v.Version }
 
 // GetCloudClientId returns Component.CloudClientId, and is useful for accessing the field via an interface.
 func (v *Component) GetCloudClientId() string { return v.CloudClientId }
+
+type ComponentType string
+
+const (
+	ComponentTypeIntentsOperator     ComponentType = "INTENTS_OPERATOR"
+	ComponentTypeCredentialsOperator ComponentType = "CREDENTIALS_OPERATOR"
+	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
+	ComponentTypeCli                 ComponentType = "CLI"
+)
 
 type EventType string
 
@@ -70,15 +79,6 @@ type SendTelemetriesResponse struct {
 
 // GetSendTelemetries returns SendTelemetriesResponse.SendTelemetries, and is useful for accessing the field via an interface.
 func (v *SendTelemetriesResponse) GetSendTelemetries() bool { return v.SendTelemetries }
-
-type TelemetryComponentType string
-
-const (
-	TelemetryComponentTypeIntentsOperator     TelemetryComponentType = "INTENTS_OPERATOR"
-	TelemetryComponentTypeCredentialsOperator TelemetryComponentType = "CREDENTIALS_OPERATOR"
-	TelemetryComponentTypeNetworkMapper       TelemetryComponentType = "NETWORK_MAPPER"
-	TelemetryComponentTypeCli                 TelemetryComponentType = "CLI"
-)
 
 type TelemetryData struct {
 	EventType EventType `json:"eventType"`

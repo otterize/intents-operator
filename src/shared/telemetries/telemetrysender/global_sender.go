@@ -3,9 +3,7 @@ package telemetrysender
 import (
 	"context"
 	"flag"
-	"github.com/bugsnag/bugsnag-go/v2"
-	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
+	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -14,11 +12,27 @@ import (
 )
 
 var (
-	senderInitOnce = sync.Once{}
-	sender         *TelemetrySender
+	senderInitOnce            = sync.Once{}
+	sender                    *TelemetrySender
+	globalContextId           string
+	globalComponentInstanceId string
+	globalVersion             string
+	globalCloudClientId       string
 )
 
-func send(componentType telemetriesgql.TelemetryComponentType, eventType telemetriesgql.EventType, count int) {
+func SetGlobalContextId(contextId string) {
+	globalContextId = contextId
+}
+
+func SetGlobalVersion(version string) {
+	globalVersion = version
+}
+
+func SetGlobalCloudClientId(clientId string) {
+	globalCloudClientId = clientId
+}
+
+func send(componentType telemetriesgql.ComponentType, eventType telemetriesgql.EventType, count int) {
 	senderInitOnce.Do(func() {
 		initSender()
 	})
@@ -30,7 +44,7 @@ func send(componentType telemetriesgql.TelemetryComponentType, eventType telemet
 	}
 }
 
-func incrementCounter(componentType telemetriesgql.TelemetryComponentType, eventType telemetriesgql.EventType, key string) {
+func incrementCounter(componentType telemetriesgql.ComponentType, eventType telemetriesgql.EventType, key string) {
 	senderInitOnce.Do(func() {
 		initSender()
 	})
@@ -42,19 +56,19 @@ func incrementCounter(componentType telemetriesgql.TelemetryComponentType, event
 	}
 }
 
-func currentComponent(componentType telemetriesgql.TelemetryComponentType) telemetriesgql.Component {
+func currentComponent(componentType telemetriesgql.ComponentType) telemetriesgql.Component {
 	return telemetriesgql.Component{
-		CloudClientId:       componentinfo.GlobalCloudClientId(),
+		CloudClientId:       globalCloudClientId,
 		ComponentType:       componentType,
-		ComponentInstanceId: componentinfo.GlobalComponentInstanceId(),
-		ContextId:           componentinfo.GlobalContextId(),
-		Version:             componentinfo.GlobalVersion(),
+		ComponentInstanceId: globalComponentInstanceId,
+		ContextId:           globalContextId,
+		Version:             globalVersion,
 	}
 }
 
 func initSender() {
 	sender = New()
-	componentinfo.SetGlobalComponentInstanceId()
+	globalComponentInstanceId = uuid.NewString()
 	if flag.Lookup("test.v") != nil {
 		logrus.Infof("Disabling telemetry sender because this is a test")
 		sender.enabled = false
@@ -62,45 +76,44 @@ func initSender() {
 }
 
 func SendIntentOperator(eventType telemetriesgql.EventType, count int) {
-	send(telemetriesgql.TelemetryComponentTypeIntentsOperator, eventType, count)
+	send(telemetriesgql.ComponentTypeIntentsOperator, eventType, count)
 }
 
 func SendNetworkMapper(eventType telemetriesgql.EventType, count int) {
-	send(telemetriesgql.TelemetryComponentTypeNetworkMapper, eventType, count)
+	send(telemetriesgql.ComponentTypeNetworkMapper, eventType, count)
 }
 
 func SendCredentialsOperator(eventType telemetriesgql.EventType, count int) {
-	send(telemetriesgql.TelemetryComponentTypeCredentialsOperator, eventType, count)
+	send(telemetriesgql.ComponentTypeCredentialsOperator, eventType, count)
 }
 
 func IncrementUniqueCounterIntentOperator(eventType telemetriesgql.EventType, key string) {
-	incrementCounter(telemetriesgql.TelemetryComponentTypeIntentsOperator, eventType, key)
+	incrementCounter(telemetriesgql.ComponentTypeIntentsOperator, eventType, key)
 }
 
 func IncrementUniqueCounterNetworkMapper(eventType telemetriesgql.EventType, key string) {
-	incrementCounter(telemetriesgql.TelemetryComponentTypeNetworkMapper, eventType, key)
+	incrementCounter(telemetriesgql.ComponentTypeNetworkMapper, eventType, key)
 }
 
 func IncrementUniqueCounterCredentialsOperator(eventType telemetriesgql.EventType, key string) {
-	incrementCounter(telemetriesgql.TelemetryComponentTypeCredentialsOperator, eventType, key)
+	incrementCounter(telemetriesgql.ComponentTypeCredentialsOperator, eventType, key)
 }
 
 func IntentsOperatorRunActiveReporter(ctx context.Context) {
-	runActiveComponentReporter(ctx, telemetriesgql.TelemetryComponentTypeIntentsOperator)
+	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeIntentsOperator)
 }
 
 func NetworkMapperRunActiveReporter(ctx context.Context) {
-	runActiveComponentReporter(ctx, telemetriesgql.TelemetryComponentTypeNetworkMapper)
+	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeNetworkMapper)
 }
 
 func CredentialsOperatorRunActiveReporter(ctx context.Context) {
-	runActiveComponentReporter(ctx, telemetriesgql.TelemetryComponentTypeCredentialsOperator)
+	runActiveComponentReporter(ctx, telemetriesgql.ComponentTypeCredentialsOperator)
 }
 
-func runActiveComponentReporter(ctx context.Context, componentType telemetriesgql.TelemetryComponentType) {
+func runActiveComponentReporter(ctx context.Context, componentType telemetriesgql.ComponentType) {
 	go func() {
-		defer bugsnag.AutoNotify(ctx)
-		activeInterval := viper.GetDuration(telemetriesconfig.TelemetryActiveIntervalKey)
+		activeInterval := viper.GetDuration(TelemetryActiveIntervalKey)
 		reporterTicker := time.NewTicker(activeInterval)
 		logrus.Info("Starting active component reporter")
 		send(componentType, telemetriesgql.EventTypeActive, 0)

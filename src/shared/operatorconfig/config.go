@@ -6,8 +6,7 @@ import (
 	"time"
 
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
-
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -15,7 +14,7 @@ import (
 
 const (
 	MetricsAddrKey                              = "metrics-bind-address" // The address the metric endpoint binds to
-	MetricsAddrDefault                          = ":2112"
+	MetricsAddrDefault                          = ":8180"
 	ProbeAddrKey                                = "health-probe-bind-address" // The address the probe endpoint binds to
 	ProbeAddrDefault                            = ":8181"
 	EnableLeaderElectionKey                     = "leader-elect" // Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager
@@ -41,8 +40,8 @@ const (
 	IntentsOperatorPodNameKey                   = "pod-name"
 	IntentsOperatorPodNamespaceKey              = "pod-namespace"
 	EnvPrefix                                   = "OTTERIZE"
-	EnableDatabasePolicy                        = "enable-database-policy-creation" // Whether to enable the new database reconciler
-	EnableDatabasePolicyDefault                 = true
+	EnableDatabaseReconciler                    = "enable-database-reconciler" // Whether to enable the new database reconciler
+	EnableDatabaseReconcilerDefault             = false
 	RetryDelayTimeKey                           = "retry-delay-time" // Default retry delay time for retrying failed requests
 	RetryDelayTimeDefault                       = 5 * time.Second
 	DebugLogKey                                 = "debug" // Whether to enable debug logging
@@ -72,7 +71,7 @@ func init() {
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
 	viper.SetDefault(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault)
 	viper.SetDefault(EnableAWSPolicyKey, EnableAWSPolicyDefault)
-	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
+	viper.SetDefault(PrometheusMetricsPortKey, PrometheusMetricsPortDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
@@ -93,10 +92,8 @@ func InitCLIFlags() {
 	pflag.Bool(EnableLeaderElectionKey, EnableLeaderElectionDefault, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	pflag.StringSlice(WatchedNamespacesKey, nil, "Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
-	pflag.Bool(telemetriesconfig.TelemetryEnabledKey, telemetriesconfig.TelemetryEnabledDefault, "When set to false, all telemetries are disabled")
-	pflag.Bool(telemetriesconfig.TelemetryUsageEnabledKey, telemetriesconfig.TelemetryUsageEnabledDefault, "Whether usage telemetry should be enabled")
-	pflag.Bool(telemetriesconfig.TelemetryErrorsEnabledKey, telemetriesconfig.TelemetryErrorEnabledDefault, "Whether errors telemetry should be enabled")
-	pflag.Bool(EnableDatabasePolicy, EnableDatabasePolicyDefault, "Enable the database reconciler")
+	pflag.Bool(telemetrysender.TelemetryEnabledKey, telemetrysender.TelemetryEnabledDefault, "Whether telemetry should be enabled")
+	pflag.Bool(EnableDatabaseReconciler, EnableDatabaseReconcilerDefault, "Enable the database reconciler")
 	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
 	pflag.Duration(RetryDelayTimeKey, RetryDelayTimeDefault, "Default retry delay time for retrying failed requests")
 	pflag.Bool(EnableAWSPolicyKey, EnableAWSPolicyDefault, "Enable the AWS IAM reconciler")
