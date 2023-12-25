@@ -6,6 +6,7 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
+	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/prometheus"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
@@ -29,6 +30,11 @@ import (
 type externalNetpolHandler interface {
 	HandlePodsByLabelSelector(ctx context.Context, namespace string, labelSelector labels.Selector) error
 	HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error
+}
+
+type KubernetesEvent struct {
+	Reason  string
+	Message string
 }
 
 type NetworkPolicyReconciler struct {
@@ -62,6 +68,8 @@ func NewNetworkPolicyReconciler(
 	}
 }
 
+// TODO: Should get all the effective policies
+
 func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	intents := &otterizev1alpha3.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
@@ -94,29 +102,20 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	createdNetpols := 0
-	for _, intent := range intents.GetCallsList() {
-		if intent.Type != "" && intent.Type != otterizev1alpha3.IntentTypeHTTP && intent.Type != otterizev1alpha3.IntentTypeKafka {
-			continue
-		}
-		if intent.IsTargetServerKubernetesService() {
-			continue
-		}
-		targetNamespace := intent.GetTargetServerNamespace(req.Namespace)
-		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, targetNamespace) {
-			// Namespace is not in list of namespaces we're allowed to act in, so drop it.
-			r.RecordWarningEventf(intents, consts.ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration", targetNamespace)
-			continue
-		}
-		createdPolicies, err := r.handleNetworkPolicyCreation(ctx, intents, intent, req.Namespace)
+
+	// Do all instead of affected by
+	eps, err := effectivepolicy.GetServiceEffectivePoliciesAffectedByIntent(ctx, r.Client, intents, &r.InjectableRecorder)
+
+	for _, ep := range eps {
+		// Return policies
+		netpolCount, err := r.ReconcileServiceEffectivePolicy(ctx, ep)
+		createdNetpols += netpolCount
 		if err != nil {
-			r.RecordWarningEventf(intents, consts.ReasonCreatingNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
 			return ctrl.Result{}, err
-		}
-		if createdPolicies {
-			createdNetpols += 1
 		}
 	}
 
+	// remove policies that doesn't exist in the policies list
 	err = r.removeOrphanNetworkPolicies(ctx)
 	if err != nil {
 		r.RecordWarningEventf(intents, consts.ReasonRemovingNetworkPolicyFailed, "failed to remove network policies: %s", err.Error())
@@ -130,6 +129,61 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		prometheus.IncrementNetpolCreated(createdNetpols)
 	}
 	return ctrl.Result{}, nil
+}
+
+func (r *NetworkPolicyReconciler) ReconcileServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) (int, error) {
+	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service.Name, ep.Service.Namespace, r.enforcementDefaultState)
+	if err != nil {
+		return 0, err
+	}
+
+	createdOrUpdatedPolicies := 0
+	for _, intentCall := range ep.CalledBy {
+		if !shouldCreatePolicy {
+			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
+			intentCall.ObjectEventRecorder.RecordNormalEventf(consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", ep.Service.Name)
+			continue
+		}
+		if !r.enableNetworkPolicyCreation {
+			logrus.Infof("Network policy creation is disabled, skipping network policy creation for server %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
+			intentCall.ObjectEventRecorder.RecordNormalEvent(consts.ReasonNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
+			continue
+		}
+		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, ep.Service.Namespace) {
+			// Namespace is not in list of namespaces we're allowed to act in, so drop it.
+			intentCall.ObjectEventRecorder.RecordWarningEventf(consts.ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration", ep.Service.Namespace)
+			continue
+		}
+
+		logrus.Debugf("Server %s in namespace %s is in protected list: %t", ep.Service.Name, ep.Service.Namespace, shouldCreatePolicy)
+
+		policyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, intentCall.IntendedCall.GetTargetServerName(), intentCall.Service.Namespace)
+		existingPolicy := &v1.NetworkPolicy{}
+		newPolicy := r.buildNetworkPolicyObjectForIntent(intentCall.IntendedCall, policyName, intentCall.Service.Namespace)
+		err = r.Get(ctx, types.NamespacedName{
+			Name:      policyName,
+			Namespace: ep.Service.Namespace},
+			existingPolicy)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			r.RecordWarningEventf(existingPolicy, consts.ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
+			return createdOrUpdatedPolicies, err
+		}
+
+		if k8serrors.IsNotFound(err) {
+			err = r.CreateNetworkPolicy(ctx, intentCall.Service.Namespace, intentCall.IntendedCall, newPolicy)
+			if err != nil {
+				return createdOrUpdatedPolicies, err
+			}
+			createdOrUpdatedPolicies += 1
+			continue
+		}
+		err = r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intentCall.IntendedCall, intentCall.Service.Namespace)
+		if err != nil {
+			return createdOrUpdatedPolicies, err
+		}
+		createdOrUpdatedPolicies += 1
+	}
+	return createdOrUpdatedPolicies, nil
 }
 
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
