@@ -3,6 +3,7 @@ package linkerdmanager
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/amit7itz/goset"
 	authpolicy "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
@@ -48,13 +49,13 @@ const (
 	Servers                                           = "servers"
 	Routes                                            = "httproutes"
 	AuthorizationPolicies                             = "authpolicies"
+	MTLSAuthentications                               = "mtlsauth"
+	NetworkAuthentications                            = "netauth"
 )
 
 type LinkerdPolicyManager interface {
 	DeleteAll(ctx context.Context, clientIntents *otterizev1alpha3.ClientIntents) error
 	Create(ctx context.Context, clientIntents *otterizev1alpha3.ClientIntents, clientServiceAccount string) error
-	UpdateIntentsStatus(ctx context.Context, clientIntents *otterizev1alpha3.ClientIntents, clientServiceAccount string, missingSideCar bool) error
-	UpdateServerSidecar(ctx context.Context, clientIntents *otterizev1alpha3.ClientIntents, serverName string, missingSideCar bool) error
 }
 
 type LinkerdManager struct {
@@ -133,38 +134,57 @@ func (ldm *LinkerdManager) Create(
 	return nil
 }
 
+func (ldm *LinkerdManager) DeleteAll(ctx context.Context,
+	intents *otterizev1alpha3.ClientIntents) error {
+	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(intents.Spec.Service.Name, intents.Namespace)
+
+	resourceLists := map[string]client.ObjectList{
+		AuthorizationPolicies:  &authpolicy.AuthorizationPolicyList{},
+		Servers:                &linkerdserver.ServerList{},
+		MTLSAuthentications:    &authpolicy.MeshTLSAuthenticationList{},
+		NetworkAuthentications: &authpolicy.NetworkAuthenticationList{},
+		Routes:                 &authpolicy.HTTPRouteList{},
+	}
+
+	for _, resourceList := range resourceLists {
+		err := ldm.Client.List(ctx, resourceList, client.MatchingLabels{v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
+		if client.IgnoreNotFound(err) != nil {
+			return err
+		}
+		resourceListValue := reflect.ValueOf(resourceList).Elem()
+
+		for _, resource := range resourceListValue.FieldByName("Items").Interface().([]client.Object) {
+			err = ldm.Client.Delete(ctx, resource)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 func (ldm *LinkerdManager) deleteOutdatedResources(ctx context.Context,
 	validResources map[string]*goset.Set[types.UID],
 	existingPolicies authpolicy.AuthorizationPolicyList,
 	existingServers linkerdserver.ServerList,
 	existingRoutes authpolicy.HTTPRouteList) error {
-	for _, existingPolicy := range existingPolicies.Items {
-		if !validResources[AuthorizationPolicies].Contains(existingPolicy.UID) {
-			err := ldm.Client.Delete(ctx, &existingPolicy)
-			if err != nil {
-				return err
+	resourceLists := map[string]interface{}{
+		AuthorizationPolicies: &existingPolicies.Items,
+		Servers:               &existingServers.Items,
+		Routes:                &existingRoutes.Items,
+	}
+
+	for resourceType, existingList := range resourceLists {
+		for _, existingResource := range *existingList.(*[]interface{}) {
+			if !validResources[resourceType].Contains(existingResource.(metav1.ObjectMetaAccessor).GetObjectMeta().GetUID()) {
+				err := ldm.Client.Delete(ctx, existingResource.(client.Object))
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
-
-	for _, existingServer := range existingServers.Items {
-		if !validResources[Servers].Contains(existingServer.UID) {
-			err := ldm.Client.Delete(ctx, &existingServer)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	for _, existingRoute := range existingRoutes.Items {
-		if !validResources[Routes].Contains(existingRoute.UID) {
-			err := ldm.Client.Delete(ctx, &existingRoute)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -261,6 +281,7 @@ func (ldm *LinkerdManager) createResources(
 				if err != nil {
 					return nil, err
 				}
+				currentResources[Routes].Add(probePathRoute.UID)
 			}
 
 			for _, httpResource := range intent.HTTPResources {
@@ -279,10 +300,10 @@ func (ldm *LinkerdManager) createResources(
 					if err != nil { // TODO: return errors but continue processing
 						return nil, err
 					}
-					currentResources[Routes].Add(route.UID)
 				}
+				currentResources[Routes].Add(route.UID)
 				// should create authpolicy
-				shouldCreatePolicy, err := ldm.shouldCreateAuthPolicy(ctx,
+				policy, shouldCreatePolicy, err := ldm.shouldCreateAuthPolicy(ctx,
 					*clientIntents, route.Name,
 					LinkerdHTTPRouteKindName,
 					LinkerdMeshTLSAuthenticationKindName)
@@ -291,20 +312,20 @@ func (ldm *LinkerdManager) createResources(
 				}
 
 				if shouldCreatePolicy {
-					newPolicy := ldm.generateAuthorizationPolicy(*clientIntents, intent, s.Name,
+					policy = ldm.generateAuthorizationPolicy(*clientIntents, intent, s.Name,
 						LinkerdHTTPRouteKindName,
 						LinkerdMeshTLSAuthenticationKindName,
 						addPath(httpResource.Path))
-					err = ldm.Client.Create(ctx, newPolicy)
+					err = ldm.Client.Create(ctx, policy)
 					if err != nil {
 						ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
 						return nil, err
 					}
-					currentResources[AuthorizationPolicies].Add(newPolicy.UID)
 				}
+				currentResources[AuthorizationPolicies].Add(policy.UID)
 			}
 		default:
-			shouldCreatePolicy, err = ldm.shouldCreateAuthPolicy(ctx, *clientIntents,
+			policy, shouldCreatePolicy, err := ldm.shouldCreateAuthPolicy(ctx, *clientIntents,
 				s.Name,
 				LinkerdServerKindName,
 				LinkerdMeshTLSAuthenticationKindName)
@@ -313,16 +334,16 @@ func (ldm *LinkerdManager) createResources(
 			}
 
 			if shouldCreatePolicy {
-				newPolicy := ldm.generateAuthorizationPolicy(*clientIntents, intent, s.Name,
+				policy = ldm.generateAuthorizationPolicy(*clientIntents, intent, s.Name,
 					LinkerdServerKindName,
 					LinkerdMeshTLSAuthenticationKindName)
-				err = ldm.Client.Create(ctx, newPolicy)
+				err = ldm.Client.Create(ctx, policy)
 				if err != nil {
 					ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
 					return nil, err
 				}
-				currentResources[AuthorizationPolicies].Add(newPolicy.UID)
 			}
+			currentResources[AuthorizationPolicies].Add(policy.UID)
 		}
 	}
 	return currentResources, nil
@@ -468,25 +489,25 @@ func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context,
 	intents otterizev1alpha3.ClientIntents,
 	targetName,
 	targetRefKind,
-	authRefKind string) (bool, error) {
+	authRefKind string) (*authpolicy.AuthorizationPolicy, bool, error) {
 	logrus.Infof("checking if i should create an authpolicy for %s and %s", targetName, intents.Spec.Service.Name)
 	authPolicies := &authpolicy.AuthorizationPolicyList{}
 
 	err := ldm.Client.List(ctx, authPolicies, &client.ListOptions{Namespace: intents.Namespace}) // check if auth policies can work across namespaces, in this case this wont work
 	if err != nil {
-		return false, err
+		return nil, false, err
 	}
 	for _, policy := range authPolicies.Items {
 		if policy.Spec.TargetRef.Name == v1beta1.ObjectName(targetName) && policy.Spec.TargetRef.Kind == v1beta1.Kind(targetRefKind) {
 			for _, authRef := range policy.Spec.RequiredAuthenticationRefs {
 				if authRef.Kind == v1beta1.Kind(authRefKind) && authRef.Name == v1beta1.ObjectName("meshtls-for-client-"+intents.Spec.Service.Name) {
 					logrus.Infof("not creating policy for policy with details, %s, %s", policy.Spec.TargetRef.Name, authRef.Name)
-					return false, nil
+					return &policy, false, nil
 				}
 			}
 		}
 	}
-	return true, nil
+	return nil, true, nil
 }
 
 func (ldm *LinkerdManager) generateLinkerdServer(

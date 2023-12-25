@@ -20,7 +20,7 @@ type LinkerdReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	RestrictedToNamespaces []string
-	linkerdManager         *linkerdmanager.LinkerdManager
+	linkerdManager         linkerdmanager.LinkerdPolicyManager
 	serviceIdResolver      serviceidresolver.ServiceResolver
 	injectablerecorder.InjectableRecorder
 }
@@ -76,6 +76,7 @@ func (r *LinkerdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// TODO: implement delete all
 	if !intents.DeletionTimestamp.IsZero() {
 		// replace with a manager for linkerd policy
+		err = r.linkerdManager.DeleteAll(ctx, intents)
 
 		if err != nil {
 			if k8serrors.IsConflict(err) {
