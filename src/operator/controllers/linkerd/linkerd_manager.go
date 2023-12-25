@@ -328,14 +328,15 @@ func (ldm *LinkerdManager) createResources(
 
 			for _, httpResource := range intent.HTTPResources {
 				httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, intent.Name, intent.Port, httpResource.Path)
+				httpRouteName = strings.Replace(httpRouteName, "/", "slash", -1)
 				route, shouldCreateRoute, err := ldm.shouldCreateHTTPRoute(ctx, *clientIntents,
-					intent, httpResource.Path)
+					intent, httpRouteName)
 				if err != nil {
 					return nil, err
 				}
 
 				if shouldCreateRoute {
-					route = ldm.generateHTTPRoute(*clientIntents, intent, s.Name, httpResource.Path,
+					route = ldm.generateHTTPRoute(*clientIntents, intent, s.Name, httpRouteName,
 						httpRouteName,
 						clientIntents.Namespace)
 					err = ldm.Client.Create(ctx, route)
