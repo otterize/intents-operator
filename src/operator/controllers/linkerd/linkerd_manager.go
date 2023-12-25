@@ -138,29 +138,34 @@ func (ldm *LinkerdManager) DeleteAll(ctx context.Context,
 	intents *otterizev1alpha3.ClientIntents) error {
 	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(intents.Spec.Service.Name, intents.Namespace)
 
-	resourceLists := map[string]client.ObjectList{
-		AuthorizationPolicies:  &authpolicy.AuthorizationPolicyList{},
-		Servers:                &linkerdserver.ServerList{},
-		MTLSAuthentications:    &authpolicy.MeshTLSAuthenticationList{},
-		NetworkAuthentications: &authpolicy.NetworkAuthenticationList{},
-		Routes:                 &authpolicy.HTTPRouteList{},
+	types := []struct {
+		resourceType string
+		resourceList client.ObjectList
+	}{
+		{resourceType: AuthorizationPolicies, resourceList: &authpolicy.AuthorizationPolicyList{}},
+		{resourceType: Servers, resourceList: &linkerdserver.ServerList{}},
+		{resourceType: MTLSAuthentications, resourceList: &authpolicy.MeshTLSAuthenticationList{}},
+		{resourceType: NetworkAuthentications, resourceList: &authpolicy.NetworkAuthenticationList{}},
+		{resourceType: Routes, resourceList: &authpolicy.HTTPRouteList{}},
 	}
 
-	for _, resourceList := range resourceLists {
-		err := ldm.Client.List(ctx, resourceList, client.MatchingLabels{v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
+	for _, t := range types {
+		err := ldm.Client.List(ctx, t.resourceList, client.MatchingLabels{v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
 		if client.IgnoreNotFound(err) != nil {
 			return err
 		}
-		resourceListValue := reflect.ValueOf(resourceList).Elem()
 
-		for _, resource := range resourceListValue.FieldByName("Items").Interface().([]client.Object) {
-			err = ldm.Client.Delete(ctx, resource)
+		resourceListValue := reflect.ValueOf(t.resourceList).Elem()
+		items := resourceListValue.FieldByName("Items")
+
+		for i := 0; i < items.Len(); i++ {
+			resource := items.Index(i).Interface()
+			err = ldm.Client.Delete(ctx, resource.(client.Object))
 			if err != nil {
 				return err
 			}
 		}
 	}
-
 	return nil
 }
 
@@ -367,20 +372,27 @@ func (ldm *LinkerdManager) createIntentPrimaryResources(ctx context.Context,
 	intent otterizev1alpha3.Intent,
 	intents otterizev1alpha3.ClientIntents,
 	clientServiceAccount string) error {
-	netAuth := ldm.generateNetworkAuthentication(intents, intent)
-	err := ldm.Client.Create(ctx, netAuth)
+	shouldCreateNetAuth, err := ldm.shouldCreateNetAuth(ctx, intents)
 	if err != nil {
 		return err
 	}
 
-	shouldCreateMeshTLS, err := ldm.shouldCreateMeshTLS(ctx, intents, intents.Spec.Service.Name)
+	if shouldCreateNetAuth {
+		netAuth := ldm.generateNetworkAuthentication(intents, intent)
+		err := ldm.Client.Create(ctx, netAuth)
+		if err != nil {
+			return err
+		}
+	}
+
+	shouldCreateMeshTLS, err := ldm.shouldCreateMeshTLS(ctx, intents)
 	if err != nil {
 		return err
 	}
 	fullServiceAccountName := fmt.Sprintf(FullServiceAccountName, clientServiceAccount, intents.Namespace)
 
 	if shouldCreateMeshTLS {
-		mtls := ldm.generateMeshTLS(intents, intent, []string{fullServiceAccountName})
+		mtls := ldm.generateMeshTLS(intents, []string{fullServiceAccountName})
 		err = ldm.Client.Create(ctx, mtls)
 		if err != nil {
 			ldm.recorder.RecordWarningEventf(&intents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd meshTLS: %s", err.Error())
@@ -471,20 +483,6 @@ func (ldm *LinkerdManager) shouldCreateHTTPRoute(ctx context.Context,
 	return nil, true, nil
 }
 
-func (ldm *LinkerdManager) shouldCreateMeshTLS(ctx context.Context, intents otterizev1alpha3.ClientIntents, clientName string) (bool, error) {
-	meshes := &authpolicy.MeshTLSAuthenticationList{}
-	err := ldm.Client.List(ctx, meshes, &client.ListOptions{Namespace: intents.Namespace})
-	if err != nil {
-		return false, err
-	}
-	for _, mesh := range meshes.Items {
-		if mesh.Name == fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, clientName) {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
 func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context,
 	intents otterizev1alpha3.ClientIntents,
 	targetName,
@@ -508,6 +506,34 @@ func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context,
 		}
 	}
 	return nil, true, nil
+}
+
+func (ldm *LinkerdManager) shouldCreateMeshTLS(ctx context.Context, intents otterizev1alpha3.ClientIntents) (bool, error) {
+	meshes := &authpolicy.MeshTLSAuthenticationList{}
+	err := ldm.Client.List(ctx, meshes, &client.ListOptions{Namespace: intents.Namespace})
+	if err != nil {
+		return false, err
+	}
+	for _, mesh := range meshes.Items {
+		if mesh.Name == fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, intents.Spec.Service.Name) {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+func (ldm *LinkerdManager) shouldCreateNetAuth(ctx context.Context, intents otterizev1alpha3.ClientIntents) (bool, error) {
+	netauths := &authpolicy.NetworkAuthenticationList{}
+	err := ldm.Client.List(ctx, netauths, &client.ListOptions{Namespace: intents.Namespace})
+	if err != nil {
+		return false, err
+	}
+	for _, netauth := range netauths.Items {
+		if netauth.Name == NetworkAuthenticationNameTemplate {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (ldm *LinkerdManager) generateLinkerdServer(
@@ -632,7 +658,6 @@ func (ldm *LinkerdManager) generateHTTPRoute(intents otterizev1alpha3.ClientInte
 
 func (ldm *LinkerdManager) generateMeshTLS(
 	intents otterizev1alpha3.ClientIntents,
-	intent otterizev1alpha3.Intent,
 	targets []string,
 ) *authpolicy.MeshTLSAuthentication {
 	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
