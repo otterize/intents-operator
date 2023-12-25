@@ -249,7 +249,7 @@ func (ldm *LinkerdManager) createResources(
 
 		if shouldCreateServer {
 			podSelector := ldm.BuildPodLabelSelectorFromIntent(intent, clientIntents.Namespace)
-			s = ldm.generateLinkerdServer(*clientIntents, intent, podSelector, intent.Port)
+			s = ldm.generateLinkerdServer(*clientIntents, intent, podSelector)
 			err = ldm.Client.Create(ctx, s)
 			if err != nil {
 				ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd server: %s", err.Error())
@@ -459,7 +459,7 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otter
 
 	// get servers in the namespace and if any of them has a label selector similar to the intents label return that server
 	for _, server := range servers.Items {
-		if intent.Port == server.Spec.Port.IntVal && server.Spec.PodSelector == &podSelector {
+		if server.Name == fmt.Sprintf(OtterizeLinkerdServerNameTemplate, intent.Name, intent.Port) {
 			return &server, false, nil
 		}
 	}
@@ -542,12 +542,11 @@ func (ldm *LinkerdManager) generateLinkerdServer(
 	intents otterizev1alpha3.ClientIntents,
 	intent otterizev1alpha3.Intent,
 	podSelector metav1.LabelSelector,
-	port int32,
 ) *linkerdserver.Server {
-	name := ldm.getServerName(intent, port)
+	name := ldm.getServerName(intent, intent.Port)
 	serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
 	linkerdServerServiceFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
-	logrus.Infof("Generating server with details: %+v, %+v, %d", linkerdServerServiceFormattedIdentity, serverNamespace, port)
+	logrus.Infof("Generating server with details: %+v, %+v, %d", linkerdServerServiceFormattedIdentity, serverNamespace, intent.Port)
 
 	s := linkerdserver.Server{
 		TypeMeta: metav1.TypeMeta{
@@ -563,7 +562,7 @@ func (ldm *LinkerdManager) generateLinkerdServer(
 		},
 		Spec: linkerdserver.ServerSpec{
 			PodSelector: &podSelector,
-			Port:        intstr.FromInt32(port),
+			Port:        intstr.FromInt32(intent.Port),
 		},
 	}
 	return &s
