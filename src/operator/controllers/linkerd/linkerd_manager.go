@@ -506,9 +506,8 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otter
 func (ldm *LinkerdManager) shouldCreateHTTPRoute(ctx context.Context,
 	intents otterizev1alpha3.ClientIntents,
 	intent otterizev1alpha3.Intent,
-	path string,
+	httpRouteName string,
 ) (*authpolicy.HTTPRoute, bool, error) {
-	httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, intent.Name, intent.Port, path)
 	routes := &authpolicy.HTTPRouteList{}
 	err := ldm.Client.List(ctx, routes, &client.ListOptions{Namespace: intents.Namespace})
 	if err != nil {
