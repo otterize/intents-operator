@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/amit7itz/goset"
 	authpolicy "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
@@ -174,22 +175,33 @@ func (ldm *LinkerdManager) deleteOutdatedResources(ctx context.Context,
 	existingPolicies authpolicy.AuthorizationPolicyList,
 	existingServers linkerdserver.ServerList,
 	existingRoutes authpolicy.HTTPRouteList) error {
-	resourceLists := map[string]interface{}{
-		AuthorizationPolicies: &existingPolicies.Items,
-		Servers:               &existingServers.Items,
-		Routes:                &existingRoutes.Items,
-	}
-
-	for resourceType, existingList := range resourceLists {
-		for _, existingResource := range *existingList.(*[]interface{}) {
-			if !validResources[resourceType].Contains(existingResource.(metav1.ObjectMetaAccessor).GetObjectMeta().GetUID()) {
-				err := ldm.Client.Delete(ctx, existingResource.(client.Object))
-				if err != nil {
-					return err
-				}
+	for _, existingPolicy := range existingPolicies.Items {
+		if !validResources[AuthorizationPolicies].Contains(existingPolicy.UID) {
+			err := ldm.Client.Delete(ctx, &existingPolicy)
+			if err != nil {
+				return err
 			}
 		}
 	}
+
+	for _, existingServer := range existingServers.Items {
+		if !validResources[Servers].Contains(existingServer.UID) {
+			err := ldm.Client.Delete(ctx, &existingServer)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	for _, existingRoute := range existingRoutes.Items {
+		if !validResources[Routes].Contains(existingRoute.UID) {
+			err := ldm.Client.Delete(ctx, &existingRoute)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -572,7 +584,8 @@ type policyOpts func(*authpolicy.AuthorizationPolicy)
 
 func addPath(path string) policyOpts {
 	return func(policy *authpolicy.AuthorizationPolicy) {
-		policy.Name += "-path-" + path
+		replacedString := strings.Replace(path, "/", "slash", -1)
+		policy.Name += "-path-" + replacedString
 	}
 }
 

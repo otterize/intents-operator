@@ -76,6 +76,7 @@ func (r *LinkerdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// TODO: implement delete all
 	if !intents.DeletionTimestamp.IsZero() {
 		// replace with a manager for linkerd policy
+		logrus.Info("initiate delete")
 		err = r.linkerdManager.DeleteAll(ctx, intents)
 
 		if err != nil {
