@@ -235,7 +235,7 @@ func (ldm *LinkerdManager) createResources(
 			)
 			continue
 		}
-		err = ldm.createIntentPrimaryResources(ctx, intent, *clientIntents, clientServiceAccount)
+		err = ldm.createIntentPrimaryResources(ctx, *clientIntents, clientServiceAccount) // TODO: move to reconciler
 		if err != nil {
 			return nil, err
 		}
@@ -254,8 +254,8 @@ func (ldm *LinkerdManager) createResources(
 				ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd server: %s", err.Error())
 				return nil, err
 			}
-			currentResources[Servers].Add(s.UID)
 		}
+		currentResources[Servers].Add(s.UID)
 
 		switch intent.Type {
 		case otterizev1alpha3.IntentTypeHTTP:
@@ -369,7 +369,6 @@ func (ldm *LinkerdManager) getServerName(intent otterizev1alpha3.Intent, port in
 }
 
 func (ldm *LinkerdManager) createIntentPrimaryResources(ctx context.Context,
-	intent otterizev1alpha3.Intent,
 	intents otterizev1alpha3.ClientIntents,
 	clientServiceAccount string) error {
 	shouldCreateNetAuth, err := ldm.shouldCreateNetAuth(ctx, intents)
@@ -378,7 +377,7 @@ func (ldm *LinkerdManager) createIntentPrimaryResources(ctx context.Context,
 	}
 
 	if shouldCreateNetAuth {
-		netAuth := ldm.generateNetworkAuthentication(intents, intent)
+		netAuth := ldm.generateNetworkAuthentication(intents)
 		err := ldm.Client.Create(ctx, netAuth)
 		if err != nil {
 			return err
@@ -445,6 +444,7 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otter
 	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
 	podSelector := ldm.BuildPodLabelSelectorFromIntent(intent, intents.Namespace)
 	servers := &linkerdserver.ServerList{}
+	logrus.Infof("shoudl create server ? %s", podSelector.String())
 	err := ldm.Client.List(ctx, servers, client.MatchingLabels{otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity})
 	if err != nil {
 		return nil, false, err
@@ -680,8 +680,7 @@ func (ldm *LinkerdManager) generateMeshTLS(
 	return &mtls
 }
 
-func (ldm *LinkerdManager) generateNetworkAuthentication(intents otterizev1alpha3.ClientIntents,
-	intent otterizev1alpha3.Intent) *authpolicy.NetworkAuthentication {
+func (ldm *LinkerdManager) generateNetworkAuthentication(intents otterizev1alpha3.ClientIntents) *authpolicy.NetworkAuthentication {
 	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
 	return &authpolicy.NetworkAuthentication{
 		TypeMeta: metav1.TypeMeta{
