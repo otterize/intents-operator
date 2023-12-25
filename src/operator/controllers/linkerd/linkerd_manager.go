@@ -3,7 +3,6 @@ package linkerdmanager
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/amit7itz/goset"
@@ -95,6 +94,7 @@ func (ldm *LinkerdManager) Create(
 		existingServers    linkerdserver.ServerList
 		existingHttpRoutes authpolicy.HTTPRouteList
 	)
+	// TODO: the struct method works here
 	err := ldm.Client.List(ctx,
 		&existingPolicies,
 		client.MatchingLabels{otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
@@ -115,7 +115,7 @@ func (ldm *LinkerdManager) Create(
 		&existingHttpRoutes,
 		client.MatchingLabels{otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
 	if err != nil {
-		ldm.recorder.RecordWarningEventf(clientIntents, ReasonGettingLinkerdPolicyFailed, "Could not get Linkerd servers: %s", err.Error())
+		ldm.recorder.RecordWarningEventf(clientIntents, ReasonGettingLinkerdPolicyFailed, "Could not get Linkerd http routes: %s", err.Error())
 		return err
 	}
 
@@ -139,32 +139,55 @@ func (ldm *LinkerdManager) DeleteAll(ctx context.Context,
 	intents *otterizev1alpha3.ClientIntents) error {
 	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(intents.Spec.Service.Name, intents.Namespace)
 
-	types := []struct {
-		resourceType string
-		resourceList client.ObjectList
-	}{
-		{resourceType: AuthorizationPolicies, resourceList: &authpolicy.AuthorizationPolicyList{}},
-		{resourceType: Servers, resourceList: &linkerdserver.ServerList{}},
-		{resourceType: MTLSAuthentications, resourceList: &authpolicy.MeshTLSAuthenticationList{}},
-		{resourceType: NetworkAuthentications, resourceList: &authpolicy.NetworkAuthenticationList{}},
-		{resourceType: Routes, resourceList: &authpolicy.HTTPRouteList{}},
+	var (
+		existingPolicies   authpolicy.AuthorizationPolicyList
+		existingServers    linkerdserver.ServerList
+		existingHttpRoutes authpolicy.HTTPRouteList
+	)
+	// TODO: the struct method works here
+	// TODO: netauth and meshtls
+	err := ldm.Client.List(ctx,
+		&existingPolicies,
+		client.MatchingLabels{otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
+	if err != nil {
+		ldm.recorder.RecordWarningEventf(intents, ReasonGettingLinkerdPolicyFailed, "Could not get Linkerd policies: %s", err.Error())
+		return err
 	}
 
-	for _, t := range types {
-		err := ldm.Client.List(ctx, t.resourceList, client.MatchingLabels{v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
-		if client.IgnoreNotFound(err) != nil {
+	err = ldm.Client.List(ctx,
+		&existingServers,
+		client.MatchingLabels{otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
+	if err != nil {
+		ldm.recorder.RecordWarningEventf(intents, ReasonGettingLinkerdPolicyFailed, "Could not get Linkerd servers: %s", err.Error())
+		return err
+	}
+
+	err = ldm.Client.List(ctx,
+		&existingHttpRoutes,
+		client.MatchingLabels{otterizev1alpha3.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
+	if err != nil {
+		ldm.recorder.RecordWarningEventf(intents, ReasonGettingLinkerdPolicyFailed, "Could not get Linkerd http routes: %s", err.Error())
+		return err
+	}
+
+	for _, existingPolicy := range existingPolicies.Items {
+		err := ldm.Client.Delete(ctx, &existingPolicy)
+		if err != nil {
 			return err
 		}
+	}
 
-		resourceListValue := reflect.ValueOf(t.resourceList).Elem()
-		items := resourceListValue.FieldByName("Items")
+	for _, existingServer := range existingServers.Items {
+		err := ldm.Client.Delete(ctx, &existingServer)
+		if err != nil {
+			return err
+		}
+	}
 
-		for i := 0; i < items.Len(); i++ {
-			resource := items.Index(i).Interface()
-			err = ldm.Client.Delete(ctx, resource.(client.Object))
-			if err != nil {
-				return err
-			}
+	for _, existingRoute := range existingHttpRoutes.Items {
+		err := ldm.Client.Delete(ctx, &existingRoute)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -284,6 +307,7 @@ func (ldm *LinkerdManager) createResources(
 
 			if !serverHasHTTPRoute && probePath != "" {
 				httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, intent.Name, intent.Port, probePath)
+				httpRouteName = strings.Replace(httpRouteName, "/", "slash", -1)
 				probePathRoute := ldm.generateHTTPRoute(*clientIntents, intent, s.Name, probePath, httpRouteName, clientIntents.Namespace)
 				err = ldm.Client.Create(ctx, probePathRoute)
 				if err != nil {
