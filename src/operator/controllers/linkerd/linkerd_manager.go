@@ -662,6 +662,10 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 	return &a
 }
 
+func StringPtr(s string) *string {
+	return &s
+}
+
 func (ldm *LinkerdManager) generateHTTPRoute(intents otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent,
 	serverName, path, name, namespace string) *authpolicy.HTTPRoute { // TODO: dont take name as an argument
 	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
@@ -678,7 +682,17 @@ func (ldm *LinkerdManager) generateHTTPRoute(intents otterizev1alpha3.ClientInte
 			},
 		},
 		Spec: authpolicy.HTTPRouteSpec{
+			CommonRouteSpec: v1beta1.CommonRouteSpec{
+				ParentRefs: []v1beta1.ParentReference{
+					{
+						Group: (*v1beta1.Group)(StringPtr("policy.linkerd.io")),
+						Kind:  (*v1beta1.Kind)(StringPtr("Server")),
+						Name:  v1beta1.ObjectName(serverName),
+					},
+				},
+			},
 			Rules: []authpolicy.HTTPRouteRule{
+
 				{
 					Matches: []authpolicy.HTTPRouteMatch{
 						{
