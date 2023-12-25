@@ -245,6 +245,7 @@ func (ldm *LinkerdManager) createResources(
 		if err != nil {
 			return nil, err
 		}
+		logrus.Info("shoudl create server result", shouldCreateServer, s.Name)
 
 		if shouldCreateServer {
 			podSelector := ldm.BuildPodLabelSelectorFromIntent(intent, clientIntents.Namespace)
@@ -452,6 +453,7 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otter
 
 	// no servers exist
 	if len(servers.Items) == 0 {
+		logrus.Info("found no servers")
 		return nil, true, nil
 	}
 
