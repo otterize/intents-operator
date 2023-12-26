@@ -3,6 +3,7 @@ package ingress_network_policy
 import (
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -101,43 +102,43 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	createdNetpols := 0
+	currentPolicies := goset.NewSet[types.NamespacedName]()
 
-	// Do all instead of affected by
 	eps, err := effectivepolicy.GetAllServiceEffectivePolicies(ctx, r.Client, &r.InjectableRecorder)
 
 	for _, ep := range eps {
 		// Return policies
-		netpolCount, err := r.ReconcileServiceEffectivePolicy(ctx, ep)
-		createdNetpols += netpolCount
+		netpols, err := r.ReconcileServiceEffectivePolicy(ctx, ep)
+		currentPolicies.Add(netpols...)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
 	// remove policies that doesn't exist in the policies list
-	err = r.removeOrphanNetworkPolicies(ctx)
+	err = r.removeOrphanNetworkPolicies(ctx, currentPolicies)
 	if err != nil {
 		r.RecordWarningEventf(intents, consts.ReasonRemovingNetworkPolicyFailed, "failed to remove network policies: %s", err.Error())
 		return ctrl.Result{}, err
 	}
 
-	if createdNetpols != 0 {
+	if currentPolicies.Len() != 0 {
 		callsCount := len(intents.GetCallsList())
 		r.RecordNormalEventf(intents, consts.ReasonCreatedNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
-		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, createdNetpols)
-		prometheus.IncrementNetpolCreated(createdNetpols)
+		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, currentPolicies.Len())
+		prometheus.IncrementNetpolCreated(currentPolicies.Len())
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *NetworkPolicyReconciler) ReconcileServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) (int, error) {
+// ReconcileServiceEffectivePolicy - reconcile ingress netpols for a service. returns the list of policies' namespaced names
+func (r *NetworkPolicyReconciler) ReconcileServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]types.NamespacedName, error) {
 	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service.Name, ep.Service.Namespace, r.enforcementDefaultState)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	createdOrUpdatedPolicies := 0
+	networkPolicies := make([]types.NamespacedName, 0)
 	for _, intentCall := range ep.CalledBy {
 		if !shouldCreatePolicy {
 			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
@@ -166,24 +167,24 @@ func (r *NetworkPolicyReconciler) ReconcileServiceEffectivePolicy(ctx context.Co
 			existingPolicy)
 		if err != nil && !k8serrors.IsNotFound(err) {
 			r.RecordWarningEventf(existingPolicy, consts.ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
-			return createdOrUpdatedPolicies, err
+			return networkPolicies, err
 		}
 
 		if k8serrors.IsNotFound(err) {
 			err = r.CreateNetworkPolicy(ctx, intentCall.Service.Namespace, intentCall.IntendedCall, newPolicy)
 			if err != nil {
-				return createdOrUpdatedPolicies, err
+				return networkPolicies, err
 			}
-			createdOrUpdatedPolicies += 1
+			networkPolicies = append(networkPolicies, types.NamespacedName{Name: newPolicy.Name, Namespace: newPolicy.Namespace})
 			continue
 		}
 		err = r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intentCall.IntendedCall, intentCall.Service.Namespace)
 		if err != nil {
-			return createdOrUpdatedPolicies, err
+			return networkPolicies, err
 		}
-		createdOrUpdatedPolicies += 1
+		networkPolicies = append(networkPolicies, types.NamespacedName{Name: newPolicy.Name, Namespace: newPolicy.Namespace})
 	}
-	return createdOrUpdatedPolicies, nil
+	return networkPolicies, nil
 }
 
 func (r *NetworkPolicyReconciler) handleNetworkPolicyCreation(
@@ -319,7 +320,7 @@ func (r *NetworkPolicyReconciler) handleIntentRemoval(
 	return nil
 }
 
-func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Context) error {
+func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Context, netpolNamesThatShouldExist *goset.Set[types.NamespacedName]) error {
 	logrus.Info("Searching for orphaned network policies")
 	networkPolicyList := &v1.NetworkPolicyList{}
 	selector, err := matchAccessNetworkPolicy()
@@ -335,21 +336,9 @@ func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Contex
 
 	logrus.Infof("Selector: %s found %d network policies", selector.String(), len(networkPolicyList.Items))
 	for _, networkPolicy := range networkPolicyList.Items {
-		// Get all client intents that reference this network policy
-		var intentsList otterizev1alpha3.ClientIntentsList
-		serverName := networkPolicy.Labels[otterizev1alpha3.OtterizeNetworkPolicy]
-		clientNamespace := networkPolicy.Spec.Ingress[0].From[0].NamespaceSelector.MatchLabels[otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey]
-		err = r.List(
-			ctx,
-			&intentsList,
-			&client.MatchingFields{otterizev1alpha3.OtterizeFormattedTargetServerIndexField: serverName},
-			&client.ListOptions{Namespace: clientNamespace},
-		)
-		if err != nil {
-			return err
-		}
-
-		if len(intentsList.Items) == 0 {
+		namespacedName := types.NamespacedName{Namespace: networkPolicy.Namespace, Name: networkPolicy.Name}
+		if !netpolNamesThatShouldExist.Contains(namespacedName) {
+			serverName := networkPolicy.Labels[otterizev1alpha3.OtterizeNetworkPolicy]
 			logrus.Infof("Removing orphaned network policy: %s server %s ns %s", networkPolicy.Name, serverName, networkPolicy.Namespace)
 			err = r.removeNetworkPolicy(ctx, networkPolicy)
 			if err != nil {

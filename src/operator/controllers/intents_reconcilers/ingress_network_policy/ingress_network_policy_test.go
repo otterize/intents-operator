@@ -382,27 +382,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 			return nil
 		})
 
-	serverLabelSelector := client.MatchingFields{otterizev1alpha3.OtterizeFormattedTargetServerIndexField: existingPolicy.Labels[otterizev1alpha3.OtterizeNetworkPolicy]}
-	s.Client.EXPECT().List(
-		gomock.Any(),
-		gomock.Eq(&otterizev1alpha3.ClientIntentsList{}),
-		&serverLabelSelector).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, options ...client.ListOption) error {
-			list.Items = []otterizev1alpha3.ClientIntents{clientIntents}
-			return nil
-		})
-
-	orphanServerLabelSelector := client.MatchingFields{otterizev1alpha3.OtterizeFormattedTargetServerIndexField: orphanPolicy.Labels[otterizev1alpha3.OtterizeNetworkPolicy]}
-	s.Client.EXPECT().List(
-		gomock.Any(),
-		gomock.Eq(&otterizev1alpha3.ClientIntentsList{}),
-		&orphanServerLabelSelector).DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, options ...client.ListOption) error {
-			// There are no ClientIntents for this NetworkPolicy, so it should be deleted
-			list.Items = []otterizev1alpha3.ClientIntents{}
-			return nil
-		})
-
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), orphanPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(orphanPolicy)).Return(nil)
 
