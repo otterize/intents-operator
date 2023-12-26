@@ -402,6 +402,7 @@ enum EventType {
 	INTENTS_APPLIED_KAFKA
 	INTENTS_APPLIED_HTTP
 	INTENTS_APPLIED_DATABASE
+	INTENTS_APPLIED_INTERNET
 	INTENTS_DISCOVERED
 	INTENTS_DISCOVERED_SOCKET_SCAN
 	INTENTS_DISCOVERED_CAPTURE
@@ -545,6 +546,7 @@ input IntentInput {
 	resources: [HTTPConfigInput!]
 	databaseResources: [DatabaseConfigInput!]
 	awsActions: [String!]
+	internet: InternetConfigInput
 	status: IntentStatusInput
 }
 
@@ -565,6 +567,7 @@ enum IntentType {
 	DATABASE
 	AWS
 	S3
+	INTERNET
 }
 
 type IntentsOperatorComponent {
@@ -588,6 +591,11 @@ input IntentsOperatorConfigurationInput {
 	kafkaACLEnforcementEnabled: Boolean
 	istioPolicyEnforcementEnabled: Boolean
 	protectedServicesEnabled: Boolean
+}
+
+input InternetConfigInput {
+	ips: [String!]!
+	ports: [Int!]
 }
 
 type Invite {
