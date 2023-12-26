@@ -12,7 +12,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,6 +22,7 @@ import (
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"slices"
 	"strings"
 )
 
@@ -70,6 +70,13 @@ func (r *InternetNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	hasAnyInternetIntents := slices.ContainsFunc(intents.GetCallsList(), func(intent otterizev1alpha3.Intent) bool {
+		return intent.Type == otterizev1alpha3.IntentTypeInternet
+	})
+	if !hasAnyInternetIntents {
+		return ctrl.Result{}, nil
+	}
+
 	logrus.Infof("Reconciling internet network policies for service %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
 
@@ -90,14 +97,6 @@ func (r *InternetNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctr
 	if !r.enableNetworkPolicyCreation {
 		logrus.Infof("Network policy creation is disabled, skipping internet network policy creation for service %s in namespace %s", intents.Spec.Service.Name, req.Namespace)
 		r.RecordNormalEvent(intents, consts.ReasonEgressNetworkPolicyCreationDisabled, "Network policy creation is disabled, internet network policy creation skipped")
-		return ctrl.Result{}, nil
-	}
-
-	hasAnyInternetIntents := slices.ContainsFunc(intents.GetCallsList(), func(intent otterizev1alpha3.Intent) bool {
-		return intent.Type == otterizev1alpha3.IntentTypeInternet
-	})
-
-	if !hasAnyInternetIntents {
 		return ctrl.Result{}, nil
 	}
 

@@ -2,7 +2,6 @@ package internet_network_policy
 
 import (
 	"context"
-	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
@@ -715,7 +714,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNotInWatchedNamespaces() 
 func (s *InternetNetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
-	serverNamespace := "other-namespace"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testServerNamespace,
@@ -725,12 +723,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 		NamespacedName: namespacedName,
 	}
 
-	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
 	intentsSpec := &otterizev1alpha3.IntentsSpec{
 		Service: otterizev1alpha3.Service{Name: serviceName},
 		Calls: []otterizev1alpha3.Intent{
 			{
-				Name: serverName,
+				Type: otterizev1alpha3.IntentTypeInternet,
+				Internet: otterizev1alpha3.Internet{
+					Ips: []string{"1.1.1.1/32"},
+				},
 			},
 		},
 	}
