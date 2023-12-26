@@ -41,6 +41,25 @@ type NetworkPolicyReconcilerTestSuite struct {
 	externalNetpolHandler *mocks.MockexternalNetpolHandler
 }
 
+//type MatchingFieldsMatcher struct {
+//	expected client.MatchingFields
+//}
+//
+//func (m *MatchingFieldsMatcher) Matches(x interface{}) bool {
+//	if x == nil {
+//		return false
+//	}
+//	matchingLabels, ok := x.(client.MatchingFields)
+//	if !ok {
+//		return false
+//	}
+//	return m.expected. == matchingLabels.String()
+//}
+//
+//func (m *MatchingFieldsMatcher) String() string {
+//	return m.expected.String()
+//}
+
 func init() {
 	logrus.SetLevel(logrus.DebugLevel)
 }
@@ -267,11 +286,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(newPolicy), intents_reconcilers.MatchPatch(client.MergeFrom(existingBadPolicy))).Return(nil)
 	s.ignoreRemoveOrphan()
 
-	clientIntentsList := otterizev1alpha3.ClientIntentsList{}
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&clientIntentsList), gomock.Any()).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
-		list.Items = append(list.Items, otterizev1alpha3.ClientIntents{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}, Spec: intentsSpec})
-		return nil
-	})
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{ObjectMeta: metav1.ObjectMeta{Namespace: req.Namespace, Name: req.Name}, Spec: intentsSpec}})
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -391,11 +406,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), orphanPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(orphanPolicy)).Return(nil)
 
-	clientIntentsList := otterizev1alpha3.ClientIntentsList{}
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&clientIntentsList), gomock.Any()).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
-		list.Items = append(list.Items, otterizev1alpha3.ClientIntents{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}, Spec: intentsSpec})
-		return nil
-	})
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{ObjectMeta: metav1.ObjectMeta{Namespace: req.Namespace, Name: req.Name}, Spec: intentsSpec}})
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -492,6 +503,36 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	s.Empty(res)
 }
 
+func (s *NetworkPolicyReconcilerTestSuite) expectGetAllEffectivePolicies(clientIntents []otterizev1alpha3.ClientIntents) {
+	var intentsList otterizev1alpha3.ClientIntentsList
+
+	s.Client.EXPECT().List(gomock.Any(), &intentsList).DoAndReturn(func(_ context.Context, intents *otterizev1alpha3.ClientIntentsList, _ ...any) error {
+		intents.Items = append(intents.Items, clientIntents...)
+		return nil
+	})
+
+	// create service to ClientIntents pointing to it
+	services := make(map[string][]otterizev1alpha3.ClientIntents)
+	for _, clientIntent := range clientIntents {
+		for _, intentCall := range clientIntent.GetCallsList() {
+			server := otterizev1alpha3.GetFormattedOtterizeIdentity(intentCall.GetTargetServerName(), intentCall.GetTargetServerNamespace(clientIntent.Namespace))
+			services[server] = append(services[server], clientIntent)
+		}
+	}
+
+	matchFieldsPtr := &client.MatchingFields{}
+	s.Client.EXPECT().List(
+		gomock.Any(),
+		&otterizev1alpha3.ClientIntentsList{},
+		gomock.AssignableToTypeOf(matchFieldsPtr),
+	).DoAndReturn(func(_ context.Context, intents *otterizev1alpha3.ClientIntentsList, args ...any) error {
+		matchFields := args[0].(*client.MatchingFields)
+		intents.Items, _ = services[(*matchFields)[otterizev1alpha3.OtterizeFormattedTargetServerIndexField]]
+		return nil
+	}).AnyTimes()
+
+}
+
 func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	clientIntentsName string,
 	serverNamespace string,
@@ -526,18 +567,20 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 			return nil
 		})
 
-	clientIntentsList := otterizev1alpha3.ClientIntentsList{}
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&clientIntentsList), gomock.Any()).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
-		list.Items = append(list.Items, otterizev1alpha3.ClientIntents{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}, Spec: intentsSpec})
-		return nil
-	})
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
+
+	//clientIntentsList := otterizev1alpha3.ClientIntentsList{}
+	//s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&clientIntentsList), gomock.Any()).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
+	//	list.Items = append(list.Items, otterizev1alpha3.ClientIntents{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}, Spec: intentsSpec})
+	//	return nil
+	//})
 
 	if defaultEnforcementState == false {
 		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
 			func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
 				list.Items = append(list.Items, protectedServices...)
 				return nil
-			})
+			}).AnyTimes()
 	}
 
 	// Search for existing NetworkPolicy
@@ -654,11 +697,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 
 	s.ignoreRemoveOrphan()
 
-	clientIntentsList := otterizev1alpha3.ClientIntentsList{}
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&clientIntentsList), gomock.Any()).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
-		list.Items = append(list.Items, otterizev1alpha3.ClientIntents{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}, Spec: intentsSpec})
-		return nil
-	})
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{ObjectMeta: metav1.ObjectMeta{Namespace: req.Namespace, Name: req.Name}, Spec: intentsSpec}})
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
@@ -749,15 +788,11 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
 			return nil
-		})
+		}).AnyTimes()
 
 	s.ignoreRemoveOrphan()
 
-	clientIntentsList := otterizev1alpha3.ClientIntentsList{}
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&clientIntentsList), gomock.Any()).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
-		list.Items = append(list.Items, otterizev1alpha3.ClientIntents{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}, Spec: intentsSpec})
-		return nil
-	})
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{ObjectMeta: metav1.ObjectMeta{Namespace: req.Namespace, Name: req.Name}, Spec: intentsSpec}})
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -816,11 +851,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 			return nil
 		})
 
-	clientIntentsList := otterizev1alpha3.ClientIntentsList{}
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&clientIntentsList), gomock.Any()).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
-		list.Items = append(list.Items, otterizev1alpha3.ClientIntents{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}, Spec: intentsSpec})
-		return nil
-	})
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
 
 	s.ignoreRemoveOrphan()
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).AnyTimes().DoAndReturn(

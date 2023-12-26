@@ -104,7 +104,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	createdNetpols := 0
 
 	// Do all instead of affected by
-	eps, err := effectivepolicy.GetServiceEffectivePoliciesAffectedByIntent(ctx, r.Client, intents, &r.InjectableRecorder)
+	eps, err := effectivepolicy.GetAllServiceEffectivePolicies(ctx, r.Client, &r.InjectableRecorder)
 
 	for _, ep := range eps {
 		// Return policies

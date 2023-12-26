@@ -2,6 +2,7 @@ package effectivepolicy
 
 import (
 	"context"
+	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -34,6 +35,36 @@ func GetServiceEffectivePoliciesAffectedByIntent(ctx context.Context, k8sClient 
 	return epSlice, nil
 }
 
+func GetAllServiceEffectivePolicies(ctx context.Context, k8sClient client.Client, eventRecorder *injectablerecorder.InjectableRecorder) ([]ServiceEffectivePolicy, error) {
+	var intentsList v1alpha3.ClientIntentsList
+
+	err := k8sClient.List(ctx, &intentsList)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract all services from intents
+	services := goset.NewSet[serviceidentity.ServiceIdentity]()
+	for _, clientIntent := range intentsList.Items {
+		services.Add(serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace})
+		for _, intentCall := range clientIntent.GetCallsList() {
+			services.Add(serviceidentity.ServiceIdentity{Name: intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(clientIntent.Namespace)})
+		}
+	}
+
+	// Build SEP for every service
+	epSlice := make([]ServiceEffectivePolicy, 0)
+	for _, service := range services.Items() {
+		ep, err := BuildServiceEffectivePolicy(ctx, k8sClient, service, eventRecorder)
+		if err != nil {
+			return nil, err
+		}
+		epSlice = append(epSlice, ep)
+	}
+
+	return epSlice, nil
+}
+
 func BuildServiceEffectivePolicy(ctx context.Context, k8sClient client.Client, service serviceidentity.ServiceIdentity, eventRecorder *injectablerecorder.InjectableRecorder) (ServiceEffectivePolicy, error) {
 	relevantClientIntents, err := getClientIntentsByServer(ctx, k8sClient, service)
 	if err != nil {
@@ -57,9 +88,11 @@ func BuildServiceEffectivePolicy(ctx context.Context, k8sClient client.Client, s
 
 func getClientIntentsByServer(ctx context.Context, k8sClient client.Client, server serviceidentity.ServiceIdentity) ([]v1alpha3.ClientIntents, error) {
 	var intentsList v1alpha3.ClientIntentsList
+	matchFields := client.MatchingFields{v1alpha3.OtterizeFormattedTargetServerIndexField: v1alpha3.GetFormattedOtterizeIdentity(server.Name, server.Namespace)}
 	err := k8sClient.List(
 		ctx, &intentsList,
-		&client.MatchingFields{v1alpha3.OtterizeFormattedTargetServerIndexField: v1alpha3.GetFormattedOtterizeIdentity(server.Name, server.Namespace)})
+		&matchFields,
+	)
 
 	if err != nil {
 		return nil, err
