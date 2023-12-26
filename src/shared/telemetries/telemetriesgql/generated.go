@@ -39,6 +39,7 @@ const (
 	EventTypeIntentsAppliedKafka         EventType = "INTENTS_APPLIED_KAFKA"
 	EventTypeIntentsAppliedHttp          EventType = "INTENTS_APPLIED_HTTP"
 	EventTypeIntentsAppliedDatabase      EventType = "INTENTS_APPLIED_DATABASE"
+	EventTypeIntentsAppliedInternet      EventType = "INTENTS_APPLIED_INTERNET"
 	EventTypeIntentsDiscovered           EventType = "INTENTS_DISCOVERED"
 	EventTypeIntentsDiscoveredSocketScan EventType = "INTENTS_DISCOVERED_SOCKET_SCAN"
 	EventTypeIntentsDiscoveredCapture    EventType = "INTENTS_DISCOVERED_CAPTURE"

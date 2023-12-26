@@ -328,6 +328,8 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 		return graphqlclient.IntentTypeDatabase
 	case IntentTypeAWS:
 		return graphqlclient.IntentTypeAws
+	case IntentTypeInternet:
+		return graphqlclient.IntentTypeInternet
 	default:
 		panic("Not supposed to reach here")
 	}
@@ -513,6 +515,15 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 			}
 			return &databaseConfigInput
 		})
+	}
+
+	if in.Internet.Ips != nil {
+		intentInput.Internet = &graphqlclient.InternetConfigInput{
+			Ips: lo.ToSlicePtr(in.Internet.Ips),
+		}
+		if in.Internet.Ports != nil && len(in.Internet.Ports) != 0 {
+			intentInput.Internet.Ports = lo.ToSlicePtr(in.Internet.Ports)
+		}
 	}
 
 	if len(in.AWSActions) != 0 {
