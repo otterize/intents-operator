@@ -6,6 +6,7 @@ const (
 	ReasonNetworkPolicyCreationDisabled                 = "NetworkPolicyCreationDisabled"
 	ReasonGettingNetworkPolicyFailed                    = "GettingNetworkPolicyFailed"
 	ReasonRemovingNetworkPolicyFailed                   = "RemovingNetworkPolicyFailed"
+	ReasonReconcilingNetworkPolicyFailed                = "ReconcilingNetworkPolicyFailed"
 	ReasonNamespaceNotAllowed                           = "NamespaceNotAllowed"
 	ReasonCreatingNetworkPoliciesFailed                 = "CreatingNetworkPoliciesFailed"
 	ReasonCreatedNetworkPolicies                        = "CreatedNetworkPolicies"
