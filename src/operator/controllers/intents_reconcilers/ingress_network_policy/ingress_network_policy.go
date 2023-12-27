@@ -154,7 +154,7 @@ func (r *NetworkPolicyReconciler) ReconcileServiceEffectivePolicy(ctx context.Co
 		}
 
 		if k8serrors.IsNotFound(err) {
-			err = r.CreateNetworkPolicy(ctx, intentCall.Service.Namespace, intentCall.IntendedCall, newPolicy)
+			err = r.createNetworkPolicy(ctx, intentCall.Service.Namespace, intentCall.IntendedCall, newPolicy)
 			if err != nil {
 				return networkPolicies, err
 			}
@@ -162,7 +162,7 @@ func (r *NetworkPolicyReconciler) ReconcileServiceEffectivePolicy(ctx context.Co
 			prometheus.IncrementNetpolCreated(1)
 			continue
 		}
-		err = r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy)
+		err = r.updateExistingPolicy(ctx, existingPolicy, newPolicy)
 		if err != nil {
 			return networkPolicies, err
 		}
@@ -171,7 +171,7 @@ func (r *NetworkPolicyReconciler) ReconcileServiceEffectivePolicy(ctx context.Co
 	return networkPolicies, nil
 }
 
-func (r *NetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) error {
+func (r *NetworkPolicyReconciler) updateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) error {
 	if !reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
 		policyCopy := existingPolicy.DeepCopy()
 		policyCopy.Labels = newPolicy.Labels
@@ -187,7 +187,7 @@ func (r *NetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, exis
 	return nil
 }
 
-func (r *NetworkPolicyReconciler) CreateNetworkPolicy(ctx context.Context, intentsObjNamespace string, intent otterizev1alpha3.Intent, newPolicy *v1.NetworkPolicy) error {
+func (r *NetworkPolicyReconciler) createNetworkPolicy(ctx context.Context, intentsObjNamespace string, intent otterizev1alpha3.Intent, newPolicy *v1.NetworkPolicy) error {
 	logrus.Infof(
 		"Creating network policy to enable access from namespace %s to %s", intentsObjNamespace, intent.Name)
 	err := r.Create(ctx, newPolicy)
@@ -205,44 +205,6 @@ func (r *NetworkPolicyReconciler) reconcileEndpointsForPolicy(ctx context.Contex
 	}
 	// Use the external netpolHandler to check if pods got affected and if so, if they need external allow policies
 	return r.extNetpolHandler.HandlePodsByLabelSelector(ctx, newPolicy.Namespace, selector)
-}
-
-func (r *NetworkPolicyReconciler) handleIntentRemoval(
-	ctx context.Context,
-	intent otterizev1alpha3.Intent,
-	intentsObjNamespace string) error {
-
-	var intentsList otterizev1alpha3.ClientIntentsList
-	err := r.List(
-		ctx, &intentsList,
-		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: intent.GetServerFullyQualifiedName(intentsObjNamespace)},
-		&client.ListOptions{Namespace: intentsObjNamespace})
-
-	if err != nil {
-		return err
-	}
-
-	if len(intentsList.Items) == 1 {
-		// We have only 1 intents resource that has this server as its target - and it's the current one
-		// We need to delete the network policy that allows access from this namespace, as there are no other
-		// clients in that namespace that need to access the target server
-		logrus.Infof("No other intents in the namespace reference target server: %s", intent.Name)
-		logrus.Infoln("Removing matching network policy for server")
-		if err = r.deleteNetworkPolicy(ctx, intent, intentsObjNamespace); err != nil {
-			return err
-		}
-
-		labelSelector := r.buildPodLabelSelectorFromIntent(intent, intentsObjNamespace)
-		selector, err := metav1.LabelSelectorAsSelector(&labelSelector)
-		if err != nil {
-			return err
-		}
-		if err = r.extNetpolHandler.HandlePodsByLabelSelector(ctx, intent.GetTargetServerNamespace(intentsObjNamespace), selector); err != nil {
-			return err
-		}
-
-	}
-	return nil
 }
 
 func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Context, netpolNamesThatShouldExist *goset.Set[types.NamespacedName]) error {
@@ -305,24 +267,6 @@ func matchAccessNetworkPolicy() (labels.Selector, error) {
 		isNotExternalTrafficPolicy,
 		isNotDefaultDenyPolicy,
 	}})
-}
-
-func (r *NetworkPolicyReconciler) deleteNetworkPolicy(
-	ctx context.Context,
-	intent otterizev1alpha3.Intent,
-	intentsObjNamespace string) error {
-
-	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, intent.GetTargetServerName(), intentsObjNamespace)
-	policy := &v1.NetworkPolicy{}
-	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.GetTargetServerNamespace(intentsObjNamespace)}, policy)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-		return err
-	}
-
-	return r.removeNetworkPolicy(ctx, *policy)
 }
 
 func (r *NetworkPolicyReconciler) CleanPoliciesFromUnprotectedServices(ctx context.Context, namespace string) error {
