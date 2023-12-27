@@ -92,7 +92,6 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	currentPolicies := goset.NewSet[types.NamespacedName]()
 	eps, err := effectivepolicy.GetAllServiceEffectivePolicies(ctx, r.Client, &r.InjectableRecorder)
 	for _, ep := range eps {
-		// Return policies
 		netpols, err := r.ReconcileServiceEffectivePolicy(ctx, ep)
 		currentPolicies.Add(netpols...)
 		if err != nil {
