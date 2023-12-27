@@ -9,6 +9,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/prometheus"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
@@ -69,8 +70,6 @@ func NewNetworkPolicyReconciler(
 	}
 }
 
-// TODO: Should get all the effective policies
-
 func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	intents := &otterizev1alpha3.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
@@ -79,7 +78,7 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if intents.Spec == nil {
@@ -89,29 +88,40 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	logrus.Infof("Reconciling network policies for service %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
 
-	currentPolicies := goset.NewSet[types.NamespacedName]()
 	eps, err := effectivepolicy.GetAllServiceEffectivePolicies(ctx, r.Client, &r.InjectableRecorder)
+	currentPolicyCount, err := r.ReconcileEffectivePolicies(ctx, eps)
+	if err != nil {
+		r.RecordWarningEventf(intents, consts.ReasonReconcilingNetworkPolicyFailed, "failed to reconcile network policies: %s", err.Error())
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
+	if callsCount := len(intents.GetCallsList()); currentPolicyCount > 0 && callsCount > 0 {
+		r.RecordNormalEventf(intents, consts.ReasonCreatedNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
+	}
+	return ctrl.Result{}, nil
+}
+
+// ReconcileEffectivePolicies Gets current state of effective policies and returns number of network policies
+func (r *NetworkPolicyReconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, error) {
+	currentPolicies := goset.NewSet[types.NamespacedName]()
 	for _, ep := range eps {
 		netpols, err := r.ReconcileServiceEffectivePolicy(ctx, ep)
 		currentPolicies.Add(netpols...)
 		if err != nil {
-			return ctrl.Result{}, err
+			return 0, errors.Wrap(err)
 		}
 	}
 
 	// remove policies that doesn't exist in the policy list
-	err = r.removeOrphanNetworkPolicies(ctx, currentPolicies)
+	err := r.removeOrphanNetworkPolicies(ctx, currentPolicies)
 	if err != nil {
-		r.RecordWarningEventf(intents, consts.ReasonRemovingNetworkPolicyFailed, "failed to remove network policies: %s", err.Error())
-		return ctrl.Result{}, err
+		return 0, errors.Wrap(err)
 	}
 
 	if currentPolicies.Len() != 0 {
-		callsCount := len(intents.GetCallsList())
-		r.RecordNormalEventf(intents, consts.ReasonCreatedNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
 		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, currentPolicies.Len())
 	}
-	return ctrl.Result{}, nil
+	return currentPolicies.Len(), nil
 }
 
 // ReconcileServiceEffectivePolicy - reconcile ingress netpols for a service. returns the list of policies' namespaced names
