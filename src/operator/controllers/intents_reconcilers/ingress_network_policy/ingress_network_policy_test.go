@@ -429,32 +429,10 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 			return nil
 		})
 
-	// Search for client intents with the same target server and delete them if it's the last client intent pointing to the server
-	emptyIntentsList := &otterizev1alpha3.ClientIntentsList{}
-	intentsList := &otterizev1alpha3.ClientIntentsList{
-		Items: []otterizev1alpha3.ClientIntents{
-			clientIntentsObj,
-		},
-	}
-	s.Client.EXPECT().List(
-		gomock.Any(),
-		gomock.Eq(emptyIntentsList),
-		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: serverName},
-		&client.ListOptions{Namespace: testNamespace},
-	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
-		intentsList.DeepCopyInto(list)
-		return nil
-	})
-
 	// Remove network policy:
-	// 1. get the network policy
+	// 1. Calls remove orphan
 	// 2. delete it
 	// 3.call external netpol handler
-
-	networkPolicyNamespacedName := types.NamespacedName{
-		Namespace: serverNamespace,
-		Name:      policyName,
-	}
 
 	existingPolicy := networkPolicyTemplate(
 		policyName,
@@ -463,20 +441,16 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 		testNamespace,
 	)
 
-	emptyNetworkPolicy := &v1.NetworkPolicy{}
-	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
-			existingPolicy.DeepCopyInto(networkPolicy)
-			return nil
-		})
-
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), existingPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
-	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
-	}))
-	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
+	// TODO: Why did we need it?
+	//selector := labels.SelectorFromSet(labels.Set(map[string]string{
+	//	otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
+	//}))
+	//s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
 
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntentsObj})
+	s.expectRemoveOrphanFindsPolicies([]v1.NetworkPolicy{*existingPolicy})
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
@@ -612,6 +586,33 @@ func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
 	s.Require().NoError(err)
 
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), &client.ListOptions{LabelSelector: selector}).Return(nil)
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) expectRemoveOrphanFindsPolicies(netpols []v1.NetworkPolicy) {
+	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
+			Operator: metav1.LabelSelectorOpExists,
+		},
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
+			Operator: metav1.LabelSelectorOpDoesNotExist,
+		},
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
+			Operator: metav1.LabelSelectorOpDoesNotExist,
+		},
+	}})
+	s.Require().NoError(err)
+
+	s.Client.EXPECT().List(
+		gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), &client.ListOptions{LabelSelector: selector},
+	).DoAndReturn(
+		func(_ context.Context, netpolList *v1.NetworkPolicyList, _ ...any) error {
+			netpolList.Items = append(netpolList.Items, netpols...)
+			return nil
+		},
+	)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
@@ -844,9 +845,17 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWithSameServer() {
+	// This test checks that if a netpol created by 2 different intents and 1 of them is being deleted,
+	// then the netpol won't be deleted.
+	// The flow of the reconciler should be:
+	// 	  1. get all effective policies
+	//    2. get existing policy and not update because it is equal
+	//    3. check if deletion is needed (the answer should be no)
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
-	serverNamespace := "other-namespace"
+	serverNamespace := testNamespace
+	policyName := "access-to-test-server-from-test-namespace"
+	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
@@ -884,7 +893,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 		})
 
 	// Search for client intents with the same target server and delete them if it's the last client intent pointing to the server
-	emptyIntentsList := &otterizev1alpha3.ClientIntentsList{}
 
 	otherClientIntentsInTheNamespace := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
@@ -900,28 +908,36 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 			},
 		},
 	}
-	intentsList := &otterizev1alpha3.ClientIntentsList{
-		Items: []otterizev1alpha3.ClientIntents{
-			clientIntentsObj,
-			otherClientIntentsInTheNamespace,
-		},
+
+	// Search for existing NetworkPolicy
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	networkPolicyNamespacedName := types.NamespacedName{
+		Namespace: serverNamespace,
+		Name:      policyName,
 	}
-	s.Client.EXPECT().List(
-		gomock.Any(),
-		gomock.Eq(emptyIntentsList),
-		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: serverName},
-		&client.ListOptions{Namespace: testNamespace},
-	).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
-		intentsList.DeepCopyInto(list)
-		return nil
-	})
+
+	newPolicy := networkPolicyTemplate(
+		policyName,
+		serverNamespace,
+		formattedTargetServer,
+		testNamespace,
+	)
+
+	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			newPolicy.DeepCopyInto(networkPolicy)
+			return nil
+		})
+
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntentsObj, otherClientIntentsInTheNamespace})
+	s.expectRemoveOrphanFindsPolicies([]v1.NetworkPolicy{*newPolicy})
 
 	// Shouldn't remove NetworkPolicy from this namespace
 	// because there is another client with the same target server
-
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
+	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestAllServerAreProtected() {
