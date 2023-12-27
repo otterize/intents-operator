@@ -215,6 +215,17 @@ spec:
                         - databaseName
                         type: object
                       type: array
+                    internet:
+                      properties:
+                        ips:
+                          items:
+                            type: string
+                          type: array
+                        ports:
+                          items:
+                            type: integer
+                          type: array
+                      type: object
                     kafkaTopics:
                       items:
                         properties:
@@ -249,9 +260,8 @@ spec:
                       - kafka
                       - database
                       - aws
+                      - internet
                       type: string
-                  required:
-                  - name
                   type: object
                 type: array
               service:

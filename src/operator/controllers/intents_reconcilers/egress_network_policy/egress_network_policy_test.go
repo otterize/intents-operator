@@ -575,10 +575,6 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 		})
 
 	s.ignoreRemoveOrphan()
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).AnyTimes().DoAndReturn(
-		func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
-			return nil
-		})
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
