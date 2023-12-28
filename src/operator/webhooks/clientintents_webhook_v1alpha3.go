@@ -177,7 +177,7 @@ func (v *IntentsValidatorV1alpha3) validateSpec(intents *otterizev1alpha3.Client
 					return &field.Error{
 						Type:     field.ErrorTypeInvalid,
 						Field:    "ips",
-						Detail:   fmt.Sprintf("should be value IP address or CIDR"),
+						Detail:   "should be value IP address or CIDR",
 						BadValue: ip,
 					}
 				}
