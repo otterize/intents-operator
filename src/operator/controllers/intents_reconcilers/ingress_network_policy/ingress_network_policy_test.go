@@ -106,7 +106,6 @@ func (s *NetworkPolicyReconcilerTestSuite) ExpectEvent(expectedEventReason strin
 	default:
 		return
 	}
-	return
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServices() {
