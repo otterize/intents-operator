@@ -96,7 +96,6 @@ func NewIntentsReconciler(
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
-		networkPolicyReconciler,
 	}
 	reconcilers = append(reconcilers, additionalReconcilers...)
 	reconcilersGroup := reconcilergroup.NewGroup(

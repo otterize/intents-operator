@@ -28,6 +28,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
@@ -201,8 +202,12 @@ func main() {
 		enforcementConfig.EnforcementDefaultState,
 		allowExternalTraffic,
 	)
-	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
+	epSyncer := effectivepolicy.NewSyncer(mgr.GetClient(), scheme, networkPolicyHandler)
+	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epSyncer)
+	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
+	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
 		if err != nil {

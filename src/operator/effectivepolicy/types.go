@@ -18,21 +18,9 @@ type ClientCall struct {
 }
 
 type ServiceEffectivePolicy struct {
-	Service  serviceidentity.ServiceIdentity
-	CalledBy []ClientCall
-}
-
-func GetServiceEffectivePoliciesAffectedByIntent(ctx context.Context, k8sClient client.Client, intents *v1alpha3.ClientIntents, eventRecorder *injectablerecorder.InjectableRecorder) ([]ServiceEffectivePolicy, error) {
-	epSlice := make([]ServiceEffectivePolicy, 0)
-	for _, intentCall := range intents.GetCallsList() {
-		serverService := serviceidentity.ServiceIdentity{Name: intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(intents.Namespace)}
-		ep, err := BuildServiceEffectivePolicy(ctx, k8sClient, serverService, eventRecorder)
-		if err != nil {
-			return nil, err
-		}
-		epSlice = append(epSlice, ep)
-	}
-	return epSlice, nil
+	Service      serviceidentity.ServiceIdentity
+	CalledBy     []ClientCall
+	ClientIntent *v1alpha3.ClientIntents
 }
 
 func GetAllServiceEffectivePolicies(ctx context.Context, k8sClient client.Client, eventRecorder *injectablerecorder.InjectableRecorder) ([]ServiceEffectivePolicy, error) {
@@ -43,10 +31,13 @@ func GetAllServiceEffectivePolicies(ctx context.Context, k8sClient client.Client
 		return nil, err
 	}
 
+	serviceToIntent := make(map[serviceidentity.ServiceIdentity]v1alpha3.ClientIntents)
 	// Extract all services from intents
 	services := goset.NewSet[serviceidentity.ServiceIdentity]()
 	for _, clientIntent := range intentsList.Items {
-		services.Add(serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace})
+		service := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace}
+		services.Add(service)
+		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
 			services.Add(serviceidentity.ServiceIdentity{Name: intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(clientIntent.Namespace)})
 		}
@@ -58,6 +49,9 @@ func GetAllServiceEffectivePolicies(ctx context.Context, k8sClient client.Client
 		ep, err := BuildServiceEffectivePolicy(ctx, k8sClient, service, eventRecorder)
 		if err != nil {
 			return nil, err
+		}
+		if intent, ok := serviceToIntent[service]; ok {
+			ep.ClientIntent = lo.ToPtr(intent)
 		}
 		epSlice = append(epSlice, ep)
 	}
@@ -82,7 +76,6 @@ func BuildServiceEffectivePolicy(ctx context.Context, k8sClient client.Client, s
 			ep.CalledBy = append(ep.CalledBy, ClientCall{Service: clientService, IntendedCall: intendedCall, ObjectEventRecorder: objEventRecorder})
 		}
 	}
-
 	return ep, nil
 }
 

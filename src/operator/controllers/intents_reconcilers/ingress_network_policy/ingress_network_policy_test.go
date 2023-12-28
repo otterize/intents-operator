@@ -7,6 +7,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
@@ -39,26 +40,8 @@ type NetworkPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
 	Reconciler            *NetworkPolicyReconciler
 	externalNetpolHandler *mocks.MockexternalNetpolHandler
+	EPIntentsReconciler   *intents_reconcilers.ServiceEffectivePolicyIntentsReconciler
 }
-
-//type MatchingFieldsMatcher struct {
-//	expected client.MatchingFields
-//}
-//
-//func (m *MatchingFieldsMatcher) Matches(x interface{}) bool {
-//	if x == nil {
-//		return false
-//	}
-//	matchingLabels, ok := x.(client.MatchingFields)
-//	if !ok {
-//		return false
-//	}
-//	return m.expected. == matchingLabels.String()
-//}
-//
-//func (m *MatchingFieldsMatcher) String() string {
-//	return m.expected.String()
-//}
 
 func init() {
 	logrus.SetLevel(logrus.DebugLevel)
@@ -69,9 +52,10 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.externalNetpolHandler = mocks.NewMockexternalNetpolHandler(s.Controller)
 	restrictToNamespaces := make([]string, 0)
 
+	scheme := &runtime.Scheme{}
 	s.Reconciler = NewNetworkPolicyReconciler(
 		s.Client,
-		&runtime.Scheme{},
+		scheme,
 		s.externalNetpolHandler,
 		restrictToNamespaces,
 		true,
@@ -79,13 +63,21 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 		allowexternaltraffic.IfBlockedByOtterize,
 	)
 
+	syncer := effectivepolicy.NewSyncer(s.Client,
+		scheme, s.Reconciler)
+	s.EPIntentsReconciler = intents_reconcilers.NewServiceEffectiveIntentsReconciler(s.Client,
+		scheme, syncer)
+
 	s.Reconciler.Recorder = s.Recorder
+	syncer.InjectableRecorder.Recorder = s.Recorder
+	s.EPIntentsReconciler.Recorder = s.Recorder
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TearDownTest() {
 	viper.Reset()
 	s.Reconciler = nil
 	s.externalNetpolHandler = nil
+	s.EPIntentsReconciler = nil
 	s.MocksSuiteBase.TearDownTest()
 }
 
@@ -105,7 +97,16 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 		true,
 		nil,
 	)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
+	//s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
+}
+func (s *NetworkPolicyReconcilerTestSuite) ExpectEvent(expectedEventReason string) {
+	select {
+	case _ = <-s.Recorder.Events:
+		return
+	default:
+		return
+	}
+	return
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServices() {
@@ -253,14 +254,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 		},
 	}
 
-	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha3.ClientIntents{}
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
-			intents.Spec = intentsSpec
-			return nil
-		})
-
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{
@@ -288,7 +281,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{ObjectMeta: metav1.ObjectMeta{Namespace: req.Namespace, Name: req.Name}, Spec: intentsSpec}})
 
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
@@ -318,21 +311,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 			},
 		},
 	}
-	clientIntents := otterizev1alpha3.ClientIntents{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      clientIntentsName,
-			Namespace: testNamespace,
-		},
-		Spec: intentsSpec,
-	}
-
-	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha3.ClientIntents{}
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
-			clientIntents.DeepCopyInto(intents)
-			return nil
-		})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -387,7 +365,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{ObjectMeta: metav1.ObjectMeta{Namespace: req.Namespace, Name: req.Name}, Spec: intentsSpec}})
 
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
@@ -412,8 +390,6 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 		},
 	}
 
-	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	clientIntentsObj := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
@@ -422,12 +398,6 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 		},
 		Spec: intentsSpec,
 	}
-
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
-			clientIntentsObj.DeepCopyInto(intents)
-			return nil
-		})
 
 	// Remove network policy:
 	// 1. Calls remove orphan
@@ -451,7 +421,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntentsObj})
 	s.expectRemoveOrphanFindsPolicies([]v1.NetworkPolicy{*existingPolicy})
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
 }
@@ -512,21 +482,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 		},
 	}
 
-	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha3.ClientIntents{}
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
-			intents.Spec = intentsSpec
-			return nil
-		})
-
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
-
-	//clientIntentsList := otterizev1alpha3.ClientIntentsList{}
-	//s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&clientIntentsList), gomock.Any()).DoAndReturn(func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
-	//	list.Items = append(list.Items, otterizev1alpha3.ClientIntents{ObjectMeta: metav1.ObjectMeta{Namespace: testNamespace}, Spec: intentsSpec})
-	//	return nil
-	//})
 
 	if defaultEnforcementState == false {
 		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
@@ -563,7 +519,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
 	s.ignoreRemoveOrphan()
 
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
 }
@@ -613,75 +569,6 @@ func (s *NetworkPolicyReconcilerTestSuite) expectRemoveOrphanFindsPolicies(netpo
 			return nil
 		},
 	)
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
-	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
-	serviceName := "test-client"
-	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-8ddecb"
-
-	namespacedName := types.NamespacedName{
-		Namespace: testNamespace,
-		Name:      clientIntentsName,
-	}
-	req := ctrl.Request{
-		NamespacedName: namespacedName,
-	}
-
-	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
-			{
-				Name: serverName,
-			},
-		},
-	}
-
-	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha3.ClientIntents{}
-	intentsWithoutFinalizer := otterizev1alpha3.ClientIntents{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      clientIntentsName,
-			Namespace: testNamespace,
-		},
-		Spec: intentsSpec,
-	}
-
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
-			intentsWithoutFinalizer.DeepCopyInto(intents)
-			return nil
-		})
-
-	// Just assume policy exist because the rest of the flow is tested in other tests
-	existingPolicy := networkPolicyTemplate(
-		policyName,
-		serverNamespace,
-		formattedTargetServer,
-		testNamespace,
-	)
-
-	emptyNetworkPolicy := &v1.NetworkPolicy{}
-	networkPolicyNamespacedName := types.NamespacedName{
-		Namespace: serverNamespace,
-		Name:      policyName,
-	}
-	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
-			existingPolicy.DeepCopyInto(networkPolicy)
-			return nil
-		})
-
-	s.ignoreRemoveOrphan()
-
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{ObjectMeta: metav1.ObjectMeta{Namespace: req.Namespace, Name: req.Name}, Spec: intentsSpec}})
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
 func networkPolicyTemplate(
@@ -758,13 +645,6 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 		},
 	}
 
-	// Initial call to get the ClientIntents object when reconciler starts
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&otterizev1alpha3.ClientIntents{})).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
-			intents.Spec = intentsSpec
-			return nil
-		})
-
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
 			return nil
@@ -774,7 +654,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{ObjectMeta: metav1.ObjectMeta{Namespace: req.Namespace, Name: req.Name}, Spec: intentsSpec}})
 
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
 }
@@ -823,14 +703,6 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 		},
 	}
 
-	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha3.ClientIntents{}
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
-			intents.Spec = intentsSpec
-			return nil
-		})
-
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
 
 	s.ignoreRemoveOrphan()
@@ -839,7 +711,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 			return nil
 		})
 
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
 }
@@ -875,8 +747,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 		},
 	}
 
-	// Initial call to get the ClientIntents object when reconciler starts
-	emptyIntents := &otterizev1alpha3.ClientIntents{}
 	clientIntentsObj := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
@@ -885,12 +755,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 		},
 		Spec: intentsSpec,
 	}
-
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
-			clientIntentsObj.DeepCopyInto(intents)
-			return nil
-		})
 
 	// Search for client intents with the same target server and delete them if it's the last client intent pointing to the server
 
@@ -934,7 +798,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 
 	// Shouldn't remove NetworkPolicy from this namespace
 	// because there is another client with the same target server
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)

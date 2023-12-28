@@ -89,10 +89,14 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		intents.Spec.Service.Name, req.Namespace)
 
 	eps, err := effectivepolicy.GetAllServiceEffectivePolicies(ctx, r.Client, &r.InjectableRecorder)
-	currentPolicyCount, err := r.ReconcileEffectivePolicies(ctx, eps)
 	if err != nil {
 		r.RecordWarningEventf(intents, consts.ReasonReconcilingNetworkPolicyFailed, "failed to reconcile network policies: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
+	}
+	currentPolicyCount, errorList := r.ApplyEffectivePolicies(ctx, eps)
+	if len(errorList) > 0 {
+		r.RecordWarningEventf(intents, consts.ReasonReconcilingNetworkPolicyFailed, "failed to reconcile network policies: %s", errorList[0].Error())
+		return ctrl.Result{}, errors.Wrap(errorList[0])
 	}
 
 	if callsCount := len(intents.GetCallsList()); currentPolicyCount > 0 && callsCount > 0 {
@@ -101,21 +105,22 @@ func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
-// ReconcileEffectivePolicies Gets current state of effective policies and returns number of network policies
-func (r *NetworkPolicyReconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, error) {
+// ApplyEffectivePolicies Gets current state of effective policies and returns number of network policies
+func (r *NetworkPolicyReconciler) ApplyEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, []error) {
 	currentPolicies := goset.NewSet[types.NamespacedName]()
 	for _, ep := range eps {
+		// Should we continue if error occur?
 		netpols, err := r.ReconcileServiceEffectivePolicy(ctx, ep)
 		currentPolicies.Add(netpols...)
 		if err != nil {
-			return 0, errors.Wrap(err)
+			return 0, []error{errors.Wrap(err)}
 		}
 	}
 
 	// remove policies that doesn't exist in the policy list
-	err := r.removeOrphanNetworkPolicies(ctx, currentPolicies)
+	err := r.removeNetworkPoliciesThatShouldNotExist(ctx, currentPolicies)
 	if err != nil {
-		return 0, errors.Wrap(err)
+		return 0, []error{errors.Wrap(err)}
 	}
 
 	if currentPolicies.Len() != 0 {
@@ -217,7 +222,7 @@ func (r *NetworkPolicyReconciler) reconcileEndpointsForPolicy(ctx context.Contex
 	return r.extNetpolHandler.HandlePodsByLabelSelector(ctx, newPolicy.Namespace, selector)
 }
 
-func (r *NetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Context, netpolNamesThatShouldExist *goset.Set[types.NamespacedName]) error {
+func (r *NetworkPolicyReconciler) removeNetworkPoliciesThatShouldNotExist(ctx context.Context, netpolNamesThatShouldExist *goset.Set[types.NamespacedName]) error {
 	logrus.Info("Searching for orphaned network policies")
 	networkPolicyList := &v1.NetworkPolicyList{}
 	selector, err := matchAccessNetworkPolicy()
