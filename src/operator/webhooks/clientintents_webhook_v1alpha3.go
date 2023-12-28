@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"net/netip"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -154,6 +155,31 @@ func (v *IntentsValidatorV1alpha3) validateSpec(intents *otterizev1alpha3.Client
 					Type:   field.ErrorTypeRequired,
 					Field:  "ips",
 					Detail: fmt.Sprintf("invalid intent format. type %s must contain ips", otterizev1alpha3.IntentTypeInternet),
+				}
+			}
+
+			for _, ip := range intent.Internet.Ips {
+				if ip == "" {
+					return &field.Error{
+						Type:   field.ErrorTypeRequired,
+						Field:  "ips",
+						Detail: fmt.Sprintf("invalid intent format. type %s must contain ips", otterizev1alpha3.IntentTypeInternet),
+					}
+				}
+
+				var err error
+				if strings.Contains(ip, "/") {
+					_, err = netip.ParsePrefix(ip)
+				} else {
+					_, err = netip.ParseAddr(ip)
+				}
+				if err != nil {
+					return &field.Error{
+						Type:     field.ErrorTypeInvalid,
+						Field:    "ips",
+						Detail:   fmt.Sprintf("should be value IP address or CIDR"),
+						BadValue: ip,
+					}
 				}
 			}
 		}
