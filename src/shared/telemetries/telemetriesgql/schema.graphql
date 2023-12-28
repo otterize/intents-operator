@@ -259,6 +259,11 @@ enum ComponentType {
 	NETWORK_MAPPER
 }
 
+type CreateGithubIntegrationResponse {
+	integration: Integration!
+	nextURL: String!
+}
+
 type CredentialsOperatorComponent {
 	type: ComponentType!
 	status: ComponentStatus!
@@ -355,6 +360,7 @@ enum EdgeAccessStatusReason {
 	ALLOWED_BY_APPLIED_INTENTS_OVERLY_PERMISSIVE
 	ALLOWED_BY_APPLIED_INTENTS_HTTP_OVERLY_PERMISSIVE
 	ALLOWED_BY_APPLIED_INTENTS_KAFKA_OVERLY_PERMISSIVE
+	ALLOWED_BY_APPLIED_INTENTS_DATABASE_OVERLY_PERMISSIVE
 	ALLOWED_BY_EXTERNAL_TRAFFIC_NETWORK_POLICY
 	BLOCKED_BY_APPLIED_INTENTS_UNDER_PERMISSIVE
 	BLOCKED_BY_APPLIED_INTENTS_RESOURCE_MISMATCH
@@ -363,6 +369,9 @@ enum EdgeAccessStatusReason {
 	BLOCKED_BY_APPLIED_INTENTS_KAFKA_UNDER_PERMISSIVE
 	BLOCKED_BY_APPLIED_INTENTS_KAFKA_RESOURCE_MISMATCH
 	BLOCKED_BY_KAFKA_ENFORCEMENT_CONFIG_MISSING_APPLIED_INTENTS
+	BLOCKED_BY_APPLIED_INTENTS_DATABASE_UNDER_PERMISSIVE
+	BLOCKED_BY_APPLIED_INTENTS_DATABASE_RESOURCE_MISMATCH
+	BLOCKED_BY_DATABASE_ENFORCEMENT_CONFIG_MISSING_APPLIED_INTENTS
 	BLOCKED_BY_DEFAULT_DENY
 	SHARED_SERVICE_ACCOUNT
 	CLIENT_ISTIO_SIDECAR_MISSING
@@ -402,6 +411,7 @@ enum EventType {
 	INTENTS_APPLIED_KAFKA
 	INTENTS_APPLIED_HTTP
 	INTENTS_APPLIED_DATABASE
+	INTENTS_APPLIED_INTERNET
 	INTENTS_DISCOVERED
 	INTENTS_DISCOVERED_SOCKET_SCAN
 	INTENTS_DISCOVERED_CAPTURE
@@ -456,6 +466,21 @@ input GCPCloudSQLConsumerSettingsInput {
 	topic: String!
 }
 
+type GithubInfo {
+	repoOwner: String!
+	repoName: String!
+	baseBranch: String!
+	intentsPath: String!
+}
+
+input GithubInfoInput {
+	repoOwner: String!
+	repoName: String!
+	baseBranch: String!
+	intentsPath: String!
+	clusterId: String!
+}
+
 type HTTPConfig {
 	path: String!
 	methods: [HTTPMethod!]
@@ -503,6 +528,8 @@ type Integration {
 	cluster: Cluster
 	databaseInfo: DatabaseInfo
 	awsInfo: AWSInfo
+	githubInfo: GithubInfo
+	organizationId: String!
 }
 
 type IntegrationComponents {
@@ -521,6 +548,7 @@ enum IntegrationType {
 	KUBERNETES
 	DATABASE
 	AWS
+	GITHUB
 }
 
 type Intent {
@@ -545,6 +573,7 @@ input IntentInput {
 	resources: [HTTPConfigInput!]
 	databaseResources: [DatabaseConfigInput!]
 	awsActions: [String!]
+	internet: InternetConfigInput
 	status: IntentStatusInput
 }
 
@@ -565,6 +594,7 @@ enum IntentType {
 	DATABASE
 	AWS
 	S3
+	INTERNET
 }
 
 type IntentsOperatorComponent {
@@ -588,6 +618,11 @@ input IntentsOperatorConfigurationInput {
 	kafkaACLEnforcementEnabled: Boolean
 	istioPolicyEnforcementEnabled: Boolean
 	protectedServicesEnabled: Boolean
+}
+
+input InternetConfigInput {
+	ips: [String!]!
+	ports: [Int!]
 }
 
 type Invite {
@@ -785,6 +820,17 @@ type Mutation {
 	createAWSIntegration(
 		name: String!
 		awsIntegration: AWSInfoInput!
+	): Integration
+"""Create a new Github integration"""
+	createGithubIntegration(
+		name: String!
+		githubInfo: GithubInfoInput!
+	): CreateGithubIntegrationResponse
+"""Update Github integration"""
+	updateGithubIntegration(
+		id: ID!
+		name: String!
+		githubInfo: GithubInfoInput!
 	): Integration
 """Update AWS integration"""
 	updateAWSIntegration(

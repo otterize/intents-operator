@@ -294,6 +294,69 @@ func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
 	s.assertReportedIntents(clientIntents, []graphqlclient.IntentInput{expectedIntent})
 }
 
+func (s *CloudReconcilerTestSuite) TestInternetUpload() {
+	server := otterizev1alpha3.OtterizeInternetTargetName
+	clientIntents := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Type: otterizev1alpha3.IntentTypeInternet,
+					Internet: otterizev1alpha3.Internet{
+						Ips: []string{"1.1.1.1", "2.2.2.0/24"},
+					},
+				},
+				{
+					Type: otterizev1alpha3.IntentTypeInternet,
+					Internet: otterizev1alpha3.Internet{
+						Ips:   []string{"3.3.3.3"},
+						Ports: []int{443},
+					},
+				},
+			},
+		},
+	}
+
+	expectedIntentA := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr(server),
+		Namespace:       lo.ToPtr(testNamespace),
+		ServerNamespace: lo.ToPtr(testNamespace),
+		Type:            lo.ToPtr(graphqlclient.IntentTypeInternet),
+		Internet: lo.ToPtr(graphqlclient.InternetConfigInput{
+			Ips: []*string{
+				lo.ToPtr("1.1.1.1"),
+				lo.ToPtr("2.2.2.0/24"),
+			},
+			Ports: nil,
+		}),
+	}
+
+	expectedIntentB := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr(server),
+		Namespace:       lo.ToPtr(testNamespace),
+		ServerNamespace: lo.ToPtr(testNamespace),
+		Type:            lo.ToPtr(graphqlclient.IntentTypeInternet),
+		Internet: lo.ToPtr(graphqlclient.InternetConfigInput{
+			Ips: []*string{
+				lo.ToPtr("3.3.3.3"),
+			},
+			Ports: []*int{
+				lo.ToPtr(443),
+			},
+		}),
+	}
+
+	s.assertReportedIntents(clientIntents, []graphqlclient.IntentInput{expectedIntentA, expectedIntentB})
+}
+
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSharedSA() {
 	serviceAccountName := "test-service-account"
 	server := "test-server"

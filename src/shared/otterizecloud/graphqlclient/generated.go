@@ -93,6 +93,7 @@ type IntentInput struct {
 	Resources         []*HTTPConfigInput     `json:"resources"`
 	DatabaseResources []*DatabaseConfigInput `json:"databaseResources"`
 	AwsActions        []*string              `json:"awsActions"`
+	Internet          *InternetConfigInput   `json:"internet"`
 	Status            *IntentStatusInput     `json:"status"`
 }
 
@@ -123,6 +124,9 @@ func (v *IntentInput) GetDatabaseResources() []*DatabaseConfigInput { return v.D
 // GetAwsActions returns IntentInput.AwsActions, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetAwsActions() []*string { return v.AwsActions }
 
+// GetInternet returns IntentInput.Internet, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetInternet() *InternetConfigInput { return v.Internet }
+
 // GetStatus returns IntentInput.Status, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetStatus() *IntentStatusInput { return v.Status }
 
@@ -141,6 +145,7 @@ const (
 	IntentTypeDatabase IntentType = "DATABASE"
 	IntentTypeAws      IntentType = "AWS"
 	IntentTypeS3       IntentType = "S3"
+	IntentTypeInternet IntentType = "INTERNET"
 )
 
 type IntentsOperatorConfigurationInput struct {
@@ -175,6 +180,17 @@ func (v *IntentsOperatorConfigurationInput) GetIstioPolicyEnforcementEnabled() b
 func (v *IntentsOperatorConfigurationInput) GetProtectedServicesEnabled() bool {
 	return v.ProtectedServicesEnabled
 }
+
+type InternetConfigInput struct {
+	Ips   []*string `json:"ips"`
+	Ports []*int    `json:"ports"`
+}
+
+// GetIps returns InternetConfigInput.Ips, and is useful for accessing the field via an interface.
+func (v *InternetConfigInput) GetIps() []*string { return v.Ips }
+
+// GetPorts returns InternetConfigInput.Ports, and is useful for accessing the field via an interface.
+func (v *InternetConfigInput) GetPorts() []*int { return v.Ports }
 
 type IstioStatusInput struct {
 	ServiceAccountName     *string `json:"serviceAccountName"`
