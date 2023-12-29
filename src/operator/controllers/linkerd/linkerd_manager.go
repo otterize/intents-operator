@@ -309,6 +309,7 @@ func (ldm *LinkerdManager) createResources(
 				httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, intent.Name, intent.Port, probePath)
 				httpRouteName = strings.Replace(httpRouteName, "/", "slash", -1)
 				probePathRoute := ldm.generateHTTPRoute(*clientIntents, intent, s.Name, probePath, httpRouteName, clientIntents.Namespace)
+				logrus.Info("probe path name: ", probePathRoute.Name)
 				err = ldm.Client.Create(ctx, probePathRoute)
 				if err != nil {
 					return nil, err
@@ -324,6 +325,7 @@ func (ldm *LinkerdManager) createResources(
 					return nil, err
 				}
 				currentResources[Routes].Add(probePathRoute.UID)
+				logrus.Info("processed probe route")
 			}
 
 			for _, httpResource := range intent.HTTPResources {
@@ -336,9 +338,10 @@ func (ldm *LinkerdManager) createResources(
 				}
 
 				if shouldCreateRoute {
-					route = ldm.generateHTTPRoute(*clientIntents, intent, s.Name, httpRouteName,
+					route = ldm.generateHTTPRoute(*clientIntents, intent, s.Name, httpResource.Path,
 						httpRouteName,
 						clientIntents.Namespace)
+					logrus.Info("route name: ", route.Name)
 					err = ldm.Client.Create(ctx, route)
 					if err != nil { // TODO: return errors but continue processing
 						return nil, err
