@@ -299,11 +299,13 @@ func (ldm *LinkerdManager) createResources(
 			if err != nil {
 				return nil, err
 			}
+			logrus.Info("does server %s have a http route ? %s", s.Name, serverHasHTTPRoute)
 
 			probePath, err := ldm.getLivenessProbePath(ctx, *clientIntents, intent)
 			if err != nil {
 				return nil, err
 			}
+			logrus.Info("probe path: ", probePath)
 
 			if !serverHasHTTPRoute && probePath != "" {
 				httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, intent.Name, intent.Port, probePath)
@@ -612,7 +614,7 @@ type policyOpts func(*authpolicy.AuthorizationPolicy)
 func addPath(path string) policyOpts {
 	return func(policy *authpolicy.AuthorizationPolicy) {
 		replacedString := strings.Replace(path, "/", "slash", -1)
-		policy.Name += "-path-" + replacedString
+		policy.Name = policy.Name + "-path-" + replacedString
 	}
 }
 
