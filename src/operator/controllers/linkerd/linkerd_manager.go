@@ -309,6 +309,10 @@ func (ldm *LinkerdManager) createResources(
 				}
 
 				if shouldCreateRoute {
+					probePathRoute = ldm.generateHTTPRoute(*clientIntents, intent, s.Name, probePath,
+						httpRouteName,
+						clientIntents.Namespace)
+					logrus.Info("route name: ", probePathRoute.Name)
 					err = ldm.Client.Create(ctx, probePathRoute)
 					if err != nil {
 						return nil, err
@@ -319,7 +323,7 @@ func (ldm *LinkerdManager) createResources(
 				policy, shouldCreatePolicy, err := ldm.shouldCreateAuthPolicy(ctx,
 					*clientIntents, probePathRoute.Name,
 					LinkerdHTTPRouteKindName,
-					"meshtls-for-client-"+clientIntents.Spec.Service.Name,
+					NetworkAuthenticationNameTemplate,
 					LinkerdMeshTLSAuthenticationKindName)
 				if err != nil {
 					return nil, err
