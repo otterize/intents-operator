@@ -25,13 +25,11 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
-// TODO: make sure all generated resources are tagged with the intent otterize identity
-
 const (
 	ReasonGettingLinkerdPolicyFailed                  = "GettingLinkerdPolicyFailed"
 	OtterizeLinkerdServerNameTemplate                 = "server-for-%s-port-%d"
 	OtterizeLinkerdMeshTLSNameTemplate                = "meshtls-for-client-%s"
-	OtterizeLinkerdAuthPolicyNameTemplate             = "authorization-policy-to-%s-port-%d-from-client-%s"
+	OtterizeLinkerdAuthPolicyNameTemplate             = "authpolicy-to-%s-port-%d-from-client-%s"
 	OtterizeLinkerdAuthPolicyForHTTPRouteNameTemplate = "authorization-policy-to-%s-port-%d-from-client-%s-path-%s"
 	ReasonDeleteLinkerdPolicyFailed                   = "DeleteLinkerdPolicyFailed"
 	ReasonNamespaceNotAllowed                         = "NamespaceNotAllowed"
@@ -334,7 +332,7 @@ func (ldm *LinkerdManager) createResources(
 
 			for _, httpResource := range intent.HTTPResources {
 				httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, intent.Name, intent.Port, httpResource.Path)
-				httpRouteName = strings.Replace(httpRouteName, "/", "slash", -1)
+				httpRouteName = strings.TrimSuffix(strings.Replace(strings.Replace(httpRouteName, "/", "slash-", -1), "*", "star-", -1), "-")
 				route, shouldCreateRoute, err := ldm.shouldCreateHTTPRoute(ctx, *clientIntents,
 					intent, httpRouteName)
 				if err != nil {
@@ -615,9 +613,8 @@ type policyOpts func(*authpolicy.AuthorizationPolicy)
 
 func addPath(path string) policyOpts {
 	return func(policy *authpolicy.AuthorizationPolicy) {
-		replacedString := strings.Replace(strings.Replace(path, "/", "slash-", -1), "*", "star-", -1)
+		replacedString := strings.TrimSuffix(strings.Replace(strings.Replace(path, "/", "slash-", -1), "*", "star-", -1), "-")
 		policy.Name = policy.Name + "-path-" + replacedString
-		logrus.Info("policy name in the optional func: ", policy.Name)
 	}
 }
 
