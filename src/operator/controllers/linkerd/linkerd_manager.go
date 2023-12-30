@@ -476,7 +476,7 @@ func (ldm *LinkerdManager) getLivenessProbePath(ctx context.Context, intents ott
 	if c.LivenessProbe.HTTPGet != nil {
 		return c.LivenessProbe.HTTPGet.Path, nil
 	}
-	return "", fmt.Errorf("probe path could not be found!, should skip HTTPRoute creation")
+	return "", nil
 }
 
 func getPathMatchPointer(ap authpolicy.PathMatchType) *authpolicy.PathMatchType {
