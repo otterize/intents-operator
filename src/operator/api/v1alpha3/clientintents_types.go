@@ -78,9 +78,11 @@ const (
 	OtterizeEgressNetworkPolicyNameTemplate              = "egress-to-%s-from-%s"
 	OtterizeEgressNetworkPolicy                          = "intents.otterize.com/egress-network-policy"
 	OtterizeEgressNetworkPolicyTarget                    = "intents.otterize.com/egress-network-policy-target"
+	OtterizeInternetNetworkPolicy                        = "intents.otterize.com/egress-internet-network-policy"
+	OtterizeInternetTargetName                           = "internet"
 )
 
-// +kubebuilder:validation:Enum=http;kafka;database;aws
+// +kubebuilder:validation:Enum=http;kafka;database;aws;internet
 type IntentType string
 
 const (
@@ -88,6 +90,7 @@ const (
 	IntentTypeKafka    IntentType = "kafka"
 	IntentTypeDatabase IntentType = "database"
 	IntentTypeAWS      IntentType = "aws"
+	IntentTypeInternet IntentType = "internet"
 )
 
 // +kubebuilder:validation:Enum=all;consume;produce;create;alter;delete;describe;ClusterAction;DescribeConfigs;AlterConfigs;IdempotentWrite
@@ -143,6 +146,7 @@ type Service struct {
 }
 
 type Intent struct {
+	//+optional
 	Name string `json:"name" yaml:"name"`
 
 	//+optional
@@ -159,6 +163,15 @@ type Intent struct {
 
 	//+optional
 	AWSActions []string `json:"awsActions,omitempty" yaml:"awsActions,omitempty"`
+
+	//+optional
+	Internet Internet `json:"internet,omitempty" yaml:"internet,omitempty"`
+}
+
+type Internet struct {
+	Ips []string `json:"ips,omitempty" yaml:"ips,omitempty"`
+	//+optional
+	Ports []int `json:"ports,omitempty" yaml:"ports,omitempty"`
 }
 
 type DatabaseResource struct {
@@ -273,6 +286,10 @@ func (in *Intent) IsTargetServerKubernetesService() bool {
 func (in *Intent) GetTargetServerName() string {
 	var name string
 
+	if in.Type == IntentTypeInternet {
+		return OtterizeInternetTargetName
+	}
+
 	if in.IsTargetServerKubernetesService() {
 		name = strings.ReplaceAll(in.Name, "svc:", "") // Replace so all chars are valid in K8s label
 	} else {
@@ -311,6 +328,8 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 		return graphqlclient.IntentTypeDatabase
 	case IntentTypeAWS:
 		return graphqlclient.IntentTypeAws
+	case IntentTypeInternet:
+		return graphqlclient.IntentTypeInternet
 	default:
 		panic("Not supposed to reach here")
 	}
@@ -496,6 +515,15 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 			}
 			return &databaseConfigInput
 		})
+	}
+
+	if in.Internet.Ips != nil {
+		intentInput.Internet = &graphqlclient.InternetConfigInput{
+			Ips: lo.ToSlicePtr(in.Internet.Ips),
+		}
+		if in.Internet.Ports != nil && len(in.Internet.Ports) != 0 {
+			intentInput.Internet.Ports = lo.ToSlicePtr(in.Internet.Ports)
+		}
 	}
 
 	if len(in.AWSActions) != 0 {

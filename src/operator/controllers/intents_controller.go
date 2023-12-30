@@ -24,6 +24,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/internet_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -133,6 +134,8 @@ func NewIntentsReconciler(
 	}
 
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
+		internetNetpolReconciler := internet_network_policy.NewInternetNetworkPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+		intentsReconciler.group.AddToGroup(internetNetpolReconciler)
 		intentsReconciler.group.AddToGroup(egressNetpolReconciler)
 		intentsReconciler.group.AddToGroup(portEgressNetpolReconciler)
 	}
@@ -280,6 +283,10 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			}
 
 			for _, intent := range intents.GetCallsList() {
+				if intent.Type == otterizev1alpha3.IntentTypeInternet {
+					res = append(res, otterizev1alpha3.OtterizeInternetTargetName)
+					continue
+				}
 				serverName := intent.GetTargetServerName()
 				serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
 				formattedServerName := otterizev1alpha3.GetFormattedOtterizeIdentity(serverName, serverNamespace)
