@@ -324,13 +324,13 @@ func (ldm *LinkerdManager) createResources(
 					*clientIntents, probePathRoute.Name,
 					LinkerdHTTPRouteKindName,
 					NetworkAuthenticationNameTemplate,
-					LinkerdMeshTLSAuthenticationKindName)
+					LinkerdNetAuthKindName)
 				if err != nil {
 					return nil, err
 				}
 
 				if shouldCreatePolicy {
-					policy := ldm.generateAuthorizationPolicy(*clientIntents, intent, httpRouteName,
+					policy = ldm.generateAuthorizationPolicy(*clientIntents, intent, httpRouteName,
 						LinkerdHTTPRouteKindName,
 						LinkerdNetAuthKindName,
 						addPath(probePath))
