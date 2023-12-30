@@ -666,6 +666,9 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 			},
 		},
 	}
+	for _, opt := range authPolicyOpts {
+		opt(&a)
+	}
 	return &a
 }
 
