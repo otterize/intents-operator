@@ -463,23 +463,6 @@ func (ldm *LinkerdManager) createIntentPrimaryResources(ctx context.Context,
 	return nil
 }
 
-func (ldm *LinkerdManager) doesServerHaveHTTPRoute(ctx context.Context, intents otterizev1alpha3.ClientIntents, serverName string) (bool, error) {
-	httpRoutes := &authpolicy.HTTPRouteList{}
-	err := ldm.Client.List(ctx, httpRoutes, &client.ListOptions{Namespace: intents.Namespace})
-	if err != nil {
-		return false, err
-	}
-	for _, route := range httpRoutes.Items {
-		for _, parent := range route.Spec.ParentRefs {
-			// check for potential nil pointer derefrence
-			if *parent.Kind == "Server" && parent.Name == v1beta1.ObjectName(serverName) {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
-}
-
 func (ldm *LinkerdManager) getLivenessProbePath(ctx context.Context, intents otterizev1alpha3.ClientIntents,
 	intent otterizev1alpha3.Intent) (string, error) {
 	pod, err := ldm.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, intents.Namespace)
