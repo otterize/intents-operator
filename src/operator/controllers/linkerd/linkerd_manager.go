@@ -454,11 +454,11 @@ func (ldm *LinkerdManager) doesServerHaveHTTPRoute(ctx context.Context, intents 
 		for _, parent := range route.Spec.ParentRefs {
 			// check for potential nil pointer derefrence
 			if *parent.Kind == "Server" && parent.Name == v1beta1.ObjectName(serverName) {
-				return false, nil
+				return true, nil
 			}
 		}
 	}
-	return true, nil
+	return false, nil
 }
 
 func (ldm *LinkerdManager) getLivenessProbePath(ctx context.Context, intents otterizev1alpha3.ClientIntents,
