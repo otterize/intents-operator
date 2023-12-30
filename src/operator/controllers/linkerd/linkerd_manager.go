@@ -321,12 +321,14 @@ func (ldm *LinkerdManager) createResources(
 					LinkerdHTTPRouteKindName,
 					LinkerdNetAuthKindName,
 					addPath(probePath))
+				logrus.Info("policyname: ", authPolicy.Name)
 
 				err = ldm.Client.Create(ctx, authPolicy)
 				if err != nil {
 					return nil, err
 				}
 				currentResources[Routes].Add(probePathRoute.UID)
+				currentResources[AuthorizationPolicies].Add(authPolicy.UID)
 				logrus.Info("processed probe route")
 			}
 
@@ -541,7 +543,7 @@ func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context,
 	for _, policy := range authPolicies.Items {
 		if policy.Spec.TargetRef.Name == v1beta1.ObjectName(targetName) && policy.Spec.TargetRef.Kind == v1beta1.Kind(targetRefKind) {
 			for _, authRef := range policy.Spec.RequiredAuthenticationRefs {
-				if authRef.Kind == v1beta1.Kind(authRefKind) && authRef.Name == v1beta1.ObjectName("meshtls-for-client-"+intents.Spec.Service.Name) {
+				if authRef.Kind == v1beta1.Kind(authRefKind) && authRef.Name == v1beta1.ObjectName("meshtls-for-client-"+intents.Spec.Service.Name) { // TODO: check for authrefname too
 					logrus.Infof("not creating policy for policy with details, %s, %s", policy.Spec.TargetRef.Name, authRef.Name)
 					return &policy, false, nil
 				}
@@ -615,6 +617,7 @@ func addPath(path string) policyOpts {
 	return func(policy *authpolicy.AuthorizationPolicy) {
 		replacedString := strings.Replace(path, "/", "slash", -1)
 		policy.Name = policy.Name + "-path-" + replacedString
+		logrus.Info("policy name in the optional func: ", policy.Name)
 	}
 }
 
