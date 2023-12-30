@@ -615,7 +615,7 @@ type policyOpts func(*authpolicy.AuthorizationPolicy)
 
 func addPath(path string) policyOpts {
 	return func(policy *authpolicy.AuthorizationPolicy) {
-		replacedString := strings.Replace(path, "/", "slash", -1)
+		replacedString := strings.Replace(strings.Replace(path, "/", "slash-", -1), "*", "star-", -1)
 		policy.Name = policy.Name + "-path-" + replacedString
 		logrus.Info("policy name in the optional func: ", policy.Name)
 	}
