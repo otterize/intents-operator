@@ -111,7 +111,7 @@ func (r *NetworkPolicyReconciler) ApplyEffectivePolicies(ctx context.Context, ep
 	errorList := make([]error, 0)
 	for _, ep := range eps {
 		// Should we continue if error occur?
-		netpols, err := r.ReconcileServiceEffectivePolicy(ctx, ep)
+		netpols, err := r.ApplyServiceEffectivePolicy(ctx, ep)
 		currentPolicies.Add(netpols...)
 		if err != nil {
 			errorList = append(errorList, errors.Wrap(err))
@@ -133,8 +133,8 @@ func (r *NetworkPolicyReconciler) ApplyEffectivePolicies(ctx context.Context, ep
 	return currentPolicies.Len(), nil
 }
 
-// ReconcileServiceEffectivePolicy - reconcile ingress netpols for a service. returns the list of policies' namespaced names
-func (r *NetworkPolicyReconciler) ReconcileServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]types.NamespacedName, error) {
+// ApplyServiceEffectivePolicy - reconcile ingress netpols for a service. returns the list of policies' namespaced names
+func (r *NetworkPolicyReconciler) ApplyServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]types.NamespacedName, error) {
 	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service.Name, ep.Service.Namespace, r.enforcementDefaultState)
 	if err != nil {
 		return nil, err
