@@ -7,28 +7,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type NetworkPolicyHandler interface {
-	CleanPoliciesFromUnprotectedServices(ctx context.Context, namespace string) error
+type EffectivePolicySyncer interface {
+	Sync(ctx context.Context) []error
 }
 
 // PolicyCleanerReconciler reconciles a ProtectedService object
 type PolicyCleanerReconciler struct {
 	client.Client
 	injectablerecorder.InjectableRecorder
-	networkPolicyHandler NetworkPolicyHandler
+	epSyncer EffectivePolicySyncer
 }
 
-func NewPolicyCleanerReconciler(client client.Client, networkPolicyHandler NetworkPolicyHandler) *PolicyCleanerReconciler {
+func NewPolicyCleanerReconciler(client client.Client, networkPolicyHandler EffectivePolicySyncer) *PolicyCleanerReconciler {
 	return &PolicyCleanerReconciler{
-		Client:               client,
-		networkPolicyHandler: networkPolicyHandler,
+		Client:   client,
+		epSyncer: networkPolicyHandler,
 	}
 }
 
-func (r *PolicyCleanerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.networkPolicyHandler.CleanPoliciesFromUnprotectedServices(ctx, req.Namespace)
-	if client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
+func (r *PolicyCleanerReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
+	err := r.epSyncer.Sync(ctx)
+	if len(err) > 0 {
+		return ctrl.Result{}, err[0]
 	}
 
 	return ctrl.Result{}, nil

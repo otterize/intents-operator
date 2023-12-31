@@ -22,9 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"reflect"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -49,7 +47,7 @@ type NetworkPolicyApplier struct {
 	injectablerecorder.InjectableRecorder
 }
 
-func NewNetworkPolicyReconciler(
+func NewNetworkPolicyApplier(
 	c client.Client,
 	s *runtime.Scheme,
 	extNetpolHandler externalNetpolHandler,
@@ -67,41 +65,6 @@ func NewNetworkPolicyReconciler(
 		enforcementDefaultState:     enforcementDefaultState,
 		allowExternalTraffic:        allowExternalTraffic,
 	}
-}
-
-func (r *NetworkPolicyApplier) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	intents := &otterizev1alpha3.ClientIntents{}
-	err := r.Get(ctx, req.NamespacedName, intents)
-	if k8serrors.IsNotFound(err) {
-		return ctrl.Result{}, nil
-	}
-
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err)
-	}
-
-	if intents.Spec == nil {
-		return ctrl.Result{}, nil
-	}
-
-	logrus.Infof("Reconciling network policies for service %s in namespace %s",
-		intents.Spec.Service.Name, req.Namespace)
-
-	eps, err := effectivepolicy.GetAllServiceEffectivePolicies(ctx, r.Client, &r.InjectableRecorder)
-	if err != nil {
-		r.RecordWarningEventf(intents, consts.ReasonReconcilingNetworkPolicyFailed, "failed to reconcile network policies: %s", err.Error())
-		return ctrl.Result{}, errors.Wrap(err)
-	}
-	currentPolicyCount, errorList := r.ApplyEffectivePolicies(ctx, eps)
-	if len(errorList) > 0 {
-		r.RecordWarningEventf(intents, consts.ReasonReconcilingNetworkPolicyFailed, "failed to reconcile network policies: %s", errorList[0].Error())
-		return ctrl.Result{}, errors.Wrap(errorList[0])
-	}
-
-	if callsCount := len(intents.GetCallsList()); currentPolicyCount > 0 && callsCount > 0 {
-		r.RecordNormalEventf(intents, consts.ReasonCreatedNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
-	}
-	return ctrl.Result{}, nil
 }
 
 // ApplyEffectivePolicies Gets current state of effective policies and returns number of network policies
@@ -180,18 +143,22 @@ func (r *NetworkPolicyApplier) ApplyServiceEffectivePolicy(ctx context.Context, 
 			}
 			networkPolicies = append(networkPolicies, types.NamespacedName{Name: newPolicy.Name, Namespace: newPolicy.Namespace})
 			prometheus.IncrementNetpolCreated(1)
+			intentCall.ObjectEventRecorder.RecordNormalEventf(consts.ReasonCreatedNetworkPolicies, "NetworkPolicy created for %s", intentCall.IntendedCall.GetTargetServerName())
 			continue
 		}
-		err = r.updateExistingPolicy(ctx, existingPolicy, newPolicy)
+		changed, err := r.updateExistingPolicy(ctx, existingPolicy, newPolicy)
 		if err != nil {
 			return networkPolicies, err
+		}
+		if changed {
+			intentCall.ObjectEventRecorder.RecordNormalEventf(consts.ReasonCreatedNetworkPolicies, "NetworkPolicy created for %s", intentCall.IntendedCall.GetTargetServerName())
 		}
 		networkPolicies = append(networkPolicies, types.NamespacedName{Name: newPolicy.Name, Namespace: newPolicy.Namespace})
 	}
 	return networkPolicies, nil
 }
 
-func (r *NetworkPolicyApplier) updateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) error {
+func (r *NetworkPolicyApplier) updateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) (bool, error) {
 	if !reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
 		policyCopy := existingPolicy.DeepCopy()
 		policyCopy.Labels = newPolicy.Labels
@@ -200,11 +167,12 @@ func (r *NetworkPolicyApplier) updateExistingPolicy(ctx context.Context, existin
 
 		err := r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 		if err != nil {
-			return err
+			return true, err
 		}
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
 func (r *NetworkPolicyApplier) createNetworkPolicy(ctx context.Context, intentsObjNamespace string, intent otterizev1alpha3.Intent, newPolicy *v1.NetworkPolicy) error {
@@ -287,51 +255,6 @@ func matchAccessNetworkPolicy() (labels.Selector, error) {
 		isNotExternalTrafficPolicy,
 		isNotDefaultDenyPolicy,
 	}})
-}
-
-func (r *NetworkPolicyApplier) CleanPoliciesFromUnprotectedServices(ctx context.Context, namespace string) error {
-	selector, err := matchAccessNetworkPolicy()
-	if err != nil {
-		return err
-	}
-
-	policies := &v1.NetworkPolicyList{}
-	err = r.List(ctx, policies, &client.ListOptions{Namespace: namespace, LabelSelector: selector})
-	if err != nil {
-		return err
-	}
-
-	if len(policies.Items) == 0 {
-		return nil
-	}
-
-	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
-	err = r.List(ctx, &protectedServicesResources, &client.ListOptions{Namespace: namespace})
-	if err != nil {
-		return err
-	}
-
-	protectedServersByNamespace := sets.Set[string]{}
-	for _, protectedService := range protectedServicesResources.Items {
-		// skip protected services that are in deletion process
-		if !protectedService.DeletionTimestamp.IsZero() {
-			continue
-		}
-		serverName := otterizev1alpha3.GetFormattedOtterizeIdentity(protectedService.Spec.Name, namespace)
-		protectedServersByNamespace.Insert(serverName)
-	}
-
-	for _, networkPolicy := range policies.Items {
-		serverName := networkPolicy.Labels[otterizev1alpha3.OtterizeNetworkPolicy]
-		if !protectedServersByNamespace.Has(serverName) {
-			err = r.removeNetworkPolicy(ctx, networkPolicy)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter

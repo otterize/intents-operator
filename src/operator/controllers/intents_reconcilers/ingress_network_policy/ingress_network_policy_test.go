@@ -47,7 +47,7 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	restrictToNamespaces := make([]string, 0)
 
 	scheme := &runtime.Scheme{}
-	s.Reconciler = NewNetworkPolicyReconciler(
+	s.Reconciler = NewNetworkPolicyApplier(
 		s.Client,
 		scheme,
 		s.externalNetpolHandler,

@@ -193,7 +193,7 @@ func main() {
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
-	networkPolicyHandler := ingress_network_policy.NewNetworkPolicyReconciler(
+	networkPolicyHandler := ingress_network_policy.NewNetworkPolicyApplier(
 		mgr.GetClient(),
 		scheme,
 		extNetpolHandler,
@@ -378,7 +378,7 @@ func main() {
 		extNetpolHandler,
 		enforcementConfig.EnforcementDefaultState,
 		enforcementConfig.EnableNetworkPolicy,
-		networkPolicyHandler,
+		epSyncer,
 	)
 
 	err = protectedServicesReconciler.SetupWithManager(mgr)
