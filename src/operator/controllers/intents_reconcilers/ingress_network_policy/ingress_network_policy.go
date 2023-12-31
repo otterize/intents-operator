@@ -107,14 +107,16 @@ func (r *NetworkPolicyApplier) Reconcile(ctx context.Context, req ctrl.Request) 
 // ApplyEffectivePolicies Gets current state of effective policies and returns number of network policies
 func (r *NetworkPolicyApplier) ApplyEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, []error) {
 	currentPolicies := goset.NewSet[types.NamespacedName]()
+	//TODO:  error list as error
 	errorList := make([]error, 0)
 	for _, ep := range eps {
 		// Should we continue if error occur?
 		netpols, err := r.ApplyServiceEffectivePolicy(ctx, ep)
-		currentPolicies.Add(netpols...)
 		if err != nil {
 			errorList = append(errorList, errors.Wrap(err))
+			continue
 		}
+		currentPolicies.Add(netpols...)
 	}
 	if len(errorList) > 0 {
 		return 0, errorList
