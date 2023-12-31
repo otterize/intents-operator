@@ -38,7 +38,7 @@ const (
 
 type NetworkPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
-	Reconciler            *NetworkPolicyReconciler
+	Reconciler            *NetworkPolicyApplier
 	externalNetpolHandler *mocks.MockexternalNetpolHandler
 	EPIntentsReconciler   *intents_reconcilers.ServiceEffectivePolicyIntentsReconciler
 }

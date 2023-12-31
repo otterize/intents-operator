@@ -312,7 +312,6 @@ func main() {
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
-		networkPolicyHandler,
 		svcNetworkPolicyHandler,
 		egressNetworkPolicyHandler,
 		svcEgressNetworkPolicyHandler,

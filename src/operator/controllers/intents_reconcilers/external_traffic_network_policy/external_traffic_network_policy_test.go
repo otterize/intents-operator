@@ -8,8 +8,10 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
@@ -31,10 +33,10 @@ import (
 
 type ExternalNetworkPolicyReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
-	IngressReconciler       *external_traffic.IngressReconciler
-	endpointReconciler      external_traffic.EndpointsReconciler
-	NetworkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler
-	podWatcher              *pod_reconcilers.PodWatcher
+	IngressReconciler                *external_traffic.IngressReconciler
+	endpointReconciler               external_traffic.EndpointsReconciler
+	EffectivePolicyIntentsReconciler *intents_reconcilers.ServiceEffectivePolicyIntentsReconciler
+	podWatcher                       *pod_reconcilers.PodWatcher
 }
 
 func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupSuite() {
@@ -62,9 +64,11 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.IfBlockedByOtterize)
-	s.NetworkPolicyReconciler = ingress_network_policy.NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, true, true, allowexternaltraffic.IfBlockedByOtterize)
+	netpolApplier := ingress_network_policy.NewNetworkPolicyReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, true, true, allowexternaltraffic.IfBlockedByOtterize)
+	epSyncer := effectivepolicy.NewSyncer(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolApplier)
+	s.EffectivePolicyIntentsReconciler = intents_reconcilers.NewServiceEffectiveIntentsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, epSyncer)
 	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
-	s.NetworkPolicyReconciler.InjectRecorder(recorder)
+	s.EffectivePolicyIntentsReconciler.InjectRecorder(recorder)
 
 	s.endpointReconciler = external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.endpointReconciler.InjectRecorder(recorder)
@@ -92,7 +96,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 	})
 	s.Require().NoError(err)
 
-	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+	res, err := s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
 			Name:      intents.Name,
@@ -146,7 +150,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	})
 	s.Require().NoError(err)
 
-	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+	res, err := s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
 			Name:      intents.Name,
@@ -202,7 +206,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	})
 	s.Require().NoError(err)
 
-	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+	res, err := s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
 			Name:      intents.Name,
@@ -259,7 +263,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	})
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		res, err = s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+		res, err = s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: s.TestNamespace,
 				Name:      intents.Name,
@@ -272,7 +276,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	})
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		res, err = s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+		res, err = s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
 			NamespacedName: types.NamespacedName{
 				Namespace: s.TestNamespace,
 				Name:      intents.Name,
@@ -300,7 +304,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	}})
 	s.Require().NoError(err)
 
-	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+	res, err := s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
 			Name:      intents.Name,
@@ -309,7 +313,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 
-	res2, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+	res2, err := s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: secondaryNamespace,
 			Name:      secondIntents.Name,
@@ -365,7 +369,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 		assert.NotNil(intentsDeleted.DeletionTimestamp)
 	})
 
-	res, err = s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+	res, err = s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
 			Name:      intents.Name,
@@ -394,7 +398,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNod
 	})
 	s.Require().NoError(err)
 
-	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+	res, err := s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
 			Name:      intents.Name,
@@ -449,7 +453,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerNetwor
 	})
 	s.Require().NoError(err)
 
-	res, err := s.NetworkPolicyReconciler.Reconcile(context.Background(), ctrl.Request{
+	res, err := s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: s.TestNamespace,
 			Name:      intents.Name,
