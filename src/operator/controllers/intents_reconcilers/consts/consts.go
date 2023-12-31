@@ -22,4 +22,5 @@ const (
 	ReasonRemovingEgressNetworkPolicyFailed             = "RemovingEgressNetworkPolicyFailed"
 	ReasonCreatingEgressNetworkPoliciesFailed           = "CreatingEgressNetworkPoliciesFailed"
 	ReasonCreatedEgressNetworkPolicies                  = "CreatedEgressNetworkPolicies"
+	ReasonCreatedInternetEgressNetworkPolicies          = "CreatedInternetEgressNetworkPolicies"
 )
