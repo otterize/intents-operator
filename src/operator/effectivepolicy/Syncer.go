@@ -2,6 +2,7 @@ package effectivepolicy
 
 import (
 	"context"
+	goerrors "errors"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -10,7 +11,7 @@ import (
 )
 
 type EffectivePoliciesApplier interface {
-	ApplyEffectivePolicies(ctx context.Context, eps []ServiceEffectivePolicy) (int, []error)
+	ApplyEffectivePolicies(ctx context.Context, eps []ServiceEffectivePolicy) (int, error)
 	InjectRecorder(recorder record.EventRecorder)
 }
 
@@ -39,18 +40,18 @@ func (s *Syncer) InjectRecorder(recorder record.EventRecorder) {
 	}
 }
 
-func (s *Syncer) Sync(ctx context.Context) []error {
+func (s *Syncer) Sync(ctx context.Context) error {
 	eps, err := GetAllServiceEffectivePolicies(ctx, s.Client, &s.InjectableRecorder)
 	if err != nil {
-		return []error{errors.Wrap(err)}
+		return errors.Wrap(err)
 	}
 
 	errorList := make([]error, 0)
 	for _, applier := range s.appliers {
-		_, applyErrors := applier.ApplyEffectivePolicies(ctx, eps)
-		if len(applyErrors) > 0 {
-			errorList = append(errorList, applyErrors...)
+		_, err := applier.ApplyEffectivePolicies(ctx, eps)
+		if err != nil {
+			errorList = append(errorList, errors.Wrap(err))
 		}
 	}
-	return errorList
+	return goerrors.Join(errorList...)
 }

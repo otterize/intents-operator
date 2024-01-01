@@ -3,6 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -31,9 +32,9 @@ func NewServiceEffectiveIntentsReconciler(
 }
 
 func (r *ServiceEffectivePolicyIntentsReconciler) Reconcile(ctx context.Context, _ reconcile.Request) (ctrl.Result, error) {
-	errors := r.serviceEffectivePolicyReconciler.Sync(ctx)
-	if len(errors) > 0 {
-		return ctrl.Result{}, errors[0]
+	err := r.serviceEffectivePolicyReconciler.Sync(ctx)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil

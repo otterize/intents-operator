@@ -2,6 +2,7 @@ package ingress_network_policy
 
 import (
 	"context"
+	goerrors "errors"
 	"fmt"
 	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
@@ -68,7 +69,7 @@ func NewNetworkPolicyApplier(
 }
 
 // ApplyEffectivePolicies Gets current state of effective policies and returns number of network policies
-func (r *NetworkPolicyApplier) ApplyEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, []error) {
+func (r *NetworkPolicyApplier) ApplyEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, error) {
 	currentPolicies := goset.NewSet[types.NamespacedName]()
 	//TODO:  error list as error
 	errorList := make([]error, 0)
@@ -82,13 +83,13 @@ func (r *NetworkPolicyApplier) ApplyEffectivePolicies(ctx context.Context, eps [
 		currentPolicies.Add(netpols...)
 	}
 	if len(errorList) > 0 {
-		return 0, errorList
+		return 0, goerrors.Join(errorList...)
 	}
 
 	// remove policies that doesn't exist in the policy list
 	err := r.removeNetworkPoliciesThatShouldNotExist(ctx, currentPolicies)
 	if err != nil {
-		return currentPolicies.Len(), []error{errors.Wrap(err)}
+		return currentPolicies.Len(), errors.Wrap(err)
 	}
 
 	if currentPolicies.Len() != 0 {
