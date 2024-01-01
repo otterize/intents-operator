@@ -75,6 +75,94 @@ func (s *NetworkPolicyReconcilerTestSuite) TearDownTest() {
 	s.MocksSuiteBase.TearDownTest()
 }
 
+func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
+	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
+			Operator: metav1.LabelSelectorOpExists,
+		},
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
+			Operator: metav1.LabelSelectorOpDoesNotExist,
+		},
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
+			Operator: metav1.LabelSelectorOpDoesNotExist,
+		},
+	}})
+	s.Require().NoError(err)
+
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), &client.ListOptions{LabelSelector: selector}).Return(nil)
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
+	clientIntentsName string,
+	serverNamespace string,
+	serviceName string,
+	policyName string,
+	formattedTargetServer string,
+	defaultEnforcementState bool,
+	protectedServices []otterizev1alpha3.ProtectedService,
+) {
+	s.Reconciler.enforcementDefaultState = defaultEnforcementState
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
+			{
+				Name: fmt.Sprintf("test-server.%s", serverNamespace),
+			},
+		},
+	}
+
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
+
+	if defaultEnforcementState == false {
+		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
+				list.Items = append(list.Items, protectedServices...)
+				return nil
+			}).AnyTimes()
+	}
+
+	// Search for existing NetworkPolicy
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	networkPolicyNamespacedName := types.NamespacedName{
+		Namespace: serverNamespace,
+		Name:      policyName,
+	}
+	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
+		})
+
+	// Create NetworkPolicy
+	newPolicy := networkPolicyTemplate(
+		policyName,
+		serverNamespace,
+		formattedTargetServer,
+		testNamespace,
+	)
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
+
+	selector := labels.SelectorFromSet(labels.Set(map[string]string{
+		otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
+	}))
+
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
+	s.ignoreRemoveOrphan()
+
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Empty(res)
+}
+
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 	clientIntentsName := "client-intents"
 	policyName := "access-to-test-server-from-test-namespace"
@@ -438,94 +526,6 @@ func (s *NetworkPolicyReconcilerTestSuite) expectGetAllEffectivePolicies(clientI
 		return nil
 	}).AnyTimes()
 
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
-	clientIntentsName string,
-	serverNamespace string,
-	serviceName string,
-	policyName string,
-	formattedTargetServer string,
-	defaultEnforcementState bool,
-	protectedServices []otterizev1alpha3.ProtectedService,
-) {
-	s.Reconciler.enforcementDefaultState = defaultEnforcementState
-	namespacedName := types.NamespacedName{
-		Namespace: testNamespace,
-		Name:      clientIntentsName,
-	}
-	req := ctrl.Request{
-		NamespacedName: namespacedName,
-	}
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
-			{
-				Name: fmt.Sprintf("test-server.%s", serverNamespace),
-			},
-		},
-	}
-
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
-
-	if defaultEnforcementState == false {
-		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
-				list.Items = append(list.Items, protectedServices...)
-				return nil
-			}).AnyTimes()
-	}
-
-	// Search for existing NetworkPolicy
-	emptyNetworkPolicy := &v1.NetworkPolicy{}
-	networkPolicyNamespacedName := types.NamespacedName{
-		Namespace: serverNamespace,
-		Name:      policyName,
-	}
-	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
-			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
-		})
-
-	// Create NetworkPolicy
-	newPolicy := networkPolicyTemplate(
-		policyName,
-		serverNamespace,
-		formattedTargetServer,
-		testNamespace,
-	)
-	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
-
-	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
-	}))
-
-	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
-	s.ignoreRemoveOrphan()
-
-	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
-}
-
-func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
-	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
-		{
-			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
-			Operator: metav1.LabelSelectorOpExists,
-		},
-		{
-			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
-		},
-		{
-			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
-			Operator: metav1.LabelSelectorOpDoesNotExist,
-		},
-	}})
-	s.Require().NoError(err)
-
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), &client.ListOptions{LabelSelector: selector}).Return(nil)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) expectRemoveOrphanFindsPolicies(netpols []v1.NetworkPolicy) {
