@@ -522,7 +522,7 @@ func (s *NetworkPolicyReconcilerTestSuite) expectGetAllEffectivePolicies(clientI
 		gomock.AssignableToTypeOf(matchFieldsPtr),
 	).DoAndReturn(func(_ context.Context, intents *otterizev1alpha3.ClientIntentsList, args ...any) error {
 		matchFields := args[0].(*client.MatchingFields)
-		intents.Items, _ = services[(*matchFields)[otterizev1alpha3.OtterizeFormattedTargetServerIndexField]]
+		intents.Items = services[(*matchFields)[otterizev1alpha3.OtterizeFormattedTargetServerIndexField]]
 		return nil
 	}).AnyTimes()
 
