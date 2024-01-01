@@ -2,13 +2,14 @@ package protected_service_reconcilers
 
 import (
 	"context"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type EffectivePolicySyncer interface {
-	Sync(ctx context.Context) []error
+	Sync(ctx context.Context) error
 }
 
 // PolicyCleanerReconciler reconciles a ProtectedService object
@@ -27,8 +28,8 @@ func NewPolicyCleanerReconciler(client client.Client, networkPolicyHandler Effec
 
 func (r *PolicyCleanerReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
 	err := r.epSyncer.Sync(ctx)
-	if len(err) > 0 {
-		return ctrl.Result{}, err[0]
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
