@@ -91,15 +91,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 		true,
 		nil,
 	)
-	//s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
-}
-func (s *NetworkPolicyReconcilerTestSuite) ExpectEvent(expectedEventReason string) {
-	select {
-	case _ = <-s.Recorder.Events:
-		return
-	default:
-		return
-	}
+	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServices() {
@@ -361,7 +353,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsName string, serverNamespace string, serviceName string, policyName string, formattedTargetServer string) {
@@ -794,7 +785,6 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
-	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
 
 func TestNetworkPolicyReconcilerTestSuite(t *testing.T) {
