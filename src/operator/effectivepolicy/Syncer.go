@@ -35,6 +35,7 @@ func (s *Syncer) AddApplier(applier EffectivePoliciesApplier) {
 }
 
 func (s *Syncer) InjectRecorder(recorder record.EventRecorder) {
+	s.Recorder = recorder
 	for _, applier := range s.appliers {
 		applier.InjectRecorder(recorder)
 	}
