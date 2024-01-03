@@ -417,6 +417,9 @@ func (r *PortNetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 	targetNamespace := intent.GetTargetServerNamespace(intentsObjNamespace)
 	// The intent's target server made of name + namespace + hash
 	formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), targetNamespace)
+	if svc.Spec.Selector == nil {
+		return nil, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
+	}
 	podSelector := metav1.LabelSelector{MatchLabels: svc.Spec.Selector}
 
 	netpol := &v1.NetworkPolicy{
