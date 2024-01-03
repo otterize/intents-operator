@@ -8,26 +8,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type EffectivePolicySyncer interface {
-	Sync(ctx context.Context) error
+type EffectivePolicyReconcilerGroup interface {
+	Reconcile(ctx context.Context) error
 }
 
 // PolicyCleanerReconciler reconciles a ProtectedService object
 type PolicyCleanerReconciler struct {
 	client.Client
 	injectablerecorder.InjectableRecorder
-	epSyncer EffectivePolicySyncer
+	epReconcilerGroup EffectivePolicyReconcilerGroup
 }
 
-func NewPolicyCleanerReconciler(client client.Client, networkPolicyHandler EffectivePolicySyncer) *PolicyCleanerReconciler {
+func NewPolicyCleanerReconciler(client client.Client, networkPolicyHandler EffectivePolicyReconcilerGroup) *PolicyCleanerReconciler {
 	return &PolicyCleanerReconciler{
-		Client:   client,
-		epSyncer: networkPolicyHandler,
+		Client:            client,
+		epReconcilerGroup: networkPolicyHandler,
 	}
 }
 
 func (r *PolicyCleanerReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
-	err := r.epSyncer.Sync(ctx)
+	err := r.epReconcilerGroup.Reconcile(ctx)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}

@@ -37,7 +37,7 @@ type KubernetesEvent struct {
 	Message string
 }
 
-type NetworkPolicyApplier struct {
+type IngressNetpolEffectivePolicyReconciler struct {
 	client.Client
 	Scheme                      *runtime.Scheme
 	extNetpolHandler            externalNetpolHandler
@@ -48,7 +48,7 @@ type NetworkPolicyApplier struct {
 	injectablerecorder.InjectableRecorder
 }
 
-func NewNetworkPolicyApplier(
+func NewIngressNetpolEffectivePolicyReconciler(
 	c client.Client,
 	s *runtime.Scheme,
 	extNetpolHandler externalNetpolHandler,
@@ -56,8 +56,8 @@ func NewNetworkPolicyApplier(
 	enableNetworkPolicyCreation bool,
 	enforcementDefaultState bool,
 	allowExternalTraffic allowexternaltraffic.Enum,
-) *NetworkPolicyApplier {
-	return &NetworkPolicyApplier{
+) *IngressNetpolEffectivePolicyReconciler {
+	return &IngressNetpolEffectivePolicyReconciler{
 		Client:                      c,
 		Scheme:                      s,
 		extNetpolHandler:            extNetpolHandler,
@@ -69,7 +69,7 @@ func NewNetworkPolicyApplier(
 }
 
 // ApplyEffectivePolicies Gets current state of effective policies and returns number of network policies
-func (r *NetworkPolicyApplier) ApplyEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, error) {
+func (r *IngressNetpolEffectivePolicyReconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, error) {
 	currentPolicies := goset.NewSet[types.NamespacedName]()
 	//TODO:  error list as error
 	errorList := make([]error, 0)
@@ -99,7 +99,7 @@ func (r *NetworkPolicyApplier) ApplyEffectivePolicies(ctx context.Context, eps [
 }
 
 // ApplyServiceEffectivePolicy - reconcile ingress netpols for a service. returns the list of policies' namespaced names
-func (r *NetworkPolicyApplier) ApplyServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]types.NamespacedName, error) {
+func (r *IngressNetpolEffectivePolicyReconciler) ApplyServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]types.NamespacedName, error) {
 	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service.Name, ep.Service.Namespace, r.enforcementDefaultState)
 	if err != nil {
 		return nil, err
@@ -159,7 +159,7 @@ func (r *NetworkPolicyApplier) ApplyServiceEffectivePolicy(ctx context.Context, 
 	return networkPolicies, nil
 }
 
-func (r *NetworkPolicyApplier) updateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) (bool, error) {
+func (r *IngressNetpolEffectivePolicyReconciler) updateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) (bool, error) {
 	if !reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
 		policyCopy := existingPolicy.DeepCopy()
 		policyCopy.Labels = newPolicy.Labels
@@ -176,7 +176,7 @@ func (r *NetworkPolicyApplier) updateExistingPolicy(ctx context.Context, existin
 	return false, nil
 }
 
-func (r *NetworkPolicyApplier) createNetworkPolicy(ctx context.Context, intentsObjNamespace string, intent otterizev1alpha3.Intent, newPolicy *v1.NetworkPolicy) error {
+func (r *IngressNetpolEffectivePolicyReconciler) createNetworkPolicy(ctx context.Context, intentsObjNamespace string, intent otterizev1alpha3.Intent, newPolicy *v1.NetworkPolicy) error {
 	logrus.Infof(
 		"Creating network policy to enable access from namespace %s to %s", intentsObjNamespace, intent.Name)
 	err := r.Create(ctx, newPolicy)
@@ -187,7 +187,7 @@ func (r *NetworkPolicyApplier) createNetworkPolicy(ctx context.Context, intentsO
 	return r.reconcileEndpointsForPolicy(ctx, newPolicy)
 }
 
-func (r *NetworkPolicyApplier) reconcileEndpointsForPolicy(ctx context.Context, newPolicy *v1.NetworkPolicy) error {
+func (r *IngressNetpolEffectivePolicyReconciler) reconcileEndpointsForPolicy(ctx context.Context, newPolicy *v1.NetworkPolicy) error {
 	selector, err := metav1.LabelSelectorAsSelector(&newPolicy.Spec.PodSelector)
 	if err != nil {
 		return err
@@ -196,7 +196,7 @@ func (r *NetworkPolicyApplier) reconcileEndpointsForPolicy(ctx context.Context, 
 	return r.extNetpolHandler.HandlePodsByLabelSelector(ctx, newPolicy.Namespace, selector)
 }
 
-func (r *NetworkPolicyApplier) removeNetworkPoliciesThatShouldNotExist(ctx context.Context, netpolNamesThatShouldExist *goset.Set[types.NamespacedName]) error {
+func (r *IngressNetpolEffectivePolicyReconciler) removeNetworkPoliciesThatShouldNotExist(ctx context.Context, netpolNamesThatShouldExist *goset.Set[types.NamespacedName]) error {
 	logrus.Info("Searching for orphaned network policies")
 	networkPolicyList := &v1.NetworkPolicyList{}
 	selector, err := matchAccessNetworkPolicy()
@@ -226,7 +226,7 @@ func (r *NetworkPolicyApplier) removeNetworkPoliciesThatShouldNotExist(ctx conte
 	return nil
 }
 
-func (r *NetworkPolicyApplier) removeNetworkPolicy(ctx context.Context, networkPolicy v1.NetworkPolicy) error {
+func (r *IngressNetpolEffectivePolicyReconciler) removeNetworkPolicy(ctx context.Context, networkPolicy v1.NetworkPolicy) error {
 	err := r.extNetpolHandler.HandleBeforeAccessPolicyRemoval(ctx, &networkPolicy)
 	if err != nil {
 		return err
@@ -259,7 +259,7 @@ func matchAccessNetworkPolicy() (labels.Selector, error) {
 }
 
 // buildNetworkPolicyObjectForIntent builds the network policy that represents the intent from the parameter
-func (r *NetworkPolicyApplier) buildNetworkPolicyObjectForIntent(
+func (r *IngressNetpolEffectivePolicyReconciler) buildNetworkPolicyObjectForIntent(
 	intent otterizev1alpha3.Intent, policyName, intentsObjNamespace string) *v1.NetworkPolicy {
 	targetNamespace := intent.GetTargetServerNamespace(intentsObjNamespace)
 	// The intent's target server made of name + namespace + hash
@@ -299,7 +299,7 @@ func (r *NetworkPolicyApplier) buildNetworkPolicyObjectForIntent(
 	}
 }
 
-func (r *NetworkPolicyApplier) buildPodLabelSelectorFromIntent(intent otterizev1alpha3.Intent, intentsObjNamespace string) metav1.LabelSelector {
+func (r *IngressNetpolEffectivePolicyReconciler) buildPodLabelSelectorFromIntent(intent otterizev1alpha3.Intent, intentsObjNamespace string) metav1.LabelSelector {
 	targetNamespace := intent.GetTargetServerNamespace(intentsObjNamespace)
 	// The intent's target server made of name + namespace + hash
 	formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), targetNamespace)

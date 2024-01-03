@@ -193,7 +193,7 @@ func main() {
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
-	networkPolicyHandler := ingress_network_policy.NewNetworkPolicyApplier(
+	epNetpolReconciler := ingress_network_policy.NewIngressNetpolEffectivePolicyReconciler(
 		mgr.GetClient(),
 		scheme,
 		extNetpolHandler,
@@ -204,8 +204,8 @@ func main() {
 	)
 
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
-	epSyncer := effectivepolicy.NewSyncer(mgr.GetClient(), scheme, networkPolicyHandler)
-	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epSyncer)
+	epGrouReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
+	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGrouReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
@@ -378,7 +378,7 @@ func main() {
 		extNetpolHandler,
 		enforcementConfig.EnforcementDefaultState,
 		enforcementConfig.EnableNetworkPolicy,
-		epSyncer,
+		epGrouReconciler,
 	)
 
 	err = protectedServicesReconciler.SetupWithManager(mgr)

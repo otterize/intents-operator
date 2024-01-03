@@ -32,7 +32,7 @@ const (
 
 type NetworkPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
-	Reconciler            *NetworkPolicyApplier
+	Reconciler            *IngressNetpolEffectivePolicyReconciler
 	externalNetpolHandler *mocks.MockexternalNetpolHandler
 	EPIntentsReconciler   *intents_reconcilers.ServiceEffectivePolicyIntentsReconciler
 }
@@ -47,7 +47,7 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	restrictToNamespaces := make([]string, 0)
 
 	scheme := &runtime.Scheme{}
-	s.Reconciler = NewNetworkPolicyApplier(
+	s.Reconciler = NewIngressNetpolEffectivePolicyReconciler(
 		s.Client,
 		scheme,
 		s.externalNetpolHandler,
@@ -57,13 +57,13 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 		allowexternaltraffic.IfBlockedByOtterize,
 	)
 
-	syncer := effectivepolicy.NewSyncer(s.Client,
+	epReconciler := effectivepolicy.NewGroupReconciler(s.Client,
 		scheme, s.Reconciler)
 	s.EPIntentsReconciler = intents_reconcilers.NewServiceEffectiveIntentsReconciler(s.Client,
-		scheme, syncer)
+		scheme, epReconciler)
 
 	s.Reconciler.Recorder = s.Recorder
-	syncer.InjectableRecorder.Recorder = s.Recorder
+	epReconciler.InjectableRecorder.Recorder = s.Recorder
 	s.EPIntentsReconciler.Recorder = s.Recorder
 }
 

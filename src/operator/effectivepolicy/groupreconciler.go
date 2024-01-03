@@ -14,46 +14,46 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type EffectivePoliciesApplier interface {
-	ApplyEffectivePolicies(ctx context.Context, eps []ServiceEffectivePolicy) (int, error)
+type reconciler interface {
+	ReconcileEffectivePolicies(ctx context.Context, eps []ServiceEffectivePolicy) (int, error)
 	InjectRecorder(recorder record.EventRecorder)
 }
 
-type Syncer struct {
+type GroupReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	appliers []EffectivePoliciesApplier
+	Scheme      *runtime.Scheme
+	reconcilers []reconciler
 	injectablerecorder.InjectableRecorder
 }
 
-func NewSyncer(k8sClient client.Client, scheme *runtime.Scheme, appliers ...EffectivePoliciesApplier) *Syncer {
-	return &Syncer{
-		Client:   k8sClient,
-		Scheme:   scheme,
-		appliers: appliers,
+func NewGroupReconciler(k8sClient client.Client, scheme *runtime.Scheme, reconcilers ...reconciler) *GroupReconciler {
+	return &GroupReconciler{
+		Client:      k8sClient,
+		Scheme:      scheme,
+		reconcilers: reconcilers,
 	}
 }
 
-func (s *Syncer) AddApplier(applier EffectivePoliciesApplier) {
-	s.appliers = append(s.appliers, applier)
+func (g *GroupReconciler) AddReconciler(reconciler reconciler) {
+	g.reconcilers = append(g.reconcilers, reconciler)
 }
 
-func (s *Syncer) InjectRecorder(recorder record.EventRecorder) {
-	s.Recorder = recorder
-	for _, applier := range s.appliers {
-		applier.InjectRecorder(recorder)
+func (g *GroupReconciler) InjectRecorder(recorder record.EventRecorder) {
+	g.Recorder = recorder
+	for _, r := range g.reconcilers {
+		r.InjectRecorder(recorder)
 	}
 }
 
-func (s *Syncer) Sync(ctx context.Context) error {
-	eps, err := s.getAllServiceEffectivePolicies(ctx)
+func (g *GroupReconciler) Reconcile(ctx context.Context) error {
+	eps, err := g.getAllServiceEffectivePolicies(ctx)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
 	errorList := make([]error, 0)
-	for _, applier := range s.appliers {
-		_, err := applier.ApplyEffectivePolicies(ctx, eps)
+	for _, applier := range g.reconcilers {
+		_, err := applier.ReconcileEffectivePolicies(ctx, eps)
 		if err != nil {
 			errorList = append(errorList, errors.Wrap(err))
 		}
@@ -61,10 +61,10 @@ func (s *Syncer) Sync(ctx context.Context) error {
 	return goerrors.Join(errorList...)
 }
 
-func (s *Syncer) getAllServiceEffectivePolicies(ctx context.Context) ([]ServiceEffectivePolicy, error) {
+func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([]ServiceEffectivePolicy, error) {
 	var intentsList v1alpha3.ClientIntentsList
 
-	err := s.Client.List(ctx, &intentsList)
+	err := g.Client.List(ctx, &intentsList)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (s *Syncer) getAllServiceEffectivePolicies(ctx context.Context) ([]ServiceE
 	// Build SEP for every service
 	epSlice := make([]ServiceEffectivePolicy, 0)
 	for _, service := range services.Items() {
-		ep, err := s.buildServiceEffectivePolicy(ctx, service)
+		ep, err := g.buildServiceEffectivePolicy(ctx, service)
 		if err != nil {
 			return nil, err
 		}
@@ -97,8 +97,8 @@ func (s *Syncer) getAllServiceEffectivePolicies(ctx context.Context) ([]ServiceE
 	return epSlice, nil
 }
 
-func (s *Syncer) buildServiceEffectivePolicy(ctx context.Context, service serviceidentity.ServiceIdentity) (ServiceEffectivePolicy, error) {
-	relevantClientIntents, err := s.getClientIntentsByServer(ctx, service)
+func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, service serviceidentity.ServiceIdentity) (ServiceEffectivePolicy, error) {
+	relevantClientIntents, err := g.getClientIntentsByServer(ctx, service)
 	if err != nil {
 		return ServiceEffectivePolicy{}, errors.Wrap(err)
 	}
@@ -110,17 +110,17 @@ func (s *Syncer) buildServiceEffectivePolicy(ctx context.Context, service servic
 		clientService := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace}
 		intendedCalls := getCallsListByServer(service, clientIntent)
 		for _, intendedCall := range intendedCalls {
-			objEventRecorder := injectablerecorder.NewObjectEventRecorder(&s.InjectableRecorder, lo.ToPtr(clientIntent))
+			objEventRecorder := injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntent))
 			ep.CalledBy = append(ep.CalledBy, ClientCall{Service: clientService, IntendedCall: intendedCall, ObjectEventRecorder: objEventRecorder})
 		}
 	}
 	return ep, nil
 }
 
-func (s *Syncer) getClientIntentsByServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v1alpha3.ClientIntents, error) {
+func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v1alpha3.ClientIntents, error) {
 	var intentsList v1alpha3.ClientIntentsList
 	matchFields := client.MatchingFields{v1alpha3.OtterizeFormattedTargetServerIndexField: v1alpha3.GetFormattedOtterizeIdentity(server.Name, server.Namespace)}
-	err := s.Client.List(
+	err := g.Client.List(
 		ctx, &intentsList,
 		&matchFields,
 	)

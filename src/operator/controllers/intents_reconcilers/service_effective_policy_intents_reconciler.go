@@ -15,14 +15,14 @@ import (
 type ServiceEffectivePolicyIntentsReconciler struct {
 	client.Client
 	Scheme                           *runtime.Scheme
-	serviceEffectivePolicyReconciler *effectivepolicy.Syncer
+	serviceEffectivePolicyReconciler *effectivepolicy.GroupReconciler
 	injectablerecorder.InjectableRecorder
 }
 
 func NewServiceEffectiveIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	serviceEffectivePolicySyncer *effectivepolicy.Syncer) *ServiceEffectivePolicyIntentsReconciler {
+	serviceEffectivePolicySyncer *effectivepolicy.GroupReconciler) *ServiceEffectivePolicyIntentsReconciler {
 
 	return &ServiceEffectivePolicyIntentsReconciler{
 		Client:                           client,
@@ -32,7 +32,7 @@ func NewServiceEffectiveIntentsReconciler(
 }
 
 func (r *ServiceEffectivePolicyIntentsReconciler) Reconcile(ctx context.Context, _ reconcile.Request) (ctrl.Result, error) {
-	err := r.serviceEffectivePolicyReconciler.Sync(ctx)
+	err := r.serviceEffectivePolicyReconciler.Reconcile(ctx)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
