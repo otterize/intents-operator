@@ -298,6 +298,9 @@ func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(
 	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(intentsObj.GetServiceName(), intentsObj.Namespace)
 	formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObj.Namespace))
 	podSelector := r.buildPodLabelSelectorFromIntents(intentsObj)
+	if svc.Spec.Selector == nil {
+		return nil, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
+	}
 	svcPodSelector := metav1.LabelSelector{MatchLabels: svc.Spec.Selector}
 	netpol := &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
