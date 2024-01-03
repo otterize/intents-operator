@@ -278,7 +278,6 @@ func (ldm *LinkerdManager) createResources(
 		if err != nil {
 			return nil, err
 		}
-		logrus.Info("shoudl create server result", shouldCreateServer)
 
 		if shouldCreateServer {
 			podSelector := ldm.BuildPodLabelSelectorFromIntent(intent, clientIntents.Namespace)
@@ -297,7 +296,6 @@ func (ldm *LinkerdManager) createResources(
 			if err != nil {
 				return nil, err
 			}
-			logrus.Info("probe path: ", probePath)
 
 			if probePath != "" {
 				httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, intent.Name, intent.Port, probePath)
@@ -312,7 +310,6 @@ func (ldm *LinkerdManager) createResources(
 					probePathRoute = ldm.generateHTTPRoute(*clientIntents, intent, s.Name, probePath,
 						httpRouteName,
 						clientIntents.Namespace)
-					logrus.Info("route name: ", probePathRoute.Name)
 					err = ldm.Client.Create(ctx, probePathRoute)
 					if err != nil {
 						return nil, err
@@ -334,7 +331,6 @@ func (ldm *LinkerdManager) createResources(
 						LinkerdHTTPRouteKindName,
 						LinkerdNetAuthKindName,
 						addPath(probePath))
-					logrus.Info("policyname: ", policy.Name)
 
 					err = ldm.Client.Create(ctx, policy)
 					if err != nil {
@@ -344,7 +340,6 @@ func (ldm *LinkerdManager) createResources(
 				}
 
 				currentResources[AuthorizationPolicies].Add(policy.UID)
-				logrus.Info("processed probe route")
 			}
 
 			for _, httpResource := range intent.HTTPResources {
@@ -360,7 +355,6 @@ func (ldm *LinkerdManager) createResources(
 					route = ldm.generateHTTPRoute(*clientIntents, intent, s.Name, httpResource.Path,
 						httpRouteName,
 						clientIntents.Namespace)
-					logrus.Info("route name: ", route.Name)
 					err = ldm.Client.Create(ctx, route)
 					if err != nil { // TODO: return errors but continue processing
 						return nil, err
@@ -497,7 +491,6 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otter
 
 	// no servers exist
 	if len(servers.Items) == 0 {
-		logrus.Info("found no servers")
 		return nil, true, nil
 	}
 
@@ -534,7 +527,6 @@ func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context,
 	targetRefKind,
 	authRefName,
 	authRefKind string) (*authpolicy.AuthorizationPolicy, bool, error) {
-	logrus.Infof("checking if i should create an authpolicy for %s and %s", targetName, intents.Spec.Service.Name)
 	authPolicies := &authpolicy.AuthorizationPolicyList{}
 
 	err := ldm.Client.List(ctx, authPolicies, &client.ListOptions{Namespace: intents.Namespace}) // check if auth policies can work across namespaces, in this case this wont work
@@ -591,7 +583,6 @@ func (ldm *LinkerdManager) generateLinkerdServer(
 	name := ldm.getServerName(intent, intent.Port)
 	serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
 	linkerdServerServiceFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
-	logrus.Infof("Generating server with details: %+v, %+v, %d", linkerdServerServiceFormattedIdentity, serverNamespace, intent.Port)
 
 	s := linkerdserver.Server{
 		TypeMeta: metav1.TypeMeta{
