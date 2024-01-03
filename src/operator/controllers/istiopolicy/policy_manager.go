@@ -317,7 +317,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 	updatedPolicies := goset.NewSet[PolicyID]()
 	createdAnyPolicies := false
 	for _, intent := range clientIntents.GetCallsList() {
-		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP {
+		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP || intent.IsTargetServerKubernetesService() {
 			continue
 		}
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
