@@ -195,7 +195,7 @@ func (s *PolicyManagerTestSuite) TestCreateIstioEnforcementDisabledNoProtectedSe
 	s.ExpectEvent(consts.ReasonIstioPolicyCreationDisabled)
 }
 
-func (s *PolicyManagerTestSuite) TestCreateIstioDisabledK8sServiceIntents() {
+func (s *PolicyManagerTestSuite) TestCreateIstioIgnoreK8sServiceIntents() {
 	s.admin.enableIstioPolicyCreation = false
 	clientName := "test-client"
 	serverName := "svc:otterservice.otternamespace"
