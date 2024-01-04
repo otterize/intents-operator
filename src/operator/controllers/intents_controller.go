@@ -207,7 +207,6 @@ func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev1alpha3.ClientIntents{}).
-		//WithEventFilter(predicate.GenerationChangedPredicate{}). // ignores Update events where only metadata or status are updated, which means only spec changes will reconcile
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Watches(&otterizev1alpha3.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
 		Complete(r)
