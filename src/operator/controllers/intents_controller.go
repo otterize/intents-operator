@@ -171,15 +171,31 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, err
 	}
 
+	if intents.Status.UpToDate != false && intents.Status.ObservedGeneration != intents.Generation {
+		intentsCopy := intents.DeepCopy()
+		intentsCopy.Status.UpToDate = false
+		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
+			return ctrl.Result{}, err
+		}
+		// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
+		// and that we don't trigger an infinite loop
+		return ctrl.Result{}, nil
+	}
+
 	result, err := r.group.Reconcile(ctx, req)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	intents.Status.UpToDate = true
-	if err := r.client.Status().Update(ctx, intents); err != nil {
-		return ctrl.Result{}, err
+	if intents.DeletionTimestamp == nil {
+		intentsCopy := intents.DeepCopy()
+		intentsCopy.Status.UpToDate = true
+		intentsCopy.Status.ObservedGeneration = intentsCopy.Generation
+		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
+
 	return result, nil
 }
 

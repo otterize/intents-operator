@@ -196,7 +196,11 @@ type KafkaTopic struct {
 type IntentsStatus struct {
 	// upToDate field reflects whether the client intents have successfully been applied
 	// to the cluster to the state specified
-	UpToDate bool `json:"upToDate,omitempty"`
+	// +optional
+	UpToDate bool `json:"upToDate"`
+	// The last generation of the intents that was successfully reconciled.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration"`
 }
 
 //+kubebuilder:object:root=true
