@@ -11,7 +11,7 @@ require (
 	github.com/bugsnag/bugsnag-go/v2 v2.2.0
 	github.com/cert-manager/cert-manager v1.12.3
 	github.com/google/uuid v1.3.0
-	github.com/otterize/intents-operator/src v0.0.0-20231210192949-b2bb8d69efbd
+	github.com/otterize/intents-operator/src v0.0.0-20240104165137-71b52a4ecff1
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.1
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.0

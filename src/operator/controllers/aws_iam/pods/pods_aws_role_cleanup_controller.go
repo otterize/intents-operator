@@ -81,8 +81,18 @@ func (r *PodAWSRoleCleanupReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	thisPodAndNonTerminatingPods := lo.Filter(pods.Items, func(filteredPod corev1.Pod, _ int) bool {
+		if pod.UID == filteredPod.UID {
+			return true
+		}
+		if filteredPod.DeletionTimestamp == nil {
+			return true
+		}
+
+		return false
+	})
 	// check if this is the last pod linked to this SA.
-	if len(pods.Items) == 1 && pods.Items[0].UID == pod.UID {
+	if len(thisPodAndNonTerminatingPods) == 1 && thisPodAndNonTerminatingPods[0].UID == pod.UID {
 		var serviceAccount corev1.ServiceAccount
 		err := r.Get(ctx, types.NamespacedName{Name: pod.Spec.ServiceAccountName, Namespace: pod.Namespace}, &serviceAccount)
 		if err != nil {
