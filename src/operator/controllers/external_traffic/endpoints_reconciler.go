@@ -3,6 +3,7 @@ package external_traffic
 import (
 	"context"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -63,13 +64,13 @@ func (r *EndpointsReconcilerImpl) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	err = r.extNetpolHandler.HandleEndpoints(ctx, endpoints)
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
@@ -87,7 +88,7 @@ func (r *EndpointsReconcilerImpl) InitIngressReferencedServicesIndex(mgr ctrl.Ma
 		})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil

@@ -2,9 +2,9 @@ package serviceidresolver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -45,7 +45,7 @@ func (r *Resolver) GetPodAnnotatedName(ctx context.Context, podName string, podN
 	var pod corev1.Pod
 	err := r.client.Get(ctx, types.NamespacedName{Name: podName, Namespace: podNamespace}, &pod)
 	if err != nil {
-		return "", false, err
+		return "", false, errors.Wrap(err)
 	}
 
 	annotation, ok := ResolvePodToServiceIdentityUsingAnnotationOnly(&pod)
@@ -63,7 +63,7 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 	}
 	ownerObj, err := r.GetOwnerObject(ctx, pod)
 	if err != nil {
-		return serviceidentity.ServiceIdentity{}, err
+		return serviceidentity.ServiceIdentity{}, errors.Wrap(err)
 	}
 
 	resourceName := ownerObj.GetName()
@@ -119,11 +119,11 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3
 	podsList := &corev1.PodList{}
 	labelSelector, err := intent.BuildPodLabelSelector()
 	if err != nil {
-		return corev1.Pod{}, err
+		return corev1.Pod{}, errors.Wrap(err)
 	}
 	err = r.client.List(ctx, podsList, client.MatchingLabelsSelector{Selector: labelSelector})
 	if err != nil {
-		return corev1.Pod{}, err
+		return corev1.Pod{}, errors.Wrap(err)
 	}
 	if len(podsList.Items) == 0 {
 		return corev1.Pod{}, ErrPodNotFound
@@ -151,7 +151,7 @@ func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3
 		client.InNamespace(namespace),
 	)
 	if err != nil {
-		return corev1.Pod{}, err
+		return corev1.Pod{}, errors.Wrap(err)
 	}
 	if len(podsList.Items) == 0 {
 		return corev1.Pod{}, ErrPodNotFound
@@ -171,7 +171,7 @@ func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3
 func (r *Resolver) GetKubernetesServicesTargetingPod(ctx context.Context, pod *corev1.Pod) ([]corev1.Service, error) {
 	serviceList := corev1.ServiceList{}
 	if err := r.client.List(ctx, &serviceList, &client.ListOptions{Namespace: pod.Namespace}); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	servicesTargetingPod := make([]corev1.Service, 0)

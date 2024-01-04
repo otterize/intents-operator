@@ -3,6 +3,7 @@ package istiopolicy
 import (
 	"context"
 	"fmt"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -28,14 +29,14 @@ func IsPodPartOfIstioMesh(pod corev1.Pod) bool {
 func IsIstioAuthorizationPoliciesInstalled(ctx context.Context, client client.Client) (bool, error) {
 	groupVersionKinds, _, err := client.Scheme().ObjectKinds(&v1beta1.AuthorizationPolicy{})
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err)
 	}
 
 	istioCRDName := fmt.Sprintf("authorizationpolicies.%s", groupVersionKinds[0].Group)
 	crd := apiextensionsv1.CustomResourceDefinition{}
 	err = client.Get(ctx, types.NamespacedName{Name: istioCRDName}, &crd)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return false, err
+		return false, errors.Wrap(err)
 	}
 
 	if k8serrors.IsNotFound(err) {

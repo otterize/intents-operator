@@ -6,6 +6,7 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/prometheus"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -58,12 +59,12 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	serviceID, err := p.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	// If a new pod starts, check if we need to do something for it.
@@ -74,17 +75,17 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
 		&client.ListOptions{Namespace: pod.Namespace})
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	err = p.addOtterizePodLabels(ctx, req, serviceID, pod)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	err = p.handleIstioPolicy(ctx, pod, serviceID)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
@@ -97,7 +98,7 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 
 	isIstioInstalled, err := istiopolicy.IsIstioAuthorizationPoliciesInstalled(ctx, p.Client)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if !isIstioInstalled {
@@ -107,7 +108,7 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 
 	err = p.updateServerSideCar(ctx, pod, serviceID)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	var intents otterizev1alpha3.ClientIntentsList
@@ -118,7 +119,7 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 		&client.ListOptions{Namespace: pod.Namespace})
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
-		return err
+		return errors.Wrap(err)
 	}
 
 	if len(intents.Items) == 0 {
@@ -128,7 +129,7 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 	for _, clientIntents := range intents.Items {
 		err = p.createIstioPolicies(ctx, clientIntents, pod)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
@@ -144,7 +145,7 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 		ctx, &intentsList,
 		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: serviceFullName})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if len(intentsList.Items) == 0 {
@@ -155,7 +156,7 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 		formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
 		err = p.istioPolicyAdmin.UpdateServerSidecar(ctx, &clientIntents, formattedTargetServer, missingSideCar)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
@@ -194,7 +195,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
-		return err
+		return errors.Wrap(err)
 	}
 
 	if len(intents.Items) != 0 {
@@ -218,7 +219,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		err = p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			logrus.Errorf("Failed updating Otterize labels for pod %s in namespace %s", pod.Name, pod.Namespace)
-			return err
+			return errors.Wrap(err)
 		}
 	}
 	return nil
@@ -237,7 +238,7 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 
 	err := p.istioPolicyAdmin.UpdateIntentsStatus(ctx, &intents, pod.Spec.ServiceAccountName, missingSideCar)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if missingSideCar {
@@ -248,7 +249,7 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 	err = p.istioPolicyAdmin.Create(ctx, &intents, pod.Spec.ServiceAccountName)
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -268,7 +269,7 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 		})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil

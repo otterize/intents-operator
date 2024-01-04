@@ -2,10 +2,10 @@ package intents_reconcilers
 
 import (
 	"context"
-	"errors"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	istiopolicy "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/sirupsen/logrus"
@@ -50,7 +50,7 @@ func NewIstioPolicyReconciler(
 func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	isIstioInstalled, err := istiopolicy.IsIstioAuthorizationPoliciesInstalled(ctx, r.Client)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if !isIstioInstalled {
@@ -64,7 +64,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if intents.Spec == nil {
@@ -77,14 +77,14 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.policyManager.DeleteAll(ctx, intents)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 		if err != nil {
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
 			r.RecordWarningEventf(intents, consts.ReasonRemovingIstioPolicyFailed, "Could not remove Istio policies: %s", err.Error())
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -101,7 +101,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			return ctrl.Result{}, nil
 		}
 
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	clientServiceAccountName := pod.Spec.ServiceAccountName
@@ -109,12 +109,12 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	err = r.policyManager.UpdateIntentsStatus(ctx, intents, clientServiceAccountName, missingSideCar)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	err = r.updateServerSidecarStatus(ctx, intents)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if missingSideCar {
@@ -128,7 +128,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
@@ -142,14 +142,14 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 			if errors.Is(err, serviceidresolver.ErrPodNotFound) {
 				continue
 			}
-			return err
+			return errors.Wrap(err)
 		}
 
 		missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 		formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), serverNamespace)
 		err = r.policyManager.UpdateServerSidecar(ctx, intents, formattedTargetServer, missingSideCar)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 

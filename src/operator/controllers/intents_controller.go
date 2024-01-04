@@ -29,6 +29,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/initonce"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -158,7 +159,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return r.intentsReconcilerInit(ctx)
 	})
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	intents := &otterizev1alpha3.ClientIntents{}
@@ -168,14 +169,14 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if intents.Status.UpToDate != false && intents.Status.ObservedGeneration != intents.Generation {
 		intentsCopy := intents.DeepCopy()
 		intentsCopy.Status.UpToDate = false
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 		// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
 		// and that we don't trigger an infinite loop
@@ -184,7 +185,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	result, err := r.group.Reconcile(ctx, req)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if intents.DeletionTimestamp == nil {
@@ -192,7 +193,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		intentsCopy.Status.UpToDate = true
 		intentsCopy.Status.ObservedGeneration = intentsCopy.Generation
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
 
@@ -211,7 +212,7 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&otterizev1alpha3.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
 		Complete(r)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	r.group.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
@@ -284,7 +285,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			return res
 		})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = mgr.GetCache().IndexField(
@@ -316,7 +317,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			return res
 		})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -354,7 +355,7 @@ func (r *IntentsReconciler) InitEndpointsPodNamesIndex(mgr ctrl.Manager) error {
 		})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil

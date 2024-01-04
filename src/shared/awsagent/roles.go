@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/smithy-go"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"strings"
@@ -38,7 +38,7 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 				return false, nil, nil
 			default:
 				logger.WithError(err).Error("unable to get role")
-				return false, nil, err
+				return false, nil, errors.Wrap(err)
 			}
 		}
 	}
@@ -52,7 +52,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	if exists {
@@ -62,7 +62,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 		trustPolicy, err := a.generateTrustPolicy(namespaceName, accountName)
 
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err)
 		}
 
 		createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
@@ -100,7 +100,7 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if !exists {
@@ -125,7 +125,7 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	err = a.deleteAllRolePolicies(ctx, namespaceName, role)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	_, err = a.iamClient.DeleteRole(ctx, &iam.DeleteRoleInput{
@@ -134,7 +134,7 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 
 	if err != nil {
 		logger.WithError(err).Errorf("failed to delete role")
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -186,10 +186,10 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 
 	if err != nil {
 		logrus.WithError(err).Error("failed to create trust policy")
-		return "", err
+		return "", errors.Wrap(err)
 	}
 
-	return string(serialized), err
+	return string(serialized), errors.Wrap(err)
 }
 
 func (a *Agent) generateRoleName(namespace string, accountName string) string {

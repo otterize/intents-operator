@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,7 +40,7 @@ type CertificateBundle struct {
 func GenerateSelfSignedCertificate(hostname string, namespace string) (CertificateBundle, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		return CertificateBundle{}, err
+		return CertificateBundle{}, errors.Wrap(err)
 	}
 	certificate := x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().Unix()),
@@ -57,13 +58,13 @@ func GenerateSelfSignedCertificate(hostname string, namespace string) (Certifica
 	}
 	derCert, err := x509.CreateCertificate(rand.Reader, &certificate, &certificate, &privateKey.PublicKey, privateKey)
 	if err != nil {
-		return CertificateBundle{}, err
+		return CertificateBundle{}, errors.Wrap(err)
 	}
 
 	signedCert := &bytes.Buffer{}
 	err = pem.Encode(signedCert, &pem.Block{Type: "CERTIFICATE", Bytes: derCert})
 	if err != nil {
-		return CertificateBundle{}, err
+		return CertificateBundle{}, errors.Wrap(err)
 	}
 
 	privateKeyPem := pem.EncodeToMemory(&pem.Block{
@@ -79,12 +80,12 @@ func GenerateSelfSignedCertificate(hostname string, namespace string) (Certifica
 func UpdateMutationWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
 	kubeClient, err := getKubeClient()
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	webhookConfig, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, webHookName, metav1.GetOptions{})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	var newCA []patchValue
@@ -98,18 +99,18 @@ func UpdateMutationWebHookCA(ctx context.Context, webHookName string, ca []byte)
 
 	newCAByte, err := json.Marshal(newCA)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	logrus.Infof("Installing new certificate in %s", webHookName)
 	_, err = kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Patch(ctx, webHookName, types.JSONPatchType, newCAByte, metav1.PatchOptions{})
-	return err
+	return errors.Wrap(err)
 }
 
 func WriteCertToFiles(bundle CertificateBundle) error {
 	err := os.MkdirAll(CertDirPath, 0600)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	certFilePath := filepath.Join(CertDirPath, CertFilename)
@@ -117,7 +118,7 @@ func WriteCertToFiles(bundle CertificateBundle) error {
 
 	err = os.WriteFile(certFilePath, bundle.CertPem, 0600)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	return os.WriteFile(privateKeyFilePath, bundle.PrivateKeyPem, 0600)
 }
@@ -125,11 +126,11 @@ func WriteCertToFiles(bundle CertificateBundle) error {
 func getKubeClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	clientSet, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	return clientSet, nil
 }
@@ -143,12 +144,12 @@ type patchValue struct {
 func UpdateValidationWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
 	kubeClient, err := getKubeClient()
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	webhookConfig, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(ctx, webHookName, metav1.GetOptions{})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	var newCA []patchValue
@@ -162,12 +163,12 @@ func UpdateValidationWebHookCA(ctx context.Context, webHookName string, ca []byt
 
 	newCAByte, err := json.Marshal(newCA)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	logrus.Infof("Installing new certificate in %s", webHookName)
 	_, err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(ctx, webHookName, types.JSONPatchType, newCAByte, metav1.PatchOptions{})
-	return err
+	return errors.Wrap(err)
 }
 
 func UpdateConversionWebhookCAs(ctx context.Context, k8sClient client.Client, ca []byte) error {

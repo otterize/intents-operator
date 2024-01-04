@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"strconv"
 	"strings"
 
@@ -352,7 +353,7 @@ func (in *ClientIntents) GetServersWithoutSidecar() (sets.Set[string], error) {
 	serversList := make([]string, 0)
 	err := json.Unmarshal([]byte(servers), &serversList)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	return sets.New[string](serversList...), nil
@@ -361,7 +362,7 @@ func (in *ClientIntents) GetServersWithoutSidecar() (sets.Set[string], error) {
 func (in *ClientIntents) IsServerMissingSidecar(intent Intent) (bool, error) {
 	serversSet, err := in.GetServersWithoutSidecar()
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err)
 	}
 	serverIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), intent.GetTargetServerNamespace(in.Namespace))
 	return serversSet.Has(serverIdentity), nil
@@ -374,7 +375,7 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
 			statusInput, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err)
 			}
 
 			input.Status = statusInput
@@ -420,7 +421,7 @@ func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent
 	status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(clientMissingSidecar)
 	isServerMissingSidecar, err := clientIntents.IsServerMissingSidecar(intent)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	status.IstioStatus.IsServerMissingSidecar = lo.ToPtr(isServerMissingSidecar)
 	return &status, nil

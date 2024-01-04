@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
@@ -41,7 +42,7 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	service := corev1.Service{}
 	err := r.Get(ctx, req.NamespacedName, &service)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	var intentsList otterizev1alpha3.ClientIntentsList
@@ -50,7 +51,7 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fmt.Sprintf("svc:%s.%s", req.Name, req.Namespace)})
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	// Reconcile for any clientIntent in the cluster that points to the service enqueued in the request
@@ -61,7 +62,7 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 				Name:      clientIntent.Name,
 			}})
 			if err != nil {
-				return ctrl.Result{}, err
+				return ctrl.Result{}, errors.Wrap(err)
 			}
 			if !res.IsZero() {
 				return res, nil
@@ -98,23 +99,23 @@ func (r *ServiceWatcher) removeOrphanEgressServiceNetpols(ctx context.Context) e
 	networkPolicyList := &v1.NetworkPolicyList{}
 	selector, err := matchEgressAccessNetworkPolicy()
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = r.List(ctx, networkPolicyList, &client.ListOptions{LabelSelector: selector})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	for _, netpol := range networkPolicyList.Items {
 		svcName, ok := netpol.Annotations[otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetService]
 		if !ok {
-			return err
+			return errors.Wrap(err)
 		}
 
 		svcNamespace, ok := netpol.Annotations[otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetServiceNamespace]
 		if !ok {
-			return err
+			return errors.Wrap(err)
 		}
 
 		netpolSvc := &corev1.Service{}
@@ -128,12 +129,12 @@ func (r *ServiceWatcher) removeOrphanEgressServiceNetpols(ctx context.Context) e
 				continue
 			}
 			if err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 		}
 
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 
 	}
