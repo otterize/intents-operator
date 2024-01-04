@@ -48,7 +48,7 @@ func (p *AWSPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	pod := v1.Pod{}
 	err := p.Get(ctx, req.NamespacedName, &pod)
 
-	if k8serrors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) || pod.DeletionTimestamp != nil {
 		logger.Infoln("Pod was deleted")
 		return ctrl.Result{}, nil
 	}

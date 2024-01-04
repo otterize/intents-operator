@@ -68,7 +68,7 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, nil
 	}
 
-	err = g.assureFinalizer(ctx, resourceObject)
+	err = g.ensureFinalizer(ctx, resourceObject)
 	if err != nil {
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
@@ -119,7 +119,7 @@ func (g *Group) removeLegacyFinalizers(ctx context.Context, resource client.Obje
 	return nil
 }
 
-func (g *Group) assureFinalizer(ctx context.Context, resource client.Object) error {
+func (g *Group) ensureFinalizer(ctx context.Context, resource client.Object) error {
 	if !controllerutil.ContainsFinalizer(resource, g.finalizer) {
 		controllerutil.AddFinalizer(resource, g.finalizer)
 		err := g.client.Update(ctx, resource)
@@ -149,7 +149,6 @@ func (g *Group) runGroup(ctx context.Context, req ctrl.Request, finalErr error, 
 			if finalErr == nil {
 				finalErr = err
 			}
-			logrus.Errorf("Error in reconciler %T: %s", reconciler, err)
 		}
 		if !res.IsZero() {
 			finalRes = shortestRequeue(res, finalRes)

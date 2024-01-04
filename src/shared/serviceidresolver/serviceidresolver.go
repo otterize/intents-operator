@@ -88,15 +88,22 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 		ownerObj.SetAPIVersion(owner.APIVersion)
 		ownerObj.SetKind(owner.Kind)
 		err := r.client.Get(ctx, types.NamespacedName{Name: owner.Name, Namespace: obj.GetNamespace()}, ownerObj)
-		if err != nil && k8serrors.IsForbidden(err) {
-			// We don't have permissions for further resolving of the owner object,
-			// and so we treat it as the identity.
-			log.WithError(err).WithFields(logrus.Fields{"owner": owner.Name, "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Warning(
-				"permission error resolving owner, will use owner object as service identifier",
-			)
-			ownerObj.SetName(owner.Name)
-			return ownerObj, nil
-		} else if err != nil {
+		if err != nil {
+			if k8serrors.IsForbidden(err) {
+				// We don't have permissions for further resolving of the owner object,
+				// and so we treat it as the identity.
+				log.WithError(err).WithFields(logrus.Fields{"owner": owner.Name, "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Warning(
+					"permission error resolving owner, will use owner object as service identifier",
+				)
+				ownerObj.SetName(owner.Name)
+				return ownerObj, nil
+			} else if k8serrors.IsNotFound(err) {
+				log.WithError(err).WithFields(logrus.Fields{"owner": owner.Name, "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Warning(
+					"resolving owner failed due to owner not found (this is fine if the owner is also being terminated), will use current owner name as service identifier",
+				)
+				ownerObj.SetName(owner.Name)
+				return ownerObj, nil
+			}
 			return nil, fmt.Errorf("error querying owner reference: %w", err)
 		}
 

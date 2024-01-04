@@ -129,7 +129,13 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	}
 
 	err = r.awsAgent.AddRolePolicy(ctx, req.Namespace, serviceAccountName, intents.Spec.Service.Name, policy.Statement)
-	return ctrl.Result{}, err
+	if err != nil {
+		r.RecordWarningEventf(&intents, consts.ReasonReconcilingAWSPoliciesFailed, "Failed to reconcile AWS policies due to error: %s", err.Error())
+		return ctrl.Result{}, err
+	}
+
+	r.RecordNormalEventf(&intents, consts.ReasonReconciledAWSPolicies, "Successfully reconciled AWS policies")
+	return ctrl.Result{}, nil
 }
 
 func (r *AWSIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.Context, serviceAccountName string, namespace string) (bool, error) {
