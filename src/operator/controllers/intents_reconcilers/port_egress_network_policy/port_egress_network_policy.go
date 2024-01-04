@@ -307,6 +307,7 @@ func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(c
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
+	} else {
 		return nil, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
 	}
 
