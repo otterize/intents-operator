@@ -6,6 +6,7 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/prometheus"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
@@ -55,7 +56,7 @@ func (r *EgressNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if intents.Spec == nil {
@@ -73,7 +74,7 @@ func (r *EgressNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 				return ctrl.Result{Requeue: true}, nil
 			}
 			r.RecordWarningEventf(intents, consts.ReasonRemovingEgressNetworkPolicyFailed, "could not remove network policies: %s", err.Error())
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -94,7 +95,7 @@ func (r *EgressNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 		createdPolicies, err := r.handleNetworkPolicyCreation(ctx, intents, intent, req.Namespace)
 		if err != nil {
 			r.RecordWarningEventf(intents, consts.ReasonCreatingEgressNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 		if createdPolicies {
 			createdNetpols += 1
@@ -104,7 +105,7 @@ func (r *EgressNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.
 	err = r.removeOrphanNetworkPolicies(ctx)
 	if err != nil {
 		r.RecordWarningEventf(intents, consts.ReasonRemovingEgressNetworkPolicyFailed, "failed to remove network policies: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if createdNetpols != 0 {
@@ -139,7 +140,7 @@ func (r *EgressNetworkPolicyReconciler) handleNetworkPolicyCreation(
 		existingPolicy)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingEgressNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
-		return false, err
+		return false, errors.Wrap(err)
 	}
 
 	if k8serrors.IsNotFound(err) {
@@ -158,7 +159,7 @@ func (r *EgressNetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context
 
 		err := r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
@@ -177,7 +178,7 @@ func (r *EgressNetworkPolicyReconciler) cleanPolicies(
 	for _, intent := range intents.GetCallsList() {
 		err := r.handleIntentRemoval(ctx, intent, *intents)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
@@ -185,7 +186,7 @@ func (r *EgressNetworkPolicyReconciler) cleanPolicies(
 	prometheus.IncrementNetpolDeleted(len(intents.GetCallsList()))
 
 	if err := r.Update(ctx, intents); err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -206,13 +207,13 @@ func (r *EgressNetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.
 	networkPolicyList := &v1.NetworkPolicyList{}
 	selector, err := matchAccessNetworkPolicy()
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = r.List(ctx, networkPolicyList, &client.ListOptions{LabelSelector: selector})
 	if err != nil {
 		logrus.Infof("Error listing network policies: %s", err.Error())
-		return err
+		return errors.Wrap(err)
 	}
 
 	logrus.Infof("Selector: %s found %d network policies", selector.String(), len(networkPolicyList.Items))
@@ -228,14 +229,14 @@ func (r *EgressNetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.
 			&client.ListOptions{Namespace: clientNamespace},
 		)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 
 		if len(intentsList.Items) == 0 {
 			logrus.Infof("Removing orphaned network policy: %s server %s ns %s", networkPolicy.Name, formattedServerName, networkPolicy.Namespace)
 			err = r.removeNetworkPolicy(ctx, networkPolicy)
 			if err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 		}
 	}
@@ -269,7 +270,7 @@ func (r *EgressNetworkPolicyReconciler) deleteNetworkPolicy(
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
-		return err
+		return errors.Wrap(err)
 	}
 
 	return r.removeNetworkPolicy(ctx, *policy)

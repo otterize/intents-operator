@@ -7,6 +7,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/sirupsen/logrus"
@@ -90,7 +91,7 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 		intentsForServer := intentsByServer[serverName]
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 
 		if !shouldCreatePolicy {
@@ -102,7 +103,7 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 		if err != nil {
 			err = fmt.Errorf("failed to connect to Kafka server %s: %w", serverName, err)
 			r.RecordWarningEventf(intents, ReasonCouldNotConnectToKafkaServer, "Kafka ACL reconcile failed: %s", err.Error())
-			return err
+			return errors.Wrap(err)
 		}
 		defer kafkaIntentsAdmin.Close()
 		if err := kafkaIntentsAdmin.ApplyClientIntents(intents.Spec.Service.Name, intents.Namespace, intentsForServer); err != nil {
@@ -111,7 +112,7 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 		}
 		return nil
 	}); err != nil {
-		return 0, err
+		return 0, errors.Wrap(err)
 	}
 
 	if !r.enableKafkaACLCreation {
@@ -132,13 +133,13 @@ func (r *KafkaACLReconciler) RemoveACLs(ctx context.Context, intents *otterizev1
 	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha3.KafkaServerConfig, tls otterizev1alpha3.TLSSource) error {
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 
 		// We just pass shouldCreatePolicy to the KafkaIntentsAdmin - it determines whether to create or delete.
 		kafkaIntentsAdmin, err := r.getNewKafkaIntentsAdmin(*config, tls, r.enableKafkaACLCreation, shouldCreatePolicy)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		defer kafkaIntentsAdmin.Close()
 
@@ -157,7 +158,7 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		logger.Info("No intents found")
 		return ctrl.Result{}, nil
 	} else if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if intents.Spec == nil {
@@ -171,7 +172,7 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	clientIsOperator, err := r.isIntentsForTheIntentsOperator(ctx, intents)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if clientIsOperator {
@@ -182,7 +183,7 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	var result ctrl.Result
 	result, err = r.applyAcls(ctx, logger, intents)
 	if err != nil {
-		return result, err
+		return result, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
@@ -212,7 +213,7 @@ func (r *KafkaACLReconciler) applyAcls(ctx context.Context, logger *logrus.Entry
 	serverCount, err := r.applyACLs(ctx, intents)
 	if err != nil {
 		r.RecordWarningEventf(intents, ReasonApplyingKafkaACLsFailed, "could not apply Kafka ACLs: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if serverCount > 0 {
@@ -229,7 +230,7 @@ func (r *KafkaACLReconciler) handleIntentsDeletion(ctx context.Context, intents 
 	logger.Infof("Removing associated Acls")
 	if err := r.RemoveACLs(ctx, intents); err != nil {
 		r.RecordWarningEventf(intents, ReasonRemovingKafkaACLsFailed, "Could not remove Kafka ACLs: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil

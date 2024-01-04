@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
@@ -69,12 +70,12 @@ func (r *NetworkPolicyUploaderReconciler) Reconcile(ctx context.Context, req ctr
 		return ctrl.Result{}, nil
 	}
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	selector, err := metav1.LabelSelectorAsSelector(&netpol.Spec.PodSelector)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	var podList corev1.PodList
@@ -99,7 +100,7 @@ func (r *NetworkPolicyUploaderReconciler) Reconcile(ctx context.Context, req ctr
 	for _, pod := range podList.Items {
 		serviceId, err := r.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 
 		logrus.
@@ -120,7 +121,7 @@ func (r *NetworkPolicyUploaderReconciler) Reconcile(ctx context.Context, req ctr
 		logrus.WithError(err).
 			WithField("namespace", req.Namespace).
 			Error("failed reporting network policies")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil

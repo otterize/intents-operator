@@ -2,7 +2,6 @@ package awsagent
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -13,6 +12,7 @@ import (
 	eksTypes "github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -90,7 +90,7 @@ func getEKSClusterName(ctx context.Context, config aws.Config) (string, error) {
 	output, err := imdsClient.GetInstanceIdentityDocument(ctx, &imds.GetInstanceIdentityDocumentInput{})
 
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err)
 	}
 
 	ec2Client := ec2.NewFromConfig(config)
@@ -99,7 +99,7 @@ func getEKSClusterName(ctx context.Context, config aws.Config) (string, error) {
 	})
 
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err)
 	}
 
 	clusterName, found := lo.Find(describeInstancesOutput.Reservations[0].Instances[0].Tags, func(item types.Tag) bool {
@@ -124,7 +124,7 @@ func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Clu
 	describeClusterOutput, err := eksClient.DescribeCluster(ctx, &eks.DescribeClusterInput{Name: &clusterName})
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	return describeClusterOutput.Cluster, nil

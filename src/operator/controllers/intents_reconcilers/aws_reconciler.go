@@ -2,11 +2,11 @@ package intents_reconcilers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
@@ -50,7 +50,7 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if intents.DeletionTimestamp != nil {
@@ -58,7 +58,7 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 
 		err := r.awsAgent.DeleteRolePolicyFromIntents(ctx, intents)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 
 		return ctrl.Result{}, nil
@@ -85,7 +85,7 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 				intents.Namespace)
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if pod.Labels == nil {
@@ -131,7 +131,7 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	err = r.awsAgent.AddRolePolicy(ctx, req.Namespace, serviceAccountName, intents.Spec.Service.Name, policy.Statement)
 	if err != nil {
 		r.RecordWarningEventf(&intents, consts.ReasonReconcilingAWSPoliciesFailed, "Failed to reconcile AWS policies due to error: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	r.RecordNormalEventf(&intents, consts.ReasonReconciledAWSPolicies, "Successfully reconciled AWS policies")
@@ -145,7 +145,7 @@ func (r *AWSIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.C
 		&intents,
 		&client.ListOptions{Namespace: namespace})
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err)
 	}
 
 	if len(intents.Items) <= 1 {
@@ -160,7 +160,7 @@ func (r *AWSIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.C
 	for _, intent := range intentsWithAWSInSameNamespace {
 		pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, intent)
 		if err != nil {
-			return false, err
+			return false, errors.Wrap(err)
 		}
 		if pod.Spec.ServiceAccountName == serviceAccountName {
 			countUsesOfServiceAccountName++

@@ -1,13 +1,14 @@
 package kafkaacls
 
 import (
-	"errors"
+	gerrors "errors"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
-	ServerSpecNotFound = errors.New("failed getting kafka server connection - server configuration specs not set")
+	ServerSpecNotFound = gerrors.New("failed getting kafka server connection - server configuration specs not set")
 )
 
 type ServersStore interface {
@@ -65,7 +66,7 @@ func (s *ServersStoreImpl) Get(serverName string, namespace string) (KafkaIntent
 func (s *ServersStoreImpl) MapErr(f func(types.NamespacedName, *otterizev1alpha3.KafkaServerConfig, otterizev1alpha3.TLSSource) error) error {
 	for serverName, config := range s.serversByName {
 		if err := f(serverName, config, s.tlsSourceFiles); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 

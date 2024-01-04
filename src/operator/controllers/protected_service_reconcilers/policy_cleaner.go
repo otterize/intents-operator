@@ -2,6 +2,7 @@ package protected_service_reconcilers
 
 import (
 	"context"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,7 +29,7 @@ func NewPolicyCleanerReconciler(client client.Client, networkPolicyHandler Netwo
 func (r *PolicyCleanerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	err := r.networkPolicyHandler.CleanPoliciesFromUnprotectedServices(ctx, req.Namespace)
 	if client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil

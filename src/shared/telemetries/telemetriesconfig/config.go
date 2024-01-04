@@ -52,6 +52,6 @@ func IsUsageTelemetryEnabled() bool {
 	return viper.GetBool(TelemetryEnabledKey) && viper.GetBool(TelemetryUsageEnabledKey)
 }
 
-func IsErrorsTelemetryEnabled() bool {
+func IsErrorTelemetryEnabled() bool {
 	return viper.GetBool(TelemetryEnabledKey) && viper.GetBool(TelemetryErrorsEnabledKey)
 }

@@ -21,7 +21,8 @@ import (
 	"fmt"
 	"github.com/asaskevich/govalidator"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/otterize/intents-operator/src/shared/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -60,7 +61,7 @@ func (v *ProtectedServiceValidatorV1alpha3) ValidateCreate(ctx context.Context, 
 
 	protectedServicesList := &otterizev1alpha3.ProtectedServiceList{}
 	if err := v.List(ctx, protectedServicesList, &client.ListOptions{Namespace: protectedService.Namespace}); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	if err := v.validateNoDuplicateClients(protectedService, protectedServicesList); err != nil {
@@ -76,7 +77,7 @@ func (v *ProtectedServiceValidatorV1alpha3) ValidateCreate(ctx context.Context, 
 	}
 
 	gvk := protectedService.GroupVersionKind()
-	return nil, errors.NewInvalid(
+	return nil, k8serrors.NewInvalid(
 		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
 		protectedService.Name, allErrs)
 }
@@ -88,7 +89,7 @@ func (v *ProtectedServiceValidatorV1alpha3) ValidateUpdate(ctx context.Context, 
 
 	protectedServicesList := &otterizev1alpha3.ProtectedServiceList{}
 	if err := v.List(ctx, protectedServicesList, &client.ListOptions{Namespace: protectedService.Namespace}); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	if err := v.validateNoDuplicateClients(protectedService, protectedServicesList); err != nil {
@@ -104,7 +105,7 @@ func (v *ProtectedServiceValidatorV1alpha3) ValidateUpdate(ctx context.Context, 
 	}
 
 	gvk := protectedService.GroupVersionKind()
-	return nil, errors.NewInvalid(
+	return nil, k8serrors.NewInvalid(
 		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
 		protectedService.Name, allErrs)
 }

@@ -3,6 +3,7 @@ package protected_service_reconcilers
 import (
 	"context"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
@@ -34,7 +35,7 @@ func NewCloudReconciler(
 func (r *CloudReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	err := r.reportAllProtectedServicesInNamespace(ctx, req.Namespace)
 	if client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
@@ -44,7 +45,7 @@ func (r *CloudReconciler) reportAllProtectedServicesInNamespace(ctx context.Cont
 	var protectedServices otterizev1alpha3.ProtectedServiceList
 	err := r.List(ctx, &protectedServices, client.InNamespace(namespace))
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	services := sets.Set[string]{}

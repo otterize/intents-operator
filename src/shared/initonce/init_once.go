@@ -1,6 +1,9 @@
 package initonce
 
-import "sync"
+import (
+	"github.com/otterize/intents-operator/src/shared/errors"
+	"sync"
+)
 
 type InitOnce struct {
 	once sync.Once
@@ -16,7 +19,7 @@ func (i *InitOnce) Do(f func() error) error {
 	})
 	if err != nil {
 		i.once = sync.Once{}
-		return err
+		return errors.Wrap(err)
 	}
 	return nil
 }
