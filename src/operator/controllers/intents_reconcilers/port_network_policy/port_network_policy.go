@@ -99,6 +99,11 @@ func (r *PortNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		if !intent.IsTargetServerKubernetesService() {
 			continue
 		}
+		if intent.IsTargetTheKubernetesAPIServer(intents.Namespace) {
+			// Currently only egress is supported for the kubernetes API server
+			continue
+		}
+
 		targetNamespace := intent.GetTargetServerNamespace(req.Namespace)
 		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, targetNamespace) {
 			// Namespace is not in list of namespaces we're allowed to act in, so drop it.

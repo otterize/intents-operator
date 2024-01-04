@@ -80,6 +80,8 @@ const (
 	OtterizeEgressNetworkPolicyTarget                    = "intents.otterize.com/egress-network-policy-target"
 	OtterizeInternetNetworkPolicy                        = "intents.otterize.com/egress-internet-network-policy"
 	OtterizeInternetTargetName                           = "internet"
+	KubernetesAPIServerName                              = "kubernetes"
+	KubernetesAPIServerNamespace                         = "default"
 )
 
 // +kubebuilder:validation:Enum=http;kafka;database;aws;internet
@@ -280,6 +282,11 @@ func (in *Intent) GetTargetServerNamespace(intentsObjNamespace string) string {
 
 func (in *Intent) IsTargetServerKubernetesService() bool {
 	return strings.HasPrefix(in.Name, "svc:")
+}
+
+func (in *Intent) IsTargetTheKubernetesAPIServer(objectNamespace string) bool {
+	return in.GetTargetServerName() == KubernetesAPIServerName &&
+		in.GetTargetServerNamespace(objectNamespace) == KubernetesAPIServerNamespace
 }
 
 // GetTargetServerName returns server's service name, without namespace, or the Kubernetes service without the `svc:` prefix

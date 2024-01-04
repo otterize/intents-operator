@@ -313,6 +313,45 @@ func (s *NetworkPolicyReconcilerTestSuite) TestErrorWhenKubernetesServiceWithNoP
 	s.ExpectEvent(consts.ReasonCreatingNetworkPoliciesFailed)
 }
 
+func (s *NetworkPolicyReconcilerTestSuite) TestIgnoreKubernetesAPIServerService() {
+	clientIntentsName := "client-intents"
+	serviceName := "test-client"
+	serverNamespace := "default"
+
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	serverName := "svc:kubernetes"
+	serverCall := fmt.Sprintf("%s.%s", serverName, serverNamespace)
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
+			{
+				Name: serverCall,
+			},
+		},
+	}
+
+	// Initial call to get the ClientIntents object when reconciler starts
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
+			intents.Spec = intentsSpec
+			return nil
+		})
+
+	s.ignoreRemoveOrphan()
+
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Empty(res)
+}
+
 func (s *NetworkPolicyReconcilerTestSuite) addExpectedKubernetesServiceCall(serverName string, port int, selector map[string]string) *corev1.Service {
 	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
 	kubernetesSvcNamespacedName := types.NamespacedName{
