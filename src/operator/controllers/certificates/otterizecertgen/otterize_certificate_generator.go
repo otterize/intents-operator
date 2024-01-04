@@ -6,6 +6,7 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/certificates/jks"
 	"github.com/otterize/credentials-operator/src/controllers/otterizeclient/otterizegraphql"
 	secretstypes "github.com/otterize/credentials-operator/src/controllers/secrets/types"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"time"
 )
@@ -31,7 +32,7 @@ func keyPairToExpiryStr(keyPair otterizegraphql.TLSKeyPair) string {
 func (m *OtterizeCertificateDataGenerator) GeneratePEM(ctx context.Context, serviceId string) (secretstypes.PEMCert, error) {
 	keyPair, err := m.cloudClient.GetTLSKeyPair(ctx, serviceId)
 	if err != nil {
-		return secretstypes.PEMCert{}, err
+		return secretstypes.PEMCert{}, errors.Wrap(err)
 	}
 	expiryStr := keyPairToExpiryStr(keyPair)
 	certCAChain := lo.Map([]string{keyPair.CaPEM, keyPair.RootCAPEM}, func(cert string, _ int) []byte { return []byte(cert) })
@@ -43,25 +44,25 @@ func (m *OtterizeCertificateDataGenerator) GeneratePEM(ctx context.Context, serv
 func (m *OtterizeCertificateDataGenerator) GenerateJKS(ctx context.Context, serviceId string, password string) (secretstypes.JKSCert, error) {
 	keyPair, err := m.cloudClient.GetTLSKeyPair(ctx, serviceId)
 	if err != nil {
-		return secretstypes.JKSCert{}, err
+		return secretstypes.JKSCert{}, errors.Wrap(err)
 	}
 	certChain := lo.Map([]string{keyPair.CertPEM, keyPair.CaPEM, keyPair.RootCAPEM}, func(cert string, _ int) []byte { return []byte(cert) })
 	keyStore, err := jks.PemToKeyStore(certChain, []byte(keyPair.KeyPEM), password)
 	if err != nil {
-		return secretstypes.JKSCert{}, err
+		return secretstypes.JKSCert{}, errors.Wrap(err)
 	}
 	keyStoreBytes, err := jks.ByteDumpKeyStore(keyStore, password)
 	if err != nil {
-		return secretstypes.JKSCert{}, err
+		return secretstypes.JKSCert{}, errors.Wrap(err)
 	}
 
 	trustStore, err := jks.CASliceToTrustStore(certChain[1:])
 	if err != nil {
-		return secretstypes.JKSCert{}, err
+		return secretstypes.JKSCert{}, errors.Wrap(err)
 	}
 	trustStoreBytes, err := jks.ByteDumpKeyStore(trustStore, password)
 	if err != nil {
-		return secretstypes.JKSCert{}, err
+		return secretstypes.JKSCert{}, errors.Wrap(err)
 	}
 
 	expiryStr := keyPairToExpiryStr(keyPair)

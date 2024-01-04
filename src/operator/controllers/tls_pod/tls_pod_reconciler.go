@@ -7,6 +7,7 @@ import (
 	"github.com/asaskevich/govalidator"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	secretstypes "github.com/otterize/credentials-operator/src/controllers/secrets/types"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -107,7 +108,7 @@ func (r *PodReconciler) updatePodLabel(ctx context.Context, pod *corev1.Pod, lab
 			return ctrl.Result{Requeue: true}, nil
 		}
 		log.WithError(err).Error("failed updating Pod")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
@@ -124,7 +125,7 @@ func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod,
 	secretConfig := secretstypes.NewSecretConfig(entryID, entryHash, secretName, pod.Namespace, serviceName, certConfig, shouldRestartPodOnRenewal)
 	if err := r.secretsManager.EnsureTLSSecret(ctx, secretConfig, pod); err != nil {
 		log.WithError(err).Error("failed creating TLS secret")
-		return err
+		return errors.Wrap(err)
 	}
 
 	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, ReasonEnsuredPodTLS, "Successfully ensured secret under name '%s'", secretName)
@@ -137,7 +138,7 @@ func certConfigFromPod(pod *corev1.Pod) (secretstypes.CertConfig, error) {
 	certTypeStr, _ = lo.Coalesce(certTypeStr, "pem")
 	certType, err := secretstypes.StrToCertType(certTypeStr)
 	if err != nil {
-		return secretstypes.CertConfig{}, err
+		return secretstypes.CertConfig{}, errors.Wrap(err)
 	}
 	certConfig := secretstypes.CertConfig{CertType: certType}
 	switch certType {
@@ -171,7 +172,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return ctrl.Result{}, nil
 		}
 		log.WithError(err).Error("unable to fetch Pod")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	// nothing to reconcile on deletions
@@ -193,7 +194,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	serviceID, err := r.serviceIdResolver.ResolvePodToServiceIdentity(ctx, pod)
 	if err != nil {
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonPodOwnerResolutionFailed, "Could not resolve pod to its owner: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	log.Info("updating workload entries & secrets for pod")
@@ -202,7 +203,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	result, err := r.updatePodLabel(ctx, pod, metadata.RegisteredServiceNameLabel, serviceID.Name)
 	if err != nil {
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonPodLabelUpdateFailed, "Pod label update failed: %s", err.Error())
-		return result, err
+		return result, errors.Wrap(err)
 	}
 	if result.Requeue {
 		return result, nil
@@ -212,13 +213,13 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	if err != nil {
 		err = fmt.Errorf("error resolving pod cert DNS names, will continue with an empty DNS names list: %w", err)
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonCertDNSResolutionFailed, "Resolving cert DNS names failed: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	ttl, err := r.resolvePodToCertTTl(pod)
 	if err != nil {
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonCertTTLError, "Getting cert TTL failed: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	// Add workload entry for pod
@@ -226,14 +227,14 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	if err != nil {
 		log.WithError(err).Error("failed registering workload entry for pod")
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonEntryRegistrationFailed, "Failed registering workload entry: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 	r.eventRecorder.Eventf(pod, corev1.EventTypeNormal, ReasonPodRegistered, "Successfully registered pod under workload with entry ID '%s'", entryID)
 
 	hashStr, err := getEntryHash(pod.Namespace, serviceID.Name, ttl, dnsNames)
 	if err != nil {
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonEntryHashCalculationFailed, "Failed calculating workload entry hash: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	shouldRestartPodOnRenewal := r.resolvePodToShouldRestartOnRenewal(pod)

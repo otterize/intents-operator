@@ -49,7 +49,7 @@ func ensureKafkaTopic(client sarama.Client, topic string) error {
 
 	admin, err := sarama.NewClusterAdminFromClient(client)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	topics, err := admin.ListTopics()

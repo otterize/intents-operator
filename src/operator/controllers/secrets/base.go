@@ -6,6 +6,7 @@ import (
 	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	"github.com/otterize/credentials-operator/src/controllers/secrets/types"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -82,7 +83,7 @@ func (m *K8sSecretsManagerBase[T]) getExistingSecretObject(ctx context.Context, 
 	if err := m.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, found); err != nil && apierrors.IsNotFound(err) {
 		return nil, false, nil
 	} else if err != nil {
-		return nil, false, err
+		return nil, false, errors.Wrap(err)
 	}
 
 	return found, true, nil
@@ -121,7 +122,7 @@ func (m *K8sSecretsManagerBase[T]) EnsureTLSSecret(ctx context.Context, config s
 	existingObject, isExistingObject, err := m.getExistingSecretObject(ctx, config.Namespace, config.SecretName)
 	if err != nil {
 		log.WithError(err).Error("failed querying for certificate")
-		return err
+		return errors.Wrap(err)
 	}
 
 	var secretObj T
@@ -140,7 +141,7 @@ func (m *K8sSecretsManagerBase[T]) EnsureTLSSecret(ctx context.Context, config s
 		m.isUpdateNeeded(m.subclass.ExtractConfig(secretObj), config) {
 		if err := m.UpdateSecretObject(ctx, config, secretObj); err != nil {
 			log.WithError(err).Error("failed updating TLS secret config")
-			return err
+			return errors.Wrap(err)
 		}
 		shouldUpdate = true
 	}
@@ -149,11 +150,11 @@ func (m *K8sSecretsManagerBase[T]) EnsureTLSSecret(ctx context.Context, config s
 	if pod != nil {
 		podOwner, err := m.serviceIdResolver.GetOwnerObject(ctx, pod)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		if err := controllerutil.SetOwnerReference(podOwner, secretObj, m.Scheme()); err != nil {
 			log.WithError(err).Error("failed setting pod as owner reference")
-			return err
+			return errors.Wrap(err)
 		}
 		shouldUpdate = shouldUpdate || len(secretObj.GetOwnerReferences()) != ownerCount
 	}
@@ -163,14 +164,14 @@ func (m *K8sSecretsManagerBase[T]) EnsureTLSSecret(ctx context.Context, config s
 			log.Info("Updating existing secret")
 			if err := m.Update(ctx, secretObj); err != nil {
 				logrus.WithError(err).Error("failed updating existing secret")
-				return err
+				return errors.Wrap(err)
 			}
 		}
 	} else {
 		log.Info("Creating a new secret")
 		if err := m.Create(ctx, secretObj); err != nil {
 			logrus.WithError(err).Error("failed creating new secret")
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
@@ -194,7 +195,7 @@ func (m *K8sSecretsManagerBase[T]) HandlePodRestarts(ctx context.Context, secret
 	podList := corev1.PodList{}
 	labelSelector, err := labels.Parse(fmt.Sprintf("%s=%s", metadata.RegisteredServiceNameLabel, secret.Annotations[metadata.RegisteredServiceNameLabel]))
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = m.List(ctx, &podList, &client.ListOptions{
@@ -202,7 +203,7 @@ func (m *K8sSecretsManagerBase[T]) HandlePodRestarts(ctx context.Context, secret
 		Namespace:     secret.Namespace,
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	// create unique owner list
 	owners := make(map[secretstypes.PodOwnerIdentifier]client.Object)
@@ -210,7 +211,7 @@ func (m *K8sSecretsManagerBase[T]) HandlePodRestarts(ctx context.Context, secret
 		if ok := metadata.AnnotationExists(pod.Annotations, metadata.ShouldRestartOnRenewalAnnotation); ok {
 			owner, err := m.serviceIdResolver.GetOwnerObject(ctx, &pod)
 			if err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 			owners[secretstypes.PodOwnerIdentifier{Name: owner.GetName(), GroupVersionKind: owner.GetObjectKind().GroupVersionKind()}] = owner
 		}
@@ -220,7 +221,7 @@ func (m *K8sSecretsManagerBase[T]) HandlePodRestarts(ctx context.Context, secret
 			owner.GetName(), owner.GetObjectKind().GroupVersionKind().Kind)
 		err = m.TriggerPodRestarts(ctx, owner, secret)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
@@ -235,42 +236,42 @@ func (m *K8sSecretsManagerBase[T]) TriggerPodRestarts(ctx context.Context, owner
 	case "Deployment":
 		deployment := v1.Deployment{}
 		if err := m.Get(ctx, types.NamespacedName{Namespace: secret.Namespace, Name: owner.GetName()}, &deployment); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		deployment.Spec.Template = m.updatePodTemplateSpec(deployment.Spec.Template)
 		if err := m.Update(ctx, &deployment); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		m.eventRecorder.Eventf(&deployment, corev1.EventTypeNormal, CertRenewReason, "Successfully restarted Deployment after secret '%s' renewal", secret.Name)
 	case "ReplicaSet":
 		replicaSet := v1.ReplicaSet{}
 		if err := m.Get(ctx, types.NamespacedName{Namespace: secret.Namespace, Name: owner.GetName()}, &replicaSet); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		replicaSet.Spec.Template = m.updatePodTemplateSpec(replicaSet.Spec.Template)
 		if err := m.Update(ctx, &replicaSet); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		m.eventRecorder.Eventf(&replicaSet, corev1.EventTypeNormal, CertRenewReason, "Successfully restarted ReplicaSet after secret '%s' renewal", secret.Name)
 	case "StatefulSet":
 		statefulSet := v1.StatefulSet{}
 		if err := m.Get(ctx, types.NamespacedName{Namespace: secret.Namespace, Name: owner.GetName()}, &statefulSet); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		statefulSet.Spec.Template = m.updatePodTemplateSpec(statefulSet.Spec.Template)
 		if err := m.Update(ctx, &statefulSet); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		m.eventRecorder.Eventf(&statefulSet, corev1.EventTypeNormal, CertRenewReason, "Successfully restarted StatefulSet after secret '%s' renewal", secret.Name)
 
 	case "DaemonSet":
 		daemonSet := v1.DaemonSet{}
 		if err := m.Get(ctx, types.NamespacedName{Namespace: secret.Namespace, Name: owner.GetName()}, &daemonSet); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		daemonSet.Spec.Template = m.updatePodTemplateSpec(daemonSet.Spec.Template)
 		if err := m.Update(ctx, &daemonSet); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		m.eventRecorder.Eventf(&daemonSet, corev1.EventTypeNormal, CertRenewReason, "Successfully restarted DaemonSet after secret '%s' renewal", secret.Name)
 

@@ -8,10 +8,9 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
 	github.com/aws/aws-sdk-go-v2/service/iam v1.27.2
 	github.com/bombsimon/logrusr/v3 v3.0.0
-	github.com/bugsnag/bugsnag-go/v2 v2.2.0
 	github.com/cert-manager/cert-manager v1.12.3
 	github.com/google/uuid v1.3.0
-	github.com/otterize/intents-operator/src v0.0.0-20240104165137-71b52a4ecff1
+	github.com/otterize/intents-operator/src v0.0.0-20240104214339-dcd450fe4490
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.1
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.0
@@ -52,6 +51,7 @@ require (
 	github.com/aws/smithy-go v1.17.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
+	github.com/bugsnag/bugsnag-go/v2 v2.2.0 // indirect
 	github.com/bugsnag/panicwrap v1.3.4 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -139,5 +139,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-//replace github.com/otterize/intents-operator/src => ../../../intents-operator/src

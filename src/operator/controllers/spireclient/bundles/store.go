@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/pem"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	bundlev1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/bundle/v1"
 )
 
@@ -27,7 +28,7 @@ func NewBundlesStore(spireClient spireclient.ServerClient) Store {
 func (s *storeImpl) GetTrustBundle(ctx context.Context) (EncodedTrustBundle, error) {
 	bundle, err := s.bundleClient.GetBundle(ctx, &bundlev1.GetBundleRequest{})
 	if err != nil {
-		return EncodedTrustBundle{}, err
+		return EncodedTrustBundle{}, errors.Wrap(err)
 	}
 
 	bundlePEM := new(bytes.Buffer)
@@ -36,7 +37,7 @@ func (s *storeImpl) GetTrustBundle(ctx context.Context) (EncodedTrustBundle, err
 			Type:  "CERTIFICATE",
 			Bytes: rootCA.Asn1,
 		}); err != nil {
-			return EncodedTrustBundle{}, err
+			return EncodedTrustBundle{}, errors.Wrap(err)
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 	mock_bundlev1 "github.com/otterize/credentials-operator/src/mocks/bundlev1"
 	mock_spireclient "github.com/otterize/credentials-operator/src/mocks/spireclient"
 	"github.com/otterize/credentials-operator/src/testdata"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -44,12 +45,12 @@ func (s *StoreSuite) TearDownTest() {
 func loadTestBundle() (*types.Bundle, error) {
 	testData, err := testdata.LoadTestData()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	x509Bundle, err := x509bundle.Parse(trustDomain, testData.BundlePEM)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	apiBundle := &types.Bundle{

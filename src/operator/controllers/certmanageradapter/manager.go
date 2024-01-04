@@ -7,6 +7,7 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	"github.com/otterize/credentials-operator/src/controllers/secrets"
 	secretstypes "github.com/otterize/credentials-operator/src/controllers/secrets/types"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -92,7 +93,7 @@ func (cm *CertManagerSecretsManager) PopulateSecretObject(ctx context.Context, c
 	if config.CertConfig.CertType == secretstypes.JKSCertType {
 		jksPasswordRef, err := cm.getJKSPasswordSecretRef(ctx, config.Namespace, config.SecretName, config.CertConfig.JKSConfig.Password)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 
 		cert.Spec.Keystores = &certmanager.CertificateKeystores{
@@ -119,7 +120,7 @@ func (cm *CertManagerSecretsManager) getJKSPasswordSecretRef(ctx context.Context
 			jksPasswordsSecret.Data = make(map[string][]byte)
 			newJksPasswordsSecret = true
 		} else {
-			return nil, err
+			return nil, errors.Wrap(err)
 		}
 	}
 	jksPasswordsSecret.Data[secretName] = []byte(password)
@@ -127,12 +128,12 @@ func (cm *CertManagerSecretsManager) getJKSPasswordSecretRef(ctx context.Context
 	if newJksPasswordsSecret {
 		if err := cm.Client.Create(ctx, &jksPasswordsSecret); err != nil {
 			logrus.WithError(err).Error("Can't create secret of jks passwords")
-			return nil, err
+			return nil, errors.Wrap(err)
 		}
 	} else {
 		if err := cm.Client.Update(ctx, &jksPasswordsSecret); err != nil {
 			logrus.WithError(err).Error("Can't update secret of jks passwords")
-			return nil, err
+			return nil, errors.Wrap(err)
 		}
 	}
 

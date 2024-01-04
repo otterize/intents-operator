@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"fmt"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/pavlo-v-chernykh/keystore-go/v4"
 	"github.com/samber/lo"
 	"time"
@@ -15,7 +15,7 @@ func ByteDumpKeyStore(trustStore keystore.KeyStore, password string) ([]byte, er
 	trustStoreBytesBuffer := new(bytes.Buffer)
 	err := trustStore.Store(trustStoreBytesBuffer, []byte(password))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	return trustStoreBytesBuffer.Bytes(), nil
 }
@@ -32,7 +32,7 @@ func CASliceToTrustStore(CAPEMSlice [][]byte) (keystore.KeyStore, error) {
 		}
 		err := trustStore.SetTrustedCertificateEntry(fmt.Sprintf("ca-%d", i), ca)
 		if err != nil {
-			return keystore.KeyStore{}, err
+			return keystore.KeyStore{}, errors.Wrap(err)
 		}
 	}
 	return trustStore, nil
@@ -57,12 +57,12 @@ func PemToKeyStore(certificatesChainPEM [][]byte, keyPem []byte, password string
 	case "PRIVATE KEY":
 		key, err = x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
-			return keystore.KeyStore{}, err
+			return keystore.KeyStore{}, errors.Wrap(err)
 		}
 	case "RSA PRIVATE KEY":
 		key, err = x509.ParsePKCS1PrivateKey(block.Bytes)
 		if err != nil {
-			return keystore.KeyStore{}, err
+			return keystore.KeyStore{}, errors.Wrap(err)
 		}
 	default:
 		return keystore.KeyStore{}, fmt.Errorf("unsupprted block type for pricate key: %s", block.Type)
@@ -71,7 +71,7 @@ func PemToKeyStore(certificatesChainPEM [][]byte, keyPem []byte, password string
 
 	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
 	if err != nil {
-		return keystore.KeyStore{}, err
+		return keystore.KeyStore{}, errors.Wrap(err)
 	}
 
 	pk := keystore.PrivateKeyEntry{
@@ -81,7 +81,7 @@ func PemToKeyStore(certificatesChainPEM [][]byte, keyPem []byte, password string
 	}
 	err = keyStore.SetPrivateKeyEntry("pkey", pk, []byte(password))
 	if err != nil {
-		return keystore.KeyStore{}, err
+		return keystore.KeyStore{}, errors.Wrap(err)
 	}
 	return keyStore, nil
 }

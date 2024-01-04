@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -101,12 +102,12 @@ func (a *ServiceAccountAnnotatingPodWebhook) handleWithRetriesOnConflictOrNotFou
 				time.Sleep(1 * time.Second)
 				continue
 			}
-			return corev1.Pod{}, false, "", err
+			return corev1.Pod{}, false, "", errors.Wrap(err)
 		}
 		return outputPod, patched, successMsg, nil
 	}
 	if err != nil {
-		return corev1.Pod{}, false, "", err
+		return corev1.Pod{}, false, "", errors.Wrap(err)
 	}
 	panic("unreachable - must have received error or it would have exited in the for loop")
 }

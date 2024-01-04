@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	"github.com/otterize/credentials-operator/src/controllers/otterizeclient/otterizegraphql"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -69,7 +70,7 @@ func (e *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if !e.shouldCreateUserAndPasswordSecretForPod(pod) {
@@ -81,13 +82,13 @@ func (e *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	serviceID, err := e.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
 	if err != nil {
 		e.recorder.Eventf(&pod, v1.EventTypeWarning, ReasonPodOwnerResolutionFailed, "Could not resolve pod to its owner: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	err = e.ensurePodUserAndPasswordPostgresSecret(ctx, &pod, serviceID.Name, pod.Annotations[metadata.UserAndPasswordSecretNameAnnotation])
 	if err != nil {
 		e.recorder.Eventf(&pod, v1.EventTypeWarning, ReasonEnsuringPodUserAndPasswordFailed, "Failed to ensure user-password credentials secret: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	e.recorder.Event(&pod, v1.EventTypeNormal, ReasonEnsuredPodUserAndPassword, "Ensured user-password credentials in specified secret")
@@ -101,19 +102,19 @@ func (e *Reconciler) ensurePodUserAndPasswordPostgresSecret(ctx context.Context,
 		log.Debug("Creating user-password credentials secret for pod")
 		creds, err := e.userAndPasswordAcquirer.AcquireServiceUserAndPassword(ctx, serviceName, pod.Namespace)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 
 		secret := buildUserAndPasswordCredentialsSecret(secretName, pod.Namespace, creds)
 		log.WithField("secret", secretName).Debug("Creating new secret with user-password credentials")
 		if err := e.client.Create(ctx, secret); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		return nil
 	}
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	log.Debug("Secret exists, nothing to do")
 	return nil

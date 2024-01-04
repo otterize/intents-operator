@@ -2,10 +2,10 @@ package secrets
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	"github.com/otterize/credentials-operator/src/controllers/secrets/types"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -80,7 +80,7 @@ func (m *DirectSecretsManager) getCertificateData(ctx context.Context, entryID s
 	case secretstypes.JKSCertType:
 		jksCert, err := m.certificateDataGenerator.GenerateJKS(ctx, entryID, certConfig.JKSConfig.Password)
 		if err != nil {
-			return secretstypes.CertificateData{}, err
+			return secretstypes.CertificateData{}, errors.Wrap(err)
 		}
 		return secretstypes.CertificateData{
 			Files: map[string][]byte{
@@ -92,7 +92,7 @@ func (m *DirectSecretsManager) getCertificateData(ctx context.Context, entryID s
 	case secretstypes.PEMCertType:
 		pemCert, err := m.certificateDataGenerator.GeneratePEM(ctx, entryID)
 		if err != nil {
-			return secretstypes.CertificateData{}, err
+			return secretstypes.CertificateData{}, errors.Wrap(err)
 		}
 		return secretstypes.CertificateData{
 			Files: map[string][]byte{
@@ -110,7 +110,7 @@ func (m *DirectSecretsManager) getCertificateData(ctx context.Context, entryID s
 func (m *DirectSecretsManager) PopulateSecretObject(ctx context.Context, config secretstypes.SecretConfig, secret *corev1.Secret) error {
 	certificateData, err := m.getCertificateData(ctx, config.EntryID, config.CertConfig)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	secret.Annotations[metadata.TLSSecretExpiryAnnotation] = certificateData.ExpiryStr
@@ -132,7 +132,7 @@ func (m *DirectSecretsManager) refreshTLSSecret(ctx context.Context, secret *cor
 	}
 
 	if err := m.UpdateSecretObject(ctx, m.ExtractConfig(secret), secret); err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	log.Info("Updating existing secret")
@@ -144,7 +144,7 @@ func (m *DirectSecretsManager) RefreshTLSSecrets(ctx context.Context) error {
 	secrets := corev1.SecretList{}
 	if err := m.List(ctx, &secrets, &client.MatchingLabels{metadata.SecretTypeLabel: string(secretstypes.TlsSecretType)}); err != nil {
 		logrus.WithError(err).Error("failed listing TLS secrets")
-		return err
+		return errors.Wrap(err)
 	}
 
 	secretsNeedingRefresh := lo.Filter(

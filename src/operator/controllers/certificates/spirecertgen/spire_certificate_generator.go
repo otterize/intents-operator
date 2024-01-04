@@ -5,6 +5,7 @@ import (
 	secretstypes "github.com/otterize/credentials-operator/src/controllers/secrets/types"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/bundles"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/svids"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"time"
 )
 
@@ -26,18 +27,18 @@ func NewSpireCertificateDataGenerator(bundlesStore bundles.Store, svidsStore svi
 func (m *SpireCertificateDataGenerator) getSpireCert(ctx context.Context, entryID string) (spireCert, error) {
 	trustBundle, err := m.bundlesStore.GetTrustBundle(ctx)
 	if err != nil {
-		return spireCert{}, err
+		return spireCert{}, errors.Wrap(err)
 	}
 
 	privateKey, err := m.svidsStore.GeneratePrivateKey()
 
 	if err != nil {
-		return spireCert{}, err
+		return spireCert{}, errors.Wrap(err)
 	}
 
 	svid, err := m.svidsStore.GetX509SVID(ctx, entryID, privateKey)
 	if err != nil {
-		return spireCert{}, err
+		return spireCert{}, errors.Wrap(err)
 	}
 
 	expiry := time.Unix(svid.ExpiresAt, 0)
@@ -49,19 +50,19 @@ func (m *SpireCertificateDataGenerator) getSpireCert(ctx context.Context, entryI
 func (m *SpireCertificateDataGenerator) GenerateJKS(ctx context.Context, entryID string, password string) (secretstypes.JKSCert, error) {
 	spireCertificate, err := m.getSpireCert(ctx, entryID)
 	if err != nil {
-		return secretstypes.JKSCert{}, err
+		return secretstypes.JKSCert{}, errors.Wrap(err)
 	}
 
 	trustStoreBytes, err := trustBundleToTrustStore(spireCertificate.TrustBundle, password)
 
 	if err != nil {
-		return secretstypes.JKSCert{}, err
+		return secretstypes.JKSCert{}, errors.Wrap(err)
 	}
 
 	keyStoreBytes, err := svidToKeyStore(spireCertificate.SVID, password)
 
 	if err != nil {
-		return secretstypes.JKSCert{}, err
+		return secretstypes.JKSCert{}, errors.Wrap(err)
 	}
 
 	return secretstypes.JKSCert{TrustStore: trustStoreBytes, KeyStore: keyStoreBytes, Expiry: spireCertificate.Expiry}, nil
@@ -70,7 +71,7 @@ func (m *SpireCertificateDataGenerator) GenerateJKS(ctx context.Context, entryID
 func (m *SpireCertificateDataGenerator) GeneratePEM(ctx context.Context, entryID string) (secretstypes.PEMCert, error) {
 	spireCertificate, err := m.getSpireCert(ctx, entryID)
 	if err != nil {
-		return secretstypes.PEMCert{}, err
+		return secretstypes.PEMCert{}, errors.Wrap(err)
 	}
 
 	return secretstypes.PEMCert{

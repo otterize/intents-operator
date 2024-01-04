@@ -3,6 +3,7 @@ package pods
 import (
 	"context"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +37,7 @@ func initPodServiceAccountIndexField(mgr ctrl.Manager) error {
 			return []string{pod.Spec.ServiceAccountName}
 		})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -45,7 +46,7 @@ func initPodServiceAccountIndexField(mgr ctrl.Manager) error {
 func (r *PodAWSRoleCleanupReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := initPodServiceAccountIndexField(mgr)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
@@ -62,7 +63,7 @@ func (r *PodAWSRoleCleanupReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if pod.DeletionTimestamp == nil {
@@ -79,7 +80,7 @@ func (r *PodAWSRoleCleanupReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		client.MatchingFields{podServiceAccountIndexField: pod.Spec.ServiceAccountName},
 		&client.ListOptions{Namespace: pod.Namespace})
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 	thisPodAndNonTerminatingPods := lo.Filter(pods.Items, func(filteredPod corev1.Pod, _ int) bool {
 		if pod.UID == filteredPod.UID {
@@ -100,7 +101,7 @@ func (r *PodAWSRoleCleanupReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			if apierrors.IsNotFound(err) {
 				return r.removeFinalizerFromPod(ctx, pod)
 			}
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 
 		updatedServiceAccount := serviceAccount.DeepCopy()
@@ -119,7 +120,7 @@ func (r *PodAWSRoleCleanupReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			if apierrors.IsNotFound(err) {
 				return r.removeFinalizerFromPod(ctx, pod)
 			}
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
 	// in case there's more than 1 pod, this is not the last pod so we can just let the pod terminate.
@@ -134,7 +135,7 @@ func (r *PodAWSRoleCleanupReconciler) removeFinalizerFromPod(ctx context.Context
 			if apierrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
 

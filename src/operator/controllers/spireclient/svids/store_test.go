@@ -8,6 +8,7 @@ import (
 	mock_spireclient "github.com/otterize/credentials-operator/src/mocks/spireclient"
 	mock_svidv1 "github.com/otterize/credentials-operator/src/mocks/svidv1"
 	"github.com/otterize/credentials-operator/src/testdata"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
@@ -50,11 +51,11 @@ func (s *StoreSuite) TearDownTest() {
 func loadTestSVID() (string, *types.X509SVID, crypto.PrivateKey, error) {
 	testData, err := testdata.LoadTestData()
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, errors.Wrap(err)
 	}
 	x509SVID, err := x509svid.Parse(testData.SVIDPEM, testData.KeyPEM)
 	if err != nil {
-		return "", nil, nil, err
+		return "", nil, nil, errors.Wrap(err)
 	}
 	spiffeID := x509SVID.ID
 	apiSVID := &types.X509SVID{

@@ -21,7 +21,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
-	"github.com/bugsnag/bugsnag-go/v2"
 	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/google/uuid"
 	"github.com/otterize/credentials-operator/src/controllers/aws_iam/pods"
@@ -41,6 +40,7 @@ import (
 	"github.com/otterize/credentials-operator/src/operatorconfig"
 	operatorwebhooks "github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
@@ -90,12 +90,12 @@ func initSpireClient(ctx context.Context, spireServerAddr string) (spireclient.S
 	// fetch Certificate & bundle through spire-agent API
 	source, err := workloadapi.NewX509Source(ctx, workloadapi.WithClientOptions(workloadapi.WithAddr(socketPath), workloadapi.WithLogger(logrus.StandardLogger())))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	serverClient, err := spireclient.NewServerClient(ctx, spireServerAddr, source)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	logrus.WithField("server_address", spireServerAddr).Infof("Successfully connected to SPIRE server")
 	return serverClient, nil
@@ -132,7 +132,7 @@ func (cpf *CertProvider) String() string {
 
 func main() {
 	errorreporter.Init("credentials-operator", version.Version(), viper.GetString(operatorconfig.TelemetryErrorsAPIKeyKey))
-	defer bugsnag.AutoNotify(context.Background())
+	defer errorreporter.AutoNotify()
 
 	var metricsAddr string
 	var enableLeaderElection bool

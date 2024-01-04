@@ -6,6 +6,7 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/amit7itz/goset"
 	"github.com/otterize/credentials-operator/src/controllers/otterizeclient/otterizegraphql"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/sirupsen/logrus"
@@ -19,19 +20,19 @@ type CloudClient struct {
 func NewCloudClient(ctx context.Context) (*CloudClient, bool, error) {
 	client, ok, err := otterizecloudclient.NewClient(ctx)
 	if err != nil {
-		return nil, false, err
+		return nil, false, errors.Wrap(err)
 	}
 
 	if !ok {
 		return nil, false, nil
 	}
 
-	return &CloudClient{graphqlClient: client}, true, err
+	return &CloudClient{graphqlClient: client}, true, errors.Wrap(err)
 }
 func (c *CloudClient) GetTLSKeyPair(ctx context.Context, serviceId string) (otterizegraphql.TLSKeyPair, error) {
 	res, err := otterizegraphql.GetTLSKeyPair(ctx, c.graphqlClient, &serviceId)
 	if err != nil {
-		return otterizegraphql.TLSKeyPair{}, err
+		return otterizegraphql.TLSKeyPair{}, errors.Wrap(err)
 	}
 	return res.Service.TlsKeyPair.TLSKeyPair, nil
 }
@@ -40,7 +41,7 @@ func (c *CloudClient) RegisterK8SPod(ctx context.Context, namespace string, _ st
 	certCustomization := otterizegraphql.CertificateCustomization{DnsNames: dnsNames, Ttl: int(ttl)}
 	res, err := otterizegraphql.RegisterKubernetesPodOwnerCertificateRequest(ctx, c.graphqlClient, namespace, serviceName, certCustomization)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err)
 	}
 	return res.RegisterKubernetesPodOwnerCertificateRequest.Id, nil
 }
@@ -48,11 +49,11 @@ func (c *CloudClient) RegisterK8SPod(ctx context.Context, namespace string, _ st
 func (c *CloudClient) AcquireServiceUserAndPassword(ctx context.Context, serviceName, namespace string) (*otterizegraphql.UserPasswordCredentials, error) {
 	userAndPasswordResponse, err := otterizegraphql.RequestUserAndPassword(ctx, c.graphqlClient, serviceName, namespace)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	getUserAndPasswordResponse, err := otterizegraphql.GetUserAndPasswordCredentials(ctx, c.graphqlClient, userAndPasswordResponse.RegisterKubernetesServiceUserAndPasswordRequest.Id)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	return &getUserAndPasswordResponse.Service.UserAndPassword.UserPasswordCredentials, nil
 }

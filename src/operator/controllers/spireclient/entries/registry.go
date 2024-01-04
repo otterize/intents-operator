@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/amit7itz/goset"
 	"github.com/otterize/credentials-operator/src/controllers/spireclient"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -66,7 +67,7 @@ func (r *spireRegistry) RegisterK8SPod(ctx context.Context, namespace string, se
 
 	resp, err := r.entryClient.BatchCreateEntry(ctx, &batchCreateEntryRequest)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err)
 	}
 
 	if len(resp.Results) != 1 {
@@ -82,7 +83,7 @@ func (r *spireRegistry) RegisterK8SPod(ctx context.Context, namespace string, se
 			entry.Id = result.Entry.Id
 			id, err := r.updateSpireEntry(ctx, &entry)
 			if err != nil {
-				return "", err
+				return "", errors.Wrap(err)
 			}
 			log.WithField("entry_id", id).Info("updated spire entry")
 			return id, nil
@@ -201,7 +202,7 @@ func (r *spireRegistry) CleanupOrphanK8SPodEntries(ctx context.Context, serviceN
 		log.Debugf("Iterating over paginated list request, page number %d", pages+1)
 		entries, nextPageToken, err := r.paginatedListEntries(ctx, pageToken)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		pages++
 		pageToken = nextPageToken
@@ -240,7 +241,7 @@ func (r *spireRegistry) CleanupOrphanK8SPodEntries(ctx context.Context, serviceN
 
 	log.Infof("Deleting %d orphan entries", len(entryIDsToDelete))
 	if err := r.deleteEntries(ctx, entryIDsToDelete); err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil

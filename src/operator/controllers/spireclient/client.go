@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
@@ -70,14 +71,14 @@ func serverConn(ctx context.Context, serverAddress string, trustDomain spiffeid.
 func NewServerClient(ctx context.Context, serverAddress string, source *workloadapi.X509Source) (ServerClient, error) {
 	svid, err := source.GetX509SVID()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	spiffeID := svid.ID
 	trustDomain := spiffeID.TrustDomain()
 
 	conn, err := serverConn(ctx, serverAddress, trustDomain, source)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	return &serverClientImpl{conn: conn, source: source, spiffeID: spiffeID}, nil
