@@ -69,6 +69,7 @@ func AutoNotify() {
 
 	if err := recover(); err != nil {
 		const shouldNotifySync = true
-		_ = bugsnag.Notify(errors.ErrorfWithSkip(1, "panic caught: %s", err), bugsnag.SeverityError, bugsnag.SeverityReasonHandledPanic, shouldNotifySync)
+		_ = bugsnag.Notify(errors.ErrorfWithSkip(2, "panic caught: %s", err), bugsnag.SeverityError, bugsnag.SeverityReasonHandledPanic, shouldNotifySync)
+		panic(err)
 	}
 }
