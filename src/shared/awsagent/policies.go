@@ -90,6 +90,9 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 			PolicyArn: policy.Arn,
 			RoleName:  role.RoleName,
 		})
+		if isNoSuchEntityException(err) {
+			return nil
+		}
 
 		if err != nil {
 			return errors.Wrap(err)
