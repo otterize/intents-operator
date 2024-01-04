@@ -196,6 +196,7 @@ type KafkaTopic struct {
 type IntentsStatus struct {
 	// upToDate field reflects whether the client intents have successfully been applied
 	// to the cluster to the state specified
+	// +optional
 	UpToDate bool `json:"upToDate"`
 	// The last generation of the intents that was successfully reconciled.
 	// +optional
