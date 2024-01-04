@@ -7,13 +7,14 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -113,7 +114,7 @@ func (s *ControllerManagerTestSuiteBase) WaitUntilCondition(cond func(assert *as
 func (s *ControllerManagerTestSuiteBase) waitForObjectToBeCreated(obj client.Object) {
 	s.Require().NoError(wait.PollUntilContextTimeout(context.Background(), waitForCreationInterval, waitForCreationTimeout, true, func(ctx context.Context) (done bool, err error) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
 		if err != nil {
