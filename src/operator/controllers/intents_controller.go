@@ -222,7 +222,8 @@ func (r *IntentsReconciler) getIntentsToAPIServerService() []otterizev1alpha3.Cl
 		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fullServerName},
 	)
 	if err != nil {
-		logrus.Errorf("Failed to list client intents for client %s: %v", fullServerName, err)
+		logrus.WithError(err).Errorf("Failed to list client intents for client %s", fullServerName)
+		return nil
 	}
 	logrus.Infof("Enqueueing client intents %v for api server", intentsToServer.Items)
 
