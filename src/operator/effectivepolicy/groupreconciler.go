@@ -52,8 +52,8 @@ func (g *GroupReconciler) Reconcile(ctx context.Context) error {
 	}
 
 	errorList := make([]error, 0)
-	for _, applier := range g.reconcilers {
-		_, err := applier.ReconcileEffectivePolicies(ctx, eps)
+	for _, epReconciler := range g.reconcilers {
+		_, err := epReconciler.ReconcileEffectivePolicies(ctx, eps)
 		if err != nil {
 			errorList = append(errorList, errors.Wrap(err))
 		}
