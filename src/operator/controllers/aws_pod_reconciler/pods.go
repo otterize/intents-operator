@@ -3,6 +3,7 @@ package aws_pod_reconciler
 import (
 	"context"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
@@ -48,18 +49,18 @@ func (p *AWSPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	pod := v1.Pod{}
 	err := p.Get(ctx, req.NamespacedName, &pod)
 
-	if k8serrors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) || pod.DeletionTimestamp != nil {
 		logger.Infoln("Pod was deleted")
 		return ctrl.Result{}, nil
 	}
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	serviceID, err := p.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	// If a new pod starts, check if we need to do something for it.
@@ -70,7 +71,7 @@ func (p *AWSPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
 		&client.ListOptions{Namespace: pod.Namespace})
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	for _, intent := range intents.Items {

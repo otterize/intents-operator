@@ -14,6 +14,8 @@ const (
 	ReasonRemovingIstioPolicyFailed                     = "RemovingIstioPolicyFailed"
 	ReasonPodsNotFound                                  = "PodsNotFound"
 	ReasonAWSIntentsFoundButNoServiceAccount            = "ReasonAWSIntentsFoundButNoServiceAccount"
+	ReasonReconciledAWSPolicies                         = "ReasonReconciledAWSPolicies"
+	ReasonReconcilingAWSPoliciesFailed                  = "ReasonReconcilingAWSPoliciesFailed"
 	ReasonAWSIntentsServiceAccountUsedByMultipleClients = "ReasonAWSIntentsServiceAccountUsedByMultipleClients"
 	ReasonKubernetesServiceNotFound                     = "KubernetesServiceNotFound"
 	ReasonPortRestrictionUnsupportedForStrings          = "TypeStringPortNotSupported"

@@ -20,7 +20,8 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	"k8s.io/apimachinery/pkg/api/errors"
+	"github.com/otterize/intents-operator/src/shared/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -59,7 +60,7 @@ func (v *IntentsValidatorV1alpha3) ValidateCreate(ctx context.Context, obj runti
 	intentsObj := obj.(*otterizev1alpha3.ClientIntents)
 	intentsList := &otterizev1alpha3.ClientIntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	if err := v.validateNoDuplicateClients(intentsObj, intentsList); err != nil {
 		allErrs = append(allErrs, err)
@@ -74,7 +75,7 @@ func (v *IntentsValidatorV1alpha3) ValidateCreate(ctx context.Context, obj runti
 	}
 
 	gvk := intentsObj.GroupVersionKind()
-	return nil, errors.NewInvalid(
+	return nil, k8serrors.NewInvalid(
 		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
 		intentsObj.Name, allErrs)
 }
@@ -85,7 +86,7 @@ func (v *IntentsValidatorV1alpha3) ValidateUpdate(ctx context.Context, oldObj, n
 	intentsObj := newObj.(*otterizev1alpha3.ClientIntents)
 	intentsList := &otterizev1alpha3.ClientIntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	if err := v.validateNoDuplicateClients(intentsObj, intentsList); err != nil {
 		allErrs = append(allErrs, err)
@@ -100,7 +101,7 @@ func (v *IntentsValidatorV1alpha3) ValidateUpdate(ctx context.Context, oldObj, n
 	}
 
 	gvk := intentsObj.GroupVersionKind()
-	return nil, errors.NewInvalid(
+	return nil, k8serrors.NewInvalid(
 		schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
 		intentsObj.Name, allErrs)
 }

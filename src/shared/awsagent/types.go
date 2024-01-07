@@ -11,7 +11,7 @@ const policyNameTagKey = "otterize/policyName"
 const policyNamespaceTagKey = "otterize/policyNamespace"
 const policyHashTagKey = "otterize/policyHash"
 
-const iamRoleDescription = "This IAM role was created by Otterize AWS Integration. For more details go to https://otterize.com"
+const iamRoleDescription = "This IAM role was created by the Otterize intents-operator's AWS integration. For more details, go to https://otterize.com"
 
 // PolicyDocument is our definition of our policies to be uploaded to IAM.
 type PolicyDocument struct {

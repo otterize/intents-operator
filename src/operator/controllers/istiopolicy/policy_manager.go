@@ -9,6 +9,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -77,13 +78,13 @@ func (c *PolicyManagerImpl) DeleteAll(
 		&existingPolicies,
 		client.MatchingLabels{v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
 	if client.IgnoreNotFound(err) != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	for _, policy := range existingPolicies.Items {
 		err = c.client.Delete(ctx, policy)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 	return nil
@@ -102,18 +103,18 @@ func (c *PolicyManagerImpl) Create(
 		client.MatchingLabels{v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
 	if err != nil {
 		c.recorder.RecordWarningEventf(clientIntents, ReasonGettingIstioPolicyFailed, "Could not get Istio policies: %s", err.Error())
-		return err
+		return errors.Wrap(err)
 	}
 
 	updatedPolicies, err := c.createOrUpdatePolicies(ctx, clientIntents, clientServiceAccount, existingPolicies)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = c.deleteOutdatedPolicies(ctx, existingPolicies, updatedPolicies)
 	if err != nil {
 		c.recorder.RecordWarningEventf(clientIntents, ReasonDeleteIstioPolicyFailed, "Failed to delete Istio policy: %s", err.Error())
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -127,12 +128,12 @@ func (c *PolicyManagerImpl) UpdateIntentsStatus(
 ) error {
 	err := c.saveServiceAccountName(ctx, clientIntents, clientServiceAccount)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = c.saveSideCarStatus(ctx, clientIntents, missingSideCar)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return c.updateSharedServiceAccountsInNamespace(ctx, clientIntents.Namespace)
@@ -146,7 +147,7 @@ func (c *PolicyManagerImpl) UpdateServerSidecar(
 ) error {
 	servers, err := clientIntents.GetServersWithoutSidecar()
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	intentsUpdateRequired := false
 	if missingSideCar {
@@ -168,7 +169,7 @@ func (c *PolicyManagerImpl) UpdateServerSidecar(
 
 	err = c.setServersWithoutSidecar(ctx, clientIntents, servers)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if missingSideCar {
@@ -182,7 +183,7 @@ func (c *PolicyManagerImpl) setServersWithoutSidecar(ctx context.Context, client
 	serversSortedList := sets.List(set)
 	serversValues, err := json.Marshal(serversSortedList)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	updatedIntents := clientIntents.DeepCopy()
 	if updatedIntents.Annotations == nil {
@@ -192,7 +193,7 @@ func (c *PolicyManagerImpl) setServersWithoutSidecar(ctx context.Context, client
 	updatedIntents.Annotations[v1alpha2.OtterizeServersWithoutSidecarAnnotation] = string(serversValues)
 	err = c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	return nil
 }
@@ -212,7 +213,7 @@ func (c *PolicyManagerImpl) saveServiceAccountName(ctx context.Context, clientIn
 	err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed updating intent with service account name")
-		return err
+		return errors.Wrap(err)
 	}
 
 	logrus.Infof("updating intent %s with service account name %s", clientIntents.Name, clientServiceAccount)
@@ -234,7 +235,7 @@ func (c *PolicyManagerImpl) saveSideCarStatus(ctx context.Context, clientIntents
 	updatedIntents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation] = strconv.FormatBool(missingSideCar)
 	err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -246,7 +247,7 @@ func (c *PolicyManagerImpl) updateSharedServiceAccountsInNamespace(ctx context.C
 		ctx, &namespacesClientIntents,
 		&client.ListOptions{Namespace: namespace})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	clientsByServiceAccount := lo.GroupBy(namespacesClientIntents.Items, func(intents v1alpha3.ClientIntents) string {
@@ -256,7 +257,7 @@ func (c *PolicyManagerImpl) updateSharedServiceAccountsInNamespace(ctx context.C
 	for clientServiceAccountName, clientIntents := range clientsByServiceAccount {
 		err = c.updateServiceAccountSharedStatus(ctx, clientIntents, clientServiceAccountName)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 	return nil
@@ -284,7 +285,7 @@ func (c *PolicyManagerImpl) updateServiceAccountSharedStatus(ctx context.Context
 		updatedIntents.Annotations[v1alpha2.OtterizeSharedServiceAccountAnnotation] = sharedAccountValue
 		err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(&intents))
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 
 		if isServiceAccountShared {
@@ -317,13 +318,13 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 	updatedPolicies := goset.NewSet[PolicyID]()
 	createdAnyPolicies := false
 	for _, intent := range clientIntents.GetCallsList() {
-		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP {
+		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP || intent.IsTargetServerKubernetesService() {
 			continue
 		}
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
 			ctx, c.client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err)
 		}
 
 		if !shouldCreatePolicy {
@@ -354,7 +355,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 			err := c.updatePolicy(ctx, existingPolicy, newPolicy)
 			if err != nil {
 				c.recorder.RecordWarningEventf(clientIntents, ReasonUpdatingIstioPolicyFailed, "Failed to update Istio policy: %s", err.Error())
-				return nil, err
+				return nil, errors.Wrap(err)
 			}
 			updatedPolicies.Add(PolicyID(existingPolicy.UID))
 			continue
@@ -363,7 +364,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 		err = c.client.Create(ctx, newPolicy)
 		if err != nil {
 			c.recorder.RecordWarningEventf(clientIntents, ReasonCreatingIstioPolicyFailed, "Failed to create Istio policy: %s", err.Error())
-			return nil, err
+			return nil, errors.Wrap(err)
 		}
 		createdAnyPolicies = true
 	}
@@ -389,7 +390,7 @@ func (c *PolicyManagerImpl) deleteOutdatedPolicies(ctx context.Context, existing
 		if !validPolicies.Contains(PolicyID(existingPolicy.UID)) {
 			err := c.client.Delete(ctx, existingPolicy)
 			if err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 		}
 	}
@@ -408,7 +409,7 @@ func (c *PolicyManagerImpl) updatePolicy(ctx context.Context, existingPolicy *v1
 	err := c.client.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 	if err != nil {
 		c.recorder.RecordWarningEventf(existingPolicy, ReasonUpdatingIstioPolicyFailed, "Failed to update Istio policy: %s", err.Error())
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil

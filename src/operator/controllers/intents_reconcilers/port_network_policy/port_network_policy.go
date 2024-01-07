@@ -2,11 +2,11 @@ package port_network_policy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -68,7 +68,7 @@ func (r *PortNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if intents.Spec == nil {
@@ -86,7 +86,7 @@ func (r *PortNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Re
 				return ctrl.Result{Requeue: true}, nil
 			}
 			r.RecordWarningEventf(intents, consts.ReasonRemovingNetworkPolicyFailed, "could not remove network policies: %s", err.Error())
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -108,7 +108,7 @@ func (r *PortNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		createdPolicies, err := r.handleNetworkPolicyCreation(ctx, intents, intent, req.Namespace)
 		if err != nil {
 			r.RecordWarningEventf(intents, consts.ReasonCreatingNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 		if createdPolicies {
 			createdNetpols += 1
@@ -118,7 +118,7 @@ func (r *PortNetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	err = r.removeOrphanNetworkPolicies(ctx)
 	if err != nil {
 		r.RecordWarningEventf(intents, consts.ReasonRemovingNetworkPolicyFailed, "failed to remove network policies: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if createdNetpols != 0 {
@@ -133,7 +133,7 @@ func (r *PortNetworkPolicyReconciler) handleNetworkPolicyCreation(
 
 	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err)
 	}
 
 	if !shouldCreatePolicy {
@@ -155,11 +155,11 @@ func (r *PortNetworkPolicyReconciler) handleNetworkPolicyCreation(
 		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
-		return false, err
+		return false, errors.Wrap(err)
 	}
 	newPolicy, err := r.buildNetworkPolicyObjectForIntent(&svc, intent, policyName, intentsObjNamespace)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err)
 	}
 
 	err = r.Get(ctx, types.NamespacedName{
@@ -168,7 +168,7 @@ func (r *PortNetworkPolicyReconciler) handleNetworkPolicyCreation(
 		existingPolicy)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
-		return false, err
+		return false, errors.Wrap(err)
 	}
 
 	if k8serrors.IsNotFound(err) {
@@ -188,7 +188,7 @@ func (r *PortNetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, 
 
 		err := r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
@@ -200,7 +200,7 @@ func (r *PortNetworkPolicyReconciler) CreateNetworkPolicy(ctx context.Context, i
 		"Creating network policy to enable access from namespace %s to %s", intentsObjNamespace, intent.Name)
 	err := r.Create(ctx, newPolicy)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return r.reconcileEndpointsForPolicy(ctx, newPolicy)
@@ -209,7 +209,7 @@ func (r *PortNetworkPolicyReconciler) CreateNetworkPolicy(ctx context.Context, i
 func (r *PortNetworkPolicyReconciler) reconcileEndpointsForPolicy(ctx context.Context, newPolicy *v1.NetworkPolicy) error {
 	selector, err := metav1.LabelSelectorAsSelector(&newPolicy.Spec.PodSelector)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	// Use the external netpolHandler to check if pods got affected and if so, if they need external allow policies
 	return r.extNetpolHandler.HandlePodsByLabelSelector(ctx, newPolicy.Namespace, selector)
@@ -223,7 +223,7 @@ func (r *PortNetworkPolicyReconciler) cleanPolicies(
 	for _, intent := range intents.GetCallsList() {
 		err := r.handleIntentRemoval(ctx, intent, intents.Namespace)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
@@ -247,7 +247,7 @@ func (r *PortNetworkPolicyReconciler) handleIntentRemoval(
 		&client.ListOptions{Namespace: intentsObjNamespace})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if len(intentsList.Items) == 1 {
@@ -257,7 +257,7 @@ func (r *PortNetworkPolicyReconciler) handleIntentRemoval(
 		logrus.Infof("No other intents in the namespace reference target server: %s", intent.Name)
 		logrus.Infoln("Removing matching network policy for server")
 		if err = r.deleteNetworkPolicy(ctx, intent, intentsObjNamespace); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 
 	}
@@ -269,13 +269,13 @@ func (r *PortNetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Co
 	networkPolicyList := &v1.NetworkPolicyList{}
 	selector, err := matchAccessNetworkPolicy()
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = r.List(ctx, networkPolicyList, &client.ListOptions{LabelSelector: selector})
 	if err != nil {
 		logrus.Infof("Error listing network policies: %s", err.Error())
-		return err
+		return errors.Wrap(err)
 	}
 
 	logrus.Infof("Selector: %s found %d network policies", selector.String(), len(networkPolicyList.Items))
@@ -292,7 +292,7 @@ func (r *PortNetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Co
 			&client.ListOptions{Namespace: clientNamespace},
 		)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 
 		if len(intentsList.Items) == 0 {
@@ -300,7 +300,7 @@ func (r *PortNetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Co
 			logrus.Infof("Removing orphaned network policy: %s server %s ns %s", networkPolicy.Name, serverName, networkPolicy.Namespace)
 			err = r.removeNetworkPolicy(ctx, networkPolicy)
 			if err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 		}
 	}
@@ -311,11 +311,11 @@ func (r *PortNetworkPolicyReconciler) removeOrphanNetworkPolicies(ctx context.Co
 func (r *PortNetworkPolicyReconciler) removeNetworkPolicy(ctx context.Context, networkPolicy v1.NetworkPolicy) error {
 	err := r.extNetpolHandler.HandleBeforeAccessPolicyRemoval(ctx, &networkPolicy)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	err = r.Delete(ctx, &networkPolicy)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -343,7 +343,7 @@ func (r *PortNetworkPolicyReconciler) deleteNetworkPolicy(
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
-		return err
+		return errors.Wrap(err)
 	}
 
 	return r.removeNetworkPolicy(ctx, *policy)
@@ -352,13 +352,13 @@ func (r *PortNetworkPolicyReconciler) deleteNetworkPolicy(
 func (r *PortNetworkPolicyReconciler) CleanPoliciesFromUnprotectedServices(ctx context.Context, namespace string) error {
 	selector, err := matchAccessNetworkPolicy()
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	policies := &v1.NetworkPolicyList{}
 	err = r.List(ctx, policies, &client.ListOptions{Namespace: namespace, LabelSelector: selector})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if len(policies.Items) == 0 {
@@ -368,7 +368,7 @@ func (r *PortNetworkPolicyReconciler) CleanPoliciesFromUnprotectedServices(ctx c
 	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
 	err = r.List(ctx, &protectedServicesResources, &client.ListOptions{Namespace: namespace})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	protectedServersByNamespace := sets.Set[string]{}
@@ -386,7 +386,7 @@ func (r *PortNetworkPolicyReconciler) CleanPoliciesFromUnprotectedServices(ctx c
 		if !protectedServersByNamespace.Has(serverName) {
 			err = r.removeNetworkPolicy(ctx, networkPolicy)
 			if err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 		}
 	}
@@ -398,13 +398,13 @@ func (r *PortNetworkPolicyReconciler) CleanAllNamespaces(ctx context.Context) er
 	namespaces := corev1.NamespaceList{}
 	err := r.List(ctx, &namespaces)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	for _, namespace := range namespaces.Items {
 		err = r.CleanPoliciesFromUnprotectedServices(ctx, namespace.Name)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
@@ -417,6 +417,9 @@ func (r *PortNetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 	targetNamespace := intent.GetTargetServerNamespace(intentsObjNamespace)
 	// The intent's target server made of name + namespace + hash
 	formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), targetNamespace)
+	if svc.Spec.Selector == nil {
+		return nil, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
+	}
 	podSelector := metav1.LabelSelector{MatchLabels: svc.Spec.Selector}
 
 	netpol := &v1.NetworkPolicy{
@@ -478,7 +481,7 @@ func (r *PortNetworkPolicyReconciler) buildNetworkPolicyObjectForIntent(
 
 	err := controllerutil.SetOwnerReference(svc, netpol, r.Scheme)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	return netpol, nil

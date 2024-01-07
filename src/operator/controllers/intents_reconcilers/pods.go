@@ -5,6 +5,7 @@ import (
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/prometheus"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -55,7 +56,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				return ctrl.Result{Requeue: true}, nil
 			}
 			r.RecordWarningEventf(intents, ReasonRemovingPodLabelsFailed, "could not remove pod labels: %s", err.Error())
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -67,7 +68,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	labelSelector, err := intents.BuildPodLabelSelector()
 	if err != nil {
 		r.RecordWarningEventf(intents, ReasonListPodsFailed, "could not list pods: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	podList := &v1.PodList{}
@@ -75,7 +76,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		&client.ListOptions{Namespace: namespace},
 		client.MatchingLabelsSelector{Selector: labelSelector})
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	for _, pod := range podList.Items {
@@ -85,7 +86,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				r.RecordWarningEventf(intents, ReasonUpdatePodFailed, "could not update pod: %s", err.Error())
-				return ctrl.Result{}, err
+				return ctrl.Result{}, errors.Wrap(err)
 			}
 			prometheus.IncrementPodsLabeledForNetworkPolicies(1)
 		}
@@ -100,7 +101,7 @@ func (r *PodLabelReconciler) removeLabelsFromPods(
 
 	labelSelector, err := intents.BuildPodLabelSelector()
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	podList := &v1.PodList{}
@@ -108,7 +109,7 @@ func (r *PodLabelReconciler) removeLabelsFromPods(
 		&client.ListOptions{Namespace: intents.Namespace},
 		client.MatchingLabelsSelector{Selector: labelSelector})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	// Remove the access label for each intent, for every pod in the list
@@ -129,7 +130,7 @@ func (r *PodLabelReconciler) removeLabelsFromPods(
 		prometheus.IncrementPodsUnlabeledForNetworkPolicies(1)
 		err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 

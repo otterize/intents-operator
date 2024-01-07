@@ -7,13 +7,14 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -113,11 +114,11 @@ func (s *ControllerManagerTestSuiteBase) WaitUntilCondition(cond func(assert *as
 func (s *ControllerManagerTestSuiteBase) waitForObjectToBeCreated(obj client.Object) {
 	s.Require().NoError(wait.PollUntilContextTimeout(context.Background(), waitForCreationInterval, waitForCreationTimeout, true, func(ctx context.Context) (done bool, err error) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
 		if err != nil {
-			return false, err
+			return false, errors.Wrap(err)
 		}
 		return true, nil
 	}))
@@ -131,7 +132,7 @@ func (s *ControllerManagerTestSuiteBase) WaitForDeletionToBeMarked(obj client.Ob
 			return true, nil
 		}
 		if err != nil {
-			return false, err
+			return false, errors.Wrap(err)
 		}
 		return false, nil
 	}))
@@ -455,7 +456,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	}
 	err := s.Mgr.GetClient().Create(context.Background(), intents)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	s.waitForObjectToBeCreated(intents)
 
@@ -498,7 +499,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha2(
 	}
 	err := s.Mgr.GetClient().Create(context.Background(), intents)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	s.waitForObjectToBeCreated(intents)
 
@@ -526,7 +527,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha3(
 	}
 	err := s.Mgr.GetClient().Create(context.Background(), intents)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	s.waitForObjectToBeCreated(intents)
 
@@ -578,12 +579,12 @@ func (s *ControllerManagerTestSuiteBase) RemoveIntents(
 	intents := &otterizev1alpha2.ClientIntents{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = s.Mgr.GetClient().Delete(context.Background(), intents)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	s.WaitForDeletionToBeMarked(intents)

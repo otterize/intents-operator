@@ -2,7 +2,7 @@ package reconcilergroup
 
 import (
 	"context"
-	"github.com/pkg/errors"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,19 +61,19 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 	resourceObject := g.baseObject.DeepCopyObject().(client.Object)
 	err := g.client.Get(ctx, req.NamespacedName, resourceObject)
 	if client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 	if k8serrors.IsNotFound(err) {
 		logrus.Infof("Resource %s not found, skipping reconciliation", req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
 
-	err = g.assureFinalizer(ctx, resourceObject)
+	err = g.ensureFinalizer(ctx, resourceObject)
 	if err != nil {
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	err = g.removeLegacyFinalizers(ctx, resourceObject)
@@ -81,7 +81,7 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 		if k8serrors.IsConflict(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	finalRes, finalErr = g.runGroup(ctx, req, finalErr, finalRes)
@@ -93,7 +93,7 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
 
@@ -112,19 +112,19 @@ func (g *Group) removeLegacyFinalizers(ctx context.Context, resource client.Obje
 	if shouldUpdate {
 		err := g.client.Update(ctx, resource)
 		if err != nil {
-			return errors.Wrap(err, "failed to remove legacy finalizers")
+			return errors.Errorf("failed to remove legacy finalizers: %w", err)
 		}
 	}
 
 	return nil
 }
 
-func (g *Group) assureFinalizer(ctx context.Context, resource client.Object) error {
+func (g *Group) ensureFinalizer(ctx context.Context, resource client.Object) error {
 	if !controllerutil.ContainsFinalizer(resource, g.finalizer) {
 		controllerutil.AddFinalizer(resource, g.finalizer)
 		err := g.client.Update(ctx, resource)
 		if err != nil {
-			return errors.Wrap(err, "failed to add finalizer")
+			return errors.Errorf("failed to add finalizer: %w", err)
 		}
 	}
 
@@ -135,7 +135,7 @@ func (g *Group) removeFinalizer(ctx context.Context, resource client.Object) err
 	controllerutil.RemoveFinalizer(resource, g.finalizer)
 	err := g.client.Update(ctx, resource)
 	if err != nil {
-		return errors.Wrap(err, "failed to remove finalizer")
+		return errors.Errorf("failed to remove finalizer: %w", err)
 	}
 
 	return nil
@@ -149,7 +149,6 @@ func (g *Group) runGroup(ctx context.Context, req ctrl.Request, finalErr error, 
 			if finalErr == nil {
 				finalErr = err
 			}
-			logrus.Errorf("Error in reconciler %T: %s", reconciler, err)
 		}
 		if !res.IsZero() {
 			finalRes = shortestRequeue(res, finalRes)

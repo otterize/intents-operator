@@ -3,6 +3,7 @@ package telemetrysender
 import (
 	"context"
 	"github.com/Khan/genqlient/graphql"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/telemetries/basicbatch"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
@@ -117,7 +118,7 @@ func (t *TelemetrySender) HandleCounters(batch []UniqueEvent) error {
 
 	err := batchSendTelemetries(context.Background(), t.telemetriesClient, telemetries)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	timeUntilReset := t.lastSnapshotResetTime.Add(t.snapshotResetInterval)

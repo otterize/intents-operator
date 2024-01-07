@@ -3,7 +3,6 @@ package operatorconfig
 import (
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
-
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -69,7 +68,14 @@ func init() {
 	viper.SetDefault(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault)
 	viper.SetDefault(EnableAWSPolicyKey, EnableAWSPolicyDefault)
 	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
+	viper.SetDefault(KafkaServerTLSCertKey, "")
+	viper.SetDefault(KafkaServerTLSKeyKey, "")
+	viper.SetDefault(KafkaServerTLSCAKey, "")
 	viper.SetEnvPrefix(EnvPrefix)
+	viper.SetDefault(WatchedNamespacesKey, nil)
+	viper.SetDefault(EnableDatabasePolicy, EnableDatabasePolicyDefault)
+	viper.SetDefault(RetryDelayTimeKey, RetryDelayTimeDefault)
+	viper.SetDefault(DebugLogKey, DebugLogDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 }

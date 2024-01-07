@@ -83,7 +83,7 @@ func (r *IngressNetpolEffectivePolicyReconciler) ReconcileEffectivePolicies(ctx 
 		currentPolicies.Add(netpols...)
 	}
 	if len(errorList) > 0 {
-		return 0, goerrors.Join(errorList...)
+		return 0, errors.Wrap(goerrors.Join(errorList...))
 	}
 
 	// remove policies that doesn't exist in the policy list
@@ -102,7 +102,7 @@ func (r *IngressNetpolEffectivePolicyReconciler) ReconcileEffectivePolicies(ctx 
 func (r *IngressNetpolEffectivePolicyReconciler) ApplyServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]types.NamespacedName, error) {
 	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service.Name, ep.Service.Namespace, r.enforcementDefaultState)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	networkPolicies := make([]types.NamespacedName, 0)
@@ -134,13 +134,13 @@ func (r *IngressNetpolEffectivePolicyReconciler) ApplyServiceEffectivePolicy(ctx
 			existingPolicy)
 		if err != nil && !k8serrors.IsNotFound(err) {
 			r.RecordWarningEventf(existingPolicy, consts.ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
-			return networkPolicies, err
+			return networkPolicies, errors.Wrap(err)
 		}
 
 		if k8serrors.IsNotFound(err) {
 			err = r.createNetworkPolicy(ctx, intentCall.Service.Namespace, intentCall.IntendedCall, newPolicy)
 			if err != nil {
-				return networkPolicies, err
+				return networkPolicies, errors.Wrap(err)
 			}
 			networkPolicies = append(networkPolicies, types.NamespacedName{Name: newPolicy.Name, Namespace: newPolicy.Namespace})
 			prometheus.IncrementNetpolCreated(1)
@@ -149,7 +149,7 @@ func (r *IngressNetpolEffectivePolicyReconciler) ApplyServiceEffectivePolicy(ctx
 		}
 		changed, err := r.updateExistingPolicy(ctx, existingPolicy, newPolicy)
 		if err != nil {
-			return networkPolicies, err
+			return networkPolicies, errors.Wrap(err)
 		}
 		if changed {
 			intentCall.ObjectEventRecorder.RecordNormalEventf(consts.ReasonCreatedNetworkPolicies, "NetworkPolicy created for %s", intentCall.IntendedCall.GetTargetServerName())
@@ -168,7 +168,7 @@ func (r *IngressNetpolEffectivePolicyReconciler) updateExistingPolicy(ctx contex
 
 		err := r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 		if err != nil {
-			return true, err
+			return true, errors.Wrap(err)
 		}
 		return true, nil
 	}
@@ -181,7 +181,7 @@ func (r *IngressNetpolEffectivePolicyReconciler) createNetworkPolicy(ctx context
 		"Creating network policy to enable access from namespace %s to %s", intentsObjNamespace, intent.Name)
 	err := r.Create(ctx, newPolicy)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return r.reconcileEndpointsForPolicy(ctx, newPolicy)
@@ -190,7 +190,7 @@ func (r *IngressNetpolEffectivePolicyReconciler) createNetworkPolicy(ctx context
 func (r *IngressNetpolEffectivePolicyReconciler) reconcileEndpointsForPolicy(ctx context.Context, newPolicy *v1.NetworkPolicy) error {
 	selector, err := metav1.LabelSelectorAsSelector(&newPolicy.Spec.PodSelector)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	// Use the external netpolHandler to check if pods got affected and if so, if they need external allow policies
 	return r.extNetpolHandler.HandlePodsByLabelSelector(ctx, newPolicy.Namespace, selector)
@@ -201,13 +201,13 @@ func (r *IngressNetpolEffectivePolicyReconciler) removeNetworkPoliciesThatShould
 	networkPolicyList := &v1.NetworkPolicyList{}
 	selector, err := matchAccessNetworkPolicy()
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = r.List(ctx, networkPolicyList, &client.ListOptions{LabelSelector: selector})
 	if err != nil {
 		logrus.Infof("Error listing network policies: %s", err.Error())
-		return err
+		return errors.Wrap(err)
 	}
 
 	logrus.Infof("Selector: %s found %d network policies", selector.String(), len(networkPolicyList.Items))
@@ -218,7 +218,7 @@ func (r *IngressNetpolEffectivePolicyReconciler) removeNetworkPoliciesThatShould
 			logrus.Infof("Removing orphaned network policy: %s server %s ns %s", networkPolicy.Name, serverName, networkPolicy.Namespace)
 			err = r.removeNetworkPolicy(ctx, networkPolicy)
 			if err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 		}
 	}
@@ -229,11 +229,11 @@ func (r *IngressNetpolEffectivePolicyReconciler) removeNetworkPoliciesThatShould
 func (r *IngressNetpolEffectivePolicyReconciler) removeNetworkPolicy(ctx context.Context, networkPolicy v1.NetworkPolicy) error {
 	err := r.extNetpolHandler.HandleBeforeAccessPolicyRemoval(ctx, &networkPolicy)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	err = r.Delete(ctx, &networkPolicy)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	return nil
 }
