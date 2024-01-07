@@ -68,7 +68,7 @@ func NewIngressNetpolEffectivePolicyReconciler(
 	}
 }
 
-// ApplyEffectivePolicies Gets current state of effective policies and returns number of network policies
+// ReconcileEffectivePolicies Gets current state of effective policies and returns number of network policies
 func (r *IngressNetpolEffectivePolicyReconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, error) {
 	currentPolicies := goset.NewSet[types.NamespacedName]()
 	//TODO:  error list as error
