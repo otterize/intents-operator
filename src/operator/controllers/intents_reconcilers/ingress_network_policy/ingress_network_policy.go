@@ -32,11 +32,6 @@ type externalNetpolHandler interface {
 	HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error
 }
 
-type KubernetesEvent struct {
-	Reason  string
-	Message string
-}
-
 type IngressNetpolEffectivePolicyReconciler struct {
 	client.Client
 	Scheme                      *runtime.Scheme
