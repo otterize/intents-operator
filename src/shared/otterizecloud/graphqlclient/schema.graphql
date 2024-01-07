@@ -612,6 +612,7 @@ type IntentsOperatorConfiguration {
 	istioPolicyEnforcementEnabled: Boolean!
 	protectedServicesEnabled: Boolean!
 	protectedServices: [Service!]!
+	egressNetworkPolicyEnforcementEnabled: Boolean!
 }
 
 input IntentsOperatorConfigurationInput {
@@ -620,6 +621,7 @@ input IntentsOperatorConfigurationInput {
 	kafkaACLEnforcementEnabled: Boolean
 	istioPolicyEnforcementEnabled: Boolean
 	protectedServicesEnabled: Boolean
+	egressNetworkPolicyEnforcementEnabled: Boolean
 }
 
 type InternetConfig {
