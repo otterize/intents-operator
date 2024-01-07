@@ -210,6 +210,7 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&otterizev1alpha3.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Watches(&otterizev1alpha3.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
+		Watches(&corev1.Endpoints{}, handler.EnqueueRequestsFromMapFunc(r.watchApiServerEndpoint)).
 		Complete(r)
 	if err != nil {
 		return errors.Wrap(err)
@@ -218,6 +219,33 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.group.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
 
 	return nil
+}
+
+func (r *IntentsReconciler) watchApiServerEndpoint(_ context.Context, obj client.Object) []reconcile.Request {
+	if obj.GetNamespace() != otterizev1alpha3.KubernetesAPIServerNamespace || obj.GetName() != otterizev1alpha3.KubernetesAPIServerName {
+		return nil
+	}
+
+	intentsToReconcile := r.getIntentsToAPIServerService()
+	return r.mapIntentsToRequests(intentsToReconcile)
+}
+
+func (r *IntentsReconciler) getIntentsToAPIServerService() []otterizev1alpha3.ClientIntents {
+	intentsToReconcile := make([]otterizev1alpha3.ClientIntents, 0)
+	fullServerName := fmt.Sprintf("svc:%s.%s", otterizev1alpha3.KubernetesAPIServerName, otterizev1alpha3.KubernetesAPIServerNamespace)
+	var intentsToServer otterizev1alpha3.ClientIntentsList
+	err := r.client.List(context.Background(),
+		&intentsToServer,
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fullServerName},
+	)
+	if err != nil {
+		logrus.WithError(err).Errorf("Failed to list client intents for client %s", fullServerName)
+		return nil
+	}
+	logrus.Infof("Enqueueing client intents %v for api server", intentsToServer.Items)
+
+	intentsToReconcile = append(intentsToReconcile, intentsToServer.Items...)
+	return intentsToReconcile
 }
 
 func (r *IntentsReconciler) mapProtectedServiceToClientIntents(_ context.Context, obj client.Object) []reconcile.Request {
