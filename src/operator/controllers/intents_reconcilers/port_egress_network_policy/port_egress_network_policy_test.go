@@ -8,6 +8,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
@@ -216,6 +217,158 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetesServ
 		formattedClient,
 		formattedServer,
 	)
+	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForAPIServerServiceWithoutPod() {
+	clientIntentsName := "client-intents"
+	policyName := "svc-egress-to-kubernetes.default-from-test-client"
+	serviceName := "test-client"
+	serverName := "svc:kubernetes"
+	serverNamespace := "default"
+	formattedClient := "test-client-test-client-namespac-edb3a2"
+	formattedServer := "kubernetes-default-e850ec"
+
+	namespacedName := types.NamespacedName{
+		Namespace: testClientNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
+			{
+				Name: fmt.Sprintf("%s.%s", serverName, serverNamespace),
+			},
+		},
+	}
+
+	// Initial call to get the ClientIntents object when reconciler starts
+	emptyIntents := &otterizev1alpha3.ClientIntents{}
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
+			intents.Namespace = testClientNamespace
+			intents.Spec = intentsSpec
+			return nil
+		})
+
+	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
+	kubernetesSvcNamespacedName := types.NamespacedName{
+		Namespace: serverNamespace,
+		Name:      serverStrippedSVCPrefix,
+	}
+	servicePort := int32(443)
+	serviceIp := "10.96.1.1"
+	svcObject := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serverStrippedSVCPrefix,
+			Namespace: serverNamespace,
+		},
+
+		Spec: corev1.ServiceSpec{
+			ClusterIP: serviceIp,
+			Selector:  nil,
+			Ports: []corev1.ServicePort{{
+				TargetPort: intstr.IntOrString{
+					IntVal: servicePort,
+				},
+				Protocol: corev1.ProtocolTCP,
+			}},
+		},
+	}
+
+	s.Client.EXPECT().Get(gomock.Any(), kubernetesSvcNamespacedName, gomock.AssignableToTypeOf(&svcObject)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, service *corev1.Service, options ...client.ListOption) error {
+			svcObject.DeepCopyInto(service)
+			return nil
+		})
+
+	endpointIp := "10.128.0.9"
+	endpointPort := int32(8443)
+	apiServerEndpoint := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "kubernetes",
+			Namespace: "default",
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP: endpointIp,
+					},
+				},
+				Ports: []corev1.EndpointPort{
+					{
+						Port:     endpointPort,
+						Protocol: corev1.ProtocolTCP,
+					},
+				},
+			},
+		},
+	}
+	emptyEndpoints := &corev1.Endpoints{}
+	s.Client.EXPECT().Get(gomock.Any(), kubernetesSvcNamespacedName, gomock.Eq(emptyEndpoints)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, endpoints *corev1.Endpoints, options ...client.ListOption) error {
+			apiServerEndpoint.DeepCopyInto(endpoints)
+			return nil
+		})
+
+	// Search for existing NetworkPolicy
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	networkPolicyNamespacedName := types.NamespacedName{
+		Namespace: testClientNamespace,
+		Name:      policyName,
+	}
+	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
+		})
+
+	// Create NetworkPolicy
+	newPolicy := &v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      policyName,
+			Namespace: testClientNamespace,
+			Labels: map[string]string{
+				otterizev1alpha3.OtterizeSvcEgressNetworkPolicy:       formattedClient,
+				otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTarget: formattedServer,
+			},
+			Annotations: map[string]string{
+				otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetService:          svcObject.Name,
+				otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetServiceNamespace: svcObject.Namespace,
+			},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					otterizev1alpha3.OtterizeClientLabelKey: formattedClient,
+				},
+			},
+			Egress: []v1.NetworkPolicyEgressRule{
+				{
+					To: []v1.NetworkPolicyPeer{{
+						IPBlock: &v1.IPBlock{CIDR: endpointIp + "/32"},
+					}},
+					Ports: []v1.NetworkPolicyPort{{
+						Port:     &intstr.IntOrString{IntVal: endpointPort},
+						Protocol: lo.ToPtr(corev1.ProtocolTCP),
+					}},
+				},
+			},
+		},
+	}
+
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
+
+	s.ignoreRemoveOrphan()
+
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Empty(res)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 

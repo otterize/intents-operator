@@ -89,6 +89,13 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 				callList = append(callList, intent)
 				continue
 			}
+			if intent.IsTargetTheKubernetesAPIServer(clientIntent.Namespace) {
+				intentCopy := intent.DeepCopy()
+				intentCopy.Name = intent.GetServerFullyQualifiedName(clientIntent.Namespace)
+				callList = append(callList, intent)
+				continue
+			}
+
 			svc := corev1.Service{}
 			kubernetesSvcName := intent.GetTargetServerName()
 			kubernetesSvcNamespace := intent.GetTargetServerNamespace(clientIntent.Namespace)

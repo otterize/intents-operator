@@ -146,7 +146,7 @@ func (r *PortEgressNetworkPolicyReconciler) handleNetworkPolicyCreation(
 	}
 	existingPolicy := &v1.NetworkPolicy{}
 	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeSvcEgressNetworkPolicyNameTemplate, intent.GetServerFullyQualifiedName(intentsObj.Namespace), intentsObj.GetServiceName())
-	newPolicy, err := r.buildNetworkPolicyObjectForIntents(&svc, intentsObj, intent, policyName)
+	newPolicy, err := r.buildNetworkPolicyObjectForIntents(ctx, &svc, intentsObj, intent, policyName)
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
@@ -293,16 +293,24 @@ func (r *PortEgressNetworkPolicyReconciler) deleteNetworkPolicy(
 }
 
 // buildNetworkPolicyObjectForIntents builds the network policy that represents the intent from the parameter
-func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(
-	svc *corev1.Service, intentsObj *otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent, policyName string) (*v1.NetworkPolicy, error) {
+func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(ctx context.Context, svc *corev1.Service, intentsObj *otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent, policyName string) (*v1.NetworkPolicy, error) {
 	// The intent's target server made of name + namespace + hash
 	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(intentsObj.GetServiceName(), intentsObj.Namespace)
 	formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObj.Namespace))
-	podSelector := r.buildPodLabelSelectorFromIntents(intentsObj)
-	if svc.Spec.Selector == nil {
+	clientPodSelector := r.buildPodLabelSelectorFromIntents(intentsObj)
+	var egressRule v1.NetworkPolicyEgressRule
+	var err error
+	if svc.Spec.Selector != nil {
+		egressRule = getPodSelectorRule(svc, intentsObj, intent)
+	} else if intent.IsTargetTheKubernetesAPIServer(intentsObj.Namespace) {
+		egressRule, err = r.getIPRuleFromEndpoint(ctx, svc)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+	} else {
 		return nil, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
 	}
-	svcPodSelector := metav1.LabelSelector{MatchLabels: svc.Spec.Selector}
+
 	netpol := &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
@@ -318,18 +326,23 @@ func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
-			PodSelector: podSelector,
-			Egress: []v1.NetworkPolicyEgressRule{
-				{
-					To: []v1.NetworkPolicyPeer{
-						{
-							PodSelector: &svcPodSelector,
-							NamespaceSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intent.GetTargetServerNamespace(intentsObj.Namespace),
-								},
-							},
-						},
+			PodSelector: clientPodSelector,
+			Egress:      []v1.NetworkPolicyEgressRule{egressRule},
+		},
+	}
+
+	return netpol, nil
+}
+
+func getPodSelectorRule(svc *corev1.Service, intentsObj *otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent) v1.NetworkPolicyEgressRule {
+	svcPodSelector := metav1.LabelSelector{MatchLabels: svc.Spec.Selector}
+	podSelectorEgressRule := v1.NetworkPolicyEgressRule{
+		To: []v1.NetworkPolicyPeer{
+			{
+				PodSelector: &svcPodSelector,
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intent.GetTargetServerNamespace(intentsObj.Namespace),
 					},
 				},
 			},
@@ -357,10 +370,56 @@ func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(
 		networkPolicyPorts = append(networkPolicyPorts, netpolPort)
 	}
 
-	// Add ports to network policy spec
-	netpol.Spec.Egress[0].Ports = networkPolicyPorts
+	podSelectorEgressRule.Ports = networkPolicyPorts
 
-	return netpol, nil
+	return podSelectorEgressRule
+}
+
+func (r *PortEgressNetworkPolicyReconciler) getIPRuleFromEndpoint(ctx context.Context, svc *corev1.Service) (v1.NetworkPolicyEgressRule, error) {
+	ipAddresses := make([]string, 0)
+	ports := make([]v1.NetworkPolicyPort, 0)
+
+	var endpoint corev1.Endpoints
+	err := r.Client.Get(ctx, types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &endpoint)
+	if err != nil {
+		return v1.NetworkPolicyEgressRule{}, errors.Wrap(err)
+	}
+
+	if len(endpoint.Subsets) == 0 {
+		return v1.NetworkPolicyEgressRule{}, fmt.Errorf("no endpoints found for service %s/%s", svc.Namespace, svc.Name)
+	}
+
+	for _, subset := range endpoint.Subsets {
+		for _, address := range subset.Addresses {
+			ipAddresses = append(ipAddresses, address.IP)
+		}
+		for _, port := range subset.Ports {
+			ports = append(ports, v1.NetworkPolicyPort{
+				Port:     &intstr.IntOrString{IntVal: port.Port},
+				Protocol: lo.ToPtr(port.Protocol),
+			})
+		}
+	}
+
+	if len(ipAddresses) == 0 {
+		return v1.NetworkPolicyEgressRule{}, fmt.Errorf("no endpoints found for service %s/%s", svc.Namespace, svc.Name)
+	}
+
+	podSelectorEgressRule := v1.NetworkPolicyEgressRule{}
+	for _, ip := range ipAddresses {
+		podSelectorEgressRule.To = append(podSelectorEgressRule.To, v1.NetworkPolicyPeer{
+			IPBlock: &v1.IPBlock{
+				CIDR:   fmt.Sprintf("%s/32", ip),
+				Except: nil,
+			},
+		})
+	}
+
+	if len(ports) > 0 {
+		podSelectorEgressRule.Ports = ports
+	}
+
+	return podSelectorEgressRule, nil
 }
 
 func (r *PortEgressNetworkPolicyReconciler) buildPodLabelSelectorFromIntents(intentsObj *otterizev1alpha3.ClientIntents) metav1.LabelSelector {
