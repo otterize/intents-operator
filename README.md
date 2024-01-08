@@ -8,7 +8,7 @@
 [![community](https://img.shields.io/badge/slack-Otterize_Slack-purple.svg?logo=slack)](https://joinslack.otterize.com)
 
 * [About](#about) 
-* [Quick tutorials](https://docs.otterize.com/quick-tutorials/)
+* [Quickstart & Docs](https://docs.otterize.com/)
 * [How does the intents operator work?](#how-does-the-intents-operator-work)
   * [Network policies](#network-policies)
   * [AWS IAM policies](#aws-iam-policies)
