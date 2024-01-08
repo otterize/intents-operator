@@ -7,7 +7,7 @@
 ![go report](https://img.shields.io/static/v1?label=go%20report&message=A%2B&color=success)
 [![community](https://img.shields.io/badge/slack-Otterize_Slack-purple.svg?logo=slack)](https://joinslack.otterize.com)
 
-[About](#about) | [Quick tutorial](https://docs.otterize.com/quick-tutorials/k8s-mtls) | [How does the Credentials Operator work?](#how-does-the-credentials-operator-work) | [Docs](https://docs.otterize.com/reference/configuration/credentials-operator) | [Contributing](#contributing) | [Slack](#slack)
+[About](#about) | [Quick tutorial](https://docs.otterize.com/quickstart/access-control/k8s-kafka-mtls-cert-manager) | [How does the Credentials Operator work?](#how-does-the-credentials-operator-work) | [Docs](https://docs.otterize.com/reference/configuration/credentials-operator) | [Contributing](#contributing) | [Slack](#slack)
 
 ___
 
