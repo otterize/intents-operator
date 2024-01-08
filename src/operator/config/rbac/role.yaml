@@ -84,6 +84,15 @@ rules:
   - list
   - watch
 - apiGroups:
+  - batch
+  resources:
+  - cronjobs
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - k8s.otterize.com
   resources:
   - clientintents
