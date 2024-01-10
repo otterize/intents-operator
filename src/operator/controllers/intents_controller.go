@@ -23,14 +23,12 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/internet_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/otterize/intents-operator/src/shared/initonce"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -70,17 +68,14 @@ type EnforcementConfig struct {
 
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
-	group                   *reconcilergroup.Group
-	client                  client.Client
-	initOnce                initonce.InitOnce
-	networkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler
+	group  *reconcilergroup.Group
+	client client.Client
 }
 
 func NewIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
-	networkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler,
 	portNetpolReconciler *port_network_policy.PortNetworkPolicyReconciler,
 	egressNetpolReconciler *egress_network_policy.EgressNetworkPolicyReconciler,
 	portEgressNetpolReconciler *port_egress_network_policy.PortEgressNetworkPolicyReconciler,
@@ -98,7 +93,6 @@ func NewIntentsReconciler(
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
-		networkPolicyReconciler,
 	}
 	reconcilers = append(reconcilers, additionalReconcilers...)
 	reconcilersGroup := reconcilergroup.NewGroup(
@@ -114,9 +108,8 @@ func NewIntentsReconciler(
 	reconcilersGroup.AddToGroup(portNetpolReconciler)
 
 	intentsReconciler := &IntentsReconciler{
-		group:                   reconcilersGroup,
-		client:                  client,
-		networkPolicyReconciler: networkPolicyReconciler,
+		group:  reconcilersGroup,
+		client: client,
 	}
 
 	if telemetriesconfig.IsUsageTelemetryEnabled() {
@@ -155,16 +148,9 @@ func NewIntentsReconciler(
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.initOnce.Do(func() error {
-		return r.intentsReconcilerInit(ctx)
-	})
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err)
-	}
-
 	intents := &otterizev1alpha3.ClientIntents{}
 
-	err = r.client.Get(ctx, req.NamespacedName, intents)
+	err := r.client.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -198,10 +184,6 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	return result, nil
-}
-
-func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
-	return r.networkPolicyReconciler.CleanAllNamespaces(ctx)
 }
 
 // SetupWithManager sets up the controller with the Manager.
