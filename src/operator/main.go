@@ -444,11 +444,12 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud
 	defer cancel()
 
 	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
-		GlobalEnforcementEnabled:        config.EnforcementDefaultState,
-		NetworkPolicyEnforcementEnabled: config.EnableNetworkPolicy,
-		KafkaACLEnforcementEnabled:      config.EnableKafkaACL,
-		IstioPolicyEnforcementEnabled:   config.EnableIstioPolicy,
-		ProtectedServicesEnabled:        config.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
+		GlobalEnforcementEnabled:              config.EnforcementDefaultState,
+		NetworkPolicyEnforcementEnabled:       config.EnableNetworkPolicy,
+		EgressNetworkPolicyEnforcementEnabled: config.EnableEgressNetworkPolicyReconcilers,
+		KafkaACLEnforcementEnabled:            config.EnableKafkaACL,
+		IstioPolicyEnforcementEnabled:         config.EnableIstioPolicy,
+		ProtectedServicesEnabled:              config.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 	})
 	if err != nil {
 		logrus.WithError(err).Error("Failed to report configuration to the cloud")
