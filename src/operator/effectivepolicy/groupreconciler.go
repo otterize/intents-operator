@@ -77,6 +77,10 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		services.Add(service)
 		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
+			// Don't create SEP for target kubernetes svc
+			if intentCall.IsTargetServerKubernetesService() {
+				continue
+			}
 			services.Add(serviceidentity.ServiceIdentity{Name: intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(clientIntent.Namespace)})
 		}
 	}
@@ -88,7 +92,8 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		if err != nil {
 			return nil, err
 		}
-		if intent, ok := serviceToIntent[service]; ok {
+		// Ignore intents in deletion process
+		if intent, ok := serviceToIntent[service]; ok && intent.DeletionTimestamp.IsZero() {
 			ep.ClientIntent = lo.ToPtr(intent)
 		}
 		epSlice = append(epSlice, ep)

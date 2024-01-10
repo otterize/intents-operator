@@ -204,10 +204,10 @@ func main() {
 	)
 
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
-	epGrouReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
+	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+	epGrouReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler, egressNetworkPolicyHandler)
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGrouReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
-	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
 		if err != nil {
@@ -313,7 +313,6 @@ func main() {
 		mgr.GetScheme(),
 		kafkaServersStore,
 		svcNetworkPolicyHandler,
-		egressNetworkPolicyHandler,
 		svcEgressNetworkPolicyHandler,
 		watchedNamespaces,
 		enforcementConfig,
