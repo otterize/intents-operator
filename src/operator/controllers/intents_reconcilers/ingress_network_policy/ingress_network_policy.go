@@ -216,6 +216,10 @@ func (r *IngressNetpolEffectivePolicyReconciler) removeNetworkPoliciesThatShould
 		}
 	}
 
+	deletedCount := len(networkPolicyList.Items) - netpolNamesThatShouldExist.Len()
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesDeleted, deletedCount)
+	prometheus.IncrementNetpolDeleted(deletedCount)
+
 	return nil
 }
 

@@ -169,36 +169,6 @@ func (r *EgressNetworkPolicyReconciler) CreateNetworkPolicy(ctx context.Context,
 	return r.Create(ctx, newPolicy)
 }
 
-func (r *EgressNetworkPolicyReconciler) cleanPolicies(
-	ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
-	logrus.Infof("Removing network policies for deleted intents for service: %s", intents.Spec.Service.Name)
-	for _, intent := range intents.GetCallsList() {
-		err := r.handleIntentRemoval(ctx, intent, *intents)
-		if err != nil {
-			return errors.Wrap(err)
-		}
-	}
-
-	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesDeleted, len(intents.GetCallsList()))
-	prometheus.IncrementNetpolDeleted(len(intents.GetCallsList()))
-
-	if err := r.Update(ctx, intents); err != nil {
-		return errors.Wrap(err)
-	}
-
-	return nil
-}
-
-func (r *EgressNetworkPolicyReconciler) handleIntentRemoval(
-	ctx context.Context,
-	intent otterizev1alpha3.Intent,
-	intentsObj otterizev1alpha3.ClientIntents) error {
-
-	logrus.Infof("No other intents in the namespace reference target server: %s", intent.Name)
-	logrus.Infoln("Removing matching network policy for server")
-	return r.deleteNetworkPolicy(ctx, intent, intentsObj)
-}
-
 func (r *EgressNetworkPolicyReconciler) removeNetworkPoliciesThatShouldNotExist(ctx context.Context, netpolNamesThatShouldExist *goset.Set[types.NamespacedName]) error {
 	logrus.Info("Searching for orphaned network policies")
 	networkPolicyList := &v1.NetworkPolicyList{}
@@ -214,6 +184,7 @@ func (r *EgressNetworkPolicyReconciler) removeNetworkPoliciesThatShouldNotExist(
 	}
 
 	logrus.Infof("Selector: %s found %d network policies", selector.String(), len(networkPolicyList.Items))
+
 	for _, networkPolicy := range networkPolicyList.Items {
 		namespacedName := types.NamespacedName{Namespace: networkPolicy.Namespace, Name: networkPolicy.Name}
 		if !netpolNamesThatShouldExist.Contains(namespacedName) {
@@ -225,12 +196,19 @@ func (r *EgressNetworkPolicyReconciler) removeNetworkPoliciesThatShouldNotExist(
 			}
 		}
 	}
+	deletedCount := len(networkPolicyList.Items) - netpolNamesThatShouldExist.Len()
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesDeleted, deletedCount)
+	prometheus.IncrementNetpolDeleted(deletedCount)
 
 	return nil
 }
 
 func (r *EgressNetworkPolicyReconciler) removeNetworkPolicy(ctx context.Context, networkPolicy v1.NetworkPolicy) error {
-	return r.Delete(ctx, &networkPolicy)
+	err := r.Delete(ctx, &networkPolicy)
+	if err != nil && k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Wrap(err)
 }
 
 func matchAccessNetworkPolicy() (labels.Selector, error) {
@@ -241,24 +219,6 @@ func matchAccessNetworkPolicy() (labels.Selector, error) {
 	return metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		isOtterizeNetworkPolicy,
 	}})
-}
-
-func (r *EgressNetworkPolicyReconciler) deleteNetworkPolicy(
-	ctx context.Context,
-	intent otterizev1alpha3.Intent,
-	intentsObj otterizev1alpha3.ClientIntents) error {
-
-	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeEgressNetworkPolicyNameTemplate, intent.GetServerFullyQualifiedName(intentsObj.Namespace), intentsObj.GetServiceName())
-	policy := &v1.NetworkPolicy{}
-	err := r.Get(ctx, types.NamespacedName{Name: policyName, Namespace: intent.GetTargetServerNamespace(intentsObj.Namespace)}, policy)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
-		return errors.Wrap(err)
-	}
-
-	return r.removeNetworkPolicy(ctx, *policy)
 }
 
 // buildNetworkPolicyObjectForIntents builds the network policy that represents the intent from the parameter
