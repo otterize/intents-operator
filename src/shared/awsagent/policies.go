@@ -4,12 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 )
@@ -18,7 +18,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if !exists {
@@ -34,10 +34,10 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 		if isNoSuchEntityException(err) {
 			_, err := a.createPolicy(ctx, role, namespace, intentsServiceName, statements)
 
-			return err
+			return errors.Wrap(err)
 		}
 
-		return err
+		return errors.Wrap(err)
 	}
 
 	// policy exists, update it
@@ -46,13 +46,13 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	err = a.updatePolicy(ctx, policy, statements)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = a.attachPolicy(ctx, role, policy)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -72,7 +72,7 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 			return nil
 		}
 
-		return err
+		return errors.Wrap(err)
 	}
 
 	policy := output.Policy
@@ -82,7 +82,7 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 	})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	for _, role := range listEntitiesOutput.PolicyRoles {
@@ -90,9 +90,12 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 			PolicyArn: policy.Arn,
 			RoleName:  role.RoleName,
 		})
+		if isNoSuchEntityException(err) {
+			return nil
+		}
 
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
@@ -101,7 +104,7 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 	})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	for _, version := range listPolicyVersionsOutput.Versions {
@@ -113,7 +116,7 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 			})
 
 			if err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 		}
 	}
@@ -123,7 +126,7 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 	})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -136,12 +139,11 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if !exists {
 		errorMessage := fmt.Sprintf("role not found: %s", roleName)
-		logger.Error(errorMessage)
 		return errors.New(errorMessage)
 	}
 
@@ -149,7 +151,7 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 
 	if err != nil {
 		logger.WithError(err).Errorf("failed to generate policy document")
-		return err
+		return errors.Wrap(err)
 	}
 
 	_, err = a.iamClient.PutRolePolicy(ctx, &iam.PutRolePolicyInput{
@@ -159,7 +161,7 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 	})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -170,7 +172,7 @@ func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace st
 	policyDoc, policyHash, err := generatePolicyDocument(statements)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	policy, err := a.iamClient.CreatePolicy(ctx, &iam.CreatePolicyInput{
@@ -193,13 +195,13 @@ func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace st
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	err = a.attachPolicy(ctx, role, policy.Policy)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	return policy.Policy, nil
@@ -209,7 +211,7 @@ func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statemen
 	policyDoc, policyHash, err := generatePolicyDocument(statements)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	existingHashTag, found := lo.Find(policy.Tags, func(item types.Tag) bool {
@@ -223,7 +225,7 @@ func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statemen
 	err = a.deleteOldestPolicyVersion(ctx, policy)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	_, err = a.iamClient.CreatePolicyVersion(ctx, &iam.CreatePolicyVersionInput{
@@ -233,7 +235,7 @@ func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statemen
 	})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{
@@ -247,7 +249,7 @@ func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statemen
 	})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -259,7 +261,7 @@ func (a *Agent) deleteOldestPolicyVersion(ctx context.Context, policy *types.Pol
 	})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if len(output.Versions) < 4 {
@@ -277,7 +279,7 @@ func (a *Agent) deleteOldestPolicyVersion(ctx context.Context, policy *types.Pol
 	})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -289,7 +291,7 @@ func (a *Agent) attachPolicy(ctx context.Context, role *types.Role, policy *type
 		RoleName:  role.RoleName,
 	})
 
-	return err
+	return errors.Wrap(err)
 }
 
 func generatePolicyDocument(statements []StatementEntry) (string, string, error) {
@@ -300,7 +302,7 @@ func generatePolicyDocument(statements []StatementEntry) (string, string, error)
 	serialized, err := json.Marshal(policy)
 
 	if err != nil {
-		return "", "", err
+		return "", "", errors.Wrap(err)
 	}
 
 	sum := sha256.Sum256(serialized)

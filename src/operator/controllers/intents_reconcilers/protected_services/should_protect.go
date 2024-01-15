@@ -3,6 +3,7 @@ package protected_services
 import (
 	"context"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -24,7 +25,7 @@ func IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx context.Context
 		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
-		return false, err
+		return false, errors.Wrap(err)
 	}
 
 	if len(protectedServicesResources.Items) != 0 {
@@ -52,7 +53,7 @@ func InitProtectedServiceIndexField(mgr ctrl.Manager) error {
 			return []string{protectedService.Spec.Name}
 		})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil

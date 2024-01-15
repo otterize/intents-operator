@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/networking/v1"
@@ -37,7 +38,7 @@ func NewDefaultDenyReconciler(client client.Client, extNetpolHandler ExternalNep
 func (r *DefaultDenyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	err := r.handleDefaultDenyInNamespace(ctx, req)
 	if client.IgnoreNotFound(err) != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
@@ -48,12 +49,12 @@ func (r *DefaultDenyReconciler) handleDefaultDenyInNamespace(ctx context.Context
 
 	err := r.List(ctx, &protectedServices, client.InNamespace(req.Namespace))
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = r.blockAccessToServices(ctx, protectedServices, req.Namespace)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return r.extNetpolHandler.HandleAllPods(ctx)
@@ -78,7 +79,7 @@ func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, prote
 		otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	for _, existingPolicy := range networkPolicies.Items {
@@ -88,13 +89,13 @@ func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, prote
 			desiredPolicy := serversToProtect[existingPolicyServerName]
 			err = r.updateIfNeeded(existingPolicy, desiredPolicy)
 			if err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 			delete(serversToProtect, existingPolicyServerName)
 		} else {
 			err = r.Delete(ctx, &existingPolicy)
 			if err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 			logrus.Infof("Deleted network policy %s", existingPolicy.Name)
 		}
@@ -103,7 +104,7 @@ func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, prote
 	for _, networkPolicy := range serversToProtect {
 		err = r.Create(ctx, &networkPolicy)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		logrus.Infof("Created network policy %s", networkPolicy.Name)
 	}
@@ -124,7 +125,7 @@ func (r *DefaultDenyReconciler) updateIfNeeded(
 
 	err := r.Update(context.Background(), &existingPolicy)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	logrus.Infof("Updated network policy %s", existingPolicy.Name)
@@ -164,13 +165,13 @@ func (r *DefaultDenyReconciler) DeleteAllDefaultDeny(ctx context.Context, namesp
 		otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	})
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	for _, existingPolicy := range networkPolicies.Items {
 		err = r.Delete(ctx, &existingPolicy)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 		logrus.Infof("Deleted network policy %s", existingPolicy.Name)
 	}

@@ -106,7 +106,6 @@ type AccessGraphEdge {
 	client: Service!
 	server: Service!
 	discoveredIntents: [Intent!]!
-	externalTrafficDiscoveredIntents: [ExternalTrafficIntent!]!
 	appliedIntents: [Intent!]!
 	accessStatus: EdgeAccessStatus!
 }
@@ -283,11 +282,6 @@ enum DBPermissionChange {
 	DELETE
 }
 
-type DNSIPPair {
-	dnsName: String!
-	ips: [String!]
-}
-
 input DNSIPPairInput {
 	dnsName: String!
 	ips: [String!]
@@ -319,14 +313,14 @@ type DatabaseInfo {
 	address: String!
 	databaseType: DatabaseType!
 	credentials: DatabaseCredentials!
-	logConsumerSettings: GCPCloudSQLConsumerSettings
+	visibility: DatabaseVisibilitySettings
 }
 
 input DatabaseInfoInput {
 	address: String!
 	databaseType: DatabaseType!
 	credentials: DatabaseCredentialsInput!
-	logConsumerSettings: GCPCloudSQLConsumerSettingsInput
+	visibility: DatabaseVisibilitySettingsInput
 }
 
 enum DatabaseOperation {
@@ -339,6 +333,20 @@ enum DatabaseOperation {
 
 enum DatabaseType {
 	POSTGRESQL
+}
+
+type DatabaseVisibilitySettings {
+	source: DatabaseVisibilitySource
+	gcpPubSub: GCPPubSubLogConsumerSettings
+}
+
+input DatabaseVisibilitySettingsInput {
+	source: DatabaseVisibilitySource
+	gcpPubSub: GCPPubSubLogConsumerSettingsInput
+}
+
+enum DatabaseVisibilitySource {
+	GCP_PUBSUB
 }
 
 input DiscoveredIntentInput {
@@ -440,13 +448,6 @@ input ExternalTrafficDiscoveredIntentInput {
 	intent: ExternalTrafficIntentInput!
 }
 
-type ExternalTrafficIntent {
-	id: ID!
-	server: Service!
-	client: Service!
-	target: DNSIPPair!
-}
-
 input ExternalTrafficIntentInput {
 	namespace: String!
 	clientName: String!
@@ -456,12 +457,12 @@ input ExternalTrafficIntentInput {
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
 scalar Float
 
-type GCPCloudSQLConsumerSettings {
+type GCPPubSubLogConsumerSettings {
 	projectId: String!
 	topic: String!
 }
 
-input GCPCloudSQLConsumerSettingsInput {
+input GCPPubSubLogConsumerSettingsInput {
 	projectId: String!
 	topic: String!
 }
@@ -560,6 +561,7 @@ type Intent {
 	httpResources: [HTTPConfig!]
 	databaseResources: [DatabaseConfig!]
 	awsActions: [String!]
+	internet: InternetConfig
 	status: IntentStatus
 }
 
@@ -610,6 +612,7 @@ type IntentsOperatorConfiguration {
 	istioPolicyEnforcementEnabled: Boolean!
 	protectedServicesEnabled: Boolean!
 	protectedServices: [Service!]!
+	egressNetworkPolicyEnforcementEnabled: Boolean!
 }
 
 input IntentsOperatorConfigurationInput {
@@ -618,6 +621,13 @@ input IntentsOperatorConfigurationInput {
 	kafkaACLEnforcementEnabled: Boolean
 	istioPolicyEnforcementEnabled: Boolean
 	protectedServicesEnabled: Boolean
+	egressNetworkPolicyEnforcementEnabled: Boolean
+}
+
+type InternetConfig {
+	dnsName: String!
+	ips: [String!]
+	ports: [Int!]
 }
 
 input InternetConfigInput {
@@ -1001,6 +1011,7 @@ type Query {
 	): AccessGraph!
 	serviceClientIntents(
 		id: ID!
+		asServiceId: ID
 		lastSeenAfter: Time!
 	): ServiceClientIntents!
 """Get cluster"""
@@ -1050,6 +1061,10 @@ type Query {
 		databaseInfo: DatabaseInfoInput!
 		integrationId: ID
 	): TestDatabaseConnectionResponse!
+"""Test database visibility connectivity"""
+	testDatabaseVisibilityConnection(
+		databaseInfo: DatabaseInfoInput!
+	): TestDatabaseConnectionResponse!
 """List user invites"""
 	invites(
 		email: String
@@ -1088,6 +1103,8 @@ type Query {
 	organization(
 		id: ID!
 	): Organization!
+"""Checks the availability of the API server"""
+	ping: Boolean!
 """Get service"""
 	service(
 		id: ID!
@@ -1173,6 +1190,7 @@ enum ServerProtectionStatusReason {
 	IGNORED_IN_CALCULATION
 	PROTECTED_BY_DATABASE_INTEGRATION
 	PROTECTED_BY_AWS_IAM_INTEGRATION
+	PROTECTED_BY_INTERNET_INTENTS
 }
 
 enum ServerProtectionStatusVerdict {
@@ -1197,6 +1215,7 @@ type Service {
 	certificateInformation: CertificateInformation
 	serviceAccount: String
 	awsResource: AWSResource
+	discoveredByIntegration: Integration
 	tlsKeyPair: KeyPair!
 	userAndPassword: UserAndPassword!
 }
@@ -1230,6 +1249,7 @@ enum ServiceType {
 	AWS
 	DATABASE
 	INTERNET
+	DATABASE_USER
 }
 
 """The `String`scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text."""

@@ -24,7 +24,6 @@ require (
 	github.com/labstack/echo/v4 v4.11.4
 	github.com/linkerd/linkerd2 v0.5.1-0.20231208210632-b36368a44346
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.17.0
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.3
@@ -108,6 +107,7 @@ require (
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pierrec/lz4/v4 v4.1.14 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.45.0 // indirect

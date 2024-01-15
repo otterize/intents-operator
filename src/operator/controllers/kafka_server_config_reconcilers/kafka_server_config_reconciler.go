@@ -2,10 +2,10 @@ package kafka_server_config_reconcilers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
@@ -81,14 +81,14 @@ func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConf
 		logger.Info("Kafka server not registered to servers store")
 		return nil
 	} else if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	defer intentsAdmin.Close()
 
 	logger.Info("Removing associated ACLs")
 	if err := intentsAdmin.RemoveServerIntents(kafkaServerConfig.Spec.Topics); err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	logger.Info("Removing Kafka server from store")
@@ -100,7 +100,7 @@ func (r *KafkaServerConfigReconciler) removeIntentsFromOperatorToKafkaServer(ctx
 	operatorPod := &v1.Pod{}
 	err := r.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, operatorPod)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	operatorIntentsName := FormatIntentsName(config)
 	intents := &otterizev1alpha3.ClientIntents{}
@@ -109,7 +109,7 @@ func (r *KafkaServerConfigReconciler) removeIntentsFromOperatorToKafkaServer(ctx
 		if k8serrors.IsNotFound(err) {
 			return nil
 		}
-		return err
+		return errors.Wrap(err)
 	}
 
 	return r.Delete(ctx, intents)
@@ -117,13 +117,13 @@ func (r *KafkaServerConfigReconciler) removeIntentsFromOperatorToKafkaServer(ctx
 
 func (r *KafkaServerConfigReconciler) handleResourceDeletion(ctx context.Context, kafkaServerConfig *otterizev1alpha3.KafkaServerConfig) (ctrl.Result, error) {
 	if err := r.removeKafkaServerFromStore(kafkaServerConfig); err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	if !kafkaServerConfig.Spec.NoAutoCreateIntentsForOperator {
 		err := r.removeIntentsFromOperatorToKafkaServer(ctx, kafkaServerConfig)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
 
@@ -135,7 +135,7 @@ func (r *KafkaServerConfigReconciler) handleResourceDeletion(ctx context.Context
 func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx context.Context, config *otterizev1alpha3.KafkaServerConfig) error {
 	annotatedServiceName, ok, err := r.serviceResolver.GetPodAnnotatedName(ctx, r.operatorPodName, r.operatorPodNamespace)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if !ok {
@@ -172,10 +172,10 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 		if k8serrors.IsNotFound(err) {
 			err := r.Create(ctx, newIntents)
 			if err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 		} else {
-			return err
+			return errors.Wrap(err)
 		}
 	} else {
 		intentsCopy := existingIntents.DeepCopy()
@@ -183,7 +183,7 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 
 		err := r.Patch(ctx, intentsCopy, client.MergeFrom(existingIntents))
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 	return nil
@@ -199,17 +199,17 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		logger.Info("No kafka server config found")
 		return ctrl.Result{}, nil
 	} else if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	result, err := r.reconcileObject(ctx, kafkaServerConfig)
 	if err != nil {
-		return result, err
+		return result, errors.Wrap(err)
 	}
 
 	if err := r.uploadKafkaServerConfigs(ctx, req.Namespace); err != nil {
 		logrus.WithError(err).Error("failed to upload KafkaServerConfig to cloud")
-		return ctrl.Result{RequeueAfter: time.Minute}, err
+		return ctrl.Result{RequeueAfter: time.Minute}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
@@ -219,7 +219,7 @@ func (r *KafkaServerConfigReconciler) reconcileObject(ctx context.Context, kafka
 	if !kafkaServerConfig.Spec.NoAutoCreateIntentsForOperator {
 		err := r.createIntentsFromOperatorToKafkaServer(ctx, kafkaServerConfig)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
 
@@ -231,13 +231,13 @@ func (r *KafkaServerConfigReconciler) reconcileObject(ctx context.Context, kafka
 
 	kafkaIntentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.Service.Name, kafkaServerConfig.Namespace)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 	defer kafkaIntentsAdmin.Close()
 
 	if err := kafkaIntentsAdmin.ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics); err != nil {
 		r.RecordWarningEventf(kafkaServerConfig, ReasonApplyingKafkaServerConfigFailed, "failed to apply server config to Kafka broker: %s", err.Error())
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	r.RecordNormalEvent(kafkaServerConfig, ReasonSuccessfullyAppliedKafkaServerConfig, "successfully applied server config")
@@ -252,7 +252,7 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfigs(ctx context.Conte
 	kafkaServerConfigs := &otterizev1alpha3.KafkaServerConfigList{}
 	err := r.List(ctx, kafkaServerConfigs, client.InNamespace(namespace), &client.ListOptions{Namespace: namespace})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	inputs := make([]graphqlclient.KafkaServerConfigInput, 0)
@@ -262,7 +262,7 @@ func (r *KafkaServerConfigReconciler) uploadKafkaServerConfigs(ctx context.Conte
 		}
 		input, err := kafkaServerConfigCRDToCloudModel(kafkaServerConfig)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 
 		inputs = append(inputs, input)
@@ -279,7 +279,7 @@ func kafkaServerConfigCRDToCloudModel(kafkaServerConfig otterizev1alpha3.KafkaSe
 	for _, topic := range kafkaServerConfig.Spec.Topics {
 		pattern, err := crdPatternToCloudPattern(topic.Pattern)
 		if err != nil {
-			return graphqlclient.KafkaServerConfigInput{}, err
+			return graphqlclient.KafkaServerConfigInput{}, errors.Wrap(err)
 		}
 
 		topics = append(topics, graphqlclient.KafkaTopicInput{

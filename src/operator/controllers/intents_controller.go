@@ -23,13 +23,12 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/internet_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
-	"github.com/otterize/intents-operator/src/shared/initonce"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -70,17 +69,14 @@ type EnforcementConfig struct {
 
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
-	group                   *reconcilergroup.Group
-	client                  client.Client
-	initOnce                initonce.InitOnce
-	networkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler
+	group  *reconcilergroup.Group
+	client client.Client
 }
 
 func NewIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
-	networkPolicyReconciler *ingress_network_policy.NetworkPolicyReconciler,
 	portNetpolReconciler *port_network_policy.PortNetworkPolicyReconciler,
 	egressNetpolReconciler *egress_network_policy.EgressNetworkPolicyReconciler,
 	portEgressNetpolReconciler *port_egress_network_policy.PortEgressNetworkPolicyReconciler,
@@ -99,7 +95,6 @@ func NewIntentsReconciler(
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
 		intents_reconcilers.NewLinkerdReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableLinkerdPolicies, enforcementConfig.EnforcementDefaultState),
-		networkPolicyReconciler,
 	}
 	reconcilers = append(reconcilers, additionalReconcilers...)
 	reconcilersGroup := reconcilergroup.NewGroup(
@@ -115,9 +110,8 @@ func NewIntentsReconciler(
 	reconcilersGroup.AddToGroup(portNetpolReconciler)
 
 	intentsReconciler := &IntentsReconciler{
-		group:                   reconcilersGroup,
-		client:                  client,
-		networkPolicyReconciler: networkPolicyReconciler,
+		group:  reconcilersGroup,
+		client: client,
 	}
 
 	if telemetriesconfig.IsUsageTelemetryEnabled() {
@@ -156,37 +150,42 @@ func NewIntentsReconciler(
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.initOnce.Do(func() error {
-		return r.intentsReconcilerInit(ctx)
-	})
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
 	intents := &otterizev1alpha3.ClientIntents{}
 
-	err = r.client.Get(ctx, req.NamespacedName, intents)
+	err := r.client.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
+	if intents.Status.UpToDate != false && intents.Status.ObservedGeneration != intents.Generation {
+		intentsCopy := intents.DeepCopy()
+		intentsCopy.Status.UpToDate = false
+		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+		// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
+		// and that we don't trigger an infinite loop
+		return ctrl.Result{}, nil
 	}
 
 	result, err := r.group.Reconcile(ctx, req)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	intents.Status.UpToDate = true
-	if err := r.client.Status().Update(ctx, intents); err != nil {
-		return ctrl.Result{}, err
+	if intents.DeletionTimestamp == nil {
+		intentsCopy := intents.DeepCopy()
+		intentsCopy.Status.UpToDate = true
+		intentsCopy.Status.ObservedGeneration = intentsCopy.Generation
+		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
 	}
+
 	return result, nil
-}
-
-func (r *IntentsReconciler) intentsReconcilerInit(ctx context.Context) error {
-	return r.networkPolicyReconciler.CleanAllNamespaces(ctx)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -195,14 +194,42 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&otterizev1alpha3.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Watches(&otterizev1alpha3.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
+		Watches(&corev1.Endpoints{}, handler.EnqueueRequestsFromMapFunc(r.watchApiServerEndpoint)).
 		Complete(r)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	r.group.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
 
 	return nil
+}
+
+func (r *IntentsReconciler) watchApiServerEndpoint(_ context.Context, obj client.Object) []reconcile.Request {
+	if obj.GetNamespace() != otterizev1alpha3.KubernetesAPIServerNamespace || obj.GetName() != otterizev1alpha3.KubernetesAPIServerName {
+		return nil
+	}
+
+	intentsToReconcile := r.getIntentsToAPIServerService()
+	return r.mapIntentsToRequests(intentsToReconcile)
+}
+
+func (r *IntentsReconciler) getIntentsToAPIServerService() []otterizev1alpha3.ClientIntents {
+	intentsToReconcile := make([]otterizev1alpha3.ClientIntents, 0)
+	fullServerName := fmt.Sprintf("svc:%s.%s", otterizev1alpha3.KubernetesAPIServerName, otterizev1alpha3.KubernetesAPIServerNamespace)
+	var intentsToServer otterizev1alpha3.ClientIntentsList
+	err := r.client.List(context.Background(),
+		&intentsToServer,
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fullServerName},
+	)
+	if err != nil {
+		logrus.WithError(err).Errorf("Failed to list client intents for client %s", fullServerName)
+		return nil
+	}
+	logrus.Infof("Enqueueing client intents %v for api server", intentsToServer.Items)
+
+	intentsToReconcile = append(intentsToReconcile, intentsToServer.Items...)
+	return intentsToReconcile
 }
 
 func (r *IntentsReconciler) mapProtectedServiceToClientIntents(_ context.Context, obj client.Object) []reconcile.Request {
@@ -270,7 +297,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			return res
 		})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = mgr.GetCache().IndexField(
@@ -302,7 +329,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			return res
 		})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -340,7 +367,7 @@ func (r *IntentsReconciler) InitEndpointsPodNamesIndex(mgr ctrl.Manager) error {
 		})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil

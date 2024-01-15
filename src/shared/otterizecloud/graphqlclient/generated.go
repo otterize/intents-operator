@@ -149,11 +149,12 @@ const (
 )
 
 type IntentsOperatorConfigurationInput struct {
-	GlobalEnforcementEnabled        bool `json:"globalEnforcementEnabled"`
-	NetworkPolicyEnforcementEnabled bool `json:"networkPolicyEnforcementEnabled"`
-	KafkaACLEnforcementEnabled      bool `json:"kafkaACLEnforcementEnabled"`
-	IstioPolicyEnforcementEnabled   bool `json:"istioPolicyEnforcementEnabled"`
-	ProtectedServicesEnabled        bool `json:"protectedServicesEnabled"`
+	GlobalEnforcementEnabled              bool `json:"globalEnforcementEnabled"`
+	NetworkPolicyEnforcementEnabled       bool `json:"networkPolicyEnforcementEnabled"`
+	KafkaACLEnforcementEnabled            bool `json:"kafkaACLEnforcementEnabled"`
+	IstioPolicyEnforcementEnabled         bool `json:"istioPolicyEnforcementEnabled"`
+	ProtectedServicesEnabled              bool `json:"protectedServicesEnabled"`
+	EgressNetworkPolicyEnforcementEnabled bool `json:"egressNetworkPolicyEnforcementEnabled"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -179,6 +180,11 @@ func (v *IntentsOperatorConfigurationInput) GetIstioPolicyEnforcementEnabled() b
 // GetProtectedServicesEnabled returns IntentsOperatorConfigurationInput.ProtectedServicesEnabled, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetProtectedServicesEnabled() bool {
 	return v.ProtectedServicesEnabled
+}
+
+// GetEgressNetworkPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.EgressNetworkPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetEgressNetworkPolicyEnforcementEnabled() bool {
+	return v.EgressNetworkPolicyEnforcementEnabled
 }
 
 type InternetConfigInput struct {

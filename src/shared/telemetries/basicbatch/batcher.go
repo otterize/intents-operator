@@ -3,6 +3,7 @@ package basicbatch
 // it's britney batch
 
 import (
+	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
@@ -53,6 +54,7 @@ func (b *Batcher[T]) runForever() {
 			logrus.Error("recovered from panic in batcher")
 		}
 	}()
+	defer errorreporter.AutoNotify()
 	for {
 		batchItems := b.getBatch()
 		err := b.handleBatch(batchItems)

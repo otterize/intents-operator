@@ -32,6 +32,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
@@ -112,7 +113,7 @@ func main() {
 		EnableKafkaACL:                       viper.GetBool(operatorconfig.EnableKafkaACLKey),
 		EnableIstioPolicy:                    viper.GetBool(operatorconfig.EnableIstioPolicyKey),
 		EnableLinkerdPolicies:                viper.GetBool(operatorconfig.EnableLinkerdPolicyKey),
-		EnableDatabasePolicy:                 viper.GetBool(operatorconfig.EnableDatabaseReconciler),
+		EnableDatabasePolicy:                 viper.GetBool(operatorconfig.EnableDatabasePolicy),
 		EnableEgressNetworkPolicyReconcilers: viper.GetBool(operatorconfig.EnableEgressNetworkPolicyReconcilersKey),
 		EnableAWSPolicy:                      viper.GetBool(operatorconfig.EnableAWSPolicyKey),
 	}
@@ -191,7 +192,7 @@ func main() {
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
-	networkPolicyHandler := ingress_network_policy.NewNetworkPolicyReconciler(
+	epNetpolReconciler := ingress_network_policy.NewIngressNetpolEffectivePolicyReconciler(
 		mgr.GetClient(),
 		scheme,
 		extNetpolHandler,
@@ -200,8 +201,12 @@ func main() {
 		enforcementConfig.EnforcementDefaultState,
 		allowExternalTraffic,
 	)
-	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
+	epGrouReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
+	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGrouReconciler)
+	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
+	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
 		if err != nil {
@@ -306,7 +311,6 @@ func main() {
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
-		networkPolicyHandler,
 		svcNetworkPolicyHandler,
 		egressNetworkPolicyHandler,
 		svcEgressNetworkPolicyHandler,
@@ -373,7 +377,7 @@ func main() {
 		extNetpolHandler,
 		enforcementConfig.EnforcementDefaultState,
 		enforcementConfig.EnableNetworkPolicy,
-		networkPolicyHandler,
+		epGrouReconciler,
 	)
 
 	err = protectedServicesReconciler.SetupWithManager(mgr)
@@ -431,11 +435,12 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud
 	defer cancel()
 
 	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
-		GlobalEnforcementEnabled:        config.EnforcementDefaultState,
-		NetworkPolicyEnforcementEnabled: config.EnableNetworkPolicy,
-		KafkaACLEnforcementEnabled:      config.EnableKafkaACL,
-		IstioPolicyEnforcementEnabled:   config.EnableIstioPolicy,
-		ProtectedServicesEnabled:        config.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
+		GlobalEnforcementEnabled:              config.EnforcementDefaultState,
+		NetworkPolicyEnforcementEnabled:       config.EnableNetworkPolicy,
+		EgressNetworkPolicyEnforcementEnabled: config.EnableEgressNetworkPolicyReconcilers,
+		KafkaACLEnforcementEnabled:            config.EnableKafkaACL,
+		IstioPolicyEnforcementEnabled:         config.EnableIstioPolicy,
+		ProtectedServicesEnabled:              config.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 	})
 	if err != nil {
 		logrus.WithError(err).Error("Failed to report configuration to the cloud")

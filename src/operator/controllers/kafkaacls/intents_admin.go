@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/lox"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -140,12 +141,12 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha3.KafkaServerConfig, defaul
 
 	tlsConfig, err := getTLSConfig(tlsSource)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	usernameMapping, err := getUserPrincipalMapping(tlsConfig.Certificates[0])
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	config.Net.TLS.Config = tlsConfig
@@ -156,7 +157,7 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev1alpha3.KafkaServerConfig, defaul
 
 	saramaAdminClient, err := sarama.NewClusterAdmin(addrs, config)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	return NewKafkaIntentsAdminImpl(kafkaServer, saramaAdminClient, usernameMapping, enableKafkaACLCreation, enforcementEnabledForServer), nil
@@ -204,7 +205,7 @@ func (a *KafkaIntentsAdminImpl) queryAppliedIntentKafkaTopics(principal string) 
 	})
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	return resourceAppliedKafkaTopics, nil
@@ -274,7 +275,7 @@ func (a *KafkaIntentsAdminImpl) logACLs() error {
 
 	acls, err := a.kafkaAdminClient.ListAcls(aclFilter)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	logger.Info("Current state of ACL rules")
@@ -478,7 +479,7 @@ func (a *KafkaIntentsAdminImpl) getAppliedTopicsConfAcls() (map[sarama.Resource]
 			Principal:                 lo.ToPtr(principal),
 		})
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err)
 		}
 
 		for _, resourceAcls := range resourceAclsList {
@@ -547,7 +548,7 @@ func (a *KafkaIntentsAdminImpl) deleteResourceAcls(resourceAclsToDelete []*saram
 				Host:                      lo.ToPtr(acl.Host),
 			}
 			if _, err := a.kafkaAdminClient.DeleteACL(filter, false); err != nil {
-				return err
+				return errors.Wrap(err)
 			}
 		}
 	}
@@ -617,7 +618,7 @@ func (a *KafkaIntentsAdminImpl) ensureConsumerGroupWildcardACLs() error {
 	// if exists no error will be thrown
 	err := a.kafkaAdminClient.CreateACLs([]*sarama.ResourceAcls{{Resource: r, Acls: []*sarama.Acl{groupDescribeACL, groupReadACL}}})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	return nil
 }
@@ -633,7 +634,7 @@ func (a *KafkaIntentsAdminImpl) deleteConsumerGroupWildcardACLs() (int, error) {
 			Operation:                 sarama.AclOperationAny,
 		}, false)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err)
 	}
 	return len(matchingAclRules), nil
 }

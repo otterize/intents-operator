@@ -41,16 +41,24 @@ func As(err error, target interface{}) bool {
 // are considered equal by this function if they are matched by errors.Is
 // or if their contained errors are matched through errors.Is
 func Is(e error, original error) bool {
-	if gerrors.Is(e, original) {
-		return true
-	}
+	for e != nil {
+		if gerrors.Is(e, original) {
+			return true
+		}
 
-	if bugsnagErr, ok := e.(*bugsnagerrors.Error); ok {
-		return Is(bugsnagErr.Err, original)
-	}
+		if bugsnagErr, ok := e.(*bugsnagerrors.Error); ok {
+			return Is(bugsnagErr.Err, original)
+		}
 
-	if original, ok := original.(*bugsnagerrors.Error); ok {
-		return Is(e, original.Err)
+		if bugsnagErr, ok := Unwrap(e).(*bugsnagerrors.Error); ok {
+			return Is(bugsnagErr.Err, original)
+		}
+
+		if original, ok := original.(*bugsnagerrors.Error); ok {
+			return Is(e, original.Err)
+		}
+
+		e = Unwrap(e)
 	}
 
 	return false
@@ -60,6 +68,11 @@ func Unwrap(err error) error {
 	if bugsnagErr, ok := err.(*bugsnagerrors.Error); ok {
 		return bugsnagErr.Err
 	}
+
+	if bugsnagErr, ok := gerrors.Unwrap(err).(*bugsnagerrors.Error); ok {
+		return bugsnagErr.Err
+	}
+
 	return gerrors.Unwrap(err)
 }
 

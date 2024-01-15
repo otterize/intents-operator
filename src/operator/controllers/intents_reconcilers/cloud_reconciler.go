@@ -3,6 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -11,7 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -55,12 +56,12 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	clientIntentsListConverted, err := r.convertK8sServicesToOtterizeIdentities(ctx, clientIntentsList)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	intentsInput, err := clientIntentsListConverted.FormatAsOtterizeIntents()
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
@@ -68,7 +69,7 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 	if err = r.otterizeClient.ReportAppliedIntents(timeoutCtx, lo.ToPtr(req.Namespace), intentsInput); err != nil {
 		logrus.WithError(err).Error("failed to report applied intents")
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	logrus.Infof("successfully reported %d applied intents", len(clientIntentsList.Items))
@@ -88,6 +89,13 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 				callList = append(callList, intent)
 				continue
 			}
+			if intent.IsTargetTheKubernetesAPIServer(clientIntent.Namespace) {
+				intentCopy := intent.DeepCopy()
+				intentCopy.Name = intent.GetServerFullyQualifiedName(clientIntent.Namespace)
+				callList = append(callList, intent)
+				continue
+			}
+
 			svc := corev1.Service{}
 			kubernetesSvcName := intent.GetTargetServerName()
 			kubernetesSvcNamespace := intent.GetTargetServerNamespace(clientIntent.Namespace)
@@ -96,20 +104,20 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 				Name:      kubernetesSvcName,
 			}, &svc)
 			if err != nil {
-				if errors.IsNotFound(err) {
+				if k8serrors.IsNotFound(err) {
 					continue
 				}
-				return nil, err
+				return nil, errors.Wrap(err)
 			}
 			podList := corev1.PodList{}
 			err = r.List(ctx, &podList, &client.ListOptions{LabelSelector: labels.SelectorFromSet(svc.Spec.Selector)})
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err)
 			}
 			if len(podList.Items) != 0 {
 				otterizeIdentity, err := r.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &podList.Items[0])
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err)
 				}
 				intent.Name = otterizeIdentity.Name
 				callList = append(callList, intent)
