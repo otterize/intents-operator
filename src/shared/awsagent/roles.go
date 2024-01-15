@@ -82,7 +82,8 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 					Value: aws.String(a.clusterName),
 				},
 			},
-			Description: aws.String(iamRoleDescription),
+			Description:         aws.String(iamRoleDescription),
+			PermissionsBoundary: aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.accountID, a.clusterName)),
 		})
 
 		if createRoleError != nil {
