@@ -25,6 +25,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/internet_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
@@ -204,8 +205,12 @@ func main() {
 	)
 
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
-	epGrouReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
-	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGrouReconciler)
+	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
+	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
+		internetNetpolReconciler := internet_network_policy.NewInternetNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+		epGroupReconciler.AddReconciler(internetNetpolReconciler)
+	}
+	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
@@ -378,7 +383,7 @@ func main() {
 		extNetpolHandler,
 		enforcementConfig.EnforcementDefaultState,
 		enforcementConfig.EnableNetworkPolicy,
-		epGrouReconciler,
+		epGroupReconciler,
 	)
 
 	err = protectedServicesReconciler.SetupWithManager(mgr)
