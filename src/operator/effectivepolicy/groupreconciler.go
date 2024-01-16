@@ -73,6 +73,9 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 	// Extract all services from intents
 	services := goset.NewSet[serviceidentity.ServiceIdentity]()
 	for _, clientIntent := range intentsList.Items {
+		if !clientIntent.DeletionTimestamp.IsZero() {
+			continue
+		}
 		service := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace}
 		services.Add(service)
 		serviceToIntent[service] = clientIntent
