@@ -60,7 +60,7 @@ func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Set the new CA bundle for the validating webhooks
+	// Set the new CA bundle for the custom resource definition
 	resourceCopy := crd.DeepCopy()
 	if resourceCopy.Spec.Conversion == nil || resourceCopy.Spec.Conversion.Webhook == nil || resourceCopy.Spec.Conversion.Webhook.ClientConfig == nil {
 		return ctrl.Result{}, fmt.Errorf("CRD does not contain a proper conversion webhook definition")
