@@ -6,7 +6,7 @@ import (
 )
 
 const labelKey = "app.kubernetes.io/part-of"
-const labelValue = "Otterize"
+const labelValue = "otterize"
 
 var filterByOtterizeLabel = func(obj client.Object) bool {
 	existingValue, ok := obj.GetLabels()[labelKey]

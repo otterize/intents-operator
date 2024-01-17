@@ -51,15 +51,19 @@ func NewValidatingWebhookConfigsReconciler(
 }
 
 func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logrus.Infof("Reconciling due to validation webhook config change: %s", req.Name)
+
 	// Fetch the validating webhook configuration object
 	webhookConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 	if err := r.Get(ctx, req.NamespacedName, webhookConfig); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// Set the new CA bundle in the validating webhook
+	// Set the new CA bundle for the validating webhooks
 	resourceCopy := webhookConfig.DeepCopy()
-	resourceCopy.Webhooks[0].ClientConfig.CABundle = r.certPem
+	for i := range resourceCopy.Webhooks {
+		resourceCopy.Webhooks[i].ClientConfig.CABundle = r.certPem
+	}
 
 	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(webhookConfig)); err != nil {
 		logrus.WithError(err).Errorf("Failed to patch ValidatingWebhookConfiguration %s", webhookConfig.Name)

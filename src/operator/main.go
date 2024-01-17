@@ -284,7 +284,7 @@ func main() {
 		//if err != nil {
 		//	logrus.WithError(err).Panic("updating validation webhook certificate failed")
 		//}
-		err = webhooks.UpdateConversionWebhookCAs(signalHandlerCtx, directClient, certBundle.CertPem)
+		//err = webhooks.UpdateConversionWebhookCAs(signalHandlerCtx, directClient, certBundle.CertPem)
 		//if err != nil {
 		//	logrus.WithError(err).Panic("updating conversion webhook certificate failed")
 		//}

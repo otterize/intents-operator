@@ -7,14 +7,10 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/sirupsen/logrus"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -77,35 +73,36 @@ func GenerateSelfSignedCertificate(hostname string, namespace string) (Certifica
 	}, nil
 }
 
-func UpdateMutationWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
-	kubeClient, err := getKubeClient()
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	webhookConfig, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, webHookName, metav1.GetOptions{})
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	var newCA []patchValue
-	for i := range webhookConfig.Webhooks {
-		newCA = append(newCA, patchValue{
-			Op:    "replace",
-			Path:  fmt.Sprintf("/webhooks/%d/clientConfig/caBundle", i),
-			Value: base64.StdEncoding.EncodeToString(ca),
-		})
-	}
-
-	newCAByte, err := json.Marshal(newCA)
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	logrus.Infof("Installing new certificate in %s", webHookName)
-	_, err = kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Patch(ctx, webHookName, types.JSONPatchType, newCAByte, metav1.PatchOptions{})
-	return errors.Wrap(err)
-}
+// TODO: remove this
+//func UpdateMutationWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
+//	kubeClient, err := getKubeClient()
+//	if err != nil {
+//		return errors.Wrap(err)
+//	}
+//
+//	webhookConfig, err := kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(ctx, webHookName, metav1.GetOptions{})
+//	if err != nil {
+//		return errors.Wrap(err)
+//	}
+//
+//	var newCA []patchValue
+//	for i := range webhookConfig.Webhooks {
+//		newCA = append(newCA, patchValue{
+//			Op:    "replace",
+//			Path:  fmt.Sprintf("/webhooks/%d/clientConfig/caBundle", i),
+//			Value: base64.StdEncoding.EncodeToString(ca),
+//		})
+//	}
+//
+//	newCAByte, err := json.Marshal(newCA)
+//	if err != nil {
+//		return errors.Wrap(err)
+//	}
+//
+//	logrus.Infof("Installing new certificate in %s", webHookName)
+//	_, err = kubeClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Patch(ctx, webHookName, types.JSONPatchType, newCAByte, metav1.PatchOptions{})
+//	return errors.Wrap(err)
+//}
 
 func WriteCertToFiles(bundle CertificateBundle) error {
 	err := os.MkdirAll(CertDirPath, 0600)
@@ -141,35 +138,37 @@ type patchValue struct {
 	Value interface{} `json:"value"`
 }
 
-func UpdateValidationWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
-	kubeClient, err := getKubeClient()
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	webhookConfig, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(ctx, webHookName, metav1.GetOptions{})
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	var newCA []patchValue
-	for i := range webhookConfig.Webhooks {
-		newCA = append(newCA, patchValue{
-			Op:    "replace",
-			Path:  fmt.Sprintf("/webhooks/%d/clientConfig/caBundle", i),
-			Value: base64.StdEncoding.EncodeToString(ca),
-		})
-	}
-
-	newCAByte, err := json.Marshal(newCA)
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	logrus.Infof("Installing new certificate in %s", webHookName)
-	_, err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(ctx, webHookName, types.JSONPatchType, newCAByte, metav1.PatchOptions{})
-	return errors.Wrap(err)
-}
+// TODO: remove this
+//func UpdateValidationWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
+//
+//	kubeClient, err := getKubeClient()
+//	if err != nil {
+//		return errors.Wrap(err)
+//	}
+//
+//	webhookConfig, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(ctx, webHookName, metav1.GetOptions{})
+//	if err != nil {
+//		return errors.Wrap(err)
+//	}
+//
+//	var newCA []patchValue
+//	for i := range webhookConfig.Webhooks {
+//		newCA = append(newCA, patchValue{
+//			Op:    "replace",
+//			Path:  fmt.Sprintf("/webhooks/%d/clientConfig/caBundle", i),
+//			Value: base64.StdEncoding.EncodeToString(ca),
+//		})
+//	}
+//
+//	newCAByte, err := json.Marshal(newCA)
+//	if err != nil {
+//		return errors.Wrap(err)
+//	}
+//
+//	logrus.Infof("Installing new certificate in %s", webHookName)
+//	_, err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(ctx, webHookName, types.JSONPatchType, newCAByte, metav1.PatchOptions{})
+//	return errors.Wrap(err)
+//}
 
 func UpdateConversionWebhookCAs(ctx context.Context, k8sClient client.Client, ca []byte) error {
 	if err := updateConversionWebHookCA(ctx, "clientintents.k8s.otterize.com", k8sClient, ca); err != nil {
