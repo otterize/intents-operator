@@ -2,6 +2,8 @@ package intents_reconcilers
 
 import (
 	"context"
+	"github.com/stretchr/testify/suite"
+	"testing"
 
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -50,4 +52,8 @@ func (s *LinkerdReconcilerTestSuite) TestAnything() {
 			Namespace: "test",
 		},
 	})
+}
+
+func TestLinkerdReconcilerSuite(t *testing.T) {
+	suite.Run(t, new(LinkerdReconcilerTestSuite))
 }
