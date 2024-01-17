@@ -236,6 +236,9 @@ func (ldm *LinkerdManager) createResources(
 		AuthorizationPolicies: goset.NewSet[types.UID](),
 		Routes:                goset.NewSet[types.UID](),
 	}
+	/*
+		type whatever stru
+	*/
 
 	for _, intent := range clientIntents.GetCallsList() {
 		if intent.Type != "" && intent.Type != otterizev1alpha3.IntentTypeHTTP && intent.Port != 0 { // this will skip non http ones, db for example, skip port doesnt exist as well
