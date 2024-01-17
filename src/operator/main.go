@@ -267,15 +267,27 @@ func main() {
 			logrus.WithError(err).Panic("unable to ensure otterize CRDs")
 		}
 
-		err = webhooks.UpdateValidationWebHookCA(signalHandlerCtx,
-			"otterize-validating-webhook-configuration", certBundle.CertPem)
+		validatingWebhookConfigsReconciler := controllers.NewValidatingWebhookConfigsReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			certBundle.CertPem,
+		)
+
+		err = validatingWebhookConfigsReconciler.SetupWithManager(mgr)
 		if err != nil {
-			logrus.WithError(err).Panic("updating validation webhook certificate failed")
+			logrus.WithError(err).Panic("unable to create controller", "controller", "ValidatingWebhookConfigs")
 		}
+
+		// TODO: cleanup
+		//err = webhooks.UpdateValidationWebHookCA(signalHandlerCtx,
+		//	"otterize-validating-webhook-configuration", certBundle.CertPem)
+		//if err != nil {
+		//	logrus.WithError(err).Panic("updating validation webhook certificate failed")
+		//}
 		err = webhooks.UpdateConversionWebhookCAs(signalHandlerCtx, directClient, certBundle.CertPem)
-		if err != nil {
-			logrus.WithError(err).Panic("updating conversion webhook certificate failed")
-		}
+		//if err != nil {
+		//	logrus.WithError(err).Panic("updating conversion webhook certificate failed")
+		//}
 	}
 
 	if !disableWebhookServer {
