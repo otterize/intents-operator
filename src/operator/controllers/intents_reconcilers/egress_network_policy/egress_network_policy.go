@@ -58,7 +58,7 @@ func (r *EgressNetworkPolicyReconciler) applyEffectivePolicy(ctx context.Context
 	logrus.Infof("Reconciling network policies for service %s in namespace %s",
 		ep.Service.Name, ep.Service.Namespace)
 
-	touchedNetpols := make([]types.NamespacedName, 0)
+	networkPolicies := make([]types.NamespacedName, 0)
 	for _, intent := range ep.ClientIntent.GetCallsList() {
 		if intent.Type != "" && intent.Type != otterizev1alpha3.IntentTypeHTTP && intent.Type != otterizev1alpha3.IntentTypeKafka {
 			continue
@@ -77,18 +77,18 @@ func (r *EgressNetworkPolicyReconciler) applyEffectivePolicy(ctx context.Context
 			return nil, errors.Wrap(err)
 		}
 		if createdPolicies {
-			touchedNetpols = append(touchedNetpols, types.NamespacedName{Name: netpol.Name, Namespace: netpol.Namespace})
+			networkPolicies = append(networkPolicies, types.NamespacedName{Name: netpol.Name, Namespace: netpol.Namespace})
 		}
 	}
 
-	if len(touchedNetpols) != 0 {
+	if len(networkPolicies) != 0 {
 		callsCount := len(ep.ClientIntent.GetCallsList())
 		r.RecordNormalEventf(ep.ClientIntent, consts.ReasonCreatedEgressNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
-		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, len(touchedNetpols))
-		prometheus.IncrementNetpolCreated(len(touchedNetpols))
+		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, len(networkPolicies))
+		prometheus.IncrementNetpolCreated(len(networkPolicies))
 	}
 
-	return touchedNetpols, nil
+	return networkPolicies, nil
 }
 
 func (r *EgressNetworkPolicyReconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, error) {
