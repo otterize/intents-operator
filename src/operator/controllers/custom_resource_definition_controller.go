@@ -18,55 +18,57 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
-// ValidatingWebhookConfigsReconciler reconciles webhook configurations
-type ValidatingWebhookConfigsReconciler struct {
+// CustomResourceDefinitionsReconciler reconciles webhook configurations
+type CustomResourceDefinitionsReconciler struct {
 	client.Client
 	Scheme  *runtime.Scheme
 	certPem []byte
 }
 
-//+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list
+//+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create;patch
 
-func NewValidatingWebhookConfigsReconciler(
+func NewCustomResourceDefinitionsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	certPem []byte,
-) *ValidatingWebhookConfigsReconciler {
+) *CustomResourceDefinitionsReconciler {
 
-	return &ValidatingWebhookConfigsReconciler{
+	return &CustomResourceDefinitionsReconciler{
 		Client:  client,
 		Scheme:  scheme,
 		certPem: certPem,
 	}
 }
 
-func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Infof("Reconciling due to ValidatingWebhookConfiguration change: %s", req.Name)
+func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logrus.Infof("Reconciling due to CustomResourceDefinition change: %s", req.Name)
 
 	// Fetch the validating webhook configuration object
-	webhookConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{}
-	if err := r.Get(ctx, req.NamespacedName, webhookConfig); err != nil {
+	crd := &apiextensionsv1.CustomResourceDefinition{}
+	if err := r.Get(ctx, req.NamespacedName, crd); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// Set the new CA bundle for the validating webhooks
-	resourceCopy := webhookConfig.DeepCopy()
-	for i := range resourceCopy.Webhooks {
-		resourceCopy.Webhooks[i].ClientConfig.CABundle = r.certPem
+	resourceCopy := crd.DeepCopy()
+	if resourceCopy.Spec.Conversion == nil || resourceCopy.Spec.Conversion.Webhook == nil || resourceCopy.Spec.Conversion.Webhook.ClientConfig == nil {
+		return ctrl.Result{}, fmt.Errorf("CRD does not contain a proper conversion webhook definition")
 	}
+	resourceCopy.Spec.Conversion.Webhook.ClientConfig.CABundle = r.certPem
 
-	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(webhookConfig)); err != nil {
-		logrus.WithError(err).Errorf("Failed to patch ValidatingWebhookConfiguration %s", webhookConfig.Name)
+	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(crd)); err != nil {
+		logrus.WithError(err).Errorf("Failed to patch CustomResourceDefinition %s", crd.Name)
 		return ctrl.Result{}, err
 	}
 
@@ -74,9 +76,9 @@ func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req 
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ValidatingWebhookConfigsReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CustomResourceDefinitionsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&admissionregistrationv1.ValidatingWebhookConfiguration{}).
+		For(&apiextensionsv1.CustomResourceDefinition{}).
 		WithEventFilter(filters.FilterByOtterizeLabelPredicate).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)

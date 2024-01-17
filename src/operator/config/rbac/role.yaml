@@ -61,7 +61,6 @@ rules:
   - list
   - patch
   - update
-  - watch
 - apiGroups:
   - apiextensions.k8s.io
   resources:

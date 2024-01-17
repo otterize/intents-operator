@@ -272,22 +272,20 @@ func main() {
 			mgr.GetScheme(),
 			certBundle.CertPem,
 		)
-
 		err = validatingWebhookConfigsReconciler.SetupWithManager(mgr)
 		if err != nil {
 			logrus.WithError(err).Panic("unable to create controller", "controller", "ValidatingWebhookConfigs")
 		}
 
-		// TODO: cleanup
-		//err = webhooks.UpdateValidationWebHookCA(signalHandlerCtx,
-		//	"otterize-validating-webhook-configuration", certBundle.CertPem)
-		//if err != nil {
-		//	logrus.WithError(err).Panic("updating validation webhook certificate failed")
-		//}
-		//err = webhooks.UpdateConversionWebhookCAs(signalHandlerCtx, directClient, certBundle.CertPem)
-		//if err != nil {
-		//	logrus.WithError(err).Panic("updating conversion webhook certificate failed")
-		//}
+		customResourceDefinitionsReconciler := controllers.NewCustomResourceDefinitionsReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			certBundle.CertPem,
+		)
+		err = customResourceDefinitionsReconciler.SetupWithManager(mgr)
+		if err != nil {
+			logrus.WithError(err).Panic("unable to create controller", "controller", "CustomResourceDefinition")
+		}
 	}
 
 	if !disableWebhookServer {
