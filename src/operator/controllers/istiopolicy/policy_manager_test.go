@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"testing"
+
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
@@ -17,8 +20,6 @@ import (
 	"istio.io/client-go/pkg/apis/security/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"testing"
 )
 
 type PolicyManagerTestSuite struct {
@@ -428,6 +429,7 @@ func (s *PolicyManagerTestSuite) TestCreateHTTPResources() {
 			},
 		},
 	}
+	fmt.Println(newPolicy)
 	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
 	s.Client.EXPECT().Create(gomock.Any(), newPolicy).Return(nil)
 
