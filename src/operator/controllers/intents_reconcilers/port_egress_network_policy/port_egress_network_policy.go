@@ -82,7 +82,7 @@ func (r *PortEgressNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx cont
 	logrus.Infof("Reconciling network policies for service %s in namespace %s",
 		intents.Spec.Service.Name, intents.Namespace)
 
-	touchedNetworkPolicies := make([]types.NamespacedName, 0)
+	networkPolicies := make([]types.NamespacedName, 0)
 	for _, intent := range intents.GetCallsList() {
 		if intent.Type != "" && intent.Type != otterizev1alpha3.IntentTypeHTTP && intent.Type != otterizev1alpha3.IntentTypeKafka {
 			continue
@@ -102,18 +102,18 @@ func (r *PortEgressNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx cont
 			return nil, errors.Wrap(err)
 		}
 		if policy != nil {
-			touchedNetworkPolicies = append(touchedNetworkPolicies, types.NamespacedName{Name: policy.Name, Namespace: policy.Namespace})
+			networkPolicies = append(networkPolicies, types.NamespacedName{Name: policy.Name, Namespace: policy.Namespace})
 		}
 	}
 
-	if len(touchedNetworkPolicies) != 0 {
+	if len(networkPolicies) != 0 {
 		callsCount := len(intents.GetCallsList())
 		r.RecordNormalEventf(intents, consts.ReasonCreatedEgressNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
-		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, len(touchedNetworkPolicies))
-		prometheus.IncrementNetpolCreated(len(touchedNetworkPolicies))
+		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, len(networkPolicies))
+		prometheus.IncrementNetpolCreated(len(networkPolicies))
 
 	}
-	return touchedNetworkPolicies, nil
+	return networkPolicies, nil
 }
 
 func (r *PortEgressNetworkPolicyReconciler) handleNetworkPolicyCreation(
@@ -157,32 +157,26 @@ func (r *PortEgressNetworkPolicyReconciler) handleNetworkPolicyCreation(
 		return newPolicy, r.CreateNetworkPolicy(ctx, intentsObjNamespace, intent, newPolicy)
 	}
 
-	updated, err := r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, intentsObjNamespace)
+	err = r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, intentsObjNamespace)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
-	if updated {
-		return newPolicy, nil
-	}
 
-	return nil, nil
+	return newPolicy, nil
+
 }
 
-func (r *PortEgressNetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, intent otterizev1alpha3.Intent, intentsObjNamespace string) (bool, error) {
-	if !reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
-		policyCopy := existingPolicy.DeepCopy()
-		policyCopy.Labels = newPolicy.Labels
-		policyCopy.Annotations = newPolicy.Annotations
-		policyCopy.Spec = newPolicy.Spec
-
-		err := r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
-		if err != nil {
-			return false, errors.Wrap(err)
-		}
-		return true, nil
+func (r *PortEgressNetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, intent otterizev1alpha3.Intent, intentsObjNamespace string) error {
+	if reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
+		return nil
 	}
 
-	return false, nil
+	policyCopy := existingPolicy.DeepCopy()
+	policyCopy.Labels = newPolicy.Labels
+	policyCopy.Annotations = newPolicy.Annotations
+	policyCopy.Spec = newPolicy.Spec
+	return errors.Wrap(r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy)))
+
 }
 
 func (r *PortEgressNetworkPolicyReconciler) CreateNetworkPolicy(ctx context.Context, intentsObjNamespace string, intent otterizev1alpha3.Intent, newPolicy *v1.NetworkPolicy) error {
