@@ -49,6 +49,8 @@ const (
 	EnableEgressNetworkPolicyReconcilersDefault = false
 	EnableAWSPolicyKey                          = "enable-aws-iam-policy"
 	EnableAWSPolicyDefault                      = false
+	EnableLinkerdPolicyKey                      = "enable-linkerd-policy"
+	LinkerdPolicyDefault                        = false
 	EKSClusterNameOverrideKey                   = "eks-cluster-name-override"
 	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
 	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"
@@ -77,6 +79,7 @@ func init() {
 	viper.SetDefault(RetryDelayTimeKey, RetryDelayTimeDefault)
 	viper.SetDefault(DebugLogKey, DebugLogDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.SetDefault(EnableLinkerdPolicyKey, LinkerdPolicyDefault)
 	viper.AutomaticEnv()
 }
 

@@ -5,7 +5,6 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/telemetries/basicbatch"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -24,8 +23,8 @@ type TelemetrySender struct {
 }
 
 func newGqlClient() graphql.Client {
-	apiAddress := viper.GetString(telemetriesconfig.TelemetryAPIAddressKey)
-	clientTimeout := viper.GetDuration(telemetriesconfig.TimeoutKey)
+	apiAddress := viper.GetString(TelemetryAPIAddressKey)
+	clientTimeout := viper.GetDuration(TimeoutKey)
 	transport := &http.Transport{}
 	clientWithTimeout := &http.Client{Timeout: clientTimeout, Transport: transport}
 	return graphql.NewClient(apiAddress, clientWithTimeout)
@@ -40,11 +39,11 @@ func batchSendTelemetries(ctx context.Context, telemetriesClient graphql.Client,
 }
 
 func New() *TelemetrySender {
-	enabled := telemetriesconfig.IsUsageTelemetryEnabled()
-	maxBatchSize := viper.GetInt(telemetriesconfig.TelemetryMaxBatchSizeKey)
-	interval := viper.GetInt(telemetriesconfig.TelemetryIntervalKey)
+	enabled := viper.GetBool(TelemetryEnabledKey)
+	maxBatchSize := viper.GetInt(TelemetryMaxBatchSizeKey)
+	interval := viper.GetInt(TelemetryIntervalKey)
 	telemetriesClient := newGqlClient()
-	snapshotResetInterval := viper.GetDuration(telemetriesconfig.TelemetryResetIntervalKey)
+	snapshotResetInterval := viper.GetDuration(TelemetryResetIntervalKey)
 
 	sender := &TelemetrySender{
 		snapshotResetInterval: snapshotResetInterval,

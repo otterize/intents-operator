@@ -53,6 +53,8 @@ const (
 	OtterizeServiceNetworkPolicyNameTemplate             = "svc-access-to-%s-from-%s"
 	OtterizeNetworkPolicy                                = "intents.otterize.com/network-policy"
 	OtterizeSvcNetworkPolicy                             = "intents.otterize.com/svc-network-policy"
+	OtterizeLinkerdMeshTLSAnnotationKey                  = "intents.otterize.com/linkerd-authenticates"
+	OtterizeLinkerdServerAnnotationKey                   = "intents.otterize.com/linkerd-server"
 	OtterizeNetworkPolicyServiceDefaultDeny              = "intents.otterize.com/network-policy-service-default-deny"
 	OtterizeNetworkPolicyExternalTraffic                 = "intents.otterize.com/network-policy-external-traffic"
 	ClientIntentsFinalizerName                           = "intents.otterize.com/client-intents-finalizer"
@@ -154,6 +156,9 @@ type Intent struct {
 
 	//+optional
 	Type IntentType `json:"type,omitempty" yaml:"type,omitempty"`
+
+	//+optional
+	Port int32 `json:"port,omitempty" yaml:"port,omitempty"`
 
 	//+optional
 	Topics []KafkaTopic `json:"kafkaTopics,omitempty" yaml:"kafkaTopics,omitempty"`

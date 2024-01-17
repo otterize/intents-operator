@@ -3,6 +3,8 @@ package serviceidresolver
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
@@ -13,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 var ErrPodNotFound = errors.New("pod not found")
@@ -119,6 +120,7 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error) {
 	podsList := &corev1.PodList{}
 	labelSelector, err := intent.BuildPodLabelSelector()
+	logrus.Infof("getting pods with label, %s", labelSelector.String())
 	if err != nil {
 		return corev1.Pod{}, errors.Wrap(err)
 	}
@@ -127,6 +129,7 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3
 		return corev1.Pod{}, errors.Wrap(err)
 	}
 	if len(podsList.Items) == 0 {
+		logrus.Infof("No pods exist")
 		return corev1.Pod{}, ErrPodNotFound
 	}
 

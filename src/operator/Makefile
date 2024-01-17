@@ -96,7 +96,7 @@ docker-build: test ## Build docker image with the manager.
 	docker build --build-arg="VERSION=$(LOCAL_IMAGE_TAG)" -t ${IMG} -f ../intents-operator.Dockerfile ../
 
 .PHONY: docker-build-local
-docker-build-local: test ## Build docker image with the manager.
+docker-build-local: ## Build docker image with the manager.
 	docker build --build-arg="VERSION=$(LOCAL_IMAGE_TAG)" -t ${OPERATOR_DEBUG_IMAGE} -f ../intents-operator.Dockerfile ../
 
 
