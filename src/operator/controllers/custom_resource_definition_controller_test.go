@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -17,7 +17,8 @@ import (
 	"testing"
 )
 
-const TestCRD = "test-crd"
+const TestCRD = "clientintents.k8s.otterize.com"
+const TestControllerNamespace = "test-namespace"
 
 type CustomResourceDefinitionsTestSuite struct {
 	testbase.MocksSuiteBase
@@ -35,6 +36,7 @@ func (s *CustomResourceDefinitionsTestSuite) SetupTest() {
 		s.Client,
 		scheme.Scheme,
 		s.Cert,
+		TestControllerNamespace,
 	)
 }
 
@@ -48,46 +50,27 @@ func (s *CustomResourceDefinitionsTestSuite) TestAssigningCABundle() {
 	}
 
 	// Create a test webhook configuration object
-	crd := apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: TestCRD,
-		},
-		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Conversion: &apiextensionsv1.CustomResourceConversion{
-				Webhook: &apiextensionsv1.WebhookConversion{
-					ClientConfig: &apiextensionsv1.WebhookClientConfig{},
-				},
-			},
-		},
-	}
+	crd, err := otterizecrds.GetCRDDefinitionByName(TestCRD)
+	s.Require().NoError(err)
 
-	updatedCRD := apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: TestCRD,
-		},
-		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Conversion: &apiextensionsv1.CustomResourceConversion{
-				Webhook: &apiextensionsv1.WebhookConversion{
-					ClientConfig: &apiextensionsv1.WebhookClientConfig{
-						CABundle: s.Cert,
-					},
-				},
-			},
-		},
-	}
+	updatedCRD, err := otterizecrds.GetCRDDefinitionByName(TestCRD)
+	s.Require().NoError(err)
 
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&crd)).DoAndReturn(
+	updatedCRD.Spec.Conversion.Webhook.ClientConfig.CABundle = s.Cert
+	updatedCRD.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = TestControllerNamespace
+
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(crd)).DoAndReturn(
 		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *apiextensionsv1.CustomResourceDefinition, arg3 ...client.GetOption) error {
-			*arg2 = crd
+			*arg2 = *crd
 			return nil
 		},
 	)
 
-	matcher := intents_reconcilers.MatchPatch(client.MergeFrom(&crd))
-	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedCRD), matcher).Return(nil)
+	matcher := intents_reconcilers.MatchPatch(client.MergeFrom(crd))
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(updatedCRD), matcher).Return(nil)
 
 	// Call the reconcile function
-	_, err := s.crdReconciler.Reconcile(context.Background(), req)
+	_, err = s.crdReconciler.Reconcile(context.Background(), req)
 	s.Require().NoError(err)
 }
 

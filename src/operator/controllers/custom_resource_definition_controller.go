@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -32,8 +33,9 @@ import (
 // CustomResourceDefinitionsReconciler reconciles webhook configurations
 type CustomResourceDefinitionsReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	certPem []byte
+	Scheme    *runtime.Scheme
+	certPem   []byte
+	namespace string
 }
 
 //+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create;patch
@@ -42,12 +44,14 @@ func NewCustomResourceDefinitionsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	certPem []byte,
+	namespace string,
 ) *CustomResourceDefinitionsReconciler {
 
 	return &CustomResourceDefinitionsReconciler{
-		Client:  client,
-		Scheme:  scheme,
-		certPem: certPem,
+		Client:    client,
+		Scheme:    scheme,
+		certPem:   certPem,
+		namespace: namespace,
 	}
 }
 
@@ -61,11 +65,17 @@ func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req
 	}
 
 	// Set the new CA bundle for the custom resource definition
+	baseCRD, err := otterizecrds.GetCRDDefinitionByName(crd.Name)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	resourceCopy := crd.DeepCopy()
+	resourceCopy.Spec = baseCRD.Spec
 	if resourceCopy.Spec.Conversion == nil || resourceCopy.Spec.Conversion.Webhook == nil || resourceCopy.Spec.Conversion.Webhook.ClientConfig == nil {
 		return ctrl.Result{}, fmt.Errorf("CRD does not contain a proper conversion webhook definition")
 	}
 	resourceCopy.Spec.Conversion.Webhook.ClientConfig.CABundle = r.certPem
+	resourceCopy.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = r.namespace
 
 	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(crd)); err != nil {
 		logrus.WithError(err).Errorf("Failed to patch CustomResourceDefinition %s", crd.Name)

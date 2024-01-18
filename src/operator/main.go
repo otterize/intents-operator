@@ -281,6 +281,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			certBundle.CertPem,
+			podNamespace,
 		)
 		err = customResourceDefinitionsReconciler.SetupWithManager(mgr)
 		if err != nil {
