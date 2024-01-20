@@ -58,7 +58,7 @@ func NewProtectedServiceReconciler(
 	extNetpolHandler protected_service_reconcilers.ExternalNepolHandler,
 	enforcementDefaultState bool,
 	netpolEnforcementEnabled bool,
-	effectivePolicySyncer protected_service_reconcilers.EffectivePolicyReconcilerGroup,
+	networkPolicyHandler protected_service_reconcilers.NetworkPolicyHandler,
 ) *ProtectedServiceReconciler {
 	group := reconcilergroup.NewGroup(
 		protectedServicesGroupName,
@@ -75,7 +75,7 @@ func NewProtectedServiceReconciler(
 	}
 
 	if !enforcementDefaultState || !netpolEnforcementEnabled {
-		policyCleaner := protected_service_reconcilers.NewPolicyCleanerReconciler(client, effectivePolicySyncer)
+		policyCleaner := protected_service_reconcilers.NewPolicyCleanerReconciler(client, networkPolicyHandler)
 		group.AddToGroup(policyCleaner)
 	}
 
