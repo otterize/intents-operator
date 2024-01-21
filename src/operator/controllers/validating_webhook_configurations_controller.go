@@ -32,7 +32,7 @@ import (
 type ValidatingWebhookConfigsReconciler struct {
 	client.Client
 	Scheme  *runtime.Scheme
-	certPem []byte
+	certPEM []byte
 }
 
 //+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list
@@ -46,12 +46,12 @@ func NewValidatingWebhookConfigsReconciler(
 	return &ValidatingWebhookConfigsReconciler{
 		Client:  client,
 		Scheme:  scheme,
-		certPem: certPem,
+		certPEM: certPem,
 	}
 }
 
 func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Infof("Reconciling due to ValidatingWebhookConfiguration change: %s", req.Name)
+	logrus.Debugf("Reconciling due to ValidatingWebhookConfiguration change: %s", req.Name)
 
 	// Fetch the validating webhook configuration object
 	webhookConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{}
@@ -62,7 +62,7 @@ func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req 
 	// Set the new CA bundle for the validating webhooks
 	resourceCopy := webhookConfig.DeepCopy()
 	for i := range resourceCopy.Webhooks {
-		resourceCopy.Webhooks[i].ClientConfig.CABundle = r.certPem
+		resourceCopy.Webhooks[i].ClientConfig.CABundle = r.certPEM
 	}
 
 	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(webhookConfig)); err != nil {
