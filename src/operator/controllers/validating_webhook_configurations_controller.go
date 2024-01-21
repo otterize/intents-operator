@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -66,8 +67,7 @@ func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(webhookConfig)); err != nil {
-		logrus.WithError(err).Errorf("Failed to patch ValidatingWebhookConfiguration %s", webhookConfig.Name)
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Errorf("Failed to patch ValidatingWebhookConfiguration: %w", err)
 	}
 
 	return ctrl.Result{}, nil
