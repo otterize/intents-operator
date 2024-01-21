@@ -28,7 +28,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
-	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
@@ -193,7 +192,7 @@ func main() {
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
-	epNetpolReconciler := ingress_network_policy.NewIngressNetpolEffectivePolicyReconciler(
+	networkPolicyHandler := ingress_network_policy.NewNetworkPolicyReconciler(
 		mgr.GetClient(),
 		scheme,
 		extNetpolHandler,
@@ -202,12 +201,8 @@ func main() {
 		enforcementConfig.EnforcementDefaultState,
 		allowExternalTraffic,
 	)
-
-	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
-	epGrouReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
-	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGrouReconciler)
-	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
 		if err != nil {
@@ -323,6 +318,7 @@ func main() {
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
+		networkPolicyHandler,
 		svcNetworkPolicyHandler,
 		egressNetworkPolicyHandler,
 		svcEgressNetworkPolicyHandler,
@@ -389,7 +385,7 @@ func main() {
 		extNetpolHandler,
 		enforcementConfig.EnforcementDefaultState,
 		enforcementConfig.EnableNetworkPolicy,
-		epGrouReconciler,
+		networkPolicyHandler,
 	)
 
 	err = protectedServicesReconciler.SetupWithManager(mgr)
