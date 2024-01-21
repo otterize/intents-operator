@@ -77,6 +77,13 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		services.Add(service)
 		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
+			if intentCall.IsTargetOutOfCluster() {
+				continue
+			}
+			if intentCall.IsTargetServerKubernetesService() {
+				continue
+			}
+
 			services.Add(serviceidentity.ServiceIdentity{Name: intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(clientIntent.Namespace)})
 		}
 	}
