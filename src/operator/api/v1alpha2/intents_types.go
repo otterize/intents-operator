@@ -326,12 +326,16 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
-			statusInput, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
+			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
 
-			input.Status = statusInput
+			input.Status = nil
+
+			if ok {
+				input.Status = statusInput
+			}
 			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
 		}
 	}
@@ -339,7 +343,7 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	return otterizeIntents, nil
 }
 
-func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent) (*graphqlclient.IntentStatusInput, error) {
+func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent) (*graphqlclient.IntentStatusInput, bool, error) {
 	status := graphqlclient.IntentStatusInput{
 		IstioStatus: &graphqlclient.IstioStatusInput{},
 	}
@@ -347,37 +351,37 @@ func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent
 	serviceAccountName, ok := clientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
 	if !ok {
 		// Status is not set, nothing to do
-		return nil, nil
+		return nil, false, nil
 	}
 
 	status.IstioStatus.ServiceAccountName = toPtrOrNil(serviceAccountName)
 	isSharedValue, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
 	if !ok {
-		return nil, fmt.Errorf("missing annotation shared service account for client intents %s", clientIntents.Name)
+		return nil, false, fmt.Errorf("missing annotation shared service account for client intents %s", clientIntents.Name)
 	}
 
 	isShared, err := strconv.ParseBool(isSharedValue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse shared service account annotation for client intents %s", clientIntents.Name)
+		return nil, false, fmt.Errorf("failed to parse shared service account annotation for client intents %s", clientIntents.Name)
 	}
 	status.IstioStatus.IsServiceAccountShared = lo.ToPtr(isShared)
 
 	clientMissingSidecarValue, ok := clientIntents.Annotations[OtterizeMissingSidecarAnnotation]
 	if !ok {
-		return nil, fmt.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
+		return nil, false, fmt.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
 	}
 
 	clientMissingSidecar, err := strconv.ParseBool(clientMissingSidecarValue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
+		return nil, false, fmt.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
 	}
 	status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(clientMissingSidecar)
 	isServerMissingSidecar, err := clientIntents.IsServerMissingSidecar(intent)
 	if err != nil {
-		return nil, errors.Wrap(err)
+		return nil, false, errors.Wrap(err)
 	}
 	status.IstioStatus.IsServerMissingSidecar = lo.ToPtr(isServerMissingSidecar)
-	return &status, nil
+	return &status, true, nil
 }
 
 func toPtrOrNil(s string) *string {
@@ -526,7 +530,7 @@ func (in *ClientIntents) BuildPodLabelSelector() (labels.Selector, error) {
 			// To find all pods for this specific service
 			GetFormattedOtterizeIdentity(in.Spec.Service.Name, in.Namespace)))
 	if err != nil {
-		return nil, nil
+		return nil, errors.Wrap(err)
 	}
 
 	return labelSelector, nil
