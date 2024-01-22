@@ -294,6 +294,17 @@ func (in *Intent) IsTargetTheKubernetesAPIServer(objectNamespace string) bool {
 		in.GetTargetServerNamespace(objectNamespace) == KubernetesAPIServerNamespace
 }
 
+func (in *Intent) IsTargetInCluster() bool {
+	if in.Type == "" || in.Type == IntentTypeHTTP || in.Type == IntentTypeKafka {
+		return true
+	}
+	return false
+}
+
+func (in *Intent) IsTargetOutOfCluster() bool {
+	return !in.IsTargetInCluster()
+}
+
 // GetTargetServerName returns server's service name, without namespace, or the Kubernetes service without the `svc:` prefix
 func (in *Intent) GetTargetServerName() string {
 	var name string
