@@ -75,19 +75,18 @@ func (r *InternetNetworkPolicyReconciler) ReconcileEffectivePolicies(ctx context
 
 func (r *InternetNetworkPolicyReconciler) handleNetworkPolicyCreation(
 	ctx context.Context,
-	intentsObj *otterizev1alpha3.ClientIntents,
-	intentsObjNamespace string,
+	ep effectivepolicy.ServiceEffectivePolicy,
 ) (v1.NetworkPolicy, error) {
-	policyName := policyNameFor(intentsObj.GetServiceName())
+	policyName := policyNameFor(ep.Service.Name)
 	existingPolicy := &v1.NetworkPolicy{}
-	newPolicy, err := r.buildNetworkPolicy(intentsObj, policyName)
+	newPolicy, err := r.buildNetworkPolicy(ep, policyName)
 	if err != nil {
 		return v1.NetworkPolicy{}, errors.Wrap(err)
 	}
 
 	err = r.Get(ctx, types.NamespacedName{
 		Name:      policyName,
-		Namespace: intentsObjNamespace},
+		Namespace: ep.Service.Namespace},
 		existingPolicy)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingEgressNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
@@ -187,17 +186,17 @@ func (r *InternetNetworkPolicyReconciler) removeNetworkPolicy(ctx context.Contex
 }
 
 func (r *InternetNetworkPolicyReconciler) buildNetworkPolicy(
-	intentsObj *otterizev1alpha3.ClientIntents,
+	ep effectivepolicy.ServiceEffectivePolicy,
 	policyName string,
 ) (*v1.NetworkPolicy, error) {
 	// The intent's target server made of name + namespace + hash
-	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(intentsObj.GetServiceName(), intentsObj.Namespace)
-	podSelector := r.buildPodLabelSelectorFromIntents(intentsObj)
+	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(ep.Service.Name, ep.Service.Namespace)
+	podSelector := r.buildPodLabelSelectorFromServiceEffectivePolicy(ep)
 
 	rules := make([]v1.NetworkPolicyEgressRule, 0)
 
 	// Get all intents to the internet
-	intents := lo.Filter(intentsObj.GetCallsList(), func(intent otterizev1alpha3.Intent, _ int) bool {
+	intents := lo.Filter(ep.Calls, func(intent otterizev1alpha3.Intent, _ int) bool {
 		return intent.Type == otterizev1alpha3.IntentTypeInternet
 	})
 
@@ -216,7 +215,7 @@ func (r *InternetNetworkPolicyReconciler) buildNetworkPolicy(
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
-			Namespace: intentsObj.Namespace,
+			Namespace: ep.Service.Namespace,
 			Labels: map[string]string{
 				otterizev1alpha3.OtterizeInternetNetworkPolicy: formattedClient,
 			},
@@ -272,9 +271,9 @@ func (r *InternetNetworkPolicyReconciler) parsePorts(intent otterizev1alpha3.Int
 	return ports
 }
 
-func (r *InternetNetworkPolicyReconciler) buildPodLabelSelectorFromIntents(intentsObj *otterizev1alpha3.ClientIntents) metav1.LabelSelector {
+func (r *InternetNetworkPolicyReconciler) buildPodLabelSelectorFromServiceEffectivePolicy(ep effectivepolicy.ServiceEffectivePolicy) metav1.LabelSelector {
 	// The intent's target server made of name + namespace + hash
-	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(intentsObj.GetServiceName(), intentsObj.Namespace)
+	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(ep.Service.Name, ep.Service.Namespace)
 
 	return metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -285,39 +284,39 @@ func (r *InternetNetworkPolicyReconciler) buildPodLabelSelectorFromIntents(inten
 
 // applyServiceEffectivePolicy - reconcile ingress netpols for a service. returns the list of policies' namespaced names
 func (r *InternetNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]types.NamespacedName, error) {
-	hasAnyInternetIntents := slices.ContainsFunc(ep.ClientIntent.GetCallsList(), func(intent otterizev1alpha3.Intent) bool {
+	hasAnyInternetIntents := slices.ContainsFunc(ep.Calls, func(intent otterizev1alpha3.Intent) bool {
 		return intent.Type == otterizev1alpha3.IntentTypeInternet
 	})
-	if !hasAnyInternetIntents || !ep.ClientIntent.DeletionTimestamp.IsZero() {
-		return nil, nil
+	if !hasAnyInternetIntents {
+		return make([]types.NamespacedName, 0), nil
 	}
 
 	logrus.Infof("Reconciling internet network policies for service %s in namespace %s",
-		ep.ClientIntent.Spec.Service.Name, ep.ClientIntent.Namespace)
+		ep.Service.Name, ep.Service.Namespace)
 
-	if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, ep.ClientIntent.Namespace) {
-		r.RecordWarningEventf(ep.ClientIntent, consts.ReasonNamespaceNotAllowed, "ClientIntents are in namespace %s but namespace is not allowed by configuration", ep.ClientIntent.Namespace)
+	if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, ep.Service.Namespace) {
+		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonNamespaceNotAllowed, "ClientIntents are in namespace %s but namespace is not allowed by configuration", ep.Service.Namespace)
 		return nil, nil
 	}
 
 	if !r.enforcementDefaultState {
-		logrus.Infof("Enforcement is disabled globally skipping internet network policy creation for service %s in namespace %s", ep.ClientIntent.Spec.Service.Name, ep.ClientIntent.Namespace)
-		r.RecordNormalEventf(ep.ClientIntent, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally, internet network policy creation skipped")
+		logrus.Infof("Enforcement is disabled globally skipping internet network policy creation for service %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
+		ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally, internet network policy creation skipped")
 		return nil, nil
 	}
 	if !r.enableNetworkPolicyCreation {
-		logrus.Infof("Network policy creation is disabled, skipping internet network policy creation for service %s in namespace %s", ep.ClientIntent.Spec.Service.Name, ep.ClientIntent.Namespace)
-		r.RecordNormalEvent(ep.ClientIntent, consts.ReasonEgressNetworkPolicyCreationDisabled, "Network policy creation is disabled, internet network policy creation skipped")
+		logrus.Infof("Network policy creation is disabled, skipping internet network policy creation for service %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
+		ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonEgressNetworkPolicyCreationDisabled, "Network policy creation is disabled, internet network policy creation skipped")
 		return nil, nil
 	}
 
-	netpol, err := r.handleNetworkPolicyCreation(ctx, ep.ClientIntent, ep.ClientIntent.Namespace)
+	netpol, err := r.handleNetworkPolicyCreation(ctx, ep)
 	if err != nil {
-		r.RecordWarningEventf(ep.ClientIntent, consts.ReasonCreatingEgressNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
+		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonCreatingEgressNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
 		return nil, errors.Wrap(err)
 	}
 
-	r.RecordNormalEvent(ep.ClientIntent, consts.ReasonCreatedInternetEgressNetworkPolicies, "InternetNetworkPolicy reconcile complete")
+	ep.ClientIntentsEventRecorder.RecordNormalEvent(consts.ReasonCreatedInternetEgressNetworkPolicies, "InternetNetworkPolicy reconcile complete")
 	prometheus.IncrementNetpolCreated(1)
 	return []types.NamespacedName{{Namespace: netpol.Namespace, Name: netpol.Name}}, nil
 }
