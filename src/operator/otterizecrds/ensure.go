@@ -56,12 +56,25 @@ func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace s
 		return nil
 	}
 
-	updatedCRD := crd.DeepCopy()
-	updatedCRD.Spec = crdToCreate.Spec
-	err = k8sClient.Patch(ctx, updatedCRD, client.MergeFrom(&crd))
-	if err != nil {
-		return fmt.Errorf("could not Patch ClientIntents CRD: %w", err)
+	return nil
+}
+
+func GetCRDDefinitionByName(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
+	var err error
+	crd := apiextensionsv1.CustomResourceDefinition{}
+	switch name {
+	case "clientintents.k8s.otterize.com":
+		err = yaml.Unmarshal(clientIntentsCRDContents, &crd)
+	case "protectedservices.k8s.otterize.com":
+		err = yaml.Unmarshal(protectedServiceCRDContents, &crd)
+	case "kafkaserverconfigs.k8s.otterize.com":
+		err = yaml.Unmarshal(protectedServiceCRDContents, &crd)
+	default:
+		return nil, fmt.Errorf("unknown CRD name: %s", name)
 	}
 
-	return nil
+	if err != nil {
+		return nil, err
+	}
+	return &crd, nil
 }

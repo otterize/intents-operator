@@ -24,6 +24,9 @@ patchesStrategicMerge:
 configurations:
 - kustomizeconfig.yaml
 
+commonLabels:
+  app.kubernetes.io/part-of: otterize
+
 patches:
   - patch: |-
       - op: replace

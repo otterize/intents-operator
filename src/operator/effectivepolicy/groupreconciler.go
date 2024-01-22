@@ -77,14 +77,13 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		services.Add(service)
 		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
-			// Don't create SEP for target kubernetes svc
+			if intentCall.IsTargetOutOfCluster() {
+				continue
+			}
 			if intentCall.IsTargetServerKubernetesService() {
 				continue
 			}
-			// Don't create SEP for internet targets
-			if intentCall.Type == v1alpha3.IntentTypeInternet {
-				continue
-			}
+
 			services.Add(serviceidentity.ServiceIdentity{Name: intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(clientIntent.Namespace)})
 		}
 	}

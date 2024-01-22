@@ -99,28 +99,31 @@ func (r *IngressNetpolEffectivePolicyReconciler) applyServiceEffectivePolicy(ctx
 	}
 
 	networkPolicies := make([]types.NamespacedName, 0)
-	for _, intentCall := range ep.CalledBy {
+	for _, call := range ep.CalledBy {
+		if call.IntendedCall.IsTargetOutOfCluster() {
+			continue
+		}
 		if !shouldCreatePolicy {
 			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
-			intentCall.ObjectEventRecorder.RecordNormalEventf(consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", ep.Service.Name)
+			call.ObjectEventRecorder.RecordNormalEventf(consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", ep.Service.Name)
 			continue
 		}
 		if !r.enableNetworkPolicyCreation {
 			logrus.Infof("Network policy creation is disabled, skipping network policy creation for server %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
-			intentCall.ObjectEventRecorder.RecordNormalEvent(consts.ReasonNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
+			call.ObjectEventRecorder.RecordNormalEvent(consts.ReasonNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
 			continue
 		}
 		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, ep.Service.Namespace) {
 			// Namespace is not in list of namespaces we're allowed to act in, so drop it.
-			intentCall.ObjectEventRecorder.RecordWarningEventf(consts.ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration", ep.Service.Namespace)
+			call.ObjectEventRecorder.RecordWarningEventf(consts.ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration", ep.Service.Namespace)
 			continue
 		}
 
 		logrus.Debugf("Server %s in namespace %s is in protected list: %t", ep.Service.Name, ep.Service.Namespace, shouldCreatePolicy)
 
-		policyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, intentCall.IntendedCall.GetTargetServerName(), intentCall.Service.Namespace)
+		policyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, call.IntendedCall.GetTargetServerName(), call.Service.Namespace)
 		existingPolicy := &v1.NetworkPolicy{}
-		newPolicy := r.buildNetworkPolicyObjectForIntent(intentCall.IntendedCall, policyName, intentCall.Service.Namespace)
+		newPolicy := r.buildNetworkPolicyObjectForIntent(call.IntendedCall, policyName, call.Service.Namespace)
 		err = r.Get(ctx, types.NamespacedName{
 			Name:      policyName,
 			Namespace: ep.Service.Namespace},
@@ -131,13 +134,13 @@ func (r *IngressNetpolEffectivePolicyReconciler) applyServiceEffectivePolicy(ctx
 		}
 
 		if k8serrors.IsNotFound(err) {
-			err = r.createNetworkPolicy(ctx, intentCall.Service.Namespace, intentCall.IntendedCall, newPolicy)
+			err = r.createNetworkPolicy(ctx, call.Service.Namespace, call.IntendedCall, newPolicy)
 			if err != nil {
 				return networkPolicies, errors.Wrap(err)
 			}
 			networkPolicies = append(networkPolicies, types.NamespacedName{Name: newPolicy.Name, Namespace: newPolicy.Namespace})
 			prometheus.IncrementNetpolCreated(1)
-			intentCall.ObjectEventRecorder.RecordNormalEventf(consts.ReasonCreatedNetworkPolicies, "NetworkPolicy created for %s", intentCall.IntendedCall.GetTargetServerName())
+			call.ObjectEventRecorder.RecordNormalEventf(consts.ReasonCreatedNetworkPolicies, "NetworkPolicy created for %s", call.IntendedCall.GetTargetServerName())
 			continue
 		}
 		changed, err := r.updateExistingPolicy(ctx, existingPolicy, newPolicy)
@@ -145,7 +148,7 @@ func (r *IngressNetpolEffectivePolicyReconciler) applyServiceEffectivePolicy(ctx
 			return networkPolicies, errors.Wrap(err)
 		}
 		if changed {
-			intentCall.ObjectEventRecorder.RecordNormalEventf(consts.ReasonCreatedNetworkPolicies, "NetworkPolicy created for %s", intentCall.IntendedCall.GetTargetServerName())
+			call.ObjectEventRecorder.RecordNormalEventf(consts.ReasonCreatedNetworkPolicies, "NetworkPolicy created for %s", call.IntendedCall.GetTargetServerName())
 		}
 		networkPolicies = append(networkPolicies, types.NamespacedName{Name: newPolicy.Name, Namespace: newPolicy.Namespace})
 	}
