@@ -72,7 +72,7 @@ func (r *ServiceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 
 	err = r.removeOrphanEgressServiceNetpols(ctx)
 	if err != nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
