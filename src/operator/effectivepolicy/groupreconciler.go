@@ -77,10 +77,7 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		services.Add(service)
 		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
-			if intentCall.IsTargetOutOfCluster() {
-				continue
-			}
-			if intentCall.IsTargetServerKubernetesService() {
+			if !g.shouldCreateEffectivePolicyForIntentTargetServer(intentCall) {
 				continue
 			}
 
@@ -96,13 +93,25 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 			return nil, err
 		}
 		// Ignore intents in deletion process
-		if intent, ok := serviceToIntent[service]; ok && intent.DeletionTimestamp.IsZero() {
-			ep.ClientIntent = lo.ToPtr(intent)
+		if clientIntents, ok := serviceToIntent[service]; ok && clientIntents.DeletionTimestamp.IsZero() && clientIntents.Spec != nil {
+			ep.Calls = clientIntents.GetCallsList()
+			ep.ClientIntentsEventRecorder = injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntents))
 		}
 		epSlice = append(epSlice, ep)
 	}
 
 	return epSlice, nil
+}
+
+// a function that checks if we should create a SEP for a given intent target server
+func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(intent v1alpha3.Intent) bool {
+	if intent.IsTargetOutOfCluster() {
+		return false
+	}
+	if intent.IsTargetServerKubernetesService() {
+		return false
+	}
+	return true
 }
 
 func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, service serviceidentity.ServiceIdentity) (ServiceEffectivePolicy, error) {
@@ -112,17 +121,28 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, servi
 	}
 	ep := ServiceEffectivePolicy{Service: service}
 	for _, clientIntent := range relevantClientIntents {
-		if !clientIntent.DeletionTimestamp.IsZero() {
+		if !clientIntent.DeletionTimestamp.IsZero() || clientIntent.Spec == nil {
 			continue
 		}
-		clientService := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace}
-		intendedCalls := getCallsListByServer(service, clientIntent)
-		for _, intendedCall := range intendedCalls {
-			objEventRecorder := injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntent))
-			ep.CalledBy = append(ep.CalledBy, ClientCall{Service: clientService, IntendedCall: intendedCall, ObjectEventRecorder: objEventRecorder})
-		}
+		clientCalls := g.filterAndTransformClientIntentsIntoClientCalls(clientIntent, func(intent v1alpha3.Intent) bool {
+			return intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
+		})
+		ep.CalledBy = append(ep.CalledBy, clientCalls...)
 	}
 	return ep, nil
+}
+
+func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientIntent v1alpha3.ClientIntents, filter func(intent v1alpha3.Intent) bool) []ClientCall {
+	clientService := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace}
+	clientCalls := make([]ClientCall, 0)
+	for _, intendedCall := range clientIntent.GetCallsList() {
+		if !filter(intendedCall) {
+			continue
+		}
+		objEventRecorder := injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntent))
+		clientCalls = append(clientCalls, ClientCall{Service: clientService, IntendedCall: intendedCall, ObjectEventRecorder: objEventRecorder})
+	}
+	return clientCalls
 }
 
 func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v1alpha3.ClientIntents, error) {
@@ -137,14 +157,4 @@ func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server s
 		return nil, err
 	}
 	return intentsList.Items, nil
-}
-
-func getCallsListByServer(server serviceidentity.ServiceIdentity, clientIntent v1alpha3.ClientIntents) []v1alpha3.Intent {
-	calls := make([]v1alpha3.Intent, 0)
-	for _, intent := range clientIntent.GetCallsList() {
-		if intent.GetTargetServerName() == server.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == server.Namespace {
-			calls = append(calls, intent)
-		}
-	}
-	return calls
 }
