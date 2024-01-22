@@ -22,7 +22,6 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -76,7 +75,6 @@ func NewIntentsReconciler(
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
 	portNetpolReconciler *port_network_policy.PortNetworkPolicyReconciler,
-	egressNetpolReconciler *egress_network_policy.EgressNetworkPolicyReconciler,
 	portEgressNetpolReconciler *port_egress_network_policy.PortEgressNetworkPolicyReconciler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
@@ -127,7 +125,6 @@ func NewIntentsReconciler(
 	}
 
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
-		intentsReconciler.group.AddToGroup(egressNetpolReconciler)
 		intentsReconciler.group.AddToGroup(portEgressNetpolReconciler)
 	}
 

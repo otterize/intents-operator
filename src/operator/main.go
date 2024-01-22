@@ -207,12 +207,14 @@ func main() {
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
 	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
+		egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+		epGroupReconciler.AddReconciler(egressNetworkPolicyHandler)
 		internetNetpolReconciler := internet_network_policy.NewInternetNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 		epGroupReconciler.AddReconciler(internetNetpolReconciler)
+
 	}
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
-	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
 		if err != nil {
@@ -272,14 +274,25 @@ func main() {
 			logrus.WithError(err).Panic("unable to ensure otterize CRDs")
 		}
 
-		err = webhooks.UpdateValidationWebHookCA(signalHandlerCtx,
-			"otterize-validating-webhook-configuration", certBundle.CertPem)
+		validatingWebhookConfigsReconciler := controllers.NewValidatingWebhookConfigsReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			certBundle.CertPem,
+		)
+		err = validatingWebhookConfigsReconciler.SetupWithManager(mgr)
 		if err != nil {
-			logrus.WithError(err).Panic("updating validation webhook certificate failed")
+			logrus.WithError(err).Panic("unable to create controller", "controller", "ValidatingWebhookConfigs")
 		}
-		err = webhooks.UpdateConversionWebhookCAs(signalHandlerCtx, directClient, certBundle.CertPem)
+
+		customResourceDefinitionsReconciler := controllers.NewCustomResourceDefinitionsReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			certBundle.CertPem,
+			podNamespace,
+		)
+		err = customResourceDefinitionsReconciler.SetupWithManager(mgr)
 		if err != nil {
-			logrus.WithError(err).Panic("updating conversion webhook certificate failed")
+			logrus.WithError(err).Panic("unable to create controller", "controller", "CustomResourceDefinition")
 		}
 	}
 
@@ -318,7 +331,6 @@ func main() {
 		mgr.GetScheme(),
 		kafkaServersStore,
 		svcNetworkPolicyHandler,
-		egressNetworkPolicyHandler,
 		svcEgressNetworkPolicyHandler,
 		watchedNamespaces,
 		enforcementConfig,
