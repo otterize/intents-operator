@@ -101,12 +101,12 @@ func (r *PortEgressNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx cont
 			ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonEgressNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
 			continue
 		}
-		policy, err := r.handleNetworkPolicyCreation(ctx, ep, intent)
+		policy, created, err := r.handleNetworkPolicyCreation(ctx, ep, intent)
 		if err != nil {
 			ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonCreatingEgressNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
 			return nil, errors.Wrap(err)
 		}
-		if policy != nil {
+		if created {
 			networkPolicies = append(networkPolicies, types.NamespacedName{Name: policy.Name, Namespace: policy.Namespace})
 		}
 	}
@@ -122,21 +122,21 @@ func (r *PortEgressNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx cont
 }
 
 func (r *PortEgressNetworkPolicyReconciler) handleNetworkPolicyCreation(
-	ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, intent otterizev1alpha3.Intent) (*v1.NetworkPolicy, error) {
+	ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, intent otterizev1alpha3.Intent) (*v1.NetworkPolicy, bool, error) {
 
+	existingPolicy := &v1.NetworkPolicy{}
 	svc := corev1.Service{}
 	err := r.Get(ctx, types.NamespacedName{Name: intent.GetTargetServerName(), Namespace: intent.GetTargetServerNamespace(ep.Service.Namespace)}, &svc)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil, nil
+			return existingPolicy, false, nil
 		}
-		return nil, errors.Wrap(err)
+		return nil, false, errors.Wrap(err)
 	}
-	existingPolicy := &v1.NetworkPolicy{}
 	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeSvcEgressNetworkPolicyNameTemplate, intent.GetServerFullyQualifiedName(ep.Service.Namespace), ep.Service.Name)
 	newPolicy, err := r.buildNetworkPolicyObjectForIntents(ctx, &svc, ep, intent, policyName)
 	if err != nil {
-		return nil, errors.Wrap(err)
+		return nil, false, errors.Wrap(err)
 	}
 	err = r.Get(ctx, types.NamespacedName{
 		Name:      policyName,
@@ -144,19 +144,22 @@ func (r *PortEgressNetworkPolicyReconciler) handleNetworkPolicyCreation(
 		existingPolicy)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingEgressNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
-		return nil, errors.Wrap(err)
+		return nil, false, errors.Wrap(err)
 	}
 
 	if k8serrors.IsNotFound(err) {
-		return newPolicy, r.CreateNetworkPolicy(ctx, ep.Service.Namespace, intent, newPolicy)
+		err = r.CreateNetworkPolicy(ctx, ep.Service.Namespace, intent, newPolicy)
+		if err != nil {
+			return nil, false, errors.Wrap(err)
+		}
+		return newPolicy, true, nil
 	}
 
 	err = r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, ep.Service.Namespace)
 	if err != nil {
-		return nil, errors.Wrap(err)
+		return nil, false, errors.Wrap(err)
 	}
-
-	return newPolicy, nil
+	return newPolicy, true, nil
 
 }
 

@@ -113,13 +113,13 @@ func (r *PortNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx context.Co
 			ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration", targetNamespace)
 			continue
 		}
-		createdPolicy, err := r.handleNetworkPolicyCreation(ctx, ep, intent)
+		netpol, created, err := r.handleNetworkPolicyCreation(ctx, ep, intent)
 		if err != nil {
 			ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonCreatingNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
 			return nil, errors.Wrap(err)
 		}
-		if createdPolicy != nil {
-			networkPolicies = append(networkPolicies, types.NamespacedName{Name: createdPolicy.Name, Namespace: createdPolicy.Namespace})
+		if created {
+			networkPolicies = append(networkPolicies, types.NamespacedName{Name: netpol.Name, Namespace: netpol.Namespace})
 		}
 	}
 
@@ -136,7 +136,7 @@ func (r *PortNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx context.Co
 }
 
 func (r *PortNetworkPolicyReconciler) handleNetworkPolicyCreation(
-	ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, intent otterizev1alpha3.Intent) (*v1.NetworkPolicy, error) {
+	ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, intent otterizev1alpha3.Intent) (*v1.NetworkPolicy, bool, error) {
 
 	// TODO: Add protected service support
 	//shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace), r.enforcementDefaultState)
@@ -156,13 +156,13 @@ func (r *PortNetworkPolicyReconciler) handleNetworkPolicyCreation(
 	err := r.Get(ctx, types.NamespacedName{Name: intent.GetTargetServerName(), Namespace: intent.GetTargetServerNamespace(ep.Service.Namespace)}, &svc)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
-			return nil, nil
+			return existingPolicy, false, nil
 		}
-		return nil, errors.Wrap(err)
+		return nil, false, errors.Wrap(err)
 	}
 	newPolicy, err := r.buildNetworkPolicyObjectForIntent(&svc, intent, policyName, ep.Service.Namespace)
 	if err != nil {
-		return nil, errors.Wrap(err)
+		return nil, false, errors.Wrap(err)
 	}
 
 	err = r.Get(ctx, types.NamespacedName{
@@ -171,19 +171,22 @@ func (r *PortNetworkPolicyReconciler) handleNetworkPolicyCreation(
 		existingPolicy)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
-		return nil, errors.Wrap(err)
+		return nil, false, errors.Wrap(err)
 	}
 
 	if k8serrors.IsNotFound(err) {
 		err = r.CreateNetworkPolicy(ctx, ep.Service.Namespace, intent, newPolicy)
-		return newPolicy, errors.Wrap(err)
+		if err != nil {
+			return nil, false, errors.Wrap(err)
+		}
+		return newPolicy, true, nil
 	}
 
 	err = r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, ep.Service.Namespace)
 	if err != nil {
-		return nil, errors.Wrap(err)
+		return nil, false, errors.Wrap(err)
 	}
-	return newPolicy, nil
+	return newPolicy, true, nil
 }
 
 func (r *PortNetworkPolicyReconciler) UpdateExistingPolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, intent otterizev1alpha3.Intent, intentsObjNamespace string) error {

@@ -296,18 +296,18 @@ func (r *InternetNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx contex
 
 	if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, ep.Service.Namespace) {
 		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonNamespaceNotAllowed, "ClientIntents are in namespace %s but namespace is not allowed by configuration", ep.Service.Namespace)
-		return nil, nil
+		return make([]types.NamespacedName, 0), nil
 	}
 
 	if !r.enforcementDefaultState {
 		logrus.Infof("Enforcement is disabled globally skipping internet network policy creation for service %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
 		ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally, internet network policy creation skipped")
-		return nil, nil
+		return make([]types.NamespacedName, 0), nil
 	}
 	if !r.enableNetworkPolicyCreation {
 		logrus.Infof("Network policy creation is disabled, skipping internet network policy creation for service %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
 		ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonEgressNetworkPolicyCreationDisabled, "Network policy creation is disabled, internet network policy creation skipped")
-		return nil, nil
+		return make([]types.NamespacedName, 0), nil
 	}
 
 	netpol, err := r.handleNetworkPolicyCreation(ctx, ep)
