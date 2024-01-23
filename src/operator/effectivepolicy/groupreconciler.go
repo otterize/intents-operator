@@ -9,6 +9,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,7 +53,9 @@ func (g *GroupReconciler) Reconcile(ctx context.Context) error {
 	}
 
 	errorList := make([]error, 0)
+	logrus.Infof("Reconciling %d effectivePolicies", len(eps))
 	for _, epReconciler := range g.reconcilers {
+		logrus.Infof("Starting cycle for %T", epReconciler)
 		_, err := epReconciler.ReconcileEffectivePolicies(ctx, eps)
 		if err != nil {
 			errorList = append(errorList, errors.Wrap(err))
@@ -96,7 +99,7 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		}
 		// Ignore intents in deletion process
 		if clientIntents, ok := serviceToIntent[service]; ok && clientIntents.DeletionTimestamp.IsZero() && clientIntents.Spec != nil {
-			ep.Calls = clientIntents.GetCallsList()
+			ep.Calls = append(ep.Calls, clientIntents.GetCallsList()...)
 			ep.ClientIntentsEventRecorder = injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntents))
 		}
 		epSlice = append(epSlice, ep)
