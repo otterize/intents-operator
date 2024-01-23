@@ -36,7 +36,7 @@ type ValidatingWebhookConfigsReconciler struct {
 	certPEM []byte
 }
 
-//+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list
+//+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list;watch
 
 func NewValidatingWebhookConfigsReconciler(
 	client client.Client,
