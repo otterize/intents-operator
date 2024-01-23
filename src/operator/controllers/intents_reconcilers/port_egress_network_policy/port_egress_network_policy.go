@@ -74,16 +74,11 @@ func (r *PortEgressNetworkPolicyReconciler) ReconcileEffectivePolicies(ctx conte
 }
 
 func (r *PortEgressNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]types.NamespacedName, error) {
-	intents := ep.ClientIntent
-	if intents == nil || intents.Spec == nil {
-		return nil, nil
-	}
-
 	logrus.Infof("Reconciling network policies for service %s in namespace %s",
-		intents.Spec.Service.Name, intents.Namespace)
+		ep.Service.Name, ep.Service.Namespace)
 
 	networkPolicies := make([]types.NamespacedName, 0)
-	for _, intent := range intents.GetCallsList() {
+	for _, intent := range ep.Calls {
 		if intent.Type != "" && intent.Type != otterizev1alpha3.IntentTypeHTTP && intent.Type != otterizev1alpha3.IntentTypeKafka {
 			continue
 		}
@@ -91,14 +86,24 @@ func (r *PortEgressNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx cont
 			continue
 		}
 
-		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, intents.Namespace) {
+		if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, ep.Service.Namespace) {
 			// Namespace is not in list of namespaces we're allowed to act in, so drop it.
-			r.RecordWarningEventf(intents, consts.ReasonNamespaceNotAllowed, "ClientIntents are in namespace %s but namespace is not allowed by configuration", intents.Namespace)
+			ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonNamespaceNotAllowed, "ClientIntents are in namespace %s but namespace is not allowed by configuration", ep.Service.Namespace)
 			continue
 		}
-		policy, err := r.handleNetworkPolicyCreation(ctx, intents, intent, intents.Namespace)
+		if !r.enforcementDefaultState {
+			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(ep.Service.Namespace))
+			ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally, network policy creation skipped", intent.Name)
+			continue
+		}
+		if !r.enableNetworkPolicyCreation {
+			logrus.Infof("Network policy creation is disabled, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(ep.Service.Namespace))
+			ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonEgressNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
+			continue
+		}
+		policy, err := r.handleNetworkPolicyCreation(ctx, ep, intent)
 		if err != nil {
-			r.RecordWarningEventf(intents, consts.ReasonCreatingEgressNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
+			ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonCreatingEgressNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
 			return nil, errors.Wrap(err)
 		}
 		if policy != nil {
@@ -107,8 +112,8 @@ func (r *PortEgressNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx cont
 	}
 
 	if len(networkPolicies) != 0 {
-		callsCount := len(intents.GetCallsList())
-		r.RecordNormalEventf(intents, consts.ReasonCreatedEgressNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
+		callsCount := len(ep.Calls)
+		ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonCreatedEgressNetworkPolicies, "NetworkPolicy reconcile complete, reconciled %d servers", callsCount)
 		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, len(networkPolicies))
 		prometheus.IncrementNetpolCreated(len(networkPolicies))
 
@@ -117,21 +122,10 @@ func (r *PortEgressNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx cont
 }
 
 func (r *PortEgressNetworkPolicyReconciler) handleNetworkPolicyCreation(
-	ctx context.Context, intentsObj *otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent, intentsObjNamespace string) (*v1.NetworkPolicy, error) {
-
-	if !r.enforcementDefaultState {
-		logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
-		r.RecordNormalEventf(intentsObj, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally, network policy creation skipped", intent.Name)
-		return nil, nil
-	}
-	if !r.enableNetworkPolicyCreation {
-		logrus.Infof("Network policy creation is disabled, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObjNamespace))
-		r.RecordNormalEvent(intentsObj, consts.ReasonEgressNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
-		return nil, nil
-	}
+	ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, intent otterizev1alpha3.Intent) (*v1.NetworkPolicy, error) {
 
 	svc := corev1.Service{}
-	err := r.Get(ctx, types.NamespacedName{Name: intent.GetTargetServerName(), Namespace: intent.GetTargetServerNamespace(intentsObjNamespace)}, &svc)
+	err := r.Get(ctx, types.NamespacedName{Name: intent.GetTargetServerName(), Namespace: intent.GetTargetServerNamespace(ep.Service.Namespace)}, &svc)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, nil
@@ -139,14 +133,14 @@ func (r *PortEgressNetworkPolicyReconciler) handleNetworkPolicyCreation(
 		return nil, errors.Wrap(err)
 	}
 	existingPolicy := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeSvcEgressNetworkPolicyNameTemplate, intent.GetServerFullyQualifiedName(intentsObj.Namespace), intentsObj.GetServiceName())
-	newPolicy, err := r.buildNetworkPolicyObjectForIntents(ctx, &svc, intentsObj, intent, policyName)
+	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeSvcEgressNetworkPolicyNameTemplate, intent.GetServerFullyQualifiedName(ep.Service.Namespace), ep.Service.Name)
+	newPolicy, err := r.buildNetworkPolicyObjectForIntents(ctx, &svc, ep, intent, policyName)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
 	err = r.Get(ctx, types.NamespacedName{
 		Name:      policyName,
-		Namespace: intentsObjNamespace},
+		Namespace: ep.Service.Namespace},
 		existingPolicy)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingEgressNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
@@ -154,10 +148,10 @@ func (r *PortEgressNetworkPolicyReconciler) handleNetworkPolicyCreation(
 	}
 
 	if k8serrors.IsNotFound(err) {
-		return newPolicy, r.CreateNetworkPolicy(ctx, intentsObjNamespace, intent, newPolicy)
+		return newPolicy, r.CreateNetworkPolicy(ctx, ep.Service.Namespace, intent, newPolicy)
 	}
 
-	err = r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, intentsObjNamespace)
+	err = r.UpdateExistingPolicy(ctx, existingPolicy, newPolicy, intent, ep.Service.Namespace)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -237,16 +231,16 @@ func matchAccessNetworkPolicy() (labels.Selector, error) {
 }
 
 // buildNetworkPolicyObjectForIntents builds the network policy that represents the intent from the parameter
-func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(ctx context.Context, svc *corev1.Service, intentsObj *otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent, policyName string) (*v1.NetworkPolicy, error) {
+func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(ctx context.Context, svc *corev1.Service, ep effectivepolicy.ServiceEffectivePolicy, intent otterizev1alpha3.Intent, policyName string) (*v1.NetworkPolicy, error) {
 	// The intent's target server made of name + namespace + hash
-	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(intentsObj.GetServiceName(), intentsObj.Namespace)
-	formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), intent.GetTargetServerNamespace(intentsObj.Namespace))
-	clientPodSelector := r.buildPodLabelSelectorFromIntents(intentsObj)
+	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(ep.Service.Name, ep.Service.Namespace)
+	formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), intent.GetTargetServerNamespace(ep.Service.Namespace))
+	clientPodSelector := r.buildPodLabelSelectorFromServiceEffectivePolicy(ep)
 	var egressRule v1.NetworkPolicyEgressRule
 	var err error
 	if svc.Spec.Selector != nil {
-		egressRule = getPodSelectorRule(svc, intentsObj, intent)
-	} else if intent.IsTargetTheKubernetesAPIServer(intentsObj.Namespace) {
+		egressRule = getPodSelectorRule(svc, ep, intent)
+	} else if intent.IsTargetTheKubernetesAPIServer(ep.Service.Namespace) {
 		egressRule, err = r.getIPRuleFromEndpoint(ctx, svc)
 		if err != nil {
 			return nil, errors.Wrap(err)
@@ -258,7 +252,7 @@ func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(c
 	netpol := &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
-			Namespace: intentsObj.Namespace,
+			Namespace: ep.Service.Namespace,
 			Annotations: map[string]string{
 				otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetService:          svc.Name,
 				otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetServiceNamespace: svc.Namespace,
@@ -278,7 +272,7 @@ func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(c
 	return netpol, nil
 }
 
-func getPodSelectorRule(svc *corev1.Service, intentsObj *otterizev1alpha3.ClientIntents, intent otterizev1alpha3.Intent) v1.NetworkPolicyEgressRule {
+func getPodSelectorRule(svc *corev1.Service, ep effectivepolicy.ServiceEffectivePolicy, intent otterizev1alpha3.Intent) v1.NetworkPolicyEgressRule {
 	svcPodSelector := metav1.LabelSelector{MatchLabels: svc.Spec.Selector}
 	podSelectorEgressRule := v1.NetworkPolicyEgressRule{
 		To: []v1.NetworkPolicyPeer{
@@ -286,7 +280,7 @@ func getPodSelectorRule(svc *corev1.Service, intentsObj *otterizev1alpha3.Client
 				PodSelector: &svcPodSelector,
 				NamespaceSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intent.GetTargetServerNamespace(intentsObj.Namespace),
+						otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intent.GetTargetServerNamespace(ep.Service.Namespace),
 					},
 				},
 			},
@@ -366,9 +360,9 @@ func (r *PortEgressNetworkPolicyReconciler) getIPRuleFromEndpoint(ctx context.Co
 	return podSelectorEgressRule, nil
 }
 
-func (r *PortEgressNetworkPolicyReconciler) buildPodLabelSelectorFromIntents(intentsObj *otterizev1alpha3.ClientIntents) metav1.LabelSelector {
+func (r *PortEgressNetworkPolicyReconciler) buildPodLabelSelectorFromServiceEffectivePolicy(ep effectivepolicy.ServiceEffectivePolicy) metav1.LabelSelector {
 	// The intent's target server made of name + namespace + hash
-	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(intentsObj.GetServiceName(), intentsObj.Namespace)
+	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(ep.Service.Name, ep.Service.Namespace)
 
 	return metav1.LabelSelector{
 		MatchLabels: map[string]string{
