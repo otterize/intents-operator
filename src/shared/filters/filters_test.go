@@ -14,7 +14,7 @@ func TestFilterByOtterizeLabel(t *testing.T) {
 	assert.False(t, result)
 
 	// Set the label value to "Otterize"
-	labels := map[string]string{labelKey: labelValue}
+	labels := map[string]string{LabelKey: LabelValue}
 	obj.SetLabels(labels)
 
 	result = filterByOtterizeLabel(obj)

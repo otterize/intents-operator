@@ -5,12 +5,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const labelKey = "app.kubernetes.io/part-of"
-const labelValue = "otterize"
+const LabelKey = "app.kubernetes.io/part-of"
+const LabelValue = "otterize"
 
 var filterByOtterizeLabel = func(obj client.Object) bool {
-	existingValue, ok := obj.GetLabels()[labelKey]
-	return ok && existingValue == labelValue
+	existingValue, ok := obj.GetLabels()[LabelKey]
+	return ok && existingValue == LabelValue
 }
 
 // FilterByOtterizeLabelPredicate Filter only resources that are part of Otterize
