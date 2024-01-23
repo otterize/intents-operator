@@ -63,7 +63,7 @@ func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace s
 		updatedCRD.ObjectMeta.Labels = map[string]string{filters.LabelKey: filters.LabelValue}
 		err = k8sClient.Patch(ctx, updatedCRD, client.MergeFrom(&crd))
 		if err != nil {
-			return fmt.Errorf("could not Patch ClientIntents CRD: %w", err)
+			return fmt.Errorf("could not Patch %s CRD: %w", crd.Name, err)
 		}
 	}
 
