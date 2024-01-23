@@ -47,7 +47,7 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 	// Report Applied intents from namespace
 	clientIntentsList := &otterizev1alpha3.ClientIntentsList{}
 	if err := r.List(ctx, clientIntentsList, &client.ListOptions{Namespace: req.Namespace}); err != nil {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	clientIntentsList.Items = lo.Filter(clientIntentsList.Items, func(intents otterizev1alpha3.ClientIntents, _ int) bool {

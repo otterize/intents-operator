@@ -9,3 +9,5 @@ linters:
     - staticcheck
     - typecheck
     - unused
+    - nilnil
+    - nilerr
