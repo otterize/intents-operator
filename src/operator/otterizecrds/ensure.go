@@ -90,7 +90,7 @@ func GetCRDDefinitionByName(name string) (*apiextensionsv1.CustomResourceDefinit
 	case "protectedservices.k8s.otterize.com":
 		err = yaml.Unmarshal(protectedServiceCRDContents, &crd)
 	case "kafkaserverconfigs.k8s.otterize.com":
-		err = yaml.Unmarshal(protectedServiceCRDContents, &crd)
+		err = yaml.Unmarshal(KafkaServerConfigContents, &crd)
 	default:
 		return nil, fmt.Errorf("unknown CRD name: %s", name)
 	}
