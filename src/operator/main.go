@@ -25,6 +25,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/internet_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
@@ -204,15 +205,18 @@ func main() {
 
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
 	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-	epGrouReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler, svcNetworkPolicyHandler)
-
+	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler, svcNetworkPolicyHandler)
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
+		egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+		epGroupReconciler.AddReconciler(egressNetworkPolicyHandler)
+		internetNetpolReconciler := internet_network_policy.NewInternetNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+		epGroupReconciler.AddReconciler(internetNetpolReconciler)
 		svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-		epGrouReconciler.AddReconciler(svcEgressNetworkPolicyHandler)
+		epGroupReconciler.AddReconciler(svcEgressNetworkPolicyHandler)
+
 	}
-	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGrouReconciler)
+	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
-	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
 		if err != nil {
@@ -270,14 +274,25 @@ func main() {
 			logrus.WithError(err).Panic("unable to ensure otterize CRDs")
 		}
 
-		err = webhooks.UpdateValidationWebHookCA(signalHandlerCtx,
-			"otterize-validating-webhook-configuration", certBundle.CertPem)
+		validatingWebhookConfigsReconciler := controllers.NewValidatingWebhookConfigsReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			certBundle.CertPem,
+		)
+		err = validatingWebhookConfigsReconciler.SetupWithManager(mgr)
 		if err != nil {
-			logrus.WithError(err).Panic("updating validation webhook certificate failed")
+			logrus.WithError(err).Panic("unable to create controller", "controller", "ValidatingWebhookConfigs")
 		}
-		err = webhooks.UpdateConversionWebhookCAs(signalHandlerCtx, directClient, certBundle.CertPem)
+
+		customResourceDefinitionsReconciler := controllers.NewCustomResourceDefinitionsReconciler(
+			mgr.GetClient(),
+			mgr.GetScheme(),
+			certBundle.CertPem,
+			podNamespace,
+		)
+		err = customResourceDefinitionsReconciler.SetupWithManager(mgr)
 		if err != nil {
-			logrus.WithError(err).Panic("updating conversion webhook certificate failed")
+			logrus.WithError(err).Panic("unable to create controller", "controller", "CustomResourceDefinition")
 		}
 	}
 
@@ -315,7 +330,6 @@ func main() {
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
-		egressNetworkPolicyHandler,
 		watchedNamespaces,
 		enforcementConfig,
 		otterizeCloudClient,
@@ -379,7 +393,7 @@ func main() {
 		extNetpolHandler,
 		enforcementConfig.EnforcementDefaultState,
 		enforcementConfig.EnableNetworkPolicy,
-		epGrouReconciler,
+		epGroupReconciler,
 	)
 
 	err = protectedServicesReconciler.SetupWithManager(mgr)

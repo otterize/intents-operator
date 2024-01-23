@@ -394,6 +394,7 @@ enum EdgeAccessStatusReason {
 	INTERNET_ACCESS_STATUS_UNKNOWN
 	NO_INTENTS_FOUND_OF_RELEVANT_TYPE
 	IGNORED_IN_CALCULATION
+	INTERNET_INTENTS_ENFORCEMENT_DISABLED
 }
 
 enum EdgeAccessStatusVerdict {
@@ -1013,6 +1014,7 @@ type Query {
 		id: ID!
 		asServiceId: ID
 		lastSeenAfter: Time!
+		clusterIds: [ID!]
 	): ServiceClientIntents!
 """Get cluster"""
 	cluster(

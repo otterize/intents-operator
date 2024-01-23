@@ -28,7 +28,6 @@ func (s *IntentsControllerTestSuite) SetupTest() {
 		scheme.Scheme,
 		nil,
 		nil,
-		nil,
 		EnforcementConfig{},
 		nil,
 		"",
