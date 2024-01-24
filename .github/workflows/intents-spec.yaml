@@ -1,0 +1,5 @@
+spec:
+  calls:
+  - name: server
+  service:
+    name: client
