@@ -89,6 +89,9 @@ jobs:
       - name: Wait for Otterize
         run: |-
           kubectl wait pods -n otterize-system -l app=intents-operator --for condition=Ready --timeout=360s
+          # wait for webhook to be ready
+          POD_IP=`kubectl get pod -l app=intents-operator -n otterize-system -o=jsonpath='{.items[0].status.podIP}'`
+          kubectl wait -n otterize-system --for=jsonpath='{.subsets[0].addresses[0].ip}'=$POD_IP endpoints/intents-operator-webhook-service
 
 
       - name: Wait for Tutorial services
@@ -193,6 +196,10 @@ jobs:
       - name: Wait for Otterize
         run: |-
           kubectl wait pods -n otterize-system -l app=intents-operator --for condition=Ready --timeout=360s
+          # wait for webhook to be ready
+          POD_IP=`kubectl get pod -l app=intents-operator -n otterize-system -o=jsonpath='{.items[0].status.podIP}'`
+          kubectl wait -n otterize-system --for=jsonpath='{.subsets[0].addresses[0].ip}'=$POD_IP endpoints/intents-operator-webhook-service
+
 
 
       - name: Apply intents
@@ -295,6 +302,9 @@ jobs:
       - name: Wait for Otterize
         run: |-
           kubectl wait pods -n otterize-system -l app=intents-operator --for condition=Ready --timeout=360s
+          # wait for webhook to be ready
+          POD_IP=`kubectl get pod -l app=intents-operator -n otterize-system -o=jsonpath='{.items[0].status.podIP}'`
+          kubectl wait -n otterize-system --for=jsonpath='{.subsets[0].addresses[0].ip}'=$POD_IP endpoints/intents-operator-webhook-service
 
 
       - name: Wait for Tutorial services
