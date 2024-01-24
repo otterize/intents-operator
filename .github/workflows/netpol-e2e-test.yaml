@@ -337,23 +337,22 @@ jobs:
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
           
           # should not work at first because there is no allow DNS netpol
-          echo check client log
+          echo "check client log - should get timed out because it is missing DNS allow netpol"
           wait_for_log $CLI1_POD 10 "curl timed out"
           
           # should be blocked (using 3 because the log should repeat itself every 3 lines)
-          echo "check client other log"
-
+          echo "check client other log - should get timed out because it does not have an applied intent"
           wait_for_log $CLI2_POD 10 "curl timed out"
           
+          echo "apply allow DNS netpol"
           kubectl apply -f .github/workflows/allowDNS.yaml -n otterize-tutorial-npol
           
            # should work because there is an applied intent and allowDNS netpol
-          echo check client log
+          echo "check client log - should work because there is an applied intent and allowDNS netpol"
           wait_for_log $CLI1_POD 10 "Hi, I am the server, you called, may I help you?"
           
            # should be blocked (using 3 because the log should repeat itself every 3 lines)
-          echo check client other log
-
+          echo "check client other log - should get timed out because it does not have an applied intent"
           wait_for_log $CLI2_POD 10 "curl timed out"
   
   
