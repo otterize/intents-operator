@@ -151,6 +151,13 @@ func (v *IntentsValidatorV1alpha3) validateSpec(intents *otterizev1alpha3.Client
 			}
 		}
 		if intent.Type == otterizev1alpha3.IntentTypeInternet { // every ips should be valid ip
+			if intent.Internet == nil {
+				return &field.Error{
+					Type:   field.ErrorTypeRequired,
+					Field:  "internet",
+					Detail: fmt.Sprintf("invalid intent format. type %s must contain internet object", otterizev1alpha3.IntentTypeInternet),
+				}
+			}
 			if intent.Internet.Ips == nil || len(intent.Internet.Ips) == 0 {
 				return &field.Error{
 					Type:   field.ErrorTypeRequired,

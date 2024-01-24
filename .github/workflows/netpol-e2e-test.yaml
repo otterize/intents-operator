@@ -125,6 +125,9 @@ jobs:
           
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
           
+          echo "Validate intents spec format"
+          kubectl get clientintents.k8s.otterize.com -n otterize-tutorial-npol client -o yaml | awk '/spec:/,EOF' | diff -s - .github/workflows/intents-spec.yaml
+
           # should work because there is an applied intent
           echo check client log
           wait_for_log $CLI1_POD 10 "Hi, I am the server, you called, may I help you?"
