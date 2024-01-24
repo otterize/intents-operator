@@ -92,6 +92,8 @@ jobs:
           # wait for webhook to be ready
           POD_IP=`kubectl get pod -l app=intents-operator -n otterize-system -o=jsonpath='{.items[0].status.podIP}'`
           kubectl wait -n otterize-system --for=jsonpath='{.subsets[0].addresses[0].ip}'=$POD_IP endpoints/intents-operator-webhook-service
+          # wait for CRD update
+          kubectl wait --for=jsonpath='{.spec.conversion.webhook.clientConfig.service.namespace}'=otterize-system customresourcedefinitions/clientintents.k8s.otterize.com
 
 
       - name: Wait for Tutorial services
@@ -199,6 +201,8 @@ jobs:
           # wait for webhook to be ready
           POD_IP=`kubectl get pod -l app=intents-operator -n otterize-system -o=jsonpath='{.items[0].status.podIP}'`
           kubectl wait -n otterize-system --for=jsonpath='{.subsets[0].addresses[0].ip}'=$POD_IP endpoints/intents-operator-webhook-service
+          # wait for CRD update
+          kubectl wait --for=jsonpath='{.spec.conversion.webhook.clientConfig.service.namespace}'=otterize-system customresourcedefinitions/clientintents.k8s.otterize.com
 
 
 
@@ -305,6 +309,8 @@ jobs:
           # wait for webhook to be ready
           POD_IP=`kubectl get pod -l app=intents-operator -n otterize-system -o=jsonpath='{.items[0].status.podIP}'`
           kubectl wait -n otterize-system --for=jsonpath='{.subsets[0].addresses[0].ip}'=$POD_IP endpoints/intents-operator-webhook-service
+          # wait for CRD update
+          kubectl wait --for=jsonpath='{.spec.conversion.webhook.clientConfig.service.namespace}'=otterize-system customresourcedefinitions/clientintents.k8s.otterize.com
 
 
       - name: Wait for Tutorial services
