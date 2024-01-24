@@ -189,7 +189,7 @@ func (s *ValidationWebhookTestSuite) TestNameRequiredForEveryTypeExceptInternet(
 	_, err = s.AddIntentsV1alpha3("internet-intents", "internet-client", []otterizev1alpha3.Intent{
 		{
 			Type: otterizev1alpha3.IntentTypeInternet,
-			Internet: otterizev1alpha3.Internet{
+			Internet: &otterizev1alpha3.Internet{
 				Ips:   []string{"1.1.1.1"},
 				Ports: []int{80},
 			},

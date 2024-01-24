@@ -308,13 +308,13 @@ func (s *CloudReconcilerTestSuite) TestInternetUpload() {
 			Calls: []otterizev1alpha3.Intent{
 				{
 					Type: otterizev1alpha3.IntentTypeInternet,
-					Internet: otterizev1alpha3.Internet{
+					Internet: &otterizev1alpha3.Internet{
 						Ips: []string{"1.1.1.1", "2.2.2.0/24"},
 					},
 				},
 				{
 					Type: otterizev1alpha3.IntentTypeInternet,
-					Internet: otterizev1alpha3.Internet{
+					Internet: &otterizev1alpha3.Internet{
 						Ips:   []string{"3.3.3.3"},
 						Ports: []int{443},
 					},

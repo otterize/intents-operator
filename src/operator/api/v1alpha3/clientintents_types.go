@@ -150,7 +150,7 @@ type Service struct {
 
 type Intent struct {
 	//+optional
-	Name string `json:"name" yaml:"name"`
+	Name string `json:"name,omitempty" yaml:"name,omitempty"`
 
 	//+optional
 	Type IntentType `json:"type,omitempty" yaml:"type,omitempty"`
@@ -168,7 +168,7 @@ type Intent struct {
 	AWSActions []string `json:"awsActions,omitempty" yaml:"awsActions,omitempty"`
 
 	//+optional
-	Internet Internet `json:"internet,omitempty" yaml:"internet,omitempty"`
+	Internet *Internet `json:"internet,omitempty" yaml:"internet,omitempty"`
 }
 
 type Internet struct {
@@ -529,7 +529,7 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		})
 	}
 
-	if in.Internet.Ips != nil {
+	if in.Internet != nil && len(in.Internet.Ips) != 0 {
 		intentInput.Internet = &graphqlclient.InternetConfigInput{
 			Ips: lo.ToSlicePtr(in.Internet.Ips),
 		}
