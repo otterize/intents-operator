@@ -164,8 +164,8 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 }
 
 func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request, serviceID serviceidentity.ServiceIdentity, pod v1.Pod) error {
-	if !viper.GetBool(operatorconfig.EnableNetworkPolicyKey) {
-		logrus.Debug("Not labeling new pod since network policy creation is disabled")
+	if !viper.GetBool(operatorconfig.EnableNetworkPolicyKey) && !viper.GetBool(operatorconfig.EnableIstioPolicyKey) {
+		logrus.Debug("Not labeling new pod since network policy creation and Istio policy creation is disabled")
 		return nil
 	}
 
