@@ -210,6 +210,8 @@ jobs:
 
       - name: Apply intents
         run: |-
+          source .github/workflows/test-bashrc.sh
+
           kubectl create namespace otterize-tutorial-npol
           echo "Apply intents"
           apply_intents_and_wait_for_webhook https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
