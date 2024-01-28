@@ -123,10 +123,9 @@ jobs:
           echo Client: $CLI1_POD      client_other: $CLI2_POD
           source .github/workflows/test-bashrc.sh
           
-          kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
-          
-          echo "Validate intents spec format"
-          kubectl get clientintents.k8s.otterize.com -n otterize-tutorial-npol client -o yaml | sed -n '/spec:/,/status:/p' | diff -s - .github/workflows/intents-spec.yaml
+          echo "Apply intents"
+          apply_intents_and_wait_for_webhook https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
+          echo "Intents applied"
 
           # should work because there is an applied intent
           echo check client log
@@ -211,8 +210,12 @@ jobs:
 
       - name: Apply intents
         run: |-
+          source .github/workflows/test-bashrc.sh
+
           kubectl create namespace otterize-tutorial-npol
-          kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
+          echo "Apply intents"
+          apply_intents_and_wait_for_webhook https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
+          echo "Intents applied"
 
       - name: Deploy Tutorial services
         run: |-
@@ -343,7 +346,9 @@ jobs:
           echo Client: $CLI1_POD      client_other: $CLI2_POD
           source .github/workflows/test-bashrc.sh
           
-          kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
+          echo "Apply intents"
+          apply_intents_and_wait_for_webhook https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
+          echo "Intents applied"
           
           # should not work at first because there is no allow DNS netpol
           echo "check client log - should get timed out because it is missing DNS allow netpol"
