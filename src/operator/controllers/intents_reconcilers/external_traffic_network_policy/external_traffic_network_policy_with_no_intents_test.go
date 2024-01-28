@@ -3,7 +3,6 @@ package external_traffic_network_policy
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
@@ -54,7 +53,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupSuite() {
 	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 }
 
@@ -258,7 +257,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestNetworkPolic
 
 	// make sure the network policy was created between the two services based on the intents
 	netpol := &v1.NetworkPolicy{}
-	intentNetworkPolicyName := fmt.Sprintf(otterizev1alpha2.OtterizeNetworkPolicyNameTemplate, serviceName, s.TestNamespace)
+	intentNetworkPolicyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, serviceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, netpol)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(netpol)
