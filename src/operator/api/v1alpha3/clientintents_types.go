@@ -49,7 +49,7 @@ const (
 	AllIntentsRemovedAnnotation                          = "intents.otterize.com/all-intents-removed"
 	OtterizeCreatedForServiceAnnotation                  = "intents.otterize.com/created-for-service"
 	OtterizeCreatedForIngressAnnotation                  = "intents.otterize.com/created-for-ingress"
-	OtterizeNetworkPolicyNameTemplate                    = "access-to-%s-from-%s"
+	OtterizeNetworkPolicyNameTemplate                    = "access-to-%s"
 	OtterizeServiceNetworkPolicyNameTemplate             = "svc-access-to-%s-from-%s"
 	OtterizeNetworkPolicy                                = "intents.otterize.com/network-policy"
 	OtterizeSvcNetworkPolicy                             = "intents.otterize.com/svc-network-policy"

@@ -10,6 +10,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/testbase"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
@@ -165,7 +166,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyIgnoreAWS() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
+	policyName := "access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -228,7 +229,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyIgnoreAWS() {
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
+	policyName := "access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -247,7 +248,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServices() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
+	policyName := "access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -276,7 +277,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServicesMultipleResources() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
+	policyName := "access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -316,7 +317,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
+	policyName := "access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
 	formattedTargetServer := "test-server-other-namespace-f6a461"
@@ -335,7 +336,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
+	policyName := "access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -351,7 +352,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespace() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
+	policyName := "access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
 	formattedTargetServer := "test-server-other-namespace-f6a461"
@@ -367,7 +368,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespac
 
 func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
+	policyName := "access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -425,7 +426,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 
 func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server-from-test-namespace"
+	policyName := "access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -485,7 +486,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 
 	nonExistingServer := "old-non-existing-server"
 	orphanPolicy := networkPolicyTemplate(
-		"access-to-old-non-existing-server-from-test-namespace",
+		"access-to-old-non-existing-server",
 		serverNamespace,
 		nonExistingServer,
 		testNamespace,
@@ -622,8 +623,27 @@ func networkPolicyTemplate(
 	policyName string,
 	targetNamespace string,
 	formattedTargetServer string,
-	intentsObjNamespace string,
+	intentsObjNamespaces ...string,
 ) *v1.NetworkPolicy {
+	ingressRules := lo.Map(intentsObjNamespaces, func(namespace string, _ int) v1.NetworkPolicyIngressRule {
+		return v1.NetworkPolicyIngressRule{
+			From: []v1.NetworkPolicyPeer{
+				{
+					PodSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							fmt.Sprintf(
+								otterizev1alpha3.OtterizeAccessLabelKey, formattedTargetServer): "true",
+						},
+					},
+					NamespaceSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: namespace,
+						},
+					},
+				},
+			},
+		}
+	})
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
@@ -639,25 +659,7 @@ func networkPolicyTemplate(
 					otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
 				},
 			},
-			Ingress: []v1.NetworkPolicyIngressRule{
-				{
-					From: []v1.NetworkPolicyPeer{
-						{
-							PodSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									fmt.Sprintf(
-										otterizev1alpha3.OtterizeAccessLabelKey, formattedTargetServer): "true",
-								},
-							},
-							NamespaceSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intentsObjNamespace,
-								},
-							},
-						},
-					},
-				},
-			},
+			Ingress: ingressRules,
 		},
 	}
 }
@@ -773,7 +775,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	policyName := "access-to-test-server-from-test-namespace"
+	policyName := "access-to-test-server"
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
 	namespacedName := types.NamespacedName{
@@ -848,6 +850,91 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
+}
+
+// This test checks that for 2 different intents from different namespaces to the same target server
+// only one networkPolicy will be creted, and it will have 2 ingress rules (one for each namespace)
+func (s *NetworkPolicyReconcilerTestSuite) TestTwoClientsFromDifferentNamespacesWithSameServer() {
+	clientIntentsName := "client-intents"
+	otherClientIntentsName := "other-client-intents"
+	otherClientIntentsNamespace := "other-namespace"
+	serviceName := "test-client"
+	serverNamespace := testNamespace
+	policyName := "access-to-test-server"
+	formattedTargetServer := "test-server-test-namespace-8ddecb"
+
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
+			{
+				Name: serverName,
+			},
+		},
+	}
+
+	clientIntentsObj := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clientIntentsName,
+			Namespace: testNamespace,
+		},
+		Spec: intentsSpec,
+	}
+
+	otherClientIntentsDifferentNamespace := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      otherClientIntentsName,
+			Namespace: otherClientIntentsNamespace,
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: "other-client"},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: serverName,
+				},
+			},
+		},
+	}
+
+	// Search for existing NetworkPolicy
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	networkPolicyNamespacedName := types.NamespacedName{
+		Namespace: serverNamespace,
+		Name:      policyName,
+	}
+
+	newPolicy := networkPolicyTemplate(
+		policyName,
+		serverNamespace,
+		formattedTargetServer,
+		testNamespace,
+		otherClientIntentsNamespace,
+	)
+
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntentsObj, otherClientIntentsDifferentNamespace})
+	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).Return(apierrors.NewNotFound(v1.Resource("networkpolicy"), networkPolicyNamespacedName.Name))
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
+	selector, err := metav1.LabelSelectorAsSelector(&newPolicy.Spec.PodSelector)
+	s.Require().NoError(err)
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, gomock.Eq(selector))
+	s.ignoreRemoveOrphan()
+
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
+	s.Require().NoError(err)
+	s.Empty(res)
+
+	// expect two events for the two clients
+	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
+	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
+
 }
 
 func TestNetworkPolicyReconcilerTestSuite(t *testing.T) {
