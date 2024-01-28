@@ -7,7 +7,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/telemetries/basicbatch"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"net/http"
 	"time"
@@ -34,7 +33,7 @@ func newGqlClient() graphql.Client {
 func batchSendTelemetries(ctx context.Context, telemetriesClient graphql.Client, telemetries []telemetriesgql.TelemetryInput) error {
 	_, err := telemetriesgql.SendTelemetries(ctx, telemetriesClient, telemetries)
 	if err != nil {
-		logrus.Errorf("failed batch sending telemetries: %s", err)
+		return errors.Errorf("failed batch sending telemetries: %w", err)
 	}
 	return nil
 }

@@ -223,8 +223,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 	if hasUpdates {
 		err = p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
-			logrus.Errorf("Failed updating Otterize labels for pod %s in namespace %s", pod.Name, pod.Namespace)
-			return errors.Wrap(err)
+			return errors.Errorf("failed updating Otterize labels for pod %s in namespace %s: %w", pod.Name, pod.Namespace, err)
 		}
 	}
 	return nil

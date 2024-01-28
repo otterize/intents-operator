@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"github.com/Khan/genqlient/graphql"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -26,10 +26,10 @@ func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 		return nil, false, nil
 	}
 	if clientID == "" {
-		return nil, true, errors.New("missing cloud integration client ID")
+		return nil, false, errors.New("missing cloud integration client ID")
 	}
 	if secret == "" {
-		return nil, true, errors.New("missing cloud integration secret")
+		return nil, false, errors.New("missing cloud integration secret")
 	}
 
 	componentinfo.SetGlobalCloudClientId(clientID)
@@ -49,12 +49,11 @@ func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 		logrus.Infof("Loading root CA from cert PEM file at '%s'", path)
 		cert, err := os.ReadFile(path)
 		if err != nil {
-			logrus.Errorf("Error loading cert PEM file at '%s', trying to continue without it: %s", path, err)
-			continue
+			return nil, false, errors.Errorf("error loading cert PEM file at '%s', trying to continue without it: %w", path, err)
 		}
 
 		if ok := rootCAs.AppendCertsFromPEM(cert); !ok {
-			logrus.Warnf("Failed appending cert PEM file at '%s', trying to continue without it", path)
+			return nil, false, errors.Errorf("Failed appending cert PEM file at '%s', trying to continue without it", path)
 		}
 	}
 
