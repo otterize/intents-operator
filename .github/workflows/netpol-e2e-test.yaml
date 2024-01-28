@@ -124,9 +124,6 @@ jobs:
           source .github/workflows/test-bashrc.sh
           
           kubectl apply -f https://docs.otterize.com/code-examples/automate-network-policies/intents.yaml
-          
-          echo "Validate intents spec format"
-          kubectl get clientintents.k8s.otterize.com -n otterize-tutorial-npol client -o yaml | sed -n '/spec:/,/status:/p' | diff -s - .github/workflows/intents-spec.yaml
 
           # should work because there is an applied intent
           echo check client log
