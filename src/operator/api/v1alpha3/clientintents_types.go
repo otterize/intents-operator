@@ -76,7 +76,7 @@ const (
 	OtterizeSvcEgressNetworkPolicyTarget                 = "intents.otterize.com/svc-egress-network-policy-target"
 	OtterizeSvcEgressNetworkPolicyTargetService          = "intents.otterize.com/svc-egress-network-policy-target-service"
 	OtterizeSvcEgressNetworkPolicyTargetServiceNamespace = "intents.otterize.com/svc-egress-network-policy-target-service-namespace"
-	OtterizeEgressNetworkPolicyNameTemplate              = "egress-to-%s-from-%s"
+	OtterizeEgressNetworkPolicyNameTemplate              = "egress-from-%s"
 	OtterizeEgressNetworkPolicy                          = "intents.otterize.com/egress-network-policy"
 	OtterizeEgressNetworkPolicyTarget                    = "intents.otterize.com/egress-network-policy-target"
 	OtterizeInternetNetworkPolicy                        = "intents.otterize.com/egress-internet-network-policy"
