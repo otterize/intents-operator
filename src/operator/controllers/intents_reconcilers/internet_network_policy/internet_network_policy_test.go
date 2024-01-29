@@ -105,7 +105,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 	s.Reconciler.enforcementDefaultState = true
 
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-internet-from-test-client"
+	policyName := "egress-from-test-client-to-internet"
 	serviceName := "test-client"
 	clientNamespace := testClientNamespace
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
@@ -194,7 +194,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyMultipleEndpoints() {
 	s.Reconciler.enforcementDefaultState = true
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-internet-from-test-client"
+	policyName := "egress-from-test-client-to-internet"
 	serviceName := "test-client"
 	clientNamespace := testClientNamespace
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
@@ -359,7 +359,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNetworkPolicyDeletedClean
 	// 1. get all effective policies - this intent will not create a policy cause it is being deleted
 	// 2. remove the "old" policy by calling the removeNetworkPoliciesThatShouldNotExist function
 
-	policyName := "egress-to-internet-from-test-client"
+	policyName := "egress-from-test-client-to-internet"
 
 	existingPolicy := &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -409,7 +409,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	s.Reconciler.enforcementDefaultState = true
 
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-internet-from-test-client"
+	policyName := "egress-from-test-client-to-internet"
 	serviceName := "test-client"
 	clientNamespace := testClientNamespace
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
@@ -516,7 +516,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 	s.Reconciler.enforcementDefaultState = true
 
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-internet-from-test-client"
+	policyName := "egress-from-test-client-to-internet"
 	serviceName := "test-client"
 	clientNamespace := testClientNamespace
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"

@@ -124,7 +124,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) expectRemoveOrphanFindsPolicies
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-test-server.test-server-namespace-from-test-client"
+	policyName := "egress-from-test-client"
 	serviceName := "test-client"
 	serverNamespace := testServerNamespace
 	clientNamespace := testClientNamespace
@@ -145,7 +145,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-test-server.other-namespace-from-test-client"
+	policyName := "egress-from-test-client"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
 	clientNamespace := testClientNamespace
@@ -166,7 +166,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNam
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-test-server.test-server-namespace-from-test-client"
+	policyName := "egress-from-test-client"
 	serviceName := "test-client"
 	clientNamespace := testClientNamespace
 	serverNamespace := testServerNamespace
@@ -184,7 +184,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespace() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-test-server.other-namespace-from-test-client"
+	policyName := "egress-from-test-client"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
 	clientNamespace := testClientNamespace
@@ -202,7 +202,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNa
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-test-server.test-server-namespace-from-test-client"
+	policyName := "egress-from-test-client"
 	serviceName := "test-client"
 	serverNamespace := testServerNamespace
 	formattedTargetServer := "test-server-test-server-namespac-48aee4"
@@ -264,7 +264,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-test-server.test-server-namespace-from-test-client"
+	policyName := "egress-from-test-client"
 	serviceName := "test-client"
 	serverNamespace := testServerNamespace
 	formattedTargetServer := "test-server-test-server-namespac-48aee4"
@@ -324,7 +324,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 
 	nonExistingServer := "old-non-existing-server"
 	orphanPolicy := networkPolicyTemplate(
-		"egress-to-old-non-existing-server-from-test-server-namespace",
+		"egress-from-test-server-namespace",
 		serverNamespace,
 		"test-client-test-server-namespac-8e2cac",
 		nonExistingServer,
@@ -489,8 +489,7 @@ func networkPolicyTemplate(
 			Name:      policyName,
 			Namespace: intentsObjNamespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeEgressNetworkPolicy:       formattedTargetClient,
-				otterizev1alpha3.OtterizeEgressNetworkPolicyTarget: formattedTargetServer,
+				otterizev1alpha3.OtterizeEgressNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
