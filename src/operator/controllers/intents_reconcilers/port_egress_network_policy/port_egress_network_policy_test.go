@@ -151,12 +151,7 @@ func (s *NetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 			Name:      policyName,
 			Namespace: targetNamespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeSvcEgressNetworkPolicy:       formattedClient,
-				otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTarget: formattedServer,
-			},
-			Annotations: map[string]string{
-				otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetService:          svcObject.Name,
-				otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetServiceNamespace: svcObject.Namespace,
+				otterizev1alpha3.OtterizeSvcEgressNetworkPolicy: formattedClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -250,7 +245,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestErrorWhenKubernetesServiceWithNoP
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-egress-to-test-server.test-namespace-from-test-client"
+	policyName := "svc-egress-from-test-client"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedClient := "test-client-test-client-namespac-edb3a2"
@@ -269,12 +264,11 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetesServ
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForAPIServerServiceWithoutPod() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-egress-to-kubernetes.default-from-test-client"
+	policyName := "svc-egress-from-test-client"
 	serviceName := "test-client"
 	serverName := "svc:kubernetes"
 	serverNamespace := "default"
 	formattedClient := "test-client-test-client-namespac-edb3a2"
-	formattedServer := "kubernetes-default-e850ec"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
@@ -376,12 +370,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForAPIServerSe
 			Name:      policyName,
 			Namespace: testClientNamespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeSvcEgressNetworkPolicy:       formattedClient,
-				otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTarget: formattedServer,
-			},
-			Annotations: map[string]string{
-				otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetService:          svcObject.Name,
-				otterizev1alpha3.OtterizeSvcEgressNetworkPolicyTargetServiceNamespace: svcObject.Namespace,
+				otterizev1alpha3.OtterizeSvcEgressNetworkPolicy: formattedClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -512,7 +501,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 
 func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-egress-to-test-server.test-namespace-from-test-client"
+	policyName := "svc-egress-from-test-client"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedClient := "test-client-test-client-namespac-edb3a2"
@@ -581,7 +570,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesS
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-egress-to-test-server.test-namespace-from-test-client"
+	policyName := "svc-egress-from-test-client"
 	serviceName := "test-client"
 	formattedClient := "test-client-test-client-namespac-edb3a2"
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
