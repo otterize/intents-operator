@@ -71,7 +71,7 @@ const (
 	NetworkPoliciesByIngressNameIndexField               = "networkPoliciesByIngressName"
 	MaxOtterizeNameLength                                = 20
 	MaxNamespaceLength                                   = 20
-	OtterizeSvcEgressNetworkPolicyNameTemplate           = "svc-egress-to-%s-from-%s"
+	OtterizeSvcEgressNetworkPolicyNameTemplate           = "svc-egress-from-%s"
 	OtterizeSvcEgressNetworkPolicy                       = "intents.otterize.com/svc-egress-network-policy"
 	OtterizeSvcEgressNetworkPolicyTarget                 = "intents.otterize.com/svc-egress-network-policy-target"
 	OtterizeSvcEgressNetworkPolicyTargetService          = "intents.otterize.com/svc-egress-network-policy-target-service"
