@@ -134,6 +134,19 @@ func (s *ManagerSuite) mockGetTLSKeyPair(entryId string) {
 		}, nil)
 }
 
+func (s *ManagerSuite) mockGetTLSKeyPair_NoIntCAPEM(entryId string) {
+
+	expiry, err := time.Parse(ExpiryTimeTestLayout, ExpiryTimeTestStr)
+	s.Require().NoError(err)
+	s.otterizeCloud.EXPECT().GetTLSKeyPair(gomock.Any(), entryId).
+		Return(otterizegraphql.TLSKeyPair{
+			ExpiresAt: int(expiry.Unix()),
+			CertPEM:   CertPEM,
+			RootCAPEM: RootCAPEM,
+			KeyPEM:    KeyPEM,
+		}, nil)
+}
+
 func (s *ManagerSuite) TestCertGenerator_GeneratePEM() {
 
 	entryId := "/test"
@@ -147,6 +160,26 @@ func (s *ManagerSuite) TestCertGenerator_GeneratePEM() {
 	expiryUnix := time.Unix(expiry.Unix(), 0)
 	expectedCertData := secretstypes.PEMCert{
 		CA:          bytes.Join([][]byte{[]byte(CAPEM), []byte(RootCAPEM)}, []byte("\n")),
+		Key:         []byte(KeyPEM),
+		Certificate: []byte(CertPEM),
+		Expiry:      expiryUnix.Format(time.RFC3339),
+	}
+	s.Equal(expectedCertData, certPEM)
+}
+
+func (s *ManagerSuite) TestCertGenerator_GeneratePEM_EmptyIntCAPEM() {
+
+	entryId := "/test"
+
+	s.mockGetTLSKeyPair_NoIntCAPEM(entryId)
+
+	certPEM, err := s.certGenerator.GeneratePEM(context.Background(), entryId)
+	s.Require().NoError(err)
+	expiry, err := time.Parse(ExpiryTimeTestLayout, ExpiryTimeTestStr)
+	s.Require().NoError(err)
+	expiryUnix := time.Unix(expiry.Unix(), 0)
+	expectedCertData := secretstypes.PEMCert{
+		CA:          []byte(RootCAPEM),
 		Key:         []byte(KeyPEM),
 		Certificate: []byte(CertPEM),
 		Expiry:      expiryUnix.Format(time.RFC3339),
@@ -206,6 +239,55 @@ func (s *ManagerSuite) TestCertGenerator_GenerateJKS() {
 	s.Require().Equal([]byte(certChain[0]), pkey.CertificateChain[0].Content)
 	s.Require().Equal([]byte(certChain[1]), pkey.CertificateChain[1].Content)
 	s.Require().Equal([]byte(certChain[2]), pkey.CertificateChain[2].Content)
+
+}
+
+func (s *ManagerSuite) TestCertGenerator_GenerateJKS_EmptyIntCAPEM() {
+	entryId := "/test"
+	password := []byte("password")
+	s.mockGetTLSKeyPair_NoIntCAPEM(entryId)
+	certJKS, err := s.certGenerator.GenerateJKS(context.Background(), entryId, string(password))
+	s.Require().NoError(err)
+
+	// test cert expiry
+	expiry, err := time.Parse(ExpiryTimeTestLayout, ExpiryTimeTestStr)
+	s.Require().NoError(err)
+	expiryUnix := time.Unix(expiry.Unix(), 0)
+	s.Require().Equal(expiryUnix.Format(time.RFC3339), certJKS.Expiry)
+
+	// test truststore is as expected
+	ts := keystore.New()
+	trustStoreReader := bytes.NewReader(certJKS.TrustStore)
+	err = ts.Load(trustStoreReader, password)
+	s.Require().NoError(err)
+	s.Require().Equal(len(ts.Aliases()), 1)
+	caAliases := ts.Aliases()
+	sort.Strings(caAliases)
+	caAlias := caAliases[0]
+	ca, err := ts.GetTrustedCertificateEntry(caAlias)
+	s.Require().NoError(err)
+	s.Require().Equal([]byte(RootCAPEM), ca.Certificate.Content)
+
+	// test keystore is as expected
+	ks := keystore.New()
+	keyStoreReader := bytes.NewReader(certJKS.KeyStore)
+	err = ks.Load(keyStoreReader, password)
+	s.Require().NoError(err)
+	s.Require().Equal(len(ks.Aliases()), 1)
+	pkey, err := ks.GetPrivateKeyEntry("pkey", password)
+	s.Require().NoError(err)
+	// compare pkey
+	decodedPkey, _ := pem.Decode([]byte(KeyPEM))
+	pkc1Pk, err := x509.ParsePKCS1PrivateKey(decodedPkey.Bytes)
+	s.Require().NoError(err)
+	pkBytes, err := x509.MarshalPKCS8PrivateKey(pkc1Pk)
+	s.Require().NoError(err)
+	s.Require().Equal(pkBytes, pkey.PrivateKey)
+	// compare certificate chain
+	certChain := []string{CertPEM, RootCAPEM}
+	// remove padding in order to compare
+	s.Require().Equal([]byte(certChain[0]), pkey.CertificateChain[0].Content)
+	s.Require().Equal([]byte(certChain[1]), pkey.CertificateChain[1].Content)
 
 }
 

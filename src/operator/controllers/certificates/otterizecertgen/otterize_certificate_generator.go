@@ -35,7 +35,7 @@ func (m *OtterizeCertificateDataGenerator) GeneratePEM(ctx context.Context, serv
 		return secretstypes.PEMCert{}, errors.Wrap(err)
 	}
 	expiryStr := keyPairToExpiryStr(keyPair)
-	certCAChain := lo.Map([]string{keyPair.CaPEM, keyPair.RootCAPEM}, func(cert string, _ int) []byte { return []byte(cert) })
+	certCAChain := lo.FilterMap([]string{keyPair.CaPEM, keyPair.RootCAPEM}, func(cert string, _ int) ([]byte, bool) { return []byte(cert), len(cert) > 0 })
 	CaPoolPem := bytes.Join(certCAChain, []byte("\n"))
 
 	return secretstypes.PEMCert{Key: []byte(keyPair.KeyPEM), Certificate: []byte(keyPair.CertPEM), CA: CaPoolPem, Expiry: expiryStr}, nil
@@ -46,7 +46,7 @@ func (m *OtterizeCertificateDataGenerator) GenerateJKS(ctx context.Context, serv
 	if err != nil {
 		return secretstypes.JKSCert{}, errors.Wrap(err)
 	}
-	certChain := lo.Map([]string{keyPair.CertPEM, keyPair.CaPEM, keyPair.RootCAPEM}, func(cert string, _ int) []byte { return []byte(cert) })
+	certChain := lo.FilterMap([]string{keyPair.CertPEM, keyPair.CaPEM, keyPair.RootCAPEM}, func(cert string, _ int) ([]byte, bool) { return []byte(cert), len(cert) > 0 })
 	keyStore, err := jks.PemToKeyStore(certChain, []byte(keyPair.KeyPEM), password)
 	if err != nil {
 		return secretstypes.JKSCert{}, errors.Wrap(err)
