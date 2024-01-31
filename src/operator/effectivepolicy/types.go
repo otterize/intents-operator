@@ -13,7 +13,8 @@ type ClientCall struct {
 }
 
 type ServiceEffectivePolicy struct {
-	Service      serviceidentity.ServiceIdentity
-	CalledBy     []ClientCall
-	ClientIntent *v1alpha3.ClientIntents
+	Service                    serviceidentity.ServiceIdentity
+	CalledBy                   []ClientCall
+	Calls                      []v1alpha3.Intent
+	ClientIntentsEventRecorder *injectablerecorder.ObjectEventRecorder
 }

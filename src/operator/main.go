@@ -25,6 +25,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/internet_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
@@ -45,7 +46,6 @@ import (
 	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
@@ -204,10 +204,19 @@ func main() {
 	)
 
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
-	epGrouReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
-	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGrouReconciler)
+	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler, svcNetworkPolicyHandler)
+	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
+		egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+		epGroupReconciler.AddReconciler(egressNetworkPolicyHandler)
+		internetNetpolReconciler := internet_network_policy.NewInternetNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+		epGroupReconciler.AddReconciler(internetNetpolReconciler)
+		svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+		epGroupReconciler.AddReconciler(svcEgressNetworkPolicyHandler)
+
+	}
+	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
-	egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
 		if err != nil {
@@ -221,8 +230,6 @@ func main() {
 			logrus.WithError(err).Panic("unable to register pod watcher")
 		}
 	}
-	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-	svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to init index for ingress")
@@ -323,9 +330,6 @@ func main() {
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
-		svcNetworkPolicyHandler,
-		egressNetworkPolicyHandler,
-		svcEgressNetworkPolicyHandler,
 		watchedNamespaces,
 		enforcementConfig,
 		otterizeCloudClient,
@@ -389,7 +393,7 @@ func main() {
 		extNetpolHandler,
 		enforcementConfig.EnforcementDefaultState,
 		enforcementConfig.EnableNetworkPolicy,
-		epGrouReconciler,
+		epGroupReconciler,
 	)
 
 	err = protectedServicesReconciler.SetupWithManager(mgr)
@@ -399,11 +403,7 @@ func main() {
 
 	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
-	svcReconcilers := []reconcile.Reconciler{svcNetworkPolicyHandler}
-	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
-		svcReconcilers = append(svcReconcilers, svcEgressNetworkPolicyHandler)
-	}
-	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), svcReconcilers)
+	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler)
 
 	err = svcWatcher.SetupWithManager(mgr)
 	if err != nil {

@@ -22,10 +22,6 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/internet_network_policy"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -76,9 +72,6 @@ func NewIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
-	portNetpolReconciler *port_network_policy.PortNetworkPolicyReconciler,
-	egressNetpolReconciler *egress_network_policy.EgressNetworkPolicyReconciler,
-	portEgressNetpolReconciler *port_egress_network_policy.PortEgressNetworkPolicyReconciler,
 	restrictToNamespaces []string,
 	enforcementConfig EnforcementConfig,
 	otterizeClient operator_cloud_client.CloudClient,
@@ -105,8 +98,6 @@ func NewIntentsReconciler(
 		reconcilers...,
 	)
 
-	reconcilersGroup.AddToGroup(portNetpolReconciler)
-
 	intentsReconciler := &IntentsReconciler{
 		group:  reconcilersGroup,
 		client: client,
@@ -125,13 +116,6 @@ func NewIntentsReconciler(
 	if enforcementConfig.EnableDatabasePolicy {
 		databaseReconciler := database.NewDatabaseReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
-	}
-
-	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
-		internetNetpolReconciler := internet_network_policy.NewInternetNetworkPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-		intentsReconciler.group.AddToGroup(internetNetpolReconciler)
-		intentsReconciler.group.AddToGroup(egressNetpolReconciler)
-		intentsReconciler.group.AddToGroup(portEgressNetpolReconciler)
 	}
 
 	return intentsReconciler

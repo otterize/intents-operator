@@ -9,6 +9,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,7 +53,9 @@ func (g *GroupReconciler) Reconcile(ctx context.Context) error {
 	}
 
 	errorList := make([]error, 0)
+	logrus.Infof("Reconciling %d effectivePolicies", len(eps))
 	for _, epReconciler := range g.reconcilers {
+		logrus.Infof("Starting cycle for %T", epReconciler)
 		_, err := epReconciler.ReconcileEffectivePolicies(ctx, eps)
 		if err != nil {
 			errorList = append(errorList, errors.Wrap(err))
@@ -73,17 +76,16 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 	// Extract all services from intents
 	services := goset.NewSet[serviceidentity.ServiceIdentity]()
 	for _, clientIntent := range intentsList.Items {
+		if !clientIntent.DeletionTimestamp.IsZero() {
+			continue
+		}
 		service := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace}
 		services.Add(service)
 		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
-			if intentCall.IsTargetOutOfCluster() {
+			if !g.shouldCreateEffectivePolicyForIntentTargetServer(intentCall) {
 				continue
 			}
-			if intentCall.IsTargetServerKubernetesService() {
-				continue
-			}
-
 			services.Add(serviceidentity.ServiceIdentity{Name: intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(clientIntent.Namespace)})
 		}
 	}
@@ -95,13 +97,27 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		if err != nil {
 			return nil, err
 		}
-		if intent, ok := serviceToIntent[service]; ok {
-			ep.ClientIntent = lo.ToPtr(intent)
+		// Ignore intents in deletion process
+		if clientIntents, ok := serviceToIntent[service]; ok && clientIntents.DeletionTimestamp.IsZero() && clientIntents.Spec != nil {
+			ep.Calls = append(ep.Calls, clientIntents.GetCallsList()...)
+			ep.ClientIntentsEventRecorder = injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntents))
 		}
 		epSlice = append(epSlice, ep)
 	}
 
 	return epSlice, nil
+}
+
+// shouldCreateEffectivePolicyForIntentTargetServer that checks if we should create a SEP for a given intent target server
+func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(intent v1alpha3.Intent) bool {
+	if intent.IsTargetOutOfCluster() {
+		return false
+	}
+        // Services are currently unused when used as a target, since the policy is created by looking at client Calls.
+	if intent.IsTargetServerKubernetesService() {
+		return false
+	}
+	return true
 }
 
 func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, service serviceidentity.ServiceIdentity) (ServiceEffectivePolicy, error) {
@@ -111,17 +127,28 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, servi
 	}
 	ep := ServiceEffectivePolicy{Service: service}
 	for _, clientIntent := range relevantClientIntents {
-		if !clientIntent.DeletionTimestamp.IsZero() {
+		if !clientIntent.DeletionTimestamp.IsZero() || clientIntent.Spec == nil {
 			continue
 		}
-		clientService := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace}
-		intendedCalls := getCallsListByServer(service, clientIntent)
-		for _, intendedCall := range intendedCalls {
-			objEventRecorder := injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntent))
-			ep.CalledBy = append(ep.CalledBy, ClientCall{Service: clientService, IntendedCall: intendedCall, ObjectEventRecorder: objEventRecorder})
-		}
+		clientCalls := g.filterAndTransformClientIntentsIntoClientCalls(clientIntent, func(intent v1alpha3.Intent) bool {
+			return intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
+		})
+		ep.CalledBy = append(ep.CalledBy, clientCalls...)
 	}
 	return ep, nil
+}
+
+func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientIntent v1alpha3.ClientIntents, filter func(intent v1alpha3.Intent) bool) []ClientCall {
+	clientService := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace}
+	clientCalls := make([]ClientCall, 0)
+	for _, intendedCall := range clientIntent.GetCallsList() {
+		if !filter(intendedCall) {
+			continue
+		}
+		objEventRecorder := injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntent))
+		clientCalls = append(clientCalls, ClientCall{Service: clientService, IntendedCall: intendedCall, ObjectEventRecorder: objEventRecorder})
+	}
+	return clientCalls
 }
 
 func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v1alpha3.ClientIntents, error) {
@@ -136,14 +163,4 @@ func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server s
 		return nil, err
 	}
 	return intentsList.Items, nil
-}
-
-func getCallsListByServer(server serviceidentity.ServiceIdentity, clientIntent v1alpha3.ClientIntents) []v1alpha3.Intent {
-	calls := make([]v1alpha3.Intent, 0)
-	for _, intent := range clientIntent.GetCallsList() {
-		if intent.GetTargetServerName() == server.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == server.Namespace {
-			calls = append(calls, intent)
-		}
-	}
-	return calls
 }
