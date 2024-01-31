@@ -74,10 +74,6 @@ func (r *EgressNetworkPolicyReconciler) applyEffectivePolicy(ctx context.Context
 		return networkPolicies, nil
 	}
 
-	netpol, shouldCreate := r.buildNetworkPolicyObjectForEffectivePolicy(ep)
-	if !shouldCreate {
-		return networkPolicies, nil
-	}
 	netpol, created, err := r.handleNetworkPolicyCreation(ctx, ep)
 	if err != nil {
 		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonCreatingEgressNetworkPoliciesFailed, "could not create network policies: %s", err.Error())
@@ -147,15 +143,14 @@ func (r *EgressNetworkPolicyReconciler) ReconcileEffectivePolicies(ctx context.C
 }
 
 func (r *EgressNetworkPolicyReconciler) handleNetworkPolicyCreation(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) (*v1.NetworkPolicy, bool, error) {
-	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeEgressNetworkPolicyNameTemplate, ep.Service.Name)
 	existingPolicy := &v1.NetworkPolicy{}
 	newPolicy, shouldCreate := r.buildNetworkPolicyObjectForEffectivePolicy(ep)
 	if !shouldCreate {
 		return nil, false, nil
 	}
 	err := r.Get(ctx, types.NamespacedName{
-		Name:      policyName,
-		Namespace: ep.Service.Namespace},
+		Name:      newPolicy.Name,
+		Namespace: newPolicy.Namespace},
 		existingPolicy)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingEgressNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
