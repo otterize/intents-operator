@@ -113,6 +113,7 @@ func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(inten
 	if intent.IsTargetOutOfCluster() {
 		return false
 	}
+        // Services are currently unused when used as a target, since the policy is created by looking at client Calls.
 	if intent.IsTargetServerKubernetesService() {
 		return false
 	}
