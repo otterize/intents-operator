@@ -124,7 +124,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 		Calls: []otterizev1alpha3.Intent{
 			{
 				Type: otterizev1alpha3.IntentTypeInternet,
-				Internet: otterizev1alpha3.Internet{
+				Internet: &otterizev1alpha3.Internet{
 					Ips: ips,
 				},
 			},
@@ -218,14 +218,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyMultip
 		Calls: []otterizev1alpha3.Intent{
 			{
 				Type: otterizev1alpha3.IntentTypeInternet,
-				Internet: otterizev1alpha3.Internet{
+				Internet: &otterizev1alpha3.Internet{
 					Ips:   []string{endpointAIp1, endpointAip2},
 					Ports: []int{endpointAPort},
 				},
 			},
 			{
 				Type: otterizev1alpha3.IntentTypeInternet,
-				Internet: otterizev1alpha3.Internet{
+				Internet: &otterizev1alpha3.Internet{
 					Ips:   []string{endpointBIp},
 					Ports: []int{endpointBPort},
 				},
@@ -338,7 +338,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNetworkPolicyDeletedClean
 		Calls: []otterizev1alpha3.Intent{
 			{
 				Type: otterizev1alpha3.IntentTypeInternet,
-				Internet: otterizev1alpha3.Internet{
+				Internet: &otterizev1alpha3.Internet{
 					Ips: ips,
 				}},
 		},
@@ -428,7 +428,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 		Calls: []otterizev1alpha3.Intent{
 			{
 				Type: otterizev1alpha3.IntentTypeInternet,
-				Internet: otterizev1alpha3.Internet{
+				Internet: &otterizev1alpha3.Internet{
 					Ips: ips,
 				},
 			},
@@ -543,7 +543,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 			Calls: []otterizev1alpha3.Intent{
 				{
 					Type: otterizev1alpha3.IntentTypeInternet,
-					Internet: otterizev1alpha3.Internet{
+					Internet: &otterizev1alpha3.Internet{
 						Ips: ips,
 					},
 				},
@@ -730,7 +730,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 		Calls: []otterizev1alpha3.Intent{
 			{
 				Type: otterizev1alpha3.IntentTypeInternet,
-				Internet: otterizev1alpha3.Internet{
+				Internet: &otterizev1alpha3.Internet{
 					Ips: []string{"1.1.1.1/32"},
 				},
 			},

@@ -20,3 +20,22 @@ wait_for_log() {
     kubectl logs -n otterize-system -l app=intents-operator --tail 400
     exit 1
 }
+
+apply_intents_and_wait_for_webhook() {
+    INTENTS_FILE=$1
+    for i in {1..5}; do
+        kubectl apply -f "$INTENTS_FILE" 2> error.txt && break;
+        if grep -q "connection refused" error.txt; then
+            if [ "$i" -eq 5 ]; then
+                echo "Failed to apply intents, webhook server is not ready";
+                cat error.txt;
+                exit 1;
+            fi;
+            echo "Waiting for webhook to be ready, try $i/5";
+            sleep 5;
+        else
+            cat error.txt;
+            exit 1;
+        fi;
+    done
+}
