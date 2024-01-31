@@ -246,6 +246,7 @@ func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otter
 	)
 	if err != nil {
 		logrus.Errorf("Failed to list client intents for client %s: %v", fullServerName, err)
+		// Intentionally no return - we are not able to return errors in this flow currently
 	}
 
 	intentsToReconcile = append(intentsToReconcile, intentsToServer.Items...)

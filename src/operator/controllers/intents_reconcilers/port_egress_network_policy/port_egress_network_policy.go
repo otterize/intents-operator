@@ -70,7 +70,7 @@ func (r *PortEgressNetworkPolicyReconciler) ReconcileEffectivePolicies(ctx conte
 
 	// remove policies that doesn't exist in the policy list
 	err := r.removeNetworkPoliciesThatShouldNotExist(ctx, currentPolicies)
-	return currentPolicies.Len(), err
+	return currentPolicies.Len(), errors.Wrap(err)
 }
 
 func (r *PortEgressNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]types.NamespacedName, error) {

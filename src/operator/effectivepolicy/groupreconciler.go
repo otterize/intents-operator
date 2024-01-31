@@ -108,11 +108,12 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 	return epSlice, nil
 }
 
-// a function that checks if we should create a SEP for a given intent target server
+// shouldCreateEffectivePolicyForIntentTargetServer that checks if we should create a SEP for a given intent target server
 func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(intent v1alpha3.Intent) bool {
 	if intent.IsTargetOutOfCluster() {
 		return false
 	}
+        // Services are currently unused when used as a target, since the policy is created by looking at client Calls.
 	if intent.IsTargetServerKubernetesService() {
 		return false
 	}
