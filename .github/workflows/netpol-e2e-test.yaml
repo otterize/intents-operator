@@ -359,7 +359,7 @@ jobs:
           wait_for_log $CLI2_POD 10 "curl timed out"
           
           echo "apply allow DNS netpol"
-          kubectl apply -f .github/workflows/allowDNS.yaml -n otterize-tutorial-npol
+          kubectl apply -f .github/workflow-helpers/allowDNS.yaml -n otterize-tutorial-npol
           
            # should work because there is an applied intent and allowDNS netpol
           echo "check client log - should work because there is an applied intent and allowDNS netpol"
