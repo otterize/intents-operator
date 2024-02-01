@@ -195,6 +195,9 @@ func (r *IngressNetpolEffectivePolicyReconciler) buildIngressRulesFromServiceEff
 		if call.IntendedCall.IsTargetOutOfCluster() {
 			continue
 		}
+		if call.IntendedCall.IsTargetServerKubernetesService() {
+			continue
+		}
 		if fromNamespaces.Contains(call.Service.Namespace) {
 			continue
 		}

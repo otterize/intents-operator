@@ -50,7 +50,7 @@ const (
 	OtterizeCreatedForServiceAnnotation                  = "intents.otterize.com/created-for-service"
 	OtterizeCreatedForIngressAnnotation                  = "intents.otterize.com/created-for-ingress"
 	OtterizeNetworkPolicyNameTemplate                    = "access-to-%s"
-	OtterizeServiceNetworkPolicyNameTemplate             = "svc-access-to-%s-from-%s"
+	OtterizeServiceNetworkPolicyNameTemplate             = "svc-access-to-%s"
 	OtterizeNetworkPolicy                                = "intents.otterize.com/network-policy"
 	OtterizeSvcNetworkPolicy                             = "intents.otterize.com/svc-network-policy"
 	OtterizeNetworkPolicyServiceDefaultDeny              = "intents.otterize.com/network-policy-service-default-deny"
@@ -254,10 +254,9 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 			continue
 		}
 		ns := intent.GetTargetServerNamespace(requestNamespace)
-		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), ns)
-		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)
+		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, GetFormattedOtterizeIdentity(intent.GetTargetServerName(), ns))
 		if intent.IsTargetServerKubernetesService() {
-			labelKey = fmt.Sprintf(OtterizeSvcAccessLabelKey, formattedOtterizeIdentity)
+			labelKey = fmt.Sprintf(OtterizeSvcAccessLabelKey, GetFormattedOtterizeIdentity("svc."+intent.GetTargetServerName(), ns))
 		}
 		otterizeAccessLabels[labelKey] = "true"
 	}

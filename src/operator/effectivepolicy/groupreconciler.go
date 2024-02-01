@@ -83,7 +83,11 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		services.Add(service)
 		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
-			if !g.shouldCreateEffectivePolicyForIntentTargetServer(intentCall) {
+			if !g.shouldCreateEffectivePolicyForIntentTargetServer(intentCall, clientIntent.Namespace) {
+				continue
+			}
+			if intentCall.IsTargetServerKubernetesService() {
+				services.Add(serviceidentity.ServiceIdentity{Name: "svc." + intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(clientIntent.Namespace)})
 				continue
 			}
 			services.Add(serviceidentity.ServiceIdentity{Name: intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(clientIntent.Namespace)})
@@ -109,12 +113,12 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 }
 
 // shouldCreateEffectivePolicyForIntentTargetServer that checks if we should create a SEP for a given intent target server
-func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(intent v1alpha3.Intent) bool {
+func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(intent v1alpha3.Intent, clinetIntentNamespace string) bool {
 	if intent.IsTargetOutOfCluster() {
 		return false
 	}
-	// Services are currently unused when used as a target, since the policy is created by looking at client Calls.
-	if intent.IsTargetServerKubernetesService() {
+	// We are not treating the kubernetes API server as a service
+	if intent.IsTargetTheKubernetesAPIServer(clinetIntentNamespace) {
 		return false
 	}
 	return true
@@ -131,6 +135,9 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, servi
 			continue
 		}
 		clientCalls := g.filterAndTransformClientIntentsIntoClientCalls(clientIntent, func(intent v1alpha3.Intent) bool {
+			if intent.IsTargetServerKubernetesService() {
+				return "svc."+intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
+			}
 			return intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
 		})
 		ep.CalledBy = append(ep.CalledBy, clientCalls...)

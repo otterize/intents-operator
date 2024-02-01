@@ -3,6 +3,7 @@ package serviceidentity
 import (
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 type ServiceIdentity struct {
@@ -14,4 +15,8 @@ type ServiceIdentity struct {
 
 func (si *ServiceIdentity) GetFormattedOtterizeIdentity() string {
 	return v1alpha3.GetFormattedOtterizeIdentity(si.Name, si.Namespace)
+}
+
+func (si *ServiceIdentity) GetName() string {
+	return strings.Replace(si.Name, "svc.", "", 1)
 }

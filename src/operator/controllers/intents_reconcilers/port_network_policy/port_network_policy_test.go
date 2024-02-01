@@ -98,7 +98,11 @@ func (s *NetworkPolicyReconcilerTestSuite) expectGetAllEffectivePolicies(clientI
 	services := make(map[string][]otterizev1alpha3.ClientIntents)
 	for _, clientIntent := range clientIntents {
 		for _, intentCall := range clientIntent.GetCallsList() {
-			server := otterizev1alpha3.GetFormattedOtterizeIdentity(intentCall.GetTargetServerName(), intentCall.GetTargetServerNamespace(clientIntent.Namespace))
+			serverName := intentCall.GetTargetServerName()
+			if intentCall.IsTargetServerKubernetesService() {
+				serverName = "svc." + serverName
+			}
+			server := otterizev1alpha3.GetFormattedOtterizeIdentity(serverName, intentCall.GetTargetServerNamespace(clientIntent.Namespace))
 			services[server] = append(services[server], clientIntent)
 		}
 	}
@@ -141,10 +145,10 @@ func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-access-to-test-server-from-test-namespace"
+	policyName := "svc-access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-8ddecb"
+	formattedTargetServer := "svc.test-server-test-namespace-ab42d5"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
@@ -273,10 +277,10 @@ func (s *NetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-access-to-test-server-from-test-namespace"
+	policyName := "svc-access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-8ddecb"
+	formattedTargetServer := "svc.test-server-test-namespace-ab42d5"
 
 	s.testCreateNetworkPolicyForKubernetesService(
 		clientIntentsName,
@@ -483,10 +487,10 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesS
 
 func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-access-to-test-server-from-test-namespace"
+	policyName := "svc-access-to-test-server"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-8ddecb"
+	formattedTargetServer := "svc.test-server-test-namespace-ab42d5"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
@@ -550,7 +554,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesS
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernetesService() {
 	clientIntentsName := "client-intents"
-	policyName := "svc-access-to-test-server-from-test-namespace"
+	policyName := "svc-access-to-test-server"
 	serviceName := "test-client"
 	formattedTargetServer := "test-server-other-namespace-f6a461"
 

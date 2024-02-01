@@ -300,13 +300,12 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 					continue
 				}
 				serverName := intent.GetTargetServerName()
+				if intent.IsTargetServerKubernetesService() {
+					serverName = "svc." + serverName
+				}
 				serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
 				formattedServerName := otterizev1alpha3.GetFormattedOtterizeIdentity(serverName, serverNamespace)
-				if !intent.IsTargetServerKubernetesService() {
-					res = append(res, formattedServerName)
-				} else {
-					res = append(res, "svc:"+formattedServerName)
-				}
+				res = append(res, formattedServerName)
 			}
 
 			return res
