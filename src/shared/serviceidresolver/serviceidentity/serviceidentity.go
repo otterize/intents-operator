@@ -30,7 +30,7 @@ func (si *ServiceIdentity) GetName() string {
 func NewFromIntent(intent v1alpha3.Intent, clientNamespace string) ServiceIdentity {
 	return ServiceIdentity{
 		Name:      intent.GetTargetServerName(),
-		Namespace: clientNamespace,
+		Namespace: intent.GetTargetServerNamespace(clientNamespace),
 		Kind:      lo.Ternary(intent.IsTargetServerKubernetesService(), KindService, ""),
 	}
 }

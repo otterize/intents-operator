@@ -80,17 +80,13 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 			continue
 		}
 		service := serviceidentity.NewFromClientIntent(clientIntent)
-		services.Add(serviceidentity.NewFromClientIntent(clientIntent))
+		services.Add(service)
 		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
 			if !g.shouldCreateEffectivePolicyForIntentTargetServer(intentCall, clientIntent.Namespace) {
 				continue
 			}
-			service := serviceidentity.NewFromIntent(intentCall, clientIntent.Namespace)
-			if err != nil {
-				return nil, errors.Wrap(err)
-			}
-			services.Add(service)
+			services.Add(serviceidentity.NewFromIntent(intentCall, clientIntent.Namespace))
 		}
 	}
 
