@@ -11,6 +11,7 @@ import (
 	"github.com/otterize/intents-operator/src/prometheus"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/samber/lo"
@@ -26,10 +27,7 @@ import (
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
 )
-
-var ErrorTypeStringPortNotSupported = errors.New("port of type string is not supported")
 
 type externalNetpolHandler interface {
 	HandlePodsByLabelSelector(ctx context.Context, namespace string, labelSelector labels.Selector) error
@@ -88,7 +86,7 @@ func (r *PortNetworkPolicyReconciler) ReconcileEffectivePolicies(ctx context.Con
 
 func (r *PortNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]types.NamespacedName, error) {
 	networkPolicies := make([]types.NamespacedName, 0)
-	if !strings.HasPrefix(ep.Service.Name, "svc.") {
+	if ep.Service.Kind != serviceidentity.KindService {
 		return networkPolicies, nil
 	}
 	if len(r.RestrictToNamespaces) != 0 && !lo.Contains(r.RestrictToNamespaces, ep.Service.Namespace) {
@@ -128,7 +126,6 @@ func (r *PortNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx context.Co
 
 func (r *PortNetworkPolicyReconciler) handleNetworkPolicyCreation(ctx context.Context, newPolicy *v1.NetworkPolicy) error {
 	// TODO: Add protected service support
-
 	existingPolicy := &v1.NetworkPolicy{}
 	err := r.Get(ctx, types.NamespacedName{Name: newPolicy.Name, Namespace: newPolicy.Namespace}, existingPolicy)
 	if err != nil && !k8serrors.IsNotFound(err) {
@@ -238,8 +235,7 @@ func matchAccessNetworkPolicy() (labels.Selector, error) {
 
 func (r *PortNetworkPolicyReconciler) buildNetworkPolicyFromEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) (*v1.NetworkPolicy, bool, error) {
 	svc := corev1.Service{}
-	serviceName := strings.Replace(ep.Service.Name, "svc.", "", 1)
-	err := r.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: ep.Service.Namespace}, &svc)
+	err := r.Get(ctx, types.NamespacedName{Name: ep.Service.Name, Namespace: ep.Service.Namespace}, &svc)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, false, nil
@@ -249,8 +245,6 @@ func (r *PortNetworkPolicyReconciler) buildNetworkPolicyFromEffectivePolicy(ctx 
 	if svc.Spec.Selector == nil {
 		return nil, false, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
 	}
-	// Do something with LKubernetes API server
-	// Check errors better
 
 	ingressRules := r.buildIngressRulesFromEffectivePolicy(ep, &svc)
 	if len(ingressRules) == 0 {
@@ -306,13 +300,11 @@ func (r *PortNetworkPolicyReconciler) buildIngressRulesFromEffectivePolicy(ep ef
 		if clientCall.IntendedCall.Type != "" && clientCall.IntendedCall.Type != otterizev1alpha3.IntentTypeHTTP && clientCall.IntendedCall.Type != otterizev1alpha3.IntentTypeKafka {
 			continue
 		}
-		if !clientCall.IntendedCall.IsTargetServerKubernetesService() {
-			continue
-		}
 		if clientCall.IntendedCall.IsTargetTheKubernetesAPIServer(ep.Service.Namespace) {
 			// Currently only egress is supported for the kubernetes API server
 			continue
 		}
+		// create only one ingress run for each namespace
 		if fromNamespaces.Contains(clientCall.Service.Namespace) {
 			continue
 		}

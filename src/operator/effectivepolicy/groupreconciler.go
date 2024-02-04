@@ -79,18 +79,18 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		if !clientIntent.DeletionTimestamp.IsZero() {
 			continue
 		}
-		service := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace}
-		services.Add(service)
+		service := serviceidentity.NewFromClientIntent(clientIntent)
+		services.Add(serviceidentity.NewFromClientIntent(clientIntent))
 		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
 			if !g.shouldCreateEffectivePolicyForIntentTargetServer(intentCall, clientIntent.Namespace) {
 				continue
 			}
-			if intentCall.IsTargetServerKubernetesService() {
-				services.Add(serviceidentity.ServiceIdentity{Name: "svc." + intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(clientIntent.Namespace)})
-				continue
+			service := serviceidentity.NewFromIntent(intentCall, clientIntent.Namespace)
+			if err != nil {
+				return nil, errors.Wrap(err)
 			}
-			services.Add(serviceidentity.ServiceIdentity{Name: intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(clientIntent.Namespace)})
+			services.Add(service)
 		}
 	}
 
@@ -135,8 +135,8 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, servi
 			continue
 		}
 		clientCalls := g.filterAndTransformClientIntentsIntoClientCalls(clientIntent, func(intent v1alpha3.Intent) bool {
-			if intent.IsTargetServerKubernetesService() {
-				return "svc."+intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
+			if service.Kind == serviceidentity.KindService {
+				return intent.IsTargetServerKubernetesService() && intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
 			}
 			return intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
 		})
@@ -160,7 +160,7 @@ func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientI
 
 func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v1alpha3.ClientIntents, error) {
 	var intentsList v1alpha3.ClientIntentsList
-	matchFields := client.MatchingFields{v1alpha3.OtterizeFormattedTargetServerIndexField: v1alpha3.GetFormattedOtterizeIdentity(server.Name, server.Namespace)}
+	matchFields := client.MatchingFields{v1alpha3.OtterizeFormattedTargetServerIndexField: server.GetFormattedOtterizeIdentity()}
 	err := g.Client.List(
 		ctx, &intentsList,
 		&matchFields,
