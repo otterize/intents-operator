@@ -37,7 +37,7 @@ func NewFromIntent(intent v1alpha3.Intent, clientNamespace string) ServiceIdenti
 
 func NewFromClientIntent(clientIntent v1alpha3.ClientIntents) ServiceIdentity {
 	return ServiceIdentity{
-		Name:      clientIntent.Name,
+		Name:      clientIntent.Spec.Service.Name,
 		Namespace: clientIntent.Namespace,
 	}
 }
