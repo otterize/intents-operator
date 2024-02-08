@@ -8,6 +8,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -36,7 +37,7 @@ func Init(componentName string, version string, apiKey string) {
 	errorsServerAddress := viper.GetString(telemetriesconfig.TelemetryErrorsAddressKey)
 	releaseStage := viper.GetString(telemetriesconfig.TelemetryErrorsStageKey)
 	// send to staging if Otterize Cloud API is not the default
-	if viper.GetString(otterizecloudclient.OtterizeAPIAddressKey) != otterizecloudclient.OtterizeAPIAddressDefault {
+	if viper.GetString(otterizecloudclient.OtterizeAPIAddressKey) != otterizecloudclient.OtterizeAPIAddressDefault || strings.HasPrefix(version, "0.0.") {
 		releaseStage = "staging"
 	}
 
