@@ -188,7 +188,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		if updatedPod.Labels == nil {
 			updatedPod.Labels = make(map[string]string)
 		}
-		updatedPod.Labels[otterizev1alpha3.OtterizeServerLabelKey] = otterizeServerLabelValue
+		updatedPod.Labels[otterizev1alpha3.OtterizeServiceLabelKey] = otterizeServerLabelValue
 		hasUpdates = true
 	}
 

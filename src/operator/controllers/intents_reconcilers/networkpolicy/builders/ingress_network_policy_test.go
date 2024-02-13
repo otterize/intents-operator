@@ -1,4 +1,4 @@
-package ingress_network_policy
+package builders
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -33,7 +33,8 @@ const (
 
 type NetworkPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
-	Reconciler            *IngressNetpolEffectivePolicyReconciler
+	Builder               *IngressNetpolBuilder
+	Reconciler            *networkpolicy.Reconciler
 	externalNetpolHandler *mocks.MockexternalNetpolHandler
 	EPIntentsReconciler   *intents_reconcilers.ServiceEffectivePolicyIntentsReconciler
 }
@@ -48,29 +49,31 @@ func (s *NetworkPolicyReconcilerTestSuite) SetupTest() {
 	restrictToNamespaces := make([]string, 0)
 
 	scheme := &runtime.Scheme{}
-	s.Reconciler = NewIngressNetpolEffectivePolicyReconciler(
-		s.Client,
+	s.Builder = NewIngressNetpolBuilder()
+
+	s.Reconciler = networkpolicy.NewReconciler(s.Client,
 		scheme,
 		s.externalNetpolHandler,
 		restrictToNamespaces,
 		true,
 		true,
-		allowexternaltraffic.IfBlockedByOtterize,
-	)
+		[]networkpolicy.IngressRuleBuilder{s.Builder},
+		nil)
+	s.Reconciler.Recorder = s.Recorder
 
 	epReconciler := effectivepolicy.NewGroupReconciler(s.Client,
 		scheme, s.Reconciler)
 	s.EPIntentsReconciler = intents_reconcilers.NewServiceEffectiveIntentsReconciler(s.Client,
 		scheme, epReconciler)
 
-	s.Reconciler.Recorder = s.Recorder
+	s.Builder.Recorder = s.Recorder
 	epReconciler.InjectableRecorder.Recorder = s.Recorder
 	s.EPIntentsReconciler.Recorder = s.Recorder
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TearDownTest() {
 	viper.Reset()
-	s.Reconciler = nil
+	s.Builder = nil
 	s.externalNetpolHandler = nil
 	s.EPIntentsReconciler = nil
 	s.MocksSuiteBase.TearDownTest()
@@ -94,6 +97,24 @@ func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
 	s.Require().NoError(err)
 
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), &client.ListOptions{LabelSelector: selector}).Return(nil)
+	s.ignoreRemoveDeprecatedPolicies()
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) ignoreRemoveDeprecatedPolicies() {
+	deprecatedLabels := []string{otterizev1alpha3.OtterizeEgressNetworkPolicy, otterizev1alpha3.OtterizeSvcEgressNetworkPolicy, otterizev1alpha3.OtterizeInternetNetworkPolicy, otterizev1alpha3.OtterizeSvcNetworkPolicy}
+	for _, label := range deprecatedLabels {
+		selectorRequirement := metav1.LabelSelectorRequirement{
+			Key:      label,
+			Operator: metav1.LabelSelectorOpExists,
+		}
+		selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+			selectorRequirement,
+		}})
+
+		s.Require().NoError(err)
+
+		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), &client.ListOptions{LabelSelector: selector}).Return(nil).AnyTimes()
+	}
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
@@ -105,7 +126,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	defaultEnforcementState bool,
 	protectedServices []otterizev1alpha3.ProtectedService,
 ) {
-	s.Reconciler.enforcementDefaultState = defaultEnforcementState
+	s.Reconciler.EnforcementDefaultState = defaultEnforcementState
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
 		Name:      clientIntentsName,
@@ -144,7 +165,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 		})
 
 	// Create NetworkPolicy
-	newPolicy := networkPolicyTemplate(
+	newPolicy := networkPolicyIngressTemplate(
 		policyName,
 		serverNamespace,
 		formattedTargetServer,
@@ -153,7 +174,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
+		otterizev1alpha3.OtterizeServiceLabelKey: formattedTargetServer,
 	}))
 
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
@@ -166,12 +187,11 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyIgnoreAWS() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server"
+	policyName := "test-server-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
-	s.Reconciler.enforcementDefaultState = true
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
 		Name:      clientIntentsName,
@@ -206,7 +226,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyIgnoreAWS() {
 		})
 
 	// Create NetworkPolicy
-	newPolicy := networkPolicyTemplate(
+	newPolicy := networkPolicyIngressTemplate(
 		policyName,
 		serverNamespace,
 		formattedTargetServer,
@@ -215,7 +235,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyIgnoreAWS() {
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
+		otterizev1alpha3.OtterizeServiceLabelKey: formattedTargetServer,
 	}))
 
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
@@ -229,7 +249,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyIgnoreAWS() {
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server"
+	policyName := "test-server-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -248,7 +268,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServices() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server"
+	policyName := "test-server-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -277,7 +297,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 
 func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedServicesMultipleResources() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server"
+	policyName := "test-server-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -317,7 +337,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server"
+	policyName := "test-server-access"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
 	formattedTargetServer := "test-server-other-namespace-f6a461"
@@ -336,7 +356,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server"
+	policyName := "test-server-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -352,7 +372,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespace() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server"
+	policyName := "test-server-access"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
 	formattedTargetServer := "test-server-other-namespace-f6a461"
@@ -368,7 +388,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespac
 
 func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server"
+	policyName := "test-server-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -398,7 +418,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 		Name:      policyName,
 	}
 
-	newPolicy := networkPolicyTemplate(
+	newPolicy := networkPolicyIngressTemplate(
 		policyName,
 		serverNamespace,
 		formattedTargetServer,
@@ -417,7 +437,9 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	s.ignoreRemoveOrphan()
 
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{ObjectMeta: metav1.ObjectMeta{Namespace: req.Namespace, Name: req.Name}, Spec: intentsSpec}})
-
+	selector, err := metav1.LabelSelectorAsSelector(&newPolicy.Spec.PodSelector)
+	s.Require().NoError(err)
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, gomock.Eq(selector))
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
@@ -426,7 +448,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 
 func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "access-to-test-server"
+	policyName := "test-server-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
@@ -456,7 +478,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 		Name:      policyName,
 	}
 
-	existingPolicy := networkPolicyTemplate(
+	existingPolicy := networkPolicyIngressTemplate(
 		policyName,
 		serverNamespace,
 		formattedTargetServer,
@@ -485,7 +507,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	s.Require().NoError(err)
 
 	nonExistingServer := "old-non-existing-server"
-	orphanPolicy := networkPolicyTemplate(
+	orphanPolicy := networkPolicyIngressTemplate(
 		"access-to-old-non-existing-server",
 		serverNamespace,
 		nonExistingServer,
@@ -501,6 +523,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(orphanPolicy)).Return(nil)
 
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{{ObjectMeta: metav1.ObjectMeta{Namespace: req.Namespace, Name: req.Name}, Spec: intentsSpec}})
+	s.ignoreRemoveDeprecatedPolicies()
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -540,7 +563,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	// 2. delete it
 	// 3.call external netpol handler
 
-	existingPolicy := networkPolicyTemplate(
+	existingPolicy := networkPolicyIngressTemplate(
 		policyName,
 		serverNamespace,
 		formattedTargetServer,
@@ -551,9 +574,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
 	// TODO: Why did we need it?
 	//selector := labels.SelectorFromSet(labels.Set(map[string]string{
-	//	otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
+	//	otterizev1alpha3.OtterizeServiceLabelKey: formattedTargetServer,
 	//}))
-	//s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
+	//s.ExternalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
 
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntentsObj})
 	s.expectRemoveOrphanFindsPolicies([]v1.NetworkPolicy{*existingPolicy})
@@ -617,9 +640,10 @@ func (s *NetworkPolicyReconcilerTestSuite) expectRemoveOrphanFindsPolicies(netpo
 			return nil
 		},
 	)
+	s.ignoreRemoveDeprecatedPolicies()
 }
 
-func networkPolicyTemplate(
+func networkPolicyIngressTemplate(
 	policyName string,
 	targetNamespace string,
 	formattedTargetServer string,
@@ -656,10 +680,11 @@ func networkPolicyTemplate(
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedTargetServer,
 				},
 			},
 			Ingress: ingressRules,
+			Egress:  make([]v1.NetworkPolicyEgressRule, 0),
 		},
 	}
 }
@@ -669,7 +694,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestServerNotInProtectionList() {
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
 	serverName := "test-server"
-	s.Reconciler.enforcementDefaultState = false
+	s.Reconciler.EnforcementDefaultState = false
 
 	s.testServerNotProtected(clientIntentsName, serverName, serverNamespace, serviceName)
 	s.ExpectEvent(consts.ReasonEnforcementDefaultOff)
@@ -709,14 +734,14 @@ func (s *NetworkPolicyReconcilerTestSuite) testServerNotProtected(clientIntentsN
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDisabled() {
-	s.Reconciler.enableNetworkPolicyCreation = false
+	s.Reconciler.EnableNetworkPolicyCreation = false
 
 	s.testEnforcementDisabled()
 	s.ExpectEvent(consts.ReasonNetworkPolicyCreationDisabled)
 }
 
 func (s *NetworkPolicyReconcilerTestSuite) TestNetworkGlobalEnforcementDisabled() {
-	s.Reconciler.enforcementDefaultState = false
+	s.Reconciler.EnforcementDefaultState = false
 
 	s.testEnforcementDisabled()
 	s.ExpectEvent(consts.ReasonEnforcementDefaultOff)
@@ -775,7 +800,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	policyName := "access-to-test-server"
+	policyName := "test-server-access"
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
 	namespacedName := types.NamespacedName{
@@ -829,7 +854,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestPolicyNotDeletedForTwoClientsWith
 		Name:      policyName,
 	}
 
-	newPolicy := networkPolicyTemplate(
+	newPolicy := networkPolicyIngressTemplate(
 		policyName,
 		serverNamespace,
 		formattedTargetServer,
@@ -860,7 +885,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestTwoClientsFromDifferentNamespaces
 	otherClientIntentsNamespace := "other-namespace"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	policyName := "access-to-test-server"
+	policyName := "test-server-access"
 	formattedTargetServer := "test-server-test-namespace-8ddecb"
 
 	namespacedName := types.NamespacedName{
@@ -911,7 +936,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestTwoClientsFromDifferentNamespaces
 		Name:      policyName,
 	}
 
-	newPolicy := networkPolicyTemplate(
+	newPolicy := networkPolicyIngressTemplate(
 		policyName,
 		serverNamespace,
 		formattedTargetServer,

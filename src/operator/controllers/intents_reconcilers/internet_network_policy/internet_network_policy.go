@@ -193,6 +193,30 @@ func (r *InternetNetworkPolicyReconciler) buildNetworkPolicy(
 	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(ep.Service.Name, ep.Service.Namespace)
 	podSelector := r.buildPodLabelSelectorFromServiceEffectivePolicy(ep)
 
+	rules, err := r.buildEgressRules(ep)
+
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	return &v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      policyName,
+			Namespace: ep.Service.Namespace,
+			Labels: map[string]string{
+				otterizev1alpha3.OtterizeInternetNetworkPolicy: formattedClient,
+			},
+		},
+
+		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
+			PodSelector: podSelector,
+			Egress:      rules,
+		},
+	}, nil
+}
+
+func (r *InternetNetworkPolicyReconciler) buildEgressRules(ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyEgressRule, error) {
 	rules := make([]v1.NetworkPolicyEgressRule, 0)
 
 	// Get all intents to the internet
@@ -211,22 +235,7 @@ func (r *InternetNetworkPolicyReconciler) buildNetworkPolicy(
 			Ports: ports,
 		})
 	}
-
-	return &v1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      policyName,
-			Namespace: ep.Service.Namespace,
-			Labels: map[string]string{
-				otterizev1alpha3.OtterizeInternetNetworkPolicy: formattedClient,
-			},
-		},
-
-		Spec: v1.NetworkPolicySpec{
-			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
-			PodSelector: podSelector,
-			Egress:      rules,
-		},
-	}, nil
+	return rules, nil
 }
 
 func (r *InternetNetworkPolicyReconciler) parseIps(intent otterizev1alpha3.Intent) ([]v1.NetworkPolicyPeer, error) {
@@ -319,4 +328,8 @@ func (r *InternetNetworkPolicyReconciler) applyServiceEffectivePolicy(ctx contex
 	ep.ClientIntentsEventRecorder.RecordNormalEvent(consts.ReasonCreatedInternetEgressNetworkPolicies, "InternetNetworkPolicy reconcile complete")
 	prometheus.IncrementNetpolCreated(1)
 	return []types.NamespacedName{{Namespace: netpol.Namespace, Name: netpol.Name}}, nil
+}
+
+func (r *InternetNetworkPolicyReconciler) Build(_ context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyEgressRule, error) {
+	return r.buildEgressRules(ep)
 }

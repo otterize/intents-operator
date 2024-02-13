@@ -90,7 +90,7 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		}
 	}
 
-	// Build SEP for every service
+	// buildNetworkPolicy SEP for every service
 	epSlice := make([]ServiceEffectivePolicy, 0)
 	for _, service := range services.Items() {
 		ep, err := g.buildServiceEffectivePolicy(ctx, service)

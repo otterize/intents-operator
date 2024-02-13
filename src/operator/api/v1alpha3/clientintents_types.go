@@ -42,7 +42,7 @@ const (
 	OtterizeAccessLabelKey                               = "intents.otterize.com/access-%s"
 	OtterizeSvcAccessLabelKey                            = "intents.otterize.com/svc-access-%s"
 	OtterizeClientLabelKey                               = "intents.otterize.com/client"
-	OtterizeServerLabelKey                               = "intents.otterize.com/server"
+	OtterizeServiceLabelKey                              = "intents.otterize.com/service"
 	OtterizeKubernetesServiceLabelKeyPrefix              = "intents.otterize.com/k8s-svc"
 	OtterizeKubernetesServiceLabelKey                    = "intents.otterize.com/k8s-svc-%s"
 	KubernetesStandardNamespaceNameLabelKey              = "kubernetes.io/metadata.name"
@@ -50,6 +50,7 @@ const (
 	OtterizeCreatedForServiceAnnotation                  = "intents.otterize.com/created-for-service"
 	OtterizeCreatedForIngressAnnotation                  = "intents.otterize.com/created-for-ingress"
 	OtterizeNetworkPolicyNameTemplate                    = "access-to-%s"
+	OtterizeSingleNetworkPolicyNameTemplate              = "%s-access"
 	OtterizeServiceNetworkPolicyNameTemplate             = "svc-access-to-%s"
 	OtterizeNetworkPolicy                                = "intents.otterize.com/network-policy"
 	OtterizeSvcNetworkPolicy                             = "intents.otterize.com/svc-network-policy"
@@ -602,7 +603,7 @@ func GetFormattedOtterizeIdentity(name, ns string) string {
 func (in *ClientIntents) BuildPodLabelSelector() (labels.Selector, error) {
 	labelSelector, err := labels.Parse(
 		fmt.Sprintf("%s=%s",
-			OtterizeServerLabelKey,
+			OtterizeServiceLabelKey,
 			// Since all pods are also labeled with their server identity, we can use the Otterize server label
 			// To find all pods for this specific service
 			GetFormattedOtterizeIdentity(in.Spec.Service.Name, in.Namespace)))

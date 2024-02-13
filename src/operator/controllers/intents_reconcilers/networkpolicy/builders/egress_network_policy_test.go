@@ -1,4 +1,4 @@
-package egress_network_policy
+package builders
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
@@ -31,7 +32,8 @@ const (
 
 type EgressNetworkPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
-	Reconciler            *EgressNetworkPolicyReconciler
+	Builder               *EgressNetworkPolicyBuilder
+	Reconciler            *networkpolicy.Reconciler
 	EPIntentsReconciler   *intents_reconcilers.ServiceEffectivePolicyIntentsReconciler
 	externalNetpolHandler *mocks.MockexternalNetpolHandler
 }
@@ -46,14 +48,19 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) SetupTest() {
 	restrictToNamespaces := make([]string, 0)
 
 	scheme := &runtime.Scheme{}
-	s.Reconciler = NewEgressNetworkPolicyReconciler(
-		s.Client,
+	s.Builder = NewEgressNetworkPolicyBuilder()
+
+	s.Reconciler = networkpolicy.NewReconciler(s.Client,
 		scheme,
+		s.externalNetpolHandler,
 		restrictToNamespaces,
 		true,
 		true,
+		nil,
+		[]networkpolicy.EgressRuleBuilder{s.Builder},
 	)
 
+	s.Builder.Recorder = s.Recorder
 	s.Reconciler.Recorder = s.Recorder
 
 	epReconciler := effectivepolicy.NewGroupReconciler(s.Client,
@@ -61,16 +68,34 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.EPIntentsReconciler = intents_reconcilers.NewServiceEffectiveIntentsReconciler(s.Client,
 		scheme, epReconciler)
 
-	s.Reconciler.Recorder = s.Recorder
+	s.Builder.Recorder = s.Recorder
 	epReconciler.InjectableRecorder.Recorder = s.Recorder
 	s.EPIntentsReconciler.Recorder = s.Recorder
+	s.ignoreRemoveDeprecatedPolicies()
 }
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TearDownTest() {
 	viper.Reset()
-	s.Reconciler = nil
+	s.Builder = nil
 	s.externalNetpolHandler = nil
 	s.MocksSuiteBase.TearDownTest()
+}
+
+func (s *EgressNetworkPolicyReconcilerTestSuite) ignoreRemoveDeprecatedPolicies() {
+	deprecatedLabels := []string{otterizev1alpha3.OtterizeEgressNetworkPolicy, otterizev1alpha3.OtterizeSvcEgressNetworkPolicy, otterizev1alpha3.OtterizeInternetNetworkPolicy, otterizev1alpha3.OtterizeSvcNetworkPolicy}
+	for _, label := range deprecatedLabels {
+		selectorRequirement := metav1.LabelSelectorRequirement{
+			Key:      label,
+			Operator: metav1.LabelSelectorOpExists,
+		}
+		selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
+			selectorRequirement,
+		}})
+
+		s.Require().NoError(err)
+
+		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), &client.ListOptions{LabelSelector: selector}).Return(nil).AnyTimes()
+	}
 }
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) expectGetAllEffectivePolicies(clientIntents []otterizev1alpha3.ClientIntents) {
@@ -106,8 +131,16 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) expectGetAllEffectivePolicies(c
 func (s *EgressNetworkPolicyReconcilerTestSuite) expectRemoveOrphanFindsPolicies(netpols []v1.NetworkPolicy) {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha3.OtterizeEgressNetworkPolicy,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
+		},
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
+			Operator: metav1.LabelSelectorOpDoesNotExist,
+		},
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
+			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
 	s.Require().NoError(err)
@@ -124,7 +157,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) expectRemoveOrphanFindsPolicies
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-from-test-client"
+	policyName := "test-client-access"
 	serviceName := "test-client"
 	serverNamespace := testServerNamespace
 	clientNamespace := testClientNamespace
@@ -145,7 +178,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-from-test-client"
+	policyName := "test-client-access"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
 	clientNamespace := testClientNamespace
@@ -166,7 +199,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNam
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-from-test-client"
+	policyName := "test-client-access"
 	serviceName := "test-client"
 	clientNamespace := testClientNamespace
 	serverNamespace := testServerNamespace
@@ -184,7 +217,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanup() {
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNamespace() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-from-test-client"
+	policyName := "test-client-access"
 	serviceName := "test-client"
 	serverNamespace := "other-namespace"
 	clientNamespace := testClientNamespace
@@ -202,7 +235,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCleanupCrossNa
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-from-test-client"
+	policyName := "test-client-access"
 	serviceName := "test-client"
 	serverNamespace := testServerNamespace
 	formattedTargetServer := "test-server-test-server-namespac-48aee4"
@@ -236,7 +269,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 		Name:      policyName,
 	}
 
-	newPolicy := networkPolicyTemplate(
+	newPolicy := networkPolicyEgressTemplate(
 		policyName,
 		serverNamespace,
 		"test-client-test-client-namespac-edb3a2",
@@ -264,7 +297,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy() {
 	clientIntentsName := "client-intents"
-	policyName := "egress-from-test-client"
+	policyName := "test-client-access"
 	serviceName := "test-client"
 	serverNamespace := testServerNamespace
 	formattedTargetServer := "test-server-test-server-namespac-48aee4"
@@ -301,7 +334,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 		Name:      policyName,
 	}
 
-	existingPolicy := networkPolicyTemplate(
+	existingPolicy := networkPolicyEgressTemplate(
 		policyName,
 		serverNamespace,
 		"test-client-test-server-namespac-8e2cac",
@@ -316,14 +349,22 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha3.OtterizeEgressNetworkPolicy,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
+		},
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
+			Operator: metav1.LabelSelectorOpDoesNotExist,
+		},
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
+			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
 	s.Require().NoError(err)
 
 	nonExistingServer := "old-non-existing-server"
-	orphanPolicy := networkPolicyTemplate(
+	orphanPolicy := networkPolicyEgressTemplate(
 		"egress-from-test-server-namespace",
 		serverNamespace,
 		"test-client-test-server-namespac-8e2cac",
@@ -336,12 +377,12 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 			return nil
 		})
 
+	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), gomock.Eq(orphanPolicy))
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(orphanPolicy)).Return(nil)
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
-	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsName string, clientNamespace string, serverNamespace string, serviceName string, policyName string, formattedTargetServer string) {
@@ -378,7 +419,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIn
 	// 2. delete it
 	// 3.call external netpol handler
 
-	existingPolicy := networkPolicyTemplate(
+	existingPolicy := networkPolicyEgressTemplate(
 		policyName,
 		clientNamespace,
 		"test-client-test-client-namespac-edb3a2",
@@ -386,6 +427,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIn
 		testServerNamespace,
 	)
 
+	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), gomock.Eq(existingPolicy))
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
 
 	s.expectRemoveOrphanFindsPolicies([]v1.NetworkPolicy{*existingPolicy})
@@ -404,7 +446,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	defaultEnforcementState bool,
 	protectedServices []otterizev1alpha3.ProtectedService,
 ) {
-	s.Reconciler.enforcementDefaultState = defaultEnforcementState
+	s.Reconciler.EnforcementDefaultState = defaultEnforcementState
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
 		Name:      clientIntentsName,
@@ -448,7 +490,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 		})
 
 	// Create NetworkPolicy
-	newPolicy := networkPolicyTemplate(
+	newPolicy := networkPolicyEgressTemplate(
 		policyName,
 		serverNamespace,
 		"test-client-test-client-namespac-edb3a2",
@@ -460,6 +502,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	s.ignoreRemoveOrphan()
 
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), gomock.Any(), gomock.Any())
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
@@ -468,8 +511,16 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 func (s *EgressNetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha3.OtterizeEgressNetworkPolicy,
+			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
+		},
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
+			Operator: metav1.LabelSelectorOpDoesNotExist,
+		},
+		{
+			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
+			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
 	s.Require().NoError(err)
@@ -477,7 +528,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) ignoreRemoveOrphan() {
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), &client.ListOptions{LabelSelector: selector}).Return(nil)
 }
 
-func networkPolicyTemplate(
+func networkPolicyEgressTemplate(
 	policyName string,
 	targetNamespace string,
 	formattedTargetClient string,
@@ -489,23 +540,24 @@ func networkPolicyTemplate(
 			Name:      policyName,
 			Namespace: intentsObjNamespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeEgressNetworkPolicy: formattedTargetClient,
+				otterizev1alpha3.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeClientLabelKey: formattedTargetClient,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
+			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
 						{
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha3.OtterizeServerLabelKey: formattedTargetServer,
+									otterizev1alpha3.OtterizeServiceLabelKey: formattedTargetServer,
 								},
 							},
 							NamespaceSelector: &metav1.LabelSelector{
@@ -522,14 +574,14 @@ func networkPolicyTemplate(
 }
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDisabled() {
-	s.Reconciler.enableNetworkPolicyCreation = false
+	s.Reconciler.EnableNetworkPolicyCreation = false
 
 	s.testEnforcementDisabled()
 	s.ExpectEvent(consts.ReasonNetworkPolicyCreationDisabled)
 }
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkGlobalEnforcementDisabled() {
-	s.Reconciler.enforcementDefaultState = false
+	s.Reconciler.EnforcementDefaultState = false
 
 	s.testEnforcementDisabled()
 	s.ExpectEvent(consts.ReasonEnforcementDefaultOff)

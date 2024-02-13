@@ -331,3 +331,18 @@ func (r *PortNetworkPolicyReconciler) buildIngressRulesFromEffectivePolicy(ep ef
 	}
 	return ingressRules
 }
+
+func (r *PortNetworkPolicyReconciler) Build(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyIngressRule, error) {
+	svc := corev1.Service{}
+	err := r.Get(ctx, types.NamespacedName{Name: ep.Service.Name, Namespace: ep.Service.Namespace}, &svc)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return make([]v1.NetworkPolicyIngressRule, 0), nil
+		}
+		return nil, errors.Wrap(err)
+	}
+	if svc.Spec.Selector == nil {
+		return nil, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
+	}
+	return r.buildIngressRulesFromEffectivePolicy(ep, &svc), nil
+}

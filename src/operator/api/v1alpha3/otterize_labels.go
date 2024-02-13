@@ -36,7 +36,7 @@ func UpdateOtterizeAccessLabels(pod *v1.Pod, serviceName string, otterizeAccessL
 }
 
 func HasOtterizeServerLabel(pod *v1.Pod, labelValue string) bool {
-	value, exists := pod.Labels[OtterizeServerLabelKey]
+	value, exists := pod.Labels[OtterizeServiceLabelKey]
 	return exists && value == labelValue
 }
 

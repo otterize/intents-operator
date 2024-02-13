@@ -348,7 +348,7 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		}
 
 		// only act on pods affected by Otterize
-		serverLabel, ok := pod.Labels[v1alpha3.OtterizeServerLabelKey]
+		serverLabel, ok := pod.Labels[v1alpha3.OtterizeServiceLabelKey]
 		if !ok {
 			continue
 		}
@@ -551,7 +551,7 @@ func (r *NetworkPolicyHandler) otterizeServerLabeledPodsSelector() (labels.Selec
 	return metav1.LabelSelectorAsSelector(
 		&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      v1alpha3.OtterizeServerLabelKey,
+				Key:      v1alpha3.OtterizeServiceLabelKey,
 				Operator: metav1.LabelSelectorOpExists,
 			},
 		},

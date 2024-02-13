@@ -23,9 +23,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/operator/controllers/aws_pod_reconciler"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/internet_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy/builders"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
@@ -193,26 +193,19 @@ func main() {
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
-	epNetpolReconciler := ingress_network_policy.NewIngressNetpolEffectivePolicyReconciler(
-		mgr.GetClient(),
-		scheme,
-		extNetpolHandler,
-		watchedNamespaces,
-		enforcementConfig.EnableNetworkPolicy,
-		enforcementConfig.EnforcementDefaultState,
-		allowExternalTraffic,
-	)
+	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
-	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler, svcNetworkPolicyHandler)
+	svcNetworkPolicyBuilder := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+	epNetpolReconciler := networkpolicy.NewReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, []networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder}, make([]networkpolicy.EgressRuleBuilder, 0))
+	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
-		egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-		epGroupReconciler.AddReconciler(egressNetworkPolicyHandler)
+		egressNetworkPolicyHandler := builders.NewEgressNetworkPolicyBuilder()
+		epNetpolReconciler.AddEgressRuleBuilder(egressNetworkPolicyHandler)
 		internetNetpolReconciler := internet_network_policy.NewInternetNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-		epGroupReconciler.AddReconciler(internetNetpolReconciler)
+		epNetpolReconciler.AddEgressRuleBuilder(internetNetpolReconciler)
 		svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-		epGroupReconciler.AddReconciler(svcEgressNetworkPolicyHandler)
+		epNetpolReconciler.AddEgressRuleBuilder(svcEgressNetworkPolicyHandler)
 
 	}
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)

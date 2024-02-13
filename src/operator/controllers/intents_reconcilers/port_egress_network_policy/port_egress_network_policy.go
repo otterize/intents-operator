@@ -361,3 +361,7 @@ func (r *PortEgressNetworkPolicyReconciler) buildPodLabelSelectorFromServiceEffe
 		},
 	}
 }
+
+func (r *PortEgressNetworkPolicyReconciler) Build(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyEgressRule, error) {
+	return r.buildEgressRulesFromEffectivePolicy(ctx, ep)
+}
