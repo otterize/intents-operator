@@ -220,13 +220,6 @@ func (r *NetworkPolicyHandler) HandlePodsByLabelSelector(ctx context.Context, na
 	if err != nil {
 		return errors.Wrap(err)
 	}
-	podList2 := &corev1.PodList{}
-	err = r.client.List(ctx, podList2)
-
-	if err != nil {
-		return errors.Wrap(err)
-	}
-	logrus.Infof("%s", podList2)
 	return r.handlePodList(ctx, podList)
 }
 
