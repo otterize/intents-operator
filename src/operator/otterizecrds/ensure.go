@@ -57,7 +57,20 @@ func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace s
 	}
 
 	// Update CRD
-	updatedCRD := crdToCreate.DeepCopy()
+	updatedCRD := crd.DeepCopy()
+	for key, value := range crdToCreate.Labels {
+		if updatedCRD.Labels == nil {
+			updatedCRD.Labels = make(map[string]string)
+		}
+		updatedCRD.Labels[key] = value
+	}
+	for key, value := range crdToCreate.Annotations {
+		if updatedCRD.Annotations == nil {
+			updatedCRD.Annotations = make(map[string]string)
+		}
+		updatedCRD.Annotations[key] = value
+	}
+	crd.Spec = *updatedCRD.Spec.DeepCopy()
 	err = k8sClient.Patch(ctx, updatedCRD, client.MergeFrom(&crd))
 	if err != nil {
 		return fmt.Errorf("could not Patch %s CRD: %w", crd.Name, err)
