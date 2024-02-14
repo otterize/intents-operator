@@ -1316,6 +1316,8 @@ type ServiceClientIntents {
 }
 
 enum ServiceType {
+	NODE_GROUP
+	PREFIX_GROUP
 	KUBERNETES
 	KAFKA
 	AWS
