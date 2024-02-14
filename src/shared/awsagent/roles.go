@@ -114,13 +114,13 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	})
 
 	if taggedServiceAccountName, ok := tags[serviceAccountNameTagKey]; !ok || taggedServiceAccountName != accountName {
-		return fmt.Errorf("attempted to delete role with incorrect service account name: expected '%s' but got '%s'", accountName, taggedServiceAccountName)
+		return errors.Errorf("attempted to delete role with incorrect service account name: expected '%s' but got '%s'", accountName, taggedServiceAccountName)
 	}
 	if taggedNamespace, ok := tags[serviceAccountNamespaceTagKey]; !ok || taggedNamespace != namespaceName {
-		return fmt.Errorf("attempted to delete role with incorrect namespace: expected '%s' but got '%s'", namespaceName, taggedNamespace)
+		return errors.Errorf("attempted to delete role with incorrect namespace: expected '%s' but got '%s'", namespaceName, taggedNamespace)
 	}
 	if taggedClusterName, ok := tags[clusterNameTagKey]; !ok || taggedClusterName != a.clusterName {
-		return fmt.Errorf("attempted to delete role with incorrect cluster name: expected '%s' but got '%s'", a.clusterName, taggedClusterName)
+		return errors.Errorf("attempted to delete role with incorrect cluster name: expected '%s' but got '%s'", a.clusterName, taggedClusterName)
 	}
 
 	err = a.deleteAllRolePolicies(ctx, namespaceName, role)
@@ -146,14 +146,14 @@ func (a *Agent) deleteAllRolePolicies(ctx context.Context, namespace string, rol
 	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
 
 	if err != nil {
-		return fmt.Errorf("failed to list role attached policies: %w", err)
+		return errors.Errorf("failed to list role attached policies: %w", err)
 	}
 
 	for _, policy := range listOutput.AttachedPolicies {
 		if strings.HasPrefix(*policy.PolicyName, "otterize-") || strings.HasPrefix(*policy.PolicyName, "otr-") {
 			err = a.DeleteRolePolicy(ctx, *policy.PolicyName)
 			if err != nil {
-				return fmt.Errorf("failed to delete policy: %w", err)
+				return errors.Errorf("failed to delete policy: %w", err)
 			}
 		}
 	}
