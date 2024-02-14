@@ -195,6 +195,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 	if otterizev1alpha3.HasOtterizeDeprecatedServerLabel(&pod) {
 		logrus.Infof("Removing deprecated label for pod %s with server identity %s", pod.Name, serviceID.Name)
 		delete(updatedPod.Labels, otterizev1alpha3.OtterizeServerLabelKeyDeprecated)
+		hasUpdates = true
 	}
 
 	var intents otterizev1alpha3.ClientIntentsList
