@@ -4,7 +4,6 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"github.com/otterize/intents-operator/src/shared/filters"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -57,28 +56,14 @@ func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace s
 		return nil
 	}
 
-	// Ensure otterize labels are set
-	updatedCRD := crd.DeepCopy()
-	if shouldUpdateCRDLabels(updatedCRD) {
-		updatedCRD.ObjectMeta.Labels = map[string]string{filters.LabelKey: filters.LabelValue}
-		err = k8sClient.Patch(ctx, updatedCRD, client.MergeFrom(&crd))
-		if err != nil {
-			return fmt.Errorf("could not Patch %s CRD: %w", crd.Name, err)
-		}
+	// Update CRD
+	updatedCRD := crdToCreate.DeepCopy()
+	err = k8sClient.Patch(ctx, updatedCRD, client.MergeFrom(&crd))
+	if err != nil {
+		return fmt.Errorf("could not Patch %s CRD: %w", crd.Name, err)
 	}
 
 	return nil
-}
-
-// function that gets a CRD and checks if it has the otterize label
-func shouldUpdateCRDLabels(crd *apiextensionsv1.CustomResourceDefinition) bool {
-	if crd.Labels == nil {
-		return true
-	}
-	if val, ok := crd.Labels[filters.LabelKey]; !ok || val != filters.LabelValue {
-		return true
-	}
-	return false
 }
 
 func GetCRDDefinitionByName(name string) (*apiextensionsv1.CustomResourceDefinition, error) {
