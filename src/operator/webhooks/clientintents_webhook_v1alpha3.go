@@ -173,9 +173,10 @@ func (v *IntentsValidatorV1alpha3) validateSpec(intents *otterizev1alpha3.Client
 				_, err := idna.Lookup.ToASCII(intent.Internet.Dns)
 				if err != nil {
 					return &field.Error{
-						Type:   field.ErrorTypeInvalid,
-						Field:  "dns",
-						Detail: fmt.Sprintf("invalid dns format name %s", intent.Internet.Dns),
+						Type:     field.ErrorTypeInvalid,
+						Field:    "dns",
+						Detail:   "should be valid DNS name",
+						BadValue: intent.Internet.Dns,
 					}
 				}
 			}
