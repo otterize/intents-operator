@@ -175,7 +175,7 @@ func (v *IntentsValidatorV1alpha3) validateSpec(intents *otterizev1alpha3.Client
 					return &field.Error{
 						Type:   field.ErrorTypeInvalid,
 						Field:  "dns",
-						Detail: fmt.Sprintf("invalid dns format name %s, error: %s", intent.Internet.Dns, err),
+						Detail: fmt.Sprintf("invalid dns format name %s", intent.Internet.Dns),
 					}
 				}
 			}
