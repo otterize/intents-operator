@@ -357,6 +357,120 @@ func (s *CloudReconcilerTestSuite) TestInternetUpload() {
 	s.assertReportedIntents(clientIntents, []graphqlclient.IntentInput{expectedIntentA, expectedIntentB})
 }
 
+func (s *CloudReconcilerTestSuite) TestInternetUploadWithDNS() {
+	server := otterizev1alpha3.OtterizeInternetTargetName
+	clientIntents := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Type: otterizev1alpha3.IntentTypeInternet,
+					Internet: &otterizev1alpha3.Internet{
+						Dns: "test-dns.com",
+						Ips: []string{"1.1.1.1", "2.2.2.0/24"},
+					},
+				},
+			},
+		},
+	}
+
+	expectedIntentA := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr(server),
+		Namespace:       lo.ToPtr(testNamespace),
+		ServerNamespace: lo.ToPtr(testNamespace),
+		Type:            lo.ToPtr(graphqlclient.IntentTypeInternet),
+		Internet: lo.ToPtr(graphqlclient.InternetConfigInput{
+			// TODO: Add DNS to the expected intent once the DNS is supported in Otterize Cloud
+			Ips: []*string{
+				lo.ToPtr("1.1.1.1"),
+				lo.ToPtr("2.2.2.0/24"),
+			},
+			Ports: nil,
+		}),
+	}
+
+	s.assertReportedIntents(clientIntents, []graphqlclient.IntentInput{expectedIntentA})
+}
+
+func (s *CloudReconcilerTestSuite) TestInternetDontUploadIfNoIPs() {
+	clientIntents := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Type: otterizev1alpha3.IntentTypeInternet,
+					Internet: &otterizev1alpha3.Internet{
+						Dns: "test-dns.com",
+					},
+				},
+			},
+		},
+	}
+
+	noIntentsExpected := []graphqlclient.IntentInput{}
+
+	s.assertReportedIntents(clientIntents, noIntentsExpected)
+}
+
+func (s *CloudReconcilerTestSuite) TestInternetUploadOnlyIP() {
+	server := otterizev1alpha3.OtterizeInternetTargetName
+	clientIntents := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Type: otterizev1alpha3.IntentTypeInternet,
+					Internet: &otterizev1alpha3.Internet{
+						Ips: []string{"1.1.1.1", "2.2.2.0/24"},
+					},
+				},
+				{
+					Type: otterizev1alpha3.IntentTypeInternet,
+					Internet: &otterizev1alpha3.Internet{
+						Dns: "test-dns.com",
+					},
+				},
+			},
+		},
+	}
+
+	expectedIntentA := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr(server),
+		Namespace:       lo.ToPtr(testNamespace),
+		ServerNamespace: lo.ToPtr(testNamespace),
+		Type:            lo.ToPtr(graphqlclient.IntentTypeInternet),
+		Internet: lo.ToPtr(graphqlclient.InternetConfigInput{
+			Ips: []*string{
+				lo.ToPtr("1.1.1.1"),
+				lo.ToPtr("2.2.2.0/24"),
+			},
+			Ports: nil,
+		}),
+	}
+
+	s.assertReportedIntents(clientIntents, []graphqlclient.IntentInput{expectedIntentA})
+}
+
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSharedSA() {
 	serviceAccountName := "test-service-account"
 	server := "test-server"
@@ -542,7 +656,10 @@ func (s *CloudReconcilerTestSuite) assertReportedIntents(clientIntents otterizev
 		})
 
 	expectedNamespace := lo.ToPtr(testNamespace)
-	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, operator_cloud_client.GetMatcher(expectedIntents)).Return(nil).Times(1)
+
+	if len(expectedIntents) > 0 {
+		s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, operator_cloud_client.GetMatcher(expectedIntents)).Return(nil).Times(1)
+	}
 
 	objName := types.NamespacedName{
 		Namespace: testNamespace,
