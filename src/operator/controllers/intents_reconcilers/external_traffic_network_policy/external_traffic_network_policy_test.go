@@ -107,7 +107,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIng
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)
@@ -161,7 +161,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)
@@ -217,7 +217,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 
 	// make sure the network policy was created between the two services based on the intents
 	netpol := &v1.NetworkPolicy{}
-	intentNetworkPolicyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, serviceName)
+	intentNetworkPolicyName := fmt.Sprintf(otterizev1alpha3.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, netpol)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(netpol)
@@ -324,7 +324,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	intentNetworkPolicyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, serviceName)
+	intentNetworkPolicyName := fmt.Sprintf(otterizev1alpha3.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)
@@ -412,7 +412,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNod
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)
@@ -467,7 +467,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerNetwor
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(otterizev1alpha3.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(np)

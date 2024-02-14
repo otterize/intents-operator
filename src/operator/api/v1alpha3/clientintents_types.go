@@ -43,6 +43,7 @@ const (
 	OtterizeSvcAccessLabelKey                            = "intents.otterize.com/svc-access-%s"
 	OtterizeClientLabelKey                               = "intents.otterize.com/client"
 	OtterizeServiceLabelKey                              = "intents.otterize.com/service"
+	OtterizeServerLabelKeyDeprecated                     = "intents.otterize.com/server"
 	OtterizeKubernetesServiceLabelKeyPrefix              = "intents.otterize.com/k8s-svc"
 	OtterizeKubernetesServiceLabelKey                    = "intents.otterize.com/k8s-svc-%s"
 	KubernetesStandardNamespaceNameLabelKey              = "kubernetes.io/metadata.name"

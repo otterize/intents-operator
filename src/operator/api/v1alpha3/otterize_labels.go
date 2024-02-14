@@ -35,9 +35,14 @@ func UpdateOtterizeAccessLabels(pod *v1.Pod, serviceName string, otterizeAccessL
 	return pod
 }
 
-func HasOtterizeServerLabel(pod *v1.Pod, labelValue string) bool {
+func HasOtterizeServiceLabel(pod *v1.Pod, labelValue string) bool {
 	value, exists := pod.Labels[OtterizeServiceLabelKey]
 	return exists && value == labelValue
+}
+
+func HasOtterizeDeprecatedServerLabel(pod *v1.Pod) bool {
+	_, exists := pod.Labels[OtterizeServerLabelKeyDeprecated]
+	return exists
 }
 
 func cleanupOtterizeLabelsAndAnnotations(pod *v1.Pod) *v1.Pod {

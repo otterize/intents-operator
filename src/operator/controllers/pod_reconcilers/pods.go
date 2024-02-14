@@ -182,7 +182,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 
 	// Update server label - the server identity of the pod.
 	// This is the pod selector used in network policies to grant access to this pod.
-	if !otterizev1alpha3.HasOtterizeServerLabel(&pod, otterizeServerLabelValue) {
+	if !otterizev1alpha3.HasOtterizeServiceLabel(&pod, otterizeServerLabelValue) {
 		// Label pods as destination servers
 		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, serviceID.Name)
 		if updatedPod.Labels == nil {
@@ -190,6 +190,11 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		}
 		updatedPod.Labels[otterizev1alpha3.OtterizeServiceLabelKey] = otterizeServerLabelValue
 		hasUpdates = true
+	}
+
+	if otterizev1alpha3.HasOtterizeDeprecatedServerLabel(&pod) {
+		logrus.Infof("Removing deprecated label for pod %s with server identity %s", pod.Name, serviceID.Name)
+		delete(updatedPod.Labels, otterizev1alpha3.OtterizeServerLabelKeyDeprecated)
 	}
 
 	var intents otterizev1alpha3.ClientIntentsList

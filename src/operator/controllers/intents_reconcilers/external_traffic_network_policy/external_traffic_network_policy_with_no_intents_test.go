@@ -258,7 +258,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestNetworkPolic
 
 	// make sure the network policy was created between the two services based on the intents
 	netpol := &v1.NetworkPolicy{}
-	intentNetworkPolicyName := fmt.Sprintf(otterizev1alpha3.OtterizeNetworkPolicyNameTemplate, serviceName)
+	intentNetworkPolicyName := fmt.Sprintf(otterizev1alpha3.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, netpol)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(netpol)
