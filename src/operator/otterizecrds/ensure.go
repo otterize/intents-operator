@@ -70,7 +70,7 @@ func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace s
 		}
 		updatedCRD.Annotations[key] = value
 	}
-	crd.Spec = *updatedCRD.Spec.DeepCopy()
+	updatedCRD.Spec = *crdToCreate.Spec.DeepCopy()
 	err = k8sClient.Patch(ctx, updatedCRD, client.MergeFrom(&crd))
 	if err != nil {
 		return fmt.Errorf("could not Patch %s CRD: %w", crd.Name, err)
