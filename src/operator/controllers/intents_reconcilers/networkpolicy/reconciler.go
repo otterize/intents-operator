@@ -177,7 +177,7 @@ func (r *Reconciler) applyServiceEffectivePolicy(ctx context.Context, ep effecti
 
 func (r *Reconciler) recordCreateFailedError(ep effectivepolicy.ServiceEffectivePolicy, err error) {
 	if len(ep.Calls) > 0 && len(r.egressRuleBuilders) > 0 {
-		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonCreatingNetworkPoliciesFailed, "NetworkPolicy creation failed: %s", err.Error())
+		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonCreatingEgressNetworkPoliciesFailed, "NetworkPolicy creation failed: %s", err.Error())
 	}
 	if len(ep.CalledBy) > 0 && len(r.ingressRuleBuilders) > 0 {
 		ep.RecordOnClientsWarningEventf(consts.ReasonCreatingNetworkPoliciesFailed, "NetworkPolicy creation failed: %s", err.Error())

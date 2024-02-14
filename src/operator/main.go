@@ -25,7 +25,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy/builders"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
@@ -203,7 +202,7 @@ func main() {
 		epNetpolReconciler.AddEgressRuleBuilder(egressNetworkPolicyHandler)
 		internetNetpolReconciler := builders.NewInternetEgressRulesBuilder()
 		epNetpolReconciler.AddEgressRuleBuilder(internetNetpolReconciler)
-		svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+		svcEgressNetworkPolicyHandler := builders.NewPortEgressRulesBuilder(mgr.GetClient())
 		epNetpolReconciler.AddEgressRuleBuilder(svcEgressNetworkPolicyHandler)
 
 	}
