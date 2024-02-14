@@ -3,6 +3,7 @@ package reconcilergroup
 import (
 	"context"
 	"errors"
+	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/stretchr/testify/suite"
@@ -68,7 +69,7 @@ func (s *ReconcilerGroupTestSuite) ExpectIntentWithFinalizer() {
 }
 
 func (s *ReconcilerGroupTestSuite) TestGroupError() {
-	reconcilerWithError := &TestReconciler{Err: errors.Errorf("test error"), Result: reconcile.Result{}}
+	reconcilerWithError := &TestReconciler{Err: fmt.Errorf("test error"), Result: reconcile.Result{}}
 	reconcilerWithResult := &TestReconciler{Err: nil, Result: reconcile.Result{Requeue: true}}
 	happyReconciler := &TestReconciler{Err: nil, Result: reconcile.Result{}}
 	s.group.AddToGroup(reconcilerWithError)
