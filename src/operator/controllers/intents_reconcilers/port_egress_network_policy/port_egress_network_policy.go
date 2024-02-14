@@ -249,7 +249,7 @@ func (r *PortEgressNetworkPolicyReconciler) buildNetworkPolicyObjectForIntents(c
 			return nil, errors.Wrap(err)
 		}
 	} else {
-		return nil, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
+		return nil, errors.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
 	}
 
 	netpol := &v1.NetworkPolicy{
@@ -327,7 +327,7 @@ func (r *PortEgressNetworkPolicyReconciler) getIPRuleFromEndpoint(ctx context.Co
 	}
 
 	if len(endpoint.Subsets) == 0 {
-		return v1.NetworkPolicyEgressRule{}, fmt.Errorf("no endpoints found for service %s/%s", svc.Namespace, svc.Name)
+		return v1.NetworkPolicyEgressRule{}, errors.Errorf("no endpoints found for service %s/%s", svc.Namespace, svc.Name)
 	}
 
 	for _, subset := range endpoint.Subsets {
@@ -343,7 +343,7 @@ func (r *PortEgressNetworkPolicyReconciler) getIPRuleFromEndpoint(ctx context.Co
 	}
 
 	if len(ipAddresses) == 0 {
-		return v1.NetworkPolicyEgressRule{}, fmt.Errorf("no endpoints found for service %s/%s", svc.Namespace, svc.Name)
+		return v1.NetworkPolicyEgressRule{}, errors.Errorf("no endpoints found for service %s/%s", svc.Namespace, svc.Name)
 	}
 
 	podSelectorEgressRule := v1.NetworkPolicyEgressRule{}

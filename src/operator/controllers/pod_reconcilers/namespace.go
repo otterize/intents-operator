@@ -2,7 +2,6 @@ package pod_reconcilers
 
 import (
 	"context"
-	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -65,11 +64,11 @@ func (ns *NamespaceWatcher) Register(mgr manager.Manager) error {
 		RecoverPanic: lo.ToPtr(true),
 	})
 	if err != nil {
-		return fmt.Errorf("unable to set up namespace controller: %w", err)
+		return errors.Errorf("unable to set up namespace controller: %w", err)
 	}
 
 	if err = watcher.Watch(source.Kind(mgr.GetCache(), &v1.Namespace{}), &handler.EnqueueRequestForObject{}); err != nil {
-		return fmt.Errorf("unable to watch Namespaces: %w", err)
+		return errors.Errorf("unable to watch Namespaces: %w", err)
 	}
 
 	return nil

@@ -421,23 +421,23 @@ func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent
 	status.IstioStatus.ServiceAccountName = toPtrOrNil(serviceAccountName)
 	isSharedValue, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
 	if !ok {
-		return nil, false, fmt.Errorf("missing annotation shared service account for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("missing annotation shared service account for client intents %s", clientIntents.Name)
 	}
 
 	isShared, err := strconv.ParseBool(isSharedValue)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to parse shared service account annotation for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("failed to parse shared service account annotation for client intents %s", clientIntents.Name)
 	}
 	status.IstioStatus.IsServiceAccountShared = lo.ToPtr(isShared)
 
 	clientMissingSidecarValue, ok := clientIntents.Annotations[OtterizeMissingSidecarAnnotation]
 	if !ok {
-		return nil, false, fmt.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
 	}
 
 	clientMissingSidecar, err := strconv.ParseBool(clientMissingSidecarValue)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
 	}
 	status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(clientMissingSidecar)
 	isServerMissingSidecar, err := clientIntents.IsServerMissingSidecar(intent)
