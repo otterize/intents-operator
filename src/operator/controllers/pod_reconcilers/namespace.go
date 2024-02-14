@@ -45,6 +45,9 @@ func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Add Kubernetes standard namespace label so this namespace is a viable selector in network policies
 	updatedNS := namespace.DeepCopy()
+	if updatedNS.Labels == nil {
+		updatedNS.Labels = make(map[string]string)
+	}
 	updatedNS.Labels[otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey] = req.Name
 	err = ns.Patch(ctx, updatedNS, client.MergeFrom(namespace))
 	if err != nil {
