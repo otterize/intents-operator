@@ -219,6 +219,8 @@ spec:
                         type: array
                       internet:
                         properties:
+                          dns:
+                            type: string
                           ips:
                             items:
                               type: string

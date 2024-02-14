@@ -170,7 +170,7 @@ func (v *IntentsValidatorV1alpha3) validateSpec(intents *otterizev1alpha3.Client
 			}
 
 			if hasDNS {
-				_, err := idna.Lookup.ToASCII("example.com")
+				_, err := idna.Lookup.ToASCII(intent.Internet.Dns)
 				if err != nil {
 					return &field.Error{
 						Type:   field.ErrorTypeInvalid,
