@@ -199,14 +199,16 @@ func (r *Reconciler) buildEgressRules(ctx context.Context, ep effectivepolicy.Se
 		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonNamespaceNotAllowed, "ClientIntents are in namespace %s but namespace is not allowed by configuration", ep.Service.Namespace)
 		return rules, false, nil
 	}
+	errorList := make([]error, 0)
 	for _, builder := range r.egressRuleBuilders {
 		rule, err := builder.Build(ctx, ep)
 		if err != nil {
-			return nil, false, errors.Wrap(err)
+			errorList = append(errorList, errors.Wrap(err))
+			continue
 		}
 		rules = append(rules, rule...)
 	}
-	return rules, len(rules) > 0, nil
+	return rules, len(rules) > 0, errors.Wrap(goerrors.Join(errorList...))
 }
 
 func (r *Reconciler) buildIngressRules(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyIngressRule, bool, error) {
@@ -228,15 +230,16 @@ func (r *Reconciler) buildIngressRules(ctx context.Context, ep effectivepolicy.S
 		ep.RecordOnClientsWarningEventf(consts.ReasonNamespaceNotAllowed, "namespace %s was specified in intent, but is not allowed by configuration", ep.Service.Namespace)
 		return rules, false, nil
 	}
+	errorList := make([]error, 0)
 	for _, builder := range r.ingressRuleBuilders {
 		rule, err := builder.Build(ctx, ep)
 		if err != nil {
-			//TODO: Should decide how to handle this error (continue or return error?)
-			return nil, false, errors.Wrap(err)
+			errorList = append(errorList, errors.Wrap(err))
+			continue
 		}
 		rules = append(rules, rule...)
 	}
-	return rules, len(rules) > 0, nil
+	return rules, len(rules) > 0, errors.Wrap(goerrors.Join(errorList...))
 }
 
 // A function that builds pod label selector from serviceEffectivePolicy
