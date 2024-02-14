@@ -1,9 +1,11 @@
 package serviceidentity
 
 import (
+	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/samber/lo"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 type ServiceIdentity struct {
@@ -25,6 +27,10 @@ func (si *ServiceIdentity) GetFormattedOtterizeIdentity() string {
 
 func (si *ServiceIdentity) GetName() string {
 	return si.Name
+}
+
+func (si *ServiceIdentity) GetNameWithKind() string {
+	return lo.Ternary(si.Kind == "", si.Name, fmt.Sprintf("%s-%s", si.Name, strings.ToLower(si.Kind)))
 }
 
 func NewFromIntent(intent v1alpha3.Intent, clientNamespace string) ServiceIdentity {

@@ -28,7 +28,6 @@ import (
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
 )
 
 type EgressRuleBuilder interface {
@@ -140,7 +139,11 @@ func (r *Reconciler) applyServiceEffectivePolicy(ctx context.Context, ep effecti
 		return types.NamespacedName{}, false, nil
 	}
 	netpol, shouldCreate, err := r.buildNetworkPolicy(ctx, ep)
-	if err != nil || !shouldCreate {
+	if err != nil {
+		r.recordCreateFailedError(ep, err)
+		return types.NamespacedName{}, false, errors.Wrap(err)
+	}
+	if !shouldCreate {
 		return types.NamespacedName{}, shouldCreate, errors.Wrap(err)
 	}
 	existingPolicy := &v1.NetworkPolicy{}
@@ -155,6 +158,7 @@ func (r *Reconciler) applyServiceEffectivePolicy(ctx context.Context, ep effecti
 	if k8serrors.IsNotFound(err) {
 		err = r.createNetworkPolicy(ctx, ep, netpol)
 		if err != nil {
+			r.recordCreateFailedError(ep, err)
 			return types.NamespacedName{}, false, errors.Wrap(err)
 		}
 		return types.NamespacedName{Name: netpol.Name, Namespace: netpol.Namespace}, true, nil
@@ -163,11 +167,21 @@ func (r *Reconciler) applyServiceEffectivePolicy(ctx context.Context, ep effecti
 	err = r.updateExistingPolicy(ctx, ep, existingPolicy, netpol)
 
 	if err != nil {
+		r.recordCreateFailedError(ep, err)
 		return types.NamespacedName{}, false, errors.Wrap(err)
 	}
 
 	return types.NamespacedName{Name: netpol.Name, Namespace: netpol.Namespace}, true, nil
 
+}
+
+func (r *Reconciler) recordCreateFailedError(ep effectivepolicy.ServiceEffectivePolicy, err error) {
+	if len(ep.Calls) > 0 && len(r.egressRuleBuilders) > 0 {
+		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonCreatingNetworkPoliciesFailed, "NetworkPolicy creation failed: %s", err.Error())
+	}
+	if len(ep.CalledBy) > 0 && len(r.ingressRuleBuilders) > 0 {
+		ep.RecordOnClientsWarningEventf(consts.ReasonCreatingNetworkPoliciesFailed, "NetworkPolicy creation failed: %s", err.Error())
+	}
 }
 
 func (r *Reconciler) buildEgressRules(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyEgressRule, bool, error) {
@@ -293,7 +307,7 @@ func (r *Reconciler) buildNetworkPolicy(ctx context.Context, ep effectivepolicy.
 
 	policy := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(otterizev1alpha3.OtterizeSingleNetworkPolicyNameTemplate, ep.Service.Name+strings.ToLower(ep.Service.Kind)),
+			Name:      fmt.Sprintf(otterizev1alpha3.OtterizeSingleNetworkPolicyNameTemplate, ep.Service.GetNameWithKind()),
 			Namespace: ep.Service.Namespace,
 			Labels: map[string]string{
 				otterizev1alpha3.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentity(),

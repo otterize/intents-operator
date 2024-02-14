@@ -23,7 +23,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/operator/controllers/aws_pod_reconciler"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/internet_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy/builders"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
@@ -196,13 +195,13 @@ func main() {
 	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
-	svcNetworkPolicyBuilder := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+	svcNetworkPolicyBuilder := builders.NewPortNetworkPolicyReconciler(mgr.GetClient())
 	epNetpolReconciler := networkpolicy.NewReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, []networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder}, make([]networkpolicy.EgressRuleBuilder, 0))
 	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
 		egressNetworkPolicyHandler := builders.NewEgressNetworkPolicyBuilder()
 		epNetpolReconciler.AddEgressRuleBuilder(egressNetworkPolicyHandler)
-		internetNetpolReconciler := internet_network_policy.NewInternetNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
+		internetNetpolReconciler := builders.NewInternetEgressRulesBuilder()
 		epNetpolReconciler.AddEgressRuleBuilder(internetNetpolReconciler)
 		svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 		epNetpolReconciler.AddEgressRuleBuilder(svcEgressNetworkPolicyHandler)
