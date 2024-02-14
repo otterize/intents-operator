@@ -172,6 +172,9 @@ type Intent struct {
 }
 
 type Internet struct {
+	//+optional
+	Dns string `json:"dns,omitempty" yaml:"dns,omitempty"`
+	//+optional
 	Ips []string `json:"ips,omitempty" yaml:"ips,omitempty"`
 	//+optional
 	Ports []int `json:"ports,omitempty" yaml:"ports,omitempty"`
@@ -195,6 +198,11 @@ type KafkaTopic struct {
 	Operations []KafkaOperation `json:"operations" yaml:"operations"`
 }
 
+type ResolvedIPs struct {
+	DNS string   `json:"dns,omitempty" yaml:"dns,omitempty"`
+	IPs []string `json:"ips,omitempty" yaml:"ips,omitempty"`
+}
+
 // IntentsStatus defines the observed state of ClientIntents
 type IntentsStatus struct {
 	// upToDate field reflects whether the client intents have successfully been applied
@@ -204,6 +212,8 @@ type IntentsStatus struct {
 	// The last generation of the intents that was successfully reconciled.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration"`
+	// +optional
+	ResolvedIPs []ResolvedIPs `json:"resolvedIPs,omitempty" yaml:"resolvedIPs,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -201,11 +201,13 @@ func (r *InternetNetworkPolicyReconciler) buildNetworkPolicy(
 	})
 
 	for _, intent := range intents {
-		peers, err := r.parseIps(intent)
+		peers, ports, ok, err := r.buildRuleForIntent(intent, ep)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
-		ports := r.parsePorts(intent)
+		if !ok {
+			continue
+		}
 		rules = append(rules, v1.NetworkPolicyEgressRule{
 			To:    peers,
 			Ports: ports,
@@ -229,9 +231,47 @@ func (r *InternetNetworkPolicyReconciler) buildNetworkPolicy(
 	}, nil
 }
 
-func (r *InternetNetworkPolicyReconciler) parseIps(intent otterizev1alpha3.Intent) ([]v1.NetworkPolicyPeer, error) {
+func (r *InternetNetworkPolicyReconciler) buildRuleForIntent(intent otterizev1alpha3.Intent, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyPeer, []v1.NetworkPolicyPort, bool, error) {
+	ips := make([]string, 0)
+	ipsFromDns := r.getIpsForDNS(intent, ep)
+
+	ips = append(ips, ipsFromDns...)
+	ips = append(ips, intent.Internet.Ips...)
+
+	if len(ips) == 0 {
+		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonNetworkPolicyCreationFailedMissingIP, "no IPs found for internet intent %s", intent.Internet.Dns)
+		return nil, nil, false, nil
+	}
+
+	peers, err := r.parseIps(ips)
+	if err != nil {
+		return nil, nil, false, errors.Wrap(err)
+	}
+	ports := r.parsePorts(intent)
+	return peers, ports, true, nil
+}
+
+func (r *InternetNetworkPolicyReconciler) getIpsForDNS(intent otterizev1alpha3.Intent, ep effectivepolicy.ServiceEffectivePolicy) []string {
+	ipsFromDns := make([]string, 0)
+	if intent.Internet.Dns == "" {
+		return ipsFromDns
+	}
+	dnsResolvedIps, found := lo.Find(ep.Status.ResolvedIPs, func(resolvedIPs otterizev1alpha3.ResolvedIPs) bool {
+		return resolvedIPs.DNS == intent.Internet.Dns
+	})
+
+	if !found {
+		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonIntentToUnresolvedDns, "could not find IP for DNS %s", intent.Internet.Dns)
+		return ipsFromDns
+	}
+
+	ipsFromDns = dnsResolvedIps.IPs
+	return ipsFromDns
+}
+
+func (r *InternetNetworkPolicyReconciler) parseIps(ips []string) ([]v1.NetworkPolicyPeer, error) {
 	var cidrs []string
-	for _, ip := range intent.Internet.Ips {
+	for _, ip := range ips {
 		var cidr string
 		if !strings.Contains(ip, "/") {
 			cidr = fmt.Sprintf("%s/32", ip)

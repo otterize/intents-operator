@@ -284,6 +284,17 @@ spec:
                   description: The last generation of the intents that was successfully reconciled.
                   format: int64
                   type: integer
+                resolvedIPs:
+                  items:
+                    properties:
+                      dns:
+                        type: string
+                      ips:
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  type: array
                 upToDate:
                   description: upToDate field reflects whether the client intents have successfully been applied to the cluster to the state specified
                   type: boolean
