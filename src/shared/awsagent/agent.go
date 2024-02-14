@@ -2,7 +2,6 @@ package awsagent
 
 import (
 	"context"
-	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
@@ -53,13 +52,13 @@ func NewAWSAgent(
 	awsConfig, err := config.LoadDefaultConfig(ctx)
 
 	if err != nil {
-		return nil, fmt.Errorf("could not load AWS config")
+		return nil, errors.Errorf("could not load AWS config")
 	}
 
 	currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to get current EKS cluster: %w", err)
+		return nil, errors.Errorf("failed to get current EKS cluster: %w", err)
 	}
 
 	OIDCURL := *currentCluster.Identity.Oidc.Issuer
@@ -70,7 +69,7 @@ func NewAWSAgent(
 	callerIdent, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 
 	if err != nil {
-		return nil, fmt.Errorf("unable to get STS caller identity: %w", err)
+		return nil, errors.Errorf("unable to get STS caller identity: %w", err)
 	}
 
 	return &Agent{
@@ -116,7 +115,7 @@ func getEKSClusterName(ctx context.Context, config aws.Config) (string, error) {
 func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Cluster, error) {
 	clusterName, err := getEKSClusterName(ctx, config)
 	if err != nil {
-		return nil, fmt.Errorf("could not get EKS cluster name: %w", err)
+		return nil, errors.Errorf("could not get EKS cluster name: %w", err)
 	}
 
 	eksClient := eks.NewFromConfig(config)

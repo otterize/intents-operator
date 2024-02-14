@@ -2,7 +2,6 @@ package intents_reconcilers
 
 import (
 	"context"
-	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
@@ -100,7 +99,7 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 
 	hasMultipleClientsForServiceAccount, err := r.hasMultipleClientsForServiceAccount(ctx, serviceAccountName, pod.Namespace)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed checking if the service account: %s is used by multiple aws clients: %w", serviceAccountName, err)
+		return ctrl.Result{}, errors.Errorf("failed checking if the service account: %s is used by multiple aws clients: %w", serviceAccountName, err)
 	}
 
 	if hasMultipleClientsForServiceAccount {

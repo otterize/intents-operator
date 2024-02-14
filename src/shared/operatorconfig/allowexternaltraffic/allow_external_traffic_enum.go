@@ -1,7 +1,7 @@
 package allowexternaltraffic
 
 import (
-	"fmt"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/spf13/pflag"
 )
 
@@ -28,7 +28,7 @@ func (e *Enum) Set(value string) error {
 		return nil
 	}
 
-	return fmt.Errorf("invalid value %s for allowExternalTraffic", value)
+	return errors.Errorf("invalid value %s for allowExternalTraffic", value)
 }
 
 func (e *Enum) Type() string {

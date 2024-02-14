@@ -22,7 +22,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	}
 
 	if !exists {
-		return fmt.Errorf("role not found: %s", a.generateRoleName(namespace, accountName))
+		return errors.Errorf("role not found: %s", a.generateRoleName(namespace, accountName))
 	}
 
 	policyArn := a.generatePolicyArn(a.generatePolicyName(namespace, intentsServiceName))
