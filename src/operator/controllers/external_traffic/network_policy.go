@@ -358,23 +358,7 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 			return errors.Wrap(err)
 		}
 
-		svcNetpolList := &v1.NetworkPolicyList{}
-		svcIdentity := v1alpha3.GetFormattedOtterizeIdentity(
-			endpoints.Name,
-			endpoints.Namespace,
-		)
-		// there's only ever one
-		err = r.client.List(ctx, svcNetpolList, client.MatchingLabels{v1alpha3.OtterizeSvcNetworkPolicy: svcIdentity}, client.Limit(1))
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				// only act on pods affected by Otterize policies - if they were not created yet,
-				// the intents reconciler will call the endpoints reconciler once it does.
-				continue
-			}
-			return errors.Wrap(err)
-		}
-
-		if len(netpolList.Items) == 0 && len(svcNetpolList.Items) == 0 {
+		if len(netpolList.Items) == 0 {
 			if r.allowExternalTraffic == allowexternaltraffic.Always {
 				err := r.handleNetpolsForOtterizeServiceWithoutIntents(ctx, endpoints, serverLabel, ingressList)
 				if err != nil {
@@ -386,7 +370,6 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 
 		netpolSlice := make([]v1.NetworkPolicy, 0)
 		netpolSlice = append(netpolSlice, netpolList.Items...)
-		netpolSlice = append(netpolSlice, svcNetpolList.Items...)
 
 		foundOtterizeNetpolsAffectingPods = true
 		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, netpolSlice)

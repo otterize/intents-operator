@@ -5,7 +5,6 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/networking/v1"
@@ -22,10 +21,6 @@ import (
 type InternetNetworkPolicyReconcilerTestSuite struct {
 	RulesBuilderTestSuiteBase
 	Builder *InternetEgressRulesBuilder
-}
-
-func init() {
-	logrus.SetLevel(logrus.DebugLevel)
 }
 
 func (s *InternetNetworkPolicyReconcilerTestSuite) SetupTest() {

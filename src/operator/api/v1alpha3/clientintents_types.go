@@ -68,7 +68,6 @@ const (
 	OtterizeFormattedTargetServerIndexField   = "formattedTargetServer"
 	EndpointsPodNamesIndexField               = "endpointsPodNames"
 	IngressServiceNamesIndexField             = "ingressServiceNames"
-	NetworkPoliciesByIngressNameIndexField    = "networkPoliciesByIngressName"
 	MaxOtterizeNameLength                     = 20
 	MaxNamespaceLength                        = 20
 	OtterizeSvcEgressNetworkPolicy            = "intents.otterize.com/svc-egress-network-policy"

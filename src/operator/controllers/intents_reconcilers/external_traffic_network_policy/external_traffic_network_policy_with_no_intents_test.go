@@ -76,7 +76,6 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupTest() {
 
 	s.IngressReconciler = external_traffic.NewIngressReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.IngressReconciler.InjectRecorder(recorder)
-	err = s.IngressReconciler.InitNetworkPoliciesByIngressNameIndex(s.Mgr)
 	s.Require().NoError(err)
 
 	s.podWatcher = pod_reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, true, true)

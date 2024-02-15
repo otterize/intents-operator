@@ -329,9 +329,6 @@ func main() {
 		additionalIntentsReconcilers...,
 	)
 
-	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to init index for ingress")
-	}
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to init indices")
 	}
