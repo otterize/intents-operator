@@ -101,7 +101,7 @@ func (r *PortNetworkPolicyReconciler) Build(ctx context.Context, ep effectivepol
 		return nil, errors.Wrap(err)
 	}
 	if svc.Spec.Selector == nil {
-		return nil, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
+		return nil, errors.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
 	}
 	return r.buildIngressRulesFromEffectivePolicy(ep, &svc), nil
 }
