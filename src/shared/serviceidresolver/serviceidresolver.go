@@ -2,7 +2,6 @@ package serviceidresolver
 
 import (
 	"context"
-	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
@@ -106,7 +105,7 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 				ownerObj.SetName(owner.Name)
 				return ownerObj, nil
 			}
-			return nil, fmt.Errorf("error querying owner reference: %w", err)
+			return nil, errors.Errorf("error querying owner reference: %w", err)
 		}
 
 		// recurse parent owner reference

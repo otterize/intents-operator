@@ -140,7 +140,7 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 
 	if !ok {
 		r.RecordWarningEventf(config, ReasonIntentsOperatorIdentityResolveFailed, "failed resolving intents operator identity - service name annotation required")
-		return fmt.Errorf("failed resolving intents operator identity - service name annotation required")
+		return errors.Errorf("failed resolving intents operator identity - service name annotation required")
 	}
 
 	newIntents := &otterizev1alpha3.ClientIntents{
@@ -308,7 +308,7 @@ func crdPatternToCloudPattern(pattern otterizev1alpha3.ResourcePatternType) (gra
 	case otterizev1alpha3.ResourcePatternTypeLiteral:
 		result = graphqlclient.KafkaTopicPatternLiteral
 	default:
-		return "", fmt.Errorf("unknown pattern type: %s", pattern)
+		return "", errors.Errorf("unknown pattern type: %s", pattern)
 	}
 
 	return result, nil

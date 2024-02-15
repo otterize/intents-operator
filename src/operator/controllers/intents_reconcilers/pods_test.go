@@ -2,9 +2,9 @@ package intents_reconcilers
 
 import (
 	"context"
-	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -524,7 +524,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddFailedPatch() {
 		Spec: v1.PodSpec{},
 	}
 
-	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(fmt.Errorf("Patch failed"))
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), gomock.Any()).Return(errors.Errorf("Patch failed"))
 
 	_, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.Error(err)

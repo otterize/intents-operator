@@ -2,7 +2,6 @@ package intents_reconcilers
 
 import (
 	"context"
-	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -101,14 +100,14 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 		}
 		kafkaIntentsAdmin, err := r.getNewKafkaIntentsAdmin(*config, tls, r.enableKafkaACLCreation, shouldCreatePolicy)
 		if err != nil {
-			err = fmt.Errorf("failed to connect to Kafka server %s: %w", serverName, err)
+			err = errors.Errorf("failed to connect to Kafka server %s: %w", serverName, err)
 			r.RecordWarningEventf(intents, ReasonCouldNotConnectToKafkaServer, "Kafka ACL reconcile failed: %s", err.Error())
 			return errors.Wrap(err)
 		}
 		defer kafkaIntentsAdmin.Close()
 		if err := kafkaIntentsAdmin.ApplyClientIntents(intents.Spec.Service.Name, intents.Namespace, intentsForServer); err != nil {
 			r.RecordWarningEventf(intents, ReasonCouldNotApplyIntentsOnKafkaServer, "Kafka ACL reconcile failed: %s", err.Error())
-			return fmt.Errorf("failed applying intents on kafka server %s: %w", serverName, err)
+			return errors.Errorf("failed applying intents on kafka server %s: %w", serverName, err)
 		}
 		return nil
 	}); err != nil {
@@ -144,7 +143,7 @@ func (r *KafkaACLReconciler) RemoveACLs(ctx context.Context, intents *otterizev1
 		defer kafkaIntentsAdmin.Close()
 
 		if err := kafkaIntentsAdmin.RemoveClientIntents(intents.Spec.Service.Name, intents.Namespace); err != nil {
-			return fmt.Errorf("failed removing intents from kafka server %s: %w", serverName, err)
+			return errors.Errorf("failed removing intents from kafka server %s: %w", serverName, err)
 		}
 		return nil
 	})
@@ -197,12 +196,12 @@ func (r *KafkaACLReconciler) isIntentsForTheIntentsOperator(ctx context.Context,
 
 	name, ok, err := r.serviceResolver.GetPodAnnotatedName(ctx, r.operatorPodName, r.operatorPodNamespace)
 	if err != nil {
-		return false, fmt.Errorf("failed resolving intents operator identity - %w", err)
+		return false, errors.Errorf("failed resolving intents operator identity - %w", err)
 	}
 
 	if !ok {
 		r.RecordWarningEventf(intents, ReasonIntentsOperatorIdentityResolveFailed, "failed resolving intents operator identity - service name annotation required")
-		return false, fmt.Errorf("failed resolving intents operator identity - service name annotation required")
+		return false, errors.Errorf("failed resolving intents operator identity - service name annotation required")
 	}
 
 	return name == intents.Spec.Service.Name, nil

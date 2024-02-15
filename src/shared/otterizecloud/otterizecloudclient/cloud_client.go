@@ -42,7 +42,7 @@ func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 
 	rootCAs, err := x509.SystemCertPool()
 	if err != nil {
-		return nil, false, fmt.Errorf("error loading root system cert pool: %w", err)
+		return nil, false, errors.Errorf("error loading root system cert pool: %w", err)
 	}
 
 	for _, path := range extraCAPEMPaths {
