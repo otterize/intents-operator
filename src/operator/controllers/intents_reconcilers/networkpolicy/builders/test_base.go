@@ -110,36 +110,6 @@ func (s *RulesBuilderTestSuiteBase) expectRemoveOrphanFindsPolicies(netpols []v1
 	s.ignoreRemoveDeprecatedPolicies()
 }
 
-//func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents []otterizev1alpha3.ClientIntents) {
-//	var intentsList otterizev1alpha3.ClientIntentsList
-//
-//	s.Client.EXPECT().List(gomock.Any(), &intentsList).DoAndReturn(func(_ context.Context, intents *otterizev1alpha3.ClientIntentsList, _ ...any) error {
-//		intents.Items = append(intents.Items, clientIntents...)
-//		return nil
-//	})
-//
-//	// create service to ClientIntents pointing to it
-//	services := make(map[string][]otterizev1alpha3.ClientIntents)
-//	for _, clientIntent := range clientIntents {
-//		for _, intentCall := range clientIntent.GetCallsList() {
-//			server := otterizev1alpha3.GetFormattedOtterizeIdentity(intentCall.GetTargetServerName(), intentCall.GetTargetServerNamespace(clientIntent.Namespace))
-//			services[server] = append(services[server], clientIntent)
-//		}
-//	}
-//
-//	matchFieldsPtr := &client.MatchingFields{}
-//	s.Client.EXPECT().List(
-//		gomock.Any(),
-//		&otterizev1alpha3.ClientIntentsList{},
-//		gomock.AssignableToTypeOf(matchFieldsPtr),
-//	).DoAndReturn(func(_ context.Context, intents *otterizev1alpha3.ClientIntentsList, args ...any) error {
-//		matchFields := args[0].(*client.MatchingFields)
-//		intents.Items = services[(*matchFields)[otterizev1alpha3.OtterizeFormattedTargetServerIndexField]]
-//		return nil
-//	}).AnyTimes()
-//
-//}
-
 func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents []otterizev1alpha3.ClientIntents) {
 	var intentsList otterizev1alpha3.ClientIntentsList
 
@@ -171,5 +141,4 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 		intents.Items = services[(*matchFields)[otterizev1alpha3.OtterizeFormattedTargetServerIndexField]]
 		return nil
 	}).AnyTimes()
-
 }

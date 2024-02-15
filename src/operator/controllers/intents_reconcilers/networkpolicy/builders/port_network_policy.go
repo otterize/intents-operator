@@ -13,16 +13,10 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-type externalNetpolHandler interface {
-	HandlePodsByLabelSelector(ctx context.Context, namespace string, labelSelector labels.Selector) error
-	HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error
-}
 
 type PortNetworkPolicyReconciler struct {
 	client.Client

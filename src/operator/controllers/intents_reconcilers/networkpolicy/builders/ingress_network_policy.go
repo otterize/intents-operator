@@ -9,13 +9,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 )
-
-type ExternalNetpolHandler interface {
-	HandlePodsByLabelSelector(ctx context.Context, namespace string, labelSelector labels.Selector) error
-	HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error
-}
 
 type IngressNetpolBuilder struct {
 	injectablerecorder.InjectableRecorder
