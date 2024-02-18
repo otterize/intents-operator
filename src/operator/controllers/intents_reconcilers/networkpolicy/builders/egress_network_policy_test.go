@@ -18,11 +18,6 @@ import (
 	"time"
 )
 
-const (
-	testServerNamespace = "test-server-namespace"
-	testClientNamespace = "test-client-namespace"
-)
-
 type EgressNetworkPolicyReconcilerTestSuite struct {
 	RulesBuilderTestSuiteBase
 	Builder *EgressNetworkPolicyBuilder

@@ -7,16 +7,27 @@ import (
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"go.uber.org/mock/gomock"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
+)
+
+const (
+	testNamespace       = "test-namespace"
+	testServerNamespace = "test-server-namespace"
+	testClientNamespace = "test-client-namespace"
 )
 
 type RulesBuilderTestSuiteBase struct {
@@ -122,12 +133,8 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 	services := make(map[string][]otterizev1alpha3.ClientIntents)
 	for _, clientIntent := range clientIntents {
 		for _, intentCall := range clientIntent.GetCallsList() {
-			serverName := intentCall.GetTargetServerName()
-			if intentCall.IsTargetServerKubernetesService() {
-				serverName = "svc." + serverName
-			}
-			server := otterizev1alpha3.GetFormattedOtterizeIdentity(serverName, intentCall.GetTargetServerNamespace(clientIntent.Namespace))
-			services[server] = append(services[server], clientIntent)
+			serverService := serviceidentity.NewFromIntent(intentCall, clientIntent.Namespace)
+			services[serverService.GetFormattedOtterizeIdentity()] = append(services[serverService.GetFormattedOtterizeIdentity()], clientIntent)
 		}
 	}
 
@@ -141,4 +148,35 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 		intents.Items = services[(*matchFields)[otterizev1alpha3.OtterizeFormattedTargetServerIndexField]]
 		return nil
 	}).AnyTimes()
+}
+
+func (s *RulesBuilderTestSuiteBase) addExpectedKubernetesServiceCall(serviceName string, serviceNamespace string, port int, selector map[string]string) *corev1.Service {
+	serverStrippedSVCPrefix := strings.ReplaceAll(serviceName, "svc:", "")
+	kubernetesSvcNamespacedName := types.NamespacedName{
+		Namespace: serviceNamespace,
+		Name:      serverStrippedSVCPrefix,
+	}
+	svcObject := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serverStrippedSVCPrefix,
+			Namespace: serviceNamespace,
+		},
+
+		Spec: corev1.ServiceSpec{
+			Selector: selector,
+			Ports: []corev1.ServicePort{{
+				TargetPort: intstr.IntOrString{
+					IntVal: int32(port),
+				},
+			}},
+		},
+	}
+
+	s.Client.EXPECT().Get(gomock.Any(), kubernetesSvcNamespacedName, gomock.AssignableToTypeOf(&svcObject)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, service *corev1.Service, options ...client.ListOption) error {
+			svcObject.DeepCopyInto(service)
+			return nil
+		}).AnyTimes()
+
+	return &svcObject
 }

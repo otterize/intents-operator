@@ -134,7 +134,7 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, servi
 			if service.Kind == serviceidentity.KindService {
 				return intent.IsTargetServerKubernetesService() && intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
 			}
-			return intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
+			return !intent.IsTargetServerKubernetesService() && intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
 		})
 		ep.CalledBy = append(ep.CalledBy, clientCalls...)
 	}

@@ -20,10 +20,6 @@ import (
 	"time"
 )
 
-const (
-	testNamespace = "test-namespace"
-)
-
 type NetworkPolicyReconcilerTestSuite struct {
 	RulesBuilderTestSuiteBase
 	Builder *IngressNetpolBuilder
@@ -496,11 +492,6 @@ func (s *NetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIntentsN
 
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), existingPolicy)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
-	// TODO: Why did we need it?
-	//selector := labels.SelectorFromSet(labels.Set(map[string]string{
-	//	otterizev1alpha3.OtterizeServiceLabelKey: formattedTargetServer,
-	//}))
-	//s.ExternalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
 
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntentsObj})
 	s.expectRemoveOrphanFindsPolicies([]v1.NetworkPolicy{*existingPolicy})

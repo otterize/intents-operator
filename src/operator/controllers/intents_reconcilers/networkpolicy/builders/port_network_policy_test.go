@@ -288,37 +288,6 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestIgnoreKubernetesAPIServerServ
 	s.Empty(res)
 }
 
-func (s *PortNetworkPolicyReconcilerTestSuite) addExpectedKubernetesServiceCall(serverName string, port int, selector map[string]string) *corev1.Service {
-	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
-	kubernetesSvcNamespacedName := types.NamespacedName{
-		Namespace: testNamespace,
-		Name:      serverStrippedSVCPrefix,
-	}
-	svcObject := corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serverStrippedSVCPrefix,
-			Namespace: testNamespace,
-		},
-
-		Spec: corev1.ServiceSpec{
-			Selector: selector,
-			Ports: []corev1.ServicePort{{
-				TargetPort: intstr.IntOrString{
-					IntVal: int32(port),
-				},
-			}},
-		},
-	}
-
-	s.Client.EXPECT().Get(gomock.Any(), kubernetesSvcNamespacedName, gomock.AssignableToTypeOf(&svcObject)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, service *corev1.Service, options ...client.ListOption) error {
-			svcObject.DeepCopyInto(service)
-			return nil
-		}).AnyTimes()
-
-	return &svcObject
-}
-
 func (s *PortNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesService(
 	clientIntentsName string,
 	serverNamespace string,
@@ -349,7 +318,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKuberne
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
-	svcObject := s.addExpectedKubernetesServiceCall("test-server", 80, svcSelector)
+	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, 80, svcSelector)
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{
@@ -415,7 +384,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKuberne
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
-	svcObject := s.addExpectedKubernetesServiceCall("test-server", 80, svcSelector)
+	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, 80, svcSelector)
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{
