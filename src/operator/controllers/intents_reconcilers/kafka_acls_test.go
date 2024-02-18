@@ -161,7 +161,7 @@ func (s *KafkaACLReconcilerTestSuite) TestNoACLCreatedForIntentsOperator() {
 		Name:      intentsName,
 		Namespace: s.operatorNamespace,
 	}
-	s.reconcile(operatorNamespacedName)
+	s.reconcile(operatorNamespacedName, false)
 }
 
 func (s *KafkaACLReconcilerTestSuite) initOperatorNamespace() {
@@ -229,7 +229,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 		Name:      intentsObjectName,
 	}
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 
 	intentsFromReconciler := &otterizev1alpha3.ClientIntents{}
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
@@ -257,7 +257,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 		assert.Equal(len(intentsFromReconciler.Spec.Calls[0].Topics[0].Operations), 2)
 	})
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 }
 
 func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
@@ -301,7 +301,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 		Name:      clientIntents.Name,
 	}
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 
 	// Expected results when the ACL is deleted
 	deleteResult := []sarama.MatchingAcl{{
@@ -327,7 +327,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 	err = s.RemoveIntents(intentsObjectName)
 	s.Require().NoError(err)
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 }
 
 func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreationDisabled() {
@@ -350,7 +350,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreationDisabled() {
 		Name:      clientIntents.Name,
 	}
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 }
 
 func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() {
@@ -373,7 +373,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() 
 		Name:      clientIntents.Name,
 	}
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 	// the actual test is that there are not unexpected calls to the mockKafkaAdmin
 	select {
 	case event := <-s.recorder.Events:
@@ -383,13 +383,13 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() 
 	}
 }
 
-func (s *KafkaACLReconcilerTestSuite) reconcile(namespacedName types.NamespacedName) {
+func (s *KafkaACLReconcilerTestSuite) reconcile(namespacedName types.NamespacedName, expectLogsOnReQueue bool) {
 	res := ctrl.Result{Requeue: true}
 	var err error
 	firstRun := true
 
 	for res.Requeue {
-		if !firstRun {
+		if !firstRun && expectLogsOnReQueue {
 			// List ACL is called when the reconciler is re-queued for log purposes
 			s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(1)
 		}
