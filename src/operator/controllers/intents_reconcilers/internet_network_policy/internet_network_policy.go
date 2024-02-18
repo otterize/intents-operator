@@ -256,7 +256,7 @@ func (r *InternetNetworkPolicyReconciler) getIpsForDNS(intent otterizev1alpha3.I
 	if intent.Internet.Dns == "" {
 		return ipsFromDns
 	}
-	dnsResolvedIps, found := lo.Find(ep.Status.ResolvedIPs, func(resolvedIPs otterizev1alpha3.ResolvedIPs) bool {
+	dnsResolvedIps, found := lo.Find(ep.ClientIntentsStatus.ResolvedIPs, func(resolvedIPs otterizev1alpha3.ResolvedIPs) bool {
 		return resolvedIPs.DNS == intent.Internet.Dns
 	})
 
