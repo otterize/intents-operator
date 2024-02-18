@@ -172,6 +172,9 @@ type Intent struct {
 }
 
 type Internet struct {
+	//+optional
+	Dns string `json:"dns,omitempty" yaml:"dns,omitempty"`
+	//+optional
 	Ips []string `json:"ips,omitempty" yaml:"ips,omitempty"`
 	//+optional
 	Ports []int `json:"ports,omitempty" yaml:"ports,omitempty"`
@@ -195,6 +198,11 @@ type KafkaTopic struct {
 	Operations []KafkaOperation `json:"operations" yaml:"operations"`
 }
 
+type ResolvedIPs struct {
+	DNS string   `json:"dns,omitempty" yaml:"dns,omitempty"`
+	IPs []string `json:"ips,omitempty" yaml:"ips,omitempty"`
+}
+
 // IntentsStatus defines the observed state of ClientIntents
 type IntentsStatus struct {
 	// upToDate field reflects whether the client intents have successfully been applied
@@ -204,6 +212,8 @@ type IntentsStatus struct {
 	// The last generation of the intents that was successfully reconciled.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration"`
+	// +optional
+	ResolvedIPs []ResolvedIPs `json:"resolvedIPs,omitempty" yaml:"resolvedIPs,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -390,6 +400,11 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
+			if intent.Type == IntentTypeInternet && len(intent.Internet.Ips) == 0 {
+				// TODO: Remove when access graph support internet intents
+				continue
+			}
+
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
 			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {

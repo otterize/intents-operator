@@ -101,6 +101,7 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		if clientIntents, ok := serviceToIntent[service]; ok && clientIntents.DeletionTimestamp.IsZero() && clientIntents.Spec != nil {
 			ep.Calls = append(ep.Calls, clientIntents.GetCallsList()...)
 			ep.ClientIntentsEventRecorder = injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntents))
+			ep.ClientIntentsStatus = clientIntents.Status
 		}
 		epSlice = append(epSlice, ep)
 	}
@@ -113,7 +114,7 @@ func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(inten
 	if intent.IsTargetOutOfCluster() {
 		return false
 	}
-        // Services are currently unused when used as a target, since the policy is created by looking at client Calls.
+	// Services are currently unused when used as a target, since the policy is created by looking at client Calls.
 	if intent.IsTargetServerKubernetesService() {
 		return false
 	}

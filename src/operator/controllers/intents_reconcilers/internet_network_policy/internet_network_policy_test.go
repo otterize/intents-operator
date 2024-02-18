@@ -191,6 +191,213 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 	s.ExpectEvent(consts.ReasonCreatedInternetEgressNetworkPolicies)
 }
 
+func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS() {
+	s.Reconciler.enforcementDefaultState = true
+
+	clientIntentsName := "client-intents"
+	policyName := "egress-to-internet-from-test-client"
+	serviceName := "test-client"
+	clientNamespace := testClientNamespace
+	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
+	dns := "wiki.otters.com"
+	ips := []string{"10.1.2.2/32", "254.3.4.0/24"}
+
+	namespacedName := types.NamespacedName{
+		Namespace: testClientNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
+			{
+				Type: otterizev1alpha3.IntentTypeInternet,
+				Internet: &otterizev1alpha3.Internet{
+					Dns: dns,
+				},
+			},
+		},
+	}
+
+	intentsStatus := otterizev1alpha3.IntentsStatus{
+		ResolvedIPs: []otterizev1alpha3.ResolvedIPs{
+			{
+				DNS: dns,
+				IPs: ips,
+			},
+		},
+	}
+	clientIntents := otterizev1alpha3.ClientIntents{
+		Spec:   intentsSpec,
+		Status: intentsStatus,
+	}
+	clientIntents.Namespace = clientNamespace
+	clientIntents.Name = clientIntentsName
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+
+	// Search for existing NetworkPolicy
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	networkPolicyNamespacedName := types.NamespacedName{
+		Namespace: clientNamespace,
+		Name:      policyName,
+	}
+	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
+		})
+
+	newPolicy := &v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientNamespace,
+			Labels: map[string]string{
+				otterizev1alpha3.OtterizeInternetNetworkPolicy: formattedTargetClient,
+			},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					otterizev1alpha3.OtterizeClientLabelKey: formattedTargetClient,
+				},
+			},
+			Egress: []v1.NetworkPolicyEgressRule{
+				{
+					To: []v1.NetworkPolicyPeer{
+						{
+							IPBlock: &v1.IPBlock{
+								CIDR: ips[0],
+							},
+						},
+						{
+							IPBlock: &v1.IPBlock{
+								CIDR: ips[1],
+							},
+						},
+					},
+					Ports: []v1.NetworkPolicyPort{},
+				},
+			},
+		},
+	}
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
+
+	s.ignoreRemoveOrphan()
+
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Empty(res)
+	s.ExpectEvent(consts.ReasonCreatedInternetEgressNetworkPolicies)
+}
+
+func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyFromDNSAndIP() {
+	s.Reconciler.enforcementDefaultState = true
+
+	clientIntentsName := "client-intents"
+	policyName := "egress-to-internet-from-test-client"
+	serviceName := "test-client"
+	clientNamespace := testClientNamespace
+	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
+	dns := "wiki.otters.com"
+	ips := []string{"10.1.2.2/32", "254.3.4.0/24"}
+	resolvedIP := ips[0]
+	declaredIP := ips[1]
+
+	namespacedName := types.NamespacedName{
+		Namespace: testClientNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	intentsSpec := &otterizev1alpha3.IntentsSpec{
+		Service: otterizev1alpha3.Service{Name: serviceName},
+		Calls: []otterizev1alpha3.Intent{
+			{
+				Type: otterizev1alpha3.IntentTypeInternet,
+				Internet: &otterizev1alpha3.Internet{
+					Dns: dns,
+					Ips: []string{declaredIP},
+				},
+			},
+		},
+	}
+
+	intentsStatus := otterizev1alpha3.IntentsStatus{
+		ResolvedIPs: []otterizev1alpha3.ResolvedIPs{
+			{
+				DNS: dns,
+				IPs: []string{resolvedIP},
+			},
+		},
+	}
+	clientIntents := otterizev1alpha3.ClientIntents{
+		Spec:   intentsSpec,
+		Status: intentsStatus,
+	}
+	clientIntents.Namespace = clientNamespace
+	clientIntents.Name = clientIntentsName
+	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+
+	// Search for existing NetworkPolicy
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	networkPolicyNamespacedName := types.NamespacedName{
+		Namespace: clientNamespace,
+		Name:      policyName,
+	}
+	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
+		})
+
+	newPolicy := &v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientNamespace,
+			Labels: map[string]string{
+				otterizev1alpha3.OtterizeInternetNetworkPolicy: formattedTargetClient,
+			},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					otterizev1alpha3.OtterizeClientLabelKey: formattedTargetClient,
+				},
+			},
+			Egress: []v1.NetworkPolicyEgressRule{
+				{
+					To: []v1.NetworkPolicyPeer{
+						{
+							IPBlock: &v1.IPBlock{
+								CIDR: ips[0],
+							},
+						},
+						{
+							IPBlock: &v1.IPBlock{
+								CIDR: ips[1],
+							},
+						},
+					},
+					Ports: []v1.NetworkPolicyPort{},
+				},
+			},
+		},
+	}
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
+
+	s.ignoreRemoveOrphan()
+
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Empty(res)
+	s.ExpectEvent(consts.ReasonCreatedInternetEgressNetworkPolicies)
+}
+
 func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyMultipleEndpoints() {
 	s.Reconciler.enforcementDefaultState = true
 	clientIntentsName := "client-intents"

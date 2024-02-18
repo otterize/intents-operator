@@ -25,4 +25,6 @@ const (
 	ReasonCreatingEgressNetworkPoliciesFailed           = "CreatingEgressNetworkPoliciesFailed"
 	ReasonCreatedEgressNetworkPolicies                  = "CreatedEgressNetworkPolicies"
 	ReasonCreatedInternetEgressNetworkPolicies          = "CreatedInternetEgressNetworkPolicies"
+	ReasonIntentToUnresolvedDns                         = "IntentToUnresolvedDns"
+	ReasonNetworkPolicyCreationFailedMissingIP          = "NetworkPolicyCreationFailedMissingIP"
 )

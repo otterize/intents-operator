@@ -64,6 +64,10 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	if len(intentsInput) == 0 {
+		return ctrl.Result{}, nil
+	}
+
 	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
 

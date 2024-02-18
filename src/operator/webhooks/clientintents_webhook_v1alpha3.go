@@ -21,6 +21,7 @@ import (
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"golang.org/x/net/idna"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -158,11 +159,25 @@ func (v *IntentsValidatorV1alpha3) validateSpec(intents *otterizev1alpha3.Client
 					Detail: fmt.Sprintf("invalid intent format. type %s must contain internet object", otterizev1alpha3.IntentTypeInternet),
 				}
 			}
-			if intent.Internet.Ips == nil || len(intent.Internet.Ips) == 0 {
+			hasIPs := len(intent.Internet.Ips) > 0
+			hasDNS := len(intent.Internet.Dns) > 0
+			if !hasIPs && !hasDNS {
 				return &field.Error{
 					Type:   field.ErrorTypeRequired,
 					Field:  "ips",
-					Detail: fmt.Sprintf("invalid intent format. type %s must contain ips", otterizev1alpha3.IntentTypeInternet),
+					Detail: fmt.Sprintf("invalid intent format. type %s must contain ips or dns", otterizev1alpha3.IntentTypeInternet),
+				}
+			}
+
+			if hasDNS {
+				_, err := idna.Lookup.ToASCII(intent.Internet.Dns)
+				if err != nil {
+					return &field.Error{
+						Type:     field.ErrorTypeInvalid,
+						Field:    "dns",
+						Detail:   "should be valid DNS name",
+						BadValue: intent.Internet.Dns,
+					}
 				}
 			}
 
