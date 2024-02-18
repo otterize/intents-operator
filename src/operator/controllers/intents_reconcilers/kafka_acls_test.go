@@ -386,11 +386,18 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() 
 func (s *KafkaACLReconcilerTestSuite) reconcile(namespacedName types.NamespacedName) {
 	res := ctrl.Result{Requeue: true}
 	var err error
+	firstRun := true
 
 	for res.Requeue {
+		if !firstRun {
+			// List ACL is called when the reconciler is re-queued for log purposes
+			s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(1)
+		}
 		res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 			NamespacedName: namespacedName,
 		})
+
+		firstRun = false
 	}
 
 	s.Require().NoError(err)
