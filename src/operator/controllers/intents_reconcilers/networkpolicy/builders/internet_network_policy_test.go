@@ -129,8 +129,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 }
 
 func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS() {
-	s.Reconciler.enforcementDefaultState = true
-
 	clientIntentsName := "client-intents"
 	policyName := "egress-to-internet-from-test-client"
 	serviceName := "test-client"
@@ -231,8 +229,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS
 }
 
 func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyFromDNSAndIP() {
-	s.Reconciler.enforcementDefaultState = true
-
 	clientIntentsName := "client-intents"
 	policyName := "egress-to-internet-from-test-client"
 	serviceName := "test-client"
