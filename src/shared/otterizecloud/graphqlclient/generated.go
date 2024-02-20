@@ -155,6 +155,8 @@ type IntentsOperatorConfigurationInput struct {
 	IstioPolicyEnforcementEnabled         bool `json:"istioPolicyEnforcementEnabled"`
 	ProtectedServicesEnabled              bool `json:"protectedServicesEnabled"`
 	EgressNetworkPolicyEnforcementEnabled bool `json:"egressNetworkPolicyEnforcementEnabled"`
+	AwsIAMPolicyEnforcementEnabled        bool `json:"awsIAMPolicyEnforcementEnabled"`
+	DatabaseEnforcementEnabled            bool `json:"databaseEnforcementEnabled"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -185,6 +187,16 @@ func (v *IntentsOperatorConfigurationInput) GetProtectedServicesEnabled() bool {
 // GetEgressNetworkPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.EgressNetworkPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetEgressNetworkPolicyEnforcementEnabled() bool {
 	return v.EgressNetworkPolicyEnforcementEnabled
+}
+
+// GetAwsIAMPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.AwsIAMPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAwsIAMPolicyEnforcementEnabled() bool {
+	return v.AwsIAMPolicyEnforcementEnabled
+}
+
+// GetDatabaseEnforcementEnabled returns IntentsOperatorConfigurationInput.DatabaseEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetDatabaseEnforcementEnabled() bool {
+	return v.DatabaseEnforcementEnabled
 }
 
 type InternetConfigInput struct {

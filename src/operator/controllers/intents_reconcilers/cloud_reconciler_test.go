@@ -372,8 +372,8 @@ func (s *CloudReconcilerTestSuite) TestInternetUploadWithDNS() {
 				{
 					Type: otterizev1alpha3.IntentTypeInternet,
 					Internet: &otterizev1alpha3.Internet{
-						Dns: "test-dns.com",
-						Ips: []string{"1.1.1.1", "2.2.2.0/24"},
+						Domains: []string{"test-dns.com"},
+						Ips:     []string{"1.1.1.1", "2.2.2.0/24"},
 					},
 				},
 			},
@@ -413,7 +413,7 @@ func (s *CloudReconcilerTestSuite) TestInternetDontUploadIfNoIPs() {
 				{
 					Type: otterizev1alpha3.IntentTypeInternet,
 					Internet: &otterizev1alpha3.Internet{
-						Dns: "test-dns.com",
+						Domains: []string{"test-dns.com"},
 					},
 				},
 			},
@@ -446,7 +446,7 @@ func (s *CloudReconcilerTestSuite) TestInternetUploadOnlyIP() {
 				{
 					Type: otterizev1alpha3.IntentTypeInternet,
 					Internet: &otterizev1alpha3.Internet{
-						Dns: "test-dns.com",
+						Domains: []string{"test-dns.com"},
 					},
 				},
 			},

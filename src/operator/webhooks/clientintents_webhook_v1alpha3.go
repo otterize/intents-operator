@@ -160,27 +160,25 @@ func (v *IntentsValidatorV1alpha3) validateSpec(intents *otterizev1alpha3.Client
 				}
 			}
 			hasIPs := len(intent.Internet.Ips) > 0
-			hasDNS := len(intent.Internet.Dns) > 0
+			hasDNS := len(intent.Internet.Domains) > 0
 			if !hasIPs && !hasDNS {
 				return &field.Error{
 					Type:   field.ErrorTypeRequired,
 					Field:  "ips",
-					Detail: fmt.Sprintf("invalid intent format. type %s must contain ips or dns", otterizev1alpha3.IntentTypeInternet),
+					Detail: fmt.Sprintf("invalid intent format. type %s must contain ips or domanin names", otterizev1alpha3.IntentTypeInternet),
 				}
 			}
-
-			if hasDNS {
-				_, err := idna.Lookup.ToASCII(intent.Internet.Dns)
+			for _, dns := range intent.Internet.Domains {
+				_, err := idna.Lookup.ToASCII(dns)
 				if err != nil {
 					return &field.Error{
 						Type:     field.ErrorTypeInvalid,
-						Field:    "dns",
+						Field:    "domains",
 						Detail:   "should be valid DNS name",
-						BadValue: intent.Internet.Dns,
+						BadValue: dns,
 					}
 				}
 			}
-
 			for _, ip := range intent.Internet.Ips {
 				if ip == "" {
 					return &field.Error{

@@ -219,8 +219,10 @@ spec:
                         type: array
                       internet:
                         properties:
-                          dns:
-                            type: string
+                          domains:
+                            items:
+                              type: string
+                            type: array
                           ips:
                             items:
                               type: string
