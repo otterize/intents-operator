@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -25,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"strings"
 	"testing"
 	"time"
@@ -43,6 +46,8 @@ type ControllerManagerTestSuiteBase struct {
 	mgrCtx           context.Context
 	mgrCtxCancelFunc context.CancelFunc
 	Mgr              manager.Manager
+	mgrStopped       context.Context
+	mgrStoppedSignal context.CancelFunc
 }
 
 func (s *ControllerManagerTestSuiteBase) TearDownSuite() {
@@ -51,9 +56,15 @@ func (s *ControllerManagerTestSuiteBase) TearDownSuite() {
 
 func (s *ControllerManagerTestSuiteBase) SetupTest() {
 	s.mgrCtx, s.mgrCtxCancelFunc = context.WithCancel(context.Background())
+	s.mgrStopped, s.mgrStoppedSignal = context.WithCancel(context.Background())
 
+	webhookServer := webhook.NewServer(webhook.Options{
+		Host:    s.TestEnv.WebhookInstallOptions.LocalServingHost,
+		Port:    s.TestEnv.WebhookInstallOptions.LocalServingPort,
+		CertDir: s.TestEnv.WebhookInstallOptions.LocalServingCertDir,
+	})
 	var err error
-	s.Mgr, err = manager.New(s.RestConfig, manager.Options{MetricsBindAddress: "0"})
+	s.Mgr, err = manager.New(s.RestConfig, manager.Options{MetricsBindAddress: "0", WebhookServer: webhookServer})
 	s.Require().NoError(err)
 	s.Require().NoError(protected_services.InitProtectedServiceIndexField(s.Mgr))
 
@@ -65,6 +76,7 @@ func (s *ControllerManagerTestSuiteBase) BeforeTest(_, testName string) {
 		// We start the manager in "Before test" to allow operations that should happen before start to be run at SetupTest()
 		err := s.Mgr.Start(s.mgrCtx)
 		s.Require().NoError(err)
+		s.mgrStoppedSignal()
 	}()
 
 	const maxNamespaceLength = 63
@@ -75,12 +87,18 @@ func (s *ControllerManagerTestSuiteBase) BeforeTest(_, testName string) {
 
 func (s *ControllerManagerTestSuiteBase) TearDownTest() {
 	s.mgrCtxCancelFunc()
+	select {
+	case <-s.mgrStopped.Done():
+		return
+	case <-time.After(30 * time.Second):
+		s.T().Fatal("Failed to stop manager in 30 seconds on test teardown")
+	}
 }
 
 type Condition func() bool
 
 func (s *ControllerManagerTestSuiteBase) WaitUntilCondition(cond func(assert *assert.Assertions)) {
-	err := wait.PollImmediate(waitForCreationInterval, waitForCreationTimeout, func() (done bool, err error) {
+	err := wait.PollUntilContextTimeout(context.Background(), waitForCreationInterval, waitForCreationTimeout, true, func(ctx context.Context) (done bool, err error) {
 		localT := &testing.T{}
 		asrt := assert.New(localT)
 		cond(asrt)
@@ -94,13 +112,13 @@ func (s *ControllerManagerTestSuiteBase) WaitUntilCondition(cond func(assert *as
 
 // waitForObjectToBeCreated tries to get an object multiple times until it is available in the k8s API server
 func (s *ControllerManagerTestSuiteBase) waitForObjectToBeCreated(obj client.Object) {
-	s.Require().NoError(wait.PollImmediate(waitForCreationInterval, waitForCreationTimeout, func() (done bool, err error) {
+	s.Require().NoError(wait.PollUntilContextTimeout(context.Background(), waitForCreationInterval, waitForCreationTimeout, true, func(ctx context.Context) (done bool, err error) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
 		if err != nil {
-			return false, err
+			return false, errors.Wrap(err)
 		}
 		return true, nil
 	}))
@@ -108,13 +126,13 @@ func (s *ControllerManagerTestSuiteBase) waitForObjectToBeCreated(obj client.Obj
 
 // WaitForDeletionToBeMarked tries to get an object multiple times until its deletion timestamp is set in K8S
 func (s *ControllerManagerTestSuiteBase) WaitForDeletionToBeMarked(obj client.Object) {
-	s.Require().NoError(wait.PollImmediate(waitForCreationInterval, waitForDeletionTSTimeout, func() (done bool, err error) {
+	s.Require().NoError(wait.PollUntilContextTimeout(context.Background(), waitForCreationInterval, waitForDeletionTSTimeout, true, func(ctx context.Context) (done bool, err error) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if !obj.GetDeletionTimestamp().IsZero() {
 			return true, nil
 		}
 		if err != nil {
-			return false, err
+			return false, errors.Wrap(err)
 		}
 		return false, nil
 	}))
@@ -399,7 +417,7 @@ func (s *ControllerManagerTestSuiteBase) AddKafkaServerConfig(kafkaServerConfig 
 }
 
 func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string) {
-	kafkaServerConfig := &otterizev1alpha2.KafkaServerConfig{}
+	kafkaServerConfig := &otterizev1alpha3.KafkaServerConfig{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, kafkaServerConfig)
 	s.Require().NoError(err)
 
@@ -412,7 +430,7 @@ func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string)
 func (s *ControllerManagerTestSuiteBase) AddIntents(
 	objName,
 	clientName string,
-	callList []otterizev1alpha2.Intent) (*otterizev1alpha2.ClientIntents, error) {
+	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
 	return s.AddIntentsInNamespace(objName, clientName, s.TestNamespace, callList)
 }
 
@@ -420,10 +438,60 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	objName,
 	clientName string,
 	namespace string,
+	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
+
+	intents := &otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      objName,
+			Namespace: namespace,
+			Finalizers: []string{
+				// Dummy finalizer so the object won't actually be deleted just marked as deleted
+				"dummy-finalizer",
+			},
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: clientName},
+			Calls:   callList,
+		},
+	}
+	err := s.Mgr.GetClient().Create(context.Background(), intents)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	s.waitForObjectToBeCreated(intents)
+
+	return intents, nil
+}
+
+func (s *ControllerManagerTestSuiteBase) AddIntentsV1alpha2(
+	objName,
+	clientName string,
+	callList []otterizev1alpha2.Intent) (*otterizev1alpha2.ClientIntents, error) {
+	return s.AddIntentsInNamespaceV1alpha2(objName, clientName, s.TestNamespace, callList)
+}
+
+func (s *ControllerManagerTestSuiteBase) AddIntentsV1alpha3(
+	objName,
+	clientName string,
+	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
+	return s.AddIntentsInNamespaceV1alpha3(objName, clientName, s.TestNamespace, callList)
+}
+
+func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha2(
+	objName,
+	clientName string,
+	namespace string,
 	callList []otterizev1alpha2.Intent) (*otterizev1alpha2.ClientIntents, error) {
 
 	intents := &otterizev1alpha2.ClientIntents{
-		ObjectMeta: metav1.ObjectMeta{Name: objName, Namespace: namespace},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      objName,
+			Namespace: namespace,
+			Finalizers: []string{
+				// Dummy finalizer so the object won't actually be deleted just marked as deleted
+				"dummy-finalizer",
+			},
+		},
 		Spec: &otterizev1alpha2.IntentsSpec{
 			Service: otterizev1alpha2.Service{Name: clientName},
 			Calls:   callList,
@@ -431,7 +499,35 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	}
 	err := s.Mgr.GetClient().Create(context.Background(), intents)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
+	}
+	s.waitForObjectToBeCreated(intents)
+
+	return intents, nil
+}
+func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha3(
+	objName,
+	clientName string,
+	namespace string,
+	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
+
+	intents := &otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      objName,
+			Namespace: namespace,
+			Finalizers: []string{
+				// Dummy finalizer so the object won't actually be deleted just marked as deleted
+				"dummy-finalizer",
+			},
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: clientName},
+			Calls:   callList,
+		},
+	}
+	err := s.Mgr.GetClient().Create(context.Background(), intents)
+	if err != nil {
+		return nil, errors.Wrap(err)
 	}
 	s.waitForObjectToBeCreated(intents)
 
@@ -440,9 +536,35 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 
 func (s *ControllerManagerTestSuiteBase) UpdateIntents(
 	objName string,
+	callList []otterizev1alpha3.Intent) error {
+
+	intents := &otterizev1alpha3.ClientIntents{}
+	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
+	s.Require().NoError(err)
+
+	intents.Spec.Calls = callList
+
+	return s.Mgr.GetClient().Update(context.Background(), intents)
+}
+
+func (s *ControllerManagerTestSuiteBase) UpdateIntentsV1alpha2(
+	objName string,
 	callList []otterizev1alpha2.Intent) error {
 
 	intents := &otterizev1alpha2.ClientIntents{}
+	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
+	s.Require().NoError(err)
+
+	intents.Spec.Calls = callList
+
+	return s.Mgr.GetClient().Update(context.Background(), intents)
+}
+
+func (s *ControllerManagerTestSuiteBase) UpdateIntentsV1alpha3(
+	objName string,
+	callList []otterizev1alpha3.Intent) error {
+
+	intents := &otterizev1alpha3.ClientIntents{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
 	s.Require().NoError(err)
 
@@ -457,12 +579,12 @@ func (s *ControllerManagerTestSuiteBase) RemoveIntents(
 	intents := &otterizev1alpha2.ClientIntents{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = s.Mgr.GetClient().Delete(context.Background(), intents)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	s.WaitForDeletionToBeMarked(intents)

@@ -2,7 +2,8 @@ package protected_services
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -16,15 +17,15 @@ func IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx context.Context
 	}
 
 	logrus.Debug("Protected services are enabled, checking if server is in protected list")
-	var protectedServicesResources otterizev1alpha2.ProtectedServiceList
+	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
 	err := kube.List(ctx, &protectedServicesResources,
-		client.MatchingFields{otterizev1alpha2.OtterizeProtectedServiceNameIndexField: serverName},
+		client.MatchingFields{otterizev1alpha3.OtterizeProtectedServiceNameIndexField: serverName},
 		client.InNamespace(serverNamespace))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return false, nil
 		}
-		return false, err
+		return false, errors.Wrap(err)
 	}
 
 	if len(protectedServicesResources.Items) != 0 {
@@ -41,10 +42,10 @@ func IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx context.Context
 func InitProtectedServiceIndexField(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha2.ProtectedService{},
-		otterizev1alpha2.OtterizeProtectedServiceNameIndexField,
+		&otterizev1alpha3.ProtectedService{},
+		otterizev1alpha3.OtterizeProtectedServiceNameIndexField,
 		func(object client.Object) []string {
-			protectedService := object.(*otterizev1alpha2.ProtectedService)
+			protectedService := object.(*otterizev1alpha3.ProtectedService)
 			if protectedService.Spec.Name == "" {
 				return nil
 			}
@@ -52,7 +53,7 @@ func InitProtectedServiceIndexField(mgr ctrl.Manager) error {
 			return []string{protectedService.Spec.Name}
 		})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil

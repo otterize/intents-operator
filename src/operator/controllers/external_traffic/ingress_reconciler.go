@@ -2,7 +2,8 @@ package external_traffic
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/networking/v1"
@@ -51,13 +52,13 @@ func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// if the controller restarts
 		services, err := r.getServicesReferencedByNetworkPoliciesCreatedForIngress(ctx, req.NamespacedName)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 
 		for service := range services {
 			err := r.extNetpolHandler.HandleEndpointsByName(ctx, service, req.Namespace)
 			if err != nil {
-				return ctrl.Result{}, err
+				return ctrl.Result{}, errors.Wrap(err)
 			}
 		}
 		return ctrl.Result{}, nil
@@ -70,14 +71,14 @@ func (r *IngressReconciler) getServicesReferencedByNetworkPoliciesCreatedForIngr
 	services := sets.Set[string]{}
 
 	netpolList := &v1.NetworkPolicyList{}
-	err := r.List(ctx, netpolList, &client.MatchingFields{otterizev1alpha2.NetworkPoliciesByIngressNameIndexField: ingressName.Name},
+	err := r.List(ctx, netpolList, &client.MatchingFields{otterizev1alpha3.NetworkPoliciesByIngressNameIndexField: ingressName.Name},
 		&client.ListOptions{Namespace: ingressName.Namespace})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	for _, netpol := range netpolList.Items {
-		serviceName, ok := netpol.Annotations[otterizev1alpha2.OtterizeCreatedForServiceAnnotation]
+		serviceName, ok := netpol.Annotations[otterizev1alpha3.OtterizeCreatedForServiceAnnotation]
 		if !ok {
 			continue
 		}
@@ -92,7 +93,7 @@ func (r *IngressReconciler) reconcileIngressCreateOrUpdate(ctx context.Context, 
 
 	netpolReferencedServices, err := r.getServicesReferencedByNetworkPoliciesCreatedForIngress(ctx, types.NamespacedName{Name: ingress.Name, Namespace: ingress.Namespace})
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	services = services.Union(netpolReferencedServices)
@@ -101,7 +102,7 @@ func (r *IngressReconciler) reconcileIngressCreateOrUpdate(ctx context.Context, 
 	for service := range services {
 		err := r.extNetpolHandler.HandleEndpointsByName(ctx, service, ingress.Namespace)
 		if err != nil {
-			return ctrl.Result{}, err
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
 	return ctrl.Result{}, nil
@@ -111,10 +112,10 @@ func (r *IngressReconciler) InitNetworkPoliciesByIngressNameIndex(mgr ctrl.Manag
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&v1.NetworkPolicy{},
-		otterizev1alpha2.NetworkPoliciesByIngressNameIndexField,
+		otterizev1alpha3.NetworkPoliciesByIngressNameIndexField,
 		func(object client.Object) []string {
 			netpol := object.(*v1.NetworkPolicy)
-			value, ok := netpol.Annotations[otterizev1alpha2.OtterizeCreatedForIngressAnnotation]
+			value, ok := netpol.Annotations[otterizev1alpha3.OtterizeCreatedForIngressAnnotation]
 			if !ok {
 				return nil
 			}
@@ -125,7 +126,7 @@ func (r *IngressReconciler) InitNetworkPoliciesByIngressNameIndex(mgr ctrl.Manag
 		})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil

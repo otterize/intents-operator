@@ -8,9 +8,10 @@
 [![community](https://img.shields.io/badge/slack-Otterize_Slack-purple.svg?logo=slack)](https://joinslack.otterize.com)
 
 * [About](#about) 
-* [Quick tutorials](https://docs.otterize.com/quick-tutorials/)
+* [Quickstart & Docs](https://docs.otterize.com/)
 * [How does the intents operator work?](#how-does-the-intents-operator-work)
   * [Network policies](#network-policies)
+  * [AWS IAM policies](#aws-iam-policies)
   * [Kafka mTLS & ACLs](#kafka-mtls--acls)
   * [Deducing workload identities](#identities)
 * [Bootstrapping](#bootstrapping)
@@ -30,7 +31,7 @@ and creates the corresponding network policies and Kafka ACLs.
 
 Here is an example of a `ClientIntents` resource enabling traffic from `my-client` to `web-server` and `kafka-server`:
 ```yaml
-apiVersion: k8s.otterize.com/v1alpha2
+apiVersion: k8s.otterize.com/v1alpha3
 kind: ClientIntents
 metadata:
   name: intents-sample
@@ -67,16 +68,84 @@ Spec:
 
 For more usage example see the [network policy tutorial](https://docs.otterize.com/quick-tutorials/k8s-network-policies).
 
+### AWS IAM policies
+The intents operator, together with the [credentials operator](https://github.com/otterize/credentials-operator), enables the intent-based declarative management of AWS IAM roles and policies.
+
+It's just two steps:
+1. Label a pod to have an AWS role created for it:
+```
+metadata:
+ labels:
+  "credentials-operator.otterize.com/create-aws-role": "true"
+```
+
+2. Declare ClientIntents to specify which AWS resources it needs access to:
+```yaml
+apiVersion: k8s.otterize.com/v1alpha3
+kind: ClientIntents
+metadata:
+  name: server
+spec:
+  service:
+    name: server
+  calls:
+    - name: arn:aws:s3:::otterize-tutorial-bucket-*/*
+      type: aws
+      awsActions:
+        - "s3:PutObject"
+```
+
+Done! The pod can access AWS. Try the [AWS IAM tutorial](https://docs.otterize.com/quickstart/access-control/aws-iam-eks) to learn more.
+
+### Otterize for PostgreSQL
+Otterize automates PostgreSQL access management and secrets for your workloads, all in Kubernetes.
+
+Here is how:
+1. Annotate a pod, requesting a user and a password to be provisioned and bound to the pod.
+
+Annotate the pod with this annotation:
+
+`credentials-operator.otterize.com/user-password-secret-name: booking-service-secret`
+
+2. Declare your workload’s ClientIntents, specifying desired permissions.
+
+```yaml
+apiVersion: k8s.otterize.com/v1alpha3
+kind: ClientIntents
+metadata:
+  name: booking-service
+  namespace: flight-search
+spec:
+  service:
+    name: booking-service
+  calls:
+    - name: bookings
+      type: database
+      databaseResources:
+        - table: users
+          databaseName: bookings-db
+          operations:
+            - SELECT
+        - table: products
+          databaseName: bookings-db
+          operations:
+            - ALL
+```
+
+Otterize then creates a user and matching grants on the target database.
+
+Try the [Just-in-time PostgreSQL users & access](https://docs.otterize.com/quickstart/access-control/postgresql) to learn more.
+
 ### Kafka mTLS & ACLs
 The intents operator automatically creates, updates, and deletes ACLs in Kafka clusters running within your Kubernetes cluster. 
-It works works with the [credentials operator](https://github.com/otterize/credentials-operator) to automatically:
+It works with the [credentials operator](https://github.com/otterize/credentials-operator) to automatically:
 - Establish pod service identities.
 - Generate trusted credentials for each client service.
 - Deliver the credentials to the pod's containers within a locally-mounted volume.
 
 With Kafka, you can also control access to individual topics, like so:
 ```yaml
-apiVersion: k8s.otterize.com/v1alpha2
+apiVersion: k8s.otterize.com/v1alpha3
 kind: ClientIntents
 metadata:
   name: kafka-sample
@@ -86,7 +155,7 @@ spec:
   calls:
     - name: kafka-server
       type: kafka
-      topics:
+      kafkaTopics:
         - name: orders
           operations: [ produce ]
 ```

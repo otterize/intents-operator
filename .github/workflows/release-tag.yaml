@@ -32,34 +32,26 @@ jobs:
         with:
           driver-opts: network=host
 
-      - name: Build operator release image with tag as version
-        uses: docker/build-push-action@v2
-        with:
-          context: src/
-          file: src/release.Dockerfile
-          tags: ${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }}
-          push: true
-          network: host
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          build-args: |
-            "VERSION=${{ github.ref_name }}"
-            "SOURCE_IMAGE=${{ env.REGISTRY }}/intents-operator:${{ github.sha }}"
-
       - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
           username: otterize
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-
-      - name: Push to Docker Hub
-        run: |-
-          docker pull ${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }}
-          docker tag ${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }} otterize/intents-operator:${{ github.ref_name }}
-          docker tag ${{ env.REGISTRY }}/intents-operator:${{ github.ref_name }} otterize/intents-operator:latest
-          docker push otterize/intents-operator:${{ github.ref_name }}
-          docker push otterize/intents-operator:latest
+      - name: Build operator release image with tag as version
+        uses: docker/build-push-action@v2
+        with:
+          context: src/
+          file: src/release.Dockerfile
+          tags: otterize/intents-operator:${{ github.ref_name }},otterize/intents-operator:latest
+          push: true
+          network: host
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            "VERSION=${{ github.ref_name }}"
+            "SOURCE_IMAGE=${{ env.REGISTRY }}/intents-operator:${{ github.sha }}"
 
   commit-latest-build-tag-to-helm-chart:
     name: Commit Latest Build Tag

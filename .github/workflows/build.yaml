@@ -17,18 +17,29 @@ env:
 
 jobs:
   build:
+    if: (github.event_name == 'push' && github.repository == 'otterize/intents-operator') || github.event.pull_request.head.repo.full_name == 'otterize/intents-operator'
     name: Build
     runs-on: ubuntu-latest
+    outputs:
+      registry: ${{ steps.registry.outputs.registry }} # workaround since env is not available outside of steps, i.e. in calling external workflows like we later do in e2e-test
     strategy:
       matrix:
         service:
           - intents-operator
 
     steps:
+      - id: registry
+        run: echo "registry=${{ env.REGISTRY }}" >> "$GITHUB_OUTPUT"
+
       - name: Check out the code
         uses: actions/checkout@v2
         with:
           fetch-depth: 1
+
+      - uses: actions/setup-go@v3
+        with:
+          # Upgraded Go version? Make sure to upgrade it in the GitHub Actions setup, the Dockerfile and the go.mod as well, so the linter and tests run the same version.
+          go-version: 1.21
 
       - name: Set up Docker Buildx
         id: buildx
@@ -42,13 +53,21 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: _json_key_base64
           password: ${{ secrets.B64_GCLOUD_SERVICE_ACCOUNT_JSON}}
+
       - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
           username: otterize
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Build & Test
+      - name: Test
+        run: |-
+          cd ./src/operator
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+          make test
+          
+
+      - name: Build
         uses: docker/build-push-action@v2
         with:
           context: src/
@@ -56,23 +75,22 @@ jobs:
           tags: ${{ env.REGISTRY }}/${{ matrix.service }}:${{ github.sha }}
           push: true
           network: host
+          platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            "VERSION=${{ github.run_id }}"
+            "VERSION=0.0.${{ github.run_id }}"
 
   netpol-e2e-test:
     uses: ./.github/workflows/netpol-e2e-test.yaml
     name: Trigger e2e tests
     # Must pass the secrets as the called workflow does not have access to the same context
     secrets:
-      OTTERIZEBOT_GITHUB_TOKEN: ${{ secrets.OTTERIZEBOT_GITHUB_TOKEN }}
       B64_GCLOUD_SERVICE_ACCOUNT_JSON: ${{ secrets.B64_GCLOUD_SERVICE_ACCOUNT_JSON }}
-
     with:
+      registry: ${{ needs.build.outputs.registry }}
       operator-tag: ${{ github.sha }}
-      watcher-tag: ${{ github.sha }}
-
+      operator-image: intents-operator
     needs:
       - build
 
@@ -101,4 +119,3 @@ jobs:
         run: |-
           retag_image_as_latest() { if [[ $(gcloud container images add-tag "${{ env.REGISTRY }}/$1:${{ github.sha }}" "${{ env.REGISTRY }}/$1:latest" --quiet) ]]; then echo "Failed tagging $1 as latest"; exit 1; fi } # using --quiet to avoid prompt
           retag_image_as_latest intents-operator
-          retag_image_as_latest watcher

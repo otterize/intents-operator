@@ -1,0 +1,77 @@
+name: Build
+concurrency:
+  group: "${{ github.repository }}${{ github.ref }}buildfork"
+  cancel-in-progress: true
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+env:
+  REGISTRY: "dummy"
+
+jobs:
+
+  build:
+    name: Build
+    if: github.repository != 'otterize/intents-operator' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != 'otterize/intents-operator')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      registry: ${{ steps.registry.outputs.registry }} # workaround since env is not available outside of steps, i.e. in calling external workflows like we later do in e2e-test
+    strategy:
+      matrix:
+        service:
+          - intents-operator
+
+    steps:
+      - id: registry
+        run: echo "registry=${{ env.REGISTRY }}" >> "$GITHUB_OUTPUT"
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+        with:
+          driver-opts: network=host
+
+      - name: Build & Test
+        uses: docker/build-push-action@v2
+        with:
+          context: src/
+          file: src/${{ matrix.service }}.Dockerfile
+          tags: ${{ env.REGISTRY }}/${{ github.actor }}/${{ matrix.service }}:${{ github.sha }}
+          network: host
+          outputs: type=docker,dest=${{ matrix.service }}.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            "VERSION=${{ github.run_id }}"
+
+      - uses: actions/upload-artifact@v3
+        with:
+          path: ${{ matrix.service }}.tar
+          name: ${{ env.REGISTRY }}_${{ github.actor }}_${{ matrix.service }}_${{ github.sha }}.tar
+
+  netpol-e2e-test:
+    uses: ./.github/workflows/netpol-e2e-test.yaml
+    name: Trigger e2e tests
+    with:
+      registry: ${{ needs.build.outputs.registry }}
+      operator-tag: ${{ github.sha }}
+      operator-image:  ${{ github.actor }}/intents-operator
+
+    needs:
+      - build

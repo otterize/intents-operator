@@ -6,6 +6,7 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	intentsreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
@@ -65,17 +66,18 @@ func (s *KafkaACLReconcilerTestSuite) SetupSuite() {
 	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 }
 
 func (s *KafkaACLReconcilerTestSuite) setupServerStore(serviceName string) *kafkaacls.ServersStoreImpl {
-	serverConfig := &otterizev1alpha2.KafkaServerConfig{
-		Spec: otterizev1alpha2.KafkaServerConfigSpec{
-			Service: otterizev1alpha2.Service{
+	serverConfig := &otterizev1alpha3.KafkaServerConfig{
+		Spec: otterizev1alpha3.KafkaServerConfigSpec{
+			Service: otterizev1alpha3.Service{
 				Name: serviceName,
 			},
-			Topics: []otterizev1alpha2.TopicConfig{{
+			Topics: []otterizev1alpha3.TopicConfig{{
 				Topic:                  "*",
-				Pattern:                otterizev1alpha2.ResourcePatternTypePrefix,
+				Pattern:                otterizev1alpha3.ResourcePatternTypePrefix,
 				ClientIdentityRequired: false,
 				IntentsRequired:        false,
 			},
@@ -84,7 +86,7 @@ func (s *KafkaACLReconcilerTestSuite) setupServerStore(serviceName string) *kafk
 	}
 
 	serverConfig.SetNamespace(s.TestNamespace)
-	emptyTls := otterizev1alpha2.TLSSource{}
+	emptyTls := otterizev1alpha3.TLSSource{}
 	kafkaServersStore := kafkaacls.NewServersStore(emptyTls, true, kafkaacls.NewKafkaIntentsAdmin, true)
 	kafkaServersStore.Add(serverConfig)
 	return kafkaServersStore
@@ -127,7 +129,7 @@ func (s *KafkaACLReconcilerTestSuite) principal() string {
 }
 
 func getMockIntentsAdminFactory(clusterAdmin sarama.ClusterAdmin, usernameMapping string) kafkaacls.IntentsAdminFactoryFunction {
-	return func(kafkaServer otterizev1alpha2.KafkaServerConfig, _ otterizev1alpha2.TLSSource, enableKafkaACLCreation bool, enforcementDefaultState bool) (kafkaacls.KafkaIntentsAdmin, error) {
+	return func(kafkaServer otterizev1alpha3.KafkaServerConfig, _ otterizev1alpha3.TLSSource, enableKafkaACLCreation bool, enforcementDefaultState bool) (kafkaacls.KafkaIntentsAdmin, error) {
 		return kafkaacls.NewKafkaIntentsAdminImpl(kafkaServer, clusterAdmin, usernameMapping, enableKafkaACLCreation, enforcementDefaultState), nil
 	}
 }
@@ -136,14 +138,14 @@ func (s *KafkaACLReconcilerTestSuite) TestNoACLCreatedForIntentsOperator() {
 	s.initOperatorNamespace()
 
 	intentsName := "intents-operator-calls-to-kafka"
-	operatorIntents := []otterizev1alpha2.Intent{{
+	operatorIntents := []otterizev1alpha3.Intent{{
 		Name: kafkaServiceName,
-		Type: otterizev1alpha2.IntentTypeKafka,
-		Topics: []otterizev1alpha2.KafkaTopic{{
+		Type: otterizev1alpha3.IntentTypeKafka,
+		Topics: []otterizev1alpha3.KafkaTopic{{
 			Name: "*",
-			Operations: []otterizev1alpha2.KafkaOperation{
-				otterizev1alpha2.KafkaOperationAlter,
-				otterizev1alpha2.KafkaOperationDescribe,
+			Operations: []otterizev1alpha3.KafkaOperation{
+				otterizev1alpha3.KafkaOperationAlter,
+				otterizev1alpha3.KafkaOperationDescribe,
 			},
 		}},
 	}}
@@ -159,7 +161,7 @@ func (s *KafkaACLReconcilerTestSuite) TestNoACLCreatedForIntentsOperator() {
 		Name:      intentsName,
 		Namespace: s.operatorNamespace,
 	}
-	s.reconcile(operatorNamespacedName)
+	s.reconcile(operatorNamespacedName, false)
 }
 
 func (s *KafkaACLReconcilerTestSuite) initOperatorNamespace() {
@@ -217,9 +219,9 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 	s.mockKafkaAdmin.EXPECT().Close().Times(1)
 
 	// Generate intents for produce and reconcile
-	intentsConfig := s.generateIntents(otterizev1alpha2.KafkaOperationProduce)
+	intentsConfig := s.generateIntents(otterizev1alpha3.KafkaOperationProduce)
 
-	intentsConsume := []otterizev1alpha2.Intent{intentsConfig}
+	intentsConsume := []otterizev1alpha3.Intent{intentsConfig}
 	_, err := s.AddIntents(intentsObjectName, clientName, intentsConsume)
 	s.Require().NoError(err)
 	namespacedName := types.NamespacedName{
@@ -227,9 +229,9 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 		Name:      intentsObjectName,
 	}
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 
-	intentsFromReconciler := &otterizev1alpha2.ClientIntents{}
+	intentsFromReconciler := &otterizev1alpha3.ClientIntents{}
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		_ = s.Mgr.GetClient().Get(context.Background(), namespacedName, intentsFromReconciler)
 		f := intentsFromReconciler.GetFinalizers()
@@ -244,8 +246,8 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 
 	// Add consume operation to intents object
 	intentsConfigCopy := *intentsConfig.DeepCopy()
-	intentsConfigCopy.Topics[0].Operations = append(intentsConfigCopy.Topics[0].Operations, otterizev1alpha2.KafkaOperationConsume)
-	intentsWithConsumeAndProduce := []otterizev1alpha2.Intent{intentsConfigCopy}
+	intentsConfigCopy.Topics[0].Operations = append(intentsConfigCopy.Topics[0].Operations, otterizev1alpha3.KafkaOperationConsume)
+	intentsWithConsumeAndProduce := []otterizev1alpha3.Intent{intentsConfigCopy}
 
 	// Update the intents object and reconcile
 	err = s.UpdateIntents(intentsObjectName, intentsWithConsumeAndProduce)
@@ -255,7 +257,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 		assert.Equal(len(intentsFromReconciler.Spec.Calls[0].Topics[0].Operations), 2)
 	})
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 }
 
 func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
@@ -280,14 +282,16 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 
 	aclForConsume := []*sarama.ResourceAcls{&createACL}
 
-	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(1)
+	list1 := s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(1)
 	s.mockKafkaAdmin.EXPECT().CreateACLs(MatchSaramaResource(aclForConsume)).Return(nil)
-	s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{createACL}, nil).Times(1)
+	list2 := s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{createACL}, nil).Times(1)
 	s.mockKafkaAdmin.EXPECT().Close().Times(1)
 
+	gomock.InOrder(list1, list2)
+
 	// Create intents object with Consume operation
-	intentsConfig := s.generateIntents(otterizev1alpha2.KafkaOperationConsume)
-	intents := []otterizev1alpha2.Intent{intentsConfig}
+	intentsConfig := s.generateIntents(otterizev1alpha3.KafkaOperationConsume)
+	intents := []otterizev1alpha3.Intent{intentsConfig}
 
 	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
 	s.Require().NoError(err)
@@ -297,7 +301,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 		Name:      clientIntents.Name,
 	}
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 
 	// Expected results when the ACL is deleted
 	deleteResult := []sarama.MatchingAcl{{
@@ -323,7 +327,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 	err = s.RemoveIntents(intentsObjectName)
 	s.Require().NoError(err)
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 }
 
 func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreationDisabled() {
@@ -335,8 +339,8 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreationDisabled() {
 	s.mockKafkaAdmin.EXPECT().Close().Times(1)
 
 	// Create intents object with Consume operation
-	intentsConfig := s.generateIntents(otterizev1alpha2.KafkaOperationConsume)
-	intents := []otterizev1alpha2.Intent{intentsConfig}
+	intentsConfig := s.generateIntents(otterizev1alpha3.KafkaOperationConsume)
+	intents := []otterizev1alpha3.Intent{intentsConfig}
 
 	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
 	s.Require().NoError(err)
@@ -346,7 +350,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreationDisabled() {
 		Name:      clientIntents.Name,
 	}
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 }
 
 func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() {
@@ -358,8 +362,8 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() 
 	s.mockKafkaAdmin.EXPECT().Close().Times(1)
 
 	// Create intents object with Consume operation
-	intentsConfig := s.generateIntents(otterizev1alpha2.KafkaOperationConsume)
-	intents := []otterizev1alpha2.Intent{intentsConfig}
+	intentsConfig := s.generateIntents(otterizev1alpha3.KafkaOperationConsume)
+	intents := []otterizev1alpha3.Intent{intentsConfig}
 
 	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
 	s.Require().NoError(err)
@@ -369,7 +373,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() 
 		Name:      clientIntents.Name,
 	}
 
-	s.reconcile(namespacedName)
+	s.reconcile(namespacedName, true)
 	// the actual test is that there are not unexpected calls to the mockKafkaAdmin
 	select {
 	case event := <-s.recorder.Events:
@@ -379,27 +383,34 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() 
 	}
 }
 
-func (s *KafkaACLReconcilerTestSuite) reconcile(namespacedName types.NamespacedName) {
+func (s *KafkaACLReconcilerTestSuite) reconcile(namespacedName types.NamespacedName, expectLogsOnReQueue bool) {
 	res := ctrl.Result{Requeue: true}
 	var err error
+	firstRun := true
 
 	for res.Requeue {
+		if !firstRun && expectLogsOnReQueue {
+			// List ACL is called when the reconciler is re-queued for log purposes
+			s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(1)
+		}
 		res, err = s.Reconciler.Reconcile(context.Background(), ctrl.Request{
 			NamespacedName: namespacedName,
 		})
+
+		firstRun = false
 	}
 
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 }
 
-func (s *KafkaACLReconcilerTestSuite) generateIntents(operation otterizev1alpha2.KafkaOperation) otterizev1alpha2.Intent {
-	intentsConfig := otterizev1alpha2.Intent{
+func (s *KafkaACLReconcilerTestSuite) generateIntents(operation otterizev1alpha3.KafkaOperation) otterizev1alpha3.Intent {
+	intentsConfig := otterizev1alpha3.Intent{
 		Name: kafkaServiceName,
-		Type: otterizev1alpha2.IntentTypeKafka,
-		Topics: []otterizev1alpha2.KafkaTopic{{
+		Type: otterizev1alpha3.IntentTypeKafka,
+		Topics: []otterizev1alpha3.KafkaTopic{{
 			Name:       kafkaTopicName,
-			Operations: []otterizev1alpha2.KafkaOperation{operation},
+			Operations: []otterizev1alpha3.KafkaOperation{operation},
 		},
 		},
 	}

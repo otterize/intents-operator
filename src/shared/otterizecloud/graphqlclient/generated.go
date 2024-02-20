@@ -24,9 +24,13 @@ const (
 )
 
 type DatabaseConfigInput struct {
+	Dbname     *string              `json:"dbname"`
 	Table      *string              `json:"table"`
 	Operations []*DatabaseOperation `json:"operations"`
 }
+
+// GetDbname returns DatabaseConfigInput.Dbname, and is useful for accessing the field via an interface.
+func (v *DatabaseConfigInput) GetDbname() *string { return v.Dbname }
 
 // GetTable returns DatabaseConfigInput.Table, and is useful for accessing the field via an interface.
 func (v *DatabaseConfigInput) GetTable() *string { return v.Table }
@@ -88,6 +92,8 @@ type IntentInput struct {
 	Topics            []*KafkaConfigInput    `json:"topics"`
 	Resources         []*HTTPConfigInput     `json:"resources"`
 	DatabaseResources []*DatabaseConfigInput `json:"databaseResources"`
+	AwsActions        []*string              `json:"awsActions"`
+	Internet          *InternetConfigInput   `json:"internet"`
 	Status            *IntentStatusInput     `json:"status"`
 }
 
@@ -115,6 +121,12 @@ func (v *IntentInput) GetResources() []*HTTPConfigInput { return v.Resources }
 // GetDatabaseResources returns IntentInput.DatabaseResources, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetDatabaseResources() []*DatabaseConfigInput { return v.DatabaseResources }
 
+// GetAwsActions returns IntentInput.AwsActions, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetAwsActions() []*string { return v.AwsActions }
+
+// GetInternet returns IntentInput.Internet, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetInternet() *InternetConfigInput { return v.Internet }
+
 // GetStatus returns IntentInput.Status, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetStatus() *IntentStatusInput { return v.Status }
 
@@ -131,14 +143,18 @@ const (
 	IntentTypeHttp     IntentType = "HTTP"
 	IntentTypeKafka    IntentType = "KAFKA"
 	IntentTypeDatabase IntentType = "DATABASE"
+	IntentTypeAws      IntentType = "AWS"
+	IntentTypeS3       IntentType = "S3"
+	IntentTypeInternet IntentType = "INTERNET"
 )
 
 type IntentsOperatorConfigurationInput struct {
-	GlobalEnforcementEnabled        bool `json:"globalEnforcementEnabled"`
-	NetworkPolicyEnforcementEnabled bool `json:"networkPolicyEnforcementEnabled"`
-	KafkaACLEnforcementEnabled      bool `json:"kafkaACLEnforcementEnabled"`
-	IstioPolicyEnforcementEnabled   bool `json:"istioPolicyEnforcementEnabled"`
-	ProtectedServicesEnabled        bool `json:"protectedServicesEnabled"`
+	GlobalEnforcementEnabled              bool `json:"globalEnforcementEnabled"`
+	NetworkPolicyEnforcementEnabled       bool `json:"networkPolicyEnforcementEnabled"`
+	KafkaACLEnforcementEnabled            bool `json:"kafkaACLEnforcementEnabled"`
+	IstioPolicyEnforcementEnabled         bool `json:"istioPolicyEnforcementEnabled"`
+	ProtectedServicesEnabled              bool `json:"protectedServicesEnabled"`
+	EgressNetworkPolicyEnforcementEnabled bool `json:"egressNetworkPolicyEnforcementEnabled"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -165,6 +181,22 @@ func (v *IntentsOperatorConfigurationInput) GetIstioPolicyEnforcementEnabled() b
 func (v *IntentsOperatorConfigurationInput) GetProtectedServicesEnabled() bool {
 	return v.ProtectedServicesEnabled
 }
+
+// GetEgressNetworkPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.EgressNetworkPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetEgressNetworkPolicyEnforcementEnabled() bool {
+	return v.EgressNetworkPolicyEnforcementEnabled
+}
+
+type InternetConfigInput struct {
+	Ips   []*string `json:"ips"`
+	Ports []*int    `json:"ports"`
+}
+
+// GetIps returns InternetConfigInput.Ips, and is useful for accessing the field via an interface.
+func (v *InternetConfigInput) GetIps() []*string { return v.Ips }
+
+// GetPorts returns InternetConfigInput.Ports, and is useful for accessing the field via an interface.
+func (v *InternetConfigInput) GetPorts() []*int { return v.Ports }
 
 type IstioStatusInput struct {
 	ServiceAccountName     *string `json:"serviceAccountName"`
@@ -346,6 +378,19 @@ func (v *ReportProtectedServicesSnapshotResponse) GetReportProtectedServicesSnap
 	return v.ReportProtectedServicesSnapshot
 }
 
+type UserErrorType string
+
+const (
+	UserErrorTypeUnauthenticated     UserErrorType = "UNAUTHENTICATED"
+	UserErrorTypeNotFound            UserErrorType = "NOT_FOUND"
+	UserErrorTypeInternalServerError UserErrorType = "INTERNAL_SERVER_ERROR"
+	UserErrorTypeBadRequest          UserErrorType = "BAD_REQUEST"
+	UserErrorTypeForbidden           UserErrorType = "FORBIDDEN"
+	UserErrorTypeConflict            UserErrorType = "CONFLICT"
+	UserErrorTypeBadUserInput        UserErrorType = "BAD_USER_INPUT"
+	UserErrorTypeAppliedIntentsError UserErrorType = "APPLIED_INTENTS_ERROR"
+)
+
 // __HandleDatabaseIntentsInput is used internally by genqlient
 type __HandleDatabaseIntentsInput struct {
 	Intents []IntentInput      `json:"intents"`
@@ -427,6 +472,14 @@ func (v *__ReportProtectedServicesSnapshotInput) GetNamespace() string { return 
 func (v *__ReportProtectedServicesSnapshotInput) GetServices() []ProtectedServiceInput {
 	return v.Services
 }
+
+// dummyResponse is returned by dummy on success.
+type dummyResponse struct {
+	DummyError UserErrorType `json:"dummyError"`
+}
+
+// GetDummyError returns dummyResponse.DummyError, and is useful for accessing the field via an interface.
+func (v *dummyResponse) GetDummyError() UserErrorType { return v.DummyError }
 
 func HandleDatabaseIntents(
 	ctx context.Context,
@@ -637,6 +690,32 @@ mutation ReportProtectedServicesSnapshot ($namespace: String!, $services: [Prote
 	var err error
 
 	var data ReportProtectedServicesSnapshotResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func dummy(
+	ctx context.Context,
+	client graphql.Client,
+) (*dummyResponse, error) {
+	req := &graphql.Request{
+		OpName: "dummy",
+		Query: `
+query dummy {
+	dummyError
+}
+`,
+	}
+	var err error
+
+	var data dummyResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -38,12 +40,15 @@ type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	enabled                                bool
-	createEvenIfNoPreexistingNetworkPolicy bool
+	allowExternalTraffic allowexternaltraffic.Enum
 }
 
-func NewNetworkPolicyHandler(client client.Client, scheme *runtime.Scheme, enabled bool, createEvenIfNoPreexistingNetworkPolicy bool) *NetworkPolicyHandler {
-	return &NetworkPolicyHandler{client: client, scheme: scheme, enabled: enabled, createEvenIfNoPreexistingNetworkPolicy: createEvenIfNoPreexistingNetworkPolicy}
+func NewNetworkPolicyHandler(
+	client client.Client,
+	scheme *runtime.Scheme,
+	allowExternalTraffic allowexternaltraffic.Enum,
+) *NetworkPolicyHandler {
+	return &NetworkPolicyHandler{client: client, scheme: scheme, allowExternalTraffic: allowExternalTraffic}
 }
 
 func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
@@ -52,7 +57,7 @@ func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 	newPolicy := buildNetworkPolicyObjectForEndpoints(endpoints, otterizeServiceName, selector, ingressList, policyName)
 	err := controllerutil.SetOwnerReference(owner, newPolicy, r.scheme)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	existingPolicy := &v1.NetworkPolicy{}
 	errGetExistingPolicy := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
@@ -63,7 +68,7 @@ func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 		err := r.client.Create(ctx, newPolicy)
 		if err != nil {
 			r.RecordWarningEventf(owner, ReasonCreatingExternalTrafficPolicyFailed, "failed to create external traffic network policy: %s", err.Error())
-			return err
+			return errors.Wrap(err)
 		}
 		r.RecordNormalEvent(owner, ReasonCreatedExternalTrafficPolicy, successMsg)
 		return nil
@@ -88,12 +93,12 @@ func (r *NetworkPolicyHandler) updatePolicy(ctx context.Context, existingPolicy 
 	policyCopy.Spec = newPolicy.Spec
 	err := controllerutil.SetOwnerReference(owner, policyCopy, r.scheme)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	err = r.client.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	return nil
 }
@@ -157,8 +162,8 @@ func buildNetworkPolicyObjectForEndpoints(
 //
 //	that related external policies will be removed as well (if needed)
 func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error {
-	// if createEvenIfNoPreexistingNetworkPolicy is on - external policies are not dependent on access policies
-	if r.createEvenIfNoPreexistingNetworkPolicy {
+	// if allowExternalTraffic is Always - external policies are not dependent on access policies
+	if r.allowExternalTraffic == allowexternaltraffic.Always {
 		return nil
 	}
 
@@ -169,7 +174,7 @@ func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Conte
 	err := r.client.List(ctx, nonExternalPolicyList, client.MatchingLabels{v1alpha2.OtterizeNetworkPolicy: serviceNameLabel},
 		&client.ListOptions{Namespace: accessPolicy.Namespace})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	// If more than one related policies still exist don't remove the external policy
 	if len(nonExternalPolicyList.Items) > 1 {
@@ -180,13 +185,13 @@ func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Conte
 	err = r.client.List(ctx, externalPolicyList, client.MatchingLabels{v1alpha2.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
 		&client.ListOptions{Namespace: accessPolicy.Namespace})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	for _, externalPolicy := range externalPolicyList.Items {
 		err := r.client.Delete(ctx, externalPolicy.DeepCopy())
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 	return nil
@@ -201,7 +206,7 @@ func (r *NetworkPolicyHandler) HandleEndpointsByName(ctx context.Context, servic
 	}
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return r.HandleEndpoints(ctx, endpoints)
@@ -213,7 +218,7 @@ func (r *NetworkPolicyHandler) HandlePodsByLabelSelector(ctx context.Context, na
 		&client.ListOptions{Namespace: namespace},
 		client.MatchingLabelsSelector{Selector: labelSelector})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	return r.handlePodList(ctx, podList)
 }
@@ -221,14 +226,14 @@ func (r *NetworkPolicyHandler) HandlePodsByLabelSelector(ctx context.Context, na
 func (r *NetworkPolicyHandler) HandlePodsByNamespace(ctx context.Context, namespace string) error {
 	selector, err := r.otterizeServerLabeledPodsSelector()
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	podList := &corev1.PodList{}
 	err = r.client.List(ctx, podList,
 		&client.ListOptions{Namespace: namespace},
 		client.MatchingLabelsSelector{Selector: selector})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	return r.handlePodList(ctx, podList)
 }
@@ -236,13 +241,13 @@ func (r *NetworkPolicyHandler) HandlePodsByNamespace(ctx context.Context, namesp
 func (r *NetworkPolicyHandler) HandleAllPods(ctx context.Context) error {
 	selector, err := r.otterizeServerLabeledPodsSelector()
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	podList := &corev1.PodList{}
 	err = r.client.List(ctx, podList,
 		client.MatchingLabelsSelector{Selector: selector})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	return r.handlePodList(ctx, podList)
 }
@@ -251,7 +256,7 @@ func (r *NetworkPolicyHandler) handlePodList(ctx context.Context, podList *corev
 	for _, pod := range podList.Items {
 		err := r.handlePod(ctx, &pod)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 	return nil
@@ -268,11 +273,11 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod) e
 	)
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	for _, endpoints := range endpointsList.Items {
 		if err := r.HandleEndpoints(ctx, &endpoints); err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
@@ -306,12 +311,12 @@ func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *c
 	}
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	ingressList, err := r.getIngressRefersToService(ctx, svc)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	// If it's not a load balancer or a node port service, and the service is not referenced by any Ingress,
 	// then there's nothing we need to do.
@@ -323,17 +328,21 @@ func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *c
 }
 
 func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Context, endpoints *corev1.Endpoints, ingressList *v1.IngressList) error {
-
 	addresses := r.getAddressesFromEndpoints(endpoints)
 	foundOtterizeNetpolsAffectingPods := false
 	for _, address := range addresses {
-		serverLabel, err := r.getOtterizeServerLabel(ctx, address)
+		pod, err := r.getAffectedPod(ctx, address)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
 
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
+
 		// only act on pods affected by Otterize
-		if len(serverLabel) == 0 {
+		serverLabel, ok := pod.Labels[v1alpha2.OtterizeServerLabelKey]
+		if !ok {
 			continue
 		}
 
@@ -346,57 +355,70 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 				// the intents reconciler will call the endpoints reconciler once it does.
 				continue
 			}
-			return err
+			return errors.Wrap(err)
 		}
 
-		if len(netpolList.Items) == 0 {
-			if r.createEvenIfNoPreexistingNetworkPolicy {
+		svcNetpolList := &v1.NetworkPolicyList{}
+		svcIdentity := v1alpha2.GetFormattedOtterizeIdentity(
+			endpoints.Name,
+			endpoints.Namespace,
+		)
+		// there's only ever one
+		err = r.client.List(ctx, svcNetpolList, client.MatchingLabels{v1alpha2.OtterizeSvcNetworkPolicy: svcIdentity}, client.Limit(1))
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				// only act on pods affected by Otterize policies - if they were not created yet,
+				// the intents reconciler will call the endpoints reconciler once it does.
+				continue
+			}
+			return errors.Wrap(err)
+		}
+
+		if len(netpolList.Items) == 0 && len(svcNetpolList.Items) == 0 {
+			if r.allowExternalTraffic == allowexternaltraffic.Always {
 				err := r.handleNetpolsForOtterizeServiceWithoutIntents(ctx, endpoints, serverLabel, ingressList)
 				if err != nil {
-					return err
+					return errors.Wrap(err)
 				}
 			}
 			continue
 		}
 
+		netpolSlice := make([]v1.NetworkPolicy, 0)
+		netpolSlice = append(netpolSlice, netpolList.Items...)
+		netpolSlice = append(netpolSlice, svcNetpolList.Items...)
+
 		foundOtterizeNetpolsAffectingPods = true
-		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, &netpolList.Items[0])
+		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, netpolSlice)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 
 	}
 
-	if !foundOtterizeNetpolsAffectingPods && !r.createEvenIfNoPreexistingNetworkPolicy {
+	if !foundOtterizeNetpolsAffectingPods && r.allowExternalTraffic != allowexternaltraffic.Always {
 		policyName := r.formatPolicyName(endpoints.Name)
 		err := r.handlePolicyDelete(ctx, policyName, endpoints.Namespace)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
 	return nil
 }
 
-func (r *NetworkPolicyHandler) getOtterizeServerLabel(ctx context.Context, address corev1.EndpointAddress) (string, error) {
+func (r *NetworkPolicyHandler) getAffectedPod(ctx context.Context, address corev1.EndpointAddress) (*corev1.Pod, error) {
 	if address.TargetRef == nil || address.TargetRef.Kind != "Pod" {
-		return "", nil
+		return nil, k8serrors.NewNotFound(corev1.Resource("Pod"), "not-a-pod")
 	}
 
 	pod := &corev1.Pod{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: address.TargetRef.Name, Namespace: address.TargetRef.Namespace}, pod)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return "", nil
-		}
-		return "", err
+		return nil, errors.Wrap(err)
 	}
 
-	serverLabel, ok := pod.Labels[v1alpha2.OtterizeServerLabelKey]
-	if !ok {
-		return "", nil
-	}
-	return serverLabel, nil
+	return pod, nil
 }
 
 func (r *NetworkPolicyHandler) getAddressesFromEndpoints(endpoints *corev1.Endpoints) []corev1.EndpointAddress {
@@ -417,7 +439,7 @@ func (r *NetworkPolicyHandler) getIngressRefersToService(ctx context.Context, sv
 		&client.ListOptions{Namespace: svc.Namespace})
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	return &ingressList, nil
@@ -433,7 +455,7 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 			return nil
 		}
 
-		return err
+		return errors.Wrap(err)
 	}
 
 	var owner *unstructured.Unstructured
@@ -455,35 +477,37 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 	err = r.client.Delete(ctx, policy)
 	if err != nil {
 		r.RecordWarningEventf(owner, ReasonRemovingExternalTrafficPolicyFailed, "failed removing external traffic network policy: %s", err.Error())
-		return err
+		return errors.Wrap(err)
 	}
 	r.RecordNormalEvent(owner, ReasonRemovedExternalTrafficPolicy, "removed external traffic network policy, success")
 
 	return nil
 }
 
-func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, netpol *v1.NetworkPolicy) error {
+func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, netpolList []v1.NetworkPolicy) error {
 	svc := &corev1.Service{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	// delete policy if disabled
-	if !r.enabled {
+	if r.allowExternalTraffic == allowexternaltraffic.Off {
 		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		return nil
 	}
 
-	successMsg := fmt.Sprintf(successMsgNetpolCreate, endpoints.GetName(), netpol.GetName())
-	err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, netpol.Spec.PodSelector, ingressList, successMsg)
+	for _, netpol := range netpolList {
+		successMsg := fmt.Sprintf(successMsgNetpolCreate, endpoints.GetName(), netpol.GetName())
+		err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, netpol.Spec.PodSelector, ingressList, successMsg)
 
-	if err != nil {
-		return err
+		if err != nil {
+			return errors.Wrap(err)
+		}
 	}
 	return nil
 }
@@ -492,22 +516,22 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeServiceWithoutIntents(ctx
 	svc := &corev1.Service{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	// delete policy if disabled
-	if !r.enabled {
+	if r.allowExternalTraffic == allowexternaltraffic.Off {
 		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		return nil
 	}
 
 	err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, metav1.LabelSelector{MatchLabels: svc.Spec.Selector}, ingressList, fmt.Sprintf("created external traffic network policy for service '%s'", endpoints.GetName()))
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	return nil
 }

@@ -2,20 +2,13 @@ package webhooks
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
-	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -37,7 +30,7 @@ type CertificateBundle struct {
 func GenerateSelfSignedCertificate(hostname string, namespace string) (CertificateBundle, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		return CertificateBundle{}, err
+		return CertificateBundle{}, errors.Wrap(err)
 	}
 	certificate := x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().Unix()),
@@ -55,13 +48,13 @@ func GenerateSelfSignedCertificate(hostname string, namespace string) (Certifica
 	}
 	derCert, err := x509.CreateCertificate(rand.Reader, &certificate, &certificate, &privateKey.PublicKey, privateKey)
 	if err != nil {
-		return CertificateBundle{}, err
+		return CertificateBundle{}, errors.Wrap(err)
 	}
 
 	signedCert := &bytes.Buffer{}
 	err = pem.Encode(signedCert, &pem.Block{Type: "CERTIFICATE", Bytes: derCert})
 	if err != nil {
-		return CertificateBundle{}, err
+		return CertificateBundle{}, errors.Wrap(err)
 	}
 
 	privateKeyPem := pem.EncodeToMemory(&pem.Block{
@@ -77,7 +70,7 @@ func GenerateSelfSignedCertificate(hostname string, namespace string) (Certifica
 func WriteCertToFiles(bundle CertificateBundle) error {
 	err := os.MkdirAll(CertDirPath, 0600)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	certFilePath := filepath.Join(CertDirPath, CertFilename)
@@ -85,55 +78,7 @@ func WriteCertToFiles(bundle CertificateBundle) error {
 
 	err = os.WriteFile(certFilePath, bundle.CertPem, 0600)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	return os.WriteFile(privateKeyFilePath, bundle.PrivateKeyPem, 0600)
-}
-
-func getKubeClient() (*kubernetes.Clientset, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	clientSet, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	return clientSet, nil
-}
-
-type patchValue struct {
-	Op    string      `json:"op"`
-	Path  string      `json:"path"`
-	Value interface{} `json:"value"`
-}
-
-func UpdateWebHookCA(ctx context.Context, webHookName string, ca []byte) error {
-	kubeClient, err := getKubeClient()
-	if err != nil {
-		return err
-	}
-
-	webhookConfig, err := kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(ctx, webHookName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	var newCA []patchValue
-	for i := range webhookConfig.Webhooks {
-		newCA = append(newCA, patchValue{
-			Op:    "replace",
-			Path:  fmt.Sprintf("/webhooks/%d/clientConfig/caBundle", i),
-			Value: base64.StdEncoding.EncodeToString(ca),
-		})
-	}
-
-	newCAByte, err := json.Marshal(newCA)
-	if err != nil {
-		return err
-	}
-
-	logrus.Infof("Installing new certificate in %s", webHookName)
-	_, err = kubeClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(ctx, webHookName, types.JSONPatchType, newCAByte, metav1.PatchOptions{})
-	return err
 }

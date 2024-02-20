@@ -21,14 +21,16 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/otterize/intents-operator/src/shared/errors"
+	"strconv"
+	"strings"
+
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"strconv"
-	"strings"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -36,18 +38,25 @@ import (
 
 const (
 	OtterizeAccessLabelPrefix                 = "intents.otterize.com/access"
+	OtterizeServiceAccessLabelPrefix          = "intents.otterize.com/svc-access"
 	OtterizeAccessLabelKey                    = "intents.otterize.com/access-%s"
+	OtterizeSvcAccessLabelKey                 = "intents.otterize.com/svc-access-%s"
 	OtterizeClientLabelKey                    = "intents.otterize.com/client"
 	OtterizeServerLabelKey                    = "intents.otterize.com/server"
-	OtterizeNamespaceLabelKey                 = "intents.otterize.com/namespace-name"
+	OtterizeKubernetesServiceLabelKeyPrefix   = "intents.otterize.com/k8s-svc"
+	OtterizeKubernetesServiceLabelKey         = "intents.otterize.com/k8s-svc-%s"
+	KubernetesStandardNamespaceNameLabelKey   = "kubernetes.io/metadata.name"
 	AllIntentsRemovedAnnotation               = "intents.otterize.com/all-intents-removed"
 	OtterizeCreatedForServiceAnnotation       = "intents.otterize.com/created-for-service"
 	OtterizeCreatedForIngressAnnotation       = "intents.otterize.com/created-for-ingress"
 	OtterizeNetworkPolicyNameTemplate         = "access-to-%s-from-%s"
+	OtterizeServiceNetworkPolicyNameTemplate  = "svc-access-to-%s-from-%s"
 	OtterizeNetworkPolicy                     = "intents.otterize.com/network-policy"
+	OtterizeSvcNetworkPolicy                  = "intents.otterize.com/svc-network-policy"
 	OtterizeNetworkPolicyServiceDefaultDeny   = "intents.otterize.com/network-policy-service-default-deny"
 	OtterizeNetworkPolicyExternalTraffic      = "intents.otterize.com/network-policy-external-traffic"
-	NetworkPolicyFinalizerName                = "intents.otterize.com/network-policy-finalizer"
+	ClientIntentsFinalizerName                = "intents.otterize.com/client-intents-finalizer"
+	ProtectedServicesFinalizerName            = "intents.otterize.com/protected-services-finalizer"
 	OtterizeIstioClientAnnotationKey          = "intents.otterize.com/istio-client"
 	OtterizeClientServiceAccountAnnotation    = "intents.otterize.com/client-intents-service-account"
 	OtterizeSharedServiceAccountAnnotation    = "intents.otterize.com/shared-service-account"
@@ -142,7 +151,10 @@ type Intent struct {
 }
 
 type DatabaseResource struct {
-	Table      string              `json:"table" yaml:"table"`
+	DatabaseName string `json:"databaseName" yaml:"databaseName"`
+	//+optional
+	Table string `json:"table" yaml:"table"`
+	//+optional
 	Operations []DatabaseOperation `json:"operations" yaml:"operations"`
 }
 
@@ -158,8 +170,9 @@ type KafkaTopic struct {
 
 // IntentsStatus defines the observed state of ClientIntents
 type IntentsStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// upToDate field reflects whether the client intents have successfully been applied
+	// to the cluster to the state specified
+	UpToDate bool `json:"upToDate,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -170,8 +183,8 @@ type ClientIntents struct {
 	metav1.TypeMeta   `json:",inline" yaml:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
-	Spec   *IntentsSpec   `json:"spec,omitempty" yaml:"spec,omitempty"`
-	Status *IntentsStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Spec   *IntentsSpec  `json:"spec,omitempty" yaml:"spec,omitempty"`
+	Status IntentsStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -199,18 +212,30 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 	otterizeAccessLabels := map[string]string{}
 
 	for _, intent := range in.GetCallsList() {
-		ns := intent.GetServerNamespace(requestNamespace)
-		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.GetServerName(), ns)
-		otterizeAccessLabels[fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)] = "true"
+		ns := intent.GetTargetServerNamespace(requestNamespace)
+		formattedOtterizeIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), ns)
+		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, formattedOtterizeIdentity)
+		if intent.IsTargetServerKubernetesService() {
+			labelKey = fmt.Sprintf(OtterizeSvcAccessLabelKey, formattedOtterizeIdentity)
+		}
+		otterizeAccessLabels[labelKey] = "true"
 	}
 
 	return otterizeAccessLabels
 }
 
-// GetServerNamespace returns target namespace for intent if exists
+// GetTargetServerNamespace returns target namespace for intent if exists
 // or the entire resource's namespace if the specific intent has no target namespace, as it's optional
-func (in *Intent) GetServerNamespace(intentsObjNamespace string) string {
-	nameWithNamespace := strings.Split(in.Name, ".")
+func (in *Intent) GetTargetServerNamespace(intentsObjNamespace string) string {
+	var name string
+
+	if in.IsTargetServerKubernetesService() {
+		name = strings.ReplaceAll(in.Name, "svc:", "") // Remove svc: prefix altogether
+	} else {
+		name = in.Name
+	}
+
+	nameWithNamespace := strings.Split(name, ".")
 	if len(nameWithNamespace) == 1 {
 		return intentsObjNamespace
 	}
@@ -219,21 +244,40 @@ func (in *Intent) GetServerNamespace(intentsObjNamespace string) string {
 	return nameWithNamespace[1]
 }
 
-// GetServerName returns server's service name, without namespace
-func (in *Intent) GetServerName() string {
+func (in *Intent) IsTargetServerKubernetesService() bool {
+	return strings.HasPrefix(in.Name, "svc:")
+}
+
+// GetTargetServerName returns server's service name, without namespace, or the Kubernetes service without the `svc:` prefix
+func (in *Intent) GetTargetServerName() string {
 	var name string
-	nameWithNamespace := strings.Split(in.Name, ".")
-	if len(nameWithNamespace) == 1 {
-		name = in.Name
+
+	if in.IsTargetServerKubernetesService() {
+		name = strings.ReplaceAll(in.Name, "svc:", "") // Replace so all chars are valid in K8s label
 	} else {
-		name = nameWithNamespace[0]
+		name = in.Name
 	}
 
-	return name
+	nameWithNamespace := strings.Split(name, ".")
+	if len(nameWithNamespace) == 1 {
+		return name
+	} else {
+		return nameWithNamespace[0]
+	}
 }
 
 func (in *Intent) GetServerFullyQualifiedName(intentsObjNamespace string) string {
-	return fmt.Sprintf("%s.%s", in.GetServerName(), in.GetServerNamespace(intentsObjNamespace))
+	fullyQualifiedName := fmt.Sprintf("%s.%s", in.GetTargetServerName(), in.GetTargetServerNamespace(intentsObjNamespace))
+	return fullyQualifiedName
+}
+
+func (in *Intent) GetK8sServiceFullyQualifiedName(intentsObjNamespace string) (string, bool) {
+	fullyQualifiedName := fmt.Sprintf("%s.%s", in.GetTargetServerName(), in.GetTargetServerNamespace(intentsObjNamespace))
+	if in.IsTargetServerKubernetesService() {
+		fullyQualifiedName = fmt.Sprintf("svc:%s", fullyQualifiedName)
+		return fullyQualifiedName, true
+	}
+	return "", false
 }
 
 func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
@@ -262,7 +306,7 @@ func (in *ClientIntents) GetServersWithoutSidecar() (sets.Set[string], error) {
 	serversList := make([]string, 0)
 	err := json.Unmarshal([]byte(servers), &serversList)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	return sets.New[string](serversList...), nil
@@ -271,9 +315,9 @@ func (in *ClientIntents) GetServersWithoutSidecar() (sets.Set[string], error) {
 func (in *ClientIntents) IsServerMissingSidecar(intent Intent) (bool, error) {
 	serversSet, err := in.GetServersWithoutSidecar()
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err)
 	}
-	serverIdentity := GetFormattedOtterizeIdentity(intent.GetServerName(), intent.GetServerNamespace(in.Namespace))
+	serverIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), intent.GetTargetServerNamespace(in.Namespace))
 	return serversSet.Has(serverIdentity), nil
 }
 
@@ -282,12 +326,16 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
-			statusInput, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
+			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err)
 			}
 
-			input.Status = statusInput
+			input.Status = nil
+
+			if ok {
+				input.Status = statusInput
+			}
 			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
 		}
 	}
@@ -295,7 +343,7 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	return otterizeIntents, nil
 }
 
-func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent) (*graphqlclient.IntentStatusInput, error) {
+func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent) (*graphqlclient.IntentStatusInput, bool, error) {
 	status := graphqlclient.IntentStatusInput{
 		IstioStatus: &graphqlclient.IstioStatusInput{},
 	}
@@ -303,37 +351,37 @@ func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Intent
 	serviceAccountName, ok := clientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
 	if !ok {
 		// Status is not set, nothing to do
-		return nil, nil
+		return nil, false, nil
 	}
 
 	status.IstioStatus.ServiceAccountName = toPtrOrNil(serviceAccountName)
 	isSharedValue, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
 	if !ok {
-		return nil, fmt.Errorf("missing annotation shared service account for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("missing annotation shared service account for client intents %s", clientIntents.Name)
 	}
 
 	isShared, err := strconv.ParseBool(isSharedValue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse shared service account annotation for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("failed to parse shared service account annotation for client intents %s", clientIntents.Name)
 	}
 	status.IstioStatus.IsServiceAccountShared = lo.ToPtr(isShared)
 
 	clientMissingSidecarValue, ok := clientIntents.Annotations[OtterizeMissingSidecarAnnotation]
 	if !ok {
-		return nil, fmt.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
 	}
 
 	clientMissingSidecar, err := strconv.ParseBool(clientMissingSidecarValue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
 	}
 	status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(clientMissingSidecar)
 	isServerMissingSidecar, err := clientIntents.IsServerMissingSidecar(intent)
 	if err != nil {
-		return nil, err
+		return nil, false, errors.Wrap(err)
 	}
 	status.IstioStatus.IsServerMissingSidecar = lo.ToPtr(isServerMissingSidecar)
-	return &status, nil
+	return &status, true, nil
 }
 
 func toPtrOrNil(s string) *string {
@@ -404,9 +452,9 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 
 	intentInput := graphqlclient.IntentInput{
 		ClientName:      lo.ToPtr(clientName),
-		ServerName:      lo.ToPtr(in.GetServerName()),
+		ServerName:      lo.ToPtr(in.GetTargetServerName()),
 		Namespace:       lo.ToPtr(resourceNamespace),
-		ServerNamespace: toPtrOrNil(in.GetServerNamespace(resourceNamespace)),
+		ServerNamespace: toPtrOrNil(in.GetTargetServerNamespace(resourceNamespace)),
 	}
 
 	if in.Type != "" {
@@ -482,7 +530,7 @@ func (in *ClientIntents) BuildPodLabelSelector() (labels.Selector, error) {
 			// To find all pods for this specific service
 			GetFormattedOtterizeIdentity(in.Spec.Service.Name, in.Namespace)))
 	if err != nil {
-		return nil, nil
+		return nil, errors.Wrap(err)
 	}
 
 	return labelSelector, nil

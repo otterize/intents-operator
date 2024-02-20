@@ -3,11 +3,14 @@ package pod_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
+	"github.com/otterize/intents-operator/src/prometheus"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -56,35 +59,46 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	serviceID, err := p.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
+	// If a new pod starts, check if we need to do something for it.
+	var intents otterizev1alpha3.ClientIntentsList
+	err = p.List(
+		ctx,
+		&intents,
+		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
+		&client.ListOptions{Namespace: pod.Namespace})
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	err = p.addOtterizePodLabels(ctx, req, serviceID, pod)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	err = p.handleIstioPolicy(ctx, pod, serviceID)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceID serviceidresolver.ServiceIdentity) error {
+func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceID serviceidentity.ServiceIdentity) error {
 	if !p.istioEnforcementEnabled() || pod.DeletionTimestamp != nil {
 		return nil
 	}
 
 	isIstioInstalled, err := istiopolicy.IsIstioAuthorizationPoliciesInstalled(ctx, p.Client)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if !isIstioInstalled {
@@ -94,10 +108,10 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 
 	err = p.updateServerSideCar(ctx, pod, serviceID)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
-	var intents otterizev1alpha2.ClientIntentsList
+	var intents otterizev1alpha3.ClientIntentsList
 	err = p.List(
 		ctx,
 		&intents,
@@ -105,7 +119,7 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 		&client.ListOptions{Namespace: pod.Namespace})
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
-		return err
+		return errors.Wrap(err)
 	}
 
 	if len(intents.Items) == 0 {
@@ -115,23 +129,23 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 	for _, clientIntents := range intents.Items {
 		err = p.createIstioPolicies(ctx, clientIntents, pod)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
 	return nil
 }
 
-func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, serviceID serviceidresolver.ServiceIdentity) error {
+func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, serviceID serviceidentity.ServiceIdentity) error {
 	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 
 	serviceFullName := fmt.Sprintf("%s.%s", serviceID.Name, pod.Namespace)
-	var intentsList otterizev1alpha2.ClientIntentsList
+	var intentsList otterizev1alpha3.ClientIntentsList
 	err := p.List(
 		ctx, &intentsList,
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: serviceFullName})
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: serviceFullName})
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if len(intentsList.Items) == 0 {
@@ -139,43 +153,46 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 	}
 
 	for _, clientIntents := range intentsList.Items {
-		formattedTargetServer := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
+		formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
 		err = p.istioPolicyAdmin.UpdateServerSidecar(ctx, &clientIntents, formattedTargetServer, missingSideCar)
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 	}
 
 	return nil
 }
 
-func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request, serviceID serviceidresolver.ServiceIdentity, pod v1.Pod) error {
-	otterizeServerLabelValue := otterizev1alpha2.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
-	if !otterizev1alpha2.HasOtterizeServerLabel(&pod, otterizeServerLabelValue) {
-		// Label pods as destination servers
-		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, serviceID.Name)
-		updatedPod := pod.DeepCopy()
-		if updatedPod.Labels == nil {
-			updatedPod.Labels = make(map[string]string)
-		}
-		updatedPod.Labels[otterizev1alpha2.OtterizeServerLabelKey] = otterizeServerLabelValue
-
-		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
-		if err != nil {
-			logrus.WithError(err).Errorln("Failed labeling pod as server", "Pod name", pod.Name, "Namespace", pod.Namespace)
-			return err
-		}
+func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request, serviceID serviceidentity.ServiceIdentity, pod v1.Pod) error {
+	if !viper.GetBool(operatorconfig.EnableNetworkPolicyKey) && !viper.GetBool(operatorconfig.EnableIstioPolicyKey) {
+		logrus.Debug("Not labeling new pod since network policy creation and Istio policy creation is disabled")
 		return nil
 	}
 
 	// Intents were deleted and the pod was updated by the operator, skip reconciliation
-	_, ok := pod.Annotations[otterizev1alpha2.AllIntentsRemovedAnnotation]
+	_, ok := pod.Annotations[otterizev1alpha3.AllIntentsRemovedAnnotation]
 	if ok {
 		logrus.Infof("Skipping reconciliation for pod %s - pod is handled by intents-operator", req.Name)
 		return nil
 	}
 
-	var intents otterizev1alpha2.ClientIntentsList
+	otterizeServerLabelValue := otterizev1alpha3.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
+	updatedPod := pod.DeepCopy()
+	hasUpdates := false
+
+	// Update server label - the server identity of the pod.
+	// This is the pod selector used in network policies to grant access to this pod.
+	if !otterizev1alpha3.HasOtterizeServerLabel(&pod, otterizeServerLabelValue) {
+		// Label pods as destination servers
+		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, serviceID.Name)
+		if updatedPod.Labels == nil {
+			updatedPod.Labels = make(map[string]string)
+		}
+		updatedPod.Labels[otterizev1alpha3.OtterizeServerLabelKey] = otterizeServerLabelValue
+		hasUpdates = true
+	}
+
+	var intents otterizev1alpha3.ClientIntentsList
 	err := p.List(
 		ctx, &intents,
 		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
@@ -183,30 +200,32 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
-		return err
+		return errors.Wrap(err)
 	}
 
-	if len(intents.Items) == 0 {
-		return nil
-	}
-
-	otterizeAccessLabels := map[string]string{}
-	for _, intent := range intents.Items {
-		currIntentLabels := intent.GetIntentsLabelMapping(pod.Namespace)
-		for k, v := range currIntentLabels {
-			otterizeAccessLabels[k] = v
+	if len(intents.Items) != 0 {
+		// Update access labels - which servers the client can access (current intents), and remove old access labels (deleted intents)
+		otterizeAccessLabels := make(map[string]string)
+		for _, intent := range intents.Items {
+			currIntentLabels := intent.GetIntentsLabelMapping(pod.Namespace)
+			for k, v := range currIntentLabels {
+				otterizeAccessLabels[k] = v
+			}
+		}
+		if otterizev1alpha3.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
+			logrus.Infof("Updating Otterize access labels for %s", serviceID.Name)
+			updatedPod = otterizev1alpha3.UpdateOtterizeAccessLabels(updatedPod.DeepCopy(), serviceID.Name, otterizeAccessLabels)
+			prometheus.IncrementPodsLabeledForNetworkPolicies(1)
+			hasUpdates = true
 		}
 	}
-	if otterizev1alpha2.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
-		logrus.Infof("Updating Otterize access labels for %s", serviceID.Name)
-		updatedPod := otterizev1alpha2.UpdateOtterizeAccessLabels(pod.DeepCopy(), otterizeAccessLabels)
-		err := p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
+
+	if hasUpdates {
+		err = p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
-			logrus.Errorf("Failed updating Otterize labels for pod %s in namespace %s", pod.Name, pod.Namespace)
-			return err
+			return errors.Errorf("failed updating Otterize labels for pod %s in namespace %s: %w", pod.Name, pod.Namespace, err)
 		}
 	}
-
 	return nil
 }
 
@@ -214,7 +233,7 @@ func (p *PodWatcher) istioEnforcementEnabled() bool {
 	return viper.GetBool(operatorconfig.EnableIstioPolicyKey)
 }
 
-func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha2.ClientIntents, pod v1.Pod) error {
+func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha3.ClientIntents, pod v1.Pod) error {
 	if intents.DeletionTimestamp != nil {
 		return nil
 	}
@@ -223,7 +242,7 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 
 	err := p.istioPolicyAdmin.UpdateIntentsStatus(ctx, &intents, pod.Spec.ServiceAccountName, missingSideCar)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	if missingSideCar {
@@ -234,7 +253,7 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 	err = p.istioPolicyAdmin.Create(ctx, &intents, pod.Spec.ServiceAccountName)
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
@@ -243,10 +262,10 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha2.ClientIntents{},
+		&otterizev1alpha3.ClientIntents{},
 		OtterizeClientNameIndexField,
 		func(object client.Object) []string {
-			intents := object.(*otterizev1alpha2.ClientIntents)
+			intents := object.(*otterizev1alpha3.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}
@@ -254,23 +273,23 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 		})
 
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 
 	return nil
 }
 
 func (p *PodWatcher) Register(mgr manager.Manager) error {
-	watcher, err := controller.New("otterize-pod-watcher", mgr, controller.Options{
+	watcher, err := controller.New("intents-operator", mgr, controller.Options{
 		Reconciler:   p,
 		RecoverPanic: lo.ToPtr(true),
 	})
 	if err != nil {
-		return fmt.Errorf("unable to set up pods controller: %p", err)
+		return errors.Errorf("unable to set up pods controller: %p", err)
 	}
 
-	if err = watcher.Watch(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForObject{}); err != nil {
-		return fmt.Errorf("unable to watch Pods: %p", err)
+	if err = watcher.Watch(source.Kind(mgr.GetCache(), &v1.Pod{}), &handler.EnqueueRequestForObject{}); err != nil {
+		return errors.Errorf("unable to watch Pods: %p", err)
 	}
 
 	return nil

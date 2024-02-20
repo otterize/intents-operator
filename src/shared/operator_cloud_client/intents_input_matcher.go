@@ -67,6 +67,15 @@ func intentInputSort(intents []graphqlclient.IntentInput) {
 
 				return len(intent.Resources[i].Methods) < len(intent.Resources[j].Methods)
 			})
+		case graphqlclient.IntentTypeInternet:
+			sort.Slice(intent.Internet.Ips, func(i, j int) bool {
+				return NilCompare(intent.Internet.Ips[i], intent.Internet.Ips[j]) < 0
+			})
+			if intent.Internet.Ports != nil {
+				sort.Slice(intent.Internet.Ports, func(i, j int) bool {
+					return NilCompare(intent.Internet.Ports[i], intent.Internet.Ports[j]) < 0
+				})
+			}
 		}
 	}
 	sort.Slice(intents, func(i, j int) bool {
@@ -95,6 +104,11 @@ func intentInputSort(intents []graphqlclient.IntentInput) {
 			return len(intents[i].Topics) < len(intents[j].Topics)
 		case graphqlclient.IntentTypeHttp:
 			return len(intents[i].Resources) < len(intents[j].Resources)
+		case graphqlclient.IntentTypeInternet:
+			if len(intents[i].Internet.Ips) == len(intents[j].Internet.Ips) {
+				return len(intents[i].Internet.Ports) < len(intents[j].Internet.Ports)
+			}
+			return len(intents[i].Internet.Ips) < len(intents[j].Internet.Ips)
 		default:
 			panic("Unimplemented intent type")
 		}
