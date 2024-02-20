@@ -194,6 +194,10 @@ spec:
                       items:
                         type: string
                       type: array
+                    azureRoles:
+                      items:
+                        type: string
+                      type: array
                     databaseResources:
                       items:
                         properties:
@@ -262,6 +266,7 @@ spec:
                       - kafka
                       - database
                       - aws
+                      - azure
                       - internet
                       type: string
                   type: object

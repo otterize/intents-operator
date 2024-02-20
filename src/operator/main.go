@@ -33,6 +33,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
+	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -113,6 +114,7 @@ func main() {
 		EnableDatabasePolicy:                 viper.GetBool(operatorconfig.EnableDatabasePolicy),
 		EnableEgressNetworkPolicyReconcilers: viper.GetBool(operatorconfig.EnableEgressNetworkPolicyReconcilersKey),
 		EnableAWSPolicy:                      viper.GetBool(operatorconfig.EnableAWSPolicyKey),
+		EnableAzurePolicy:                    viper.GetBool(operatorconfig.EnableAzurePolicyKey),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev1alpha3.TLSSource{
@@ -217,7 +219,7 @@ func main() {
 	}
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
-	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
+	if enforcementConfig.EnableAWSPolicy {
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
@@ -229,6 +231,15 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Panic("unable to register pod watcher")
 		}
+	}
+
+	if enforcementConfig.EnableAzurePolicy {
+		azureAgent, err := azureagent.NewAzureAgent(signalHandlerCtx)
+		if err != nil {
+			logrus.WithError(err).Panic("could not initialize Azure agent")
+		}
+		_ = azureAgent
+
 	}
 
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {

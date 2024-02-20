@@ -114,6 +114,7 @@ type AccessGraphEdge {
 	discoveredIntents: [Intent!]!
 	appliedIntents: [Intent!]!
 	accessStatus: EdgeAccessStatus!
+	accessStatuses: EdgeAccessStatuses!
 }
 
 type AccessGraphFilter {
@@ -155,6 +156,21 @@ enum AwsIamStep {
 	APPLY_INTENTS
 	QUERY_S3_BUCKET_CONTENT
 	COMPLETED
+}
+
+type AzureInfo {
+	tenantId: String!
+	subscriptionId: String!
+	resourceGroup: String!
+	aksClusterName: String!
+}
+
+input AzureInfoInput {
+	clusterId: ID!
+	tenantId: String!
+	subscriptionId: String!
+	resourceGroup: String!
+	aksClusterName: String!
 }
 
 """The `Boolean` scalar type represents `true` or `false`."""
@@ -232,6 +248,8 @@ type ClusterConfiguration {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
+	useAWSIAMInAccessGraphStates: Boolean!
+	useDatabaseInAccessGraphStates: Boolean!
 	clusterFormSettings: ClusterFormSettings!
 }
 
@@ -239,8 +257,10 @@ input ClusterConfigurationInput {
 	globalDefaultDeny: Boolean!
 	istioGlobalDefaultDeny: Boolean
 	useNetworkPoliciesInAccessGraphStates: Boolean!
-	useIstioPoliciesInAccessGraphStates: Boolean
-	useKafkaACLsInAccessGraphStates: Boolean
+	useIstioPoliciesInAccessGraphStates: Boolean!
+	useKafkaACLsInAccessGraphStates: Boolean!
+	useAWSIAMInAccessGraphStates: Boolean
+	useDatabaseInAccessGraphStates: Boolean
 	clusterFormSettings: ClusterFormSettingsInput
 }
 
@@ -426,6 +446,14 @@ enum EdgeAccessStatusVerdict {
 	UNKNOWN
 }
 
+type EdgeAccessStatuses {
+	networkPolicies: EdgeAccessStatus!
+	kafkaACLs: EdgeAccessStatus!
+	istioPolicies: EdgeAccessStatus!
+	awsIam: EdgeAccessStatus!
+	database: EdgeAccessStatus!
+}
+
 type Environment {
 	id: ID!
 	name: String!
@@ -568,6 +596,7 @@ type Integration {
 	cluster: Cluster
 	databaseInfo: DatabaseInfo
 	awsInfo: AWSInfo
+	azureInfo: AzureInfo
 	githubSettings: GitHubSettings
 	organizationId: String!
 }
@@ -589,6 +618,7 @@ enum IntegrationType {
 	DATABASE
 	AWS
 	GITHUB
+	AZURE
 }
 
 type Intent {
@@ -649,6 +679,8 @@ type IntentsOperatorConfiguration {
 	networkPolicyEnforcementEnabled: Boolean!
 	kafkaACLEnforcementEnabled: Boolean!
 	istioPolicyEnforcementEnabled: Boolean!
+	awsIAMPolicyEnforcementEnabled: Boolean!
+	databaseEnforcementEnabled: Boolean!
 	protectedServicesEnabled: Boolean!
 	protectedServices: [Service!]!
 	egressNetworkPolicyEnforcementEnabled: Boolean!
@@ -661,6 +693,8 @@ input IntentsOperatorConfigurationInput {
 	istioPolicyEnforcementEnabled: Boolean
 	protectedServicesEnabled: Boolean
 	egressNetworkPolicyEnforcementEnabled: Boolean
+	awsIAMPolicyEnforcementEnabled: Boolean
+	databaseEnforcementEnabled: Boolean
 }
 
 type InternetConfig {
@@ -867,12 +901,23 @@ type Mutation {
 """Create a new Kubernetes integration"""
 	createKubernetesIntegration(
 		environmentId: ID
-		clusterId: ID!
+		name: String!
 	): Integration
 """Create a new AWS integration"""
 	createAWSIntegration(
 		name: String!
 		awsIntegration: AWSInfoInput!
+	): Integration
+"""Create a new Azure integration"""
+	createAzureIntegration(
+		name: String!
+		azureIntegration: AzureInfoInput!
+	): Integration
+"""Update Azure integration"""
+	updateAzureIntegration(
+		id: ID!
+		name: String
+		azureIntegration: AzureInfoInput
 	): Integration
 """Create a new Github integration"""
 	createGithubIntegration(
@@ -901,12 +946,13 @@ type Mutation {
 	updateKubernetesIntegration(
 		id: ID!
 		environmentId: ID
+		name: String
 	): Integration
 """Update Database integration"""
 	updateDatabaseIntegration(
 		id: ID!
 		name: String
-		databaseInfo: DatabaseInfoInput!
+		databaseInfo: DatabaseInfoInput
 	): Integration
 """Delete integration"""
 	deleteIntegration(
