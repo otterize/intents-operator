@@ -214,6 +214,10 @@ func (r *InternetNetworkPolicyReconciler) buildNetworkPolicy(
 		})
 	}
 
+	if len(rules) == 0 {
+		return nil, errors.New("cannot create rules for internet network policy")
+	}
+
 	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
@@ -239,7 +243,11 @@ func (r *InternetNetworkPolicyReconciler) buildRuleForIntent(intent otterizev1al
 	ips = append(ips, intent.Internet.Ips...)
 
 	if len(ips) == 0 {
-		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonNetworkPolicyCreationFailedMissingIP, "no IPs found for internet intent %s", intent.Internet.Dns)
+		dnsNames := lo.Reduce(intent.Internet.Domains, func(names, dns string, _ int) string {
+			return fmt.Sprintf("%s %s", names, dns)
+		}, "")
+
+		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonNetworkPolicyCreationFailedMissingIP, "no IPs found for internet intent %s", dnsNames)
 		return nil, nil, false, nil
 	}
 
@@ -253,19 +261,20 @@ func (r *InternetNetworkPolicyReconciler) buildRuleForIntent(intent otterizev1al
 
 func (r *InternetNetworkPolicyReconciler) getIpsForDNS(intent otterizev1alpha3.Intent, ep effectivepolicy.ServiceEffectivePolicy) []string {
 	ipsFromDns := make([]string, 0)
-	if intent.Internet.Dns == "" {
-		return ipsFromDns
-	}
-	dnsResolvedIps, found := lo.Find(ep.ClientIntentsStatus.ResolvedIPs, func(resolvedIPs otterizev1alpha3.ResolvedIPs) bool {
-		return resolvedIPs.DNS == intent.Internet.Dns
-	})
 
-	if !found {
-		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonIntentToUnresolvedDns, "could not find IP for DNS %s", intent.Internet.Dns)
-		return ipsFromDns
+	for _, dns := range intent.Internet.Domains {
+		dnsResolvedIps, found := lo.Find(ep.ClientIntentsStatus.ResolvedIPs, func(resolvedIPs otterizev1alpha3.ResolvedIPs) bool {
+			return resolvedIPs.DNS == dns
+		})
+
+		if !found {
+			ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonIntentToUnresolvedDns, "could not find IP for DNS %s", dns)
+			continue
+		}
+
+		ipsFromDns = append(ipsFromDns, dnsResolvedIps.IPs...)
 	}
 
-	ipsFromDns = dnsResolvedIps.IPs
 	return ipsFromDns
 }
 
