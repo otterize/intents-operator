@@ -173,7 +173,7 @@ type Intent struct {
 
 type Internet struct {
 	//+optional
-	Dns string `json:"dns,omitempty" yaml:"dns,omitempty"`
+	Domains []string `json:"domains,omitempty" yaml:"domains,omitempty"`
 	//+optional
 	Ips []string `json:"ips,omitempty" yaml:"ips,omitempty"`
 	//+optional
