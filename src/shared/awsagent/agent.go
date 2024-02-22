@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 	eksTypes "github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/rolesanywhere"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
@@ -37,11 +38,44 @@ type IAMClient interface {
 	AttachRolePolicy(ctx context.Context, i *iam.AttachRolePolicyInput, opts ...func(*iam.Options)) (*iam.AttachRolePolicyOutput, error)
 }
 
+type RolesAnywhereClient interface {
+	EnableProfile(ctx context.Context, params *rolesanywhere.EnableProfileInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.EnableProfileOutput, error)
+	UpdateCrl(ctx context.Context, params *rolesanywhere.UpdateCrlInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.UpdateCrlOutput, error)
+	ImportCrl(ctx context.Context, params *rolesanywhere.ImportCrlInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.ImportCrlOutput, error)
+	TagResource(ctx context.Context, params *rolesanywhere.TagResourceInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.TagResourceOutput, error)
+	PutNotificationSettings(ctx context.Context, params *rolesanywhere.PutNotificationSettingsInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.PutNotificationSettingsOutput, error)
+	DisableTrustAnchor(ctx context.Context, params *rolesanywhere.DisableTrustAnchorInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.DisableTrustAnchorOutput, error)
+	GetCrl(ctx context.Context, params *rolesanywhere.GetCrlInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.GetCrlOutput, error)
+	ListTrustAnchors(ctx context.Context, params *rolesanywhere.ListTrustAnchorsInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.ListTrustAnchorsOutput, error)
+	EnableCrl(ctx context.Context, params *rolesanywhere.EnableCrlInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.EnableCrlOutput, error)
+	ListCrls(ctx context.Context, params *rolesanywhere.ListCrlsInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.ListCrlsOutput, error)
+	ListProfiles(ctx context.Context, params *rolesanywhere.ListProfilesInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.ListProfilesOutput, error)
+	ListTagsForResource(ctx context.Context, params *rolesanywhere.ListTagsForResourceInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.ListTagsForResourceOutput, error)
+	UntagResource(ctx context.Context, params *rolesanywhere.UntagResourceInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.UntagResourceOutput, error)
+	DisableCrl(ctx context.Context, params *rolesanywhere.DisableCrlInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.DisableCrlOutput, error)
+	ResetNotificationSettings(ctx context.Context, params *rolesanywhere.ResetNotificationSettingsInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.ResetNotificationSettingsOutput, error)
+	ListSubjects(ctx context.Context, params *rolesanywhere.ListSubjectsInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.ListSubjectsOutput, error)
+	UpdateTrustAnchor(ctx context.Context, params *rolesanywhere.UpdateTrustAnchorInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.UpdateTrustAnchorOutput, error)
+	CreateProfile(ctx context.Context, params *rolesanywhere.CreateProfileInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.CreateProfileOutput, error)
+	GetSubject(ctx context.Context, params *rolesanywhere.GetSubjectInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.GetSubjectOutput, error)
+	GetProfile(ctx context.Context, params *rolesanywhere.GetProfileInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.GetProfileOutput, error)
+	Options() rolesanywhere.Options
+	CreateTrustAnchor(ctx context.Context, params *rolesanywhere.CreateTrustAnchorInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.CreateTrustAnchorOutput, error)
+	DeleteCrl(ctx context.Context, params *rolesanywhere.DeleteCrlInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.DeleteCrlOutput, error)
+	EnableTrustAnchor(ctx context.Context, params *rolesanywhere.EnableTrustAnchorInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.EnableTrustAnchorOutput, error)
+	DeleteTrustAnchor(ctx context.Context, params *rolesanywhere.DeleteTrustAnchorInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.DeleteTrustAnchorOutput, error)
+	UpdateProfile(ctx context.Context, params *rolesanywhere.UpdateProfileInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.UpdateProfileOutput, error)
+	DisableProfile(ctx context.Context, params *rolesanywhere.DisableProfileInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.DisableProfileOutput, error)
+	GetTrustAnchor(ctx context.Context, params *rolesanywhere.GetTrustAnchorInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.GetTrustAnchorOutput, error)
+	DeleteProfile(ctx context.Context, params *rolesanywhere.DeleteProfileInput, optFns ...func(*rolesanywhere.Options)) (*rolesanywhere.DeleteProfileOutput, error)
+}
+
 type Agent struct {
-	iamClient   IAMClient
-	accountID   string
-	oidcURL     string
-	clusterName string
+	iamClient           IAMClient
+	rolesAnywhereClient RolesAnywhereClient
+	accountID           string
+	oidcURL             string
+	clusterName         string
 }
 
 func NewAWSAgent(
@@ -64,6 +98,7 @@ func NewAWSAgent(
 	OIDCURL := *currentCluster.Identity.Oidc.Issuer
 
 	iamClient := iam.NewFromConfig(awsConfig)
+	rolesAnywhereClient := rolesanywhere.NewFromConfig(awsConfig)
 	stsClient := sts.NewFromConfig(awsConfig)
 
 	callerIdent, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
@@ -73,10 +108,11 @@ func NewAWSAgent(
 	}
 
 	return &Agent{
-		iamClient:   iamClient,
-		accountID:   *callerIdent.Account,
-		oidcURL:     strings.Split(OIDCURL, "://")[1],
-		clusterName: *currentCluster.Name,
+		iamClient:           iamClient,
+		rolesAnywhereClient: rolesAnywhereClient,
+		accountID:           *callerIdent.Account,
+		oidcURL:             strings.Split(OIDCURL, "://")[1],
+		clusterName:         *currentCluster.Name,
 	}, nil
 }
 

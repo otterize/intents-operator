@@ -33,6 +33,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
+	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -278,6 +279,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			certBundle.CertPem,
+			filters.IntentsOperatorLabelPredicate(),
 		)
 		err = validatingWebhookConfigsReconciler.SetupWithManager(mgr)
 		if err != nil {

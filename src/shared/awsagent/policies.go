@@ -310,8 +310,8 @@ func generatePolicyDocument(statements []StatementEntry) (string, string, error)
 	return string(serialized), fmt.Sprintf("%x", sum), nil
 }
 
-func (a *Agent) generatePolicyName(ns, intentsServiceName string) string {
-	return fmt.Sprintf("otterize-policy-%s-%s", ns, intentsServiceName)
+func (a *Agent) generatePolicyName(namespace string, intentsServiceName string) string {
+	return fmt.Sprintf("otr-%s.%s@%s", namespace, intentsServiceName, a.clusterName)
 
 }
 

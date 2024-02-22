@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/aws/aws-sdk-go-v2/service/rolesanywhere"
+	rolesanywhereTypes "github.com/aws/aws-sdk-go-v2/service/rolesanywhere/types"
 	"github.com/aws/smithy-go"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -46,8 +48,23 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 	return true, role.Role, nil
 }
 
+func (a *Agent) CreateRolesAnywhereProfileForRole(ctx context.Context, role types.Role) (*rolesanywhereTypes.ProfileDetail, error) {
+	createProfileOutput, createProfileErr := a.rolesAnywhereClient.CreateProfile(ctx,
+		&rolesanywhere.CreateProfileInput{
+			RoleArns: []string{*role.Arn},
+			Enabled:  lo.ToPtr(true),
+		})
+
+	if createProfileErr != nil {
+		logrus.WithError(createProfileErr).Error("failed to create profile")
+		return nil, errors.Wrap(createProfileErr)
+	}
+
+	return createProfileOutput.Profile, nil
+}
+
 // CreateOtterizeIAMRole creates a new IAM role for service, if one doesn't exist yet
-func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accountName string) (*types.Role, error) {
+func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string, accountName string) (*types.Role, error) {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
 	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
 
@@ -59,7 +76,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 		logger.Debugf("found existing role, arn: %s", *role.Arn)
 		return role, nil
 	} else {
-		trustPolicy, err := a.generateTrustPolicy(namespaceName, accountName)
+		trustPolicy, err := a.generateTrustPolicyForRolesAnywhere(namespaceName, accountName)
 
 		if err != nil {
 			return nil, errors.Wrap(err)
@@ -88,7 +105,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 
 		if createRoleError != nil {
 			logger.WithError(createRoleError).Error("failed to create role")
-			return nil, createRoleError
+			return nil, errors.Wrap(createRoleError)
 		}
 
 		logger.Debugf("created new role, arn: %s", *createRoleOutput.Role.Arn)
@@ -177,6 +194,38 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 					"StringEquals": map[string]string{
 						fmt.Sprintf("%s:sub", oidc): fmt.Sprintf("system:serviceaccount:%s:%s", namespaceName, accountName),
 						fmt.Sprintf("%s:aud", oidc): "sts.amazonaws.com",
+					},
+				},
+			},
+		},
+	}
+
+	serialized, err := json.Marshal(policy)
+
+	if err != nil {
+		logrus.WithError(err).Error("failed to create trust policy")
+		return "", errors.Wrap(err)
+	}
+
+	return string(serialized), errors.Wrap(err)
+}
+
+func (a *Agent) generateTrustPolicyForRolesAnywhere(namespaceName, accountName string) (string, error) {
+	policy := PolicyDocument{
+		Version: iamAPIVersion,
+		Statement: []StatementEntry{
+			{
+				Effect: iamEffectAllow,
+				Action: []string{"sts:AssumeRole", "sts:TagSession", "sts:SetSourceIdentity"},
+				Principal: map[string]string{
+					"Service": "rolesanywhere.amazonaws.com",
+				},
+				Condition: map[string]any{
+					"StringEquals": map[string]string{
+						"aws:PrincipalTag/x509SAN/URI": fmt.Sprintf("spiffe://cert-manager-spiffe.mattiasgees.be/ns/%s/sa/%s", namespaceName, accountName),
+					},
+					"ArnEquals": map[string]string{
+						"aws:SourceArn": "arn:aws:rolesanywhere:us-west-2:228615251467:trust-anchor/df902fea-dbb4-4969-9b28-27e6e2c0f67c",
 					},
 				},
 			},

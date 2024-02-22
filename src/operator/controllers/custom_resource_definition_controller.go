@@ -88,7 +88,7 @@ func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req
 func (r *CustomResourceDefinitionsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&apiextensionsv1.CustomResourceDefinition{}).
-		WithEventFilter(filters.FilterByOtterizeLabelPredicate).
+		WithEventFilter(filters.IntentsOperatorLabelPredicate()). // FIXME
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 }
