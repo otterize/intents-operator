@@ -524,13 +524,21 @@ input GCPPubSubLogConsumerSettingsInput {
 	topic: String!
 }
 
+type GitHubAccessGraphFilter {
+	environmentIds: [ID!]
+	clusterIds: [ID!]
+	namespaceIds: [ID!]
+	serviceIds: [ID!]
+	lastSeenAfter: Time
+}
+
 type GitHubRepoFilterPair {
-	filter: AccessGraphFilter!
+	filter: GitHubAccessGraphFilter!
 	repoInfo: GitHubRepoInfo!
 }
 
 input GitHubRepoFilterPairInput {
-	filter: InputAccessGraphFilter!
+	filter: InputGitHubAccessGraphFilter!
 	repoInfo: GitHubRepoInfoInput!
 }
 
@@ -588,6 +596,13 @@ input InputAccessGraphFilter {
 	namespaceIds: [ID!]
 	lastSeenAfter: Time
 	includeServicesWithNoEdges: Boolean
+}
+
+input InputGitHubAccessGraphFilter {
+	environmentIds: [ID!]
+	clusterIds: [ID!]
+	serviceIds: [ID!]
+	namespaceIds: [ID!]
 }
 
 """The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1."""

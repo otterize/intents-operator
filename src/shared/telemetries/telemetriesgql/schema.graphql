@@ -529,6 +529,7 @@ type GitHubAccessGraphFilter {
 	clusterIds: [ID!]
 	namespaceIds: [ID!]
 	serviceIds: [ID!]
+	lastSeenAfter: Time
 }
 
 type GitHubRepoFilterPair {
