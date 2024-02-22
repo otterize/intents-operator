@@ -1,4 +1,4 @@
-package aws_pod_reconciler
+package iam_pod_reconciler
 
 import (
 	"context"
