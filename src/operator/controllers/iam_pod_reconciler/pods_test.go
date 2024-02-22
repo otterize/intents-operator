@@ -15,11 +15,11 @@ import (
 	"testing"
 )
 
-type AWSPodReconcilerSuite struct {
+type IAMPodReconcilerSuite struct {
 	testbase.MocksSuiteBase
 }
 
-func (s *AWSPodReconcilerSuite) TestCallsAWSIntentsReconciler() {
+func (s *IAMPodReconcilerSuite) TestCallsIAMIntentsReconciler() {
 	iamIntentsMockReconciler := mocks.NewMockReconciler(s.Controller)
 	podReconciler := NewIAMPodReconciler(s.Client, s.Recorder, iamIntentsMockReconciler)
 	namespacedName := types.NamespacedName{
@@ -92,6 +92,6 @@ func (s *AWSPodReconcilerSuite) TestCallsAWSIntentsReconciler() {
 	s.Require().NoError(err)
 }
 
-func TestAWSPodReconcilerSuite(t *testing.T) {
-	suite.Run(t, new(AWSPodReconcilerSuite))
+func TestIAMPodReconcilerSuite(t *testing.T) {
+	suite.Run(t, new(IAMPodReconcilerSuite))
 }
