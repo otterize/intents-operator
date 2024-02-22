@@ -91,10 +91,6 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	return nil
 }
 
-func (a *Agent) DeletePolicyFromIntents(ctx context.Context, intents v1alpha3.ClientIntents) error {
-	return a.DeleteRolePolicyFromIntents(ctx, intents)
-}
-
 func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents v1alpha3.ClientIntents) error {
 	return a.DeleteRolePolicy(ctx, a.generatePolicyName(intents.Namespace, intents.Spec.Service.Name))
 }
