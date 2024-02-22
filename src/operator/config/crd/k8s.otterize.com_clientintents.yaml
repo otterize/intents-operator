@@ -215,6 +215,10 @@ spec:
                         - databaseName
                         type: object
                       type: array
+                    gcpPermissions:
+                      items:
+                        type: string
+                      type: array
                     internet:
                       properties:
                         domains:
@@ -264,6 +268,7 @@ spec:
                       - kafka
                       - database
                       - aws
+                      - gcp
                       - internet
                       type: string
                   type: object

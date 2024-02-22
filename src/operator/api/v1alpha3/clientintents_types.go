@@ -85,7 +85,7 @@ const (
 	KubernetesAPIServerNamespace                         = "default"
 )
 
-// +kubebuilder:validation:Enum=http;kafka;database;aws;internet
+// +kubebuilder:validation:Enum=http;kafka;database;aws;gcp;internet
 type IntentType string
 
 const (
@@ -93,6 +93,7 @@ const (
 	IntentTypeKafka    IntentType = "kafka"
 	IntentTypeDatabase IntentType = "database"
 	IntentTypeAWS      IntentType = "aws"
+	IntentTypeGCP      IntentType = "gcp"
 	IntentTypeInternet IntentType = "internet"
 )
 
@@ -166,6 +167,9 @@ type Intent struct {
 
 	//+optional
 	AWSActions []string `json:"awsActions,omitempty" yaml:"awsActions,omitempty"`
+
+	//+optional
+	GCPPermissions []string `json:"gcpPermissions,omitempty" yaml:"gcpPermissions,omitempty"`
 
 	//+optional
 	Internet *Internet `json:"internet,omitempty" yaml:"internet,omitempty"`
