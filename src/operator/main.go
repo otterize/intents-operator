@@ -247,15 +247,6 @@ func main() {
 		}
 	}
 
-	if enforcementConfig.EnableAzurePolicy {
-		azureAgent, err := azureagent.NewAzureAgent(signalHandlerCtx)
-		if err != nil {
-			logrus.WithError(err).Panic("could not initialize Azure agent")
-		}
-		_ = azureAgent
-
-	}
-
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to init index for ingress")
 	}
