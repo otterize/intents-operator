@@ -49,6 +49,8 @@ const (
 	EnableEgressNetworkPolicyReconcilersDefault = false
 	EnableAWSPolicyKey                          = "enable-aws-iam-policy"
 	EnableAWSPolicyDefault                      = false
+	EnableAzurePolicyKey                        = "enable-azure-iam-policy"
+	EnableAzurePolicyDefault                    = false
 	EKSClusterNameOverrideKey                   = "eks-cluster-name-override"
 	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
 	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"

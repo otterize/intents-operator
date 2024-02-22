@@ -85,7 +85,7 @@ const (
 	KubernetesAPIServerNamespace                         = "default"
 )
 
-// +kubebuilder:validation:Enum=http;kafka;database;aws;gcp;internet
+// +kubebuilder:validation:Enum=http;kafka;database;aws;gcp;azure;internet
 type IntentType string
 
 const (
@@ -94,6 +94,7 @@ const (
 	IntentTypeDatabase IntentType = "database"
 	IntentTypeAWS      IntentType = "aws"
 	IntentTypeGCP      IntentType = "gcp"
+	IntentTypeAzure    IntentType = "azure"
 	IntentTypeInternet IntentType = "internet"
 )
 
@@ -170,6 +171,9 @@ type Intent struct {
 
 	//+optional
 	GCPPermissions []string `json:"gcpPermissions,omitempty" yaml:"gcpPermissions,omitempty"`
+
+	//+optional
+	AzureRoles []string `json:"azureRoles,omitempty" yaml:"azureRoles,omitempty"`
 
 	//+optional
 	Internet *Internet `json:"internet,omitempty" yaml:"internet,omitempty"`
@@ -264,7 +268,7 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 	otterizeAccessLabels := make(map[string]string)
 
 	for _, intent := range in.GetCallsList() {
-		if intent.Type == IntentTypeAWS || intent.Type == IntentTypeDatabase {
+		if intent.Type == IntentTypeAWS || intent.Type == IntentTypeGCP || intent.Type == IntentTypeAzure || intent.Type == IntentTypeDatabase {
 			continue
 		}
 		ns := intent.GetTargetServerNamespace(requestNamespace)
@@ -365,6 +369,10 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 		return graphqlclient.IntentTypeDatabase
 	case IntentTypeAWS:
 		return graphqlclient.IntentTypeAws
+	case IntentTypeGCP:
+		return graphqlclient.IntentTypeGcp
+	case IntentTypeAzure:
+		return graphqlclient.IntentTypeAzure
 	case IntentTypeInternet:
 		return graphqlclient.IntentTypeInternet
 	default:
@@ -573,6 +581,14 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 
 	if len(in.AWSActions) != 0 {
 		intentInput.AwsActions = lo.ToSlicePtr(in.AWSActions)
+	}
+
+	if len(in.AzureRoles) != 0 {
+		intentInput.AzureRoles = lo.ToSlicePtr(in.AzureRoles)
+	}
+
+	if len(in.GCPPermissions) != 0 {
+		intentInput.GcpPermissions = lo.ToSlicePtr(in.GCPPermissions)
 	}
 
 	if len(otterizeTopics) != 0 {

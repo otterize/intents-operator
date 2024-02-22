@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
-	"github.com/otterize/intents-operator/src/operator/controllers/aws_pod_reconciler"
+	"github.com/otterize/intents-operator/src/operator/controllers/iam_pod_reconciler"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
@@ -33,6 +33,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
+	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -113,6 +114,7 @@ func main() {
 		EnableDatabasePolicy:                 viper.GetBool(operatorconfig.EnableDatabasePolicy),
 		EnableEgressNetworkPolicyReconcilers: viper.GetBool(operatorconfig.EnableEgressNetworkPolicyReconcilersKey),
 		EnableAWSPolicy:                      viper.GetBool(operatorconfig.EnableAWSPolicyKey),
+		EnableAzurePolicy:                    viper.GetBool(operatorconfig.EnableAzurePolicyKey),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev1alpha3.TLSSource{
@@ -217,15 +219,29 @@ func main() {
 	}
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
-	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
+
+	var iamAgents []intents_reconcilers.IAMPolicyAgent
+
+	if enforcementConfig.EnableAWSPolicy {
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
 		}
-		awsIntentsReconciler := intents_reconcilers.NewAWSIntentsReconciler(mgr.GetClient(), scheme, awsIntentsAgent, serviceidresolver.NewResolver(mgr.GetClient()))
-		additionalIntentsReconcilers = append(additionalIntentsReconcilers, awsIntentsReconciler)
-		awsPodWatcher := aws_pod_reconciler.NewAWSPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), awsIntentsReconciler)
-		err = awsPodWatcher.SetupWithManager(mgr)
+		iamAgents = append(iamAgents, awsIntentsAgent)
+	}
+	if enforcementConfig.EnableAzurePolicy {
+		azureIntentsAgent, err := azureagent.NewAzureAgent(signalHandlerCtx)
+		if err != nil {
+			logrus.WithError(err).Panic("could not initialize Azure agent")
+		}
+		iamAgents = append(iamAgents, azureIntentsAgent)
+	}
+
+	if len(iamAgents) > 0 {
+		iamIntentsReconciler := intents_reconcilers.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceidresolver.NewResolver(mgr.GetClient()), iamAgents)
+		additionalIntentsReconcilers = append(additionalIntentsReconcilers, iamIntentsReconciler)
+		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), iamIntentsReconciler)
+		err = iamPodWatcher.SetupWithManager(mgr)
 		if err != nil {
 			logrus.WithError(err).Panic("unable to register pod watcher")
 		}
