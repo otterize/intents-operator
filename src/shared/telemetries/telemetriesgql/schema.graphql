@@ -173,6 +173,10 @@ input AzureInfoInput {
 	aksClusterName: String!
 }
 
+type AzureResource {
+	resource: String!
+}
+
 """The `Boolean` scalar type represents `true` or `false`."""
 scalar Boolean
 
@@ -249,6 +253,7 @@ type ClusterConfiguration {
 	useIstioPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useAWSIAMInAccessGraphStates: Boolean!
+	useAzureIAMInAccessGraphStates: Boolean!
 	useDatabaseInAccessGraphStates: Boolean!
 	clusterFormSettings: ClusterFormSettings!
 }
@@ -260,6 +265,7 @@ input ClusterConfigurationInput {
 	useIstioPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useAWSIAMInAccessGraphStates: Boolean
+	useAzureIAMInAccessGraphStates: Boolean
 	useDatabaseInAccessGraphStates: Boolean
 	clusterFormSettings: ClusterFormSettingsInput
 }
@@ -451,6 +457,7 @@ type EdgeAccessStatuses {
 	kafkaACLs: EdgeAccessStatus!
 	istioPolicies: EdgeAccessStatus!
 	awsIam: EdgeAccessStatus!
+	azureIAM: EdgeAccessStatus!
 	database: EdgeAccessStatus!
 }
 
@@ -517,13 +524,20 @@ input GCPPubSubLogConsumerSettingsInput {
 	topic: String!
 }
 
+type GitHubAccessGraphFilter {
+	environmentIds: [ID!]
+	clusterIds: [ID!]
+	namespaceIds: [ID!]
+	serviceIds: [ID!]
+}
+
 type GitHubRepoFilterPair {
-	filter: AccessGraphFilter!
+	filter: GitHubAccessGraphFilter!
 	repoInfo: GitHubRepoInfo!
 }
 
 input GitHubRepoFilterPairInput {
-	filter: InputAccessGraphFilter!
+	filter: InputGitHubAccessGraphFilter!
 	repoInfo: GitHubRepoInfoInput!
 }
 
@@ -583,6 +597,13 @@ input InputAccessGraphFilter {
 	includeServicesWithNoEdges: Boolean
 }
 
+input InputGitHubAccessGraphFilter {
+	environmentIds: [ID!]
+	clusterIds: [ID!]
+	serviceIds: [ID!]
+	namespaceIds: [ID!]
+}
+
 """The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1."""
 scalar Int
 
@@ -630,6 +651,7 @@ type Intent {
 	httpResources: [HTTPConfig!]
 	databaseResources: [DatabaseConfig!]
 	awsActions: [String!]
+	azureRoles: [String!]
 	internet: InternetConfig
 	status: IntentStatus
 }
@@ -644,6 +666,7 @@ input IntentInput {
 	resources: [HTTPConfigInput!]
 	databaseResources: [DatabaseConfigInput!]
 	awsActions: [String!]
+	azureRoles: [String!]
 	internet: InternetConfigInput
 	status: IntentStatusInput
 }
@@ -664,6 +687,7 @@ enum IntentType {
 	KAFKA
 	DATABASE
 	AWS
+	AZURE
 	S3
 	INTERNET
 }
@@ -680,6 +704,7 @@ type IntentsOperatorConfiguration {
 	kafkaACLEnforcementEnabled: Boolean!
 	istioPolicyEnforcementEnabled: Boolean!
 	awsIAMPolicyEnforcementEnabled: Boolean!
+	azureIAMPolicyEnforcementEnabled: Boolean!
 	databaseEnforcementEnabled: Boolean!
 	protectedServicesEnabled: Boolean!
 	protectedServices: [Service!]!
@@ -694,6 +719,7 @@ input IntentsOperatorConfigurationInput {
 	protectedServicesEnabled: Boolean
 	egressNetworkPolicyEnforcementEnabled: Boolean
 	awsIAMPolicyEnforcementEnabled: Boolean
+	azureIAMPolicyEnforcementEnabled: Boolean
 	databaseEnforcementEnabled: Boolean
 }
 
@@ -842,10 +868,6 @@ type Mutation {
 """Create cluster"""
 	createCluster(
 		name: String!
-	): Cluster!
-	createClusterAndUpdateUserTutorial(
-		name: String!
-		userTutorialId: ID!
 	): Cluster!
 """Delete cluster"""
 	deleteCluster(
@@ -1035,16 +1057,12 @@ type Mutation {
 		userEmail: String!
 		feedback: String!
 	): Boolean!
-	createUserTutorial(
+	createOrActivateTutorial(
 		tutorialName: TutorialName!
 	): Boolean!
 	updateUserTutorialCluster(
-		userTutorialId: ID!
 		clusterId: ID!
 		ifClusterNotExists: Boolean!
-	): Boolean!
-	activateUserTutorial(
-		tutorialName: TutorialName!
 	): Boolean!
 	resetUserTutorial(
 		userTutorialId: ID!
@@ -1333,6 +1351,7 @@ type Service {
 	certificateInformation: CertificateInformation
 	serviceAccount: String
 	awsResource: AWSResource
+	azureResource: AzureResource
 	discoveredByIntegration: Integration
 	tlsKeyPair: KeyPair!
 	userAndPassword: UserAndPassword!
@@ -1367,6 +1386,7 @@ enum ServiceType {
 	KUBERNETES
 	KAFKA
 	AWS
+	AZURE
 	DATABASE
 	INTERNET
 	DATABASE_USER
@@ -1435,6 +1455,7 @@ type User {
 	imageURL: String!
 	authProviderUserId: String!
 	tutorials: [UserTutorial!]
+	activeTutorial: UserTutorial!
 	questLogStep: QuestLogStep!
 	questLogStepSeen: QuestLogStep!
 }
