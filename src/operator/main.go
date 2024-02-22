@@ -220,7 +220,7 @@ func main() {
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 
-	var iamAgents []intents_reconcilers.IAMAgent
+	var iamAgents []intents_reconcilers.IAMPolicyAgent
 
 	if enforcementConfig.EnableAWSPolicy {
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
@@ -228,6 +228,13 @@ func main() {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
 		}
 		iamAgents = append(iamAgents, awsIntentsAgent)
+	}
+	if enforcementConfig.EnableAzurePolicy {
+		azureIntentsAgent, err := azureagent.NewAzureAgent(signalHandlerCtx)
+		if err != nil {
+			logrus.WithError(err).Panic("could not initialize Azure agent")
+		}
+		iamAgents = append(iamAgents, azureIntentsAgent)
 	}
 
 	if len(iamAgents) > 0 {

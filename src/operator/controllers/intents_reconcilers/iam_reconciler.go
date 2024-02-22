@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type IAMAgent interface {
+type IAMPolicyAgent interface {
 	IntentType() otterizev1alpha3.IntentType
 	ApplyOnPodLabel() string
 	AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error
@@ -29,14 +29,14 @@ type IAMIntentsReconciler struct {
 	Scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
 	serviceIdResolver serviceidresolver.ServiceResolver
-	agents            []IAMAgent
+	agents            []IAMPolicyAgent
 }
 
 func NewIAMIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	serviceIdResolver serviceidresolver.ServiceResolver,
-	agents []IAMAgent,
+	agents []IAMPolicyAgent,
 ) *IAMIntentsReconciler {
 	return &IAMIntentsReconciler{
 		Client:            client,
@@ -103,7 +103,7 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	return ctrl.Result{}, nil
 }
 
-func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod corev1.Pod, intents otterizev1alpha3.ClientIntents, agent IAMAgent) error {
+func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod corev1.Pod, intents otterizev1alpha3.ClientIntents, agent IAMPolicyAgent) error {
 	if pod.Labels == nil {
 		return nil
 	}
