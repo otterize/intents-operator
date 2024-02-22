@@ -25,6 +25,8 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 		return errors.Errorf("role not found: %s", a.generateRoleName(namespace, accountName))
 	}
 
+	shouldMarkAsUnusedInCaseOfDeletion := hasMarkAsUnusedInCaseOfDeletionTagSet(role.Tags)
+
 	policyArn := a.generatePolicyArn(a.generatePolicyName(namespace, intentsServiceName))
 
 	policyOutput, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
@@ -32,7 +34,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	})
 	if err != nil {
 		if isNoSuchEntityException(err) {
-			_, err := a.createPolicy(ctx, role, namespace, intentsServiceName, statements)
+			_, err := a.createPolicy(ctx, role, namespace, intentsServiceName, statements, shouldMarkAsUnusedInCaseOfDeletion)
 
 			return errors.Wrap(err)
 		}
@@ -43,7 +45,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	// policy exists, update it
 	policy := policyOutput.Policy
 
-	err = a.updatePolicy(ctx, policy, statements)
+	err = a.updatePolicy(ctx, policy, statements, shouldMarkAsUnusedInCaseOfDeletion)
 
 	if err != nil {
 		return errors.Wrap(err)
@@ -73,6 +75,10 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 		}
 
 		return errors.Wrap(err)
+	}
+
+	if hasMarkAsUnusedInCaseOfDeletionTagSet(output.Policy.Tags) {
+		return a.MarkPolicyAsUnused(ctx, policyName)
 	}
 
 	policy := output.Policy
@@ -132,6 +138,31 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 	return nil
 }
 
+func (a *Agent) MarkPolicyAsUnused(ctx context.Context, policyName string) error {
+	output, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
+		PolicyArn: aws.String(a.generatePolicyArn(policyName)),
+	})
+
+	if err != nil {
+		if isNoSuchEntityException(err) {
+			return nil
+		}
+
+		return errors.Wrap(err)
+	}
+
+	policy := output.Policy
+	_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{
+		PolicyArn: policy.Arn,
+		Tags:      []types.Tag{{Key: aws.String(unusedTagKey), Value: aws.String(unusedTagValue)}},
+	})
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
 func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string, statements []StatementEntry) error {
 	logger := logrus.WithField("account", accountName).WithField("namespace", namespace)
 	roleName := a.generateRoleName(namespace, accountName)
@@ -167,7 +198,7 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 	return nil
 }
 
-func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace string, intentsServiceName string, statements []StatementEntry) (*types.Policy, error) {
+func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace string, intentsServiceName string, statements []StatementEntry, markAsUnusedInsteadOfDelete bool) (*types.Policy, error) {
 	fullPolicyName := a.generatePolicyName(namespace, intentsServiceName)
 	policyDoc, policyHash, err := generatePolicyDocument(statements)
 
@@ -175,23 +206,28 @@ func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace st
 		return nil, errors.Wrap(err)
 	}
 
+	tags := []types.Tag{
+		{
+			Key:   aws.String(policyNameTagKey),
+			Value: aws.String(intentsServiceName),
+		},
+		{
+			Key:   aws.String(policyNamespaceTagKey),
+			Value: aws.String(namespace),
+		},
+		{
+			Key:   aws.String(policyHashTagKey),
+			Value: aws.String(policyHash),
+		},
+	}
+	if markAsUnusedInsteadOfDelete {
+		tags = append(tags, types.Tag{Key: aws.String(markAsUnusedInsteadOfDeleteTagKey), Value: aws.String(markAsUnusedInsteadOfDeleteValue)})
+	}
+
 	policy, err := a.iamClient.CreatePolicy(ctx, &iam.CreatePolicyInput{
 		PolicyDocument: aws.String(policyDoc),
 		PolicyName:     aws.String(fullPolicyName),
-		Tags: []types.Tag{
-			{
-				Key:   aws.String(policyNameTagKey),
-				Value: aws.String(intentsServiceName),
-			},
-			{
-				Key:   aws.String(policyNamespaceTagKey),
-				Value: aws.String(namespace),
-			},
-			{
-				Key:   aws.String(policyHashTagKey),
-				Value: aws.String(policyHash),
-			},
-		},
+		Tags:           tags,
 	})
 
 	if err != nil {
@@ -207,11 +243,44 @@ func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace st
 	return policy.Policy, nil
 }
 
-func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statements []StatementEntry) error {
+func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statements []StatementEntry, markAsUnusedInsteadOfDelete bool) error {
 	policyDoc, policyHash, err := generatePolicyDocument(statements)
 
 	if err != nil {
 		return errors.Wrap(err)
+	}
+
+	if hasUnusedTagSet(policy.Tags) {
+		logrus.Debugf("removing unused tag from policy: %s", *policy.PolicyName)
+		_, err = a.iamClient.UntagPolicy(ctx, &iam.UntagPolicyInput{
+			PolicyArn: policy.Arn,
+			TagKeys:   []string{unusedTagKey},
+		})
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	if hasMarkAsUnusedInCaseOfDeletionTagSet(policy.Tags) && !markAsUnusedInsteadOfDelete {
+		logrus.Debugf("removing mark as unused tag from policy: %s", *policy.PolicyName)
+		_, err = a.iamClient.UntagPolicy(ctx, &iam.UntagPolicyInput{
+			PolicyArn: policy.Arn,
+			TagKeys:   []string{markAsUnusedInsteadOfDeleteTagKey},
+		})
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	if !hasMarkAsUnusedInCaseOfDeletionTagSet(policy.Tags) && markAsUnusedInsteadOfDelete {
+		logrus.Debugf("adding mark as unused tag to policy: %s", *policy.PolicyName)
+		_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{
+			PolicyArn: policy.Arn,
+			Tags:      []types.Tag{{Key: aws.String(markAsUnusedInsteadOfDeleteTagKey), Value: aws.String(markAsUnusedInsteadOfDeleteValue)}},
+		})
+		if err != nil {
+			return errors.Wrap(err)
+		}
 	}
 
 	existingHashTag, found := lo.Find(policy.Tags, func(item types.Tag) bool {

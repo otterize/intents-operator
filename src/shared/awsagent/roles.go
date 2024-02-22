@@ -47,7 +47,7 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 }
 
 // CreateOtterizeIAMRole creates a new IAM role for service, if one doesn't exist yet
-func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accountName string) (*types.Role, error) {
+func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accountName string, markAsUnusedInsteadOfDelete bool) (*types.Role, error) {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
 	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
 
@@ -57,43 +57,69 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 
 	if exists {
 		logger.Debugf("found existing role, arn: %s", *role.Arn)
+		// check if it is soft deleted
+		if lo.SomeBy(role.Tags, func(item types.Tag) bool { return lo.FromPtr(item.Key) == unusedTagKey }) {
+			logger.Debug("role is tagged unused, untagging")
+			_, err := a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{unusedTagKey}})
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+		}
+		hasMarkUnusedTag := hasMarkAsUnusedInCaseOfDeletionTagSet(role.Tags)
+		if markAsUnusedInsteadOfDelete && !hasMarkUnusedTag {
+			_, err = a.iamClient.TagRole(ctx, &iam.TagRoleInput{RoleName: role.RoleName, Tags: []types.Tag{{Key: aws.String(markAsUnusedInsteadOfDeleteTagKey), Value: aws.String(markAsUnusedInsteadOfDeleteValue)}}})
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+		}
+		if !markAsUnusedInsteadOfDelete && hasMarkUnusedTag {
+			_, err = a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{markAsUnusedInsteadOfDeleteTagKey}})
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+		}
+
 		return role, nil
-	} else {
-		trustPolicy, err := a.generateTrustPolicy(namespaceName, accountName)
-
-		if err != nil {
-			return nil, errors.Wrap(err)
-		}
-
-		createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
-			RoleName:                 aws.String(a.generateRoleName(namespaceName, accountName)),
-			AssumeRolePolicyDocument: aws.String(trustPolicy),
-			Tags: []types.Tag{
-				{
-					Key:   aws.String(serviceAccountNameTagKey),
-					Value: aws.String(accountName),
-				},
-				{
-					Key:   aws.String(serviceAccountNamespaceTagKey),
-					Value: aws.String(namespaceName),
-				},
-				{
-					Key:   aws.String(clusterNameTagKey),
-					Value: aws.String(a.clusterName),
-				},
-			},
-			Description:         aws.String(iamRoleDescription),
-			PermissionsBoundary: aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.accountID, a.clusterName)),
-		})
-
-		if createRoleError != nil {
-			logger.WithError(createRoleError).Error("failed to create role")
-			return nil, createRoleError
-		}
-
-		logger.Debugf("created new role, arn: %s", *createRoleOutput.Role.Arn)
-		return createRoleOutput.Role, nil
 	}
+
+	trustPolicy, err := a.generateTrustPolicy(namespaceName, accountName)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	tags := []types.Tag{
+		{
+			Key:   aws.String(serviceAccountNameTagKey),
+			Value: aws.String(accountName),
+		},
+		{
+			Key:   aws.String(serviceAccountNamespaceTagKey),
+			Value: aws.String(namespaceName),
+		},
+		{
+			Key:   aws.String(clusterNameTagKey),
+			Value: aws.String(a.clusterName),
+		},
+	}
+	if markAsUnusedInsteadOfDelete {
+		tags = append(tags, types.Tag{Key: aws.String(markAsUnusedInsteadOfDeleteTagKey), Value: aws.String(markAsUnusedInsteadOfDeleteValue)})
+	}
+	createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
+		RoleName:                 aws.String(a.generateRoleName(namespaceName, accountName)),
+		AssumeRolePolicyDocument: aws.String(trustPolicy),
+		Tags:                     tags,
+		Description:              aws.String(iamRoleDescription),
+		PermissionsBoundary:      aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.accountID, a.clusterName)),
+	})
+
+	if createRoleError != nil {
+		logger.WithError(createRoleError).Error("failed to create role")
+		return nil, createRoleError
+	}
+
+	logger.Debugf("created new role, arn: %s", *createRoleOutput.Role.Arn)
+	return createRoleOutput.Role, nil
+
 }
 
 func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accountName string) error {
@@ -123,6 +149,11 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 		return errors.Errorf("attempted to delete role with incorrect cluster name: expected '%s' but got '%s'", a.clusterName, taggedClusterName)
 	}
 
+	if dontDeleteTagValue, tagExists := tags[markAsUnusedInsteadOfDeleteTagKey]; tagExists && dontDeleteTagValue == markAsUnusedInsteadOfDeleteValue {
+		logger.Info("role has markAsUnusedInsteadOfDelete tag, tagging as unused")
+		return a.MarkOtterizeIAMRoleAsUnused(ctx, role)
+	}
+
 	err = a.deleteAllRolePolicies(ctx, namespaceName, role)
 
 	if err != nil {
@@ -141,6 +172,26 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	return nil
 }
 
+func (a *Agent) MarkOtterizeIAMRoleAsUnused(ctx context.Context, role *types.Role) error {
+	logger := logrus.WithField("role", *role.RoleName)
+	err := a.MarkAllRolePoliciesAsUnused(ctx, role)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	_, err = a.iamClient.TagRole(ctx, &iam.TagRoleInput{
+		RoleName: role.RoleName,
+		Tags:     []types.Tag{{Key: aws.String(unusedTagKey), Value: aws.String(unusedTagValue)}},
+	})
+
+	if err != nil {
+		logger.WithError(err).Errorf("failed to tag role as unused")
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
 // deleteAllRolePolicies deletes the inline role policy, if exists, in preparation to delete the role.
 func (a *Agent) deleteAllRolePolicies(ctx context.Context, namespace string, role *types.Role) error {
 	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
@@ -152,6 +203,26 @@ func (a *Agent) deleteAllRolePolicies(ctx context.Context, namespace string, rol
 	for _, policy := range listOutput.AttachedPolicies {
 		if strings.HasPrefix(*policy.PolicyName, "otterize-") || strings.HasPrefix(*policy.PolicyName, "otr-") {
 			err = a.DeleteRolePolicy(ctx, *policy.PolicyName)
+			if err != nil {
+				return errors.Errorf("failed to delete policy: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// MarkAllRolePoliciesAsUnused marks all inline role policies as unused in preparation to mark the role.
+func (a *Agent) MarkAllRolePoliciesAsUnused(ctx context.Context, role *types.Role) error {
+	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
+
+	if err != nil {
+		return errors.Errorf("failed to list role attached policies: %w", err)
+	}
+
+	for _, policy := range listOutput.AttachedPolicies {
+		if strings.HasPrefix(*policy.PolicyName, "otterize-") || strings.HasPrefix(*policy.PolicyName, "otr-") {
+			err = a.MarkPolicyAsUnused(ctx, *policy.PolicyName)
 			if err != nil {
 				return errors.Errorf("failed to delete policy: %w", err)
 			}
