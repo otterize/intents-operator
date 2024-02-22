@@ -158,6 +158,21 @@ enum AwsIamStep {
 	COMPLETED
 }
 
+type AzureInfo {
+	tenantId: String!
+	subscriptionId: String!
+	resourceGroup: String!
+	aksClusterName: String!
+}
+
+input AzureInfoInput {
+	clusterId: ID!
+	tenantId: String!
+	subscriptionId: String!
+	resourceGroup: String!
+	aksClusterName: String!
+}
+
 """The `Boolean` scalar type represents `true` or `false`."""
 scalar Boolean
 
@@ -581,6 +596,7 @@ type Integration {
 	cluster: Cluster
 	databaseInfo: DatabaseInfo
 	awsInfo: AWSInfo
+	azureInfo: AzureInfo
 	githubSettings: GitHubSettings
 	organizationId: String!
 }
@@ -602,6 +618,7 @@ enum IntegrationType {
 	DATABASE
 	AWS
 	GITHUB
+	AZURE
 }
 
 type Intent {
@@ -681,13 +698,15 @@ input IntentsOperatorConfigurationInput {
 }
 
 type InternetConfig {
+	appliedDomains: [String!]
 	dnsName: String!
 	ips: [String!]
 	ports: [Int!]
 }
 
 input InternetConfigInput {
-	ips: [String!]!
+	domains: [String!]
+	ips: [String!]
 	ports: [Int!]
 }
 
@@ -891,6 +910,17 @@ type Mutation {
 		name: String!
 		awsIntegration: AWSInfoInput!
 	): Integration
+"""Create a new Azure integration"""
+	createAzureIntegration(
+		name: String!
+		azureIntegration: AzureInfoInput!
+	): Integration
+"""Update Azure integration"""
+	updateAzureIntegration(
+		id: ID!
+		name: String
+		azureIntegration: AzureInfoInput
+	): Integration
 """Create a new Github integration"""
 	createGithubIntegration(
 		name: String!
@@ -924,7 +954,7 @@ type Mutation {
 	updateDatabaseIntegration(
 		id: ID!
 		name: String
-		databaseInfo: DatabaseInfoInput!
+		databaseInfo: DatabaseInfoInput
 	): Integration
 """Delete integration"""
 	deleteIntegration(
