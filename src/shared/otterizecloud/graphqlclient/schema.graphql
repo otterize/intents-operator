@@ -725,7 +725,6 @@ input IntentsOperatorConfigurationInput {
 }
 
 type InternetConfig {
-	appliedDomains: [String!]
 	dnsName: String!
 	ips: [String!]
 	ports: [Int!]
