@@ -93,6 +93,7 @@ type IntentInput struct {
 	Resources         []*HTTPConfigInput     `json:"resources"`
 	DatabaseResources []*DatabaseConfigInput `json:"databaseResources"`
 	AwsActions        []*string              `json:"awsActions"`
+	AzureRoles        []*string              `json:"azureRoles"`
 	Internet          *InternetConfigInput   `json:"internet"`
 	Status            *IntentStatusInput     `json:"status"`
 }
@@ -124,6 +125,9 @@ func (v *IntentInput) GetDatabaseResources() []*DatabaseConfigInput { return v.D
 // GetAwsActions returns IntentInput.AwsActions, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetAwsActions() []*string { return v.AwsActions }
 
+// GetAzureRoles returns IntentInput.AzureRoles, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetAzureRoles() []*string { return v.AzureRoles }
+
 // GetInternet returns IntentInput.Internet, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetInternet() *InternetConfigInput { return v.Internet }
 
@@ -144,6 +148,7 @@ const (
 	IntentTypeKafka    IntentType = "KAFKA"
 	IntentTypeDatabase IntentType = "DATABASE"
 	IntentTypeAws      IntentType = "AWS"
+	IntentTypeAzure    IntentType = "AZURE"
 	IntentTypeS3       IntentType = "S3"
 	IntentTypeInternet IntentType = "INTERNET"
 )
@@ -156,6 +161,7 @@ type IntentsOperatorConfigurationInput struct {
 	ProtectedServicesEnabled              bool `json:"protectedServicesEnabled"`
 	EgressNetworkPolicyEnforcementEnabled bool `json:"egressNetworkPolicyEnforcementEnabled"`
 	AwsIAMPolicyEnforcementEnabled        bool `json:"awsIAMPolicyEnforcementEnabled"`
+	AzureIAMPolicyEnforcementEnabled      bool `json:"azureIAMPolicyEnforcementEnabled"`
 	DatabaseEnforcementEnabled            bool `json:"databaseEnforcementEnabled"`
 }
 
@@ -192,6 +198,11 @@ func (v *IntentsOperatorConfigurationInput) GetEgressNetworkPolicyEnforcementEna
 // GetAwsIAMPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.AwsIAMPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetAwsIAMPolicyEnforcementEnabled() bool {
 	return v.AwsIAMPolicyEnforcementEnabled
+}
+
+// GetAzureIAMPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.AzureIAMPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAzureIAMPolicyEnforcementEnabled() bool {
+	return v.AzureIAMPolicyEnforcementEnabled
 }
 
 // GetDatabaseEnforcementEnabled returns IntentsOperatorConfigurationInput.DatabaseEnforcementEnabled, and is useful for accessing the field via an interface.
