@@ -93,6 +93,7 @@ type IntentInput struct {
 	Resources         []*HTTPConfigInput     `json:"resources"`
 	DatabaseResources []*DatabaseConfigInput `json:"databaseResources"`
 	AwsActions        []*string              `json:"awsActions"`
+	GcpPermissions    []*string              `json:"gcpPermissions"`
 	AzureRoles        []*string              `json:"azureRoles"`
 	Internet          *InternetConfigInput   `json:"internet"`
 	Status            *IntentStatusInput     `json:"status"`
@@ -148,6 +149,7 @@ const (
 	IntentTypeKafka    IntentType = "KAFKA"
 	IntentTypeDatabase IntentType = "DATABASE"
 	IntentTypeAws      IntentType = "AWS"
+	IntentTypeGcp      IntentType = "GCP"
 	IntentTypeAzure    IntentType = "AZURE"
 	IntentTypeS3       IntentType = "S3"
 	IntentTypeInternet IntentType = "INTERNET"

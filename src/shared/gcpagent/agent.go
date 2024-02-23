@@ -1,4 +1,4 @@
-package gcp_agent
+package gcpagent
 
 import (
 	"context"

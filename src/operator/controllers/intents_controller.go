@@ -60,6 +60,7 @@ type EnforcementConfig struct {
 	EnableDatabasePolicy                 bool
 	EnableEgressNetworkPolicyReconcilers bool
 	EnableAWSPolicy                      bool
+	EnableGCPPolicy                      bool
 	EnableAzurePolicy                    bool
 }
 

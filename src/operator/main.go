@@ -34,6 +34,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
+	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -229,6 +230,15 @@ func main() {
 		}
 		iamAgents = append(iamAgents, awsIntentsAgent)
 	}
+
+	if enforcementConfig.EnableGCPPolicy {
+		gcpIntentsAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx)
+		if err != nil {
+			logrus.WithError(err).Panic("could not initialize GCP agent")
+		}
+		iamAgents = append(iamAgents, gcpIntentsAgent)
+	}
+
 	if enforcementConfig.EnableAzurePolicy {
 		azureIntentsAgent, err := azureagent.NewAzureAgent(signalHandlerCtx)
 		if err != nil {
