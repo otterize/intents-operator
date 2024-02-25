@@ -5,7 +5,7 @@ import (
 	"github.com/samber/lo"
 )
 
-func hasMarkAsUnusedInCaseOfDeletionTagSet(tags []types.Tag) bool {
+func HasMarkAsUnusedInCaseOfDeletionTagSet(tags []types.Tag) bool {
 	return lo.SomeBy(tags, func(tag types.Tag) bool {
 		return lo.FromPtr(tag.Key) == markAsUnusedInsteadOfDeleteTagKey && lo.FromPtr(tag.Value) == markAsUnusedInsteadOfDeleteValue
 	})

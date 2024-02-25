@@ -65,7 +65,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 				return nil, errors.Wrap(err)
 			}
 		}
-		hasMarkUnusedTag := hasMarkAsUnusedInCaseOfDeletionTagSet(role.Tags)
+		hasMarkUnusedTag := HasMarkAsUnusedInCaseOfDeletionTagSet(role.Tags)
 		if markAsUnusedInsteadOfDelete && !hasMarkUnusedTag {
 			_, err = a.iamClient.TagRole(ctx, &iam.TagRoleInput{RoleName: role.RoleName, Tags: []types.Tag{{Key: aws.String(markAsUnusedInsteadOfDeleteTagKey), Value: aws.String(markAsUnusedInsteadOfDeleteValue)}}})
 			if err != nil {

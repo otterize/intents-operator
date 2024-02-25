@@ -25,7 +25,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 		return errors.Errorf("role not found: %s", a.generateRoleName(namespace, accountName))
 	}
 
-	shouldMarkAsUnusedInCaseOfDeletion := hasMarkAsUnusedInCaseOfDeletionTagSet(role.Tags)
+	shouldMarkAsUnusedInCaseOfDeletion := HasMarkAsUnusedInCaseOfDeletionTagSet(role.Tags)
 
 	policyArn := a.generatePolicyArn(a.generatePolicyName(namespace, intentsServiceName))
 
@@ -77,7 +77,7 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 		return errors.Wrap(err)
 	}
 
-	if hasMarkAsUnusedInCaseOfDeletionTagSet(output.Policy.Tags) {
+	if HasMarkAsUnusedInCaseOfDeletionTagSet(output.Policy.Tags) {
 		return a.MarkPolicyAsUnused(ctx, policyName)
 	}
 
@@ -261,7 +261,7 @@ func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statemen
 		}
 	}
 
-	if hasMarkAsUnusedInCaseOfDeletionTagSet(policy.Tags) && !markAsUnusedInsteadOfDelete {
+	if HasMarkAsUnusedInCaseOfDeletionTagSet(policy.Tags) && !markAsUnusedInsteadOfDelete {
 		logrus.Debugf("removing mark as unused tag from policy: %s", *policy.PolicyName)
 		_, err = a.iamClient.UntagPolicy(ctx, &iam.UntagPolicyInput{
 			PolicyArn: policy.Arn,
@@ -272,7 +272,7 @@ func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statemen
 		}
 	}
 
-	if !hasMarkAsUnusedInCaseOfDeletionTagSet(policy.Tags) && markAsUnusedInsteadOfDelete {
+	if !HasMarkAsUnusedInCaseOfDeletionTagSet(policy.Tags) && markAsUnusedInsteadOfDelete {
 		logrus.Debugf("adding mark as unused tag to policy: %s", *policy.PolicyName)
 		_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{
 			PolicyArn: policy.Arn,
