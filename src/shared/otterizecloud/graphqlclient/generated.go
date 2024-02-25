@@ -93,7 +93,6 @@ type IntentInput struct {
 	Resources         []*HTTPConfigInput     `json:"resources"`
 	DatabaseResources []*DatabaseConfigInput `json:"databaseResources"`
 	AwsActions        []*string              `json:"awsActions"`
-	GcpPermissions    []*string              `json:"gcpPermissions"`
 	AzureRoles        []*string              `json:"azureRoles"`
 	Internet          *InternetConfigInput   `json:"internet"`
 	Status            *IntentStatusInput     `json:"status"`
@@ -149,7 +148,6 @@ const (
 	IntentTypeKafka    IntentType = "KAFKA"
 	IntentTypeDatabase IntentType = "DATABASE"
 	IntentTypeAws      IntentType = "AWS"
-	IntentTypeGcp      IntentType = "GCP"
 	IntentTypeAzure    IntentType = "AZURE"
 	IntentTypeS3       IntentType = "S3"
 	IntentTypeInternet IntentType = "INTERNET"
@@ -213,9 +211,13 @@ func (v *IntentsOperatorConfigurationInput) GetDatabaseEnforcementEnabled() bool
 }
 
 type InternetConfigInput struct {
-	Ips   []*string `json:"ips"`
-	Ports []*int    `json:"ports"`
+	Domains []*string `json:"domains"`
+	Ips     []*string `json:"ips"`
+	Ports   []*int    `json:"ports"`
 }
+
+// GetDomains returns InternetConfigInput.Domains, and is useful for accessing the field via an interface.
+func (v *InternetConfigInput) GetDomains() []*string { return v.Domains }
 
 // GetIps returns InternetConfigInput.Ips, and is useful for accessing the field via an interface.
 func (v *InternetConfigInput) GetIps() []*string { return v.Ips }

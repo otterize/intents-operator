@@ -412,11 +412,6 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
-			if intent.Type == IntentTypeInternet && len(intent.Internet.Ips) == 0 {
-				// TODO: Remove when access graph support internet intents
-				continue
-			}
-
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
 			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {
@@ -570,9 +565,13 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		})
 	}
 
-	if in.Internet != nil && len(in.Internet.Ips) != 0 {
-		intentInput.Internet = &graphqlclient.InternetConfigInput{
-			Ips: lo.ToSlicePtr(in.Internet.Ips),
+	if in.Internet != nil {
+		intentInput.Internet = &graphqlclient.InternetConfigInput{}
+		if len(in.Internet.Domains) != 0 {
+			intentInput.Internet.Domains = lo.ToSlicePtr(in.Internet.Domains)
+		}
+		if len(in.Internet.Ips) != 0 {
+			intentInput.Internet.Ips = lo.ToSlicePtr(in.Internet.Ips)
 		}
 		if in.Internet.Ports != nil && len(in.Internet.Ports) != 0 {
 			intentInput.Internet.Ports = lo.ToSlicePtr(in.Internet.Ports)

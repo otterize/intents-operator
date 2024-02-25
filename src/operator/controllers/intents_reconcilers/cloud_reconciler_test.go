@@ -387,7 +387,7 @@ func (s *CloudReconcilerTestSuite) TestInternetUploadWithDNS() {
 		ServerNamespace: lo.ToPtr(testNamespace),
 		Type:            lo.ToPtr(graphqlclient.IntentTypeInternet),
 		Internet: lo.ToPtr(graphqlclient.InternetConfigInput{
-			// TODO: Add DNS to the expected intent once the DNS is supported in Otterize Cloud
+			Domains: []*string{lo.ToPtr("test-dns.com")},
 			Ips: []*string{
 				lo.ToPtr("1.1.1.1"),
 				lo.ToPtr("2.2.2.0/24"),
@@ -399,33 +399,7 @@ func (s *CloudReconcilerTestSuite) TestInternetUploadWithDNS() {
 	s.assertReportedIntents(clientIntents, []graphqlclient.IntentInput{expectedIntentA})
 }
 
-func (s *CloudReconcilerTestSuite) TestInternetDontUploadIfNoIPs() {
-	clientIntents := otterizev1alpha3.ClientIntents{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      intentsObjectName,
-			Namespace: testNamespace,
-		},
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
-				Name: clientName,
-			},
-			Calls: []otterizev1alpha3.Intent{
-				{
-					Type: otterizev1alpha3.IntentTypeInternet,
-					Internet: &otterizev1alpha3.Internet{
-						Domains: []string{"test-dns.com"},
-					},
-				},
-			},
-		},
-	}
-
-	noIntentsExpected := []graphqlclient.IntentInput{}
-
-	s.assertReportedIntents(clientIntents, noIntentsExpected)
-}
-
-func (s *CloudReconcilerTestSuite) TestInternetUploadOnlyIP() {
+func (s *CloudReconcilerTestSuite) TestInternetUploadDomainsOnly() {
 	server := otterizev1alpha3.OtterizeInternetTargetName
 	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
@@ -440,12 +414,6 @@ func (s *CloudReconcilerTestSuite) TestInternetUploadOnlyIP() {
 				{
 					Type: otterizev1alpha3.IntentTypeInternet,
 					Internet: &otterizev1alpha3.Internet{
-						Ips: []string{"1.1.1.1", "2.2.2.0/24"},
-					},
-				},
-				{
-					Type: otterizev1alpha3.IntentTypeInternet,
-					Internet: &otterizev1alpha3.Internet{
 						Domains: []string{"test-dns.com"},
 					},
 				},
@@ -453,22 +421,20 @@ func (s *CloudReconcilerTestSuite) TestInternetUploadOnlyIP() {
 		},
 	}
 
-	expectedIntentA := graphqlclient.IntentInput{
+	expectedIntent := graphqlclient.IntentInput{
 		ClientName:      lo.ToPtr(clientName),
 		ServerName:      lo.ToPtr(server),
 		Namespace:       lo.ToPtr(testNamespace),
 		ServerNamespace: lo.ToPtr(testNamespace),
 		Type:            lo.ToPtr(graphqlclient.IntentTypeInternet),
 		Internet: lo.ToPtr(graphqlclient.InternetConfigInput{
-			Ips: []*string{
-				lo.ToPtr("1.1.1.1"),
-				lo.ToPtr("2.2.2.0/24"),
+			Domains: []*string{
+				lo.ToPtr("test-dns.com"),
 			},
 			Ports: nil,
 		}),
 	}
-
-	s.assertReportedIntents(clientIntents, []graphqlclient.IntentInput{expectedIntentA})
+	s.assertReportedIntents(clientIntents, []graphqlclient.IntentInput{expectedIntent})
 }
 
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSharedSA() {

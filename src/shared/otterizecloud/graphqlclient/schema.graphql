@@ -653,7 +653,6 @@ type Intent {
 	databaseResources: [DatabaseConfig!]
 	awsActions: [String!]
 	azureRoles: [String!]
-	gcpPermissions: [String!]
 	internet: InternetConfig
 	status: IntentStatus
 }
@@ -669,7 +668,6 @@ input IntentInput {
 	databaseResources: [DatabaseConfigInput!]
 	awsActions: [String!]
 	azureRoles: [String!]
-	gcpPermissions: [String!]
 	internet: InternetConfigInput
 	status: IntentStatusInput
 }
@@ -707,7 +705,6 @@ type IntentsOperatorConfiguration {
 	kafkaACLEnforcementEnabled: Boolean!
 	istioPolicyEnforcementEnabled: Boolean!
 	awsIAMPolicyEnforcementEnabled: Boolean!
-	gcpIAMPolicyEnforcementEnabled: Boolean!
 	azureIAMPolicyEnforcementEnabled: Boolean!
 	databaseEnforcementEnabled: Boolean!
 	protectedServicesEnabled: Boolean!
@@ -723,7 +720,6 @@ input IntentsOperatorConfigurationInput {
 	protectedServicesEnabled: Boolean
 	egressNetworkPolicyEnforcementEnabled: Boolean
 	awsIAMPolicyEnforcementEnabled: Boolean
-	gcpIAMPolicyEnforcementEnabled: Boolean
 	azureIAMPolicyEnforcementEnabled: Boolean
 	databaseEnforcementEnabled: Boolean
 }
@@ -735,7 +731,8 @@ type InternetConfig {
 }
 
 input InternetConfigInput {
-	ips: [String!]!
+	domains: [String!]
+	ips: [String!]
 	ports: [Int!]
 }
 
