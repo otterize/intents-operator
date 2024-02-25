@@ -232,7 +232,7 @@ func main() {
 	}
 
 	if enforcementConfig.EnableGCPPolicy {
-		gcpIntentsAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx)
+		gcpIntentsAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx, mgr.GetClient())
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize GCP agent")
 		}

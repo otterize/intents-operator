@@ -3,14 +3,16 @@ package gcpagent
 import (
 	"context"
 	"github.com/sirupsen/logrus"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Agent struct {
 	projectID   string
 	clusterName string
+	client      client.Client
 }
 
-func NewGCPAgent(ctx context.Context) (*Agent, error) {
+func NewGCPAgent(ctx context.Context, c client.Client) (*Agent, error) {
 	logrus.Info("Initializing GCP Intents agent")
 
 	// Get the current GCP project using the metadata server
@@ -28,6 +30,7 @@ func NewGCPAgent(ctx context.Context) (*Agent, error) {
 	//}
 
 	return &Agent{
+		client:      c,
 		projectID:   projectID,
 		clusterName: clusterName,
 	}, nil

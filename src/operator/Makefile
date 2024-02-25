@@ -166,3 +166,22 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+
+##@ Kubebuilder Build
+
+LD_FLAGS=-ldflags " \
+    -X main.kubeBuilderVersion=$(shell git describe --tags --dirty --broken) \
+    -X main.goos=$(shell go env GOOS) \
+    -X main.goarch=$(shell go env GOARCH) \
+    -X main.gitCommit=$(shell git rev-parse HEAD) \
+    -X main.buildDate=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ') \
+    "
+.PHONY: kb-build
+kb-build: ## Build the project locally
+	go build $(LD_FLAGS) -o bin/kubebuilder ./
+
+.PHONY: kb-install
+kb-install: kb-build ## Build and install the binary with the current source code. Use it to test your changes locally.
+	rm -f $(GOBIN)/kubebuilder
+	cp ./bin/kubebuilder $(GOBIN)/kubebuilder

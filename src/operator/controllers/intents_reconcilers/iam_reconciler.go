@@ -108,7 +108,7 @@ func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod cor
 		return nil
 	}
 
-	if pod.Labels[agent.ApplyOnPodLabel()] != "" {
+	if pod.Labels[agent.ApplyOnPodLabel()] != "true" {
 		return nil
 	}
 
@@ -147,10 +147,7 @@ func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod cor
 
 func (r *IAMIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.Context, serviceAccountName string, namespace string, intentType otterizev1alpha3.IntentType) (bool, error) {
 	var intents otterizev1alpha3.ClientIntentsList
-	err := r.List(
-		ctx,
-		&intents,
-		&client.ListOptions{Namespace: namespace})
+	err := r.List(ctx, &intents, &client.ListOptions{Namespace: namespace})
 	if err != nil {
 		return false, errors.Wrap(err)
 	}

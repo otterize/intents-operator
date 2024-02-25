@@ -5,22 +5,24 @@ import (
 	gcpk8s "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/k8s"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/iam/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"fmt"
 )
 
-func (a *Agent) AnnotateGKENamespace(ctx context.Context, c client.Client, namespaceName string) (requeue bool, err error) {
+func (a *Agent) AnnotateGKENamespace(ctx context.Context, namespaceName string) (requeue bool, err error) {
 	logger := logrus.WithField("namespace", namespaceName)
 
 	namespace := corev1.Namespace{}
-	err = c.Get(ctx, client.ObjectKey{Name: namespaceName}, &namespace)
+	err = a.client.Get(ctx, client.ObjectKey{Name: namespaceName}, &namespace)
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
@@ -44,7 +46,7 @@ func (a *Agent) AnnotateGKENamespace(ctx context.Context, c client.Client, names
 	updatedNamespace.Annotations[gcpk8s.ProjectIdAnnotation] = a.projectID
 
 	logger.Debugf("annotating namespace %s with gcp workload identity tag", namespaceName)
-	err = c.Patch(ctx, updatedNamespace, client.MergeFrom(&namespace))
+	err = a.client.Patch(ctx, updatedNamespace, client.MergeFrom(&namespace))
 	if err != nil {
 		if apierrors.IsConflict(err) {
 			return true, nil
@@ -55,27 +57,13 @@ func (a *Agent) AnnotateGKENamespace(ctx context.Context, c client.Client, names
 	return false, nil
 }
 
-func (a *Agent) CreateAndConnectGSA(ctx context.Context, c client.Client, namespaceName string, ksaName string) error {
-	err := a.createIAMServiceAccount(ctx, c, namespaceName, ksaName)
+func (a *Agent) CreateAndConnectGSA(ctx context.Context, namespaceName string, ksaName string) error {
+	err := a.createIAMServiceAccount(ctx, namespaceName, ksaName)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	err = a.createGSAToKSAPolicy(ctx, c, namespaceName, ksaName)
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	return nil
-}
-
-func (a *Agent) DeleteGSA(ctx context.Context, c client.Client, namespaceName string, ksaName string) error {
-	err := a.deleteGSAToKSAPolicy(ctx, c, namespaceName, ksaName)
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	err = a.deleteIAMServiceAccount(ctx, c, namespaceName, ksaName)
+	err = a.createGSAToKSAPolicy(ctx, namespaceName, ksaName)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -83,7 +71,21 @@ func (a *Agent) DeleteGSA(ctx context.Context, c client.Client, namespaceName st
 	return nil
 }
 
-func (a *Agent) createIAMServiceAccount(ctx context.Context, c client.Client, namespaceName string, ksaName string) error {
+func (a *Agent) DeleteGSA(ctx context.Context, namespaceName string, ksaName string) error {
+	err := a.deleteGSAToKSAPolicy(ctx, namespaceName, ksaName)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	err = a.deleteIAMServiceAccount(ctx, namespaceName, ksaName)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (a *Agent) createIAMServiceAccount(ctx context.Context, namespaceName string, ksaName string) error {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", ksaName)
 
 	gsaName := a.generateGSAName(namespaceName, ksaName)
@@ -91,7 +93,7 @@ func (a *Agent) createIAMServiceAccount(ctx context.Context, c client.Client, na
 
 	// Skip if GSA already exists or an error occurred
 	iamServiceAccount := v1beta1.IAMServiceAccount{}
-	err := c.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: gsaName}, &iamServiceAccount)
+	err := a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: gsaName}, &iamServiceAccount)
 	if err == nil {
 		return nil
 	}
@@ -115,7 +117,7 @@ func (a *Agent) createIAMServiceAccount(ctx context.Context, c client.Client, na
 		},
 	}
 
-	err = c.Create(ctx, newIAMServiceAccount)
+	err = a.client.Create(ctx, newIAMServiceAccount)
 	if err != nil {
 		logger.WithError(err).Errorf("failed to create IAMServiceAccount")
 		return errors.Wrap(err)
@@ -124,7 +126,7 @@ func (a *Agent) createIAMServiceAccount(ctx context.Context, c client.Client, na
 	return nil
 }
 
-func (a *Agent) createGSAToKSAPolicy(ctx context.Context, c client.Client, namespaceName string, ksaName string) error {
+func (a *Agent) createGSAToKSAPolicy(ctx context.Context, namespaceName string, ksaName string) error {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", ksaName)
 
 	gsaName := a.generateGSAName(namespaceName, ksaName)
@@ -133,7 +135,7 @@ func (a *Agent) createGSAToKSAPolicy(ctx context.Context, c client.Client, names
 
 	// Skip if policy already exists or an error occurred
 	iamPolicyMember := v1beta1.IAMPolicyMember{}
-	err := c.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: policyName}, &iamPolicyMember)
+	err := a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: policyName}, &iamPolicyMember)
 	if err == nil {
 		return nil
 	}
@@ -157,7 +159,7 @@ func (a *Agent) createGSAToKSAPolicy(ctx context.Context, c client.Client, names
 		},
 	}
 
-	err = c.Create(ctx, newIAMPolicyMember)
+	err = a.client.Create(ctx, newIAMPolicyMember)
 	if err != nil {
 		logger.WithError(err).Errorf("failed to create IAMPolicyMember")
 		return errors.Wrap(err)
@@ -166,14 +168,85 @@ func (a *Agent) createGSAToKSAPolicy(ctx context.Context, c client.Client, names
 	return nil
 }
 
-func (a *Agent) deleteIAMServiceAccount(ctx context.Context, c client.Client, namespaceName string, ksaName string) error {
+func (a *Agent) applyIAMPartialPolicy(ctx context.Context, namespaceName string, ksaName string, intents []otterizev1alpha3.Intent) error {
+	// Name formats available - https://cloud.google.com/iam/docs/conditions-resource-attributes#resource-name
+	logger := logrus.WithField("namespace", namespaceName).WithField("account", ksaName)
+
+	policyName := a.generateKSAPolicyName(ksaName)
+
+	gsaFullName := a.GetGSAFullName(namespaceName, ksaName)
+	saMember := fmt.Sprintf("serviceAccount:%s", gsaFullName)
+
+	// Find if there is an existing policy
+	iamPolicyMember := v1beta1.IAMPartialPolicy{}
+	err := a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: policyName}, &iamPolicyMember)
+	if !apierrors.IsNotFound(err) {
+		return errors.Wrap(err)
+	}
+
+	var shouldCreate bool
+	var newIAMPolicyMember *v1beta1.IAMPartialPolicy
+	if err == nil {
+		// Policy already exists
+		shouldCreate = false
+		newIAMPolicyMember = iamPolicyMember.DeepCopy()
+	} else {
+		// Create new policy
+		shouldCreate = true
+		newIAMPolicyMember = &v1beta1.IAMPartialPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      policyName,
+				Namespace: namespaceName,
+			},
+			Spec: v1beta1.IAMPartialPolicySpec{
+				ResourceRef: v1alpha1.IAMResourceRef{
+					Kind:     "Project",
+					External: a.projectID,
+				},
+				Bindings: []v1beta1.PartialpolicyBindings{},
+			},
+		}
+
+		// Populate bindings
+		for _, intent := range intents {
+			// TODO: need to handle wildcards
+			condition := v1beta1.PartialpolicyCondition{
+				Title:      fmt.Sprintf("otr-%s", intent.Name),
+				Expression: fmt.Sprintf("resource.name.startsWith(\"%s\")", intent.Name),
+			}
+			for _, permission := range intent.GCPPermissions {
+				binding := v1beta1.PartialpolicyBindings{
+					Role:      permission,
+					Members:   []v1beta1.PartialpolicyMembers{{Member: &saMember}},
+					Condition: condition.DeepCopy(),
+				}
+
+				newIAMPolicyMember.Spec.Bindings = append(newIAMPolicyMember.Spec.Bindings, binding)
+			}
+		}
+	}
+
+	if shouldCreate {
+		err = a.client.Create(ctx, newIAMPolicyMember)
+	} else {
+		err = a.client.Update(ctx, newIAMPolicyMember)
+	}
+	if err != nil {
+		logger.WithError(err).Errorf("failed to apply IAMPolicyMember")
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (a *Agent) deleteIAMServiceAccount(ctx context.Context, namespaceName string, ksaName string) error {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", ksaName)
 
 	gsaName := a.generateGSAName(namespaceName, ksaName)
 
 	// Skip if IAMServiceAccount was already deleted
 	iamServiceAccount := v1beta1.IAMServiceAccount{}
-	err := c.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: gsaName}, &iamServiceAccount)
+	err := a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: gsaName}, &iamServiceAccount)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -181,7 +254,7 @@ func (a *Agent) deleteIAMServiceAccount(ctx context.Context, c client.Client, na
 		return errors.Wrap(err)
 	}
 
-	err = c.Delete(ctx, iamServiceAccount.DeepCopy())
+	err = a.client.Delete(ctx, iamServiceAccount.DeepCopy())
 	if err != nil {
 		logger.WithError(err).Errorf("failed to delete IAMServiceAccount")
 		return errors.Wrap(err)
@@ -190,14 +263,14 @@ func (a *Agent) deleteIAMServiceAccount(ctx context.Context, c client.Client, na
 	return nil
 }
 
-func (a *Agent) deleteGSAToKSAPolicy(ctx context.Context, c client.Client, namespaceName string, ksaName string) error {
+func (a *Agent) deleteGSAToKSAPolicy(ctx context.Context, namespaceName string, ksaName string) error {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", ksaName)
 
 	policyName := a.generateGSAToKSAPolicyName(ksaName)
 
 	// Skip if IAMPolicyMember was already deleted
 	iamPolicyMember := v1beta1.IAMPolicyMember{}
-	err := c.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: policyName}, &iamPolicyMember)
+	err := a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: policyName}, &iamPolicyMember)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -205,7 +278,7 @@ func (a *Agent) deleteGSAToKSAPolicy(ctx context.Context, c client.Client, names
 		return errors.Wrap(err)
 	}
 
-	err = c.Delete(ctx, iamPolicyMember.DeepCopy())
+	err = a.client.Delete(ctx, iamPolicyMember.DeepCopy())
 	if err != nil {
 		logger.WithError(err).Errorf("failed to delete IAMPolicyMember")
 		return errors.Wrap(err)

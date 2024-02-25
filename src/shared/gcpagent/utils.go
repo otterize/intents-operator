@@ -9,6 +9,10 @@ const maxGCPNameLength = 30
 const truncatedHashLength = 6
 const maxTruncatedLength = maxGCPNameLength - truncatedHashLength - 1 // add another char for the hyphen
 
+func (a *Agent) generateKSAPolicyName(ksaName string) string {
+	return fmt.Sprintf("otr-%s-policy", ksaName)
+}
+
 func (a *Agent) generateGSAToKSAPolicyName(ksaName string) string {
 	return fmt.Sprintf("otr-%s-gcp-identity", ksaName)
 }
