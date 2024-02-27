@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 const (
@@ -88,12 +89,28 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-// ReconcileNewTablesForExistingIntents compensates for tables created in a database after the intents were applied and
+// PeriodicReconcileNewDBTables compensates for tables created in a database after the intents were applied and
 // permissions were configured. Runs periodically for all existing database intents without a specified table.
-func (r *DatabaseReconciler) ReconcileNewTablesForExistingIntents(ctx context.Context) {
+func (r *DatabaseReconciler) PeriodicReconcileNewDBTables(ctx context.Context, interval int) {
+	newTablesTicker := time.NewTicker(time.Second * time.Duration(interval))
+
+	logrus.Info("Database enforcement is on. Starting periodic database tables reconciliation")
+	for {
+		select {
+		case <-newTablesTicker.C:
+			r.reconcileNewTables(ctx)
+		case <-ctx.Done():
+			logrus.Info("Periodic database tables reconcile finished")
+			return
+		}
+	}
+}
+
+func (r *DatabaseReconciler) reconcileNewTables(ctx context.Context) {
 	intentsList := otterizev1alpha3.ClientIntentsList{}
 	if err := r.client.List(ctx, &intentsList); err != nil {
-		logrus.Error()
+		logrus.Errorf("Listing client intents failed: %s", err)
+		return
 	}
 
 	var intentInputList []graphqlclient.IntentInput
@@ -122,14 +139,12 @@ func (r *DatabaseReconciler) ReconcileNewTablesForExistingIntents(ctx context.Co
 	}
 
 	if len(intentInputList) == 0 {
-		return nil
+		return
 	}
 
 	err := r.otterizeClient.ApplyDatabaseIntent(ctx, intentInputList, graphqlclient.DBPermissionChangeApply)
 	if err != nil {
-		logrus.Errorf("Periodic database apply failed. Er")
-		return
+		logrus.Errorf("Periodic database apply failed: %s", err)
 	}
-
 	return
-}git
+}
