@@ -169,70 +169,30 @@ func (a *Agent) createGSAToKSAPolicy(ctx context.Context, namespaceName string, 
 }
 
 func (a *Agent) applyIAMPartialPolicy(ctx context.Context, namespaceName string, ksaName string, intents []otterizev1alpha3.Intent) error {
-	// Name formats available - https://cloud.google.com/iam/docs/conditions-resource-attributes#resource-name
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", ksaName)
 
-	policyName := a.generateKSAPolicyName(ksaName)
+	// TODO: handle deletion of intents and partial deletion of intents
 
-	gsaFullName := a.GetGSAFullName(namespaceName, ksaName)
-	saMember := fmt.Sprintf("serviceAccount:%s", gsaFullName)
+	// Create a new IAMPolicyMember from the provided intents
+	newIAMPolicyMember := a.generateIAMPartialPolicy(namespaceName, ksaName, intents)
 
 	// Find if there is an existing policy
+	policyName := a.generateKSAPolicyName(ksaName)
 	iamPolicyMember := v1beta1.IAMPartialPolicy{}
 	err := a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: policyName}, &iamPolicyMember)
 	if !apierrors.IsNotFound(err) {
+		// Got an error but not because the policy does not exist
 		return errors.Wrap(err)
-	}
-
-	var shouldCreate bool
-	var newIAMPolicyMember *v1beta1.IAMPartialPolicy
-	if err == nil {
-		// Policy already exists
-		shouldCreate = false
-		newIAMPolicyMember = iamPolicyMember.DeepCopy()
-	} else {
-		// Create new policy
-		shouldCreate = true
-		newIAMPolicyMember = &v1beta1.IAMPartialPolicy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      policyName,
-				Namespace: namespaceName,
-			},
-			Spec: v1beta1.IAMPartialPolicySpec{
-				ResourceRef: v1alpha1.IAMResourceRef{
-					Kind:     "Project",
-					External: a.projectID,
-				},
-				Bindings: []v1beta1.PartialpolicyBindings{},
-			},
-		}
-
-		// Populate bindings
-		for _, intent := range intents {
-			// TODO: need to handle wildcards
-			condition := v1beta1.PartialpolicyCondition{
-				Title:      fmt.Sprintf("otr-%s", intent.Name),
-				Expression: fmt.Sprintf("resource.name.startsWith(\"%s\")", intent.Name),
-			}
-			for _, permission := range intent.GCPPermissions {
-				binding := v1beta1.PartialpolicyBindings{
-					Role:      permission,
-					Members:   []v1beta1.PartialpolicyMembers{{Member: &saMember}},
-					Condition: condition.DeepCopy(),
-				}
-
-				newIAMPolicyMember.Spec.Bindings = append(newIAMPolicyMember.Spec.Bindings, binding)
-			}
-		}
-	}
-
-	if shouldCreate {
+	} else if err != nil {
+		// Policy does not exist so we create it
 		err = a.client.Create(ctx, newIAMPolicyMember)
 	} else {
+		// Policy exists so we update it
 		err = a.client.Update(ctx, newIAMPolicyMember)
 	}
+
 	if err != nil {
-		logger.WithError(err).Errorf("failed to apply IAMPolicyMember")
+		logger.WithError(err).Errorf("failed to apply IAMPartialPolicy")
 		return errors.Wrap(err)
 	}
 
