@@ -87,3 +87,49 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	return ctrl.Result{}, nil
 }
+
+// ReconcileNewTablesForExistingIntents compensates for tables created in a database after the intents were applied and
+// permissions were configured. Runs periodically for all existing database intents without a specified table.
+func (r *DatabaseReconciler) ReconcileNewTablesForExistingIntents(ctx context.Context) {
+	intentsList := otterizev1alpha3.ClientIntentsList{}
+	if err := r.client.List(ctx, &intentsList); err != nil {
+		logrus.Error()
+	}
+
+	var intentInputList []graphqlclient.IntentInput
+	for _, intents := range intentsList.Items {
+		if !intents.ObjectMeta.DeletionTimestamp.IsZero() {
+			// No need to do anything, will be handled by the operator
+			continue
+		}
+
+		for _, intent := range intents.GetCallsList() {
+			if intent.Type != otterizev1alpha3.IntentTypeDatabase {
+				continue
+			}
+			hasWildcardTable := false
+			for _, dbResource := range intent.DatabaseResources {
+				if dbResource.Table == "" || dbResource.Table == "*" {
+					hasWildcardTable = true
+				}
+			}
+			// We only add to the list in case of wildcard table permissions
+			if hasWildcardTable {
+				intentInput := intent.ConvertToCloudFormat(intents.Namespace, intents.GetServiceName())
+				intentInputList = append(intentInputList, intentInput)
+			}
+		}
+	}
+
+	if len(intentInputList) == 0 {
+		return nil
+	}
+
+	err := r.otterizeClient.ApplyDatabaseIntent(ctx, intentInputList, graphqlclient.DBPermissionChangeApply)
+	if err != nil {
+		logrus.Errorf("Periodic database apply failed. Er")
+		return
+	}
+
+	return
+}git
