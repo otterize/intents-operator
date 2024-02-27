@@ -10,37 +10,49 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const maxGCPNameLength = 30
 const truncatedHashLength = 6
-const maxTruncatedLength = maxGCPNameLength - truncatedHashLength - 1 // add another char for the hyphen
 
-func (a *Agent) generateKSAPolicyName(ksaName string) string {
-	return fmt.Sprintf("otr-%s-policy", ksaName)
-}
+const maxK8SNameLength = 250
+const maxK8STruncatedLength = maxK8SNameLength - truncatedHashLength - 1 // add another char for the hyphen
 
-func (a *Agent) generateGSAToKSAPolicyName(ksaName string) string {
-	return fmt.Sprintf("otr-%s-gcp-identity", ksaName)
-}
+const maxDisplayNameLength = 100
+const maxDisplayNameTruncatedLength = maxDisplayNameLength - truncatedHashLength - 1 // add another char for the hyphen
 
-func (a *Agent) generateGSADisplayName(namespace string, accountName string) string {
-	return fmt.Sprintf("otr-%s-%s-%s", a.clusterName, namespace, accountName)
-}
+const maxGCPNameLength = 30
+const maxGCPTruncatedLength = maxGCPNameLength - truncatedHashLength - 1 // add another char for the hyphen
 
-func (a *Agent) generateGSAName(namespace string, accountName string) string {
-	// TODO: the max length is quite short, we should consider a different approach
-	fullName := a.generateGSADisplayName(namespace, accountName)
-
+func (a *Agent) limitResourceName(name string, maxLength int) string {
 	var truncatedName string
-	if len(fullName) >= maxTruncatedLength {
-		truncatedName = fullName[:maxTruncatedLength]
+	if len(name) >= maxLength {
+		truncatedName = name[:maxLength]
 	} else {
-		truncatedName = fullName
+		truncatedName = name
 	}
 
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fullName)))
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(name)))
 	hash = hash[:truncatedHashLength]
 
 	return fmt.Sprintf("%s-%s", truncatedName, hash)
+}
+
+func (a *Agent) generateKSAPolicyName(namespace string, intentsServiceName string) string {
+	name := fmt.Sprintf("otr-%s-%s-intent-policy", namespace, intentsServiceName)
+	return a.limitResourceName(name, maxK8STruncatedLength)
+}
+
+func (a *Agent) generateGSAToKSAPolicyName(ksaName string) string {
+	name := fmt.Sprintf("otr-%s-gcp-identity", ksaName)
+	return a.limitResourceName(name, maxK8STruncatedLength)
+}
+
+func (a *Agent) generateGSADisplayName(namespace string, accountName string) string {
+	name := fmt.Sprintf("otr-%s-%s-%s", a.clusterName, namespace, accountName)
+	return a.limitResourceName(name, maxDisplayNameTruncatedLength)
+}
+
+func (a *Agent) generateGSAName(namespace string, accountName string) string {
+	fullName := a.generateGSADisplayName(namespace, accountName)
+	return a.limitResourceName(fullName, maxGCPTruncatedLength)
 }
 
 func (a *Agent) GetGSAFullName(namespace string, accountName string) string {
@@ -48,8 +60,8 @@ func (a *Agent) GetGSAFullName(namespace string, accountName string) string {
 	return fmt.Sprintf("%s@%s.iam.gserviceaccount.com", gsaName, a.projectID)
 }
 
-func (a *Agent) generateIAMPartialPolicy(namespace string, ksaName string, intents []otterizev1alpha3.Intent) *v1beta1.IAMPartialPolicy {
-	policyName := a.generateKSAPolicyName(ksaName)
+func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName string, ksaName string, intents []otterizev1alpha3.Intent) *v1beta1.IAMPartialPolicy {
+	policyName := a.generateKSAPolicyName(namespace, intentsServiceName)
 	gsaFullName := a.GetGSAFullName(namespace, ksaName)
 	saMember := fmt.Sprintf("serviceAccount:%s", gsaFullName)
 

@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -168,32 +169,40 @@ func (a *Agent) createGSAToKSAPolicy(ctx context.Context, namespaceName string, 
 	return nil
 }
 
-func (a *Agent) applyIAMPartialPolicy(ctx context.Context, namespaceName string, ksaName string, intents []otterizev1alpha3.Intent) error {
+func (a *Agent) applyIAMPartialPolicy(ctx context.Context, namespaceName string, ksaName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", ksaName)
 
-	// TODO: handle deletion of intents and partial deletion of intents
-
 	// Create a new IAMPolicyMember from the provided intents
-	newIAMPolicyMember := a.generateIAMPartialPolicy(namespaceName, ksaName, intents)
+	newIAMPolicy := a.generateIAMPartialPolicy(namespaceName, intentsServiceName, ksaName, intents)
 
 	// Find if there is an existing policy
-	policyName := a.generateKSAPolicyName(ksaName)
-	iamPolicyMember := v1beta1.IAMPartialPolicy{}
-	err := a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: policyName}, &iamPolicyMember)
+	existingIAMPolicy := v1beta1.IAMPartialPolicy{}
+	err := a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: newIAMPolicy.Name}, &existingIAMPolicy)
 	if !apierrors.IsNotFound(err) {
 		// Got an error but not because the policy does not exist
 		return errors.Wrap(err)
 	} else if err != nil {
 		// Policy does not exist so we create it
-		err = a.client.Create(ctx, newIAMPolicyMember)
+		err = a.client.Create(ctx, newIAMPolicy)
+		if err != nil {
+			logger.WithError(err).Errorf("failed to apply IAMPartialPolicy")
+			return errors.Wrap(err)
+		}
 	} else {
-		// Policy exists so we update it
-		err = a.client.Update(ctx, newIAMPolicyMember)
-	}
+		// Policy exists (didn't throw NotFound error) so we check if we need to update it
+		if reflect.DeepEqual(existingIAMPolicy.Spec, newIAMPolicy.Spec) {
+			return nil
+		}
 
-	if err != nil {
-		logger.WithError(err).Errorf("failed to apply IAMPartialPolicy")
-		return errors.Wrap(err)
+		policyCopy := existingIAMPolicy.DeepCopy()
+		policyCopy.Labels = newIAMPolicy.Labels
+		policyCopy.Annotations = newIAMPolicy.Annotations
+		policyCopy.Spec = newIAMPolicy.Spec
+
+		err := a.client.Patch(ctx, policyCopy, client.MergeFrom(&existingIAMPolicy))
+		if err != nil {
+			return errors.Wrap(err)
+		}
 	}
 
 	return nil
@@ -216,7 +225,7 @@ func (a *Agent) deleteIAMServiceAccount(ctx context.Context, namespaceName strin
 
 	err = a.client.Delete(ctx, iamServiceAccount.DeepCopy())
 	if err != nil {
-		logger.WithError(err).Errorf("failed to delete IAMServiceAccount")
+		logger.WithError(err).Errorf("failed to delete IAMServiceAccount %s", gsaName)
 		return errors.Wrap(err)
 	}
 
@@ -240,7 +249,31 @@ func (a *Agent) deleteGSAToKSAPolicy(ctx context.Context, namespaceName string, 
 
 	err = a.client.Delete(ctx, iamPolicyMember.DeepCopy())
 	if err != nil {
-		logger.WithError(err).Errorf("failed to delete IAMPolicyMember")
+		logger.WithError(err).Errorf("failed to delete IAMPolicyMember %s", policyName)
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (a *Agent) deleteIAMPartialPolicy(ctx context.Context, namespaceName string, intentsServiceName string) error {
+	logger := logrus.WithField("namespace", namespaceName).WithField("intent", intentsServiceName)
+
+	policyName := a.generateKSAPolicyName(namespaceName, intentsServiceName)
+
+	// Find if the relevant IAMPartialPolicy exists
+	iamPartialPolicy := v1beta1.IAMPartialPolicy{}
+	err := a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: policyName}, &iamPartialPolicy)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Wrap(err)
+	}
+
+	err = a.client.Delete(ctx, iamPartialPolicy.DeepCopy())
+	if err != nil {
+		logger.WithError(err).Errorf("failed to delete IAMPartialPolicy %s", policyName)
 		return errors.Wrap(err)
 	}
 

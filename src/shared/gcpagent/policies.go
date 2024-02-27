@@ -17,7 +17,7 @@ func (a *Agent) ApplyOnPodLabel() string {
 }
 
 func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
-	err := a.applyIAMPartialPolicy(ctx, namespace, accountName, intents)
+	err := a.applyIAMPartialPolicy(ctx, namespace, accountName, intentsServiceName, intents)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -25,7 +25,9 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 }
 
 func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev1alpha3.ClientIntents) error {
-	// TODO: implement
-
+	err := a.deleteIAMPartialPolicy(ctx, intents.Namespace, intents.Spec.Service.Name)
+	if err != nil {
+		return errors.Wrap(err)
+	}
 	return nil
 }

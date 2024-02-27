@@ -112,6 +112,8 @@ func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod cor
 		return nil
 	}
 
+	// TODO: handle partial deletion of intents - i.e we have both gcp and aws and gcp gets deleted, need to cleanup
+
 	intentType := agent.IntentType()
 
 	filteredIntents := intents.GetFilteredCallsList(intentType)
