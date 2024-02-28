@@ -92,7 +92,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // PeriodicReconcileNewDBTables compensates for tables created in a database after the intents were applied and
 // permissions were configured. Runs periodically for all existing database intents without a specified table.
 func (r *DatabaseReconciler) PeriodicReconcileNewDBTables(ctx context.Context) {
-	newTablesTicker := time.NewTicker(time.Second * 30) // TODO: Change after DB enforcement refactor
+	newTablesTicker := time.NewTicker(time.Second * 60) // TODO: Change after DB enforcement refactor
 	logrus.Info("Database enforcement is on. Starting periodic database tables reconciliation")
 	for {
 		select {
