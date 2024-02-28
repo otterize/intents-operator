@@ -68,6 +68,7 @@ func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req 
 	for i := range resourceCopy.Webhooks {
 		resourceCopy.Webhooks[i].ClientConfig.CABundle = r.certPEM
 	}
+	// FIXME: skip if already matches
 
 	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(webhookConfig)); err != nil {
 		return ctrl.Result{}, errors.Errorf("Failed to patch ValidatingWebhookConfiguration: %w", err)

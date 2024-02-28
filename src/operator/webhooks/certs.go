@@ -68,7 +68,7 @@ func GenerateSelfSignedCertificate(hostname string, namespace string) (Certifica
 }
 
 func WriteCertToFiles(bundle CertificateBundle) error {
-	err := os.MkdirAll(CertDirPath, 0600)
+	err := os.MkdirAll(CertDirPath, 0750)
 	if err != nil {
 		return errors.Wrap(err)
 	}

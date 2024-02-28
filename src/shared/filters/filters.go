@@ -36,6 +36,12 @@ func NetworkMapperLabels() map[string]string {
 	}
 }
 
+func PartOfOtterizeLabels() map[string]string {
+	return map[string]string{
+		OtterizeLabelKey: OtterizeLabelValue,
+	}
+}
+
 func IntentsOperatorLabelPredicate() predicate.Predicate {
 	return shared.MustRet(predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchLabels: IntentsOperatorLabels()}))
 }
@@ -46,4 +52,8 @@ func CredentialsOperatorLabelPredicate() predicate.Predicate {
 
 func NetworkMapperLabelPredicate() predicate.Predicate {
 	return shared.MustRet(predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchLabels: NetworkMapperLabels()}))
+}
+
+func PartOfOtterizeLabelPredicate() predicate.Predicate {
+	return shared.MustRet(predicate.LabelSelectorPredicate(metav1.LabelSelector{MatchLabels: PartOfOtterizeLabels()}))
 }

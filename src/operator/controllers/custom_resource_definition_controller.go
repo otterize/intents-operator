@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -24,6 +25,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -74,10 +76,19 @@ func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req
 	if resourceCopy.Spec.Conversion == nil || resourceCopy.Spec.Conversion.Webhook == nil || resourceCopy.Spec.Conversion.Webhook.ClientConfig == nil {
 		return ctrl.Result{}, errors.Errorf("CRD does not contain a proper conversion webhook definition")
 	}
+	if bytes.Equal(crd.Spec.Conversion.Webhook.ClientConfig.CABundle, r.certPem) && crd.Spec.Conversion.Webhook.ClientConfig.Service.Namespace == r.namespace {
+		logrus.Debugf("CustomResourceDefinition %s already has the correct CA bundle and namespace", resourceCopy.Name)
+		return ctrl.Result{}, nil
+
+	}
 	resourceCopy.Spec.Conversion.Webhook.ClientConfig.CABundle = r.certPem
 	resourceCopy.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = r.namespace
 
-	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(crd)); err != nil {
+	if err := r.Update(ctx, resourceCopy); err != nil {
+		if k8serrors.IsConflict(err) {
+			logrus.Debugf("Conflict while updating CustomResourceDefinition: %s", resourceCopy.Name)
+			return ctrl.Result{Requeue: true}, nil
+		}
 		return ctrl.Result{}, errors.Errorf("Failed to patch CustomResourceDefinition: %w", err)
 	}
 
@@ -86,9 +97,11 @@ func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CustomResourceDefinitionsReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	logrus.Info("Registered CustomResourceDefinitionsReconciler")
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&apiextensionsv1.CustomResourceDefinition{}).
-		WithEventFilter(filters.IntentsOperatorLabelPredicate()). // FIXME
+		WithEventFilter(filters.PartOfOtterizeLabelPredicate()).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 }

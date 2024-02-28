@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"strings"
+	"sync"
 )
 
 type IAMClient interface {
@@ -76,10 +77,14 @@ type Agent struct {
 	accountID           string
 	oidcURL             string
 	clusterName         string
+	profileNameToId     map[string]string
+	profileCacheOnce    sync.Once
+	trustAnchorArn      string
 }
 
 func NewAWSAgent(
 	ctx context.Context,
+	trustAnchorArn string,
 ) (*Agent, error) {
 	logrus.Info("Initializing AWS Intents agent")
 
@@ -89,31 +94,38 @@ func NewAWSAgent(
 		return nil, errors.Errorf("could not load AWS config")
 	}
 
-	currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
-
-	if err != nil {
-		return nil, errors.Errorf("failed to get current EKS cluster: %w", err)
-	}
-
-	OIDCURL := *currentCluster.Identity.Oidc.Issuer
-
 	iamClient := iam.NewFromConfig(awsConfig)
 	rolesAnywhereClient := rolesanywhere.NewFromConfig(awsConfig)
 	stsClient := sts.NewFromConfig(awsConfig)
+
+	agent := &Agent{
+		iamClient:           iamClient,
+		rolesAnywhereClient: rolesAnywhereClient,
+		profileNameToId:     make(map[string]string),
+		trustAnchorArn:      trustAnchorArn,
+	}
+
+	if trustAnchorArn == "" {
+
+		currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
+
+		if err != nil {
+			return nil, errors.Errorf("failed to get current EKS cluster: %w", err)
+		}
+		agent.clusterName = *currentCluster.Name
+
+		OIDCURL := *currentCluster.Identity.Oidc.Issuer
+		agent.oidcURL = strings.Split(OIDCURL, "://")[1]
+	}
 
 	callerIdent, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
 
 	if err != nil {
 		return nil, errors.Errorf("unable to get STS caller identity: %w", err)
 	}
+	agent.accountID = *callerIdent.Account
 
-	return &Agent{
-		iamClient:           iamClient,
-		rolesAnywhereClient: rolesAnywhereClient,
-		accountID:           *callerIdent.Account,
-		oidcURL:             strings.Split(OIDCURL, "://")[1],
-		clusterName:         *currentCluster.Name,
-	}, nil
+	return agent, nil
 }
 
 func getEKSClusterName(ctx context.Context, config aws.Config) (string, error) {

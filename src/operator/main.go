@@ -45,6 +45,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
+	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"time"
@@ -219,7 +220,7 @@ func main() {
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
-		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
+		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, os.Getenv("OTTERIZE_TRUST_ANCHOR_ARN"))
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
 		}
@@ -279,7 +280,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			certBundle.CertPem,
-			filters.IntentsOperatorLabelPredicate(),
+			filters.PartOfOtterizeLabelPredicate(),
 		)
 		err = validatingWebhookConfigsReconciler.SetupWithManager(mgr)
 		if err != nil {
