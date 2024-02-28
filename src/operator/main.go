@@ -356,6 +356,9 @@ func main() {
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Intents")
 	}
+	if intentsReconciler.DatabaseReconciler != nil {
+		go intentsReconciler.DatabaseReconciler.PeriodicReconcileNewDBTables(signalHandlerCtx)
+	}
 	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Endpoints")
 	}

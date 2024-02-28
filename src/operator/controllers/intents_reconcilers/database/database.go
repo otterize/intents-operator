@@ -91,14 +91,15 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 // PeriodicReconcileNewDBTables compensates for tables created in a database after the intents were applied and
 // permissions were configured. Runs periodically for all existing database intents without a specified table.
-func (r *DatabaseReconciler) PeriodicReconcileNewDBTables(ctx context.Context, interval int) {
-	newTablesTicker := time.NewTicker(time.Second * time.Duration(interval))
-
+func (r *DatabaseReconciler) PeriodicReconcileNewDBTables(ctx context.Context) {
+	newTablesTicker := time.NewTicker(time.Second * 30) // TODO: Change after DB enforcement refactor
 	logrus.Info("Database enforcement is on. Starting periodic database tables reconciliation")
 	for {
 		select {
 		case <-newTablesTicker.C:
-			r.reconcileNewTables(ctx)
+			if err := r.reconcileNewTables(ctx); err != nil {
+				logrus.WithError(err).Error("Failed reconciling new tables for intents")
+			}
 		case <-ctx.Done():
 			logrus.Info("Periodic database tables reconcile finished")
 			return
@@ -106,11 +107,10 @@ func (r *DatabaseReconciler) PeriodicReconcileNewDBTables(ctx context.Context, i
 	}
 }
 
-func (r *DatabaseReconciler) reconcileNewTables(ctx context.Context) {
+func (r *DatabaseReconciler) reconcileNewTables(ctx context.Context) error {
 	intentsList := otterizev1alpha3.ClientIntentsList{}
 	if err := r.client.List(ctx, &intentsList); err != nil {
-		logrus.Errorf("Listing client intents failed: %s", err)
-		return
+		return errors.Wrap(err)
 	}
 
 	var intentInputList []graphqlclient.IntentInput
@@ -139,12 +139,12 @@ func (r *DatabaseReconciler) reconcileNewTables(ctx context.Context) {
 	}
 
 	if len(intentInputList) == 0 {
-		return
+		return nil
 	}
 
 	err := r.otterizeClient.ApplyDatabaseIntent(ctx, intentInputList, graphqlclient.DBPermissionChangeApply)
 	if err != nil {
-		logrus.Errorf("Periodic database apply failed: %s", err)
+		return errors.Wrap(err)
 	}
-	return
+	return nil
 }

@@ -64,8 +64,9 @@ type EnforcementConfig struct {
 
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
-	group  *reconcilergroup.Group
-	client client.Client
+	group              *reconcilergroup.Group
+	client             client.Client
+	DatabaseReconciler *database.DatabaseReconciler
 }
 
 func NewIntentsReconciler(
@@ -116,6 +117,7 @@ func NewIntentsReconciler(
 	if enforcementConfig.EnableDatabasePolicy {
 		databaseReconciler := database.NewDatabaseReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
+		intentsReconciler.DatabaseReconciler = databaseReconciler
 	}
 
 	return intentsReconciler
