@@ -37,7 +37,6 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 				logger.WithError(err).Debug("role not found")
 				return false, nil, nil
 			default:
-				logger.WithError(err).Error("unable to get role")
 				return false, nil, errors.Wrap(err)
 			}
 		}
@@ -58,12 +57,13 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	if exists {
 		logger.Debugf("found existing role, arn: %s", *role.Arn)
 		// check if it is soft deleted
-		if lo.SomeBy(role.Tags, func(item types.Tag) bool { return lo.FromPtr(item.Key) == unusedTagKey }) {
+		if hasUnusedTagSet(role.Tags) {
 			logger.Debug("role is tagged unused, untagging")
 			_, err := a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{unusedTagKey}})
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
+			// Intentionally not returning here, as we want to continue and check if we need to mark as soft delete only
 		}
 		hasMarkUnusedTag := HasMarkAsUnusedInCaseOfDeletionTagSet(role.Tags)
 		if markAsUnusedInsteadOfDelete && !hasMarkUnusedTag {
@@ -113,8 +113,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	})
 
 	if createRoleError != nil {
-		logger.WithError(createRoleError).Error("failed to create role")
-		return nil, createRoleError
+		return nil, errors.Wrap(createRoleError)
 	}
 
 	logger.Debugf("created new role, arn: %s", *createRoleOutput.Role.Arn)
@@ -150,11 +149,11 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	}
 
 	if dontDeleteTagValue, tagExists := tags[markAsUnusedInsteadOfDeleteTagKey]; tagExists && dontDeleteTagValue == markAsUnusedInsteadOfDeleteValue {
-		logger.Info("role has markAsUnusedInsteadOfDelete tag, tagging as unused")
+		logger.Debug("role has markAsUnusedInsteadOfDelete tag, tagging as unused")
 		return a.MarkOtterizeIAMRoleAsUnused(ctx, role)
 	}
 
-	err = a.deleteAllRolePolicies(ctx, namespaceName, role)
+	err = a.deleteAllRolePolicies(ctx, role)
 
 	if err != nil {
 		return errors.Wrap(err)
@@ -165,7 +164,6 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	})
 
 	if err != nil {
-		logger.WithError(err).Errorf("failed to delete role")
 		return errors.Wrap(err)
 	}
 
@@ -173,7 +171,6 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 }
 
 func (a *Agent) MarkOtterizeIAMRoleAsUnused(ctx context.Context, role *types.Role) error {
-	logger := logrus.WithField("role", *role.RoleName)
 	err := a.MarkAllRolePoliciesAsUnused(ctx, role)
 	if err != nil {
 		return errors.Wrap(err)
@@ -185,7 +182,6 @@ func (a *Agent) MarkOtterizeIAMRoleAsUnused(ctx context.Context, role *types.Rol
 	})
 
 	if err != nil {
-		logger.WithError(err).Errorf("failed to tag role as unused")
 		return errors.Wrap(err)
 	}
 
@@ -193,7 +189,7 @@ func (a *Agent) MarkOtterizeIAMRoleAsUnused(ctx context.Context, role *types.Rol
 }
 
 // deleteAllRolePolicies deletes the inline role policy, if exists, in preparation to delete the role.
-func (a *Agent) deleteAllRolePolicies(ctx context.Context, namespace string, role *types.Role) error {
+func (a *Agent) deleteAllRolePolicies(ctx context.Context, role *types.Role) error {
 	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
 
 	if err != nil {

@@ -144,10 +144,6 @@ func (a *Agent) MarkPolicyAsUnused(ctx context.Context, policyName string) error
 	})
 
 	if err != nil {
-		if isNoSuchEntityException(err) {
-			return nil
-		}
-
 		return errors.Wrap(err)
 	}
 
@@ -164,7 +160,6 @@ func (a *Agent) MarkPolicyAsUnused(ctx context.Context, policyName string) error
 }
 
 func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string, statements []StatementEntry) error {
-	logger := logrus.WithField("account", accountName).WithField("namespace", namespace)
 	roleName := a.generateRoleName(namespace, accountName)
 
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
@@ -181,7 +176,6 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 	policyDoc, _, err := generatePolicyDocument(statements)
 
 	if err != nil {
-		logger.WithError(err).Errorf("failed to generate policy document")
 		return errors.Wrap(err)
 	}
 
