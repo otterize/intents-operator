@@ -65,6 +65,10 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	})
 	if err != nil {
 		if isNoSuchEntityException(err) {
+			if len(statements) == 0 {
+				// nothing to do
+				return nil
+			}
 			_, err := a.createPolicy(ctx, role, namespace, intentsServiceName, statements)
 
 			return errors.Wrap(err)

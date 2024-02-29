@@ -183,6 +183,10 @@ func (a *Agent) applyIAMPartialPolicy(ctx context.Context, namespaceName string,
 		return errors.Wrap(err)
 	} else if err != nil {
 		// Policy does not exist so we create it
+		if len(intents) == 0 {
+			// nothing to do
+			return nil
+		}
 		err = a.client.Create(ctx, newIAMPolicy)
 		if err != nil {
 			logger.WithError(err).Errorf("failed to apply IAMPartialPolicy")
