@@ -188,6 +188,80 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheGCPAgent() 
 	}
 }
 
+func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingTheGCPAgent() {
+	clientIntentsName := "client-intents"
+	serviceName := "test-client"
+	clientServiceAccount := "test-server-sa"
+
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{NamespacedName: namespacedName}
+
+	awsIntents := []otterizev1alpha3.Intent{
+		{
+			Name: "aws::s3::bucket::bucket-name",
+			Type: v1alpha3.IntentTypeAWS,
+		},
+	}
+
+	clientIntents := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clientIntentsName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: serviceName},
+			Calls:   awsIntents,
+		},
+	}
+
+	clientPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: testNamespace,
+			Labels:    map[string]string{gcpagent.GCPPodLabel: "true"},
+		},
+		Spec: corev1.PodSpec{
+			ServiceAccountName: clientServiceAccount,
+			Containers: []corev1.Container{
+				{
+					Name: "real-application-who-does-something",
+				},
+			},
+		},
+	}
+
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&clientIntents)).DoAndReturn(
+		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev1alpha3.ClientIntents, arg3 ...client.GetOption) error {
+			clientIntents.DeepCopyInto(arg2)
+			return nil
+		},
+	)
+
+	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(clientIntents)).Return(clientPod, nil)
+	s.gcpAgent.EXPECT().ApplyOnPodLabel().Return(gcpagent.GCPPodLabel)
+	s.gcpAgent.EXPECT().IntentType().Return(otterizev1alpha3.IntentTypeGCP)
+	s.Client.EXPECT().List(
+		gomock.Any(),
+		gomock.AssignableToTypeOf(&otterizev1alpha3.ClientIntentsList{}),
+		&client.ListOptions{Namespace: testNamespace},
+	).Return(nil)
+	s.gcpAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, clientServiceAccount, serviceName, []otterizev1alpha3.Intent{}).Return(nil)
+
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.NoError(err)
+	s.Empty(res)
+
+	select {
+	case event := <-s.recorder.Events:
+		s.Require().Contains(event, consts.ReasonReconciledIAMPolicies)
+	default:
+		s.Fail("event not raised")
+	}
+}
+
 func TestIAMIntentsReconcilerTestSuite(t *testing.T) {
 	suite.Run(t, new(IAMIntentsReconcilerTestSuite))
 }
