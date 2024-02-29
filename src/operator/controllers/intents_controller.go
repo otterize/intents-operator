@@ -83,7 +83,6 @@ func NewIntentsReconciler(
 
 	serviceIdResolver := serviceidresolver.NewResolver(client)
 	reconcilers := []reconcilergroup.ReconcilerWithEvents{
-		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
