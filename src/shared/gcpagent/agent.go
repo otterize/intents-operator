@@ -11,7 +11,7 @@ import (
 
 const (
 	EnvGcpProjectId = "gcp-project-id"
-	EnvGcpGkeName   = "gcp-project-id"
+	EnvGcpGkeName   = "gcp-eks-name"
 )
 
 type Agent struct {
@@ -43,12 +43,13 @@ func NewGCPAgent(ctx context.Context, c client.Client) (*Agent, error) {
 }
 
 func getGCPAttribute(attribute string) (res string, err error) {
-	if attribute == EnvGcpProjectId {
+	switch attribute {
+	case EnvGcpProjectId:
 		res, err = metadata.ProjectID()
 		if err == nil {
 			return res, nil
 		}
-	} else if attribute == EnvGcpGkeName {
+	case EnvGcpGkeName:
 		res, err = metadata.InstanceAttributeValue("cluster-name")
 		if err == nil {
 			return res, nil
