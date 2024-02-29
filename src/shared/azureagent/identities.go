@@ -10,7 +10,7 @@ import (
 
 func (a *Agent) findUserAssignedIdentity(ctx context.Context, namespaceName, accountName string) (armmsi.Identity, error) {
 	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespaceName, accountName)
-	userAssignedIdentity, err := a.userAssignedIdentitiesClient.Get(ctx, resourceGroupName, userAssignedIdentityName, nil)
+	userAssignedIdentity, err := a.userAssignedIdentitiesClient.Get(ctx, a.conf.ResourceGroup, userAssignedIdentityName, nil)
 	if err != nil {
 		return armmsi.Identity{}, errors.Wrap(err)
 	}
@@ -23,7 +23,7 @@ func (a *Agent) generateUserAssignedIdentityName(namespace string, accountName s
 	// 3-128 characters
 	// Alphanumerics, hyphens, and underscores
 	// Start with letter or number.
-	fullName := fmt.Sprintf("otr-%s-%s-%s", namespace, accountName, clusterName)
+	fullName := fmt.Sprintf("otr-%s-%s-%s", namespace, accountName, a.conf.AKSClusterName)
 
 	var truncatedName string
 	if len(fullName) >= (maxManagedIdentityTruncatedLength) {

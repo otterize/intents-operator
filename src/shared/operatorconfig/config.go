@@ -53,6 +53,9 @@ const (
 	EnableGCPPolicyDefault                      = false
 	EnableAzurePolicyKey                        = "enable-azure-iam-policy"
 	EnableAzurePolicyDefault                    = false
+	AzureSubscriptionIDKey                      = "azure-subscription-id"
+	AzureResourceGroupKey                       = "azure-resource-group"
+	AzureAKSClusterNameKey                      = "azure-aks-cluster-name"
 	EKSClusterNameOverrideKey                   = "eks-cluster-name-override"
 	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
 	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"
@@ -71,6 +74,7 @@ func init() {
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
 	viper.SetDefault(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault)
 	viper.SetDefault(EnableAWSPolicyKey, EnableAWSPolicyDefault)
+	viper.SetDefault(EnableGCPPolicyKey, EnableGCPPolicyDefault)
 	viper.SetDefault(EnableAzurePolicyKey, EnableAzurePolicyDefault)
 	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
 	viper.SetDefault(KafkaServerTLSCertKey, "")

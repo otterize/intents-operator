@@ -250,7 +250,13 @@ func main() {
 	}
 
 	if enforcementConfig.EnableAzurePolicy {
-		azureIntentsAgent, err := azureagent.NewAzureAgent(signalHandlerCtx)
+		config := azureagent.Config{
+			SubscriptionID: MustGetEnvVar(operatorconfig.AzureSubscriptionIDKey),
+			ResourceGroup:  MustGetEnvVar(operatorconfig.AzureResourceGroupKey),
+			AKSClusterName: MustGetEnvVar(operatorconfig.AzureAKSClusterNameKey),
+		}
+
+		azureIntentsAgent, err := azureagent.NewAzureAgent(signalHandlerCtx, config)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize Azure agent")
 		}

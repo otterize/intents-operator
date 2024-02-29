@@ -8,15 +8,14 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	// TODO: read from environment
-	subscriptionID    = "ef54c90c-5351-4c8f-a126-16a6d789104f"
-	location          = "eastus"
-	resourceGroupName = "myResourceGroup"
-	clusterName       = "myCluster"
-)
+type Config struct {
+	SubscriptionID string
+	ResourceGroup  string
+	AKSClusterName string
+}
 
 type Agent struct {
+	conf                               Config
 	credentials                        *azidentity.DefaultAzureCredential
 	userAssignedIdentitiesClient       *armmsi.UserAssignedIdentitiesClient
 	federatedIdentityCredentialsClient *armmsi.FederatedIdentityCredentialsClient
@@ -24,7 +23,7 @@ type Agent struct {
 	roleAssignmentsClient              *armauthorization.RoleAssignmentsClient
 }
 
-func NewAzureAgent(ctx context.Context) (*Agent, error) {
+func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	logrus.Info("Initializing Azure agent")
 
 	credentials, err := azidentity.NewDefaultAzureCredential(nil)
@@ -32,12 +31,12 @@ func NewAzureAgent(ctx context.Context) (*Agent, error) {
 		return nil, err
 	}
 
-	armmsiClientFactory, err := armmsi.NewClientFactory(subscriptionID, credentials, nil)
+	armmsiClientFactory, err := armmsi.NewClientFactory(conf.SubscriptionID, credentials, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	armauthorizationClientFactory, err := armauthorization.NewClientFactory(subscriptionID, credentials, nil)
+	armauthorizationClientFactory, err := armauthorization.NewClientFactory(conf.SubscriptionID, credentials, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +47,7 @@ func NewAzureAgent(ctx context.Context) (*Agent, error) {
 	roleAssignmentsClient := armauthorizationClientFactory.NewRoleAssignmentsClient()
 
 	return &Agent{
+		conf:                               conf,
 		credentials:                        credentials,
 		userAssignedIdentitiesClient:       userAssignedIdentitiesClient,
 		federatedIdentityCredentialsClient: federatedIdentityCredentialsClient,
