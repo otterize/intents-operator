@@ -13,6 +13,6 @@ func HasSoftDeleteStrategyTagSet(tags []types.Tag) bool {
 
 func hasSoftDeletedTagSet(tags []types.Tag) bool {
 	return lo.SomeBy(tags, func(tag types.Tag) bool {
-		return lo.FromPtr(tag.Key) == softDeletedTagKey && lo.FromPtr(tag.Value) == softDeletedTagValue
+		return lo.FromPtr(tag.Key) == softDeletedTagKey
 	})
 }

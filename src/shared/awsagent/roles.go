@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"strings"
+	"time"
 )
 import "github.com/aws/aws-sdk-go-v2/service/iam"
 
@@ -178,7 +179,7 @@ func (a *Agent) SoftDeleteOtterizeIAMRole(ctx context.Context, role *types.Role)
 
 	_, err = a.iamClient.TagRole(ctx, &iam.TagRoleInput{
 		RoleName: role.RoleName,
-		Tags:     []types.Tag{{Key: aws.String(softDeletedTagKey), Value: aws.String(softDeletedTagValue)}},
+		Tags:     []types.Tag{{Key: aws.String(softDeletedTagKey), Value: aws.String(time.Now().String())}},
 	})
 
 	if err != nil {

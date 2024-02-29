@@ -12,6 +12,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"time"
 )
 
 func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName string, intentsServiceName string, statements []StatementEntry) error {
@@ -150,7 +151,7 @@ func (a *Agent) softDeletePolicy(ctx context.Context, policyName string) error {
 	policy := output.Policy
 	_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{
 		PolicyArn: policy.Arn,
-		Tags:      []types.Tag{{Key: aws.String(softDeletedTagKey), Value: aws.String(softDeletedTagValue)}},
+		Tags:      []types.Tag{{Key: aws.String(softDeletedTagKey), Value: aws.String(time.Now().String())}},
 	})
 	if err != nil {
 		return errors.Wrap(err)
