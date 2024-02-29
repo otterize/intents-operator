@@ -5,14 +5,14 @@ import (
 	"github.com/samber/lo"
 )
 
-func HasMarkAsUnusedInCaseOfDeletionTagSet(tags []types.Tag) bool {
+func HasSoftDeleteStrategyTagSet(tags []types.Tag) bool {
 	return lo.SomeBy(tags, func(tag types.Tag) bool {
-		return lo.FromPtr(tag.Key) == markAsUnusedInsteadOfDeleteTagKey && lo.FromPtr(tag.Value) == markAsUnusedInsteadOfDeleteValue
+		return lo.FromPtr(tag.Key) == softDeletionStrategyTagKey && lo.FromPtr(tag.Value) == softDeletionStrategyTagValue
 	})
 }
 
-func hasUnusedTagSet(tags []types.Tag) bool {
+func hasSoftDeletedTagSet(tags []types.Tag) bool {
 	return lo.SomeBy(tags, func(tag types.Tag) bool {
-		return lo.FromPtr(tag.Key) == unusedTagKey && lo.FromPtr(tag.Value) == unusedTagValue
+		return lo.FromPtr(tag.Key) == softDeletedTagKey && lo.FromPtr(tag.Value) == softDeletedTagValue
 	})
 }

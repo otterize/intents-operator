@@ -46,7 +46,7 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 }
 
 // CreateOtterizeIAMRole creates a new IAM role for service, if one doesn't exist yet
-func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accountName string, markAsUnusedInsteadOfDelete bool) (*types.Role, error) {
+func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accountName string, useSoftDeleteStrategy bool) (*types.Role, error) {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
 	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
 
@@ -57,23 +57,23 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	if exists {
 		logger.Debugf("found existing role, arn: %s", *role.Arn)
 		// check if it is soft deleted
-		if hasUnusedTagSet(role.Tags) {
+		if hasSoftDeletedTagSet(role.Tags) {
 			logger.Debug("role is tagged unused, untagging")
-			_, err := a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{unusedTagKey}})
+			_, err := a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{softDeletedTagKey}})
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
 			// Intentionally not returning here, as we want to continue and check if we need to mark as soft delete only
 		}
-		hasMarkUnusedTag := HasMarkAsUnusedInCaseOfDeletionTagSet(role.Tags)
-		if markAsUnusedInsteadOfDelete && !hasMarkUnusedTag {
-			_, err = a.iamClient.TagRole(ctx, &iam.TagRoleInput{RoleName: role.RoleName, Tags: []types.Tag{{Key: aws.String(markAsUnusedInsteadOfDeleteTagKey), Value: aws.String(markAsUnusedInsteadOfDeleteValue)}}})
+		softDeleteStrategyTagSet := HasSoftDeleteStrategyTagSet(role.Tags)
+		if useSoftDeleteStrategy && !softDeleteStrategyTagSet {
+			_, err = a.iamClient.TagRole(ctx, &iam.TagRoleInput{RoleName: role.RoleName, Tags: []types.Tag{{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)}}})
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
 		}
-		if !markAsUnusedInsteadOfDelete && hasMarkUnusedTag {
-			_, err = a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{markAsUnusedInsteadOfDeleteTagKey}})
+		if !useSoftDeleteStrategy && softDeleteStrategyTagSet {
+			_, err = a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{softDeletionStrategyTagKey}})
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
@@ -101,8 +101,8 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 			Value: aws.String(a.clusterName),
 		},
 	}
-	if markAsUnusedInsteadOfDelete {
-		tags = append(tags, types.Tag{Key: aws.String(markAsUnusedInsteadOfDeleteTagKey), Value: aws.String(markAsUnusedInsteadOfDeleteValue)})
+	if useSoftDeleteStrategy {
+		tags = append(tags, types.Tag{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)})
 	}
 	createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
 		RoleName:                 aws.String(a.generateRoleName(namespaceName, accountName)),
@@ -148,9 +148,9 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 		return errors.Errorf("attempted to delete role with incorrect cluster name: expected '%s' but got '%s'", a.clusterName, taggedClusterName)
 	}
 
-	if dontDeleteTagValue, tagExists := tags[markAsUnusedInsteadOfDeleteTagKey]; tagExists && dontDeleteTagValue == markAsUnusedInsteadOfDeleteValue {
-		logger.Debug("role has markAsUnusedInsteadOfDelete tag, tagging as unused")
-		return a.MarkOtterizeIAMRoleAsUnused(ctx, role)
+	if HasSoftDeleteStrategyTagSet(role.Tags) {
+		logger.Debug("role has softDeleteStrategy tag, tagging as unused")
+		return a.SoftDeleteOtterizeIAMRole(ctx, role)
 	}
 
 	err = a.deleteAllRolePolicies(ctx, role)
@@ -170,15 +170,15 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	return nil
 }
 
-func (a *Agent) MarkOtterizeIAMRoleAsUnused(ctx context.Context, role *types.Role) error {
-	err := a.MarkAllRolePoliciesAsUnused(ctx, role)
+func (a *Agent) SoftDeleteOtterizeIAMRole(ctx context.Context, role *types.Role) error {
+	err := a.SoftDeleteAllRolePolicies(ctx, role)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
 	_, err = a.iamClient.TagRole(ctx, &iam.TagRoleInput{
 		RoleName: role.RoleName,
-		Tags:     []types.Tag{{Key: aws.String(unusedTagKey), Value: aws.String(unusedTagValue)}},
+		Tags:     []types.Tag{{Key: aws.String(softDeletedTagKey), Value: aws.String(softDeletedTagValue)}},
 	})
 
 	if err != nil {
@@ -208,8 +208,8 @@ func (a *Agent) deleteAllRolePolicies(ctx context.Context, role *types.Role) err
 	return nil
 }
 
-// MarkAllRolePoliciesAsUnused marks all inline role policies as unused in preparation to mark the role.
-func (a *Agent) MarkAllRolePoliciesAsUnused(ctx context.Context, role *types.Role) error {
+// SoftDeleteAllRolePolicies marks all inline role policies as deleted.
+func (a *Agent) SoftDeleteAllRolePolicies(ctx context.Context, role *types.Role) error {
 	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
 
 	if err != nil {
@@ -218,7 +218,7 @@ func (a *Agent) MarkAllRolePoliciesAsUnused(ctx context.Context, role *types.Rol
 
 	for _, policy := range listOutput.AttachedPolicies {
 		if strings.HasPrefix(*policy.PolicyName, "otterize-") || strings.HasPrefix(*policy.PolicyName, "otr-") {
-			err = a.MarkPolicyAsUnused(ctx, *policy.PolicyName)
+			err = a.softDeletePolicy(ctx, *policy.PolicyName)
 			if err != nil {
 				return errors.Errorf("failed to delete policy: %w", err)
 			}

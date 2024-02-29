@@ -25,7 +25,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 		return errors.Errorf("role not found: %s", a.generateRoleName(namespace, accountName))
 	}
 
-	shouldMarkAsUnusedInCaseOfDeletion := HasMarkAsUnusedInCaseOfDeletionTagSet(role.Tags)
+	softDeletionStrategyEnabled := HasSoftDeleteStrategyTagSet(role.Tags)
 
 	policyArn := a.generatePolicyArn(a.generatePolicyName(namespace, intentsServiceName))
 
@@ -34,7 +34,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	})
 	if err != nil {
 		if isNoSuchEntityException(err) {
-			_, err := a.createPolicy(ctx, role, namespace, intentsServiceName, statements, shouldMarkAsUnusedInCaseOfDeletion)
+			_, err := a.createPolicy(ctx, role, namespace, intentsServiceName, statements, softDeletionStrategyEnabled)
 
 			return errors.Wrap(err)
 		}
@@ -45,7 +45,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	// policy exists, update it
 	policy := policyOutput.Policy
 
-	err = a.updatePolicy(ctx, policy, statements, shouldMarkAsUnusedInCaseOfDeletion)
+	err = a.updatePolicy(ctx, policy, statements, softDeletionStrategyEnabled)
 
 	if err != nil {
 		return errors.Wrap(err)
@@ -77,8 +77,8 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 		return errors.Wrap(err)
 	}
 
-	if HasMarkAsUnusedInCaseOfDeletionTagSet(output.Policy.Tags) {
-		return a.MarkPolicyAsUnused(ctx, policyName)
+	if HasSoftDeleteStrategyTagSet(output.Policy.Tags) {
+		return a.softDeletePolicy(ctx, policyName)
 	}
 
 	policy := output.Policy
@@ -138,7 +138,7 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 	return nil
 }
 
-func (a *Agent) MarkPolicyAsUnused(ctx context.Context, policyName string) error {
+func (a *Agent) softDeletePolicy(ctx context.Context, policyName string) error {
 	output, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
 		PolicyArn: aws.String(a.generatePolicyArn(policyName)),
 	})
@@ -150,7 +150,7 @@ func (a *Agent) MarkPolicyAsUnused(ctx context.Context, policyName string) error
 	policy := output.Policy
 	_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{
 		PolicyArn: policy.Arn,
-		Tags:      []types.Tag{{Key: aws.String(unusedTagKey), Value: aws.String(unusedTagValue)}},
+		Tags:      []types.Tag{{Key: aws.String(softDeletedTagKey), Value: aws.String(softDeletedTagValue)}},
 	})
 	if err != nil {
 		return errors.Wrap(err)
@@ -192,7 +192,7 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 	return nil
 }
 
-func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace string, intentsServiceName string, statements []StatementEntry, markAsUnusedInsteadOfDelete bool) (*types.Policy, error) {
+func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace string, intentsServiceName string, statements []StatementEntry, useSoftDeleteStrategy bool) (*types.Policy, error) {
 	fullPolicyName := a.generatePolicyName(namespace, intentsServiceName)
 	policyDoc, policyHash, err := generatePolicyDocument(statements)
 
@@ -214,8 +214,8 @@ func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace st
 			Value: aws.String(policyHash),
 		},
 	}
-	if markAsUnusedInsteadOfDelete {
-		tags = append(tags, types.Tag{Key: aws.String(markAsUnusedInsteadOfDeleteTagKey), Value: aws.String(markAsUnusedInsteadOfDeleteValue)})
+	if useSoftDeleteStrategy {
+		tags = append(tags, types.Tag{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)})
 	}
 
 	policy, err := a.iamClient.CreatePolicy(ctx, &iam.CreatePolicyInput{
@@ -237,40 +237,40 @@ func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace st
 	return policy.Policy, nil
 }
 
-func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statements []StatementEntry, markAsUnusedInsteadOfDelete bool) error {
+func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statements []StatementEntry, useSoftDeleteStrategy bool) error {
 	policyDoc, policyHash, err := generatePolicyDocument(statements)
 
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	if hasUnusedTagSet(policy.Tags) {
+	if hasSoftDeletedTagSet(policy.Tags) {
 		logrus.Debugf("removing unused tag from policy: %s", *policy.PolicyName)
 		_, err = a.iamClient.UntagPolicy(ctx, &iam.UntagPolicyInput{
 			PolicyArn: policy.Arn,
-			TagKeys:   []string{unusedTagKey},
+			TagKeys:   []string{softDeletedTagKey},
 		})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 	}
 
-	if HasMarkAsUnusedInCaseOfDeletionTagSet(policy.Tags) && !markAsUnusedInsteadOfDelete {
-		logrus.Debugf("removing mark as unused tag from policy: %s", *policy.PolicyName)
+	if HasSoftDeleteStrategyTagSet(policy.Tags) && !useSoftDeleteStrategy {
+		logrus.Debugf("removing soft delete stratergy tag from policy: %s", *policy.PolicyName)
 		_, err = a.iamClient.UntagPolicy(ctx, &iam.UntagPolicyInput{
 			PolicyArn: policy.Arn,
-			TagKeys:   []string{markAsUnusedInsteadOfDeleteTagKey},
+			TagKeys:   []string{softDeletionStrategyTagKey},
 		})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 	}
 
-	if !HasMarkAsUnusedInCaseOfDeletionTagSet(policy.Tags) && markAsUnusedInsteadOfDelete {
-		logrus.Debugf("adding mark as unused tag to policy: %s", *policy.PolicyName)
+	if !HasSoftDeleteStrategyTagSet(policy.Tags) && useSoftDeleteStrategy {
+		logrus.Debugf("adding soft delete stratergy tag to policy: %s", *policy.PolicyName)
 		_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{
 			PolicyArn: policy.Arn,
-			Tags:      []types.Tag{{Key: aws.String(markAsUnusedInsteadOfDeleteTagKey), Value: aws.String(markAsUnusedInsteadOfDeleteValue)}},
+			Tags:      []types.Tag{{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)}},
 		})
 		if err != nil {
 			return errors.Wrap(err)
