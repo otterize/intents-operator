@@ -11,7 +11,7 @@ import (
 
 const (
 	EnvGcpProjectId = "gcp-project-id"
-	EnvGcpGkeName   = "gcp-eks-name"
+	EnvGcpGkeName   = "gcp-gke-name"
 )
 
 type Agent struct {

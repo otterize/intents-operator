@@ -173,11 +173,14 @@ func (a *Agent) applyIAMPartialPolicy(ctx context.Context, namespaceName string,
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", ksaName)
 
 	// Create a new IAMPolicyMember from the provided intents
-	newIAMPolicy := a.generateIAMPartialPolicy(namespaceName, intentsServiceName, ksaName, intents)
+	newIAMPolicy, err := a.generateIAMPartialPolicy(namespaceName, intentsServiceName, ksaName, intents)
+	if err != nil {
+		return errors.Wrap(err)
+	}
 
 	// Find if there is an existing policy
 	existingIAMPolicy := v1beta1.IAMPartialPolicy{}
-	err := a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: newIAMPolicy.Name}, &existingIAMPolicy)
+	err = a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: newIAMPolicy.Name}, &existingIAMPolicy)
 	if !apierrors.IsNotFound(err) {
 		// Got an error but not because the policy does not exist
 		return errors.Wrap(err)
