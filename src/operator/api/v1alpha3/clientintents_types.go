@@ -85,7 +85,7 @@ const (
 	KubernetesAPIServerNamespace                         = "default"
 )
 
-// +kubebuilder:validation:Enum=http;kafka;database;aws;azure;internet
+// +kubebuilder:validation:Enum=http;kafka;database;aws;gcp;azure;internet
 type IntentType string
 
 const (
@@ -93,6 +93,7 @@ const (
 	IntentTypeKafka    IntentType = "kafka"
 	IntentTypeDatabase IntentType = "database"
 	IntentTypeAWS      IntentType = "aws"
+	IntentTypeGCP      IntentType = "gcp"
 	IntentTypeAzure    IntentType = "azure"
 	IntentTypeInternet IntentType = "internet"
 )
@@ -167,6 +168,9 @@ type Intent struct {
 
 	//+optional
 	AWSActions []string `json:"awsActions,omitempty" yaml:"awsActions,omitempty"`
+
+	//+optional
+	GCPPermissions []string `json:"gcpPermissions,omitempty" yaml:"gcpPermissions,omitempty"`
 
 	//+optional
 	AzureRoles []string `json:"azureRoles,omitempty" yaml:"azureRoles,omitempty"`
@@ -264,7 +268,7 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 	otterizeAccessLabels := make(map[string]string)
 
 	for _, intent := range in.GetCallsList() {
-		if intent.Type == IntentTypeAWS || intent.Type == IntentTypeAzure || intent.Type == IntentTypeDatabase {
+		if intent.Type == IntentTypeAWS || intent.Type == IntentTypeGCP || intent.Type == IntentTypeAzure || intent.Type == IntentTypeDatabase {
 			continue
 		}
 		ns := intent.GetTargetServerNamespace(requestNamespace)
@@ -365,6 +369,8 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 		return graphqlclient.IntentTypeDatabase
 	case IntentTypeAWS:
 		return graphqlclient.IntentTypeAws
+	case IntentTypeGCP:
+		return graphqlclient.IntentTypeGcp
 	case IntentTypeAzure:
 		return graphqlclient.IntentTypeAzure
 	case IntentTypeInternet:
@@ -578,6 +584,10 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 
 	if len(in.AzureRoles) != 0 {
 		intentInput.AzureRoles = lo.ToSlicePtr(in.AzureRoles)
+	}
+
+	if len(in.GCPPermissions) != 0 {
+		intentInput.GcpPermissions = lo.ToSlicePtr(in.GCPPermissions)
 	}
 
 	if len(otterizeTopics) != 0 {

@@ -49,6 +49,8 @@ const (
 	EnableEgressNetworkPolicyReconcilersDefault = false
 	EnableAWSPolicyKey                          = "enable-aws-iam-policy"
 	EnableAWSPolicyDefault                      = false
+	EnableGCPPolicyKey                          = "enable-gcp-iam-policy"
+	EnableGCPPolicyDefault                      = false
 	EnableAzurePolicyKey                        = "enable-azure-iam-policy"
 	EnableAzurePolicyDefault                    = false
 	EKSClusterNameOverrideKey                   = "eks-cluster-name-override"

@@ -157,6 +157,16 @@ func (in *Intent) DeepCopyInto(out *Intent) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.GCPPermissions != nil {
+		in, out := &in.GCPPermissions, &out.GCPPermissions
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.AzureRoles != nil {
+		in, out := &in.AzureRoles, &out.AzureRoles
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Internet != nil {
 		in, out := &in.Internet, &out.Internet
 		*out = new(Internet)
