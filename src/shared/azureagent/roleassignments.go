@@ -2,7 +2,6 @@ package azureagent
 
 import (
 	"context"
-	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/amit7itz/goset"
@@ -50,17 +49,16 @@ func (a *Agent) deleteRoleAssignment(ctx context.Context, roleAssignment armauth
 
 func (a *Agent) listRoleAssignments(ctx context.Context, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
 	var roleAssignments []armauthorization.RoleAssignment
-	pager := a.roleAssignmentsClient.NewListForSubscriptionPager(
-		&armauthorization.RoleAssignmentsClientListForSubscriptionOptions{
-			Filter: lo.ToPtr(fmt.Sprintf("principalId eq {%s}", *userAssignedIdentity.Properties.PrincipalID)),
-		})
+	pager := a.roleAssignmentsClient.NewListForSubscriptionPager(nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
 		for _, roleAssignment := range page.Value {
-			roleAssignments = append(roleAssignments, *roleAssignment)
+			if *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
+				roleAssignments = append(roleAssignments, *roleAssignment)
+			}
 		}
 	}
 
