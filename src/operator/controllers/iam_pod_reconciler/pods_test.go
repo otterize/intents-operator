@@ -1,9 +1,9 @@
-package aws_pod_reconciler
+package iam_pod_reconciler
 
 import (
 	"context"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	"github.com/otterize/intents-operator/src/operator/controllers/aws_pod_reconciler/mocks"
+	"github.com/otterize/intents-operator/src/operator/controllers/iam_pod_reconciler/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -15,13 +15,13 @@ import (
 	"testing"
 )
 
-type AWSPodReconcilerSuite struct {
+type IAMPodReconcilerSuite struct {
 	testbase.MocksSuiteBase
 }
 
-func (s *AWSPodReconcilerSuite) TestCallsAWSIntentsReconciler() {
-	awsIntentsMockReconciler := mocks.NewMockReconciler(s.Controller)
-	podReconciler := NewAWSPodReconciler(s.Client, s.Recorder, awsIntentsMockReconciler)
+func (s *IAMPodReconcilerSuite) TestCallsIAMIntentsReconciler() {
+	iamIntentsMockReconciler := mocks.NewMockReconciler(s.Controller)
+	podReconciler := NewIAMPodReconciler(s.Client, s.Recorder, iamIntentsMockReconciler)
 	namespacedName := types.NamespacedName{
 		Name:      "pod",
 		Namespace: "test",
@@ -76,7 +76,7 @@ func (s *AWSPodReconcilerSuite) TestCallsAWSIntentsReconciler() {
 			return nil
 		},
 	)
-	awsIntentsMockReconciler.EXPECT().Reconcile(gomock.Any(), reconcile.Request{NamespacedName: types.NamespacedName{
+	iamIntentsMockReconciler.EXPECT().Reconcile(gomock.Any(), reconcile.Request{NamespacedName: types.NamespacedName{
 		Name:      clientIntents.Name,
 		Namespace: clientIntents.Namespace,
 	}})
@@ -92,6 +92,6 @@ func (s *AWSPodReconcilerSuite) TestCallsAWSIntentsReconciler() {
 	s.Require().NoError(err)
 }
 
-func TestAWSPodReconcilerSuite(t *testing.T) {
-	suite.Run(t, new(AWSPodReconcilerSuite))
+func TestIAMPodReconcilerSuite(t *testing.T) {
+	suite.Run(t, new(IAMPodReconcilerSuite))
 }

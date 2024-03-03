@@ -17,3 +17,4 @@
 
 .idea/
 /src/operator/controllers/istiopolicy/crd/
+.env

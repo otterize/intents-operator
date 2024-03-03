@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
-	"github.com/otterize/intents-operator/src/operator/controllers/aws_pod_reconciler"
+	"github.com/otterize/intents-operator/src/operator/controllers/iam_pod_reconciler"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy/builders"
@@ -31,6 +31,8 @@ import (
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
+	"github.com/otterize/intents-operator/src/shared/azureagent"
+	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -64,6 +66,10 @@ import (
 
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
+
+	gcpiamv1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/iam/v1beta1"
+	gcpk8sv1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -81,6 +87,11 @@ func init() {
 	utilruntime.Must(istiosecurityscheme.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
+
+	// Config Connector CRDs
+	utilruntime.Must(gcpiamv1.AddToScheme(scheme))
+	utilruntime.Must(gcpk8sv1.AddToScheme(scheme))
+
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -111,6 +122,8 @@ func main() {
 		EnableDatabasePolicy:                 viper.GetBool(operatorconfig.EnableDatabasePolicy),
 		EnableEgressNetworkPolicyReconcilers: viper.GetBool(operatorconfig.EnableEgressNetworkPolicyReconcilersKey),
 		EnableAWSPolicy:                      viper.GetBool(operatorconfig.EnableAWSPolicyKey),
+		EnableGCPPolicy:                      viper.GetBool(operatorconfig.EnableGCPPolicyKey),
+		EnableAzurePolicy:                    viper.GetBool(operatorconfig.EnableAzurePolicyKey),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev1alpha3.TLSSource{
@@ -208,15 +221,44 @@ func main() {
 	}
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
-	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
+
+	var iamAgents []intents_reconcilers.IAMPolicyAgent
+
+	if enforcementConfig.EnableAWSPolicy {
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
 		}
-		awsIntentsReconciler := intents_reconcilers.NewAWSIntentsReconciler(mgr.GetClient(), scheme, awsIntentsAgent, serviceidresolver.NewResolver(mgr.GetClient()))
-		additionalIntentsReconcilers = append(additionalIntentsReconcilers, awsIntentsReconciler)
-		awsPodWatcher := aws_pod_reconciler.NewAWSPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), awsIntentsReconciler)
-		err = awsPodWatcher.SetupWithManager(mgr)
+		iamAgents = append(iamAgents, awsIntentsAgent)
+	}
+
+	if enforcementConfig.EnableGCPPolicy {
+		gcpIntentsAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx, mgr.GetClient())
+		if err != nil {
+			logrus.WithError(err).Panic("could not initialize GCP agent")
+		}
+		iamAgents = append(iamAgents, gcpIntentsAgent)
+	}
+
+	if enforcementConfig.EnableAzurePolicy {
+		config := azureagent.Config{
+			SubscriptionID: MustGetEnvVar(operatorconfig.AzureSubscriptionIDKey),
+			ResourceGroup:  MustGetEnvVar(operatorconfig.AzureResourceGroupKey),
+			AKSClusterName: MustGetEnvVar(operatorconfig.AzureAKSClusterNameKey),
+		}
+
+		azureIntentsAgent, err := azureagent.NewAzureAgent(signalHandlerCtx, config)
+		if err != nil {
+			logrus.WithError(err).Panic("could not initialize Azure agent")
+		}
+		iamAgents = append(iamAgents, azureIntentsAgent)
+	}
+
+	if len(iamAgents) > 0 {
+		iamIntentsReconciler := intents_reconcilers.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceidresolver.NewResolver(mgr.GetClient()), iamAgents)
+		additionalIntentsReconcilers = append(additionalIntentsReconcilers, iamIntentsReconciler)
+		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), iamIntentsReconciler)
+		err = iamPodWatcher.SetupWithManager(mgr)
 		if err != nil {
 			logrus.WithError(err).Panic("unable to register pod watcher")
 		}

@@ -78,7 +78,7 @@ const (
 	KubernetesAPIServerNamespace              = "default"
 )
 
-// +kubebuilder:validation:Enum=http;kafka;database;aws;internet
+// +kubebuilder:validation:Enum=http;kafka;database;aws;gcp;azure;internet
 type IntentType string
 
 const (
@@ -86,6 +86,8 @@ const (
 	IntentTypeKafka    IntentType = "kafka"
 	IntentTypeDatabase IntentType = "database"
 	IntentTypeAWS      IntentType = "aws"
+	IntentTypeGCP      IntentType = "gcp"
+	IntentTypeAzure    IntentType = "azure"
 	IntentTypeInternet IntentType = "internet"
 )
 
@@ -161,12 +163,18 @@ type Intent struct {
 	AWSActions []string `json:"awsActions,omitempty" yaml:"awsActions,omitempty"`
 
 	//+optional
+	GCPPermissions []string `json:"gcpPermissions,omitempty" yaml:"gcpPermissions,omitempty"`
+
+	//+optional
+	AzureRoles []string `json:"azureRoles,omitempty" yaml:"azureRoles,omitempty"`
+
+	//+optional
 	Internet *Internet `json:"internet,omitempty" yaml:"internet,omitempty"`
 }
 
 type Internet struct {
 	//+optional
-	Dns string `json:"dns,omitempty" yaml:"dns,omitempty"`
+	Domains []string `json:"domains,omitempty" yaml:"domains,omitempty"`
 	//+optional
 	Ips []string `json:"ips,omitempty" yaml:"ips,omitempty"`
 	//+optional
@@ -253,7 +261,7 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 	otterizeAccessLabels := make(map[string]string)
 
 	for _, intent := range in.GetCallsList() {
-		if intent.Type == IntentTypeAWS || intent.Type == IntentTypeDatabase {
+		if intent.Type == IntentTypeAWS || intent.Type == IntentTypeGCP || intent.Type == IntentTypeAzure || intent.Type == IntentTypeDatabase {
 			continue
 		}
 		ns := intent.GetTargetServerNamespace(requestNamespace)
@@ -353,6 +361,10 @@ func (in *Intent) typeAsGQLType() graphqlclient.IntentType {
 		return graphqlclient.IntentTypeDatabase
 	case IntentTypeAWS:
 		return graphqlclient.IntentTypeAws
+	case IntentTypeGCP:
+		return graphqlclient.IntentTypeGcp
+	case IntentTypeAzure:
+		return graphqlclient.IntentTypeAzure
 	case IntentTypeInternet:
 		return graphqlclient.IntentTypeInternet
 	default:
@@ -392,11 +404,6 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentI
 	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetCallsList() {
-			if intent.Type == IntentTypeInternet && len(intent.Internet.Ips) == 0 {
-				// TODO: Remove when access graph support internet intents
-				continue
-			}
-
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetServiceName())
 			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {
@@ -550,9 +557,13 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		})
 	}
 
-	if in.Internet != nil && len(in.Internet.Ips) != 0 {
-		intentInput.Internet = &graphqlclient.InternetConfigInput{
-			Ips: lo.ToSlicePtr(in.Internet.Ips),
+	if in.Internet != nil {
+		intentInput.Internet = &graphqlclient.InternetConfigInput{}
+		if len(in.Internet.Domains) != 0 {
+			intentInput.Internet.Domains = lo.ToSlicePtr(in.Internet.Domains)
+		}
+		if len(in.Internet.Ips) != 0 {
+			intentInput.Internet.Ips = lo.ToSlicePtr(in.Internet.Ips)
 		}
 		if in.Internet.Ports != nil && len(in.Internet.Ports) != 0 {
 			intentInput.Internet.Ports = lo.ToSlicePtr(in.Internet.Ports)
@@ -561,6 +572,14 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 
 	if len(in.AWSActions) != 0 {
 		intentInput.AwsActions = lo.ToSlicePtr(in.AWSActions)
+	}
+
+	if len(in.AzureRoles) != 0 {
+		intentInput.AzureRoles = lo.ToSlicePtr(in.AzureRoles)
+	}
+
+	if len(in.GCPPermissions) != 0 {
+		intentInput.GcpPermissions = lo.ToSlicePtr(in.GCPPermissions)
 	}
 
 	if len(otterizeTopics) != 0 {
