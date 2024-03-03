@@ -194,6 +194,10 @@ spec:
                       items:
                         type: string
                       type: array
+                    azureRoles:
+                      items:
+                        type: string
+                      type: array
                     databaseResources:
                       items:
                         properties:
@@ -214,6 +218,10 @@ spec:
                         required:
                         - databaseName
                         type: object
+                      type: array
+                    gcpPermissions:
+                      items:
+                        type: string
                       type: array
                     internet:
                       properties:
@@ -264,6 +272,8 @@ spec:
                       - kafka
                       - database
                       - aws
+                      - gcp
+                      - azure
                       - internet
                       type: string
                   type: object

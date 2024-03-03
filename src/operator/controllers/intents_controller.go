@@ -60,6 +60,8 @@ type EnforcementConfig struct {
 	EnableDatabasePolicy                 bool
 	EnableEgressNetworkPolicyReconcilers bool
 	EnableAWSPolicy                      bool
+	EnableGCPPolicy                      bool
+	EnableAzurePolicy                    bool
 }
 
 // IntentsReconciler reconciles a Intents object
