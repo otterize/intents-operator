@@ -3,16 +3,16 @@ package database
 import (
 	"context"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/operator/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
-	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 const (
@@ -55,96 +55,79 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	action := graphqlclient.DBPermissionChangeApply
+	action := otterizev1alpha3.DBPermissionChangeApply
 	if !intents.ObjectMeta.DeletionTimestamp.IsZero() {
-		action = graphqlclient.DBPermissionChangeDelete
+		action = otterizev1alpha3.DBPermissionChangeDelete
 	}
 
-	var intentInputList []graphqlclient.IntentInput
+	var dbIntents []otterizev1alpha3.Intent
 	for _, intent := range intents.GetCallsList() {
 		if intent.Type != otterizev1alpha3.IntentTypeDatabase {
 			continue
 		}
-
-		intentInput := intent.ConvertToCloudFormat(intents.Namespace, intents.GetServiceName())
-		intentInputList = append(intentInputList, intentInput)
+		dbIntents = append(dbIntents, intent)
 	}
 
-	if len(intentInputList) == 0 {
+	if len(dbIntents) == 0 {
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.otterizeClient.ApplyDatabaseIntent(ctx, intentInputList, action); err != nil {
-		errType, errMsg, ok := graphqlclient.GetGraphQLUserError(err)
-		if !ok || errType != graphqlclient.UserErrorTypeAppliedIntentsError {
-			r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", err.Error())
-			return ctrl.Result{}, errors.Wrap(err)
-		}
-		r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", errMsg)
+	databaseToIntents, err := r.MapDBNameToIntents(ctx, dbIntents, req.NamespacedName)
+	if err != nil {
+		r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	r.RecordNormalEventf(intents, ReasonAppliedDatabaseIntents, "Database intents reconcile complete, reconciled %d intent calls", len(intentInputList))
+	for databaseName, dbIntents := range databaseToIntents {
+		pgServerConf := otterizev1alpha3.PostgreSQLServerConfig{}
+		err := r.client.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: databaseName}, &pgServerConf)
+		if err != nil {
+			r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", err.Error())
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(pgServerConf.Spec)
+		pgConfigurator.ConfigureDBFromIntents(ctx, types.NamespacedName{
+			Namespace: intents.Namespace,
+			Name:      intents.GetServiceName(),
+		}, dbIntents, action)
+	}
+
+	//if err := r.otterizeClient.ApplyDatabaseIntent(ctx, dbIntents, action); err != nil {
+	//	errType, errMsg, ok := graphqlclient.GetGraphQLUserError(err)
+	//	if !ok || errType != graphqlclient.UserErrorTypeAppliedIntentsError {
+	//		r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", err.Error())
+	//		return ctrl.Result{}, errors.Wrap(err)
+	//	}
+	//	r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", errMsg)
+	//	return ctrl.Result{}, errors.Wrap(err)
+	//}
+	//
+
+	r.RecordNormalEventf(intents, ReasonAppliedDatabaseIntents, "Database intents reconcile complete, reconciled %d intent calls", len(dbIntents))
 
 	return ctrl.Result{}, nil
 }
 
-// PeriodicReconcileNewDBTables compensates for tables created in a database after the intents were applied and
-// permissions were configured. Runs periodically for all existing database intents without a specified table.
-func (r *DatabaseReconciler) PeriodicReconcileNewDBTables(ctx context.Context, interval int) {
-	newTablesTicker := time.NewTicker(time.Second * time.Duration(interval))
-
-	logrus.Info("Database enforcement is on. Starting periodic database tables reconciliation")
-	for {
-		select {
-		case <-newTablesTicker.C:
-			r.reconcileNewTables(ctx)
-		case <-ctx.Done():
-			logrus.Info("Periodic database tables reconcile finished")
-			return
-		}
-	}
-}
-
-func (r *DatabaseReconciler) reconcileNewTables(ctx context.Context) {
-	intentsList := otterizev1alpha3.ClientIntentsList{}
-	if err := r.client.List(ctx, &intentsList); err != nil {
-		logrus.Errorf("Listing client intents failed: %s", err)
-		return
-	}
-
-	var intentInputList []graphqlclient.IntentInput
-	for _, intents := range intentsList.Items {
-		if !intents.ObjectMeta.DeletionTimestamp.IsZero() {
-			// No need to do anything, will be handled by the operator
-			continue
-		}
-
-		for _, intent := range intents.GetCallsList() {
-			if intent.Type != otterizev1alpha3.IntentTypeDatabase {
-				continue
-			}
-			hasWildcardTable := false
-			for _, dbResource := range intent.DatabaseResources {
-				if dbResource.Table == "" || dbResource.Table == "*" {
-					hasWildcardTable = true
-				}
-			}
-			// We only add to the list in case of wildcard table permissions
-			if hasWildcardTable {
-				intentInput := intent.ConvertToCloudFormat(intents.Namespace, intents.GetServiceName())
-				intentInputList = append(intentInputList, intentInput)
+func (r *DatabaseReconciler) MapDBNameToIntents(ctx context.Context, intents []otterizev1alpha3.Intent, namespacedName types.NamespacedName) (map[string][]otterizev1alpha3.Intent, error) {
+	dbNamesToIntents := map[string][]otterizev1alpha3.Intent{}
+	for _, intent := range intents {
+		for _, dbResource := range intent.DatabaseResources {
+			dbName := dbResource.DatabaseName
+			if _, ok := dbNamesToIntents[dbName]; !ok {
+				dbNamesToIntents[dbName] = []otterizev1alpha3.Intent{intent}
+			} else {
+				dbNamesToIntents[dbName] = append(dbNamesToIntents[dbName], intent)
 			}
 		}
 	}
 
-	if len(intentInputList) == 0 {
-		return
-	}
-
-	err := r.otterizeClient.ApplyDatabaseIntent(ctx, intentInputList, graphqlclient.DBPermissionChangeApply)
-	if err != nil {
-		logrus.Errorf("Periodic database apply failed: %s", err)
-	}
-	return
+	//for dbname := range dbNamesToIntents {
+	//	pgServerConfig := otterizev1alpha3.PostgreSQLServerConfig{}
+	//	err := r.client.Get(ctx, types.NamespacedName{}, &pgServerConfig)
+	//	if err != nil {
+	//
+	//	}
+	//	}
+	//}
+	return dbNamesToIntents, nil
 }
