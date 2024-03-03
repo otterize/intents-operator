@@ -382,7 +382,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 		netpol := &v1.NetworkPolicy{}
 		_ = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, netpol)
 		assert.NotNil(netpol)
-		assert.Len(1, netpol.Spec.Ingress)
+		assert.Len(netpol.Spec.Ingress, 1)
 	})
 
 	// Check that external policy was not deleted.
