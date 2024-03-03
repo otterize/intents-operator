@@ -19,10 +19,6 @@ func (a *Agent) IntentType() otterizev1alpha3.IntentType {
 	return otterizev1alpha3.IntentTypeAWS
 }
 
-func (a *Agent) ApplyOnPodLabel() string {
-	return "credentials-operator.otterize.com/create-aws-role"
-}
-
 func (a *Agent) createPolicyFromIntents(intents []otterizev1alpha3.Intent) PolicyDocument {
 	policy := PolicyDocument{
 		Version: "2012-10-17",

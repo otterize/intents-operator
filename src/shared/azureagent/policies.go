@@ -18,10 +18,6 @@ func (a *Agent) IntentType() otterizev1alpha3.IntentType {
 	return otterizev1alpha3.IntentTypeAzure
 }
 
-func (a *Agent) ApplyOnPodLabel() string {
-	return "credentials-operator.otterize.com/create-azure-role-assignment"
-}
-
 func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
 	userAssignedIdentity, err := a.findUserAssignedIdentity(ctx, namespace, intentsServiceName)
 	if err != nil {

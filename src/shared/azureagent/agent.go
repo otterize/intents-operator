@@ -55,3 +55,7 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 		roleAssignmentsClient:              roleAssignmentsClient,
 	}, nil
 }
+
+func (a *Agent) ApplyOnPodLabel() string {
+	return "credentials-operator.otterize.com/create-azure-role-assignment"
+}
