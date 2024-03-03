@@ -64,7 +64,8 @@ func (r *PortNetworkPolicyReconciler) buildIngressRulesFromEffectivePolicy(ep ef
 			// Currently only egress is supported for the kubernetes API server
 			continue
 		}
-		// create only one ingress run for each namespace
+		// We use the same from.podSelector for every namespace,
+		// therefore there is no need for more than one ingress rule per namespace
 		if fromNamespaces.Contains(clientCall.Service.Namespace) {
 			continue
 		}

@@ -30,10 +30,11 @@ func (r *IngressNetpolBuilder) buildIngressRulesFromServiceEffectivePolicy(ep ef
 		if call.IntendedCall.IsTargetServerKubernetesService() {
 			continue
 		}
+		// We use the same from.podSelector for every namespace,
+		// therefore there is no need for more than one ingress rule per namespace
 		if fromNamespaces.Contains(call.Service.Namespace) {
 			continue
 		}
-		// We should add only one ingress rule per namespace
 		fromNamespaces.Add(call.Service.Namespace)
 		ingressRules = append(ingressRules, v1.NetworkPolicyIngressRule{
 			From: []v1.NetworkPolicyPeer{
