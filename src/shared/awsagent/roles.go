@@ -57,24 +57,24 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 
 	if exists {
 		logger.Debugf("found existing role, arn: %s", *role.Arn)
-		// check if it is soft deleted
+		// check if it is soft deleted - if so remove soft deleted tag
 		if hasSoftDeletedTagSet(role.Tags) {
 			logger.Debug("role is tagged unused, untagging")
+			// There is no need to untag the role's policies from this context, It will happen if the policy will be created again
 			_, err := a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{softDeletedTagKey}})
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
 			// Intentionally not returning here, as we want to continue and check if we need to mark as soft delete only
 		}
-		softDeleteStrategyTagSet := HasSoftDeleteStrategyTagSet(role.Tags)
-		if useSoftDeleteStrategy && !softDeleteStrategyTagSet {
-			_, err = a.iamClient.TagRole(ctx, &iam.TagRoleInput{RoleName: role.RoleName, Tags: []types.Tag{{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)}}})
+		if useSoftDeleteStrategy {
+			err = a.setRoleSoftDeleteStrategyTag(ctx, role)
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
 		}
-		if !useSoftDeleteStrategy && softDeleteStrategyTagSet {
-			_, err = a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{softDeletionStrategyTagKey}})
+		if !useSoftDeleteStrategy {
+			err = a.UnsetRoleSoftDeleteStrategyTag(ctx, role)
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
@@ -222,6 +222,66 @@ func (a *Agent) SoftDeleteAllRolePolicies(ctx context.Context, role *types.Role)
 			err = a.softDeletePolicy(ctx, *policy.PolicyName)
 			if err != nil {
 				return errors.Errorf("failed to delete policy: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// setRoleSoftDeleteStrategyTag sets the soft delete strategy tag on the role
+func (a *Agent) setRoleSoftDeleteStrategyTag(ctx context.Context, role *types.Role) error {
+	err := a.setAllRolePoliciesSoftDeleteStrategyTag(ctx, role)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	_, err = a.iamClient.TagRole(ctx, &iam.TagRoleInput{RoleName: role.RoleName, Tags: []types.Tag{{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)}}})
+	return errors.Wrap(err)
+}
+
+// setAllRolePoliciesSoftDeleteStrategyTag sets the soft delete strategy tag on all inline role policies
+func (a *Agent) setAllRolePoliciesSoftDeleteStrategyTag(ctx context.Context, role *types.Role) error {
+	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
+
+	if err != nil {
+		return errors.Errorf("failed to list role attached policies: %w", err)
+	}
+
+	for _, policy := range listOutput.AttachedPolicies {
+		if strings.HasPrefix(*policy.PolicyName, "otterize-") || strings.HasPrefix(*policy.PolicyName, "otr-") {
+			_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{PolicyArn: policy.PolicyArn, Tags: []types.Tag{{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)}}})
+			if err != nil {
+				return errors.Errorf("failed to set policy soft delete strategy tag: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// UnsetRoleSoftDeleteStrategyTag removes the soft delete strategy tag from the role
+func (a *Agent) UnsetRoleSoftDeleteStrategyTag(ctx context.Context, role *types.Role) error {
+	err := a.unsetAllRolePoliciesSoftDeleteStrategyTag(ctx, role)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	_, err = a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{softDeletionStrategyTagKey}})
+	return errors.Wrap(err)
+}
+
+// unsetAllRolePoliciesSoftDeleteStrategyTag removes the soft delete strategy tag from all inline role policies
+func (a *Agent) unsetAllRolePoliciesSoftDeleteStrategyTag(ctx context.Context, role *types.Role) error {
+	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
+
+	if err != nil {
+		return errors.Errorf("failed to list role attached policies: %w", err)
+	}
+
+	for _, policy := range listOutput.AttachedPolicies {
+		if strings.HasPrefix(*policy.PolicyName, "otterize-") || strings.HasPrefix(*policy.PolicyName, "otr-") {
+			_, err = a.iamClient.UntagPolicy(ctx, &iam.UntagPolicyInput{PolicyArn: policy.PolicyArn, TagKeys: []string{softDeletionStrategyTagKey}})
+			if err != nil {
+				return errors.Errorf("failed to unset policy soft delete strategy tag: %w", err)
 			}
 		}
 	}
