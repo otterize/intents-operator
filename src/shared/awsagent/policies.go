@@ -9,11 +9,40 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"time"
 )
+
+func (a *Agent) IntentType() otterizev1alpha3.IntentType {
+	return otterizev1alpha3.IntentTypeAWS
+}
+
+func (a *Agent) createPolicyFromIntents(intents []otterizev1alpha3.Intent) PolicyDocument {
+	policy := PolicyDocument{
+		Version: "2012-10-17",
+	}
+
+	for _, intent := range intents {
+		awsResource := intent.Name
+		actions := intent.AWSActions
+
+		policy.Statement = append(policy.Statement, StatementEntry{
+			Effect:   "Allow",
+			Resource: awsResource,
+			Action:   actions,
+		})
+	}
+
+	return policy
+}
+
+func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
+	policyDoc := a.createPolicyFromIntents(intents)
+	return a.AddRolePolicy(ctx, namespace, accountName, intentsServiceName, policyDoc.Statement)
+}
 
 func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName string, intentsServiceName string, statements []StatementEntry) error {
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
@@ -35,6 +64,10 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	})
 	if err != nil {
 		if isNoSuchEntityException(err) {
+			if len(statements) == 0 {
+				// nothing to do
+				return nil
+			}
 			_, err := a.createPolicy(ctx, role, namespace, intentsServiceName, statements, softDeletionStrategyEnabled)
 			return errors.Wrap(err)
 		}

@@ -131,3 +131,7 @@ func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Clu
 
 	return describeClusterOutput.Cluster, nil
 }
+
+func (a *Agent) ApplyOnPodLabel() string {
+	return "credentials-operator.otterize.com/create-aws-role"
+}

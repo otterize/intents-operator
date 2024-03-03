@@ -253,6 +253,7 @@ type ClusterConfiguration {
 	useIstioPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useAWSIAMInAccessGraphStates: Boolean!
+	useGCPIAMInAccessGraphStates: Boolean!
 	useAzureIAMInAccessGraphStates: Boolean!
 	useDatabaseInAccessGraphStates: Boolean!
 	clusterFormSettings: ClusterFormSettings!
@@ -265,6 +266,7 @@ input ClusterConfigurationInput {
 	useIstioPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useAWSIAMInAccessGraphStates: Boolean
+	useGCPIAMInAccessGraphStates: Boolean
 	useAzureIAMInAccessGraphStates: Boolean
 	useDatabaseInAccessGraphStates: Boolean
 	clusterFormSettings: ClusterFormSettingsInput
@@ -457,6 +459,7 @@ type EdgeAccessStatuses {
 	kafkaACLs: EdgeAccessStatus!
 	istioPolicies: EdgeAccessStatus!
 	awsIam: EdgeAccessStatus!
+	gcpIam: EdgeAccessStatus!
 	azureIAM: EdgeAccessStatus!
 	database: EdgeAccessStatus!
 }
@@ -514,6 +517,21 @@ input ExternalTrafficIntentInput {
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
 scalar Float
 
+type GCPInfo {
+	region: String!
+	namespace: String!
+	gcpProjectName: String!
+	gkeClusterName: String!
+}
+
+input GCPInfoInput {
+	region: String!
+	namespace: String!
+	clusterId: String!
+	gcpProjectName: String!
+	gkeClusterName: String!
+}
+
 type GCPPubSubLogConsumerSettings {
 	projectId: String!
 	topic: String!
@@ -522,6 +540,10 @@ type GCPPubSubLogConsumerSettings {
 input GCPPubSubLogConsumerSettingsInput {
 	projectId: String!
 	topic: String!
+}
+
+type GCPResource {
+	resource: String!
 }
 
 type GitHubAccessGraphFilter {
@@ -618,6 +640,7 @@ type Integration {
 	cluster: Cluster
 	databaseInfo: DatabaseInfo
 	awsInfo: AWSInfo
+	gcpInfo: GCPInfo
 	azureInfo: AzureInfo
 	githubSettings: GitHubSettings
 	organizationId: String!
@@ -639,6 +662,7 @@ enum IntegrationType {
 	KUBERNETES
 	DATABASE
 	AWS
+	GCP
 	GITHUB
 	AZURE
 }
@@ -653,6 +677,7 @@ type Intent {
 	databaseResources: [DatabaseConfig!]
 	awsActions: [String!]
 	azureRoles: [String!]
+	gcpPermissions: [String!]
 	internet: InternetConfig
 	status: IntentStatus
 }
@@ -668,6 +693,7 @@ input IntentInput {
 	databaseResources: [DatabaseConfigInput!]
 	awsActions: [String!]
 	azureRoles: [String!]
+	gcpPermissions: [String!]
 	internet: InternetConfigInput
 	status: IntentStatusInput
 }
@@ -688,6 +714,7 @@ enum IntentType {
 	KAFKA
 	DATABASE
 	AWS
+	GCP
 	AZURE
 	S3
 	INTERNET
@@ -705,6 +732,7 @@ type IntentsOperatorConfiguration {
 	kafkaACLEnforcementEnabled: Boolean!
 	istioPolicyEnforcementEnabled: Boolean!
 	awsIAMPolicyEnforcementEnabled: Boolean!
+	gcpIAMPolicyEnforcementEnabled: Boolean!
 	azureIAMPolicyEnforcementEnabled: Boolean!
 	databaseEnforcementEnabled: Boolean!
 	protectedServicesEnabled: Boolean!
@@ -720,6 +748,7 @@ input IntentsOperatorConfigurationInput {
 	protectedServicesEnabled: Boolean
 	egressNetworkPolicyEnforcementEnabled: Boolean
 	awsIAMPolicyEnforcementEnabled: Boolean
+	gcpIAMPolicyEnforcementEnabled: Boolean
 	azureIAMPolicyEnforcementEnabled: Boolean
 	databaseEnforcementEnabled: Boolean
 }
@@ -948,6 +977,11 @@ type Mutation {
 		name: String!
 		githubSettings: GitHubSettingsInput!
 	): CreateGithubIntegrationResponse
+"""Create a new GCP integration"""
+	createGCPIntegration(
+		name: String!
+		gcpIntegration: GCPInfoInput!
+	): Integration
 """Update Github integration"""
 	updateGithubIntegration(
 		id: ID!
@@ -960,6 +994,12 @@ type Mutation {
 		name: String
 		environmentId: ID
 		awsIntegration: AWSInfoInput
+	): Integration
+"""Update GCP integration"""
+	updateGCPIntegration(
+		id: ID!
+		name: String
+		gcpIntegration: GCPInfoInput
 	): Integration
 """Update Generic integration"""
 	updateGenericIntegration(
@@ -1353,6 +1393,7 @@ type Service {
 	certificateInformation: CertificateInformation
 	serviceAccount: String
 	awsResource: AWSResource
+	gcpResource: GCPResource
 	azureResource: AzureResource
 	discoveredByIntegration: Integration
 	tlsKeyPair: KeyPair!
@@ -1388,6 +1429,7 @@ enum ServiceType {
 	KUBERNETES
 	KAFKA
 	AWS
+	GCP
 	AZURE
 	DATABASE
 	INTERNET
