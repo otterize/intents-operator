@@ -387,11 +387,10 @@ func (r *Reconciler) removeNetworkPoliciesThatShouldNotExist(ctx context.Context
 
 	err = r.List(ctx, networkPolicyList, &client.ListOptions{LabelSelector: selector})
 	if err != nil {
-		logrus.Infof("Error listing network policies: %s", err.Error())
 		return errors.Wrap(err)
 	}
 
-	logrus.Infof("Selector: %s found %d network policies", selector.String(), len(networkPolicyList.Items))
+	logrus.Debugf("Selector: %s found %d network policies", selector.String(), len(networkPolicyList.Items))
 	for _, networkPolicy := range networkPolicyList.Items {
 		namespacedName := types.NamespacedName{Namespace: networkPolicy.Namespace, Name: networkPolicy.Name}
 		if !netpolNamesThatShouldExist.Contains(namespacedName) {
@@ -425,7 +424,7 @@ func (r *Reconciler) removeNetworkPolicy(ctx context.Context, networkPolicy v1.N
 }
 
 func (r *Reconciler) removeDeprecatedNetworkPolicies(ctx context.Context) error {
-	logrus.Info("Searching for network policies with deprecated labels")
+	logrus.Debug("Searching for network policies with deprecated labels")
 	deprecatedLabels := []string{otterizev1alpha3.OtterizeEgressNetworkPolicy, otterizev1alpha3.OtterizeSvcEgressNetworkPolicy, otterizev1alpha3.OtterizeInternetNetworkPolicy, otterizev1alpha3.OtterizeSvcNetworkPolicy}
 	deletedCount := 0
 	for _, label := range deprecatedLabels {
@@ -444,14 +443,13 @@ func (r *Reconciler) removeDeprecatedNetworkPolicies(ctx context.Context) error 
 
 		err = r.List(ctx, networkPolicyList, &client.ListOptions{LabelSelector: selector})
 		if err != nil {
-			logrus.Infof("Error listing network policies: %s", err.Error())
 			return errors.Wrap(err)
 		}
 
-		logrus.Infof("Selector: %s found %d network policies", selector.String(), len(networkPolicyList.Items))
+		logrus.Debugf("Selector: %s found %d network policies", selector.String(), len(networkPolicyList.Items))
 		for _, networkPolicy := range networkPolicyList.Items {
 			serverName := networkPolicy.Labels[label]
-			logrus.Infof("Removing deptecated network policy: %s server %s ns %s", networkPolicy.Name, serverName, networkPolicy.Namespace)
+			logrus.Debugf("Removing deptecated network policy: %s server %s ns %s", networkPolicy.Name, serverName, networkPolicy.Namespace)
 			err = r.removeNetworkPolicy(ctx, networkPolicy)
 			if err != nil {
 				return errors.Wrap(err)
