@@ -381,7 +381,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		netpol := &v1.NetworkPolicy{}
 		_ = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, netpol)
-		assert.True(netpol != nil)
+		assert.NotNil(netpol)
 		assert.True(len(netpol.Spec.Ingress) == 1)
 	})
 
