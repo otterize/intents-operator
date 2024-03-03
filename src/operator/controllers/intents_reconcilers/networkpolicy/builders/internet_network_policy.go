@@ -32,6 +32,10 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 		return intent.Type == otterizev1alpha3.IntentTypeInternet
 	})
 
+	if len(intents) == 0 {
+		return make([]v1.NetworkPolicyEgressRule, 0), nil
+	}
+
 	for _, intent := range intents {
 		peers, ports, ok, err := r.buildRuleForIntent(intent, ep)
 		if err != nil {
@@ -44,6 +48,9 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 			To:    peers,
 			Ports: ports,
 		})
+	}
+	if len(rules) == 0 {
+		return nil, errors.New("cannot create rules for internet network policy")
 	}
 	return rules, nil
 }
@@ -91,15 +98,8 @@ func (r *InternetEgressRulesBuilder) getIpsForDNS(intent otterizev1alpha3.Intent
 }
 func (r *InternetEgressRulesBuilder) parseIps(ips []string) ([]v1.NetworkPolicyPeer, error) {
 	var cidrs []string
-	for _, ip := range ips {
-		var cidr string
-		if !strings.Contains(ip, "/") {
-			cidr = fmt.Sprintf("%s/32", ip)
-		} else {
-			cidr = ip
-		}
-
-		_, _, err := net.ParseCIDR(cidr)
+	for _, ipStr := range ips {
+		cidr, err := getCIDR(ipStr)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
@@ -133,4 +133,27 @@ func (r *InternetEgressRulesBuilder) parsePorts(intent otterizev1alpha3.Intent) 
 
 func (r *InternetEgressRulesBuilder) Build(_ context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyEgressRule, error) {
 	return r.buildEgressRules(ep)
+}
+
+func getCIDR(ipStr string) (string, error) {
+	cidr := ipStr
+	if !strings.Contains(ipStr, "/") {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			return "", errors.New(fmt.Sprintf("invalid IP: %s", ipStr))
+		}
+		isV6 := ip.To4() == nil
+
+		if isV6 {
+			cidr = fmt.Sprintf("%s/128", ip)
+		} else {
+			cidr = fmt.Sprintf("%s/32", ip)
+		}
+	}
+
+	_, _, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", errors.Wrap(err)
+	}
+	return cidr, nil
 }

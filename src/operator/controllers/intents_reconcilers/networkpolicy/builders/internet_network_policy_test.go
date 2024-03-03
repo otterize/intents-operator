@@ -887,10 +887,10 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 }
 
 func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForDNS() {
-	s.Reconciler.enforcementDefaultState = true
+	s.Reconciler.EnforcementDefaultState = true
 
 	clientIntentsName := "client-intents"
-	policyName := "egress-to-internet-from-test-client"
+	policyName := "test-client-access"
 	serviceName := "test-client"
 	clientNamespace := testClientNamespace
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
@@ -949,16 +949,17 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForDNS() {
 			Name:      policyName,
 			Namespace: clientNamespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeInternetNetworkPolicy: formattedTargetClient,
+				otterizev1alpha3.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeClientLabelKey: formattedTargetClient,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
+			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
@@ -976,16 +977,17 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForDNS() {
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
 	s.ignoreRemoveOrphan()
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), gomock.Any(), gomock.Any())
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
 	s.ExpectEvent(consts.ReasonIntentToUnresolvedDns)
-	s.ExpectEvent(consts.ReasonCreatedInternetEgressNetworkPolicies)
+	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
 func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForAnyDNS() {
-	s.Reconciler.enforcementDefaultState = true
+	s.Reconciler.EnforcementDefaultState = true
 
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
