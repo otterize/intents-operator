@@ -109,7 +109,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 	serviceName := "test-client"
 	clientNamespace := testClientNamespace
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
-	ips := []string{"10.1.2.2/32", "254.3.4.0/24"}
+	ips := []string{"10.1.2.2", "254.3.4.0/24", "2620:0:860:ed1a::1", "2607:f8b0:4001:c05::63/64"}
 
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
@@ -167,12 +167,22 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 					To: []v1.NetworkPolicyPeer{
 						{
 							IPBlock: &v1.IPBlock{
-								CIDR: ips[0],
+								CIDR: ips[0] + "/32",
 							},
 						},
 						{
 							IPBlock: &v1.IPBlock{
 								CIDR: ips[1],
+							},
+						},
+						{
+							IPBlock: &v1.IPBlock{
+								CIDR: ips[2] + "/128",
+							},
+						},
+						{
+							IPBlock: &v1.IPBlock{
+								CIDR: ips[3],
 							},
 						},
 					},
@@ -200,7 +210,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS
 	clientNamespace := testClientNamespace
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
 	dns := "wiki.otters.com"
-	ips := []string{"10.1.2.2/32", "254.3.4.0/24"}
+	ips := []string{"10.1.2.2", "254.3.4.0", "2620:0:860:ed1a::1"}
 
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
@@ -269,12 +279,17 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS
 					To: []v1.NetworkPolicyPeer{
 						{
 							IPBlock: &v1.IPBlock{
-								CIDR: ips[0],
+								CIDR: ips[0] + "/32",
 							},
 						},
 						{
 							IPBlock: &v1.IPBlock{
-								CIDR: ips[1],
+								CIDR: ips[1] + "/32",
+							},
+						},
+						{
+							IPBlock: &v1.IPBlock{
+								CIDR: ips[2] + "/128",
 							},
 						},
 					},

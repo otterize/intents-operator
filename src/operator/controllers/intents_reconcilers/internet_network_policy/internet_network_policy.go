@@ -280,15 +280,8 @@ func (r *InternetNetworkPolicyReconciler) getIpsForDNS(intent otterizev1alpha3.I
 
 func (r *InternetNetworkPolicyReconciler) parseIps(ips []string) ([]v1.NetworkPolicyPeer, error) {
 	var cidrs []string
-	for _, ip := range ips {
-		var cidr string
-		if !strings.Contains(ip, "/") {
-			cidr = fmt.Sprintf("%s/32", ip)
-		} else {
-			cidr = ip
-		}
-
-		_, _, err := net.ParseCIDR(cidr)
+	for _, ipStr := range ips {
+		cidr, err := getCIDR(ipStr)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
@@ -305,6 +298,30 @@ func (r *InternetNetworkPolicyReconciler) parseIps(ips []string) ([]v1.NetworkPo
 		})
 	}
 	return peers, nil
+}
+
+func getCIDR(ipStr string) (string, error) {
+	cidr := ipStr
+
+	if !strings.Contains(ipStr, "/") {
+		ip := net.ParseIP(ipStr)
+		if ip == nil {
+			return "", errors.New(fmt.Sprintf("invalid IP: %s", ipStr))
+		}
+		isV6 := ip.To4() == nil
+
+		if isV6 {
+			cidr = fmt.Sprintf("%s/128", ip)
+		} else {
+			cidr = fmt.Sprintf("%s/32", ip)
+		}
+	}
+
+	_, _, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", errors.Wrap(err)
+	}
+	return cidr, nil
 }
 
 func (r *InternetNetworkPolicyReconciler) parsePorts(intent otterizev1alpha3.Intent) []v1.NetworkPolicyPort {
