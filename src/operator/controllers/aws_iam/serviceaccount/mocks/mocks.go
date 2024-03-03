@@ -36,18 +36,18 @@ func (m *MockAWSRolePolicyManager) EXPECT() *MockAWSRolePolicyManagerMockRecorde
 }
 
 // CreateOtterizeIAMRole mocks base method.
-func (m *MockAWSRolePolicyManager) CreateOtterizeIAMRole(ctx context.Context, namespace, name string) (*types.Role, error) {
+func (m *MockAWSRolePolicyManager) CreateOtterizeIAMRole(ctx context.Context, namespace, name string, markAsUnusedInsteadOfDelete bool) (*types.Role, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateOtterizeIAMRole", ctx, namespace, name)
+	ret := m.ctrl.Call(m, "CreateOtterizeIAMRole", ctx, namespace, name, markAsUnusedInsteadOfDelete)
 	ret0, _ := ret[0].(*types.Role)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CreateOtterizeIAMRole indicates an expected call of CreateOtterizeIAMRole.
-func (mr *MockAWSRolePolicyManagerMockRecorder) CreateOtterizeIAMRole(ctx, namespace, name interface{}) *gomock.Call {
+func (mr *MockAWSRolePolicyManagerMockRecorder) CreateOtterizeIAMRole(ctx, namespace, name, markAsUnusedInsteadOfDelete interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOtterizeIAMRole", reflect.TypeOf((*MockAWSRolePolicyManager)(nil).CreateOtterizeIAMRole), ctx, namespace, name)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOtterizeIAMRole", reflect.TypeOf((*MockAWSRolePolicyManager)(nil).CreateOtterizeIAMRole), ctx, namespace, name, markAsUnusedInsteadOfDelete)
 }
 
 // DeleteOtterizeIAMRole mocks base method.
