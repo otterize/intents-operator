@@ -34,14 +34,14 @@ type RulesBuilderTestSuiteBase struct {
 	testbase.MocksSuiteBase
 	Reconciler            *networkpolicy.Reconciler
 	EPIntentsReconciler   *intents_reconcilers.ServiceEffectivePolicyIntentsReconciler
-	externalNetpolHandler *mocks.MockexternalNetpolHandler
+	externalNetpolHandler *mocks.MockExternalNetpolHandler
 	scheme                *runtime.Scheme
 }
 
 func (s *RulesBuilderTestSuiteBase) SetupTest() {
 	logrus.SetLevel(logrus.DebugLevel)
 	s.MocksSuiteBase.SetupTest()
-	s.externalNetpolHandler = mocks.NewMockexternalNetpolHandler(s.Controller)
+	s.externalNetpolHandler = mocks.NewMockExternalNetpolHandler(s.Controller)
 	restrictToNamespaces := make([]string, 0)
 
 	s.scheme = runtime.NewScheme()
