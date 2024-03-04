@@ -74,7 +74,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 
 	listOption := &client.ListOptions{Namespace: testNamespace}
 	labelSelector := labels.SelectorFromSet(map[string]string{
-		"intents.otterize.com/server": "test-client-test-namespace-537e87",
+		"intents.otterize.com/service": "test-client-test-namespace-537e87",
 	})
 
 	labelMatcher := client.MatchingLabelsSelector{Selector: labelSelector}
@@ -147,7 +147,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddedTruncatedNameAnd
 
 	listOption := &client.ListOptions{Namespace: longNamespace}
 	labelSelector := labels.SelectorFromSet(map[string]string{
-		"intents.otterize.com/server": "test-client-with-a-v-test-namespace-14e99d",
+		"intents.otterize.com/service": "test-client-with-a-v-test-namespace-14e99d",
 	})
 
 	labelMatcher := client.MatchingLabelsSelector{Selector: labelSelector}
@@ -230,7 +230,7 @@ func (s *PodLabelReconcilerTestSuite) testClientAccessLabelRemovedWithParams(pod
 	// Now the reconciler should handle the deletion of the client intents
 	listOption := &client.ListOptions{Namespace: testNamespace}
 	labelSelector := labels.SelectorFromSet(map[string]string{
-		"intents.otterize.com/server": "test-client-test-namespace-537e87",
+		"intents.otterize.com/service": "test-client-test-namespace-537e87",
 	})
 
 	labelMatcher := client.MatchingLabelsSelector{Selector: labelSelector}
@@ -311,7 +311,7 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 
 	listOption := &client.ListOptions{Namespace: testNamespace}
 	labelSelector := labels.SelectorFromSet(map[string]string{
-		"intents.otterize.com/server": "test-client-test-namespace-537e87",
+		"intents.otterize.com/service": "test-client-test-namespace-537e87",
 	})
 
 	labelMatcher := client.MatchingLabelsSelector{Selector: labelSelector}
@@ -494,7 +494,7 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddFailedPatch() {
 
 	listOption := &client.ListOptions{Namespace: testNamespace}
 	labelSelector := labels.SelectorFromSet(map[string]string{
-		"intents.otterize.com/server": "test-client-test-namespace-537e87",
+		"intents.otterize.com/service": "test-client-test-namespace-537e87",
 	})
 
 	labelMatcher := client.MatchingLabelsSelector{Selector: labelSelector}

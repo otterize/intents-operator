@@ -39,6 +39,9 @@ type IAMClient interface {
 	CreatePolicy(ctx context.Context, i *iam.CreatePolicyInput, opts ...func(*iam.Options)) (*iam.CreatePolicyOutput, error)
 	CreatePolicyVersion(ctx context.Context, i *iam.CreatePolicyVersionInput, opts ...func(*iam.Options)) (*iam.CreatePolicyVersionOutput, error)
 	TagPolicy(ctx context.Context, i *iam.TagPolicyInput, opts ...func(*iam.Options)) (*iam.TagPolicyOutput, error)
+	TagRole(ctx context.Context, i *iam.TagRoleInput, opts ...func(*iam.Options)) (*iam.TagRoleOutput, error)
+	UntagPolicy(ctx context.Context, params *iam.UntagPolicyInput, optFns ...func(*iam.Options)) (*iam.UntagPolicyOutput, error)
+	UntagRole(ctx context.Context, params *iam.UntagRoleInput, optFns ...func(*iam.Options)) (*iam.UntagRoleOutput, error)
 	AttachRolePolicy(ctx context.Context, i *iam.AttachRolePolicyInput, opts ...func(*iam.Options)) (*iam.AttachRolePolicyOutput, error)
 }
 

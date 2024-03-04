@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"strings"
+	"time"
 )
 import "github.com/aws/aws-sdk-go-v2/service/iam"
 
@@ -37,7 +38,6 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 				logger.WithError(err).Debug("role not found")
 				return false, nil, nil
 			default:
-				logger.WithError(err).Error("unable to get role")
 				return false, nil, errors.Wrap(err)
 			}
 		}
@@ -47,7 +47,7 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 }
 
 // CreateOtterizeIAMRole creates a new IAM role for service, if one doesn't exist yet
-func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accountName string) (*types.Role, error) {
+func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accountName string, useSoftDeleteStrategy bool) (*types.Role, error) {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
 	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
 
@@ -57,43 +57,69 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 
 	if exists {
 		logger.Debugf("found existing role, arn: %s", *role.Arn)
+		// check if it is soft deleted - if so remove soft deleted tag
+		if hasSoftDeletedTagSet(role.Tags) {
+			logger.Debug("role is tagged unused, untagging")
+			// There is no need to untag the role's policies from this context, It will happen if the policy will be created again
+			_, err := a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{softDeletedTagKey}})
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+			// Intentionally not returning here, as we want to continue and check if we need to mark as soft delete only
+		}
+		if useSoftDeleteStrategy {
+			err = a.setRoleSoftDeleteStrategyTag(ctx, role)
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+		}
+		if !useSoftDeleteStrategy {
+			err = a.UnsetRoleSoftDeleteStrategyTag(ctx, role)
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+		}
+
 		return role, nil
-	} else {
-		trustPolicy, err := a.generateTrustPolicy(namespaceName, accountName)
-
-		if err != nil {
-			return nil, errors.Wrap(err)
-		}
-
-		createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
-			RoleName:                 aws.String(a.generateRoleName(namespaceName, accountName)),
-			AssumeRolePolicyDocument: aws.String(trustPolicy),
-			Tags: []types.Tag{
-				{
-					Key:   aws.String(serviceAccountNameTagKey),
-					Value: aws.String(accountName),
-				},
-				{
-					Key:   aws.String(serviceAccountNamespaceTagKey),
-					Value: aws.String(namespaceName),
-				},
-				{
-					Key:   aws.String(clusterNameTagKey),
-					Value: aws.String(a.clusterName),
-				},
-			},
-			Description:         aws.String(iamRoleDescription),
-			PermissionsBoundary: aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.accountID, a.clusterName)),
-		})
-
-		if createRoleError != nil {
-			logger.WithError(createRoleError).Error("failed to create role")
-			return nil, createRoleError
-		}
-
-		logger.Debugf("created new role, arn: %s", *createRoleOutput.Role.Arn)
-		return createRoleOutput.Role, nil
 	}
+
+	trustPolicy, err := a.generateTrustPolicy(namespaceName, accountName)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	tags := []types.Tag{
+		{
+			Key:   aws.String(serviceAccountNameTagKey),
+			Value: aws.String(accountName),
+		},
+		{
+			Key:   aws.String(serviceAccountNamespaceTagKey),
+			Value: aws.String(namespaceName),
+		},
+		{
+			Key:   aws.String(clusterNameTagKey),
+			Value: aws.String(a.clusterName),
+		},
+	}
+	if useSoftDeleteStrategy {
+		tags = append(tags, types.Tag{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)})
+	}
+	createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
+		RoleName:                 aws.String(a.generateRoleName(namespaceName, accountName)),
+		AssumeRolePolicyDocument: aws.String(trustPolicy),
+		Tags:                     tags,
+		Description:              aws.String(iamRoleDescription),
+		PermissionsBoundary:      aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.accountID, a.clusterName)),
+	})
+
+	if createRoleError != nil {
+		return nil, errors.Wrap(createRoleError)
+	}
+
+	logger.Debugf("created new role, arn: %s", *createRoleOutput.Role.Arn)
+	return createRoleOutput.Role, nil
+
 }
 
 func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accountName string) error {
@@ -123,7 +149,12 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 		return errors.Errorf("attempted to delete role with incorrect cluster name: expected '%s' but got '%s'", a.clusterName, taggedClusterName)
 	}
 
-	err = a.deleteAllRolePolicies(ctx, namespaceName, role)
+	if HasSoftDeleteStrategyTagSet(role.Tags) {
+		logger.Debug("role has softDeleteStrategy tag, tagging as unused")
+		return a.SoftDeleteOtterizeIAMRole(ctx, role)
+	}
+
+	err = a.deleteAllRolePolicies(ctx, role)
 
 	if err != nil {
 		return errors.Wrap(err)
@@ -134,7 +165,24 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	})
 
 	if err != nil {
-		logger.WithError(err).Errorf("failed to delete role")
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (a *Agent) SoftDeleteOtterizeIAMRole(ctx context.Context, role *types.Role) error {
+	err := a.SoftDeleteAllRolePolicies(ctx, role)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	_, err = a.iamClient.TagRole(ctx, &iam.TagRoleInput{
+		RoleName: role.RoleName,
+		Tags:     []types.Tag{{Key: aws.String(softDeletedTagKey), Value: aws.String(time.Now().String())}},
+	})
+
+	if err != nil {
 		return errors.Wrap(err)
 	}
 
@@ -142,7 +190,7 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 }
 
 // deleteAllRolePolicies deletes the inline role policy, if exists, in preparation to delete the role.
-func (a *Agent) deleteAllRolePolicies(ctx context.Context, namespace string, role *types.Role) error {
+func (a *Agent) deleteAllRolePolicies(ctx context.Context, role *types.Role) error {
 	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
 
 	if err != nil {
@@ -154,6 +202,86 @@ func (a *Agent) deleteAllRolePolicies(ctx context.Context, namespace string, rol
 			err = a.DeleteRolePolicy(ctx, *policy.PolicyName)
 			if err != nil {
 				return errors.Errorf("failed to delete policy: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// SoftDeleteAllRolePolicies marks all inline role policies as deleted.
+func (a *Agent) SoftDeleteAllRolePolicies(ctx context.Context, role *types.Role) error {
+	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
+
+	if err != nil {
+		return errors.Errorf("failed to list role attached policies: %w", err)
+	}
+
+	for _, policy := range listOutput.AttachedPolicies {
+		if strings.HasPrefix(*policy.PolicyName, "otterize-") || strings.HasPrefix(*policy.PolicyName, "otr-") {
+			err = a.softDeletePolicy(ctx, *policy.PolicyName)
+			if err != nil {
+				return errors.Errorf("failed to delete policy: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// setRoleSoftDeleteStrategyTag sets the soft delete strategy tag on the role
+func (a *Agent) setRoleSoftDeleteStrategyTag(ctx context.Context, role *types.Role) error {
+	err := a.setAllRolePoliciesSoftDeleteStrategyTag(ctx, role)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	_, err = a.iamClient.TagRole(ctx, &iam.TagRoleInput{RoleName: role.RoleName, Tags: []types.Tag{{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)}}})
+	return errors.Wrap(err)
+}
+
+// setAllRolePoliciesSoftDeleteStrategyTag sets the soft delete strategy tag on all inline role policies
+func (a *Agent) setAllRolePoliciesSoftDeleteStrategyTag(ctx context.Context, role *types.Role) error {
+	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
+
+	if err != nil {
+		return errors.Errorf("failed to list role attached policies: %w", err)
+	}
+
+	for _, policy := range listOutput.AttachedPolicies {
+		if strings.HasPrefix(*policy.PolicyName, "otterize-") || strings.HasPrefix(*policy.PolicyName, "otr-") {
+			_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{PolicyArn: policy.PolicyArn, Tags: []types.Tag{{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)}}})
+			if err != nil {
+				return errors.Errorf("failed to set policy soft delete strategy tag: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// UnsetRoleSoftDeleteStrategyTag removes the soft delete strategy tag from the role
+func (a *Agent) UnsetRoleSoftDeleteStrategyTag(ctx context.Context, role *types.Role) error {
+	err := a.unsetAllRolePoliciesSoftDeleteStrategyTag(ctx, role)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	_, err = a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{softDeletionStrategyTagKey}})
+	return errors.Wrap(err)
+}
+
+// unsetAllRolePoliciesSoftDeleteStrategyTag removes the soft delete strategy tag from all inline role policies
+func (a *Agent) unsetAllRolePoliciesSoftDeleteStrategyTag(ctx context.Context, role *types.Role) error {
+	listOutput, err := a.iamClient.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{RoleName: role.RoleName})
+
+	if err != nil {
+		return errors.Errorf("failed to list role attached policies: %w", err)
+	}
+
+	for _, policy := range listOutput.AttachedPolicies {
+		if strings.HasPrefix(*policy.PolicyName, "otterize-") || strings.HasPrefix(*policy.PolicyName, "otr-") {
+			_, err = a.iamClient.UntagPolicy(ctx, &iam.UntagPolicyInput{PolicyArn: policy.PolicyArn, TagKeys: []string{softDeletionStrategyTagKey}})
+			if err != nil {
+				return errors.Errorf("failed to unset policy soft delete strategy tag: %w", err)
 			}
 		}
 	}
