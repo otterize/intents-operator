@@ -19,6 +19,11 @@ import (
 	"strings"
 )
 
+const (
+	AWSPodLabel                        = "credentials-operator.otterize.com/create-aws-role"
+	ServiceManagedByAWSAgentAnnotation = "credentials-operator.otterize.com/managed-by-aws-agent"
+)
+
 type IAMClient interface {
 	ListAttachedRolePolicies(ctx context.Context, i *iam.ListAttachedRolePoliciesInput, opts ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error)
 	DeleteRole(ctx context.Context, i *iam.DeleteRoleInput, opts ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
@@ -130,5 +135,9 @@ func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Clu
 }
 
 func (a *Agent) ApplyOnPodLabel() string {
-	return "credentials-operator.otterize.com/create-aws-role"
+	return AWSPodLabel
+}
+
+func (a *Agent) ServiceManagedByLabel() string {
+	return ServiceManagedByAWSAgentAnnotation
 }

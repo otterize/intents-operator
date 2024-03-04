@@ -30,5 +30,3 @@ type StatementEntry struct {
 }
 
 const maxAWSNameLength = 64
-const truncatedHashLength = 6
-const maxTruncatedLength = maxAWSNameLength - truncatedHashLength - 1 // add another char for the hyphen

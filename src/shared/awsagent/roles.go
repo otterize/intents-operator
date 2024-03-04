@@ -2,12 +2,12 @@ package awsagent
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/aws/smithy-go"
+	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -195,18 +195,7 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 
 func (a *Agent) generateRoleName(namespace string, accountName string) string {
 	fullName := fmt.Sprintf("otr-%s.%s@%s", namespace, accountName, a.clusterName)
-
-	var truncatedName string
-	if len(fullName) >= (maxTruncatedLength) {
-		truncatedName = fullName[:maxTruncatedLength]
-	} else {
-		truncatedName = fullName
-	}
-
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fullName)))
-	hash = hash[:truncatedHashLength]
-
-	return fmt.Sprintf("%s-%s", truncatedName, hash)
+	return agentutils.TruncateHashName(fullName, maxAWSNameLength)
 }
 
 func (a *Agent) GenerateRoleARN(namespace string, accountName string) string {

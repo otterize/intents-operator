@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	EnvGcpProjectId = "gcp-project-id"
-	EnvGcpGkeName   = "gcp-eks-name"
-	GCPPodLabel     = "credentials-operator.otterize.com/create-gcp-sa"
+	EnvGcpProjectId                    = "gcp-project-id"
+	EnvGcpGkeName                      = "gcp-eks-name"
+	GCPPodLabel                        = "credentials-operator.otterize.com/create-gcp-sa"
+	ServiceManagedByGCPAgentAnnotation = "credentials-operator.otterize.com/managed-by-gcp-agent"
 )
 
 type Agent struct {
@@ -66,4 +67,8 @@ func getGCPAttribute(attribute string) (res string, err error) {
 
 func (a *Agent) ApplyOnPodLabel() string {
 	return GCPPodLabel
+}
+
+func (a *Agent) ServiceManagedByLabel() string {
+	return ServiceManagedByGCPAgentAnnotation
 }
