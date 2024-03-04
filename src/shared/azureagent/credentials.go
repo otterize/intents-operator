@@ -22,8 +22,12 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 	return nil
 }
 
-func (a *Agent) ReconcileServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
+func (a *Agent) ReconcileServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount, useSoftDeleteStrategy bool) (updated bool, requeue bool, err error) {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
+
+	if useSoftDeleteStrategy {
+		return false, false, errors.New("soft delete strategy not supported for Azure IAM")
+	}
 
 	if value, ok := serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation]; ok && value != AzureWorkloadIdentityClientIdNotSet {
 		// validate that the existing user assigned identity matches the annotated identity

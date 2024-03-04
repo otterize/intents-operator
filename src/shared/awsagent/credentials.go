@@ -25,38 +25,23 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 	return nil
 }
 
-func (a *Agent) ReconcileServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
+func (a *Agent) ReconcileServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount, useSoftDeleteStrategy bool) (updated bool, requeue bool, err error) {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
-	if _, ok := serviceAccount.Annotations[ServiceAccountAWSRoleARNAnnotation]; ok {
-		// validate the existing AWS role matches the annotated ARN
-		found, role, err := a.GetOtterizeRole(ctx, serviceAccount.Namespace, serviceAccount.Name)
-		if err != nil {
-			return false, false, errors.Errorf("failed getting AWS role: %w", err)
-		}
-
-		if found {
-			generatedRoleARN := *role.Arn
-			if generatedRoleARN != serviceAccount.Annotations[ServiceAccountAWSRoleARNAnnotation] {
-				logger.WithField("arn", generatedRoleARN).Debug("ServiceAccount AWS role exists, but annotation is misconfigured, should be updated")
-				serviceAccount.Annotations[ServiceAccountAWSRoleARNAnnotation] = generatedRoleARN
-				return true, false, nil
-			}
-			logger.WithField("arn", generatedRoleARN).Debug("ServiceAccount has matching AWS role")
-			return false, false, nil
-		}
-	}
-
-	// identity never created or not found, create it
-
-	role, err := a.CreateOtterizeIAMRole(ctx, serviceAccount.Namespace, serviceAccount.Name)
+	// calling create in any case because this way we validate it is not soft-deleted and it is configured with the correct soft-delete strategy
+	role, err := a.CreateOtterizeIAMRole(ctx, serviceAccount.Namespace, serviceAccount.Name, useSoftDeleteStrategy)
 	if err != nil {
 		return false, false, errors.Errorf("failed creating AWS role for service account: %w", err)
 	}
 	logger.WithField("arn", *role.Arn).Info("created AWS role for ServiceAccount")
 
+	roleARN, ok := serviceAccount.Annotations[ServiceAccountAWSRoleARNAnnotation]
+
+	// update annotation if it doesn't exist or if it is misconfigured
+	shouldUpdate := !ok || roleARN != *role.Arn
+
 	serviceAccount.Annotations[ServiceAccountAWSRoleARNAnnotation] = *role.Arn
-	return true, false, nil
+	return shouldUpdate, false, nil
 }
 
 func (a *Agent) DeleteServiceIAMRole(ctx context.Context, namespace string, name string) error {
