@@ -21,7 +21,7 @@ const (
 	OtterizeAWSUseSoftDeleteKey = "credentials-operator.otterize.com/aws-use-soft-delete"
 )
 
-func (a *Agent) ReconcileServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
+func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
 	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAWSAgentAnnotation] != "true" {
@@ -82,7 +82,7 @@ func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAc
 	return true
 }
 
-func (a *Agent) DeleteServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount) error {
+func (a *Agent) OnServiceAccountTermination(ctx context.Context, serviceAccount *corev1.ServiceAccount) error {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
 	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAWSAgentAnnotation] != "true" {
