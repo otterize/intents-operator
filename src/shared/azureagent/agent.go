@@ -8,6 +8,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -122,10 +123,6 @@ func (a *Agent) loadClusterOIDCIssuer(ctx context.Context) (string, error) {
 	return *cluster.Properties.OidcIssuerProfile.IssuerURL, nil
 }
 
-func (a *Agent) ApplyOnPodLabel() string {
-	return AzurePodLabel
-}
-
-func (a *Agent) ServiceManagedByLabel() string {
-	return ServiceManagedByAzureAgentAnnotation
+func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
+	return pod.Labels != nil && pod.Labels[AzurePodLabel] == "true"
 }

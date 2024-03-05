@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	corev1 "k8s.io/api/core/v1"
 	"strings"
 )
 
@@ -46,10 +47,11 @@ type IAMClient interface {
 }
 
 type Agent struct {
-	iamClient   IAMClient
-	accountID   string
-	oidcURL     string
-	clusterName string
+	iamClient                        IAMClient
+	accountID                        string
+	oidcURL                          string
+	clusterName                      string
+	markRolesAsUnusedInsteadOfDelete bool
 }
 
 func NewAWSAgent(
@@ -137,10 +139,10 @@ func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Clu
 	return describeClusterOutput.Cluster, nil
 }
 
-func (a *Agent) ApplyOnPodLabel() string {
-	return AWSPodLabel
+func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
+	return pod.Labels != nil && pod.Labels[AWSPodLabel] == "true"
 }
 
-func (a *Agent) ServiceManagedByLabel() string {
-	return ServiceManagedByAWSAgentAnnotation
+func (a *Agent) SetSoftDeleteStrategy(markRolesAsUnusedInsteadOfDelete bool) {
+	a.markRolesAsUnusedInsteadOfDelete = markRolesAsUnusedInsteadOfDelete
 }

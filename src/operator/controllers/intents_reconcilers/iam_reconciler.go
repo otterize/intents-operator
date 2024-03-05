@@ -19,7 +19,7 @@ import (
 
 type IAMPolicyAgent interface {
 	IntentType() otterizev1alpha3.IntentType
-	ApplyOnPodLabel() string
+	AppliesOnPod(pod *corev1.Pod) bool
 	AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error
 	DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev1alpha3.ClientIntents) error
 }
@@ -104,11 +104,7 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 }
 
 func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod corev1.Pod, intents otterizev1alpha3.ClientIntents, agent IAMPolicyAgent) error {
-	if pod.Labels == nil {
-		return nil
-	}
-
-	if pod.Labels[agent.ApplyOnPodLabel()] != "true" {
+	if !agent.AppliesOnPod(&pod) {
 		return nil
 	}
 

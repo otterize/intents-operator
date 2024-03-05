@@ -6,6 +6,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -65,10 +66,6 @@ func getGCPAttribute(attribute string) (res string, err error) {
 	return res, nil
 }
 
-func (a *Agent) ApplyOnPodLabel() string {
-	return GCPPodLabel
-}
-
-func (a *Agent) ServiceManagedByLabel() string {
-	return ServiceManagedByGCPAgentAnnotation
+func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
+	return pod.Labels != nil && pod.Labels[GCPPodLabel] == "true"
 }

@@ -13,16 +13,24 @@ const (
 	GCPWorkloadIdentityNotSet     = "false"
 )
 
-func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) error {
+func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) (updated bool) {
+	value, ok := pod.Labels[GCPPodLabel]
+	if !ok || value != "true" {
+		return false
+	}
+
+	serviceAccount.Labels[ServiceManagedByGCPAgentAnnotation] = "true"
 	serviceAccount.Annotations[GCPWorkloadIdentityAnnotation] = GCPWorkloadIdentityNotSet
-	return nil
+
+	return true
 }
 
-func (a *Agent) ReconcileServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount, useSoftDeleteStrategy bool) (updated bool, requeue bool, err error) {
+func (a *Agent) ReconcileServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
-	if useSoftDeleteStrategy {
-		return false, false, errors.New("soft delete strategy is not supported by GCP IAM")
+	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByGCPAgentAnnotation] != "true" {
+		logger.Debug("ServiceAccount is not managed by the GCP agent, skipping")
+		return false, false, nil
 	}
 
 	// Check if we should update the service account - if the annotation is not set
@@ -53,6 +61,13 @@ func (a *Agent) ReconcileServiceIAMRole(ctx context.Context, serviceAccount *cor
 	return true, false, nil
 }
 
-func (a *Agent) DeleteServiceIAMRole(ctx context.Context, namespace string, name string) error {
-	return a.DeleteGSA(ctx, namespace, name)
+func (a *Agent) DeleteServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount) error {
+	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
+
+	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByGCPAgentAnnotation] != "true" {
+		logger.Debug("ServiceAccount is not managed by the GCP agent, skipping")
+		return nil
+	}
+
+	return a.DeleteGSA(ctx, serviceAccount.Namespace, serviceAccount.Name)
 }

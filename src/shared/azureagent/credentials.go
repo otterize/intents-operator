@@ -15,18 +15,26 @@ const (
 	AzureWorkloadIdentityClientIdNotSet     = "false"
 )
 
-func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) error {
+func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) (updated bool) {
+	value, ok := pod.Labels[AzurePodLabel]
+	if !ok || value != "true" {
+		return false
+	}
+
+	serviceAccount.Labels[ServiceManagedByAzureAgentAnnotation] = "true"
+
 	pod.Labels[AzureUseWorkloadIdentityLabel] = AzureUseWorkloadIdentityValue
 	serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation] = AzureWorkloadIdentityClientIdNotSet
 
-	return nil
+	return true
 }
 
-func (a *Agent) ReconcileServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount, useSoftDeleteStrategy bool) (updated bool, requeue bool, err error) {
+func (a *Agent) ReconcileServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
-	if useSoftDeleteStrategy {
-		return false, false, errors.New("soft delete strategy not supported for Azure IAM")
+	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAzureAgentAnnotation] != "true" {
+		logger.Debug("ServiceAccount is not managed by the Azure agent, skipping")
+		return false, false, nil
 	}
 
 	if value, ok := serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation]; ok && value != AzureWorkloadIdentityClientIdNotSet {
@@ -59,6 +67,13 @@ func (a *Agent) ReconcileServiceIAMRole(ctx context.Context, serviceAccount *cor
 	return true, false, nil
 }
 
-func (a *Agent) DeleteServiceIAMRole(ctx context.Context, namespace string, name string) error {
-	return a.deleteUserAssignedIdentity(ctx, namespace, name)
+func (a *Agent) DeleteServiceIAMRole(ctx context.Context, serviceAccount *corev1.ServiceAccount) error {
+	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
+
+	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAzureAgentAnnotation] != "true" {
+		logger.Debug("ServiceAccount is not managed by the Azure agent, skipping")
+		return nil
+	}
+
+	return a.deleteUserAssignedIdentity(ctx, serviceAccount.Namespace, serviceAccount.Name)
 }
