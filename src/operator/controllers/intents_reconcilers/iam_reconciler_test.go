@@ -147,7 +147,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheGCPAgent() 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: testNamespace,
-			Labels:    map[string]string{gcpagent.GCPPodLabel: "true"},
+			Labels:    map[string]string{gcpagent.GCPApplyOnPodLabel: "true"},
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: clientServiceAccount,
@@ -221,7 +221,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: testNamespace,
-			Labels:    map[string]string{gcpagent.GCPPodLabel: "true"},
+			Labels:    map[string]string{gcpagent.GCPApplyOnPodLabel: "true"},
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: clientServiceAccount,
