@@ -8,6 +8,12 @@ import (
 )
 
 const (
+	// AWSApplyOnPodLabel is used to mark pods that should be processed by the AWS agent to create an associated AWS role
+	AWSApplyOnPodLabel = "credentials-operator.otterize.com/create-aws-role"
+
+	// ServiceManagedByAWSAgentLabel is used to mark service accounts that are managed by the AWS agent
+	ServiceManagedByAWSAgentLabel = "credentials-operator.otterize.com/managed-by-aws-agent"
+
 	// ServiceAccountAWSRoleARNAnnotation is used by EKS (Kubernetes at AWS) to link between service accounts
 	// and IAM roles
 	ServiceAccountAWSRoleARNAnnotation = "eks.amazonaws.com/role-arn"
@@ -21,10 +27,40 @@ const (
 	OtterizeAWSUseSoftDeleteKey = "credentials-operator.otterize.com/aws-use-soft-delete"
 )
 
+func (a *Agent) SetSoftDeleteStrategy(markRolesAsUnusedInsteadOfDelete bool) {
+	a.markRolesAsUnusedInsteadOfDelete = markRolesAsUnusedInsteadOfDelete
+}
+
+func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
+	return pod.Labels != nil && pod.Labels[AWSApplyOnPodLabel] == "true"
+}
+
+func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) (updated bool) {
+	if !a.AppliesOnPod(pod) {
+		return false
+	}
+
+	serviceAccount.Labels[ServiceManagedByAWSAgentLabel] = "true"
+
+	roleArn := a.GenerateRoleARN(serviceAccount.Namespace, serviceAccount.Name)
+	serviceAccount.Annotations[ServiceAccountAWSRoleARNAnnotation] = roleArn
+	pod.Annotations[OtterizeServiceAccountAWSRoleARNAnnotation] = roleArn
+
+	podUseSoftDeleteLabelValue, podUseSoftDeleteLabelExists := pod.Labels[OtterizeAWSUseSoftDeleteKey]
+	shouldMarkForSoftDelete := podUseSoftDeleteLabelExists && podUseSoftDeleteLabelValue == "true"
+	if shouldMarkForSoftDelete {
+		serviceAccount.Labels[OtterizeAWSUseSoftDeleteKey] = "true"
+	} else {
+		delete(serviceAccount.Labels, OtterizeAWSUseSoftDeleteKey)
+	}
+
+	return true
+}
+
 func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
-	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAWSAgentAnnotation] != "true" {
+	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAWSAgentLabel] != "true" {
 		logger.Debug("ServiceAccount is not managed by the AWS agent, skipping")
 		return false, false, nil
 	}
@@ -59,33 +95,10 @@ func (a *Agent) shouldUseSoftDeleteStrategy(serviceAccount *corev1.ServiceAccoun
 	return shouldSoftDelete && softDeleteValue == "true"
 }
 
-func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) (updated bool) {
-	value, ok := pod.Labels[AWSPodLabel]
-	if !ok || value != "true" {
-		return false
-	}
-
-	serviceAccount.Labels[ServiceManagedByAWSAgentAnnotation] = "true"
-
-	roleArn := a.GenerateRoleARN(serviceAccount.Namespace, serviceAccount.Name)
-	serviceAccount.Annotations[ServiceAccountAWSRoleARNAnnotation] = roleArn
-	pod.Annotations[OtterizeServiceAccountAWSRoleARNAnnotation] = roleArn
-
-	podUseSoftDeleteLabelValue, podUseSoftDeleteLabelExists := pod.Labels[OtterizeAWSUseSoftDeleteKey]
-	shouldMarkForSoftDelete := podUseSoftDeleteLabelExists && podUseSoftDeleteLabelValue == "true"
-	if shouldMarkForSoftDelete {
-		serviceAccount.Labels[OtterizeAWSUseSoftDeleteKey] = "true"
-	} else {
-		delete(serviceAccount.Labels, OtterizeAWSUseSoftDeleteKey)
-	}
-
-	return true
-}
-
 func (a *Agent) OnServiceAccountTermination(ctx context.Context, serviceAccount *corev1.ServiceAccount) error {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
-	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAWSAgentAnnotation] != "true" {
+	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAWSAgentLabel] != "true" {
 		logger.Debug("ServiceAccount is not managed by the Azure agent, skipping")
 		return nil
 	}

@@ -6,15 +6,12 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	EnvGcpProjectId                    = "gcp-project-id"
-	EnvGcpGkeName                      = "gcp-eks-name"
-	GCPPodLabel                        = "credentials-operator.otterize.com/create-gcp-sa"
-	ServiceManagedByGCPAgentAnnotation = "credentials-operator.otterize.com/managed-by-gcp-agent"
+	EnvGcpProjectId = "gcp-project-id"
+	EnvGcpGkeName   = "gcp-eks-name"
 )
 
 type Agent struct {
@@ -64,8 +61,4 @@ func getGCPAttribute(attribute string) (res string, err error) {
 		return "", errors.Errorf("%s environment variable is required", attribute)
 	}
 	return res, nil
-}
-
-func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
-	return pod.Labels != nil && pod.Labels[GCPPodLabel] == "true"
 }

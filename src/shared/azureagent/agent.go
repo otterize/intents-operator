@@ -7,13 +7,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
-)
-
-const (
-	AzurePodLabel                        = "credentials-operator.otterize.com/create-azure-role-assignment"
-	ServiceManagedByAzureAgentAnnotation = "credentials-operator.otterize.com/managed-by-azure-agent"
 )
 
 type Config struct {
@@ -40,27 +35,27 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 
 	credentials, err := azidentity.NewDefaultAzureCredential(nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	armmsiClientFactory, err := armmsi.NewClientFactory(conf.SubscriptionID, credentials, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	armauthorizationClientFactory, err := armauthorization.NewClientFactory(conf.SubscriptionID, credentials, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	resourceGroupsClient, err := armresources.NewResourceGroupsClient(conf.SubscriptionID, credentials, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	armcontainerserviceClientFactory, err := armcontainerservice.NewClientFactory(conf.SubscriptionID, credentials, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	userAssignedIdentitiesClient := armmsiClientFactory.NewUserAssignedIdentitiesClient()
@@ -68,15 +63,6 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	roleDefinitionsClient := armauthorizationClientFactory.NewRoleDefinitionsClient()
 	roleAssignmentsClient := armauthorizationClientFactory.NewRoleAssignmentsClient()
 	managedClustersClient := armcontainerserviceClientFactory.NewManagedClustersClient()
-
-	if conf.Location == "" {
-		resourceGroup, err := resourceGroupsClient.Get(ctx, conf.ResourceGroup, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		conf.Location = *resourceGroup.Location
-	}
 
 	agent := &Agent{
 		conf:                               conf,
@@ -89,40 +75,30 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 		managedClustersClient:              managedClustersClient,
 	}
 
-	if conf.Location == "" {
-		conf.Location, err = agent.loadLocation(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if conf.AKSClusterOIDCIssuerURL == "" {
-		conf.AKSClusterOIDCIssuerURL, err = agent.loadClusterOIDCIssuer(ctx)
-		if err != nil {
-			return nil, err
-		}
+	if err := agent.loadConfDefaults(ctx); err != nil {
+		return nil, errors.Wrap(err)
 	}
 
 	return agent, nil
 }
 
-func (a *Agent) loadLocation(ctx context.Context) (string, error) {
-	resourceGroup, err := a.resourceGroupsClient.Get(ctx, a.conf.ResourceGroup, nil)
-	if err != nil {
-		return "", err
+func (a *Agent) loadConfDefaults(ctx context.Context) error {
+	if a.conf.Location == "" {
+		resourceGroup, err := a.resourceGroupsClient.Get(ctx, a.conf.ResourceGroup, nil)
+		if err != nil {
+			return errors.Errorf("error querying for resource group: %w", err)
+		}
+
+		a.conf.Location = *resourceGroup.Location
+	}
+	if a.conf.AKSClusterOIDCIssuerURL == "" {
+		cluster, err := a.managedClustersClient.Get(ctx, a.conf.ResourceGroup, a.conf.AKSClusterName, nil)
+		if err != nil {
+			return errors.Errorf("error querying for managed cluster: %w", err)
+		}
+
+		a.conf.AKSClusterOIDCIssuerURL = *cluster.Properties.OidcIssuerProfile.IssuerURL
 	}
 
-	return *resourceGroup.Location, nil
-}
-
-func (a *Agent) loadClusterOIDCIssuer(ctx context.Context) (string, error) {
-	cluster, err := a.managedClustersClient.Get(ctx, a.conf.ResourceGroup, a.conf.AKSClusterName, nil)
-	if err != nil {
-		return "", err
-	}
-
-	return *cluster.Properties.OidcIssuerProfile.IssuerURL, nil
-}
-
-func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
-	return pod.Labels != nil && pod.Labels[AzurePodLabel] == "true"
+	return nil
 }

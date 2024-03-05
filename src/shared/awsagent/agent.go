@@ -16,13 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	corev1 "k8s.io/api/core/v1"
 	"strings"
-)
-
-const (
-	AWSPodLabel                        = "credentials-operator.otterize.com/create-aws-role"
-	ServiceManagedByAWSAgentAnnotation = "credentials-operator.otterize.com/managed-by-aws-agent"
 )
 
 type IAMClient interface {
@@ -137,12 +131,4 @@ func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Clu
 	}
 
 	return describeClusterOutput.Cluster, nil
-}
-
-func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
-	return pod.Labels != nil && pod.Labels[AWSPodLabel] == "true"
-}
-
-func (a *Agent) SetSoftDeleteStrategy(markRolesAsUnusedInsteadOfDelete bool) {
-	a.markRolesAsUnusedInsteadOfDelete = markRolesAsUnusedInsteadOfDelete
 }

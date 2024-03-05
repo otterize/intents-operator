@@ -9,21 +9,33 @@ import (
 )
 
 const (
-	AzureUseWorkloadIdentityLabel           = "azure.workload.identity/use"
-	AzureUseWorkloadIdentityValue           = "true"
+	// AzureApplyOnPodLabel is used to mark pods that should be processed by the Azure agent to create an associated Azure identity & role assignment
+	AzureApplyOnPodLabel = "credentials-operator.otterize.com/create-azure-role-assignment"
+
+	// ServiceManagedByAzureAgentLabel is used to mark service accounts that are managed by the Azure agent
+	ServiceManagedByAzureAgentLabel = "credentials-operator.otterize.com/managed-by-azure-agent"
+
+	// AzureUseWorkloadIdentityLabel is used by the azure workload identity mechanism to mark pods that should use workload identity
+	AzureUseWorkloadIdentityLabel = "azure.workload.identity/use"
+
+	// AzureWorkloadIdentityClientIdAnnotation is used by the azure workload identity mechanism to link between service accounts and user assigned identities
 	AzureWorkloadIdentityClientIdAnnotation = "azure.workload.identity/client-id"
-	AzureWorkloadIdentityClientIdNotSet     = "false"
+	// AzureWorkloadIdentityClientIdNotSet is used to indicate that the workload identity client ID is not set
+	AzureWorkloadIdentityClientIdNotSet = "false"
 )
 
+func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
+	return pod.Labels != nil && pod.Labels[AzureApplyOnPodLabel] == "true"
+}
+
 func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) (updated bool) {
-	value, ok := pod.Labels[AzurePodLabel]
-	if !ok || value != "true" {
+	if !a.AppliesOnPod(pod) {
 		return false
 	}
 
-	serviceAccount.Labels[ServiceManagedByAzureAgentAnnotation] = "true"
+	serviceAccount.Labels[ServiceManagedByAzureAgentLabel] = "true"
 
-	pod.Labels[AzureUseWorkloadIdentityLabel] = AzureUseWorkloadIdentityValue
+	pod.Labels[AzureUseWorkloadIdentityLabel] = "true"
 	serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation] = AzureWorkloadIdentityClientIdNotSet
 
 	return true
@@ -32,7 +44,7 @@ func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAc
 func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
-	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAzureAgentAnnotation] != "true" {
+	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAzureAgentLabel] != "true" {
 		logger.Debug("ServiceAccount is not managed by the Azure agent, skipping")
 		return false, false, nil
 	}
@@ -70,7 +82,7 @@ func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *core
 func (a *Agent) OnServiceAccountTermination(ctx context.Context, serviceAccount *corev1.ServiceAccount) error {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
-	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAzureAgentAnnotation] != "true" {
+	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByAzureAgentLabel] != "true" {
 		logger.Debug("ServiceAccount is not managed by the Azure agent, skipping")
 		return nil
 	}

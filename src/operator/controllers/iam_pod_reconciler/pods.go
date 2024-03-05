@@ -74,11 +74,19 @@ func (p *IAMPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	logger.Infof("Found %d intents for service", len(intents.Items))
+
 	for _, intent := range intents.Items {
-		return p.iamReconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{
+		result, err := p.iamReconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{
 			Name:      intent.Name,
 			Namespace: intent.Namespace,
 		}})
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+		if result.Requeue {
+			return result, nil
+		}
 	}
 
 	return ctrl.Result{}, nil

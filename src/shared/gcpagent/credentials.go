@@ -8,18 +8,27 @@ import (
 )
 
 const (
+	// GCPApplyOnPodLabel is used to mark pods that should be processed by the GCP agent to create an associated GCP service account
+	GCPApplyOnPodLabel = "credentials-operator.otterize.com/create-gcp-sa"
+
+	// ServiceManagedByGCPAgentLabel is used to mark service accounts that are managed by the GCP agent
+	ServiceManagedByGCPAgentLabel = "credentials-operator.otterize.com/managed-by-gcp-agent"
+
 	// GCPWorkloadIdentityAnnotation is used by GCP workload identity to link between service accounts
 	GCPWorkloadIdentityAnnotation = "iam.gke.io/gcp-service-account"
 	GCPWorkloadIdentityNotSet     = "false"
 )
 
+func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
+	return pod.Labels != nil && pod.Labels[GCPApplyOnPodLabel] == "true"
+}
+
 func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) (updated bool) {
-	value, ok := pod.Labels[GCPPodLabel]
-	if !ok || value != "true" {
+	if !a.AppliesOnPod(pod) {
 		return false
 	}
 
-	serviceAccount.Labels[ServiceManagedByGCPAgentAnnotation] = "true"
+	serviceAccount.Labels[ServiceManagedByGCPAgentLabel] = "true"
 	serviceAccount.Annotations[GCPWorkloadIdentityAnnotation] = GCPWorkloadIdentityNotSet
 
 	return true
@@ -28,7 +37,7 @@ func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAc
 func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
-	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByGCPAgentAnnotation] != "true" {
+	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByGCPAgentLabel] != "true" {
 		logger.Debug("ServiceAccount is not managed by the GCP agent, skipping")
 		return false, false, nil
 	}
@@ -64,7 +73,7 @@ func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *core
 func (a *Agent) OnServiceAccountTermination(ctx context.Context, serviceAccount *corev1.ServiceAccount) error {
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
-	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByGCPAgentAnnotation] != "true" {
+	if serviceAccount.Labels == nil || serviceAccount.Labels[ServiceManagedByGCPAgentLabel] != "true" {
 		logger.Debug("ServiceAccount is not managed by the GCP agent, skipping")
 		return nil
 	}
