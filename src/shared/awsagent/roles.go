@@ -14,8 +14,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"strings"
-	"time"
 	"sync"
+	"time"
 )
 import "github.com/aws/aws-sdk-go-v2/service/iam"
 
@@ -58,9 +58,9 @@ func (a *Agent) GetOtterizeProfile(ctx context.Context, namespaceName, serviceAc
 			}
 		}()
 		var nextToken *string = nil
-		output, err := a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
-		if err != nil {
-			err = errors.Errorf("failed to list profiles: %w", err)
+		output, listProfileErr := a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
+		if listProfileErr != nil {
+			err = errors.Errorf("failed to list profiles: %w", listProfileErr)
 			return
 		}
 
@@ -73,9 +73,9 @@ func (a *Agent) GetOtterizeProfile(ctx context.Context, namespaceName, serviceAc
 			for _, profile := range output.Profiles {
 				a.profileNameToId[*profile.Name] = *profile.ProfileId
 			}
-			output, err = a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
-			if err != nil {
-				err = errors.Errorf("failed to list profiles: %w", err)
+			output, listProfileErr = a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
+			if listProfileErr != nil {
+				err = errors.Errorf("failed to list profiles: %w", listProfileErr)
 				return
 			}
 		}
@@ -188,8 +188,8 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 	createRoleInput := &iam.CreateRoleInput{
 		RoleName:                 aws.String(a.generateRoleName(namespaceName, accountName)),
 		AssumeRolePolicyDocument: aws.String(trustPolicy),
-		Tags: tags,
-		Description: aws.String(iamRoleDescription),
+		Tags:                     tags,
+		Description:              aws.String(iamRoleDescription),
 	}
 	if a.trustAnchorArn == "" { // FIXME
 		createRoleInput.PermissionsBoundary = aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.accountID, a.clusterName))
