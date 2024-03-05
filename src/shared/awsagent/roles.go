@@ -289,7 +289,7 @@ func (a *Agent) generateTrustPolicyForRolesAnywhere(namespaceName, accountName s
 				},
 				Condition: map[string]any{
 					"StringEquals": map[string]string{
-						"aws:PrincipalTag/x509SAN/URI": fmt.Sprintf("spiffe://cert-manager-spiffe.mattiasgees.be/ns/%s/sa/%s", namespaceName, accountName),
+						"aws:PrincipalTag/x509SAN/URI": fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", a.trustDomain, namespaceName, accountName),
 					},
 					"ArnEquals": map[string]string{
 						"aws:SourceArn": a.trustAnchorArn,

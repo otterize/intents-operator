@@ -80,11 +80,13 @@ type Agent struct {
 	profileNameToId     map[string]string
 	profileCacheOnce    sync.Once
 	trustAnchorArn      string
+	trustDomain         string
 }
 
 func NewAWSAgent(
 	ctx context.Context,
 	trustAnchorArn string,
+	trustDomain string,
 ) (*Agent, error) {
 	logrus.Info("Initializing AWS Intents agent")
 
@@ -103,6 +105,7 @@ func NewAWSAgent(
 		rolesAnywhereClient: rolesAnywhereClient,
 		profileNameToId:     make(map[string]string),
 		trustAnchorArn:      trustAnchorArn,
+		trustDomain:         trustDomain,
 	}
 
 	if trustAnchorArn == "" {

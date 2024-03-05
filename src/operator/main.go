@@ -220,7 +220,7 @@ func main() {
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
-		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, os.Getenv("OTTERIZE_TRUST_ANCHOR_ARN"))
+		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, os.Getenv("OTTERIZE_TRUST_ANCHOR_ARN"), os.Getenv("OTTERIZE_TRUST_DOMAIN"))
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
 		}
