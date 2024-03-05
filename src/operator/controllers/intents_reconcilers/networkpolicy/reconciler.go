@@ -40,7 +40,7 @@ type IngressRuleBuilder interface {
 	InjectRecorder(recorder record.EventRecorder)
 }
 
-type externalNetpolHandler interface {
+type ExternalNetpolHandler interface {
 	HandlePodsByLabelSelector(ctx context.Context, namespace string, labelSelector labels.Selector) error
 	HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error
 }
@@ -54,13 +54,13 @@ type Reconciler struct {
 	injectablerecorder.InjectableRecorder
 	egressRuleBuilders  []EgressRuleBuilder
 	ingressRuleBuilders []IngressRuleBuilder
-	extNetpolHandler    externalNetpolHandler
+	extNetpolHandler    ExternalNetpolHandler
 }
 
 func NewReconciler(
 	c client.Client,
 	s *runtime.Scheme,
-	externalNetpolHandler externalNetpolHandler,
+	externalNetpolHandler ExternalNetpolHandler,
 	restrictToNamespaces []string,
 	enableNetworkPolicyCreation bool,
 	enforcementDefaultState bool,
