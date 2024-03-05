@@ -2,6 +2,13 @@
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
 **Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
+### Running the operator in debug mode
+1. Apply the CRDS to your cluster: `kubectl apply -k config/crd/`
+2. Set up your desired environment variables using src/shared/local.env file as template
+3. Run main.go with the configured environment variables
+
+** Note that the above setup does not support webhooks
+
 ### Running on the cluster
 1. Install Instances of Custom Resources:
 

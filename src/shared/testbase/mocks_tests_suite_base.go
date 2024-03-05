@@ -5,6 +5,8 @@ import (
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	"k8s.io/client-go/tools/record"
+	"strings"
+	"time"
 )
 
 const (
@@ -37,6 +39,24 @@ func (s *MocksSuiteBase) ExpectEvent(expectedEventReason string) {
 		s.Require().Contains(event, expectedEventReason)
 	default:
 		s.Fail("Expected event not found")
+	}
+}
+
+func (s *MocksSuiteBase) ExpectEventsOrderAndCountDontMatter(expectedEventReasons ...string) {
+	for {
+		select {
+		case event := <-s.Recorder.Events:
+			found := false
+			for _, reason := range expectedEventReasons {
+				if strings.Contains(event, reason) {
+					found = true
+					break
+				}
+			}
+			s.Require().True(found, "Expected event that contains one of the following reasons: %v.\nFound: %s", expectedEventReasons, event)
+		case <-time.After(100 * time.Millisecond):
+			return
+		}
 	}
 }
 

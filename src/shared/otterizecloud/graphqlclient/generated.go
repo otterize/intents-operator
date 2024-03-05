@@ -93,6 +93,8 @@ type IntentInput struct {
 	Resources         []*HTTPConfigInput     `json:"resources"`
 	DatabaseResources []*DatabaseConfigInput `json:"databaseResources"`
 	AwsActions        []*string              `json:"awsActions"`
+	AzureRoles        []*string              `json:"azureRoles"`
+	GcpPermissions    []*string              `json:"gcpPermissions"`
 	Internet          *InternetConfigInput   `json:"internet"`
 	Status            *IntentStatusInput     `json:"status"`
 }
@@ -124,6 +126,12 @@ func (v *IntentInput) GetDatabaseResources() []*DatabaseConfigInput { return v.D
 // GetAwsActions returns IntentInput.AwsActions, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetAwsActions() []*string { return v.AwsActions }
 
+// GetAzureRoles returns IntentInput.AzureRoles, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetAzureRoles() []*string { return v.AzureRoles }
+
+// GetGcpPermissions returns IntentInput.GcpPermissions, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetGcpPermissions() []*string { return v.GcpPermissions }
+
 // GetInternet returns IntentInput.Internet, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetInternet() *InternetConfigInput { return v.Internet }
 
@@ -144,6 +152,8 @@ const (
 	IntentTypeKafka    IntentType = "KAFKA"
 	IntentTypeDatabase IntentType = "DATABASE"
 	IntentTypeAws      IntentType = "AWS"
+	IntentTypeGcp      IntentType = "GCP"
+	IntentTypeAzure    IntentType = "AZURE"
 	IntentTypeS3       IntentType = "S3"
 	IntentTypeInternet IntentType = "INTERNET"
 )
@@ -155,6 +165,10 @@ type IntentsOperatorConfigurationInput struct {
 	IstioPolicyEnforcementEnabled         bool `json:"istioPolicyEnforcementEnabled"`
 	ProtectedServicesEnabled              bool `json:"protectedServicesEnabled"`
 	EgressNetworkPolicyEnforcementEnabled bool `json:"egressNetworkPolicyEnforcementEnabled"`
+	AwsIAMPolicyEnforcementEnabled        bool `json:"awsIAMPolicyEnforcementEnabled"`
+	GcpIAMPolicyEnforcementEnabled        bool `json:"gcpIAMPolicyEnforcementEnabled"`
+	AzureIAMPolicyEnforcementEnabled      bool `json:"azureIAMPolicyEnforcementEnabled"`
+	DatabaseEnforcementEnabled            bool `json:"databaseEnforcementEnabled"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -187,10 +201,34 @@ func (v *IntentsOperatorConfigurationInput) GetEgressNetworkPolicyEnforcementEna
 	return v.EgressNetworkPolicyEnforcementEnabled
 }
 
-type InternetConfigInput struct {
-	Ips   []*string `json:"ips"`
-	Ports []*int    `json:"ports"`
+// GetAwsIAMPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.AwsIAMPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAwsIAMPolicyEnforcementEnabled() bool {
+	return v.AwsIAMPolicyEnforcementEnabled
 }
+
+// GetGcpIAMPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.GcpIAMPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetGcpIAMPolicyEnforcementEnabled() bool {
+	return v.GcpIAMPolicyEnforcementEnabled
+}
+
+// GetAzureIAMPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.AzureIAMPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAzureIAMPolicyEnforcementEnabled() bool {
+	return v.AzureIAMPolicyEnforcementEnabled
+}
+
+// GetDatabaseEnforcementEnabled returns IntentsOperatorConfigurationInput.DatabaseEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetDatabaseEnforcementEnabled() bool {
+	return v.DatabaseEnforcementEnabled
+}
+
+type InternetConfigInput struct {
+	Domains []*string `json:"domains"`
+	Ips     []*string `json:"ips"`
+	Ports   []*int    `json:"ports"`
+}
+
+// GetDomains returns InternetConfigInput.Domains, and is useful for accessing the field via an interface.
+func (v *InternetConfigInput) GetDomains() []*string { return v.Domains }
 
 // GetIps returns InternetConfigInput.Ips, and is useful for accessing the field via an interface.
 func (v *InternetConfigInput) GetIps() []*string { return v.Ips }

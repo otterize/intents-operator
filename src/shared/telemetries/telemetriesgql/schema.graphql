@@ -114,6 +114,7 @@ type AccessGraphEdge {
 	discoveredIntents: [Intent!]!
 	appliedIntents: [Intent!]!
 	accessStatus: EdgeAccessStatus!
+	accessStatuses: EdgeAccessStatuses!
 }
 
 type AccessGraphFilter {
@@ -155,6 +156,25 @@ enum AwsIamStep {
 	APPLY_INTENTS
 	QUERY_S3_BUCKET_CONTENT
 	COMPLETED
+}
+
+type AzureInfo {
+	tenantId: String!
+	subscriptionId: String!
+	resourceGroup: String!
+	aksClusterName: String!
+}
+
+input AzureInfoInput {
+	clusterId: ID!
+	tenantId: String!
+	subscriptionId: String!
+	resourceGroup: String!
+	aksClusterName: String!
+}
+
+type AzureResource {
+	resource: String!
 }
 
 """The `Boolean` scalar type represents `true` or `false`."""
@@ -232,6 +252,10 @@ type ClusterConfiguration {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
+	useAWSIAMInAccessGraphStates: Boolean!
+	useGCPIAMInAccessGraphStates: Boolean!
+	useAzureIAMInAccessGraphStates: Boolean!
+	useDatabaseInAccessGraphStates: Boolean!
 	clusterFormSettings: ClusterFormSettings!
 }
 
@@ -239,8 +263,12 @@ input ClusterConfigurationInput {
 	globalDefaultDeny: Boolean!
 	istioGlobalDefaultDeny: Boolean
 	useNetworkPoliciesInAccessGraphStates: Boolean!
-	useIstioPoliciesInAccessGraphStates: Boolean
-	useKafkaACLsInAccessGraphStates: Boolean
+	useIstioPoliciesInAccessGraphStates: Boolean!
+	useKafkaACLsInAccessGraphStates: Boolean!
+	useAWSIAMInAccessGraphStates: Boolean
+	useGCPIAMInAccessGraphStates: Boolean
+	useAzureIAMInAccessGraphStates: Boolean
+	useDatabaseInAccessGraphStates: Boolean
 	clusterFormSettings: ClusterFormSettingsInput
 }
 
@@ -426,6 +454,16 @@ enum EdgeAccessStatusVerdict {
 	UNKNOWN
 }
 
+type EdgeAccessStatuses {
+	networkPolicies: EdgeAccessStatus!
+	kafkaACLs: EdgeAccessStatus!
+	istioPolicies: EdgeAccessStatus!
+	awsIam: EdgeAccessStatus!
+	gcpIam: EdgeAccessStatus!
+	azureIAM: EdgeAccessStatus!
+	database: EdgeAccessStatus!
+}
+
 type Environment {
 	id: ID!
 	name: String!
@@ -479,6 +517,21 @@ input ExternalTrafficIntentInput {
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
 scalar Float
 
+type GCPInfo {
+	region: String!
+	namespace: String!
+	gcpProjectName: String!
+	gkeClusterName: String!
+}
+
+input GCPInfoInput {
+	region: String!
+	namespace: String!
+	clusterId: String!
+	gcpProjectName: String!
+	gkeClusterName: String!
+}
+
 type GCPPubSubLogConsumerSettings {
 	projectId: String!
 	topic: String!
@@ -489,13 +542,25 @@ input GCPPubSubLogConsumerSettingsInput {
 	topic: String!
 }
 
+type GCPResource {
+	resource: String!
+}
+
+type GitHubAccessGraphFilter {
+	environmentIds: [ID!]
+	clusterIds: [ID!]
+	namespaceIds: [ID!]
+	serviceIds: [ID!]
+	lastSeenAfter: Time
+}
+
 type GitHubRepoFilterPair {
-	filter: AccessGraphFilter!
+	filter: GitHubAccessGraphFilter!
 	repoInfo: GitHubRepoInfo!
 }
 
 input GitHubRepoFilterPairInput {
-	filter: InputAccessGraphFilter!
+	filter: InputGitHubAccessGraphFilter!
 	repoInfo: GitHubRepoInfoInput!
 }
 
@@ -555,6 +620,13 @@ input InputAccessGraphFilter {
 	includeServicesWithNoEdges: Boolean
 }
 
+input InputGitHubAccessGraphFilter {
+	environmentIds: [ID!]
+	clusterIds: [ID!]
+	serviceIds: [ID!]
+	namespaceIds: [ID!]
+}
+
 """The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1."""
 scalar Int
 
@@ -568,6 +640,8 @@ type Integration {
 	cluster: Cluster
 	databaseInfo: DatabaseInfo
 	awsInfo: AWSInfo
+	gcpInfo: GCPInfo
+	azureInfo: AzureInfo
 	githubSettings: GitHubSettings
 	organizationId: String!
 }
@@ -588,7 +662,9 @@ enum IntegrationType {
 	KUBERNETES
 	DATABASE
 	AWS
+	GCP
 	GITHUB
+	AZURE
 }
 
 type Intent {
@@ -600,6 +676,8 @@ type Intent {
 	httpResources: [HTTPConfig!]
 	databaseResources: [DatabaseConfig!]
 	awsActions: [String!]
+	azureRoles: [String!]
+	gcpPermissions: [String!]
 	internet: InternetConfig
 	status: IntentStatus
 }
@@ -614,6 +692,8 @@ input IntentInput {
 	resources: [HTTPConfigInput!]
 	databaseResources: [DatabaseConfigInput!]
 	awsActions: [String!]
+	azureRoles: [String!]
+	gcpPermissions: [String!]
 	internet: InternetConfigInput
 	status: IntentStatusInput
 }
@@ -634,6 +714,8 @@ enum IntentType {
 	KAFKA
 	DATABASE
 	AWS
+	GCP
+	AZURE
 	S3
 	INTERNET
 }
@@ -649,6 +731,10 @@ type IntentsOperatorConfiguration {
 	networkPolicyEnforcementEnabled: Boolean!
 	kafkaACLEnforcementEnabled: Boolean!
 	istioPolicyEnforcementEnabled: Boolean!
+	awsIAMPolicyEnforcementEnabled: Boolean!
+	gcpIAMPolicyEnforcementEnabled: Boolean!
+	azureIAMPolicyEnforcementEnabled: Boolean!
+	databaseEnforcementEnabled: Boolean!
 	protectedServicesEnabled: Boolean!
 	protectedServices: [Service!]!
 	egressNetworkPolicyEnforcementEnabled: Boolean!
@@ -661,6 +747,10 @@ input IntentsOperatorConfigurationInput {
 	istioPolicyEnforcementEnabled: Boolean
 	protectedServicesEnabled: Boolean
 	egressNetworkPolicyEnforcementEnabled: Boolean
+	awsIAMPolicyEnforcementEnabled: Boolean
+	gcpIAMPolicyEnforcementEnabled: Boolean
+	azureIAMPolicyEnforcementEnabled: Boolean
+	databaseEnforcementEnabled: Boolean
 }
 
 type InternetConfig {
@@ -670,7 +760,8 @@ type InternetConfig {
 }
 
 input InternetConfigInput {
-	ips: [String!]!
+	domains: [String!]
+	ips: [String!]
 	ports: [Int!]
 }
 
@@ -809,10 +900,6 @@ type Mutation {
 	createCluster(
 		name: String!
 	): Cluster!
-	createClusterAndUpdateUserTutorial(
-		name: String!
-		userTutorialId: ID!
-	): Cluster!
 """Delete cluster"""
 	deleteCluster(
 		id: ID!
@@ -867,18 +954,34 @@ type Mutation {
 """Create a new Kubernetes integration"""
 	createKubernetesIntegration(
 		environmentId: ID
-		clusterId: ID!
+		name: String!
 	): Integration
 """Create a new AWS integration"""
 	createAWSIntegration(
 		name: String!
 		awsIntegration: AWSInfoInput!
 	): Integration
+"""Create a new Azure integration"""
+	createAzureIntegration(
+		name: String!
+		azureIntegration: AzureInfoInput!
+	): Integration
+"""Update Azure integration"""
+	updateAzureIntegration(
+		id: ID!
+		name: String
+		azureIntegration: AzureInfoInput
+	): Integration
 """Create a new Github integration"""
 	createGithubIntegration(
 		name: String!
 		githubSettings: GitHubSettingsInput!
 	): CreateGithubIntegrationResponse
+"""Create a new GCP integration"""
+	createGCPIntegration(
+		name: String!
+		gcpIntegration: GCPInfoInput!
+	): Integration
 """Update Github integration"""
 	updateGithubIntegration(
 		id: ID!
@@ -892,6 +995,12 @@ type Mutation {
 		environmentId: ID
 		awsIntegration: AWSInfoInput
 	): Integration
+"""Update GCP integration"""
+	updateGCPIntegration(
+		id: ID!
+		name: String
+		gcpIntegration: GCPInfoInput
+	): Integration
 """Update Generic integration"""
 	updateGenericIntegration(
 		id: ID!
@@ -901,12 +1010,13 @@ type Mutation {
 	updateKubernetesIntegration(
 		id: ID!
 		environmentId: ID
+		name: String
 	): Integration
 """Update Database integration"""
 	updateDatabaseIntegration(
 		id: ID!
 		name: String
-		databaseInfo: DatabaseInfoInput!
+		databaseInfo: DatabaseInfoInput
 	): Integration
 """Delete integration"""
 	deleteIntegration(
@@ -989,16 +1099,12 @@ type Mutation {
 		userEmail: String!
 		feedback: String!
 	): Boolean!
-	createUserTutorial(
+	createOrActivateTutorial(
 		tutorialName: TutorialName!
 	): Boolean!
 	updateUserTutorialCluster(
-		userTutorialId: ID!
 		clusterId: ID!
 		ifClusterNotExists: Boolean!
-	): Boolean!
-	activateUserTutorial(
-		tutorialName: TutorialName!
 	): Boolean!
 	resetUserTutorial(
 		userTutorialId: ID!
@@ -1287,6 +1393,8 @@ type Service {
 	certificateInformation: CertificateInformation
 	serviceAccount: String
 	awsResource: AWSResource
+	gcpResource: GCPResource
+	azureResource: AzureResource
 	discoveredByIntegration: Integration
 	tlsKeyPair: KeyPair!
 	userAndPassword: UserAndPassword!
@@ -1321,6 +1429,8 @@ enum ServiceType {
 	KUBERNETES
 	KAFKA
 	AWS
+	GCP
+	AZURE
 	DATABASE
 	INTERNET
 	DATABASE_USER
@@ -1389,6 +1499,7 @@ type User {
 	imageURL: String!
 	authProviderUserId: String!
 	tutorials: [UserTutorial!]
+	activeTutorial: UserTutorial!
 	questLogStep: QuestLogStep!
 	questLogStepSeen: QuestLogStep!
 }

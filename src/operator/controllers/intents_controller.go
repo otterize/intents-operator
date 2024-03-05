@@ -28,6 +28,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -60,6 +61,8 @@ type EnforcementConfig struct {
 	EnableDatabasePolicy                 bool
 	EnableEgressNetworkPolicyReconcilers bool
 	EnableAWSPolicy                      bool
+	EnableGCPPolicy                      bool
+	EnableAzurePolicy                    bool
 }
 
 // IntentsReconciler reconciles a Intents object
@@ -82,7 +85,6 @@ func NewIntentsReconciler(
 
 	serviceIdResolver := serviceidresolver.NewResolver(client)
 	reconcilers := []reconcilergroup.ReconcilerWithEvents{
-		intents_reconcilers.NewCRDValidatorReconciler(client, scheme),
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
@@ -299,14 +301,8 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 					res = append(res, otterizev1alpha3.OtterizeInternetTargetName)
 					continue
 				}
-				serverName := intent.GetTargetServerName()
-				serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
-				formattedServerName := otterizev1alpha3.GetFormattedOtterizeIdentity(serverName, serverNamespace)
-				if !intent.IsTargetServerKubernetesService() {
-					res = append(res, formattedServerName)
-				} else {
-					res = append(res, "svc:"+formattedServerName)
-				}
+				service := serviceidentity.NewFromIntent(intent, intents.Namespace)
+				res = append(res, service.GetFormattedOtterizeIdentity())
 			}
 
 			return res
