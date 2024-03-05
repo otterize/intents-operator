@@ -91,15 +91,16 @@ func (a *Agent) createUserAssignedIdentity(ctx context.Context, namespace string
 func (a *Agent) deleteUserAssignedIdentity(ctx context.Context, namespace string, accountName string) error {
 	logger := logrus.WithField("namespace", namespace).WithField("account", accountName)
 	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
-	logger.WithField("identity", userAssignedIdentityName).Debug("deleting user assigned identity")
-	_, err := a.userAssignedIdentitiesClient.Delete(ctx, a.conf.ResourceGroup, userAssignedIdentityName, nil)
+	federatedIdentityCredentialsName := a.generateFederatedIdentityCredentialsName(namespace, accountName)
+
+	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Debug("deleting federated identity credentials")
+	_, err := a.federatedIdentityCredentialsClient.Delete(ctx, a.conf.ResourceGroup, userAssignedIdentityName, federatedIdentityCredentialsName, nil)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	federatedIdentityCredentialsName := a.generateFederatedIdentityCredentialsName(namespace, accountName)
-	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Debug("deleting federated identity credentials")
-	_, err = a.federatedIdentityCredentialsClient.Delete(ctx, a.conf.ResourceGroup, userAssignedIdentityName, federatedIdentityCredentialsName, nil)
+	logger.WithField("identity", userAssignedIdentityName).Debug("deleting user assigned identity")
+	_, err = a.userAssignedIdentitiesClient.Delete(ctx, a.conf.ResourceGroup, userAssignedIdentityName, nil)
 	if err != nil {
 		return errors.Wrap(err)
 	}
