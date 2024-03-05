@@ -7,12 +7,8 @@ resources:
 - k8s.otterize.com_protectedservices.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
-patchesStrategicMerge:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
 # patches here are for enabling the conversion webhook for each CRD
-- patches/webhook_in_clientintents.yaml
-- patches/webhook_in_kafkaserverconfig.yaml
-- patches/webhook_in_protectedservice.yaml
 #+kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable cert-manager, uncomment all the sections with [CERTMANAGER] prefix.
@@ -24,17 +20,22 @@ patchesStrategicMerge:
 configurations:
 - kustomizeconfig.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: otterize
-
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+labels:
+- includeSelectors: true
+  pairs:
+    app.kubernetes.io/part-of: otterize
 patches:
-  - patch: |-
+- path: patches/webhook_in_clientintents.yaml
+- path: patches/webhook_in_kafkaserverconfig.yaml
+- path: patches/webhook_in_protectedservice.yaml
+- patch: |-
       - op: replace
         path: /spec/conversion/webhook/clientConfig/service/namespace
         value: otterize-system
       - op: replace
         path: /spec/conversion/webhook/clientConfig/service/name
         value: intents-operator-webhook-service
-
-    target:
-      kind: CustomResourceDefinition
+  target:
+    kind: CustomResourceDefinition

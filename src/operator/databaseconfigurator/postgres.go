@@ -17,6 +17,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"sync"
 )
@@ -89,12 +90,14 @@ type PostgresConfigurator struct {
 	conn         *pgx.Conn
 	databaseInfo otterizev1alpha3.PostgreSQLServerConfigSpec
 	setConnMutex sync.Mutex
+	client       client.Client
 }
 
-func NewPostgresConfigurator(pgServerConfSpec otterizev1alpha3.PostgreSQLServerConfigSpec) *PostgresConfigurator {
+func NewPostgresConfigurator(pgServerConfSpec otterizev1alpha3.PostgreSQLServerConfigSpec, client client.Client) *PostgresConfigurator {
 	return &PostgresConfigurator{
 		databaseInfo: pgServerConfSpec,
 		setConnMutex: sync.Mutex{},
+		client:       client,
 	}
 }
 
@@ -166,10 +169,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	intents []otterizev1alpha3.Intent,
 	permissionChange otterizev1alpha3.DBPermissionChange) error {
 
-	connectionString := formatConnectionString(
-		p.databaseInfo.Credentials.Username, p.databaseInfo.Credentials.Password,
-		p.databaseInfo.Address, p.databaseInfo.DatabaseName)
-
+	connectionString := p.formatConnectionString()
 	conn, err := pgx.Connect(ctx, connectionString)
 	if err != nil {
 		pgErr, ok := TranslatePostgresConnectionError(err)
@@ -191,14 +191,13 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	}
 	if !exists {
 		logrus.WithField("username", username).Info("Creating new PostgreSQL username")
-		if err := p.createPGUserForService(ctx, organizationID, client.ID, username); err != nil {
+		if err := p.createPGUserForWorkload(ctx, username); err != nil {
 			return errors.Wrap(err)
 		}
 	}
 
 	for dbname, dbResources := range dbnameToDatabaseResources {
-		connectionString = formatConnectionString(p.credentials.Username, p.credentials.Password, p.databaseInfo.Address, dbname)
-
+		connectionString = p.formatConnectionString()
 		conn, err = pgx.Connect(ctx, connectionString)
 		// If we got invalid authorization error at this point it means we are blocked by the hba_conf file.
 		// It may occur for cloud provider databases such as "cloudsqladmin".
@@ -215,7 +214,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 			return errors.Wrap(err)
 		}
 		p.setConnection(ctx, conn)
-		if permissionChange != model.DBPermissionChangeDelete {
+		if permissionChange != otterizev1alpha3.DBPermissionChangeDelete {
 			// Need to check whether tables were deleted from intents, and revoke permissions for them
 			allowedTablesDiff, err := p.getAllowedTablesDiffForUser(ctx, username, dbResources)
 			if err != nil {
@@ -262,17 +261,17 @@ func (p *PostgresConfigurator) setConnection(ctx context.Context, conn *pgx.Conn
 	p.conn = conn
 }
 
-func (p *PostgresConfigurator) extractDBNameToDatabaseResourcesFromIntents(ctx context.Context, intents []otterizev1alpha3.Intent) (map[string][]model.DatabaseConfigInput, error) {
-	scopeToDatabaseResources := make(map[string][]model.DatabaseConfigInput)
+func (p *PostgresConfigurator) extractDBNameToDatabaseResourcesFromIntents(ctx context.Context, intents []otterizev1alpha3.Intent) (map[string][]otterizev1alpha3.DatabaseResource, error) {
+	scopeToDatabaseResources := make(map[string][]otterizev1alpha3.DatabaseResource)
 	for _, intent := range intents {
 		for _, dbResource := range intent.DatabaseResources {
 			if _, ok := scopeToDatabaseResources[dbResource.DatabaseName]; !ok {
-				scopeToDatabaseResources[dbResource.DatabaseName] = []model.DatabaseConfigInput{dbResource}
+				scopeToDatabaseResources[dbResource.DatabaseName] = []otterizev1alpha3.DatabaseResource{dbResource}
 				continue
 			}
 			// TODO: Smart merge instead of just adding
-			resources := scopeToDatabaseResources[dbResource.Dbname]
-			scopeToDatabaseResources[dbResource.Dbname] = append(resources, dbResource)
+			resources := scopeToDatabaseResources[dbResource.DatabaseName]
+			scopeToDatabaseResources[dbResource.DatabaseName] = append(resources, dbResource)
 		}
 	}
 	rows, err := p.conn.Query(ctx, PGSelectAllDatabasesWithConnectPermissions)
@@ -288,7 +287,7 @@ func (p *PostgresConfigurator) extractDBNameToDatabaseResourcesFromIntents(ctx c
 		if _, exists := scopeToDatabaseResources[databaseName]; exists {
 			continue
 		}
-		scopeToDatabaseResources[databaseName] = []model.DatabaseConfigInput{}
+		scopeToDatabaseResources[databaseName] = []otterizev1alpha3.DatabaseResource{}
 	}
 	return scopeToDatabaseResources, nil
 }
@@ -380,13 +379,10 @@ func (p *PostgresConfigurator) validateUserExists(ctx context.Context, user stri
 	return row.Next(), nil
 }
 
-func (p *PostgresConfigurator) createPGUserForService(ctx context.Context, organizationID apis.OrganizationID, serviceID apis.ServiceID, pgUsername string) error {
-	serviceCredentials, err := p.credentialsClient.GetOrCreateServiceCredentials(ctx, organizationID, serviceID, pgUsername)
-	if err != nil {
-		return errors.Wrap(err)
-	}
+func (p *PostgresConfigurator) createPGUserForWorkload(ctx context.Context, pgUsername string) error {
+	password := p.fetchWorkload
 	batch := pgx.Batch{}
-	stmt, err := PGCreateUserStatement.prepareSanitized(pgx.Identifier{pgUsername}, NonUserInputString(serviceCredentials))
+	stmt, err := PGCreateUserStatement.prepareSanitized(pgx.Identifier{pgUsername}, NonUserInputString(password))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -432,8 +428,8 @@ func (p *PostgresConfigurator) getGrantOperations(
 // getAllowedTablesDiffForUser gets the diff between all current tables with permissions for 'username',
 // and tables specified in the intent. If tables with current permissions do not exist in the intent all permissions
 // from them should be removed, as they were deleted from the ClientIntents resource.
-func (p *PostgresConfigurator) getAllowedTablesDiffForUser(ctx context.Context, username string, dbResources []model.DatabaseConfigInput) ([]PostgresTableIdentifier, error) {
-	intentTables := lo.Map(dbResources, func(resource model.DatabaseConfigInput, _ int) PostgresTableIdentifier {
+func (p *PostgresConfigurator) getAllowedTablesDiffForUser(ctx context.Context, username string, dbResources []otterizev1alpha3.DatabaseResource) ([]PostgresTableIdentifier, error) {
+	intentTables := lo.Map(dbResources, func(resource otterizev1alpha3.DatabaseResource, _ int) PostgresTableIdentifier {
 		return databaseConfigInputToPostgresTableIdentifier(resource)
 	})
 	allowedTablesDiff := make([]PostgresTableIdentifier, 0)
@@ -456,7 +452,7 @@ func (p *PostgresConfigurator) getAllowedTablesDiffForUser(ctx context.Context, 
 	return allowedTablesDiff, nil
 }
 
-func databaseConfigInputToPostgresTableIdentifier(resource model.DatabaseConfigInput) PostgresTableIdentifier {
+func databaseConfigInputToPostgresTableIdentifier(resource otterizev1alpha3.DatabaseResource) PostgresTableIdentifier {
 	tableIdentifier := strings.Split(lo.FromPtr(resource.Table), ".")
 	if len(tableIdentifier) == 2 {
 		return PostgresTableIdentifier{tableSchema: tableIdentifier[0], tableName: tableIdentifier[1]}
@@ -569,8 +565,13 @@ func (p *PostgresConfigurator) queueRevokePermissionsByDatabaseNameStatements(ct
 	return nil
 }
 
-func formatConnectionString(username string, password string, address string, dbname string) string {
-	return fmt.Sprintf("postgres://%s:%s@%s/%s", username, url.QueryEscape(password), address, dbname)
+func (p *PostgresConfigurator) formatConnectionString() string {
+	return fmt.Sprintf(
+		"postgres://%s:%s@%s/%s",
+		p.databaseInfo.Credentials.Username,
+		url.QueryEscape(p.databaseInfo.Credentials.Password),
+		p.databaseInfo.Address,
+		p.databaseInfo.DatabaseName)
 }
 
 // KubernetesToPostgresName translates a name with Kubernetes conventions to Postgres conventions

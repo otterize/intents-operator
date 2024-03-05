@@ -48,6 +48,7 @@ type PostgreSQLServerConfigStatus struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion
+//+kubebuilder:resource:scope=Cluster
 
 // PostgreSQLServerConfig is the Schema for the databaseserverconfig API
 type PostgreSQLServerConfig struct {

@@ -40,28 +40,28 @@ func NewDatabaseReconciler(
 }
 
 func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	intents := &otterizev1alpha3.ClientIntents{}
+	clientIntents := &otterizev1alpha3.ClientIntents{}
 	logger := logrus.WithField("namespacedName", req.String())
-	err := r.client.Get(ctx, req.NamespacedName, intents)
+	err := r.client.Get(ctx, req.NamespacedName, clientIntents)
 	if err != nil && k8serrors.IsNotFound(err) {
-		logger.Info("No intents found")
+		logger.Info("No client intents found")
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	if intents.Spec == nil {
+	if clientIntents.Spec == nil {
 		logger.Info("No specs found")
 		return ctrl.Result{}, nil
 	}
 
 	action := otterizev1alpha3.DBPermissionChangeApply
-	if !intents.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !clientIntents.ObjectMeta.DeletionTimestamp.IsZero() {
 		action = otterizev1alpha3.DBPermissionChangeDelete
 	}
 
 	var dbIntents []otterizev1alpha3.Intent
-	for _, intent := range intents.GetCallsList() {
+	for _, intent := range clientIntents.GetCallsList() {
 		if intent.Type != otterizev1alpha3.IntentTypeDatabase {
 			continue
 		}
@@ -74,7 +74,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	databaseToIntents, err := r.MapDBNameToIntents(ctx, dbIntents, req.NamespacedName)
 	if err != nil {
-		r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", err.Error())
+		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database clientIntents: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
@@ -82,28 +82,28 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		pgServerConf := otterizev1alpha3.PostgreSQLServerConfig{}
 		err := r.client.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: databaseName}, &pgServerConf)
 		if err != nil {
-			r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", err.Error())
+			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database clientIntents: %s", err.Error())
 			return ctrl.Result{}, errors.Wrap(err)
 		}
-		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(pgServerConf.Spec)
+		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(pgServerConf.Spec, r.client)
 		pgConfigurator.ConfigureDBFromIntents(ctx, types.NamespacedName{
-			Namespace: intents.Namespace,
-			Name:      intents.GetServiceName(),
+			Namespace: clientIntents.Namespace,
+			Name:      clientIntents.GetServiceName(),
 		}, dbIntents, action)
 	}
 
 	//if err := r.otterizeClient.ApplyDatabaseIntent(ctx, dbIntents, action); err != nil {
 	//	errType, errMsg, ok := graphqlclient.GetGraphQLUserError(err)
 	//	if !ok || errType != graphqlclient.UserErrorTypeAppliedIntentsError {
-	//		r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", err.Error())
+	//		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database clientIntents: %s", err.Error())
 	//		return ctrl.Result{}, errors.Wrap(err)
 	//	}
-	//	r.RecordWarningEventf(intents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database intents: %s", errMsg)
+	//	r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database clientIntents: %s", errMsg)
 	//	return ctrl.Result{}, errors.Wrap(err)
 	//}
 	//
 
-	r.RecordNormalEventf(intents, ReasonAppliedDatabaseIntents, "Database intents reconcile complete, reconciled %d intent calls", len(dbIntents))
+	r.RecordNormalEventf(clientIntents, ReasonAppliedDatabaseIntents, "Database clientIntents reconcile complete, reconciled %d intent calls", len(dbIntents))
 
 	return ctrl.Result{}, nil
 }
