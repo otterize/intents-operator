@@ -45,7 +45,7 @@ func (a *Agent) findUserAssignedIdentity(ctx context.Context, namespace string, 
 	return userAssignedIdentity.Identity, nil
 }
 
-func (a *Agent) createUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
+func (a *Agent) getOrCreateUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
 	logger := logrus.WithField("namespace", namespace).WithField("account", accountName)
 	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
 	logger.WithField("identity", userAssignedIdentityName).Debug("getting or creating user assigned identity")

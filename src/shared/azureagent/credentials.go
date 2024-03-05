@@ -2,7 +2,6 @@ package azureagent
 
 import (
 	"context"
-	azureerrors "github.com/Azure/azure-sdk-for-go-extensions/pkg/errors"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -20,25 +19,41 @@ const (
 
 	// AzureWorkloadIdentityClientIdAnnotation is used by the azure workload identity mechanism to link between service accounts and user assigned identities
 	AzureWorkloadIdentityClientIdAnnotation = "azure.workload.identity/client-id"
-	// AzureWorkloadIdentityClientIdNotSet is used to indicate that the workload identity client ID is not set
-	AzureWorkloadIdentityClientIdNotSet = "false"
 )
 
 func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
 	return pod.Labels != nil && pod.Labels[AzureApplyOnPodLabel] == "true"
 }
 
-func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) (updated bool) {
+func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) (updated bool, err error) {
+	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
+
 	if !a.AppliesOnPod(pod) {
-		return false
+		return false, nil
 	}
 
 	serviceAccount.Labels[ServiceManagedByAzureAgentLabel] = "true"
 
 	pod.Labels[AzureUseWorkloadIdentityLabel] = "true"
-	serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation] = AzureWorkloadIdentityClientIdNotSet
 
-	return true
+	// get or create the user assigned identity, ensuring the identity & federated credentials are in-place
+	identity, err := a.getOrCreateUserAssignedIdentity(ctx, serviceAccount.Namespace, serviceAccount.Name)
+	if err != nil {
+		return false, errors.Errorf("failed to create user assigned identity: %w", err)
+	}
+
+	clientId := *identity.Properties.ClientID
+
+	if value, ok := serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation]; ok && value == clientId {
+		// existing identity matches the annotated identity
+		return false, nil
+	}
+
+	logger.WithField("identity", *identity.Name).WithField("clientId", clientId).
+		Info("Annotating service account with managed identity client ID")
+
+	serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation] = *identity.Properties.ClientID
+	return true, nil
 }
 
 func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
@@ -49,34 +64,7 @@ func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *core
 		return false, false, nil
 	}
 
-	if value, ok := serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation]; ok && value != AzureWorkloadIdentityClientIdNotSet {
-		// validate that the existing user assigned identity matches the annotated identity
-		identity, err := a.findUserAssignedIdentity(ctx, serviceAccount.Namespace, serviceAccount.Name)
-		if err != nil && !azureerrors.IsNotFoundErr(err) {
-			return false, false, errors.Errorf("failed to find user assigned identity: %w", err)
-		}
-		found := !azureerrors.IsNotFoundErr(err)
-
-		if found {
-			if *identity.Properties.ClientID != serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation] {
-				logger.WithField("identity", *identity.Name).Debug("ServiceAccount has a different workload identity client ID, updating")
-				serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation] = *identity.Properties.ClientID
-			}
-
-			logger.Debug("ServiceAccount already has a workload identity client ID, skipping")
-			return false, false, nil
-		}
-	}
-
-	// identity never created or not found, create it
-
-	identity, err := a.createUserAssignedIdentity(ctx, serviceAccount.Namespace, serviceAccount.Name)
-	if err != nil {
-		return false, false, errors.Errorf("failed to create user assigned identity: %w", err)
-	}
-	serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation] = *identity.Properties.ClientID
-
-	return true, false, nil
+	return false, false, nil
 }
 
 func (a *Agent) OnServiceAccountTermination(ctx context.Context, serviceAccount *corev1.ServiceAccount) error {

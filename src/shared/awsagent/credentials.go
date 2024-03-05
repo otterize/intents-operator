@@ -35,9 +35,9 @@ func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
 	return pod.Labels != nil && pod.Labels[AWSApplyOnPodLabel] == "true"
 }
 
-func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) (updated bool) {
+func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAccount *corev1.ServiceAccount) (updated bool, err error) {
 	if !a.AppliesOnPod(pod) {
-		return false
+		return false, nil
 	}
 
 	serviceAccount.Labels[ServiceManagedByAWSAgentLabel] = "true"
@@ -54,7 +54,7 @@ func (a *Agent) OnPodAdmission(pod *corev1.Pod, serviceAccount *corev1.ServiceAc
 		delete(serviceAccount.Labels, OtterizeAWSUseSoftDeleteKey)
 	}
 
-	return true
+	return true, nil
 }
 
 func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
