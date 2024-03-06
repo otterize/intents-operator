@@ -10,7 +10,7 @@ const (
 	TimeoutKey                     = "telemetry-client-timeout"
 	CloudClientTimeoutDefault      = "30s"
 	TelemetryEnabledKey            = "telemetry-enabled"
-	TelemetryEnabledDefault        = false
+	TelemetryEnabledDefault        = true
 	TelemetryUsageEnabledKey       = "telemetry-usage-enabled"
 	TelemetryUsageEnabledDefault   = true
 	TelemetryMaxBatchSizeKey       = "telemetry-max-batch-size"
