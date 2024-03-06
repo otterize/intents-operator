@@ -94,6 +94,10 @@ func (o Option) Apply(agent *Agent) {
 }
 
 func WithRolesAnywhere(trustAnchorArn string, trustDomain string, clusterName string) Option {
+	if trustAnchorArn == "" || trustDomain == "" || clusterName == "" {
+		logrus.Panic("AWS IAM roles anywhere is enabled but required configuration is missing: OTTERIZE_TRUST_ANCHOR_ARN, OTTERIZE_SPIFFE_TRUST_DOMAIN, OTTERIZE_CLUSTER_NAME")
+	}
+
 	return func(a *Agent) {
 		a.rolesAnywhereEnabled = true
 		a.trustAnchorArn = trustAnchorArn

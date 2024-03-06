@@ -231,9 +231,7 @@ func main() {
 			trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
 			trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
 			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterName)
-			if trustAnchorArn == "" || trustDomain == "" || clusterName == "" {
-				logrus.Panic("AWS IAM roles anywhere is enabled but required configuration is missing: OTTERIZE_TRUST_ANCHOR_ARN, OTTERIZE_SPIFFE_TRUST_DOMAIN, OTTERIZE_CLUSTER_NAME")
-			}
+
 			awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
 		}
 		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
