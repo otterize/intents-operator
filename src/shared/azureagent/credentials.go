@@ -44,7 +44,7 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 
 	clientId := *identity.Properties.ClientID
 
-	if value, ok := serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation]; ok && value == clientId {
+	if serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation] == clientId {
 		// existing identity matches the annotated identity
 		return false, nil
 	}
