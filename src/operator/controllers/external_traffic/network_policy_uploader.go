@@ -3,7 +3,7 @@ package external_traffic
 import (
 	"context"
 	"fmt"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -131,13 +131,13 @@ func filterOtterizeNetworkPolicy() predicate.Predicate {
 	return predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			labels := e.Object.GetLabels()
-			_, isExternalTrafficPolicy := labels[v1alpha2.OtterizeNetworkPolicyExternalTraffic]
+			_, isExternalTrafficPolicy := labels[v1alpha3.OtterizeNetworkPolicyExternalTraffic]
 
 			return isExternalTrafficPolicy
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			labels := e.ObjectNew.GetLabels()
-			_, isExternalTrafficPolicy := labels[v1alpha2.OtterizeNetworkPolicyExternalTraffic]
+			_, isExternalTrafficPolicy := labels[v1alpha3.OtterizeNetworkPolicyExternalTraffic]
 
 			return isExternalTrafficPolicy
 		},
@@ -147,7 +147,7 @@ func filterOtterizeNetworkPolicy() predicate.Predicate {
 			}
 
 			labels := e.Object.GetLabels()
-			_, isExternalTrafficPolicy := labels[v1alpha2.OtterizeNetworkPolicyExternalTraffic]
+			_, isExternalTrafficPolicy := labels[v1alpha3.OtterizeNetworkPolicyExternalTraffic]
 
 			return isExternalTrafficPolicy
 		},
