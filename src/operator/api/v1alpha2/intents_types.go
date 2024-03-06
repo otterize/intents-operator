@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"strconv"
 	"strings"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
