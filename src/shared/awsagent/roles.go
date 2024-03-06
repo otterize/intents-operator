@@ -100,6 +100,26 @@ func (a *Agent) GetOtterizeProfile(ctx context.Context, namespaceName, serviceAc
 	return false, nil, nil
 }
 
+func (a *Agent) DeleteRolesAnywhereProfileForServiceAccount(ctx context.Context, namespace string, serviceAccountName string) (bool, error) {
+	found, profile, err := a.GetOtterizeProfile(ctx, namespace, serviceAccountName)
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	if !found {
+		return false, nil
+	}
+
+	_, err = a.rolesAnywhereClient.DeleteProfile(ctx, &rolesanywhere.DeleteProfileInput{ProfileId: profile.ProfileId})
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	delete(a.profileNameToId, *profile.Name)
+
+	return true, nil
+}
+
 func (a *Agent) CreateRolesAnywhereProfileForRole(ctx context.Context, role types.Role, namespace string, serviceAccountName string) (profile *rolesanywhereTypes.ProfileDetail, err error) {
 	found, profile, err := a.GetOtterizeProfile(ctx, namespace, serviceAccountName)
 	if err != nil {
