@@ -75,21 +75,36 @@ type RolesAnywhereClient interface {
 }
 
 type Agent struct {
-	iamClient           IAMClient
-	rolesAnywhereClient RolesAnywhereClient
-	accountID           string
-	oidcURL             string
-	clusterName         string
-	profileNameToId     map[string]string
-	profileCacheOnce    sync.Once
-	trustAnchorArn      string
-	trustDomain         string
+	iamClient            IAMClient
+	rolesAnywhereClient  RolesAnywhereClient
+	accountID            string
+	oidcURL              string
+	clusterName          string
+	profileNameToId      map[string]string
+	profileCacheOnce     sync.Once
+	rolesAnywhereEnabled bool
+	trustAnchorArn       string
+	trustDomain          string
+}
+
+type Option func(*Agent)
+
+func (o Option) Apply(agent *Agent) {
+	o(agent)
+}
+
+func WithRolesAnywhere(trustAnchorArn string, trustDomain string, clusterName string) Option {
+	return func(a *Agent) {
+		a.rolesAnywhereEnabled = true
+		a.trustAnchorArn = trustAnchorArn
+		a.trustDomain = trustDomain
+		a.clusterName = clusterName
+	}
 }
 
 func NewAWSAgent(
 	ctx context.Context,
-	trustAnchorArn string,
-	trustDomain string,
+	options ...Option,
 ) (*Agent, error) {
 	logrus.Info("Initializing AWS Intents agent")
 
@@ -107,12 +122,13 @@ func NewAWSAgent(
 		iamClient:           iamClient,
 		rolesAnywhereClient: rolesAnywhereClient,
 		profileNameToId:     make(map[string]string),
-		trustAnchorArn:      trustAnchorArn,
-		trustDomain:         trustDomain,
 	}
 
-	if trustAnchorArn == "" {
+	for _, option := range options {
+		option.Apply(agent)
+	}
 
+	if !agent.rolesAnywhereEnabled {
 		currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
 
 		if err != nil {

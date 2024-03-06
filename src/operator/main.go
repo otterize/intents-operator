@@ -32,8 +32,8 @@ import (
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
-	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/filters"
+	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -45,7 +45,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
-	"os"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"time"
@@ -227,7 +226,17 @@ func main() {
 	var iamAgents []intents_reconcilers.IAMPolicyAgent
 
 	if enforcementConfig.EnableAWSPolicy {
-		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, os.Getenv("OTTERIZE_TRUST_ANCHOR_ARN"), os.Getenv("OTTERIZE_TRUST_DOMAIN"))
+		awsOptions := make([]awsagent.Option, 0)
+		if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
+			trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
+			trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
+			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterName)
+			if trustAnchorArn == "" || trustDomain == "" || clusterName == "" {
+				logrus.Panic("AWS IAM roles anywhere is enabled but required configuration is missing: OTTERIZE_TRUST_ANCHOR_ARN, OTTERIZE_SPIFFE_TRUST_DOMAIN, OTTERIZE_CLUSTER_NAME")
+			}
+			awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
+		}
+		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
 		}

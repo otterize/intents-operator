@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -63,12 +64,18 @@ func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	// If all certs match, don't reconcile.
+	if lo.EveryBy(webhookConfig.Webhooks, func(item admissionregistrationv1.ValidatingWebhook) bool {
+		return bytes.Equal(item.ClientConfig.CABundle, r.certPEM)
+	}) {
+		return ctrl.Result{}, nil
+	}
+
 	// Set the new CA bundle for the validating webhooks
 	resourceCopy := webhookConfig.DeepCopy()
 	for i := range resourceCopy.Webhooks {
 		resourceCopy.Webhooks[i].ClientConfig.CABundle = r.certPEM
 	}
-	// FIXME: skip if already matches
 
 	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(webhookConfig)); err != nil {
 		return ctrl.Result{}, errors.Errorf("Failed to patch ValidatingWebhookConfiguration: %w", err)

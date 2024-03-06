@@ -190,9 +190,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 		AssumeRolePolicyDocument: aws.String(trustPolicy),
 		Tags:                     tags,
 		Description:              aws.String(iamRoleDescription),
-	}
-	if a.trustAnchorArn == "" { // FIXME
-		createRoleInput.PermissionsBoundary = aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.accountID, a.clusterName))
+		PermissionsBoundary:      aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.accountID, a.clusterName)),
 	}
 	createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, createRoleInput)
 
@@ -373,6 +371,10 @@ func (a *Agent) unsetAllRolePoliciesSoftDeleteStrategyTag(ctx context.Context, r
 }
 
 func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, error) {
+	if a.rolesAnywhereEnabled {
+		return a.generateTrustPolicyForRolesAnywhere(namespaceName, accountName)
+	}
+
 	oidc := strings.TrimPrefix(a.oidcURL, "https://")
 
 	policy := PolicyDocument{
