@@ -94,6 +94,12 @@ func (o Option) Apply(agent *Agent) {
 	o(agent)
 }
 
+func WithSoftDeleteStrategy() Option {
+	return func(a *Agent) {
+		a.markRolesAsUnusedInsteadOfDelete = true
+	}
+}
+
 func WithRolesAnywhere(trustAnchorArn string, trustDomain string, clusterName string) Option {
 	if trustAnchorArn == "" || trustDomain == "" || clusterName == "" {
 		logrus.Panic("AWS IAM roles anywhere is enabled but required configuration is missing: OTTERIZE_TRUST_ANCHOR_ARN, OTTERIZE_SPIFFE_TRUST_DOMAIN, OTTERIZE_CLUSTER_NAME")
