@@ -76,15 +76,14 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 }
 
 func updateContainerClientID(container *corev1.Container, clientId string) {
-	clientIdEnvVar, ok := lo.Find(container.Env, func(env corev1.EnvVar) bool {
-		return env.Name == AzureClientIDEnvVar
+	container.Env = lo.Map(container.Env, func(env corev1.EnvVar, _ int) corev1.EnvVar {
+		if env.Name == AzureClientIDEnvVar {
+			logrus.WithField("container", container.Name).WithField("envVar", env.Name).WithField("value", clientId).
+				Debug("Updating container env var")
+			env.Value = clientId
+		}
+		return env
 	})
-	if !ok {
-		// we only update the env var if it was previously set by the WI webhook,
-		// so nothing to do here
-		return
-	}
-	clientIdEnvVar.Value = clientId
 }
 
 func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
