@@ -87,8 +87,8 @@ func (a *ServiceAccountAnnotatingPodWebhook) handleOnce(ctx context.Context, pod
 	}
 
 	if !hasUpdates {
-		logger.Debugf("pod doesn't have any create IAM role label, skipping")
-		return pod, false, "no create IAM role label - no modifications made", nil
+		logger.Debugf("pod was not modified by any IAM agent, skipping")
+		return pod, false, "no IAM modifications made", nil
 	}
 
 	updatedServiceAccount.Labels[metadata.OtterizeServiceAccountLabel] = metadata.OtterizeServiceAccountHasPodsValue
