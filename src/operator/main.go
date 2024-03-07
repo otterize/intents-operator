@@ -225,6 +225,8 @@ func main() {
 
 	var iamAgents []intents_reconcilers.IAMPolicyAgent
 
+	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
+
 	if enforcementConfig.EnableAWSPolicy {
 		awsOptions := make([]awsagent.Option, 0)
 		if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
@@ -238,7 +240,13 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
 		}
-		iamAgents = append(iamAgents, awsIntentsAgent)
+		awsIntentsReconciler := intents_reconcilers.NewAWSIntentsReconciler(mgr.GetClient(), scheme, awsIntentsAgent, serviceIdResolver)
+		additionalIntentsReconcilers = append(additionalIntentsReconcilers, awsIntentsReconciler)
+		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), awsIntentsReconciler)
+		err = iamPodWatcher.SetupWithManager(mgr)
+		if err != nil {
+			logrus.WithError(err).Panic("unable to register pod watcher")
+		}
 	}
 
 	if enforcementConfig.EnableGCPPolicy {
@@ -264,7 +272,7 @@ func main() {
 	}
 
 	if len(iamAgents) > 0 {
-		iamIntentsReconciler := intents_reconcilers.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceidresolver.NewResolver(mgr.GetClient()), iamAgents)
+		iamIntentsReconciler := intents_reconcilers.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceIdResolver, iamAgents)
 		additionalIntentsReconcilers = append(additionalIntentsReconcilers, iamIntentsReconciler)
 		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), iamIntentsReconciler)
 		err = iamPodWatcher.SetupWithManager(mgr)

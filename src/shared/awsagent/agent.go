@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	corev1 "k8s.io/api/core/v1"
 	"strings"
 	"sync"
 )
@@ -88,6 +89,8 @@ type Agent struct {
 	trustDomain                      string
 }
 
+const ApplyOnPodLabel = "credentials-operator.otterize.com/create-aws-role"
+
 type Option func(*Agent)
 
 func (o Option) Apply(agent *Agent) {
@@ -98,6 +101,10 @@ func WithSoftDeleteStrategy() Option {
 	return func(a *Agent) {
 		a.markRolesAsUnusedInsteadOfDelete = true
 	}
+}
+
+func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
+	return pod.Labels != nil && pod.Labels[ApplyOnPodLabel] == "true"
 }
 
 func WithRolesAnywhere(trustAnchorArn string, trustDomain string, clusterName string) Option {
