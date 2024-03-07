@@ -58,6 +58,7 @@ func Init(componentName string, version string, apiKey string) {
 		AppType:         componentName,
 		ProjectPackages: []string{"main*", "github.com/otterize/**"},
 		Logger:          noopLogger{},
+		PanicHandler:    func() {},
 	}
 	bugsnag.Configure(conf)
 
