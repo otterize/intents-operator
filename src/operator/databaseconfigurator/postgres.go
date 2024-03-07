@@ -30,13 +30,11 @@ const (
 	PGGrantOnAllSequencesInSchemaStatement     SQLSprintfStatement = "GRANT %s ON ALL SEQUENCES IN SCHEMA %s to %s"
 	PGRevokeOnAllTablesInSchemaStatement       SQLSprintfStatement = "REVOKE ALL ON ALL TABLES IN SCHEMA %s FROM %s"
 	PGRevokeOnAllSequencesInSchemaStatement    SQLSprintfStatement = "REVOKE ALL ON ALL SEQUENCES IN SCHEMA %s FROM %s"
-	PGCreateUserStatement                      SQLSprintfStatement = "CREATE USER %s WITH PASSWORD %s"
 	PGSelectUserQuery                                              = "SELECT FROM pg_catalog.pg_user where usename = $1"
 	PGSelectPrivilegesQuery                                        = "SELECT table_schema, table_name FROM information_schema.table_privileges where grantee = $1"
 	PGSSelectTableSequencesPrivilegesQuery                         = "SELECT split_part(column_default, '''', 2) FROM information_schema.columns WHERE column_default LIKE 'nextval%' and table_schema=$1 and table_name=$2"
 	PGSSelectSchemaNamesQuery                                      = "SELECT schema_name From information_schema.schemata where schema_name!='pg_catalog' and schema_name!='pg_toast' and schema_name!='information_schema'"
-	PGSelectAllDatabasesWithConnectPermissions                     = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT');"
-	PGDefaultDatabase                                              = "postgres"
+	PGSelectAllDatabasesWithConnectPermissions                     = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT');" 	= "postgres"
 )
 
 const pgUsernameMaxLength = 63
@@ -190,10 +188,10 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 		return errors.Wrap(err)
 	}
 	if !exists {
-		logrus.WithField("username", username).Info("Creating new PostgreSQL username")
-		if err := p.createPGUserForWorkload(ctx, username); err != nil {
-			return errors.Wrap(err)
-		}
+		logrus.WithField("username", username).Info(
+			"Waiting for Postgres user to be created before configuring permissions")
+		return ct
+
 	}
 
 	for dbname, dbResources := range dbnameToDatabaseResources {
@@ -379,27 +377,6 @@ func (p *PostgresConfigurator) validateUserExists(ctx context.Context, user stri
 	return row.Next(), nil
 }
 
-func (p *PostgresConfigurator) createPGUserForWorkload(ctx context.Context, pgUsername string) error {
-	password := p.fetchWorkload
-	batch := pgx.Batch{}
-	stmt, err := PGCreateUserStatement.prepareSanitized(pgx.Identifier{pgUsername}, NonUserInputString(password))
-	if err != nil {
-		return errors.Wrap(err)
-	}
-	batch.Queue(stmt)
-	batchResults := p.conn.SendBatch(ctx, &batch)
-	for i := 0; i < batch.Len(); i++ {
-		if _, err := batchResults.Exec(); err != nil {
-			return errors.Wrap(err)
-		}
-	}
-	if err := batchResults.Close(); err != nil {
-		logrus.Errorf("Failed closing batch results")
-	}
-
-	return nil
-}
-
 // CloseConnection closes the connection to the database and logs an error
 // We cannot use defer on the close connection since it runs in a for loop, and can potentially keep a lot of
 // connections open until closing them, which Postgres doesn't like that much
@@ -453,11 +430,11 @@ func (p *PostgresConfigurator) getAllowedTablesDiffForUser(ctx context.Context, 
 }
 
 func databaseConfigInputToPostgresTableIdentifier(resource otterizev1alpha3.DatabaseResource) PostgresTableIdentifier {
-	tableIdentifier := strings.Split(lo.FromPtr(resource.Table), ".")
+	tableIdentifier := strings.Split(resource.Table, ".")
 	if len(tableIdentifier) == 2 {
 		return PostgresTableIdentifier{tableSchema: tableIdentifier[0], tableName: tableIdentifier[1]}
 	}
-	return PostgresTableIdentifier{tableSchema: "public", tableName: lo.FromPtr(resource.Table)}
+	return PostgresTableIdentifier{tableSchema: "public", tableName: resource.Table}
 }
 
 func (p *PostgresConfigurator) revokeRemovedTablesPermissions(ctx context.Context, allowedTablesDiff []PostgresTableIdentifier, username string) error {

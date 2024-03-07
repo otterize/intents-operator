@@ -13,7 +13,7 @@ spec:
     listKind: PostgreSQLServerConfigList
     plural: postgresqlserverconfigs
     singular: postgresqlserverconfig
-  scope: Cluster
+  scope: Namespaced
   versions:
   - name: v1alpha3
     schema:

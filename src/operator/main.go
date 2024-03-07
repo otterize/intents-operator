@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/operator/controllers/aws_pod_reconciler"
@@ -38,14 +37,18 @@ import (
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/metadata"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"time"
 
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
@@ -164,23 +167,8 @@ func main() {
 	}
 	signalHandlerCtx := ctrl.SetupSignalHandler()
 
-	metadataClient, err := metadata.NewForConfig(ctrl.GetConfigOrDie())
-	if err != nil {
-		logrus.WithError(err).Panic("unable to create metadata client")
-	}
-	mapping, err := mgr.GetRESTMapper().RESTMapping(schema.GroupKind{Group: "", Kind: "Namespace"}, "v1")
-	if err != nil {
-		logrus.WithError(err).Panic("unable to create Kubernetes API REST mapping")
-	}
-	kubeSystemUID := ""
-	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(signalHandlerCtx, "kube-system", metav1.GetOptions{})
-	if err != nil || kubeSystemNs == nil {
-		logrus.Warningf("failed getting kubesystem UID: %s", err)
-		kubeSystemUID = fmt.Sprintf("rand-%s", uuid.New().String())
-	} else {
-		kubeSystemUID = string(kubeSystemNs.UID)
-	}
-	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(kubeSystemUID))
+	clusterUID := setClusterUID(signalHandlerCtx, mgr, podNamespace)
+	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
 	componentinfo.SetGlobalVersion(version.Version())
 
 	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
@@ -213,8 +201,8 @@ func main() {
 		epGroupReconciler.AddReconciler(internetNetpolReconciler)
 		svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
 		epGroupReconciler.AddReconciler(svcEgressNetworkPolicyHandler)
-
 	}
+
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 	if viper.GetBool(operatorconfig.EnableAWSPolicyKey) {
@@ -465,4 +453,42 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud
 	if err != nil {
 		logrus.WithError(err).Error("Failed to report configuration to the cloud")
 	}
+}
+
+func setClusterUID(ctx context.Context, mgr manager.Manager, podNamespace string) string {
+	config := ctrl.GetConfigOrDie()
+	metadataClient, err := metadata.NewForConfig(config)
+	if err != nil {
+		logrus.WithError(err).Panic("unable to create metadata client")
+	}
+	mapping, err := mgr.GetRESTMapper().RESTMapping(schema.GroupKind{Group: "", Kind: "Namespace"}, "v1")
+	if err != nil {
+		logrus.WithError(err).Panic("unable to create Kubernetes API REST mapping")
+	}
+	clusterUID := ""
+	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(ctx, "kube-system", metav1.GetOptions{})
+	if err != nil || kubeSystemNs == nil {
+		logrus.Warningf("failed getting kubesystem UID: %s", err)
+		clusterUID = uuid.New().String()
+	} else {
+		clusterUID = string(kubeSystemNs.UID)
+	}
+	k8sclient, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		logrus.WithError(err).Panic("unable to create client")
+	}
+	_, err = k8sclient.CoreV1().ConfigMaps(podNamespace).Create(ctx, &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorconfig.OtterizeClusterUIDResourceName,
+			Namespace: podNamespace,
+		},
+		Immutable: lo.ToPtr(true),
+		Data:      map[string]string{"clusteruid": clusterUID},
+	}, metav1.CreateOptions{})
+
+	if err != nil {
+		logrus.WithError(err).Panic("unable to create config map with cluster UID")
+	}
+
+	return clusterUID
 }
