@@ -163,6 +163,7 @@ type AzureInfo {
 	subscriptionId: String!
 	resourceGroup: String!
 	aksClusterName: String!
+	namespace: String!
 }
 
 input AzureInfoInput {
@@ -171,6 +172,7 @@ input AzureInfoInput {
 	subscriptionId: String!
 	resourceGroup: String!
 	aksClusterName: String!
+	namespace: String!
 }
 
 type AzureResource {
@@ -953,7 +955,7 @@ type Mutation {
 	): Boolean!
 """Create a new Kubernetes integration"""
 	createKubernetesIntegration(
-		environmentId: ID
+		environmentId: ID!
 		name: String!
 	): Integration
 """Create a new AWS integration"""
@@ -1117,14 +1119,6 @@ type Mutation {
 		userTutorialId: ID!
 		tutorialName: TutorialName!
 		step: String!
-	): Boolean!
-	notifyQuestLogStepAdvanced(
-		id: ID!
-		step: QuestLogStep!
-	): Boolean!
-	notifyQuestLogStepSeenAdvanced(
-		id: ID!
-		step: QuestLogStep!
 	): Boolean!
 }
 
@@ -1307,20 +1301,6 @@ type Query {
 	): User!
 }
 
-enum QuestLogStep {
-"""Connect cluster"""
-	CONNECT_CLUSTER
-"""Get to know your network map"""
-	EXPLORE_NETWORK_MAP_ADD_NS_FILTER
-	EXPLORE_NETWORK_MAP_ADD_SVC_FILTER
-	EXPLORE_NETWORK_MAP_CLEAR_FILTERS
-"""Declare intents"""
-	DECLARE_INTENTS_CLICK_ON_SERVICE
-	DECLARE_INTENTS_DOWNLOAD_YAML
-	DECLARE_INTENTS_DO_APPLY
-	COMPLETED
-}
-
 enum RowDiff {
 	ADDED
 	REMOVED
@@ -1500,8 +1480,6 @@ type User {
 	authProviderUserId: String!
 	tutorials: [UserTutorial!]
 	activeTutorial: UserTutorial!
-	questLogStep: QuestLogStep!
-	questLogStepSeen: QuestLogStep!
 }
 
 type UserAndPassword {
