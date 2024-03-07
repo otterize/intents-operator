@@ -3,6 +3,7 @@ package azureagent
 import (
 	"context"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -22,6 +23,9 @@ const (
 
 	// OtterizeAzureWorkloadIdentityClientIdAnnotation is used to annotate the pod with its azure workload identity client ID, to trigger the azure workload identity webhook on it
 	OtterizeAzureWorkloadIdentityClientIdAnnotation = "credentials-operator.otterize.com/azure-workload-identity-client-id"
+
+	// AzureClientIDEnvVar is originally set by the Azure workload identity webhook, and is overridden by us to contain the generated client ID
+	AzureClientIDEnvVar = "AZURE_CLIENT_ID"
 )
 
 func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
@@ -36,8 +40,6 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 	}
 
 	serviceAccount.Labels[ServiceManagedByAzureAgentLabel] = "true"
-
-	//pod.Labels[AzureUseWorkloadIdentityLabel] = "true"
 
 	// get or create the user assigned identity, ensuring the identity & federated credentials are in-place
 	identity, err := a.getOrCreateUserAssignedIdentity(ctx, serviceAccount.Namespace, serviceAccount.Name)
@@ -58,7 +60,31 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 	serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation] = clientId
 	// we additionally annotate the pod with the client ID to trigger the azure workload identity webhook on it
 	pod.Annotations[OtterizeAzureWorkloadIdentityClientIdAnnotation] = clientId
+
+	// update the pod's containers with the new client ID
+	// it would be great if the azure workload identity webhook could do this for us, but it doesn't,
+	// because it had already set its client ID to an empty string on its first invocation,
+	// before we had a chance to set it on the service account.
+	for _, container := range pod.Spec.Containers {
+		updateContainerClientID(&container, clientId)
+	}
+	for _, container := range pod.Spec.InitContainers {
+		updateContainerClientID(&container, clientId)
+	}
+
 	return true, nil
+}
+
+func updateContainerClientID(container *corev1.Container, clientId string) {
+	clientIdEnvVar, ok := lo.Find(container.Env, func(env corev1.EnvVar) bool {
+		return env.Name == AzureClientIDEnvVar
+	})
+	if !ok {
+		// we only update the env var if it was previously set by the WI webhook,
+		// so nothing to do here
+		return
+	}
+	clientIdEnvVar.Value = clientId
 }
 
 func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *corev1.ServiceAccount) (updated bool, requeue bool, err error) {
