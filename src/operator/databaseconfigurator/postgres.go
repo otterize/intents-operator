@@ -57,7 +57,7 @@ func (p PostgresTableIdentifier) toPGXIdentifier() pgx.Identifier {
 	return pgx.Identifier{p.tableSchema, p.tableName}
 }
 
-func (s SQLSprintfStatement) prepareSanitized(a ...any) (string, error) {
+func (s SQLSprintfStatement) PrepareSanitized(a ...any) (string, error) {
 	sanitizedItems := make([]any, len(a))
 	for i, formatInput := range a {
 		// We don't need to sanitize []model.DatabaseOperation because they were already validated by the API (It's an enum)
@@ -346,20 +346,20 @@ func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.
 		if err := rows.Scan(&sequenceName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGGrantStatement.prepareSanitized([]model.DatabaseOperation{model.DatabaseOperationAll}, pgx.Identifier{postgresTableIdentifier.tableSchema, sequenceName}, pgx.Identifier{username})
+		stmt, err := PGGrantStatement.PrepareSanitized([]model.DatabaseOperation{model.DatabaseOperationAll}, pgx.Identifier{postgresTableIdentifier.tableSchema, sequenceName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
 	}
 	// We always include the "revoke all" statement to make sure deleted permissions are removed
-	stmt, err := PGRevokeAllTableStatement.prepareSanitized(tableNameToIdentifier(lo.FromPtr(resource.Table)), pgx.Identifier{username})
+	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(tableNameToIdentifier(lo.FromPtr(resource.Table)), pgx.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
 	batch.Queue(stmt)
 	operations := p.getGrantOperations(resource.Operations)
-	stmt, err = PGGrantStatement.prepareSanitized(operations, tableNameToIdentifier(lo.FromPtr(resource.Table)), pgx.Identifier{username})
+	stmt, err = PGGrantStatement.PrepareSanitized(operations, tableNameToIdentifier(lo.FromPtr(resource.Table)), pgx.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -470,14 +470,14 @@ func (p *PostgresConfigurator) queueRevokeAllOnTableAndSequencesStatements(ctx c
 		if err := rows.Scan(&sequenceName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGRevokeAllOnSeqStatement.prepareSanitized(pgx.Identifier{table.tableSchema, sequenceName}, pgx.Identifier{username})
+		stmt, err := PGRevokeAllOnSeqStatement.PrepareSanitized(pgx.Identifier{table.tableSchema, sequenceName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
 	}
 
-	stmt, err := PGRevokeAllTableStatement.prepareSanitized(table.toPGXIdentifier(), pgx.Identifier{username})
+	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(table.toPGXIdentifier(), pgx.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -499,13 +499,13 @@ func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx c
 		if err := rows.Scan(&schemaName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGGrantOnAllSequencesInSchemaStatement.prepareSanitized([]model.DatabaseOperation{model.DatabaseOperationAll}, pgx.Identifier{schemaName}, pgx.Identifier{username})
+		stmt, err := PGGrantOnAllSequencesInSchemaStatement.PrepareSanitized([]model.DatabaseOperation{model.DatabaseOperationAll}, pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
 		operations := p.getGrantOperations(resource.Operations)
-		stmt, err = PGGrantOnAllTablesInSchemaStatement.prepareSanitized(operations, pgx.Identifier{schemaName}, pgx.Identifier{username})
+		stmt, err = PGGrantOnAllTablesInSchemaStatement.PrepareSanitized(operations, pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -528,12 +528,12 @@ func (p *PostgresConfigurator) queueRevokePermissionsByDatabaseNameStatements(ct
 		if err := rows.Scan(&schemaName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGRevokeOnAllSequencesInSchemaStatement.prepareSanitized(pgx.Identifier{schemaName}, pgx.Identifier{username})
+		stmt, err := PGRevokeOnAllSequencesInSchemaStatement.PrepareSanitized(pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
-		stmt, err = PGRevokeOnAllTablesInSchemaStatement.prepareSanitized(pgx.Identifier{schemaName}, pgx.Identifier{username})
+		stmt, err = PGRevokeOnAllTablesInSchemaStatement.PrepareSanitized(pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
