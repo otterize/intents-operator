@@ -10,6 +10,7 @@ import (
 
 	v1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	gomock "go.uber.org/mock/gomock"
+	v1 "k8s.io/api/core/v1"
 )
 
 // MockIAMPolicyAgent is a mock of IAMPolicyAgent interface.
@@ -49,18 +50,18 @@ func (mr *MockIAMPolicyAgentMockRecorder) AddRolePolicyFromIntents(ctx, namespac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRolePolicyFromIntents", reflect.TypeOf((*MockIAMPolicyAgent)(nil).AddRolePolicyFromIntents), ctx, namespace, accountName, intentsServiceName, intents)
 }
 
-// ApplyOnPodLabel mocks base method.
-func (m *MockIAMPolicyAgent) ApplyOnPodLabel() string {
+// AppliesOnPod mocks base method.
+func (m *MockIAMPolicyAgent) AppliesOnPod(pod *v1.Pod) bool {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplyOnPodLabel")
-	ret0, _ := ret[0].(string)
+	ret := m.ctrl.Call(m, "AppliesOnPod", pod)
+	ret0, _ := ret[0].(bool)
 	return ret0
 }
 
-// ApplyOnPodLabel indicates an expected call of ApplyOnPodLabel.
-func (mr *MockIAMPolicyAgentMockRecorder) ApplyOnPodLabel() *gomock.Call {
+// AppliesOnPod indicates an expected call of AppliesOnPod.
+func (mr *MockIAMPolicyAgentMockRecorder) AppliesOnPod(pod interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyOnPodLabel", reflect.TypeOf((*MockIAMPolicyAgent)(nil).ApplyOnPodLabel))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppliesOnPod", reflect.TypeOf((*MockIAMPolicyAgent)(nil).AppliesOnPod), pod)
 }
 
 // DeleteRolePolicyFromIntents mocks base method.

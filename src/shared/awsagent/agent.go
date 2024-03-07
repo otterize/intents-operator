@@ -41,10 +41,11 @@ type IAMClient interface {
 }
 
 type Agent struct {
-	iamClient   IAMClient
-	accountID   string
-	oidcURL     string
-	clusterName string
+	iamClient                        IAMClient
+	accountID                        string
+	oidcURL                          string
+	clusterName                      string
+	markRolesAsUnusedInsteadOfDelete bool
 }
 
 func NewAWSAgent(
@@ -130,8 +131,4 @@ func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Clu
 	}
 
 	return describeClusterOutput.Cluster, nil
-}
-
-func (a *Agent) ApplyOnPodLabel() string {
-	return "credentials-operator.otterize.com/create-aws-role"
 }

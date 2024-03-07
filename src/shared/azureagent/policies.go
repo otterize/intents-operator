@@ -10,10 +10,6 @@ import (
 	"github.com/samber/lo"
 )
 
-const maxManagedIdentityLength = 128
-const truncatedHashLength = 6
-const maxManagedIdentityTruncatedLength = maxManagedIdentityLength - truncatedHashLength - 1 // add another char for the hyphen
-
 func (a *Agent) IntentType() otterizev1alpha3.IntentType {
 	return otterizev1alpha3.IntentTypeAzure
 }

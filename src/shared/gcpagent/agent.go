@@ -12,7 +12,6 @@ import (
 const (
 	EnvGcpProjectId = "gcp-project-id"
 	EnvGcpGkeName   = "gcp-eks-name"
-	GCPPodLabel     = "credentials-operator.otterize.com/create-gcp-sa"
 )
 
 type Agent struct {
@@ -62,8 +61,4 @@ func getGCPAttribute(attribute string) (res string, err error) {
 		return "", errors.Errorf("%s environment variable is required", attribute)
 	}
 	return res, nil
-}
-
-func (a *Agent) ApplyOnPodLabel() string {
-	return GCPPodLabel
 }

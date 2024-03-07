@@ -202,8 +202,7 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 	}
 
 	if !exists {
-		errorMessage := fmt.Sprintf("role not found: %s", roleName)
-		return errors.New(errorMessage)
+		return errors.Errorf("role not found: %s", roleName)
 	}
 
 	policyDoc, _, err := generatePolicyDocument(statements)
