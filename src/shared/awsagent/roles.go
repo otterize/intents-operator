@@ -73,7 +73,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 				return nil, errors.Wrap(err)
 			}
 		}
-		if !useSoftDeleteStrategy {
+		if !useSoftDeleteStrategy && HasSoftDeleteStrategyTagSet(role.Tags) {
 			err = a.UnsetRoleSoftDeleteStrategyTag(ctx, role)
 			if err != nil {
 				return nil, errors.Wrap(err)
