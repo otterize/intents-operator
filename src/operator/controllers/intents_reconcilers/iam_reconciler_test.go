@@ -147,7 +147,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheGCPAgent() 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: testNamespace,
-			Labels:    map[string]string{gcpagent.GCPPodLabel: "true"},
+			Labels:    map[string]string{gcpagent.GCPApplyOnPodLabel: "true"},
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: clientServiceAccount,
@@ -167,7 +167,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheGCPAgent() 
 	)
 
 	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(gcpIntents)).Return(clientPod, nil)
-	s.gcpAgent.EXPECT().ApplyOnPodLabel().Return(gcpagent.GCPPodLabel)
+	s.gcpAgent.EXPECT().AppliesOnPod(gomock.AssignableToTypeOf(&clientPod)).Return(true)
 	s.gcpAgent.EXPECT().IntentType().Return(otterizev1alpha3.IntentTypeGCP)
 	s.Client.EXPECT().List(
 		gomock.Any(),
@@ -221,7 +221,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: testNamespace,
-			Labels:    map[string]string{gcpagent.GCPPodLabel: "true"},
+			Labels:    map[string]string{gcpagent.GCPApplyOnPodLabel: "true"},
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: clientServiceAccount,
@@ -241,7 +241,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 	)
 
 	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(clientIntents)).Return(clientPod, nil)
-	s.gcpAgent.EXPECT().ApplyOnPodLabel().Return(gcpagent.GCPPodLabel)
+	s.gcpAgent.EXPECT().AppliesOnPod(gomock.AssignableToTypeOf(&clientPod)).Return(true)
 	s.gcpAgent.EXPECT().IntentType().Return(otterizev1alpha3.IntentTypeGCP)
 	s.Client.EXPECT().List(
 		gomock.Any(),

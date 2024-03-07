@@ -75,16 +75,17 @@ type RolesAnywhereClient interface {
 }
 
 type Agent struct {
-	iamClient            IAMClient
-	rolesAnywhereClient  RolesAnywhereClient
-	accountID            string
-	oidcURL              string
-	clusterName          string
-	profileNameToId      map[string]string
-	profileCacheOnce     sync.Once
-	rolesAnywhereEnabled bool
-	trustAnchorArn       string
-	trustDomain          string
+	iamClient                        IAMClient
+	markRolesAsUnusedInsteadOfDelete bool
+	rolesAnywhereClient              RolesAnywhereClient
+	accountID                        string
+	oidcURL                          string
+	clusterName                      string
+	profileNameToId                  map[string]string
+	profileCacheOnce                 sync.Once
+	rolesAnywhereEnabled             bool
+	trustAnchorArn                   string
+	trustDomain                      string
 }
 
 type Option func(*Agent)
@@ -201,8 +202,4 @@ func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Clu
 	}
 
 	return describeClusterOutput.Cluster, nil
-}
-
-func (a *Agent) ApplyOnPodLabel() string {
-	return "credentials-operator.otterize.com/create-aws-role"
 }
