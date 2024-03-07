@@ -66,24 +66,23 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 	// it would be great if the azure workload identity webhook could do this for us, but it doesn't,
 	// because it had already set its client ID to an empty string on its first invocation,
 	// before we had a chance to set it on the service account.
-	for _, container := range pod.Spec.Containers {
-		updateContainerClientID(&container, clientId)
-	}
-	for _, container := range pod.Spec.InitContainers {
-		updateContainerClientID(&container, clientId)
-	}
+	pod.Spec.InitContainers = mutateContainers(pod.Spec.InitContainers, clientId)
+	pod.Spec.Containers = mutateContainers(pod.Spec.Containers, clientId)
 
 	return true, nil
 }
 
-func updateContainerClientID(container *corev1.Container, clientId string) {
-	container.Env = lo.Map(container.Env, func(env corev1.EnvVar, _ int) corev1.EnvVar {
-		if env.Name == AzureClientIDEnvVar {
-			logrus.WithField("container", container.Name).WithField("envVar", env.Name).WithField("value", clientId).
-				Debug("Updating container env var")
-			env.Value = clientId
-		}
-		return env
+func mutateContainers(containers []corev1.Container, clientId string) []corev1.Container {
+	return lo.Map(containers, func(container corev1.Container, _ int) corev1.Container {
+		container.Env = lo.Map(container.Env, func(env corev1.EnvVar, _ int) corev1.EnvVar {
+			if env.Name == AzureClientIDEnvVar {
+				logrus.WithField("container", container.Name).WithField("envVar", env.Name).WithField("value", clientId).
+					Debug("Updating container env var")
+				env.Value = clientId
+			}
+			return env
+		})
+		return container
 	})
 }
 
