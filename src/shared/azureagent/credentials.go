@@ -36,6 +36,7 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
 	if !a.AppliesOnPod(pod) {
+		logger.Debug("Pod is not marked for Azure role assignment, skipping")
 		return false, nil
 	}
 
