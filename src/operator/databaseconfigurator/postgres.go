@@ -37,8 +37,6 @@ const (
 	PGSelectAllDatabasesWithConnectPermissions                     = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT');" 	= "postgres"
 )
 
-const pgUsernameMaxLength = 63
-
 var serviceIDRegexPattern = regexp.MustCompile(`^(svc_[a-zA-Z\d]+)_.+$`)
 
 type SQLSprintfStatement string
@@ -97,23 +95,6 @@ func NewPostgresConfigurator(pgServerConfSpec otterizev1alpha3.PostgreSQLServerC
 		setConnMutex: sync.Mutex{},
 		client:       client,
 	}
-}
-
-func BuildPostgresUsername(client types.NamespacedName) string {
-	username := fmt.Sprintf("%s_%s", KubernetesToPostgresName(client.Namespace), KubernetesToPostgresName(client.Name))
-	if len(username) > pgUsernameMaxLength {
-		username = username[:pgUsernameMaxLength]
-	}
-	return username
-}
-
-func ServiceIDFromPostgresUsername(username string) apis.ServiceID {
-	match := serviceIDRegexPattern.FindStringSubmatch(username)
-	if len(match) == 0 {
-		return ""
-	}
-
-	return apis.ServiceID(match[1])
 }
 
 func TranslatePostgresConnectionError(err error) (string, bool) {
@@ -550,15 +531,3 @@ func (p *PostgresConfigurator) formatConnectionString() string {
 		p.databaseInfo.Address,
 		p.databaseInfo.DatabaseName)
 }
-
-// KubernetesToPostgresName translates a name with Kubernetes conventions to Postgres conventions
-func KubernetesToPostgresName(kubernetesName string) string {
-	// '.' are replaced with dunders '__'
-	// '-' are replaced with single underscores '_'
-	return strings.ReplaceAll(strings.ReplaceAll(kubernetesName, ".", "__"), "-", "_")
-}
-
-// Commented out to avoid linter hell
-//func postgresToKubernetesName(pgName string) string {
-//	return strings.ReplaceAll(strings.ReplaceAll(pgName, "__", "."), "_", "-")
-//}
