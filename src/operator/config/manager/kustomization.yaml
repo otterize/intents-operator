@@ -13,4 +13,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: 353146681200.dkr.ecr.us-east-1.amazonaws.com/otterize
-  newTag: spire-integration-operator-0.0.1
+  newTag: credentials-operator-0.0.1

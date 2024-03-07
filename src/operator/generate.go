@@ -12,3 +12,4 @@ package main
 //go:generate go run go.uber.org/mock/mockgen@v0.2.0 -package mockserviceaccounts -destination=mocks/controllers/serviceaccounts/mock.go github.com/otterize/credentials-operator/src/controllers ServiceAccountEnsurer
 //go:generate go run go.uber.org/mock/mockgen@v0.2.0 -destination=mocks/eventrecorder/mock.go k8s.io/client-go/tools/record EventRecorder
 //go:generate go run go.uber.org/mock/mockgen@v0.2.0 -destination=mocks/serviceidresolver/mock.go github.com/otterize/credentials-operator/src/controllers/secrets/types ServiceIdResolver
+//go:generate go run go.uber.org/mock/mockgen@v0.2.0 -destination=mocks/gcp/mock2.go -package=gcp_service_accounts -source=./controllers/gcp_iam/gcp_service_accounts/gcp_service_accounts_controller.go GCPServiceAccountManager

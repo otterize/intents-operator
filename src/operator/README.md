@@ -12,13 +12,13 @@ kubectl apply -f config/samples/
 2. Build and push your image to the location specified by `IMG`:
 	
 ```sh
-make docker-build docker-push IMG=<some-registry>/spire-integration-operator:tag
+make docker-build docker-push IMG=<some-registry>/credentials-operator:tag
 ```
 	
 3. Deploy the controller to the cluster with the image specified by `IMG`:
 
 ```sh
-make deploy IMG=<some-registry>/spire-integration-operator:tag
+make deploy IMG=<some-registry>/credentials-operator:tag
 ```
 
 ### Uninstall CRDs
@@ -48,7 +48,7 @@ which provides a reconcile function responsible for synchronizing resources unti
 ```kubectl exec -n spire spire-server-0 -- /opt/spire/bin/spire-server entry create \
     -spiffeID spiffe://example.org/ns/default/sa/default \
     -parentID spiffe://example.org/ns/spire/sa/spire-agent \
-    -selector k8s:ns:spire-integration-operator-system -admin
+    -selector k8s:ns:credentials-operator-system -admin
 ```
 
 2. Install the CRDs into the cluster:

@@ -3,7 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
-	"github.com/otterize/spire-integration-operator/examples/spiffe-tls/utils"
+	"github.com/otterize/credentials-operator/examples/spiffe-tls/utils"
 	"log"
 	"net"
 

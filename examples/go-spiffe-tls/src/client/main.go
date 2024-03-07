@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/otterize/spire-integration-operator/examples/spiffe-tls/utils"
+	"github.com/otterize/credentials-operator/examples/spiffe-tls/utils"
 	"io"
 	"log"
 	"time"
