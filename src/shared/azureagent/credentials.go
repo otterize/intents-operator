@@ -19,6 +19,9 @@ const (
 
 	// AzureWorkloadIdentityClientIdAnnotation is used by the azure workload identity mechanism to link between service accounts and user assigned identities
 	AzureWorkloadIdentityClientIdAnnotation = "azure.workload.identity/client-id"
+
+	// OtterizeAzureWorkloadIdentityClientIdAnnotation is used to annotate the pod with its azure workload identity client ID, to trigger the azure workload identity webhook on it
+	OtterizeAzureWorkloadIdentityClientIdAnnotation = "credentials-operator.otterize.com/azure-workload-identity-client-id"
 )
 
 func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
@@ -34,7 +37,7 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 
 	serviceAccount.Labels[ServiceManagedByAzureAgentLabel] = "true"
 
-	pod.Labels[AzureUseWorkloadIdentityLabel] = "true"
+	//pod.Labels[AzureUseWorkloadIdentityLabel] = "true"
 
 	// get or create the user assigned identity, ensuring the identity & federated credentials are in-place
 	identity, err := a.getOrCreateUserAssignedIdentity(ctx, serviceAccount.Namespace, serviceAccount.Name)
@@ -52,7 +55,9 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 	logger.WithField("identity", *identity.Name).WithField("clientId", clientId).
 		Info("Annotating service account with managed identity client ID")
 
-	serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation] = *identity.Properties.ClientID
+	serviceAccount.Annotations[AzureWorkloadIdentityClientIdAnnotation] = clientId
+	// we additionally annotate the pod with the client ID to trigger the azure workload identity webhook on it
+	pod.Annotations[OtterizeAzureWorkloadIdentityClientIdAnnotation] = clientId
 	return true, nil
 }
 
