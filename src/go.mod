@@ -34,6 +34,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.13.0
 	github.com/stretchr/testify v1.8.4
+	github.com/suessflorian/gqlfetch v0.6.0
 	github.com/vektah/gqlparser/v2 v2.4.5
 	github.com/vishalkuo/bimap v0.0.0-20220726225509-e0b4f20de28b
 	go.uber.org/mock v0.2.0
@@ -124,6 +125,7 @@ require (
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
+	github.com/vektah/gqlparser v1.3.1 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
