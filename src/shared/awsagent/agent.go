@@ -109,7 +109,7 @@ func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
 
 func WithRolesAnywhere(trustAnchorArn string, trustDomain string, clusterName string) Option {
 	if trustAnchorArn == "" || trustDomain == "" || clusterName == "" {
-		logrus.Panic("AWS IAM roles anywhere is enabled but required configuration is missing: OTTERIZE_TRUST_ANCHOR_ARN, OTTERIZE_SPIFFE_TRUST_DOMAIN, OTTERIZE_CLUSTER_NAME")
+		logrus.Panic("AWS IAM roles anywhere is enabled but required configuration is missing: OTTERIZE_ROLESANYWHERE_TRUST_ANCHOR_ARN, OTTERIZE_ROLESANYWHERE_SPIFFE_TRUST_DOMAIN, OTTERIZE_ROLESANYWHERE_CLUSTER_NAME")
 	}
 
 	return func(a *Agent) {
