@@ -6,8 +6,10 @@ require (
 	cloud.google.com/go/compute/metadata v0.2.3
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.5.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2 v2.2.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4 v4.7.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi v1.2.0
-	github.com/GoogleCloudPlatform/k8s-config-connector v1.113.0
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0
+	github.com/GoogleCloudPlatform/k8s-config-connector v1.112.0
 	github.com/Khan/genqlient v0.5.0
 	github.com/Shopify/sarama v1.34.1
 	github.com/amit7itz/goset v1.2.1
@@ -18,6 +20,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.136.0
 	github.com/aws/aws-sdk-go-v2/service/eks v1.33.1
 	github.com/aws/aws-sdk-go-v2/service/iam v1.27.2
+	github.com/aws/aws-sdk-go-v2/service/rolesanywhere v1.6.8
 	github.com/aws/aws-sdk-go-v2/service/sts v1.25.3
 	github.com/aws/smithy-go v1.19.0
 	github.com/bombsimon/logrusr/v3 v3.0.0
@@ -50,12 +53,8 @@ require (
 
 require (
 	cloud.google.com/go/compute v1.23.0 // indirect
-	github.com/Azure/azure-sdk-for-go-extensions v0.1.6 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.9.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.1 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice v1.0.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4 v4.7.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources v1.2.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.1 // indirect
 	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/alexflint/go-arg v1.4.2 // indirect
@@ -66,7 +65,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.7.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.10.1 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.10.3 // indirect
-	github.com/aws/aws-sdk-go-v2/service/rolesanywhere v1.6.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.17.2 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.20.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -154,11 +152,8 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace (
-	github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp => ./mockgcp
-	github.com/hashicorp/terraform-provider-google-beta => ./third_party/github.com/hashicorp/terraform-provider-google-beta
-	github.com/otterize/intents-operator/operator/api/v1alpha2 => ./operator/api/v1alpha2
-	github.com/otterize/intents-operator/operator/controllers => ./operator/controllers
-	github.com/otterize/intents-operator/operator/webhooks => ./operator/webhooks
-	github.com/otterize/intents-operator/shared/reconcilergroup => ./shared/reconcilergroup
+// Workaround for https://github.com/GoogleCloudPlatform/k8s-config-connector/issues/828
+exclude (
+	github.com/hashicorp/terraform-provider-google-beta v3.73.0+incompatible
+	github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp v0.0.0-00010101000000-000000000000
 )
