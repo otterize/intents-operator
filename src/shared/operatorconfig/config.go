@@ -59,9 +59,9 @@ const (
 	AzureResourceGroupKey                       = "azure-resource-group"
 	AzureAKSClusterNameKey                      = "azure-aks-cluster-name"
 	EKSClusterNameOverrideKey                   = "eks-cluster-name-override"
-	AWSRolesAnywhereTrustAnchorARNKey           = "trust-anchor-arn"
-	AWSRolesAnywhereSPIFFETrustDomainKey        = "spiffe-trust-domain"
-	AWSRolesAnywhereClusterName                 = "roles-anywhere-cluster-name"
+	AWSRolesAnywhereTrustAnchorARNKey           = "rolesanywhere-trust-anchor-arn"
+	AWSRolesAnywhereSPIFFETrustDomainKey        = "rolesanywhere-spiffe-trust-domain"
+	AWSRolesAnywhereClusterName                 = "rolesanywhere-cluster-name"
 	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
 	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"
 )
