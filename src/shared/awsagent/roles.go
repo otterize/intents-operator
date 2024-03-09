@@ -212,6 +212,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 		Description:              aws.String(iamRoleDescription),
 		PermissionsBoundary:      aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.accountID, a.clusterName)),
 	}
+	logrus.Info("Permission boundary: %s", createRoleInput.PermissionsBoundary)
 	createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, createRoleInput)
 
 	if createRoleError != nil {
