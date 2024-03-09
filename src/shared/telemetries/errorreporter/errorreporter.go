@@ -30,6 +30,8 @@ func (noopLogger) Printf(format string, v ...interface{}) {
 }
 
 func Init(componentName string, version string, apiKey string) {
+	logrus.Infof("starting error telemetry for component '%s' with version '%s'", componentName, version)
+
 	if !telemetriesconfig.IsErrorTelemetryEnabled() {
 		logrus.Info("error reporting disabled")
 		return

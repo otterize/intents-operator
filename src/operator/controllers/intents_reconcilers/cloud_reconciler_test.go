@@ -18,6 +18,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
+	"time"
 )
 
 type CloudReconcilerTestSuite struct {
@@ -623,9 +624,123 @@ func (s *CloudReconcilerTestSuite) assertReportedIntents(clientIntents otterizev
 
 	expectedNamespace := lo.ToPtr(testNamespace)
 
-	if len(expectedIntents) > 0 {
-		s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, operator_cloud_client.GetMatcher(expectedIntents)).Return(nil).Times(1)
+	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, operator_cloud_client.GetMatcher(expectedIntents)).Return(nil).Times(1)
+
+	objName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      intentsObjectName,
 	}
+	req := ctrl.Request{NamespacedName: objName}
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.Require().NoError(err)
+	s.Require().Equal(ctrl.Result{}, res)
+}
+
+func (s *CloudReconcilerTestSuite) TestUploadIntentsDeletion() {
+	deletedIntents := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              intentsObjectName,
+			Namespace:         testNamespace,
+			DeletionTimestamp: lo.ToPtr(metav1.Date(2021, 6, 13, 0, 0, 0, 0, time.UTC)),
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "test-server",
+				},
+			},
+		},
+	}
+
+	emptyInput := make([]*graphqlclient.IntentInput, 0)
+	emptyList := otterizev1alpha3.ClientIntentsList{}
+	clientIntentsList := otterizev1alpha3.ClientIntentsList{
+		Items: []otterizev1alpha3.ClientIntents{deletedIntents},
+	}
+
+	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts *client.ListOptions) error {
+			clientIntentsList.DeepCopyInto(list)
+			return nil
+		})
+
+	expectedNamespace := lo.ToPtr(testNamespace)
+
+	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, emptyInput).Return(nil).Times(1)
+
+	objName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      intentsObjectName,
+	}
+	req := ctrl.Request{NamespacedName: objName}
+	res, err := s.Reconciler.Reconcile(context.Background(), req)
+	s.Require().NoError(err)
+	s.Require().Equal(ctrl.Result{}, res)
+}
+
+func (s *CloudReconcilerTestSuite) TestUploadIntentsOnlyOneDeleted() {
+	deletedIntents := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "deleted-intents",
+			Namespace:         testNamespace,
+			DeletionTimestamp: lo.ToPtr(metav1.Date(2021, 6, 13, 0, 0, 0, 0, time.UTC)),
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
+				Name: "deleted-client",
+			},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "test-server",
+				},
+			},
+		},
+	}
+
+	clientIntents := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{
+				Name: clientName,
+			},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "test-server",
+				},
+			},
+		},
+	}
+
+	emptyList := otterizev1alpha3.ClientIntentsList{}
+	clientIntentsList := otterizev1alpha3.ClientIntentsList{
+		Items: []otterizev1alpha3.ClientIntents{
+			deletedIntents,
+			clientIntents,
+		},
+	}
+
+	expectedIntent := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr("test-server"),
+		Namespace:       lo.ToPtr(testNamespace),
+		ServerNamespace: lo.ToPtr(testNamespace),
+	}
+
+	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts *client.ListOptions) error {
+			clientIntentsList.DeepCopyInto(list)
+			return nil
+		})
+
+	expectedNamespace := lo.ToPtr(testNamespace)
+
+	s.mockCloudClient.EXPECT().ReportAppliedIntents(gomock.Any(), expectedNamespace, operator_cloud_client.GetMatcher([]graphqlclient.IntentInput{expectedIntent})).Return(nil).Times(1)
 
 	objName := types.NamespacedName{
 		Namespace: testNamespace,
