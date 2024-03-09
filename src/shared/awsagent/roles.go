@@ -140,6 +140,20 @@ func (a *Agent) CreateRolesAnywhereProfileForRole(ctx context.Context, role type
 			RoleArns: []string{*role.Arn},
 			Enabled:  lo.ToPtr(true),
 			Name:     lo.ToPtr(a.generateRolesAnywhereProfileName(namespace, serviceAccountName)),
+			Tags: []rolesanywhereTypes.Tag{
+				{
+					Key:   aws.String(serviceAccountNameTagKey),
+					Value: aws.String(serviceAccountName),
+				},
+				{
+					Key:   aws.String(serviceAccountNamespaceTagKey),
+					Value: aws.String(namespace),
+				},
+				{
+					Key:   aws.String(clusterNameTagKey),
+					Value: aws.String(a.clusterName),
+				},
+			},
 		})
 
 	if createProfileErr != nil {
