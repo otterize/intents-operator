@@ -20,11 +20,10 @@ RUN echo -n $VERSION > /version
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-# FIXME
-FROM alpine
+FROM gcr.io/distroless/static:debug
 WORKDIR /
 COPY --from=builder /workspace/manager .
 COPY --from=builder /version .
-#USER 65532:65532
+USER 65532:65532
 
 ENTRYPOINT ["/manager"]

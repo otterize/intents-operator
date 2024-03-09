@@ -45,8 +45,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"time"
 
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
@@ -146,9 +149,14 @@ func main() {
 	}
 
 	options := ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
+		Metrics: server.Options{
+			BindAddress: metricsAddr,
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port:    9443,
+			CertDir: webhooks.CertDirPath,
+		}),
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "a3a7d614.otterize.com",
@@ -166,7 +174,9 @@ func main() {
 	}
 
 	if len(watchedNamespaces) != 0 {
-		options.Cache.Namespaces = watchedNamespaces
+		for _, namespace := range watchedNamespaces {
+			options.Cache.DefaultNamespaces[namespace] = cache.Config{}
+		}
 		logrus.Infof("Will only watch the following namespaces: %v", watchedNamespaces)
 	}
 

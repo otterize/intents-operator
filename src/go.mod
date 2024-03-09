@@ -48,7 +48,7 @@ require (
 	k8s.io/apiextensions-apiserver v0.27.9
 	k8s.io/apimachinery v0.27.9
 	k8s.io/client-go v0.27.9
-	sigs.k8s.io/controller-runtime v0.15.2
+	sigs.k8s.io/controller-runtime v0.16.3
 )
 
 require (
