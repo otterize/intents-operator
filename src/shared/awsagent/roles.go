@@ -49,7 +49,7 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 	return true, role.Role, nil
 }
 
-func (a *Agent) GetOtterizeProfile(ctx context.Context, namespaceName, serviceAccountName string) (found bool, profile *rolesanywhereTypes.ProfileDetail, err error) {
+func (a *Agent) initProfileCache(ctx context.Context) (err error) {
 	a.profileCacheOnce.Do(func() {
 		defer func() {
 			if err != nil {
@@ -80,6 +80,11 @@ func (a *Agent) GetOtterizeProfile(ctx context.Context, namespaceName, serviceAc
 			}
 		}
 	})
+	return errors.Wrap(err)
+}
+
+func (a *Agent) GetOtterizeProfile(ctx context.Context, namespaceName, serviceAccountName string) (found bool, profile *rolesanywhereTypes.ProfileDetail, err error) {
+	err = a.initProfileCache(ctx)
 	if err != nil {
 		return false, nil, errors.Errorf("failed to initialize profile cache: %w", err)
 	}
