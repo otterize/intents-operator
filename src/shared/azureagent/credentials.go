@@ -15,9 +15,6 @@ const (
 	// ServiceManagedByAzureAgentLabel is used to mark service accounts that are managed by the Azure agent
 	ServiceManagedByAzureAgentLabel = "credentials-operator.otterize.com/managed-by-azure-agent"
 
-	// AzureUseWorkloadIdentityLabel is used by the azure workload identity mechanism to mark pods that should use workload identity
-	AzureUseWorkloadIdentityLabel = "azure.workload.identity/use"
-
 	// AzureWorkloadIdentityClientIdAnnotation is used by the azure workload identity mechanism to link between service accounts and user assigned identities
 	AzureWorkloadIdentityClientIdAnnotation = "azure.workload.identity/client-id"
 
