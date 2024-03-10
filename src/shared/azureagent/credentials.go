@@ -10,7 +10,7 @@ import (
 
 const (
 	// AzureApplyOnPodLabel is used to mark pods that should be processed by the Azure agent to create an associated Azure identity & role assignment
-	AzureApplyOnPodLabel = "credentials-operator.otterize.com/create-azure-role-assignment"
+	AzureApplyOnPodLabel = "credentials-operator.otterize.com/create-azure-workload-identity"
 
 	// ServiceManagedByAzureAgentLabel is used to mark service accounts that are managed by the Azure agent
 	ServiceManagedByAzureAgentLabel = "credentials-operator.otterize.com/managed-by-azure-agent"
