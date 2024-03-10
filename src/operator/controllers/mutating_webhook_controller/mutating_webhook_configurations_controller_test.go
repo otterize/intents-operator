@@ -1,4 +1,4 @@
-package controllers
+package mutatingwebhookconfiguration
 
 import (
 	"context"
@@ -21,52 +21,52 @@ import (
 const TestWebhook = "test-webhook"
 const TestWebhookConfig = "test-webhook-config"
 
-type ValidatingWebhookControllerTestSuite struct {
+type MutatingWebhookControllerTestSuite struct {
 	testbase.MocksSuiteBase
-	Cert                        []byte
-	validatingWebhookReconciler *ValidatingWebhookConfigsReconciler
+	Cert                      []byte
+	mutatingWebhookReconciler *MutatingWebhookConfigsReconciler
 }
 
-func (s *ValidatingWebhookControllerTestSuite) SetupTest() {
+func (s *MutatingWebhookControllerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 
 	base64Cert := base64.StdEncoding.EncodeToString([]byte("test"))
 	s.Cert = []byte(base64Cert)
 
-	s.validatingWebhookReconciler = NewValidatingWebhookConfigsReconciler(
+	s.mutatingWebhookReconciler = NewMutatingWebhookConfigsReconciler(
 		s.Client,
 		scheme.Scheme,
 		s.Cert,
-		filters.IntentsOperatorLabelPredicate(),
+		filters.CredentialsOperatorLabelPredicate(),
 	)
 }
 
-func (s *ValidatingWebhookControllerTestSuite) TearDownTest() {
+func (s *MutatingWebhookControllerTestSuite) TearDownTest() {
 	s.MocksSuiteBase.TearDownTest()
 }
 
-func (s *ValidatingWebhookControllerTestSuite) TestAssigningCABundle() {
+func (s *MutatingWebhookControllerTestSuite) TestAssigningCABundle() {
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{Name: TestWebhookConfig},
 	}
 
 	// Create a test webhook configuration object
-	webhookConfig := admissionregistrationv1.ValidatingWebhookConfiguration{
+	webhookConfig := admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: TestWebhookConfig,
 		},
-		Webhooks: []admissionregistrationv1.ValidatingWebhook{
+		Webhooks: []admissionregistrationv1.MutatingWebhook{
 			{
 				Name: TestWebhook,
 			},
 		},
 	}
 
-	updatedWebhookConfig := admissionregistrationv1.ValidatingWebhookConfiguration{
+	updatedWebhookConfig := admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: TestWebhookConfig,
 		},
-		Webhooks: []admissionregistrationv1.ValidatingWebhook{
+		Webhooks: []admissionregistrationv1.MutatingWebhook{
 			{
 				Name: TestWebhook,
 				ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -77,7 +77,7 @@ func (s *ValidatingWebhookControllerTestSuite) TestAssigningCABundle() {
 	}
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&webhookConfig)).DoAndReturn(
-		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *admissionregistrationv1.ValidatingWebhookConfiguration, arg3 ...client.GetOption) error {
+		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *admissionregistrationv1.MutatingWebhookConfiguration, arg3 ...client.GetOption) error {
 			*arg2 = webhookConfig
 			return nil
 		},
@@ -87,10 +87,10 @@ func (s *ValidatingWebhookControllerTestSuite) TestAssigningCABundle() {
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedWebhookConfig), matcher).Return(nil)
 
 	// Call the reconcile function
-	_, err := s.validatingWebhookReconciler.Reconcile(context.Background(), req)
+	_, err := s.mutatingWebhookReconciler.Reconcile(context.Background(), req)
 	s.Require().NoError(err)
 }
 
-func TestValidatingWebhookControllerTestSuite(t *testing.T) {
-	suite.Run(t, new(ValidatingWebhookControllerTestSuite))
+func TestMutatingWebhookControllerTestSuite(t *testing.T) {
+	suite.Run(t, new(MutatingWebhookControllerTestSuite))
 }

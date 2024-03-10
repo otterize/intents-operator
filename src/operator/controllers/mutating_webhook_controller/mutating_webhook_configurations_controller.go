@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package mutatingwebhookconfiguration
 
 import (
 	"bytes"
@@ -30,24 +30,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-// ValidatingWebhookConfigsReconciler reconciles webhook configurations
-type ValidatingWebhookConfigsReconciler struct {
+// MutatingWebhookConfigsReconciler reconciles webhook configurations
+type MutatingWebhookConfigsReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	certPEM   []byte
 	predicate predicate.Predicate
 }
 
-//+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list;watch
+//+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=mutatingwebhookconfigurations,verbs=get;update;patch;list;watch
 
-func NewValidatingWebhookConfigsReconciler(
+func NewMutatingWebhookConfigsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	certPem []byte,
 	predicate predicate.Predicate,
-) *ValidatingWebhookConfigsReconciler {
+) *MutatingWebhookConfigsReconciler {
 
-	return &ValidatingWebhookConfigsReconciler{
+	return &MutatingWebhookConfigsReconciler{
 		Client:    client,
 		Scheme:    scheme,
 		certPEM:   certPem,
@@ -55,39 +55,39 @@ func NewValidatingWebhookConfigsReconciler(
 	}
 }
 
-func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Debugf("Reconciling due to ValidatingWebhookConfiguration change: %s", req.Name)
+func (r *MutatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logrus.Debugf("Reconciling due to MutatingWebhookConfiguration change: %s", req.Name)
 
 	// Fetch the validating webhook configuration object
-	webhookConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{}
+	webhookConfig := &admissionregistrationv1.MutatingWebhookConfiguration{}
 	if err := r.Get(ctx, req.NamespacedName, webhookConfig); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// If all certs match, don't reconcile.
-	if lo.EveryBy(webhookConfig.Webhooks, func(item admissionregistrationv1.ValidatingWebhook) bool {
+	if lo.EveryBy(webhookConfig.Webhooks, func(item admissionregistrationv1.MutatingWebhook) bool {
 		return bytes.Equal(item.ClientConfig.CABundle, r.certPEM)
 	}) {
 		return ctrl.Result{}, nil
 	}
 
-	// Set the new CA bundle for the validating webhooks
+	// Set the new CA bundle for the mutating webhooks
 	resourceCopy := webhookConfig.DeepCopy()
 	for i := range resourceCopy.Webhooks {
 		resourceCopy.Webhooks[i].ClientConfig.CABundle = r.certPEM
 	}
 
 	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(webhookConfig)); err != nil {
-		return ctrl.Result{}, errors.Errorf("Failed to patch ValidatingWebhookConfiguration: %w", err)
+		return ctrl.Result{}, errors.Errorf("failed to patch MutatingWebhookConfiguration: %w", err)
 	}
 
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ValidatingWebhookConfigsReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *MutatingWebhookConfigsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&admissionregistrationv1.ValidatingWebhookConfiguration{}).
+		For(&admissionregistrationv1.MutatingWebhookConfiguration{}).
 		WithEventFilter(r.predicate).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)

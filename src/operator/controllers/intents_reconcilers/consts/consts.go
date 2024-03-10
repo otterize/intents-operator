@@ -14,6 +14,8 @@ const (
 	ReasonRemovingIstioPolicyFailed                  = "RemovingIstioPolicyFailed"
 	ReasonPodsNotFound                               = "PodsNotFound"
 	ReasonIntentsFoundButNoServiceAccount            = "ReasonIntentsFoundButNoServiceAccount"
+	ReasonReconciledAWSPolicies                      = "ReasonReconciledAWSPolicies"
+	ReasonReconcilingAWSPoliciesFailed               = "ReasonReconcilingAWSPoliciesFailed"
 	ReasonReconciledIAMPolicies                      = "ReasonReconciledIAMPolicies"
 	ReasonReconcilingIAMPoliciesFailed               = "ReasonReconcilingIAMPoliciesFailed"
 	ReasonIntentsServiceAccountUsedByMultipleClients = "ReasonIntentsServiceAccountUsedByMultipleClients"

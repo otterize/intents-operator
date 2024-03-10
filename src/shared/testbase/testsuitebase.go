@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"strings"
@@ -64,7 +65,7 @@ func (s *ControllerManagerTestSuiteBase) SetupTest() {
 		CertDir: s.TestEnv.WebhookInstallOptions.LocalServingCertDir,
 	})
 	var err error
-	s.Mgr, err = manager.New(s.RestConfig, manager.Options{MetricsBindAddress: "0", WebhookServer: webhookServer})
+	s.Mgr, err = manager.New(s.RestConfig, manager.Options{Metrics: server.Options{BindAddress: "0"}, WebhookServer: webhookServer})
 	s.Require().NoError(err)
 	s.Require().NoError(protected_services.InitProtectedServiceIndexField(s.Mgr))
 

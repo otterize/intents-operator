@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/aws/aws-sdk-go-v2/service/rolesanywhere"
+	rolesanywhereTypes "github.com/aws/aws-sdk-go-v2/service/rolesanywhere/types"
 	"github.com/aws/smithy-go"
 	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"strings"
+	"sync"
 	"time"
 )
 import "github.com/aws/aws-sdk-go-v2/service/iam"
@@ -46,8 +49,124 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 	return true, role.Role, nil
 }
 
+func (a *Agent) initProfileCache(ctx context.Context) (err error) {
+	a.profileCacheOnce.Do(func() {
+		defer func() {
+			if err != nil {
+				a.profileNameToId = make(map[string]string)
+				a.profileCacheOnce = sync.Once{}
+			}
+		}()
+		var nextToken *string = nil
+		output, listProfileErr := a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
+		if listProfileErr != nil {
+			err = errors.Errorf("failed to list profiles: %w", listProfileErr)
+			return
+		}
+
+		for _, profile := range output.Profiles {
+			a.profileNameToId[*profile.Name] = *profile.ProfileId
+		}
+
+		for output.NextToken != nil {
+			nextToken = output.NextToken
+			for _, profile := range output.Profiles {
+				a.profileNameToId[*profile.Name] = *profile.ProfileId
+			}
+			output, listProfileErr = a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
+			if listProfileErr != nil {
+				err = errors.Errorf("failed to list profiles: %w", listProfileErr)
+				return
+			}
+		}
+	})
+	return errors.Wrap(err)
+}
+
+func (a *Agent) GetOtterizeProfile(ctx context.Context, namespaceName, serviceAccountName string) (found bool, profile *rolesanywhereTypes.ProfileDetail, err error) {
+	err = a.initProfileCache(ctx)
+	if err != nil {
+		return false, nil, errors.Errorf("failed to initialize profile cache: %w", err)
+	}
+
+	if profileId, ok := a.profileNameToId[a.generateRolesAnywhereProfileName(namespaceName, serviceAccountName)]; ok {
+		getProfileOutput, err := a.rolesAnywhereClient.GetProfile(ctx, &rolesanywhere.GetProfileInput{ProfileId: &profileId})
+		if err != nil {
+			if noSuchEntity := (types.NoSuchEntityException{}); errors.As(err, &noSuchEntity) {
+				delete(a.profileNameToId, a.generateRolesAnywhereProfileName(namespaceName, serviceAccountName))
+				return false, nil, nil
+			}
+			return false, nil, errors.Errorf("failed to get profile: %w", err)
+		}
+
+		return true, getProfileOutput.Profile, nil
+	}
+
+	return false, nil, nil
+}
+
+func (a *Agent) DeleteRolesAnywhereProfileForServiceAccount(ctx context.Context, namespace string, serviceAccountName string) (bool, error) {
+	found, profile, err := a.GetOtterizeProfile(ctx, namespace, serviceAccountName)
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	if !found {
+		return false, nil
+	}
+
+	_, err = a.rolesAnywhereClient.DeleteProfile(ctx, &rolesanywhere.DeleteProfileInput{ProfileId: profile.ProfileId})
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	delete(a.profileNameToId, *profile.Name)
+
+	return true, nil
+}
+
+func (a *Agent) CreateRolesAnywhereProfileForRole(ctx context.Context, role types.Role, namespace string, serviceAccountName string) (profile *rolesanywhereTypes.ProfileDetail, err error) {
+	found, profile, err := a.GetOtterizeProfile(ctx, namespace, serviceAccountName)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	if found {
+		return profile, nil
+	}
+
+	createProfileOutput, createProfileErr := a.rolesAnywhereClient.CreateProfile(ctx,
+		&rolesanywhere.CreateProfileInput{
+			RoleArns: []string{*role.Arn},
+			Enabled:  lo.ToPtr(true),
+			Name:     lo.ToPtr(a.generateRolesAnywhereProfileName(namespace, serviceAccountName)),
+			Tags: []rolesanywhereTypes.Tag{
+				{
+					Key:   aws.String(serviceAccountNameTagKey),
+					Value: aws.String(serviceAccountName),
+				},
+				{
+					Key:   aws.String(serviceAccountNamespaceTagKey),
+					Value: aws.String(namespace),
+				},
+				{
+					Key:   aws.String(clusterNameTagKey),
+					Value: aws.String(a.clusterName),
+				},
+			},
+		})
+
+	if createProfileErr != nil {
+		return nil, errors.Wrap(createProfileErr)
+	}
+
+	a.profileNameToId[*createProfileOutput.Profile.Name] = *createProfileOutput.Profile.ProfileId
+
+	return createProfileOutput.Profile, nil
+}
+
 // CreateOtterizeIAMRole creates a new IAM role for service, if one doesn't exist yet
-func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accountName string, useSoftDeleteStrategy bool) (*types.Role, error) {
+func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string, accountName string, useSoftDeleteStrategy bool) (*types.Role, error) {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
 	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
 
@@ -105,13 +224,14 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	if useSoftDeleteStrategy {
 		tags = append(tags, types.Tag{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)})
 	}
-	createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, &iam.CreateRoleInput{
+	createRoleInput := &iam.CreateRoleInput{
 		RoleName:                 aws.String(a.generateRoleName(namespaceName, accountName)),
 		AssumeRolePolicyDocument: aws.String(trustPolicy),
 		Tags:                     tags,
 		Description:              aws.String(iamRoleDescription),
 		PermissionsBoundary:      aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.accountID, a.clusterName)),
-	})
+	}
+	createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, createRoleInput)
 
 	if createRoleError != nil {
 		return nil, errors.Wrap(createRoleError)
@@ -290,6 +410,10 @@ func (a *Agent) unsetAllRolePoliciesSoftDeleteStrategyTag(ctx context.Context, r
 }
 
 func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, error) {
+	if a.rolesAnywhereEnabled {
+		return a.generateTrustPolicyForRolesAnywhere(namespaceName, accountName)
+	}
+
 	oidc := strings.TrimPrefix(a.oidcURL, "https://")
 
 	policy := PolicyDocument{
@@ -321,8 +445,46 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 	return string(serialized), errors.Wrap(err)
 }
 
+func (a *Agent) generateTrustPolicyForRolesAnywhere(namespaceName, accountName string) (string, error) {
+	policy := PolicyDocument{
+		Version: iamAPIVersion,
+		Statement: []StatementEntry{
+			{
+				Effect: iamEffectAllow,
+				Action: []string{"sts:AssumeRole", "sts:TagSession", "sts:SetSourceIdentity"},
+				Principal: map[string]string{
+					"Service": "rolesanywhere.amazonaws.com",
+				},
+				Condition: map[string]any{
+					"StringEquals": map[string]string{
+						"aws:PrincipalTag/x509SAN/URI": fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", a.trustDomain, namespaceName, accountName),
+					},
+					"ArnEquals": map[string]string{
+						"aws:SourceArn": a.trustAnchorArn,
+					},
+				},
+			},
+		},
+	}
+
+	serialized, err := json.Marshal(policy)
+
+	if err != nil {
+		logrus.WithError(err).Error("failed to create trust policy")
+		return "", errors.Wrap(err)
+	}
+
+	return string(serialized), errors.Wrap(err)
+}
+
 func (a *Agent) generateRoleName(namespace string, accountName string) string {
 	fullName := fmt.Sprintf("otr-%s.%s@%s", namespace, accountName, a.clusterName)
+	return agentutils.TruncateHashName(fullName, maxAWSNameLength)
+}
+
+func (a *Agent) generateRolesAnywhereProfileName(namespace string, accountName string) string {
+	fullName := fmt.Sprintf("otr-%s_%s_%s", namespace, accountName, a.clusterName)
+
 	return agentutils.TruncateHashName(fullName, maxAWSNameLength)
 }
 

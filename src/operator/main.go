@@ -36,6 +36,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
+	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
@@ -55,8 +56,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -142,9 +146,14 @@ func main() {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	options := ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
+		Metrics: server.Options{
+			BindAddress: metricsAddr,
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port:    9443,
+			CertDir: webhooks.CertDirPath,
+		}),
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "a3a7d614.otterize.com",
@@ -162,7 +171,9 @@ func main() {
 	}
 
 	if len(watchedNamespaces) != 0 {
-		options.Cache.Namespaces = watchedNamespaces
+		for _, namespace := range watchedNamespaces {
+			options.Cache.DefaultNamespaces[namespace] = cache.Config{}
+		}
 		logrus.Infof("Will only watch the following namespaces: %v", watchedNamespaces)
 	}
 
@@ -221,12 +232,28 @@ func main() {
 
 	var iamAgents []intents_reconcilers.IAMPolicyAgent
 
+	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
+
 	if enforcementConfig.EnableAWSPolicy {
-		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
+		awsOptions := make([]awsagent.Option, 0)
+		if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
+			trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
+			trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
+			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterName)
+
+			awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
+		}
+		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
 		}
-		iamAgents = append(iamAgents, awsIntentsAgent)
+		awsIntentsReconciler := intents_reconcilers.NewAWSIntentsReconciler(mgr.GetClient(), scheme, awsIntentsAgent, serviceIdResolver)
+		additionalIntentsReconcilers = append(additionalIntentsReconcilers, awsIntentsReconciler)
+		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), awsIntentsReconciler)
+		err = iamPodWatcher.SetupWithManager(mgr)
+		if err != nil {
+			logrus.WithError(err).Panic("unable to register pod watcher")
+		}
 	}
 
 	if enforcementConfig.EnableGCPPolicy {
@@ -252,7 +279,7 @@ func main() {
 	}
 
 	if len(iamAgents) > 0 {
-		iamIntentsReconciler := intents_reconcilers.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceidresolver.NewResolver(mgr.GetClient()), iamAgents)
+		iamIntentsReconciler := intents_reconcilers.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceIdResolver, iamAgents)
 		additionalIntentsReconcilers = append(additionalIntentsReconcilers, iamIntentsReconciler)
 		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), iamIntentsReconciler)
 		err = iamPodWatcher.SetupWithManager(mgr)
@@ -308,6 +335,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			certBundle.CertPem,
+			filters.PartOfOtterizeLabelPredicate(),
 		)
 		err = validatingWebhookConfigsReconciler.SetupWithManager(mgr)
 		if err != nil {
