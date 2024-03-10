@@ -151,11 +151,8 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace (
-	github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp => ./mockgcp
-	github.com/hashicorp/terraform-provider-google-beta => ./third_party/github.com/hashicorp/terraform-provider-google-beta
-	github.com/otterize/intents-operator/operator/api/v1alpha2 => ./operator/api/v1alpha2
-	github.com/otterize/intents-operator/operator/controllers => ./operator/controllers
-	github.com/otterize/intents-operator/operator/webhooks => ./operator/webhooks
-	github.com/otterize/intents-operator/shared/reconcilergroup => ./shared/reconcilergroup
+// Workaround for https://github.com/GoogleCloudPlatform/k8s-config-connector/issues/828
+exclude (
+	github.com/GoogleCloudPlatform/k8s-config-connector/mockgcp v0.0.0-00010101000000-000000000000
+	github.com/hashicorp/terraform-provider-google-beta v3.73.0+incompatible
 )
