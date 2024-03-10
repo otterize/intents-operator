@@ -47,26 +47,79 @@ spec:
 ## How does the intents operator work?
 
 ### Network policies
-The intents operator automatically creates, updates and deletes network policies, and automatically labels client and server pods, 
-to match declarations in client intents files.
-The policies created are `Ingress`-based, so source pods are labeled with a `can-access-<target>=true` 
-while destination pods are labeled with `has-identity=<target>`.
+The Intent Operator autonomously creates, manages, and deletes network policies in alignment with user-supplied client intents. It assigns labels to services, utilizing these as identification criteria within the network policies it generates. These labels constitute a blend of service identifiers and namespace designations. The Intent Operator can manage both **Ingress** and **Egress** traffic directions.
 
-The example above results in the following network policy being created: 
+Inspecting the network policy below we can see an example of both Ingress and Egress definitions utilizing pod labels and CIDR blocks for public internet egress. In the example, we see a namespace of `otterize-example` being used and that ingress traffic is allowed from any pod with the label `intents.otterize.com/access-backend-otterize-example-eg-00531a=true` and egress traffic is allowed to a particular IP address and a pod with the label `intents.otterize.com/service=frontend-otterize-example-eg-2bb536`
 ```yaml
-Name: access-to-web-server
+Name:         backend-access
+Namespace:    otterize-example
+Created on:   2024-03-08 10:53:40 -0800 PST
+Labels:       intents.otterize.com/network-policy=backend-otterize-example-eg-00531a
+Annotations:  <none>
 Spec:
-  # This label is added to the server by the intents operator
-  PodSelector: intents.otterize.com/server=web-server-default-33a0f0
+  PodSelector:     intents.otterize.com/service=backend-otterize-example-eg-00531a
   Allowing ingress traffic:
     To Port: <any> (traffic allowed to all ports)
     From:
-      # This label is added to the client by the intents operator
-      PodSelector: intents.otterize.com/access-web-server-default-33a0f0=true
-  Policy Types: Ingress
+      NamespaceSelector: kubernetes.io/metadata.name=otterize-example
+      PodSelector: intents.otterize.com/access-backend-otterize-example-eg-00531a=true
+  Allowing egress traffic:
+    To Port: <any> (traffic allowed to all ports)
+    To:
+      NamespaceSelector: kubernetes.io/metadata.name=otterize-example
+      PodSelector: intents.otterize.com/service=frontend-otterize-example-eg-2bb536
+    ----------
+    To Port: <any> (traffic allowed to all ports)
+    To:
+      IPBlock:
+        CIDR: 1.1.1.1/32
+        Except:
+  Policy Types: Egress, Ingress
 ```
 
-For more usage example see the [network policy tutorial](https://docs.otterize.com/quick-tutorials/k8s-network-policies).
+<details>
+<summary>View related client intent source</summary>
+
+```yaml
+apiVersion: k8s.otterize.com/v1alpha3
+kind: ClientIntents
+metadata:
+  name: frontend
+  namespace:  otterize-example
+spec:
+  service:
+    name: frontend
+  calls:
+    - name: backend
+---
+apiVersion: k8s.otterize.com/v1alpha3
+kind: ClientIntents
+metadata:
+  name: backend
+  namespace: otterize-example
+spec:
+  service:
+    name: backend
+  calls:
+    - type: internet
+      internet:
+        domains:
+          - api.exampleservice.com
+    - name: frontend
+```
+</details>
+
+For more usage example see the [network policy](https://docs.otterize.com/quick-tutorials/k8s-network-policies) and [egress policy automation](/features/network-mapping-network-policies/tutorials/k8s-egress-access-control-tutorial) tutorials.
+
+### client intents and DNS
+
+When a client intent is specified using DNS identifiers, such as api.exampledomain.com in the example above, it initiates a sequence of operations between the [network mapper](https://github.com/otterize/network-mapper) and the intent operator to integrate the relevant IP addresses into the respective NetworkPolicies.
+
+1. The network mapper incorporates a DNS cache layer, which identifies and archives all resolved DNS records alongside their corresponding IPv4 and IPv6 IP addresses.
+2. Without a client intent associated with the given domain or its related IP addresses, Otterize will propose a policy tailored to the observed traffic.
+3. Upon applying a client intent with a domain name found in the cache, the network mapper dynamically updates the intent’s `status` section at one-second intervals with any newly identified IP addresses. It is important to note that Otterize retains all previously identified IP addresses to ensure backward compatibility.
+4. The intent operator reviews changes within the `status` section and amends the associated NetworkPolicy to include these newly discovered IP addresses.
+
 
 ### AWS IAM policies
 The intents operator, together with the [credentials operator](https://github.com/otterize/credentials-operator), enables the intent-based declarative management of AWS IAM roles and policies.
