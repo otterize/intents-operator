@@ -17,3 +17,5 @@
 
 .idea/
 .env
+/src/operator/go.work
+/src/operator/go.work.sum

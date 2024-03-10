@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	mock_client "github.com/otterize/credentials-operator/src/mocks/controller-runtime/client"
+	"github.com/otterize/credentials-operator/src/shared/apiutils"
 	"github.com/otterize/credentials-operator/src/shared/testutils"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
@@ -103,7 +104,7 @@ func (s *TestPodsControllerSuite) TestLastPodTerminatingButDifferentPodUIDDoesNo
 	s.client.EXPECT().List(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(&corev1.PodList{}),
-		client.MatchingFields{podServiceAccountIndexField: serviceAccount.Name},
+		client.MatchingFields{apiutils.PodServiceAccountIndexField: serviceAccount.Name},
 		gomock.Any(),
 	).DoAndReturn(
 		func(arg0 context.Context, arg1 *corev1.PodList, arg2 ...client.ListOption) error {
@@ -146,7 +147,7 @@ func (s *TestPodsControllerSuite) TestLastPodTerminatingWithFinalizerLabelsServi
 	s.client.EXPECT().List(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(&corev1.PodList{}),
-		client.MatchingFields{podServiceAccountIndexField: serviceAccount.Name},
+		client.MatchingFields{apiutils.PodServiceAccountIndexField: serviceAccount.Name},
 		gomock.Any(),
 	).DoAndReturn(
 		func(arg0 context.Context, arg1 *corev1.PodList, arg2 ...client.ListOption) error {
@@ -202,7 +203,7 @@ func (s *TestPodsControllerSuite) TestNonLastPodTerminatingDoesNotLabelServiceAc
 	s.client.EXPECT().List(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(&corev1.PodList{}),
-		client.MatchingFields{podServiceAccountIndexField: serviceAccount.Name},
+		client.MatchingFields{apiutils.PodServiceAccountIndexField: serviceAccount.Name},
 		gomock.Any(),
 	).DoAndReturn(
 		func(arg0 context.Context, arg1 *corev1.PodList, arg2 ...client.ListOption) error {
@@ -247,7 +248,7 @@ func (s *TestPodsControllerSuite) TestLastPodTerminatingWithFinalizerServiceAcco
 	s.client.EXPECT().List(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(&corev1.PodList{}),
-		client.MatchingFields{podServiceAccountIndexField: serviceAccount.Name},
+		client.MatchingFields{apiutils.PodServiceAccountIndexField: serviceAccount.Name},
 		gomock.Any(),
 	).DoAndReturn(
 		func(arg0 context.Context, arg1 *corev1.PodList, arg2 ...client.ListOption) error {
@@ -292,7 +293,7 @@ func (s *TestPodsControllerSuite) TestLastPodTerminatingWithFinalizerLabelsServi
 	s.client.EXPECT().List(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(&corev1.PodList{}),
-		client.MatchingFields{podServiceAccountIndexField: serviceAccount.Name},
+		client.MatchingFields{apiutils.PodServiceAccountIndexField: serviceAccount.Name},
 		gomock.Any(),
 	).DoAndReturn(
 		func(arg0 context.Context, arg1 *corev1.PodList, arg2 ...client.ListOption) error {

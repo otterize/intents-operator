@@ -53,9 +53,9 @@ func GetPodServiceAccountConsumers(ctx context.Context, c client.Client, pod cor
 	return thisPodAndNonTerminatingPods, nil
 }
 
-func RemoveFinalizerFromPod(ctx context.Context, c client.Client, pod corev1.Pod, finalizer string) (ctrl.Result, error) {
+func RemoveFinalizerFromPod(ctx context.Context, c client.Client, pod corev1.Pod, finalizer string, legacyFinalizer string) (ctrl.Result, error) {
 	updatedPod := pod.DeepCopy()
-	if controllerutil.RemoveFinalizer(updatedPod, finalizer) {
+	if controllerutil.RemoveFinalizer(updatedPod, finalizer) || controllerutil.RemoveFinalizer(updatedPod, legacyFinalizer) {
 		err := c.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			if apierrors.IsConflict(err) {

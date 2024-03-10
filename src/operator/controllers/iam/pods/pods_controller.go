@@ -26,8 +26,6 @@ func NewPodReconciler(client client.Client) *PodReconciler {
 	}
 }
 
-const podServiceAccountIndexField = "spec.serviceAccountName"
-
 func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := apiutils.InitPodServiceAccountIndexField(mgr)
 	if err != nil {
@@ -56,7 +54,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	if !controllerutil.ContainsFinalizer(&pod, metadata.IAMRoleFinalizer) {
+	if !controllerutil.ContainsFinalizer(&pod, metadata.IAMRoleFinalizer) && !controllerutil.ContainsFinalizer(&pod, metadata.AWSRoleFinalizer) {
 		logger.Debug("pod does not have the Otterize finalizer, skipping")
 		return ctrl.Result{}, nil
 	}
@@ -69,7 +67,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	// Get only the pods that are IAM consumers - also handles case where label was removed from the pod.
 	iamSAConsumers := lo.Filter(saConsumers, func(filteredPod corev1.Pod, _ int) bool {
-		return controllerutil.ContainsFinalizer(&pod, metadata.IAMRoleFinalizer) || pod.UID == filteredPod.UID
+		return controllerutil.ContainsFinalizer(&pod, metadata.IAMRoleFinalizer) || controllerutil.ContainsFinalizer(&pod, metadata.AWSRoleFinalizer) || pod.UID == filteredPod.UID
 	})
 
 	// check if this is the last pod linked to this SA.
@@ -79,7 +77,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		if err != nil {
 			// service account can be deleted before the pods go down, in which case cleanup has already occurred, so just let the pod terminate.
 			if apierrors.IsNotFound(err) {
-				return apiutils.RemoveFinalizerFromPod(ctx, r, pod, metadata.IAMRoleFinalizer)
+				return apiutils.RemoveFinalizerFromPod(ctx, r, pod, metadata.IAMRoleFinalizer, metadata.AWSRoleFinalizer)
 			}
 			return ctrl.Result{}, errors.Wrap(err)
 		}
@@ -98,12 +96,12 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			}
 			// service account can be deleted before the pods go down, in which case cleanup has already occurred, so just let the pod terminate.
 			if apierrors.IsNotFound(err) {
-				return apiutils.RemoveFinalizerFromPod(ctx, r, pod, metadata.IAMRoleFinalizer)
+				return apiutils.RemoveFinalizerFromPod(ctx, r, pod, metadata.IAMRoleFinalizer, metadata.AWSRoleFinalizer)
 			}
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
 
 	// in case there's more than 1 pod, this is not the last pod, so we can just let the pod terminate.
-	return apiutils.RemoveFinalizerFromPod(ctx, r, pod, metadata.IAMRoleFinalizer)
+	return apiutils.RemoveFinalizerFromPod(ctx, r, pod, metadata.IAMRoleFinalizer, metadata.AWSRoleFinalizer)
 }
