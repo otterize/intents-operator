@@ -108,6 +108,7 @@ func MustGetEnvVar(name string) string {
 }
 
 func main() {
+	operatorconfig.InitCLIFlags()
 	logrus.SetFormatter(&logrus.JSONFormatter{
 		TimestampFormat: time.RFC3339,
 	})

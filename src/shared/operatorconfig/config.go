@@ -93,8 +93,6 @@ func init() {
 	viper.SetDefault(DebugLogKey, DebugLogDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
-
-	InitCLIFlags()
 }
 
 func InitCLIFlags() {
