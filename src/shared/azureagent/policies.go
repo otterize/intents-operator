@@ -137,6 +137,9 @@ func (a *Agent) deleteRoleAssignmentsWithUnexpectedScopes(ctx context.Context, e
 func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev1alpha3.ClientIntents) error {
 	userAssignedIdentity, err := a.findUserAssignedIdentity(ctx, intents.Namespace, intents.Spec.Service.Name)
 	if err != nil {
+		if errors.Is(err, ErrUserIdentityNotFound) {
+			return nil
+		}
 		return errors.Wrap(err)
 	}
 

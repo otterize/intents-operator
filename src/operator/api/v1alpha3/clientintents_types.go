@@ -323,6 +323,10 @@ func (in *Intent) GetTargetServerName() string {
 		return OtterizeInternetTargetName
 	}
 
+	if in.Type == IntentTypeAWS || in.Type == IntentTypeGCP || in.Type == IntentTypeAzure || in.Type == IntentTypeDatabase {
+		return in.Name
+	}
+
 	if in.IsTargetServerKubernetesService() {
 		name = strings.ReplaceAll(in.Name, "svc:", "") // Replace so all chars are valid in K8s label
 	} else {

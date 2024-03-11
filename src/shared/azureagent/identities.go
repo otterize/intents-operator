@@ -3,6 +3,7 @@ package azureagent
 import (
 	"context"
 	"fmt"
+	azureerrors "github.com/Azure/azure-sdk-for-go-extensions/pkg/errors"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -35,10 +36,15 @@ func (a *Agent) generateFederatedIdentityCredentialsName(namespace string, accou
 	return agentutils.TruncateHashName(fullName, maxFederatedIdentityLength)
 }
 
+var ErrUserIdentityNotFound = errors.New("user assigned identity not found")
+
 func (a *Agent) findUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
 	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
 	userAssignedIdentity, err := a.userAssignedIdentitiesClient.Get(ctx, a.conf.ResourceGroup, userAssignedIdentityName, nil)
 	if err != nil {
+		if azureerrors.IsNotFoundErr(err) {
+			return armmsi.Identity{}, errors.Wrap(ErrUserIdentityNotFound)
+		}
 		return armmsi.Identity{}, errors.Wrap(err)
 	}
 
