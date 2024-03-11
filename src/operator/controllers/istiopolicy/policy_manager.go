@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/amit7itz/goset"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -71,12 +70,12 @@ func (c *PolicyManagerImpl) DeleteAll(
 	ctx context.Context,
 	clientIntents *v1alpha3.ClientIntents,
 ) error {
-	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, clientIntents.Namespace)
+	clientFormattedIdentity := v1alpha3.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, clientIntents.Namespace)
 
 	var existingPolicies v1beta1.AuthorizationPolicyList
 	err := c.client.List(ctx,
 		&existingPolicies,
-		client.MatchingLabels{v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
+		client.MatchingLabels{v1alpha3.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
 	if client.IgnoreNotFound(err) != nil {
 		return errors.Wrap(err)
 	}
@@ -95,12 +94,12 @@ func (c *PolicyManagerImpl) Create(
 	clientIntents *v1alpha3.ClientIntents,
 	clientServiceAccount string,
 ) error {
-	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, clientIntents.Namespace)
+	clientFormattedIdentity := v1alpha3.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, clientIntents.Namespace)
 
 	var existingPolicies v1beta1.AuthorizationPolicyList
 	err := c.client.List(ctx,
 		&existingPolicies,
-		client.MatchingLabels{v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
+		client.MatchingLabels{v1alpha3.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
 	if err != nil {
 		c.recorder.RecordWarningEventf(clientIntents, ReasonGettingIstioPolicyFailed, "Could not get Istio policies: %s", err.Error())
 		return errors.Wrap(err)
@@ -190,7 +189,7 @@ func (c *PolicyManagerImpl) setServersWithoutSidecar(ctx context.Context, client
 		updatedIntents.Annotations = make(map[string]string)
 	}
 
-	updatedIntents.Annotations[v1alpha2.OtterizeServersWithoutSidecarAnnotation] = string(serversValues)
+	updatedIntents.Annotations[v1alpha3.OtterizeServersWithoutSidecarAnnotation] = string(serversValues)
 	err = c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
 	if err != nil {
 		return errors.Wrap(err)
@@ -199,7 +198,7 @@ func (c *PolicyManagerImpl) setServersWithoutSidecar(ctx context.Context, client
 }
 
 func (c *PolicyManagerImpl) saveServiceAccountName(ctx context.Context, clientIntents *v1alpha3.ClientIntents, clientServiceAccount string) error {
-	serviceAccountLabelValue, ok := clientIntents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
+	serviceAccountLabelValue, ok := clientIntents.Annotations[v1alpha3.OtterizeClientServiceAccountAnnotation]
 	if ok && serviceAccountLabelValue == clientServiceAccount {
 		return nil
 	}
@@ -209,7 +208,7 @@ func (c *PolicyManagerImpl) saveServiceAccountName(ctx context.Context, clientIn
 		updatedIntents.Annotations = make(map[string]string)
 	}
 
-	updatedIntents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation] = clientServiceAccount
+	updatedIntents.Annotations[v1alpha3.OtterizeClientServiceAccountAnnotation] = clientServiceAccount
 	err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
 	if err != nil {
 		logrus.WithError(err).Errorln("Failed updating intent with service account name")
@@ -222,7 +221,7 @@ func (c *PolicyManagerImpl) saveServiceAccountName(ctx context.Context, clientIn
 }
 
 func (c *PolicyManagerImpl) saveSideCarStatus(ctx context.Context, clientIntents *v1alpha3.ClientIntents, missingSideCar bool) error {
-	oldValue, ok := clientIntents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
+	oldValue, ok := clientIntents.Annotations[v1alpha3.OtterizeMissingSidecarAnnotation]
 	if ok && oldValue == strconv.FormatBool(missingSideCar) {
 		return nil
 	}
@@ -232,7 +231,7 @@ func (c *PolicyManagerImpl) saveSideCarStatus(ctx context.Context, clientIntents
 		updatedIntents.Annotations = make(map[string]string)
 	}
 
-	updatedIntents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation] = strconv.FormatBool(missingSideCar)
+	updatedIntents.Annotations[v1alpha3.OtterizeMissingSidecarAnnotation] = strconv.FormatBool(missingSideCar)
 	err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(clientIntents))
 	if err != nil {
 		return errors.Wrap(err)
@@ -251,7 +250,7 @@ func (c *PolicyManagerImpl) updateSharedServiceAccountsInNamespace(ctx context.C
 	}
 
 	clientsByServiceAccount := lo.GroupBy(namespacesClientIntents.Items, func(intents v1alpha3.ClientIntents) string {
-		return intents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
+		return intents.Annotations[v1alpha3.OtterizeClientServiceAccountAnnotation]
 	})
 
 	for clientServiceAccountName, clientIntents := range clientsByServiceAccount {
@@ -282,7 +281,7 @@ func (c *PolicyManagerImpl) updateServiceAccountSharedStatus(ctx context.Context
 		if updatedIntents.Annotations == nil {
 			updatedIntents.Annotations = make(map[string]string)
 		}
-		updatedIntents.Annotations[v1alpha2.OtterizeSharedServiceAccountAnnotation] = sharedAccountValue
+		updatedIntents.Annotations[v1alpha3.OtterizeSharedServiceAccountAnnotation] = sharedAccountValue
 		err := c.client.Patch(ctx, updatedIntents, client.MergeFrom(&intents))
 		if err != nil {
 			return errors.Wrap(err)
@@ -296,12 +295,12 @@ func (c *PolicyManagerImpl) updateServiceAccountSharedStatus(ctx context.Context
 }
 
 func shouldUpdateStatus(intents v1alpha3.ClientIntents, currentName string, currentSharedStatus string) bool {
-	oldName, annotationExists := intents.Annotations[v1alpha2.OtterizeClientServiceAccountAnnotation]
+	oldName, annotationExists := intents.Annotations[v1alpha3.OtterizeClientServiceAccountAnnotation]
 	if !annotationExists || oldName != currentName {
 		return true
 	}
 
-	oldSharedStatus, annotationExists := intents.Annotations[v1alpha2.OtterizeSharedServiceAccountAnnotation]
+	oldSharedStatus, annotationExists := intents.Annotations[v1alpha3.OtterizeSharedServiceAccountAnnotation]
 	if !annotationExists || oldSharedStatus != currentSharedStatus {
 		return true
 	}
@@ -378,7 +377,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 
 func (c *PolicyManagerImpl) findPolicy(existingPolicies v1beta1.AuthorizationPolicyList, newPolicy *v1beta1.AuthorizationPolicy) (*v1beta1.AuthorizationPolicy, bool) {
 	for _, policy := range existingPolicies.Items {
-		if policy.Labels[v1alpha2.OtterizeServerLabelKey] == newPolicy.Labels[v1alpha2.OtterizeServerLabelKey] {
+		if policy.Labels[v1alpha3.OtterizeServiceLabelKey] == newPolicy.Labels[v1alpha3.OtterizeServiceLabelKey] {
 			return policy, true
 		}
 	}
@@ -422,7 +421,7 @@ func (c *PolicyManagerImpl) getPolicyName(intents *v1alpha3.ClientIntents, inten
 }
 
 func (c *PolicyManagerImpl) isPolicyEqual(existingPolicy *v1beta1.AuthorizationPolicy, newPolicy *v1beta1.AuthorizationPolicy) bool {
-	sameServer := existingPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey] == newPolicy.Spec.Selector.MatchLabels[v1alpha2.OtterizeServerLabelKey]
+	sameServer := existingPolicy.Spec.Selector.MatchLabels[v1alpha3.OtterizeServiceLabelKey] == newPolicy.Spec.Selector.MatchLabels[v1alpha3.OtterizeServiceLabelKey]
 	samePrincipals := existingPolicy.Spec.Rules[0].From[0].Source.Principals[0] == newPolicy.Spec.Rules[0].From[0].Source.Principals[0]
 	sameHTTPRules := compareHTTPRules(existingPolicy.Spec.Rules[0].To, newPolicy.Spec.Rules[0].To)
 
@@ -464,8 +463,8 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 	logrus.Infof("Creating Istio policy %s for intent %s", policyName, intent.GetTargetServerName())
 
 	serverNamespace := intent.GetTargetServerNamespace(clientIntents.Namespace)
-	formattedTargetServer := v1alpha2.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), serverNamespace)
-	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.GetServiceName(), clientIntents.Namespace)
+	formattedTargetServer := v1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), serverNamespace)
+	clientFormattedIdentity := v1alpha3.GetFormattedOtterizeIdentity(clientIntents.GetServiceName(), clientIntents.Namespace)
 
 	var ruleTo []*v1beta1security.Rule_To
 	if intent.Type == v1alpha3.IntentTypeHTTP {
@@ -484,14 +483,14 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 			Name:      policyName,
 			Namespace: serverNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           formattedTargetServer,
-				v1alpha2.OtterizeIstioClientAnnotationKey: clientFormattedIdentity,
+				v1alpha3.OtterizeServiceLabelKey:          formattedTargetServer,
+				v1alpha3.OtterizeIstioClientAnnotationKey: clientFormattedIdentity,
 			},
 		},
 		Spec: v1beta1security.AuthorizationPolicy{
 			Selector: &v1beta1type.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: formattedTargetServer,
+					v1alpha3.OtterizeServiceLabelKey: formattedTargetServer,
 				},
 			},
 			Action: v1beta1security.AuthorizationPolicy_ALLOW,

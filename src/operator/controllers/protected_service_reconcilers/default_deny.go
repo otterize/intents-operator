@@ -151,7 +151,7 @@ func (r *DefaultDenyReconciler) buildNetworkPolicyObjectForIntent(
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: formattedServerName,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},

@@ -2,24 +2,40 @@ package azureagent
 
 import (
 	"context"
+	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
+	"strings"
 )
-
-const maxManagedIdentityLength = 128
-const truncatedHashLength = 6
-const maxManagedIdentityTruncatedLength = maxManagedIdentityLength - truncatedHashLength - 1 // add another char for the hyphen
 
 func (a *Agent) IntentType() otterizev1alpha3.IntentType {
 	return otterizev1alpha3.IntentTypeAzure
 }
 
-func (a *Agent) ApplyOnPodLabel() string {
-	return "credentials-operator.otterize.com/create-azure-role-assignment"
+func (a *Agent) getIntentScope(intent otterizev1alpha3.Intent) (string, error) {
+	name := intent.Name
+	if !strings.HasPrefix(name, "/") {
+		return "", errors.Errorf("expected intent name to start with /, got %s", name)
+	}
+
+	if strings.HasPrefix(name, "/subscriptions/") {
+		// the name is already a full scope
+		return name, nil
+	}
+
+	if strings.HasPrefix(name, "/resourceGroups/") {
+		// append the subscription ID to the scope
+		fullScope := fmt.Sprintf("/subscriptions/%s%s", a.conf.SubscriptionID, name)
+		return fullScope, nil
+	}
+
+	// append both the subscription ID and the resource group to the scope
+	fullScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s%s", a.conf.SubscriptionID, a.conf.ResourceGroup, name)
+	return fullScope, nil
 }
 
 func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
@@ -37,8 +53,14 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 		return *roleAssignment.Properties.Scope
 	})
 
+	var expectedScopes []string
 	for _, intent := range intents {
-		scope := intent.Name
+		scope, err := a.getIntentScope(intent)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+		expectedScopes = append(expectedScopes, scope)
+
 		roleNames := intent.AzureRoles
 		existingRoleAssignmentsForScope := existingRoleAssignmentsByScope[scope]
 
@@ -47,9 +69,6 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 		}
 	}
 
-	expectedScopes := lo.Map(intents, func(intent otterizev1alpha3.Intent, _ int) string {
-		return intent.Name
-	})
 	if err := a.deleteRoleAssignmentsWithUnexpectedScopes(ctx, expectedScopes, existingRoleAssignments); err != nil {
 		return errors.Wrap(err)
 	}

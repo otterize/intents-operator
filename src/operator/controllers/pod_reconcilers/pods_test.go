@@ -3,7 +3,6 @@ package pod_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +41,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) SetupSuite() {
 	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 }
 
@@ -71,7 +70,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels()
 	serviceID, err := s.Reconciler.serviceIdResolver.ResolvePodToServiceIdentity(context.Background(), &pod)
 	s.Require().NoError(err)
 
-	thisPodIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
+	thisPodIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(
 		serviceID.Name, s.TestNamespace)
 
 	_, err = s.AddIntents("test-intents", serviceID.Name, []otterizev1alpha3.Intent{{
@@ -95,8 +94,8 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels()
 			Namespace: s.TestNamespace, Name: podName}, &pod)
 		assert.NoError(err)
 		assert.NotEmpty(pod)
-		assert.Contains(pod.Labels, otterizev1alpha2.OtterizeServerLabelKey)
-		assert.Equal(thisPodIdentity, pod.Labels[otterizev1alpha2.OtterizeServerLabelKey])
+		assert.Contains(pod.Labels, otterizev1alpha3.OtterizeServiceLabelKey)
+		assert.Equal(thisPodIdentity, pod.Labels[otterizev1alpha3.OtterizeServiceLabelKey])
 
 	})
 
@@ -110,9 +109,9 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels()
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 
-	targetServerIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
+	targetServerIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(
 		intentTargetServerName, s.TestNamespace)
-	accessLabel := fmt.Sprintf(otterizev1alpha2.OtterizeAccessLabelKey, targetServerIdentity)
+	accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
 			Namespace: s.TestNamespace, Name: podName}, &pod)
@@ -158,7 +157,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	serviceID, err := s.Reconciler.serviceIdResolver.ResolvePodToServiceIdentity(context.Background(), &pod)
 	s.Require().NoError(err)
 
-	thisPodIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
+	thisPodIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(
 		serviceID.Name, s.TestNamespace)
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
@@ -166,8 +165,8 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 			Namespace: s.TestNamespace, Name: podName}, &pod)
 		assert.NoError(err)
 		assert.NotEmpty(pod)
-		assert.Contains(pod.Labels, otterizev1alpha2.OtterizeServerLabelKey)
-		assert.Equal(thisPodIdentity, pod.Labels[otterizev1alpha2.OtterizeServerLabelKey])
+		assert.Contains(pod.Labels, otterizev1alpha3.OtterizeServiceLabelKey)
+		assert.Equal(thisPodIdentity, pod.Labels[otterizev1alpha3.OtterizeServiceLabelKey])
 
 	})
 
@@ -179,10 +178,10 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 		},
 	})
 
-	targetServerIdentity := otterizev1alpha2.GetFormattedOtterizeIdentity(
+	targetServerIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(
 		intentTargetServerName, s.TestNamespace)
 
-	accessLabel := fmt.Sprintf(otterizev1alpha2.OtterizeAccessLabelKey, targetServerIdentity)
+	accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
 			Namespace: s.TestNamespace, Name: podName}, &pod)

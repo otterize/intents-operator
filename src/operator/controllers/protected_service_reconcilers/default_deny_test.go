@@ -142,7 +142,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: formattedServerName,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -215,7 +215,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: formattedServerName,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -234,7 +234,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: formattedOtherServerName,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedOtherServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -295,7 +295,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: formattedServerName,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -324,7 +324,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: anotherProtectedServiceFormattedName,
+					otterizev1alpha3.OtterizeServiceLabelKey: anotherProtectedServiceFormattedName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -383,7 +383,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDelete
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: formattedServerName,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -433,7 +433,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceAlreadyDele
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: formattedServerName,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -507,7 +507,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: formattedServerName,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -533,7 +533,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: formattedOtherServerName,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedOtherServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -619,7 +619,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServerLabelKey: formattedServerName,
+					otterizev1alpha3.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},

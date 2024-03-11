@@ -21,46 +21,47 @@ import (
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers"
+	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/iam_pod_reconciler"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/egress_network_policy"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/ingress_network_policy"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/internet_network_policy"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_egress_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy/builders"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
+	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
+	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
+	"github.com/otterize/intents-operator/src/shared/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"time"
-
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	"github.com/otterize/intents-operator/src/operator/controllers"
-	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
-	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
-	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
-	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
-	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
-	"github.com/otterize/intents-operator/src/shared/version"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -108,6 +109,12 @@ func MustGetEnvVar(name string) string {
 
 func main() {
 	operatorconfig.InitCLIFlags()
+	logrus.SetFormatter(&logrus.JSONFormatter{
+		TimestampFormat: time.RFC3339,
+	})
+	if viper.GetBool(operatorconfig.DebugLogKey) {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
 	errorreporter.Init("intents-operator", version.Version(), viper.GetString(operatorconfig.TelemetryErrorsAPIKeyKey))
 
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
@@ -136,20 +143,17 @@ func main() {
 
 	podName := MustGetEnvVar(operatorconfig.IntentsOperatorPodNameKey)
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
-	logrus.SetFormatter(&logrus.JSONFormatter{
-		TimestampFormat: time.RFC3339,
-	})
-	debugLogs := viper.GetBool(operatorconfig.DebugLogKey)
-
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
-	if debugLogs {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
 
 	options := ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
+		Metrics: server.Options{
+			BindAddress: metricsAddr,
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port:    9443,
+			CertDir: webhooks.CertDirPath,
+		}),
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "a3a7d614.otterize.com",
@@ -167,7 +171,9 @@ func main() {
 	}
 
 	if len(watchedNamespaces) != 0 {
-		options.Cache.Namespaces = watchedNamespaces
+		for _, namespace := range watchedNamespaces {
+			options.Cache.DefaultNamespaces[namespace] = cache.Config{}
+		}
 		logrus.Infof("Will only watch the following namespaces: %v", watchedNamespaces)
 	}
 
@@ -206,26 +212,19 @@ func main() {
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
-	epNetpolReconciler := ingress_network_policy.NewIngressNetpolEffectivePolicyReconciler(
-		mgr.GetClient(),
-		scheme,
-		extNetpolHandler,
-		watchedNamespaces,
-		enforcementConfig.EnableNetworkPolicy,
-		enforcementConfig.EnforcementDefaultState,
-		allowExternalTraffic,
-	)
+	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
-	svcNetworkPolicyHandler := port_network_policy.NewPortNetworkPolicyReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler, svcNetworkPolicyHandler)
+	svcNetworkPolicyBuilder := builders.NewPortNetworkPolicyReconciler(mgr.GetClient())
+	epNetpolReconciler := networkpolicy.NewReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, []networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder}, make([]networkpolicy.EgressRuleBuilder, 0))
+	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
-		egressNetworkPolicyHandler := egress_network_policy.NewEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-		epGroupReconciler.AddReconciler(egressNetworkPolicyHandler)
-		internetNetpolReconciler := internet_network_policy.NewInternetNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-		epGroupReconciler.AddReconciler(internetNetpolReconciler)
-		svcEgressNetworkPolicyHandler := port_egress_network_policy.NewPortEgressNetworkPolicyReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState)
-		epGroupReconciler.AddReconciler(svcEgressNetworkPolicyHandler)
+		egressNetworkPolicyHandler := builders.NewEgressNetworkPolicyBuilder()
+		epNetpolReconciler.AddEgressRuleBuilder(egressNetworkPolicyHandler)
+		internetNetpolReconciler := builders.NewInternetEgressRulesBuilder()
+		epNetpolReconciler.AddEgressRuleBuilder(internetNetpolReconciler)
+		svcEgressNetworkPolicyHandler := builders.NewPortEgressRulesBuilder(mgr.GetClient())
+		epNetpolReconciler.AddEgressRuleBuilder(svcEgressNetworkPolicyHandler)
 
 	}
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
@@ -233,12 +232,28 @@ func main() {
 
 	var iamAgents []intents_reconcilers.IAMPolicyAgent
 
+	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
+
 	if enforcementConfig.EnableAWSPolicy {
-		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
+		awsOptions := make([]awsagent.Option, 0)
+		if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
+			trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
+			trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
+			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterName)
+
+			awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
+		}
+		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
 		}
-		iamAgents = append(iamAgents, awsIntentsAgent)
+		awsIntentsReconciler := intents_reconcilers.NewAWSIntentsReconciler(mgr.GetClient(), scheme, awsIntentsAgent, serviceIdResolver)
+		additionalIntentsReconcilers = append(additionalIntentsReconcilers, awsIntentsReconciler)
+		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), awsIntentsReconciler)
+		err = iamPodWatcher.SetupWithManager(mgr)
+		if err != nil {
+			logrus.WithError(err).Panic("unable to register pod watcher")
+		}
 	}
 
 	if enforcementConfig.EnableGCPPolicy {
@@ -250,7 +265,13 @@ func main() {
 	}
 
 	if enforcementConfig.EnableAzurePolicy {
-		azureIntentsAgent, err := azureagent.NewAzureAgent(signalHandlerCtx)
+		config := azureagent.Config{
+			SubscriptionID: MustGetEnvVar(operatorconfig.AzureSubscriptionIDKey),
+			ResourceGroup:  MustGetEnvVar(operatorconfig.AzureResourceGroupKey),
+			AKSClusterName: MustGetEnvVar(operatorconfig.AzureAKSClusterNameKey),
+		}
+
+		azureIntentsAgent, err := azureagent.NewAzureAgent(signalHandlerCtx, config)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize Azure agent")
 		}
@@ -258,7 +279,7 @@ func main() {
 	}
 
 	if len(iamAgents) > 0 {
-		iamIntentsReconciler := intents_reconcilers.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceidresolver.NewResolver(mgr.GetClient()), iamAgents)
+		iamIntentsReconciler := intents_reconcilers.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceIdResolver, iamAgents)
 		additionalIntentsReconcilers = append(additionalIntentsReconcilers, iamIntentsReconciler)
 		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), iamIntentsReconciler)
 		err = iamPodWatcher.SetupWithManager(mgr)
@@ -314,6 +335,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			certBundle.CertPem,
+			filters.PartOfOtterizeLabelPredicate(),
 		)
 		err = validatingWebhookConfigsReconciler.SetupWithManager(mgr)
 		if err != nil {
@@ -374,9 +396,6 @@ func main() {
 		additionalIntentsReconcilers...,
 	)
 
-	if err = ingressReconciler.InitNetworkPoliciesByIngressNameIndex(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to init index for ingress")
-	}
 	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to init indices")
 	}

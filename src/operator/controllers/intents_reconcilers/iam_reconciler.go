@@ -19,7 +19,7 @@ import (
 
 type IAMPolicyAgent interface {
 	IntentType() otterizev1alpha3.IntentType
-	ApplyOnPodLabel() string
+	AppliesOnPod(pod *corev1.Pod) bool
 	AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error
 	DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev1alpha3.ClientIntents) error
 }
@@ -104,26 +104,15 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 }
 
 func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod corev1.Pod, intents otterizev1alpha3.ClientIntents, agent IAMPolicyAgent) error {
-	if pod.Labels == nil {
+	if !agent.AppliesOnPod(&pod) {
 		return nil
 	}
-
-	if pod.Labels[agent.ApplyOnPodLabel()] != "true" {
-		return nil
-	}
-
-	// TODO: handle partial deletion of intents - i.e we have both gcp and aws and gcp gets deleted, need to cleanup
 
 	intentType := agent.IntentType()
 
-	filteredIntents := intents.GetFilteredCallsList(intentType)
-	if len(filteredIntents) == 0 {
-		return nil
-	}
-
 	serviceAccountName := pod.Spec.ServiceAccountName
 	if serviceAccountName == "" {
-		r.RecordWarningEventf(&intents, consts.ReasonIntentsFoundButNoServiceAccount, "Found IAM intents of type %s, but no service account found for pod ('%s').", intentType, pod.Name)
+		r.RecordWarningEventf(&intents, consts.ReasonIntentsFoundButNoServiceAccount, "Found IAM intents, but no service account found for pod ('%s').", pod.Name)
 		return nil
 	}
 
@@ -137,6 +126,7 @@ func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod cor
 		return nil
 	}
 
+	filteredIntents := intents.GetFilteredCallsList(intentType)
 	err = agent.AddRolePolicyFromIntents(ctx, pod.Namespace, serviceAccountName, intents.Spec.Service.Name, filteredIntents)
 	if err != nil {
 		r.RecordWarningEventf(&intents, consts.ReasonReconcilingIAMPoliciesFailed, "Failed to reconcile IAM policies of type %s due to error: %s", intentType, err.Error())
