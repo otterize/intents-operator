@@ -8,38 +8,48 @@ import (
 )
 
 const (
-	TelemetryErrorsAPIKeyKey                 = "telemetry-errors-api-key"
-	TelemetryErrorsAPIKeyDefault             = "20b1b74678347375fedfdba65171acb2"
-	AWSRolesAnywhereTrustAnchorARNKey        = "rolesanywhere-trust-anchor-arn"
-	AWSRolesAnywhereSPIFFETrustDomainKey     = "rolesanywhere-spiffe-trust-domain"
-	AWSRolesAnywhereClusterName              = "rolesanywhere-cluster-name"
-	EnableAWSServiceAccountManagementKey     = "enable-aws-serviceaccount-management"
-	EnableAWSServiceAccountManagementDefault = false
-	EnableAWSRolesAnywhereKey                = "enable-aws-iam-rolesanywhere"
-	EnableAWSRolesAnywhereDefault            = false
-	MetricsAddrKey                           = "metrics-bind-address"
-	MetricsAddrDefault                       = ":7071"
-	ProbeAddrKey                             = "health-probe-bind-address"
-	ProbeAddrDefault                         = ":7072"
-	SpireServerAddrKey                       = "spire-server-address"
-	SpireServerAddrDefault                   = "spire-server.spire:8081"
-	CertProviderKey                          = "certificate-provider"
-	CertProviderDefault                      = CertProviderNone
-	CertManagerIssuerKey                     = "cert-manager-issuer"
-	CertManagerIssuerDefault                 = "ca-issuer"
-	SelfSignedCertKey                        = "self-signed-cert"
-	SelfSignedCertDefault                    = true
-	CertManagerUseClustierIssuerKey          = "cert-manager-use-cluster-issuer"
-	CertManagerUseClusterIssuerDefault       = false
-	UseCertManagerApproverKey                = "cert-manager-approve-requests"
-	UseCertManagerApproverDefault            = false
-	AWSUseSoftDeleteStrategyKey              = "aws-use-soft-delete"
-	AWSUseSoftDeleteStrategyDefault          = false
-	DebugKey                                 = "debug"
-	DebugDefault                             = false
-	EnableLeaderElectionKey                  = "leader-elect"
-	EnableLeaderElectionDefault              = false
-	EnvPrefix                                = "OTTERIZE"
+	TelemetryErrorsAPIKeyKey                   = "telemetry-errors-api-key"
+	TelemetryErrorsAPIKeyDefault               = "20b1b74678347375fedfdba65171acb2"
+	AWSRolesAnywhereTrustAnchorARNKey          = "rolesanywhere-trust-anchor-arn"
+	AWSRolesAnywhereSPIFFETrustDomainKey       = "rolesanywhere-spiffe-trust-domain"
+	AWSRolesAnywhereClusterName                = "rolesanywhere-cluster-name"
+	EnableAWSServiceAccountManagementKey       = "enable-aws-serviceaccount-management"
+	EnableAWSServiceAccountManagementDefault   = false
+	EnableAWSRolesAnywhereKey                  = "enable-aws-iam-rolesanywhere"
+	EnableAWSRolesAnywhereDefault              = false
+	EnableGCPServiceAccountManagementKey       = "enable-gcp-serviceaccount-management"
+	EnableGCPServiceAccountManagementDefault   = false
+	EnableAzureServiceAccountManagementKey     = "enable-azure-serviceaccount-management"
+	EnableAzureServiceAccountManagementDefault = false
+	AzureSubscriptionIdKey                     = "azure-subscription-id"
+	AzureSubscriptionIdDefault                 = ""
+	AzureResourceGroupKey                      = "azure-resource-group"
+	AzureResourceGroupDefault                  = ""
+	AzureAksClusterNameKey                     = "azure-aks-cluster-name"
+	AzureAksClusterNameDefault                 = ""
+	MetricsAddrKey                             = "metrics-bind-address"
+	MetricsAddrDefault                         = ":7071"
+	ProbeAddrKey                               = "health-probe-bind-address"
+	ProbeAddrDefault                           = ":7072"
+	SpireServerAddrKey                         = "spire-server-address"
+	SpireServerAddrDefault                     = "spire-server.spire:8081"
+	CertProviderKey                            = "certificate-provider"
+	CertProviderDefault                        = CertProviderNone
+	CertManagerIssuerKey                       = "cert-manager-issuer"
+	CertManagerIssuerDefault                   = "ca-issuer"
+	SelfSignedCertKey                          = "self-signed-cert"
+	SelfSignedCertDefault                      = true
+	CertManagerUseClustierIssuerKey            = "cert-manager-use-cluster-issuer"
+	CertManagerUseClusterIssuerDefault         = false
+	UseCertManagerApproverKey                  = "cert-manager-approve-requests"
+	UseCertManagerApproverDefault              = false
+	AWSUseSoftDeleteStrategyKey                = "aws-use-soft-delete"
+	AWSUseSoftDeleteStrategyDefault            = false
+	DebugKey                                   = "debug"
+	DebugDefault                               = false
+	EnableLeaderElectionKey                    = "leader-elect"
+	EnableLeaderElectionDefault                = false
+	EnvPrefix                                  = "OTTERIZE"
 )
 
 const (
@@ -51,6 +61,8 @@ const (
 
 func init() {
 	viper.SetDefault(EnableAWSServiceAccountManagementKey, EnableAWSServiceAccountManagementDefault)
+	viper.SetDefault(EnableGCPServiceAccountManagementKey, EnableGCPServiceAccountManagementDefault)
+	viper.SetDefault(EnableAzureServiceAccountManagementKey, EnableAzureServiceAccountManagementDefault)
 	viper.SetDefault(EnableAWSRolesAnywhereKey, EnableAWSRolesAnywhereDefault)
 	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
 	viper.SetDefault(MetricsAddrKey, MetricsAddrDefault)
@@ -80,8 +92,15 @@ func init() {
 	pflag.Bool(UseCertManagerApproverKey, UseCertManagerApproverDefault, "Make credentials-operator approve its own CertificateRequests")
 	pflag.Bool(EnableAWSServiceAccountManagementKey, EnableAWSServiceAccountManagementDefault, "Create and bind ServiceAccounts to AWS IAM roles")
 	pflag.Bool(AWSUseSoftDeleteStrategyKey, AWSUseSoftDeleteStrategyDefault, "Mark AWS roles and policies as deleted instead of actually deleting them")
-	pflag.Bool(DebugKey, DebugDefault, "Enable debug logging")
 
+	pflag.Bool(EnableGCPServiceAccountManagementKey, EnableGCPServiceAccountManagementDefault, "Create and bind ServiceAccounts to GCP IAM roles")
+
+	pflag.Bool(EnableAzureServiceAccountManagementKey, EnableAzureServiceAccountManagementDefault, "Create and bind ServiceAccounts to Azure IAM roles")
+	pflag.String(AzureSubscriptionIdKey, AzureSubscriptionIdDefault, "Azure subscription ID")
+	pflag.String(AzureResourceGroupKey, AzureResourceGroupDefault, "Azure resource group")
+	pflag.String(AzureAksClusterNameKey, AzureAksClusterNameDefault, "Azure AKS cluster name")
+
+	pflag.Bool(DebugKey, DebugDefault, "Enable debug logging")
 	pflag.Bool(EnableLeaderElectionKey, EnableLeaderElectionDefault,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")

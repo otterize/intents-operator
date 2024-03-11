@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -120,16 +119,6 @@ func main() {
 
 	var secretsManager tls_pod.SecretsManager
 	var workloadRegistry tls_pod.WorkloadRegistry
-	var enableGCPServiceAccountManagement bool
-	var enableAzureServiceAccountManagement bool
-	var azureSubscriptionId string
-	var azureResourceGroup string
-	var azureAKSClusterName string
-	flag.BoolVar(&enableGCPServiceAccountManagement, "enable-gcp-serviceaccount-management", false, "Create and bind ServiceAccounts to GCP IAM roles")
-	flag.BoolVar(&enableAzureServiceAccountManagement, "enable-azure-serviceaccount-management", false, "Create and bind ServiceAccounts to Azure IAM roles")
-	flag.StringVar(&azureSubscriptionId, "azure-subscription-id", "", "Azure subscription ID")
-	flag.StringVar(&azureResourceGroup, "azure-resource-group", "", "Azure resource group")
-	flag.StringVar(&azureAKSClusterName, "azure-aks-cluster-name", "", "Azure AKS cluster name")
 	var userAndPassAcquirer poduserpassword.CloudUserAndPasswordAcquirer
 
 	if viper.GetBool(operatorconfig.DebugKey) {
@@ -242,7 +231,7 @@ func main() {
 		}
 	}
 
-	if enableGCPServiceAccountManagement {
+	if viper.GetBool(operatorconfig.EnableGCPServiceAccountManagementKey) {
 		gcpAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx, client)
 		if err != nil {
 			logrus.WithError(err).Panic("failed to initialize GCP agent")
@@ -251,11 +240,11 @@ func main() {
 		iamAgents = append(iamAgents, gcpAgent)
 	}
 
-	if enableAzureServiceAccountManagement {
+	if viper.GetBool(operatorconfig.EnableAzureServiceAccountManagementKey) {
 		config := azureagent.Config{
-			SubscriptionID: azureSubscriptionId,
-			ResourceGroup:  azureResourceGroup,
-			AKSClusterName: azureAKSClusterName,
+			SubscriptionID: viper.GetString(operatorconfig.AzureSubscriptionIdKey),
+			ResourceGroup:  viper.GetString(operatorconfig.AzureResourceGroupKey),
+			AKSClusterName: viper.GetString(operatorconfig.AzureAksClusterNameKey),
 		}
 
 		azureAgent, err := azureagent.NewAzureAgent(signalHandlerCtx, config)
@@ -270,7 +259,9 @@ func main() {
 		logrus.WithField("controller", "ServiceAccount").WithError(err).Panic("unable to create controller")
 	}
 
-	if enableAzureServiceAccountManagement || enableGCPServiceAccountManagement || viper.GetBool(operatorconfig.EnableAWSServiceAccountManagementKey) {
+	if viper.GetBool(operatorconfig.EnableAzureServiceAccountManagementKey) ||
+		viper.GetBool(operatorconfig.EnableGCPServiceAccountManagementKey) ||
+		viper.GetBool(operatorconfig.EnableAWSServiceAccountManagementKey) {
 		podReconciler := pods.NewPodReconciler(client)
 		if err = podReconciler.SetupWithManager(mgr); err != nil {
 			logrus.WithField("controller", "Pod").WithError(err).Panic("unable to create controller")
