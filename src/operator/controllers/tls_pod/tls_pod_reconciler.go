@@ -66,6 +66,11 @@ type PodReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=get;update;patch;list;watch;create
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;update;patch;list;watch;create
 
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=iam.cnrm.cloud.google.com,resources=iamserviceaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=iam.cnrm.cloud.google.com,resources=iamserviceaccountkeys,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=iam.cnrm.cloud.google.com,resources=iampolicymembers,verbs=get;list;watch;create;update;patch;delete
+
 func NewCertificatePodReconciler(client client.Client, scheme *runtime.Scheme, workloadRegistry WorkloadRegistry,
 	secretsManager SecretsManager, serviceIdResolver *serviceidresolver.Resolver, eventRecorder record.EventRecorder,
 	registerOnlyPodsWithSecretAnnotation bool) *PodReconciler {
