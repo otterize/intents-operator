@@ -103,6 +103,18 @@ rules:
   - list
   - watch
 - apiGroups:
+  - iam.cnrm.cloud.google.com
+  resources:
+  - iampartialpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - k8s.otterize.com
   resources:
   - clientintents
