@@ -514,6 +514,10 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud
 		NetworkPolicyEnforcementEnabled:       config.EnableNetworkPolicy,
 		EgressNetworkPolicyEnforcementEnabled: config.EnableEgressNetworkPolicyReconcilers,
 		KafkaACLEnforcementEnabled:            config.EnableKafkaACL,
+		AwsIAMPolicyEnforcementEnabled:        config.EnableAWSPolicy,
+		GcpIAMPolicyEnforcementEnabled:        config.EnableGCPPolicy,
+		AzureIAMPolicyEnforcementEnabled:      config.EnableAzurePolicy,
+		DatabaseEnforcementEnabled:            config.EnableDatabasePolicy,
 		IstioPolicyEnforcementEnabled:         config.EnableIstioPolicy,
 		ProtectedServicesEnabled:              config.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 	})
