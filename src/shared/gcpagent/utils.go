@@ -12,16 +12,13 @@ import (
 )
 
 const (
-	truncatedHashLength = 6
-
-	maxK8SNameLength      = 250
-	maxK8STruncatedLength = maxK8SNameLength - truncatedHashLength - 1
-
+	truncatedHashLength           = 6
+	maxK8SNameLength              = 250
+	maxK8STruncatedLength         = maxK8SNameLength - truncatedHashLength - 1
 	maxDisplayNameLength          = 100
 	maxDisplayNameTruncatedLength = maxDisplayNameLength - truncatedHashLength - 1
-
-	maxGCPNameLength      = 30
-	maxGCPTruncatedLength = maxGCPNameLength - truncatedHashLength - 1
+	maxGCPNameLength              = 30
+	maxGCPTruncatedLength         = maxGCPNameLength - truncatedHashLength - 1
 )
 
 func (a *Agent) limitResourceName(name string, maxLength int) string {
