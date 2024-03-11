@@ -177,9 +177,10 @@ func (a *Agent) applyIAMPartialPolicy(ctx context.Context, namespaceName string,
 	if err != nil {
 		return errors.Wrap(err)
 	}
+
 	// Find if there is an existing policy
 	existingIAMPolicy := v1beta1.IAMPartialPolicy{}
-	err := a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: newIAMPolicy.Name}, &existingIAMPolicy)
+	err = a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: newIAMPolicy.Name}, &existingIAMPolicy)
 	if !apierrors.IsNotFound(err) {
 		// Got an error but not because the policy does not exist
 		return errors.Wrap(err)
