@@ -11,16 +11,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const truncatedHashLength = 6
+const (
+	truncatedHashLength = 6
 
-const maxK8SNameLength = 250
-const maxK8STruncatedLength = maxK8SNameLength - truncatedHashLength - 1 // add another char for the hyphen
+	maxK8SNameLength      = 250
+	maxK8STruncatedLength = maxK8SNameLength - truncatedHashLength - 1
 
-const maxDisplayNameLength = 100
-const maxDisplayNameTruncatedLength = maxDisplayNameLength - truncatedHashLength - 1 // add another char for the hyphen
+	maxDisplayNameLength          = 100
+	maxDisplayNameTruncatedLength = maxDisplayNameLength - truncatedHashLength - 1
 
-const maxGCPNameLength = 30
-const maxGCPTruncatedLength = maxGCPNameLength - truncatedHashLength - 1 // add another char for the hyphen
+	maxGCPNameLength      = 30
+	maxGCPTruncatedLength = maxGCPNameLength - truncatedHashLength - 1
+)
 
 func (a *Agent) limitResourceName(name string, maxLength int) string {
 	var truncatedName string
