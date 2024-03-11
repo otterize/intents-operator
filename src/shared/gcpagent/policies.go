@@ -10,10 +10,6 @@ func (a *Agent) IntentType() otterizev1alpha3.IntentType {
 	return otterizev1alpha3.IntentTypeGCP
 }
 
-func (a *Agent) ApplyOnPodLabel() string {
-	return GCPApplyOnPodLabel
-}
-
 func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
 	err := a.applyIAMPartialPolicy(ctx, namespace, accountName, intentsServiceName, intents)
 	if err != nil {
