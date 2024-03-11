@@ -1,39 +1,58 @@
 package gcpagent
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/iam/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	"github.com/otterize/intents-operator/src/shared/agentutils"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	maxK8SNameLength     = 250
-	maxDisplayNameLength = 100
-	maxGCPNameLength     = 30
+	truncatedHashLength           = 6
+	maxK8SNameLength              = 250
+	maxK8STruncatedLength         = maxK8SNameLength - truncatedHashLength - 1
+	maxDisplayNameLength          = 100
+	maxDisplayNameTruncatedLength = maxDisplayNameLength - truncatedHashLength - 1
+	maxGCPNameLength              = 30
+	maxGCPTruncatedLength         = maxGCPNameLength - truncatedHashLength - 1
 )
+
+func (a *Agent) limitResourceName(name string, maxLength int) string {
+	var truncatedName string
+	if len(name) >= maxLength {
+		truncatedName = name[:maxLength]
+	} else {
+		truncatedName = name
+	}
+
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(name)))
+	hash = hash[:truncatedHashLength]
+
+	return fmt.Sprintf("%s-%s", truncatedName, hash)
+}
 
 func (a *Agent) generateKSAPolicyName(namespace string, intentsServiceName string) string {
 	name := fmt.Sprintf("otr-%s-%s-intent-policy", namespace, intentsServiceName)
-	return agentutils.TruncateHashName(name, maxK8SNameLength)
+	return a.limitResourceName(name, maxK8STruncatedLength)
 }
 
 func (a *Agent) generateGSAToKSAPolicyName(ksaName string) string {
 	name := fmt.Sprintf("otr-%s-gcp-identity", ksaName)
-	return agentutils.TruncateHashName(name, maxK8SNameLength)
+	return a.limitResourceName(name, maxK8STruncatedLength)
 }
 
 func (a *Agent) generateGSADisplayName(namespace string, accountName string) string {
 	name := fmt.Sprintf("otr-%s-%s-%s", a.clusterName, namespace, accountName)
-	return agentutils.TruncateHashName(name, maxDisplayNameLength)
+	return a.limitResourceName(name, maxDisplayNameTruncatedLength)
 }
 
 func (a *Agent) generateGSAName(namespace string, accountName string) string {
 	fullName := a.generateGSADisplayName(namespace, accountName)
-	return agentutils.TruncateHashName(fullName, maxGCPNameLength)
+	return a.limitResourceName(fullName, maxGCPTruncatedLength)
 }
 
 func (a *Agent) GetGSAFullName(namespace string, accountName string) string {
@@ -41,7 +60,7 @@ func (a *Agent) GetGSAFullName(namespace string, accountName string) string {
 	return fmt.Sprintf("%s@%s.iam.gserviceaccount.com", gsaName, a.projectID)
 }
 
-func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName string, ksaName string, intents []otterizev1alpha3.Intent) *v1beta1.IAMPartialPolicy {
+func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName string, ksaName string, intents []otterizev1alpha3.Intent) (*v1beta1.IAMPartialPolicy, error) {
 	policyName := a.generateKSAPolicyName(namespace, intentsServiceName)
 	gsaFullName := a.GetGSAFullName(namespace, ksaName)
 	saMember := fmt.Sprintf("serviceAccount:%s", gsaFullName)
@@ -62,12 +81,20 @@ func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName st
 
 	// Populate bindings
 	for _, intent := range intents {
-		// TODO: need to handle wildcards
-		// Name formats - https://cloud.google.com/iam/docs/conditions-resource-attributes#resource-name
+		expression := fmt.Sprintf("resource.name == \"%s\"", intent.Name)
+		if strings.Contains(intent.Name, "*") {
+			if strings.Index(intent.Name, "*") != len(intent.Name)-1 {
+				return nil, fmt.Errorf("wildcard in the middle of the name is not supported: %s", intent.Name)
+			}
+
+			cleanName := strings.ReplaceAll(intent.Name, "*", "")
+			expression = fmt.Sprintf("resource.name.startsWith(\"%s\")", cleanName)
+		}
 		condition := v1beta1.PartialpolicyCondition{
 			Title:      fmt.Sprintf("otr-%s", intent.Name),
-			Expression: fmt.Sprintf("resource.name.startsWith(\"%s\")", intent.Name),
+			Expression: expression,
 		}
+
 		for _, permission := range intent.GCPPermissions {
 			binding := v1beta1.PartialpolicyBindings{
 				Role:      fmt.Sprintf("roles/%s", permission),
@@ -79,5 +106,5 @@ func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName st
 		}
 	}
 
-	return newIAMPolicyMember
+	return newIAMPolicyMember, nil
 }
