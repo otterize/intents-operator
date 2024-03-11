@@ -53,6 +53,7 @@ require (
 
 require (
 	cloud.google.com/go/compute v1.23.0 // indirect
+	github.com/Azure/azure-sdk-for-go-extensions v0.1.6 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.9.1 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.5.1 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.1 // indirect
