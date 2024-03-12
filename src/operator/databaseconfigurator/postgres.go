@@ -82,7 +82,7 @@ func (s SQLSprintfStatement) PrepareSanitized(a ...any) (string, error) {
 }
 
 type PostgresConfigurator struct {
-	conn         *pgx.Conn
+	Conn         *pgx.Conn
 	databaseInfo otterizev1alpha3.PostgreSQLServerConfigSpec
 	setConnMutex sync.Mutex
 	client       client.Client
@@ -208,7 +208,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 		if err != nil {
 			return errors.Wrap(err)
 		}
-		batchResults := p.conn.SendBatch(ctx, &statementsBatch)
+		batchResults := p.Conn.SendBatch(ctx, &statementsBatch)
 
 		for i := 0; i < statementsBatch.Len(); i++ {
 			if _, err := batchResults.Exec(); err != nil {
@@ -228,15 +228,15 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 func (p *PostgresConfigurator) SetConnection(ctx context.Context, conn *pgx.Conn) {
 	p.setConnMutex.Lock()
 	defer p.setConnMutex.Unlock()
-	if p.conn == nil {
-		p.conn = conn
+	if p.Conn == nil {
+		p.Conn = conn
 		return
 	}
-	if err := p.conn.Close(ctx); err != nil {
+	if err := p.Conn.Close(ctx); err != nil {
 		// Intentionally no error returned - clean up error
 		logrus.Errorf("Failed closing connection to: %s", p.databaseInfo.Address)
 	}
-	p.conn = conn
+	p.Conn = conn
 }
 
 func (p *PostgresConfigurator) ExtractDBNameToDatabaseResourcesFromIntents(ctx context.Context, intents []otterizev1alpha3.Intent) (map[string][]otterizev1alpha3.DatabaseResource, error) {
@@ -252,7 +252,7 @@ func (p *PostgresConfigurator) ExtractDBNameToDatabaseResourcesFromIntents(ctx c
 			scopeToDatabaseResources[dbResource.DatabaseName] = append(resources, dbResource)
 		}
 	}
-	rows, err := p.conn.Query(ctx, PGSelectAllDatabasesWithConnectPermissions)
+	rows, err := p.Conn.Query(ctx, PGSelectAllDatabasesWithConnectPermissions)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -315,7 +315,7 @@ func (p *PostgresConfigurator) SQLBatchFromDBResources(
 
 func (p *PostgresConfigurator) QueueAddPermissionsToTableStatements(ctx context.Context, batch *pgx.Batch, resource model.DatabaseConfigInput, username string) error {
 	postgresTableIdentifier := databaseConfigInputToPostgresTableIdentifier(resource)
-	rows, err := p.conn.Query(ctx, PGSSelectTableSequencesPrivilegesQuery, postgresTableIdentifier.tableSchema, postgresTableIdentifier.tableName)
+	rows, err := p.Conn.Query(ctx, PGSSelectTableSequencesPrivilegesQuery, postgresTableIdentifier.tableSchema, postgresTableIdentifier.tableName)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -348,7 +348,7 @@ func (p *PostgresConfigurator) QueueAddPermissionsToTableStatements(ctx context.
 }
 
 func (p *PostgresConfigurator) ValidateUserExists(ctx context.Context, user string) (bool, error) {
-	row, err := p.conn.Query(ctx, PGSelectUserQuery, user)
+	row, err := p.Conn.Query(ctx, PGSelectUserQuery, user)
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
@@ -361,10 +361,10 @@ func (p *PostgresConfigurator) ValidateUserExists(ctx context.Context, user stri
 // We cannot use defer on the close connection since it runs in a for loop, and can potentially keep a lot of
 // connections open until closing them, which Postgres doesn't like that much
 func (p *PostgresConfigurator) CloseConnection(ctx context.Context) {
-	if p.conn == nil {
+	if p.Conn == nil {
 		return
 	}
-	if err := p.conn.Close(ctx); err != nil {
+	if err := p.Conn.Close(ctx); err != nil {
 		// Intentionally no error returned - clean up error
 		logrus.Errorf("Failed closing connection to: %s", p.databaseInfo.Address)
 	}
@@ -390,7 +390,7 @@ func (p *PostgresConfigurator) getAllowedTablesDiffForUser(ctx context.Context, 
 		return databaseConfigInputToPostgresTableIdentifier(resource)
 	})
 	allowedTablesDiff := make([]PostgresTableIdentifier, 0)
-	rows, err := p.conn.Query(ctx, PGSelectPrivilegesQuery, username)
+	rows, err := p.Conn.Query(ctx, PGSelectPrivilegesQuery, username)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -425,7 +425,7 @@ func (p *PostgresConfigurator) revokeRemovedTablesPermissions(ctx context.Contex
 			return errors.Wrap(err)
 		}
 	}
-	batchResults := p.conn.SendBatch(ctx, &batch)
+	batchResults := p.Conn.SendBatch(ctx, &batch)
 	for i := 0; i < batch.Len(); i++ {
 		if _, err := batchResults.Exec(); err != nil {
 			return TranslatePostgresCommandsError(err)
@@ -439,7 +439,7 @@ func (p *PostgresConfigurator) revokeRemovedTablesPermissions(ctx context.Contex
 }
 
 func (p *PostgresConfigurator) queueRevokeAllOnTableAndSequencesStatements(ctx context.Context, batch *pgx.Batch, table PostgresTableIdentifier, username string) error {
-	rows, err := p.conn.Query(ctx, PGSSelectTableSequencesPrivilegesQuery, table.tableSchema, table.tableName)
+	rows, err := p.Conn.Query(ctx, PGSSelectTableSequencesPrivilegesQuery, table.tableSchema, table.tableName)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -467,7 +467,7 @@ func (p *PostgresConfigurator) queueRevokeAllOnTableAndSequencesStatements(ctx c
 
 func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx context.Context, batch *pgx.Batch, resource model.DatabaseConfigInput, username string) error {
 	// Get all schemas in current database
-	rows, err := p.conn.Query(ctx, PGSSelectSchemaNamesQuery)
+	rows, err := p.Conn.Query(ctx, PGSSelectSchemaNamesQuery)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -496,7 +496,7 @@ func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx c
 
 func (p *PostgresConfigurator) queueRevokePermissionsByDatabaseNameStatements(ctx context.Context, batch *pgx.Batch, username string) error {
 	// Get all schemas in current database
-	rows, err := p.conn.Query(ctx, PGSSelectSchemaNamesQuery)
+	rows, err := p.Conn.Query(ctx, PGSSelectSchemaNamesQuery)
 	if err != nil {
 		return errors.Wrap(err)
 	}
