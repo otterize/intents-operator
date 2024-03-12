@@ -96,7 +96,7 @@ func NewPostgresConfigurator(pgServerConfSpec otterizev1alpha3.PostgreSQLServerC
 	}
 }
 
-func TranslatePostgresConnectionError(err error) (string, bool) {
+func (p *PostgresConfigurator) TranslatePostgresConnectionError(err error) (string, bool) {
 	if opErr := &(net.OpError{}); errors.As(err, &opErr) || errors.Is(err, context.DeadlineExceeded) {
 		return "Can't reach the server", true
 	}
@@ -150,7 +150,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	connectionString := p.FormatConnectionString()
 	conn, err := pgx.Connect(ctx, connectionString)
 	if err != nil {
-		pgErr, ok := TranslatePostgresConnectionError(err)
+		pgErr, ok := p.TranslatePostgresConnectionError(err)
 		if ok {
 			return usererrors.AppliedIntentsError(pgErr)
 		}
