@@ -216,7 +216,9 @@ func main() {
 
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
 	svcNetworkPolicyBuilder := builders.NewPortNetworkPolicyReconciler(mgr.GetClient())
-	epNetpolReconciler := networkpolicy.NewReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, []networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder}, make([]networkpolicy.EgressRuleBuilder, 0))
+	dnsServerNetpolBuilder := builders.NewIngressDNSServerAutoAllowNetpolBuilder()
+	epNetpolReconciler := networkpolicy.NewReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState,
+		[]networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder, dnsServerNetpolBuilder}, make([]networkpolicy.EgressRuleBuilder, 0))
 	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
 		egressNetworkPolicyHandler := builders.NewEgressNetworkPolicyBuilder()
