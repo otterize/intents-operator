@@ -204,6 +204,27 @@ spec:
                       items:
                         type: string
                       type: array
+                    azureCustomRoles:
+                      items:
+                        properties:
+                          actions:
+                            items:
+                              type: string
+                            type: array
+                          dataActions:
+                            items:
+                              type: string
+                            type: array
+                          notActions:
+                            items:
+                              type: string
+                            type: array
+                          notDataActions:
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      type: array
                     azureRoles:
                       items:
                         type: string

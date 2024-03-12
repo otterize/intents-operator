@@ -169,6 +169,9 @@ type Intent struct {
 	AzureRoles []string `json:"azureRoles,omitempty" yaml:"azureRoles,omitempty"`
 
 	//+optional
+	AzureCustomRoles []AzureCustomRole `json:"azureCustomRoles,omitempty" yaml:"azureCustomRoles,omitempty"`
+
+	//+optional
 	Internet *Internet `json:"internet,omitempty" yaml:"internet,omitempty"`
 }
 
@@ -187,6 +190,17 @@ type DatabaseResource struct {
 	Table string `json:"table" yaml:"table"`
 	//+optional
 	Operations []DatabaseOperation `json:"operations" yaml:"operations"`
+}
+
+type AzureCustomRole struct {
+	//+optional
+	Actions []string `json:"actions,omitempty" yaml:"actions,omitempty"`
+	//+optional
+	DataActions []string `json:"dataActions,omitempty" yaml:"dataActions,omitempty"`
+	//+optional
+	NotActions []string `json:"notActions,omitempty" yaml:"notActions,omitempty"`
+	//+optional
+	NotDataActions []string `json:"notDataActions,omitempty" yaml:"notDataActions,omitempty"`
 }
 
 type HTTPResource struct {
@@ -580,6 +594,17 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 
 	if len(in.AzureRoles) != 0 {
 		intentInput.AzureRoles = lo.ToSlicePtr(in.AzureRoles)
+	}
+
+	if len(in.AzureCustomRoles) != 0 {
+		intentInput.AzureCustomRoles = lo.Map(in.AzureCustomRoles, func(role AzureCustomRole, _ int) *graphqlclient.AzureCustomRoleInput {
+			return &graphqlclient.AzureCustomRoleInput{
+				Actions:        lo.ToSlicePtr(role.Actions),
+				DataActions:    lo.ToSlicePtr(role.DataActions),
+				NotActions:     lo.ToSlicePtr(role.NotActions),
+				NotDataActions: lo.ToSlicePtr(role.NotDataActions),
+			}
+		})
 	}
 
 	if len(in.GCPPermissions) != 0 {

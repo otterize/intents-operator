@@ -158,6 +158,20 @@ enum AwsIamStep {
 	COMPLETED
 }
 
+type AzureCustomRole {
+	actions: [String!]
+	dataActions: [String!]
+	notActions: [String!]
+	notDataActions: [String!]
+}
+
+input AzureCustomRoleInput {
+	actions: [String!]
+	dataActions: [String!]
+	notActions: [String!]
+	notDataActions: [String!]
+}
+
 type AzureInfo {
 	tenantId: String!
 	subscriptionId: String!
@@ -679,6 +693,7 @@ type Intent {
 	databaseResources: [DatabaseConfig!]
 	awsActions: [String!]
 	azureRoles: [String!]
+	azureCustomRoles: [AzureCustomRole!]
 	gcpPermissions: [String!]
 	internet: InternetConfig
 	status: IntentStatus
@@ -695,6 +710,7 @@ input IntentInput {
 	databaseResources: [DatabaseConfigInput!]
 	awsActions: [String!]
 	azureRoles: [String!]
+	azureCustomRoles: [AzureCustomRoleInput!]
 	gcpPermissions: [String!]
 	internet: InternetConfigInput
 	status: IntentStatusInput
