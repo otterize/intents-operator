@@ -6,7 +6,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/otterize/cloud/src/backend-service/pkg/graph/model"
-	"github.com/otterize/cloud/src/backend-service/pkg/lib/apis"
 	"github.com/otterize/cloud/src/backend-service/pkg/lib/errors"
 	"github.com/otterize/cloud/src/backend-service/pkg/lib/errors/usererrors"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
@@ -51,7 +50,7 @@ type PostgresTableIdentifier struct {
 	tableName   string
 }
 
-func (p PostgresTableIdentifier) toPGXIdentifier() pgx.Identifier {
+func (p PostgresTableIdentifier) ToPGXIdentifier() pgx.Identifier {
 	return pgx.Identifier{p.tableSchema, p.tableName}
 }
 
@@ -132,7 +131,7 @@ func IsInvalidAuthorizationError(err error) bool {
 	return false
 }
 
-func translatePostgresCommandsError(err error) error {
+func TranslatePostgresCommandsError(err error) error {
 	if pgErr := &(pgconn.PgError{}); errors.As(err, &pgErr) {
 		// See: https://www.postgresql.org/docs/current/errcodes-appendix.html
 		if pgErr.Code == "42P01" || pgErr.Code == "3F000" {
@@ -148,7 +147,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	intents []otterizev1alpha3.Intent,
 	permissionChange otterizev1alpha3.DBPermissionChange) error {
 
-	connectionString := p.formatConnectionString()
+	connectionString := p.FormatConnectionString()
 	conn, err := pgx.Connect(ctx, connectionString)
 	if err != nil {
 		pgErr, ok := TranslatePostgresConnectionError(err)
@@ -157,14 +156,14 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 		}
 		return errors.Wrap(err)
 	}
-	p.setConnection(ctx, conn)
-	dbnameToDatabaseResources, err := p.extractDBNameToDatabaseResourcesFromIntents(ctx, intents)
+	p.SetConnection(ctx, conn)
+	dbnameToDatabaseResources, err := p.ExtractDBNameToDatabaseResourcesFromIntents(ctx, intents)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 	username := BuildPostgresUsername(workloadNamespacedName)
 
-	exists, err := p.validateUserExists(ctx, username)
+	exists, err := p.ValidateUserExists(ctx, username)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -176,7 +175,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	}
 
 	for dbname, dbResources := range dbnameToDatabaseResources {
-		connectionString = p.formatConnectionString()
+		connectionString = p.FormatConnectionString()
 		conn, err = pgx.Connect(ctx, connectionString)
 		// If we got invalid authorization error at this point it means we are blocked by the hba_conf file.
 		// It may occur for cloud provider databases such as "cloudsqladmin".
@@ -192,7 +191,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 			}
 			return errors.Wrap(err)
 		}
-		p.setConnection(ctx, conn)
+		p.SetConnection(ctx, conn)
 		if permissionChange != otterizev1alpha3.DBPermissionChangeDelete {
 			// Need to check whether tables were deleted from intents, and revoke permissions for them
 			allowedTablesDiff, err := p.getAllowedTablesDiffForUser(ctx, username, dbResources)
@@ -205,7 +204,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 			}
 		}
 
-		statementsBatch, err := p.sqlBatchFromDBResources(ctx, username, dbResources, permissionChange)
+		statementsBatch, err := p.SQLBatchFromDBResources(ctx, username, dbResources, permissionChange)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -213,7 +212,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 
 		for i := 0; i < statementsBatch.Len(); i++ {
 			if _, err := batchResults.Exec(); err != nil {
-				return translatePostgresCommandsError(err)
+				return TranslatePostgresCommandsError(err)
 			}
 		}
 		if err = batchResults.Close(); err != nil {
@@ -226,7 +225,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 
 }
 
-func (p *PostgresConfigurator) setConnection(ctx context.Context, conn *pgx.Conn) {
+func (p *PostgresConfigurator) SetConnection(ctx context.Context, conn *pgx.Conn) {
 	p.setConnMutex.Lock()
 	defer p.setConnMutex.Unlock()
 	if p.conn == nil {
@@ -240,7 +239,7 @@ func (p *PostgresConfigurator) setConnection(ctx context.Context, conn *pgx.Conn
 	p.conn = conn
 }
 
-func (p *PostgresConfigurator) extractDBNameToDatabaseResourcesFromIntents(ctx context.Context, intents []otterizev1alpha3.Intent) (map[string][]otterizev1alpha3.DatabaseResource, error) {
+func (p *PostgresConfigurator) ExtractDBNameToDatabaseResourcesFromIntents(ctx context.Context, intents []otterizev1alpha3.Intent) (map[string][]otterizev1alpha3.DatabaseResource, error) {
 	scopeToDatabaseResources := make(map[string][]otterizev1alpha3.DatabaseResource)
 	for _, intent := range intents {
 		for _, dbResource := range intent.DatabaseResources {
@@ -271,7 +270,7 @@ func (p *PostgresConfigurator) extractDBNameToDatabaseResourcesFromIntents(ctx c
 	return scopeToDatabaseResources, nil
 }
 
-func (p *PostgresConfigurator) sqlBatchFromDBResources(
+func (p *PostgresConfigurator) SQLBatchFromDBResources(
 	ctx context.Context,
 	username string,
 	dbResources []model.DatabaseConfigInput,
@@ -306,7 +305,7 @@ func (p *PostgresConfigurator) sqlBatchFromDBResources(
 			}
 			continue
 		}
-		err := p.queueAddPermissionsToTableStatements(ctx, &batch, resource, username)
+		err := p.QueueAddPermissionsToTableStatements(ctx, &batch, resource, username)
 		if err != nil {
 			return pgx.Batch{}, errors.Wrap(err)
 		}
@@ -314,7 +313,7 @@ func (p *PostgresConfigurator) sqlBatchFromDBResources(
 	return batch, nil
 }
 
-func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.Context, batch *pgx.Batch, resource model.DatabaseConfigInput, username string) error {
+func (p *PostgresConfigurator) QueueAddPermissionsToTableStatements(ctx context.Context, batch *pgx.Batch, resource model.DatabaseConfigInput, username string) error {
 	postgresTableIdentifier := databaseConfigInputToPostgresTableIdentifier(resource)
 	rows, err := p.conn.Query(ctx, PGSSelectTableSequencesPrivilegesQuery, postgresTableIdentifier.tableSchema, postgresTableIdentifier.tableName)
 	if err != nil {
@@ -339,7 +338,7 @@ func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.
 		return errors.Wrap(err)
 	}
 	batch.Queue(stmt)
-	operations := p.getGrantOperations(resource.Operations)
+	operations := p.GetGrantOperations(resource.Operations)
 	stmt, err = PGGrantStatement.PrepareSanitized(operations, tableNameToIdentifier(lo.FromPtr(resource.Table)), pgx.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
@@ -348,7 +347,7 @@ func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.
 	return nil
 }
 
-func (p *PostgresConfigurator) validateUserExists(ctx context.Context, user string) (bool, error) {
+func (p *PostgresConfigurator) ValidateUserExists(ctx context.Context, user string) (bool, error) {
 	row, err := p.conn.Query(ctx, PGSelectUserQuery, user)
 	if err != nil {
 		return false, errors.Wrap(err)
@@ -371,7 +370,7 @@ func (p *PostgresConfigurator) CloseConnection(ctx context.Context) {
 	}
 }
 
-func (p *PostgresConfigurator) getGrantOperations(
+func (p *PostgresConfigurator) GetGrantOperations(
 	operations []model.DatabaseOperation) []model.DatabaseOperation {
 
 	if len(operations) == 0 || slices.Contains(operations, model.DatabaseOperationAll) {
@@ -429,7 +428,7 @@ func (p *PostgresConfigurator) revokeRemovedTablesPermissions(ctx context.Contex
 	batchResults := p.conn.SendBatch(ctx, &batch)
 	for i := 0; i < batch.Len(); i++ {
 		if _, err := batchResults.Exec(); err != nil {
-			return translatePostgresCommandsError(err)
+			return TranslatePostgresCommandsError(err)
 		}
 	}
 	if err := batchResults.Close(); err != nil {
@@ -458,7 +457,7 @@ func (p *PostgresConfigurator) queueRevokeAllOnTableAndSequencesStatements(ctx c
 		batch.Queue(stmt)
 	}
 
-	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(table.toPGXIdentifier(), pgx.Identifier{username})
+	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(table.ToPGXIdentifier(), pgx.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -485,7 +484,7 @@ func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx c
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
-		operations := p.getGrantOperations(resource.Operations)
+		operations := p.GetGrantOperations(resource.Operations)
 		stmt, err = PGGrantOnAllTablesInSchemaStatement.PrepareSanitized(operations, pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
@@ -523,7 +522,7 @@ func (p *PostgresConfigurator) queueRevokePermissionsByDatabaseNameStatements(ct
 	return nil
 }
 
-func (p *PostgresConfigurator) formatConnectionString() string {
+func (p *PostgresConfigurator) FormatConnectionString() string {
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s/%s",
 		p.databaseInfo.Credentials.Username,
