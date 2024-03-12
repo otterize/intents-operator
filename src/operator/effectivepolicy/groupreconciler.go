@@ -79,18 +79,18 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		if !clientIntent.DeletionTimestamp.IsZero() {
 			continue
 		}
-		service := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace}
+		service := serviceidentity.NewFromClientIntent(clientIntent)
 		services.Add(service)
 		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
-			if !g.shouldCreateEffectivePolicyForIntentTargetServer(intentCall) {
+			if !g.shouldCreateEffectivePolicyForIntentTargetServer(intentCall, clientIntent.Namespace) {
 				continue
 			}
-			services.Add(serviceidentity.ServiceIdentity{Name: intentCall.GetTargetServerName(), Namespace: intentCall.GetTargetServerNamespace(clientIntent.Namespace)})
+			services.Add(serviceidentity.NewFromIntent(intentCall, clientIntent.Namespace))
 		}
 	}
 
-	// Build SEP for every service
+	// buildNetworkPolicy SEP for every service
 	epSlice := make([]ServiceEffectivePolicy, 0)
 	for _, service := range services.Items() {
 		ep, err := g.buildServiceEffectivePolicy(ctx, service)
@@ -110,12 +110,12 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 }
 
 // shouldCreateEffectivePolicyForIntentTargetServer that checks if we should create a SEP for a given intent target server
-func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(intent v1alpha3.Intent) bool {
+func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(intent v1alpha3.Intent, clinetIntentNamespace string) bool {
 	if intent.IsTargetOutOfCluster() {
 		return false
 	}
-	// Services are currently unused when used as a target, since the policy is created by looking at client Calls.
-	if intent.IsTargetServerKubernetesService() {
+	// We are not treating the kubernetes API server as a service
+	if intent.IsTargetTheKubernetesAPIServer(clinetIntentNamespace) {
 		return false
 	}
 	return true
@@ -132,7 +132,10 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, servi
 			continue
 		}
 		clientCalls := g.filterAndTransformClientIntentsIntoClientCalls(clientIntent, func(intent v1alpha3.Intent) bool {
-			return intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
+			if service.Kind == serviceidentity.KindService {
+				return intent.IsTargetServerKubernetesService() && intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
+			}
+			return !intent.IsTargetServerKubernetesService() && intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
 		})
 		ep.CalledBy = append(ep.CalledBy, clientCalls...)
 	}
@@ -154,7 +157,7 @@ func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientI
 
 func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v1alpha3.ClientIntents, error) {
 	var intentsList v1alpha3.ClientIntentsList
-	matchFields := client.MatchingFields{v1alpha3.OtterizeFormattedTargetServerIndexField: v1alpha3.GetFormattedOtterizeIdentity(server.Name, server.Namespace)}
+	matchFields := client.MatchingFields{v1alpha3.OtterizeFormattedTargetServerIndexField: server.GetFormattedOtterizeIdentity()}
 	err := g.Client.List(
 		ctx, &intentsList,
 		&matchFields,

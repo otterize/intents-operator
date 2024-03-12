@@ -73,7 +73,8 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 	// So, for example, a deployment named "my-deployment.5.2.0" will be seen by Otterize as "my-deployment_5_2_0"
 	otterizeServiceName := strings.ReplaceAll(resourceName, ".", "_")
 
-	return serviceidentity.ServiceIdentity{Name: otterizeServiceName, Namespace: pod.Namespace, OwnerObject: ownerObj}, nil
+	ownerKind := ownerObj.GetObjectKind().GroupVersionKind().Kind
+	return serviceidentity.ServiceIdentity{Name: otterizeServiceName, Namespace: pod.Namespace, OwnerObject: ownerObj, Kind: ownerKind}, nil
 }
 
 // GetOwnerObject recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference
@@ -147,7 +148,7 @@ func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3
 	err := r.client.List(
 		ctx,
 		podsList,
-		client.MatchingLabels{v1alpha3.OtterizeServerLabelKey: formattedTargetServer},
+		client.MatchingLabels{v1alpha3.OtterizeServiceLabelKey: formattedTargetServer},
 		client.InNamespace(namespace),
 	)
 	if err != nil {

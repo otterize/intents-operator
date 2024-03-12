@@ -3,7 +3,7 @@ package external_traffic
 import (
 	"context"
 	"fmt"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
@@ -115,11 +115,11 @@ func buildNetworkPolicyObjectForEndpoints(
 	serviceSpecCopy := endpoints.Subsets
 
 	annotations := map[string]string{
-		v1alpha2.OtterizeCreatedForServiceAnnotation: endpoints.GetName(),
+		v1alpha3.OtterizeCreatedForServiceAnnotation: endpoints.GetName(),
 	}
 
 	if len(ingressList.Items) != 0 {
-		annotations[v1alpha2.OtterizeCreatedForIngressAnnotation] = strings.Join(lo.Map(ingressList.Items, func(ingress v1.Ingress, _ int) string {
+		annotations[v1alpha3.OtterizeCreatedForIngressAnnotation] = strings.Join(lo.Map(ingressList.Items, func(ingress v1.Ingress, _ int) string {
 			return ingress.Name
 		}), ",")
 	}
@@ -129,7 +129,7 @@ func buildNetworkPolicyObjectForEndpoints(
 			Name:      policyName,
 			Namespace: endpoints.Namespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeNetworkPolicyExternalTraffic: otterizeServiceName,
+				v1alpha3.OtterizeNetworkPolicyExternalTraffic: otterizeServiceName,
 			},
 			Annotations: annotations,
 		},
@@ -168,10 +168,10 @@ func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Conte
 	}
 
 	nonExternalPolicyList := &v1.NetworkPolicyList{}
-	serviceNameLabel := accessPolicy.Labels[v1alpha2.OtterizeNetworkPolicy]
+	serviceNameLabel := accessPolicy.Labels[v1alpha3.OtterizeNetworkPolicy]
 
 	// list policies the are not external policies (access + default deny)
-	err := r.client.List(ctx, nonExternalPolicyList, client.MatchingLabels{v1alpha2.OtterizeNetworkPolicy: serviceNameLabel},
+	err := r.client.List(ctx, nonExternalPolicyList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: serviceNameLabel},
 		&client.ListOptions{Namespace: accessPolicy.Namespace})
 	if err != nil {
 		return errors.Wrap(err)
@@ -182,7 +182,7 @@ func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Conte
 	}
 
 	externalPolicyList := &v1.NetworkPolicyList{}
-	err = r.client.List(ctx, externalPolicyList, client.MatchingLabels{v1alpha2.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
+	err = r.client.List(ctx, externalPolicyList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
 		&client.ListOptions{Namespace: accessPolicy.Namespace})
 	if err != nil {
 		return errors.Wrap(err)
@@ -268,7 +268,7 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod) e
 	err := r.client.List(
 		ctx,
 		&endpointsList,
-		&client.MatchingFields{v1alpha2.EndpointsPodNamesIndexField: pod.Name},
+		&client.MatchingFields{v1alpha3.EndpointsPodNamesIndexField: pod.Name},
 		&client.ListOptions{Namespace: pod.Namespace},
 	)
 
@@ -341,14 +341,14 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		}
 
 		// only act on pods affected by Otterize
-		serverLabel, ok := pod.Labels[v1alpha2.OtterizeServerLabelKey]
+		serverLabel, ok := pod.Labels[v1alpha3.OtterizeServiceLabelKey]
 		if !ok {
 			continue
 		}
 
 		netpolList := &v1.NetworkPolicyList{}
 		// there's only ever one
-		err = r.client.List(ctx, netpolList, client.MatchingLabels{v1alpha2.OtterizeNetworkPolicy: serverLabel}, client.Limit(1))
+		err = r.client.List(ctx, netpolList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: serverLabel}, client.Limit(1))
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				// only act on pods affected by Otterize policies - if they were not created yet,
@@ -358,23 +358,8 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 			return errors.Wrap(err)
 		}
 
-		svcNetpolList := &v1.NetworkPolicyList{}
-		svcIdentity := v1alpha2.GetFormattedOtterizeIdentity(
-			endpoints.Name,
-			endpoints.Namespace,
-		)
-		// there's only ever one
-		err = r.client.List(ctx, svcNetpolList, client.MatchingLabels{v1alpha2.OtterizeSvcNetworkPolicy: svcIdentity}, client.Limit(1))
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				// only act on pods affected by Otterize policies - if they were not created yet,
-				// the intents reconciler will call the endpoints reconciler once it does.
-				continue
-			}
-			return errors.Wrap(err)
-		}
-
-		if len(netpolList.Items) == 0 && len(svcNetpolList.Items) == 0 {
+		hasIngressRules := lo.SomeBy(netpolList.Items, func(netpol v1.NetworkPolicy) bool { return len(netpol.Spec.Ingress) > 0 })
+		if !hasIngressRules {
 			if r.allowExternalTraffic == allowexternaltraffic.Always {
 				err := r.handleNetpolsForOtterizeServiceWithoutIntents(ctx, endpoints, serverLabel, ingressList)
 				if err != nil {
@@ -386,7 +371,6 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 
 		netpolSlice := make([]v1.NetworkPolicy, 0)
 		netpolSlice = append(netpolSlice, netpolList.Items...)
-		netpolSlice = append(netpolSlice, svcNetpolList.Items...)
 
 		foundOtterizeNetpolsAffectingPods = true
 		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, netpolSlice)
@@ -435,7 +419,7 @@ func (r *NetworkPolicyHandler) getIngressRefersToService(ctx context.Context, sv
 	var ingressList v1.IngressList
 	err := r.client.List(
 		ctx, &ingressList,
-		&client.MatchingFields{v1alpha2.IngressServiceNamesIndexField: svc.Name},
+		&client.MatchingFields{v1alpha3.IngressServiceNamesIndexField: svc.Name},
 		&client.ListOptions{Namespace: svc.Namespace})
 
 	if err != nil {
@@ -544,7 +528,7 @@ func (r *NetworkPolicyHandler) otterizeServerLabeledPodsSelector() (labels.Selec
 	return metav1.LabelSelectorAsSelector(
 		&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      v1alpha2.OtterizeServerLabelKey,
+				Key:      v1alpha3.OtterizeServiceLabelKey,
 				Operator: metav1.LabelSelectorOpExists,
 			},
 		},

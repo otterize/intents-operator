@@ -103,12 +103,12 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	}
 
 	if hasMultipleClientsForServiceAccount {
-		r.RecordWarningEventf(&intents, consts.ReasonAWSIntentsServiceAccountUsedByMultipleClients, "found multiple clients using the service account: %s", serviceAccountName)
+		r.RecordWarningEventf(&intents, consts.ReasonIntentsServiceAccountUsedByMultipleClients, "found multiple clients using the service account: %s", serviceAccountName)
 		return ctrl.Result{}, nil
 	}
 
 	if len(serviceAccountName) == 0 {
-		r.RecordWarningEventf(&intents, consts.ReasonAWSIntentsFoundButNoServiceAccount, "Found AWS intents, but no service account found for pod ('%s').", pod.Name)
+		r.RecordWarningEventf(&intents, consts.ReasonIntentsFoundButNoServiceAccount, "Found AWS intents, but no service account found for pod ('%s').", pod.Name)
 		return ctrl.Result{}, nil
 	}
 

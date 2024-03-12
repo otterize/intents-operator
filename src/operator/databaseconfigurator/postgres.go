@@ -185,7 +185,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 			continue
 		}
 		if err != nil {
-			pgErr, ok := TranslatePostgresConnectionError(err)
+			pgErr, ok := p.TranslatePostgresConnectionError(err)
 			if ok {
 				return usererrors.AppliedIntentsError(pgErr)
 			}

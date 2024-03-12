@@ -6,6 +6,9 @@ const iamEffectAllow = "Allow"
 const serviceAccountNameTagKey = "otterize/serviceAccountName"
 const serviceAccountNamespaceTagKey = "otterize/serviceAccountNamespace"
 const clusterNameTagKey = "otterize/clusterName"
+const softDeletionStrategyTagKey = "otterize/softDeletionStrategy"
+const softDeletionStrategyTagValue = "true"
+const softDeletedTagKey = "otterize/softDeletedAt"
 
 const policyNameTagKey = "otterize/policyName"
 const policyNamespaceTagKey = "otterize/policyNamespace"
@@ -30,5 +33,3 @@ type StatementEntry struct {
 }
 
 const maxAWSNameLength = 64
-const truncatedHashLength = 6
-const maxTruncatedLength = maxAWSNameLength - truncatedHashLength - 1 // add another char for the hyphen

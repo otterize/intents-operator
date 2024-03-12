@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -36,6 +37,7 @@ func (s *ValidatingWebhookControllerTestSuite) SetupTest() {
 		s.Client,
 		scheme.Scheme,
 		s.Cert,
+		filters.IntentsOperatorLabelPredicate(),
 	)
 }
 

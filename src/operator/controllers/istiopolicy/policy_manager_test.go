@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -48,8 +47,8 @@ func (s *PolicyManagerTestSuite) TestCreateProtectedService() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -71,14 +70,14 @@ func (s *PolicyManagerTestSuite) TestCreateProtectedService() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-test-namespace-8ddecb",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -131,8 +130,8 @@ func (s *PolicyManagerTestSuite) TestCreateEnforcementDisabledNoProtectedService
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -171,8 +170,8 @@ func (s *PolicyManagerTestSuite) TestCreateIstioEnforcementDisabledNoProtectedSe
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -207,8 +206,8 @@ func (s *PolicyManagerTestSuite) TestCreateIstioIgnoreK8sServiceIntents() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -242,8 +241,8 @@ func (s *PolicyManagerTestSuite) TestCreateProtectedServiceIstioEnforcementDisab
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -277,8 +276,8 @@ func (s *PolicyManagerTestSuite) TestCreate() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -300,14 +299,14 @@ func (s *PolicyManagerTestSuite) TestCreate() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-test-namespace-8ddecb",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -380,14 +379,14 @@ func (s *PolicyManagerTestSuite) TestCreateHTTPResources() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-test-namespace-8ddecb",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -482,14 +481,14 @@ func (s *PolicyManagerTestSuite) TestUpdateHTTPResources() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-test-namespace-8ddecb",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -536,14 +535,14 @@ func (s *PolicyManagerTestSuite) TestUpdateHTTPResources() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-test-namespace-8ddecb",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -628,14 +627,14 @@ func (s *PolicyManagerTestSuite) TestNothingToUpdateHTTPResources() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-test-namespace-8ddecb",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -747,14 +746,14 @@ func (s *PolicyManagerTestSuite) TestNamespaceAllowed() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-test-namespace-8ddecb",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -810,14 +809,14 @@ func (s *PolicyManagerTestSuite) TestUpdatePolicy() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-test-namespace-8ddecb",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -842,14 +841,14 @@ func (s *PolicyManagerTestSuite) TestUpdatePolicy() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-test-namespace-8ddecb",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -915,7 +914,7 @@ func (s *PolicyManagerTestSuite) TestDeleteAllPoliciesForClientIntents() {
 
 	authzPol := &v1beta1.AuthorizationPolicy{ObjectMeta: v1.ObjectMeta{Name: "blah"}}
 	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), client.MatchingLabels{
-		v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+		v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 	}).SetArg(1, v1beta1.AuthorizationPolicyList{Items: []*v1beta1.AuthorizationPolicy{authzPol}}).Return(nil)
 
 	s.Client.EXPECT().Delete(gomock.Any(), authzPol).Return(nil)
@@ -954,14 +953,14 @@ func (s *PolicyManagerTestSuite) TestNothingToUpdate() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-test-namespace-8ddecb",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -1020,15 +1019,15 @@ func (s *PolicyManagerTestSuite) TestDeletePolicy() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-test-namespace-8ddecb",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 			UID: "uid_1",
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-test-namespace-8ddecb",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-test-namespace-8ddecb",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -1052,15 +1051,15 @@ func (s *PolicyManagerTestSuite) TestDeletePolicy() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha2.OtterizeServerLabelKey:           "test-server-from-old-intent-file",
-				v1alpha2.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:          "test-server-from-old-intent-file",
+				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
 			},
 			UID: "uid_2",
 		},
 		Spec: v1beta12.AuthorizationPolicy{
 			Selector: &v1beta13.WorkloadSelector{
 				MatchLabels: map[string]string{
-					v1alpha2.OtterizeServerLabelKey: "test-server-from-old-intent-file",
+					v1alpha3.OtterizeServiceLabelKey: "test-server-from-old-intent-file",
 				},
 			},
 			Rules: []*v1beta12.Rule{
@@ -1118,7 +1117,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServiceAccount() {
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
 			Annotations: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha3.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -1138,8 +1137,8 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServiceAccount() {
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
 			Annotations: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
-				v1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
+				v1alpha3.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha3.OtterizeSharedServiceAccountAnnotation: "false",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -1158,7 +1157,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServiceAccount() {
 			s.Equal(labeledIntents, *intents)
 		}).Return(nil),
 		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha3.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
-			missingSideCar, ok := intents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
+			missingSideCar, ok := intents.Annotations[v1alpha3.OtterizeMissingSidecarAnnotation]
 			s.True(ok)
 			s.Equal(strconv.FormatBool(false), missingSideCar)
 		}).Return(nil),
@@ -1202,7 +1201,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusMissingSidecar() {
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
 			Annotations: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha3.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -1222,8 +1221,8 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusMissingSidecar() {
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
 			Annotations: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
-				v1alpha2.OtterizeSharedServiceAccountAnnotation: "false",
+				v1alpha3.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha3.OtterizeSharedServiceAccountAnnotation: "false",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -1242,7 +1241,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusMissingSidecar() {
 			s.Equal(labeledIntents, *intents)
 		}).Return(nil),
 		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha3.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
-			missingSideCar, ok := intents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
+			missingSideCar, ok := intents.Annotations[v1alpha3.OtterizeMissingSidecarAnnotation]
 			s.True(ok)
 			s.Equal(strconv.FormatBool(true), missingSideCar)
 		}).Return(nil),
@@ -1267,7 +1266,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServerMissingSidecar() {
 
 	intentsWithStatus := initialIntents.DeepCopy()
 	intentsWithStatus.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: string(lo.Must(json.Marshal([]string{serverName}))),
+		v1alpha3.OtterizeServersWithoutSidecarAnnotation: string(lo.Must(json.Marshal([]string{serverName}))),
 	}
 
 	gomock.InOrder(
@@ -1308,7 +1307,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServerMissingSidecarAnnotationE
 
 	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
 	initialIntents.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: string(lo.Must(json.Marshal([]string{serverName}))),
+		v1alpha3.OtterizeServersWithoutSidecarAnnotation: string(lo.Must(json.Marshal([]string{serverName}))),
 	}
 
 	// Expect that nothing will happen if the annotation already exists
@@ -1325,13 +1324,13 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServerMissingSidecarExistingSer
 	initialServersList := string(lo.Must(json.Marshal([]string{"a-server", "x-server"})))
 	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
 	initialIntents.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServersList,
+		v1alpha3.OtterizeServersWithoutSidecarAnnotation: initialServersList,
 	}
 
 	expectedServersList := string(lo.Must(json.Marshal([]string{"a-server", serverName, "x-server"})))
 	intentsWithStatus := initialIntents.DeepCopy()
 	intentsWithStatus.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
+		v1alpha3.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
 	}
 
 	gomock.InOrder(
@@ -1354,13 +1353,13 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList
 
 	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
 	initialIntents.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServersList,
+		v1alpha3.OtterizeServersWithoutSidecarAnnotation: initialServersList,
 	}
 
 	expectedServersList := string(lo.Must(json.Marshal([]string{"other-server"})))
 	intentsWithStatus := initialIntents.DeepCopy()
 	intentsWithStatus.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
+		v1alpha3.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
 	}
 
 	gomock.InOrder(
@@ -1382,13 +1381,13 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServerHasSidecarRemovedLastFrom
 
 	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
 	initialIntents.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServerList,
+		v1alpha3.OtterizeServersWithoutSidecarAnnotation: initialServerList,
 	}
 
 	expectedServersList := string(lo.Must(json.Marshal([]string{})))
 	intentsWithStatus := initialIntents.DeepCopy()
 	intentsWithStatus.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
+		v1alpha3.OtterizeServersWithoutSidecarAnnotation: expectedServersList,
 	}
 
 	gomock.InOrder(
@@ -1409,7 +1408,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServerHasSidecarAlreadyRemoved(
 	initialServersList := string(lo.Must(json.Marshal([]string{"other-server"})))
 	initialIntents := emptyIntents(clientIntentsNamespace, clientName, serverName)
 	initialIntents.Annotations = map[string]string{
-		v1alpha2.OtterizeServersWithoutSidecarAnnotation: initialServersList,
+		v1alpha3.OtterizeServersWithoutSidecarAnnotation: initialServersList,
 	}
 
 	// Expect that nothing will happen if the server is already removed from the list
@@ -1446,7 +1445,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
 			Annotations: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha3.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -1466,7 +1465,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 			Name:      "test-other-client-intents",
 			Namespace: clientIntentsNamespace,
 			Annotations: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha3.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -1486,8 +1485,8 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
 			Annotations: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
-				v1alpha2.OtterizeSharedServiceAccountAnnotation: "true",
+				v1alpha3.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha3.OtterizeSharedServiceAccountAnnotation: "true",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -1507,8 +1506,8 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 			Name:      "test-other-client-intents",
 			Namespace: clientIntentsNamespace,
 			Annotations: map[string]string{
-				v1alpha2.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
-				v1alpha2.OtterizeSharedServiceAccountAnnotation: "true",
+				v1alpha3.OtterizeClientServiceAccountAnnotation: clientServiceAccountName,
+				v1alpha3.OtterizeSharedServiceAccountAnnotation: "true",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -1529,7 +1528,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 			s.Equal(labeledIntents, *intents)
 		}).Return(nil),
 		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v1alpha3.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
-			missingSideCar, ok := intents.Annotations[v1alpha2.OtterizeMissingSidecarAnnotation]
+			missingSideCar, ok := intents.Annotations[v1alpha3.OtterizeMissingSidecarAnnotation]
 			s.Equal(true, ok)
 			s.Equal(strconv.FormatBool(isMissingSideCar), missingSideCar)
 		}).Return(nil),

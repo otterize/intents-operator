@@ -28,6 +28,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -60,6 +61,8 @@ type EnforcementConfig struct {
 	EnableDatabasePolicy                 bool
 	EnableEgressNetworkPolicyReconcilers bool
 	EnableAWSPolicy                      bool
+	EnableGCPPolicy                      bool
+	EnableAzurePolicy                    bool
 }
 
 // IntentsReconciler reconciles a Intents object
@@ -127,6 +130,7 @@ func NewIntentsReconciler(
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 //+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list
 //+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create;patch
+// +kubebuilder:rbac:groups=iam.cnrm.cloud.google.com,resources=iampartialpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -298,14 +302,8 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 					res = append(res, otterizev1alpha3.OtterizeInternetTargetName)
 					continue
 				}
-				serverName := intent.GetTargetServerName()
-				serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
-				formattedServerName := otterizev1alpha3.GetFormattedOtterizeIdentity(serverName, serverNamespace)
-				if !intent.IsTargetServerKubernetesService() {
-					res = append(res, formattedServerName)
-				} else {
-					res = append(res, "svc:"+formattedServerName)
-				}
+				service := serviceidentity.NewFromIntent(intent, intents.Namespace)
+				res = append(res, service.GetFormattedOtterizeIdentity())
 			}
 
 			return res
