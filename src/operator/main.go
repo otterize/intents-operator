@@ -26,6 +26,11 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/iam_pod_reconciler"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents/awspolicyagent"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents/azurepolicyagent"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents/gcppolicyagent"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy/builders"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
@@ -230,7 +235,7 @@ func main() {
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 
-	var iamAgents []intents_reconcilers.IAMPolicyAgent
+	var iamAgents []iampolicyagents.IAMPolicyAgent
 
 	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
 
@@ -243,24 +248,21 @@ func main() {
 
 			awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
 		}
-		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
+		awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
 		}
-		awsIntentsReconciler := intents_reconcilers.NewAWSIntentsReconciler(mgr.GetClient(), scheme, awsIntentsAgent, serviceIdResolver)
-		additionalIntentsReconcilers = append(additionalIntentsReconcilers, awsIntentsReconciler)
-		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), awsIntentsReconciler)
-		err = iamPodWatcher.SetupWithManager(mgr)
-		if err != nil {
-			logrus.WithError(err).Panic("unable to register pod watcher")
-		}
+		awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+
+		iamAgents = append(iamAgents, awsIntentsAgent)
 	}
 
 	if enforcementConfig.EnableGCPPolicy {
-		gcpIntentsAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx, mgr.GetClient())
+		gcpAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx, mgr.GetClient())
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize GCP agent")
 		}
+		gcpIntentsAgent := gcppolicyagent.NewGCPPolicyAgent(gcpAgent)
 		iamAgents = append(iamAgents, gcpIntentsAgent)
 	}
 
@@ -271,15 +273,17 @@ func main() {
 			AKSClusterName: MustGetEnvVar(operatorconfig.AzureAKSClusterNameKey),
 		}
 
-		azureIntentsAgent, err := azureagent.NewAzureAgent(signalHandlerCtx, config)
+		azureAgent, err := azureagent.NewAzureAgent(signalHandlerCtx, config)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize Azure agent")
 		}
+		azureIntentsAgent := azurepolicyagent.NewAzurePolicyAgent(azureAgent)
+
 		iamAgents = append(iamAgents, azureIntentsAgent)
 	}
 
 	if len(iamAgents) > 0 {
-		iamIntentsReconciler := intents_reconcilers.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceIdResolver, iamAgents)
+		iamIntentsReconciler := iam.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceIdResolver, iamAgents)
 		additionalIntentsReconcilers = append(additionalIntentsReconcilers, iamIntentsReconciler)
 		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), iamIntentsReconciler)
 		err = iamPodWatcher.SetupWithManager(mgr)

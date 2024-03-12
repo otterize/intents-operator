@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (a *Agent) createRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition) error {
+func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition) error {
 	roleAssignmentName := uuid.New().String()
 	roleAssignment, err := a.roleAssignmentsClient.Create(
 		ctx,
@@ -35,7 +35,7 @@ func (a *Agent) createRoleAssignment(ctx context.Context, scope string, userAssi
 	return nil
 }
 
-func (a *Agent) deleteRoleAssignment(ctx context.Context, roleAssignment armauthorization.RoleAssignment) error {
+func (a *Agent) DeleteRoleAssignment(ctx context.Context, roleAssignment armauthorization.RoleAssignment) error {
 	logrus.WithField("scope", *roleAssignment.Properties.Scope).
 		WithField("role", *roleAssignment.Properties.RoleDefinitionID).
 		WithField("assignment", *roleAssignment.Name).
@@ -47,7 +47,7 @@ func (a *Agent) deleteRoleAssignment(ctx context.Context, roleAssignment armauth
 	return nil
 }
 
-func (a *Agent) listRoleAssignments(ctx context.Context, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
+func (a *Agent) ListRoleAssignments(ctx context.Context, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
 	var roleAssignments []armauthorization.RoleAssignment
 	pager := a.roleAssignmentsClient.NewListForSubscriptionPager(nil)
 	for pager.More() {
@@ -65,7 +65,7 @@ func (a *Agent) listRoleAssignments(ctx context.Context, userAssignedIdentity ar
 	return roleAssignments, nil
 }
 
-func (a *Agent) findRoleDefinitionByName(ctx context.Context, scope string, roleNames []string) (map[string]armauthorization.RoleDefinition, error) {
+func (a *Agent) FindRoleDefinitionByName(ctx context.Context, scope string, roleNames []string) (map[string]armauthorization.RoleDefinition, error) {
 	roleDefinitionsByName := map[string]armauthorization.RoleDefinition{}
 	roleDefinitions := a.roleDefinitionsClient.NewListPager(scope, nil)
 	roleNamesSet := goset.FromSlice(roleNames)

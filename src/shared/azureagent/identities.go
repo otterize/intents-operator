@@ -27,20 +27,20 @@ const (
 )
 
 func (a *Agent) generateUserAssignedIdentityName(namespace string, accountName string) string {
-	fullName := fmt.Sprintf("ottr-uai-%s-%s-%s", namespace, accountName, a.conf.AKSClusterName)
+	fullName := fmt.Sprintf("ottr-uai-%s-%s-%s", namespace, accountName, a.Conf.AKSClusterName)
 	return agentutils.TruncateHashName(fullName, maxManagedIdentityLength)
 }
 
 func (a *Agent) generateFederatedIdentityCredentialsName(namespace string, accountName string) string {
-	fullName := fmt.Sprintf("ottr-fic-%s-%s-%s", namespace, accountName, a.conf.AKSClusterName)
+	fullName := fmt.Sprintf("ottr-fic-%s-%s-%s", namespace, accountName, a.Conf.AKSClusterName)
 	return agentutils.TruncateHashName(fullName, maxFederatedIdentityLength)
 }
 
 var ErrUserIdentityNotFound = errors.New("user assigned identity not found")
 
-func (a *Agent) findUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
+func (a *Agent) FindUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
 	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
-	userAssignedIdentity, err := a.userAssignedIdentitiesClient.Get(ctx, a.conf.ResourceGroup, userAssignedIdentityName, nil)
+	userAssignedIdentity, err := a.userAssignedIdentitiesClient.Get(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, nil)
 	if err != nil {
 		if azureerrors.IsNotFoundErr(err) {
 			return armmsi.Identity{}, errors.Wrap(ErrUserIdentityNotFound)
@@ -51,16 +51,16 @@ func (a *Agent) findUserAssignedIdentity(ctx context.Context, namespace string, 
 	return userAssignedIdentity.Identity, nil
 }
 
-func (a *Agent) getOrCreateUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
+func (a *Agent) GetOrCreateUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
 	logger := logrus.WithField("namespace", namespace).WithField("account", accountName)
 	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
 	logger.WithField("identity", userAssignedIdentityName).Debug("getting or creating user assigned identity")
 	userAssignedIdentity, err := a.userAssignedIdentitiesClient.CreateOrUpdate(
 		ctx,
-		a.conf.ResourceGroup,
+		a.Conf.ResourceGroup,
 		userAssignedIdentityName,
 		armmsi.Identity{
-			Location: &a.conf.Location,
+			Location: &a.Conf.Location,
 		},
 		nil,
 	)
@@ -72,12 +72,12 @@ func (a *Agent) getOrCreateUserAssignedIdentity(ctx context.Context, namespace s
 	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Debug("getting or creating federated identity credentials")
 	_, err = a.federatedIdentityCredentialsClient.CreateOrUpdate(
 		ctx,
-		a.conf.ResourceGroup,
+		a.Conf.ResourceGroup,
 		userAssignedIdentityName,
 		federatedIdentityCredentialsName,
 		armmsi.FederatedIdentityCredential{
 			Properties: &armmsi.FederatedIdentityCredentialProperties{
-				Issuer: lo.ToPtr(a.conf.AKSClusterOIDCIssuerURL),
+				Issuer: lo.ToPtr(a.Conf.AKSClusterOIDCIssuerURL),
 				Subject: lo.ToPtr(
 					fmt.Sprintf("system:serviceaccount:%s:%s",
 						namespace,
@@ -100,13 +100,13 @@ func (a *Agent) deleteUserAssignedIdentity(ctx context.Context, namespace string
 	federatedIdentityCredentialsName := a.generateFederatedIdentityCredentialsName(namespace, accountName)
 
 	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Debug("deleting federated identity credentials")
-	_, err := a.federatedIdentityCredentialsClient.Delete(ctx, a.conf.ResourceGroup, userAssignedIdentityName, federatedIdentityCredentialsName, nil)
+	_, err := a.federatedIdentityCredentialsClient.Delete(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, federatedIdentityCredentialsName, nil)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
 	logger.WithField("identity", userAssignedIdentityName).Debug("deleting user assigned identity")
-	_, err = a.userAssignedIdentitiesClient.Delete(ctx, a.conf.ResourceGroup, userAssignedIdentityName, nil)
+	_, err = a.userAssignedIdentitiesClient.Delete(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, nil)
 	if err != nil {
 		return errors.Wrap(err)
 	}

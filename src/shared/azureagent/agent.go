@@ -20,7 +20,7 @@ type Config struct {
 }
 
 type Agent struct {
-	conf                               Config
+	Conf                               Config
 	credentials                        *azidentity.DefaultAzureCredential
 	resourceGroupsClient               *armresources.ResourceGroupsClient
 	userAssignedIdentitiesClient       *armmsi.UserAssignedIdentitiesClient
@@ -65,7 +65,7 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	managedClustersClient := armcontainerserviceClientFactory.NewManagedClustersClient()
 
 	agent := &Agent{
-		conf:                               conf,
+		Conf:                               conf,
 		credentials:                        credentials,
 		resourceGroupsClient:               resourceGroupsClient,
 		userAssignedIdentitiesClient:       userAssignedIdentitiesClient,
@@ -83,21 +83,21 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 }
 
 func (a *Agent) loadConfDefaults(ctx context.Context) error {
-	if a.conf.Location == "" {
-		resourceGroup, err := a.resourceGroupsClient.Get(ctx, a.conf.ResourceGroup, nil)
+	if a.Conf.Location == "" {
+		resourceGroup, err := a.resourceGroupsClient.Get(ctx, a.Conf.ResourceGroup, nil)
 		if err != nil {
 			return errors.Errorf("error querying for resource group: %w", err)
 		}
 
-		a.conf.Location = *resourceGroup.Location
+		a.Conf.Location = *resourceGroup.Location
 	}
-	if a.conf.AKSClusterOIDCIssuerURL == "" {
-		cluster, err := a.managedClustersClient.Get(ctx, a.conf.ResourceGroup, a.conf.AKSClusterName, nil)
+	if a.Conf.AKSClusterOIDCIssuerURL == "" {
+		cluster, err := a.managedClustersClient.Get(ctx, a.Conf.ResourceGroup, a.Conf.AKSClusterName, nil)
 		if err != nil {
 			return errors.Errorf("error querying for managed cluster: %w", err)
 		}
 
-		a.conf.AKSClusterOIDCIssuerURL = *cluster.Properties.OidcIssuerProfile.IssuerURL
+		a.Conf.AKSClusterOIDCIssuerURL = *cluster.Properties.OidcIssuerProfile.IssuerURL
 	}
 
 	return nil

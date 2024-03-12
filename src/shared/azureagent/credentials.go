@@ -40,7 +40,7 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 	serviceAccount.Labels[ServiceManagedByAzureAgentLabel] = "true"
 
 	// get or create the user assigned identity, ensuring the identity & federated credentials are in-place
-	identity, err := a.getOrCreateUserAssignedIdentity(ctx, serviceAccount.Namespace, serviceAccount.Name)
+	identity, err := a.GetOrCreateUserAssignedIdentity(ctx, serviceAccount.Namespace, serviceAccount.Name)
 	if err != nil {
 		return false, errors.Errorf("failed to create user assigned identity: %w", err)
 	}

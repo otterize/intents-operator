@@ -1,7 +1,8 @@
-package azureagent
+package azurepolicyagent
 
 import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/stretchr/testify/suite"
 	"testing"
 )
@@ -13,8 +14,10 @@ type AzureAgentPoliciesSuite struct {
 func (s *AzureAgentPoliciesSuite) TestGetIntentScopeAppendSubscriptionID() {
 	// Arrange
 	agent := &Agent{
-		conf: Config{
-			SubscriptionID: "subscription-id",
+		&azureagent.Agent{
+			Conf: azureagent.Config{
+				SubscriptionID: "subscription-id",
+			},
 		},
 	}
 	intent := otterizev1alpha3.Intent{
@@ -32,11 +35,14 @@ func (s *AzureAgentPoliciesSuite) TestGetIntentScopeAppendSubscriptionID() {
 func (s *AzureAgentPoliciesSuite) TestGetIntentScopeAppendSubscriptionIDAndResourceGroup() {
 	// Arrange
 	agent := &Agent{
-		conf: Config{
-			SubscriptionID: "subscription-id",
-			ResourceGroup:  "resource-group-name",
+		&azureagent.Agent{
+			Conf: azureagent.Config{
+				SubscriptionID: "subscription-id",
+				ResourceGroup:  "resource-group-name",
+			},
 		},
 	}
+
 	intent := otterizev1alpha3.Intent{
 		Name: "/providers/Microsoft.Storage/storageAccounts/storage-account-name",
 	}
