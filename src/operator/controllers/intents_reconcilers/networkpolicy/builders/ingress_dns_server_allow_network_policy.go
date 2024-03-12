@@ -23,7 +23,9 @@ func NewIngressDNSServerAutoAllowNetpolBuilder() *IngressDNSServerAutoAllowNetpo
 func (r *IngressDNSServerAutoAllowNetpolBuilder) buildIngressRulesFromServiceEffectivePolicy(ep effectivepolicy.ServiceEffectivePolicy) []v1.NetworkPolicyIngressRule {
 	ingressRules := make([]v1.NetworkPolicyIngressRule, 0)
 
-	if !strings.HasSuffix(ep.Service.Name, "dns") || ep.Service.Namespace != "kube-system" {
+	// If the service is not called by any other service, or it's not a DNS server, skip.
+	if len(ep.CalledBy) == 0 ||
+		!strings.HasSuffix(ep.Service.Name, "dns") || ep.Service.Namespace != "kube-system" {
 		return ingressRules
 	}
 	ingressRules = append(ingressRules, v1.NetworkPolicyIngressRule{
