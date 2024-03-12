@@ -296,6 +296,24 @@ func (r *Reconciler) buildNetworkPolicy(ctx context.Context, ep effectivepolicy.
 		policyTypes = append(policyTypes, v1.PolicyTypeIngress)
 	}
 
+	for i, rule := range ingressRules {
+		if len(rule.Ports) == 0 {
+			ingressRules[i].Ports = []v1.NetworkPolicyPort{{Protocol: lo.ToPtr(corev1.ProtocolTCP)}}
+		}
+		for j := range rule.Ports {
+			ingressRules[i].Ports[j].Protocol = lo.ToPtr(corev1.ProtocolTCP)
+		}
+	}
+
+	for i, rule := range egressRules {
+		if len(rule.Ports) == 0 {
+			egressRules[i].Ports = []v1.NetworkPolicyPort{{Protocol: lo.ToPtr(corev1.ProtocolTCP)}}
+		}
+		for j := range rule.Ports {
+			egressRules[i].Ports[j].Protocol = lo.ToPtr(corev1.ProtocolTCP)
+		}
+	}
+
 	if !shouldCreateIngress && !shouldCreateEgress {
 		return nil, false, nil
 	}
