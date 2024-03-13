@@ -181,10 +181,12 @@ func (a *Agent) applyIAMPartialPolicy(ctx context.Context, namespaceName string,
 	// Find if there is an existing policy
 	existingIAMPolicy := v1beta1.IAMPartialPolicy{}
 	err = a.client.Get(ctx, types.NamespacedName{Namespace: namespaceName, Name: newIAMPolicy.Name}, &existingIAMPolicy)
-	if !apierrors.IsNotFound(err) {
+	if err != nil {
 		// Got an error but not because the policy does not exist
-		return errors.Wrap(err)
-	} else if err != nil {
+		if !apierrors.IsNotFound(err) {
+			return errors.Wrap(err)
+		}
+
 		// Policy does not exist so we create it
 		if len(intents) == 0 {
 			// nothing to do
@@ -204,7 +206,7 @@ func (a *Agent) applyIAMPartialPolicy(ctx context.Context, namespaceName string,
 		policyCopy := existingIAMPolicy.DeepCopy()
 		policyCopy.Labels = newIAMPolicy.Labels
 		policyCopy.Annotations = newIAMPolicy.Annotations
-		policyCopy.Spec = newIAMPolicy.Spec
+		policyCopy.Spec.Bindings = newIAMPolicy.Spec.Bindings
 
 		err := a.client.Patch(ctx, policyCopy, client.MergeFrom(&existingIAMPolicy))
 		if err != nil {
