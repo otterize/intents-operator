@@ -64,7 +64,6 @@ const (
 	AWSRolesAnywhereClusterName                 = "rolesanywhere-cluster-name"
 	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
 	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"
-	OtterizeClusterUIDResourceName              = "otterize-cluster-uid"
 )
 
 func init() {

@@ -159,7 +159,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	if err != nil {
 		return errors.Wrap(err)
 	}
-	clusterID, err := clusterid.GetClusterUID(ctx, p.client)
+	clusterID, err := clusterid.GetClusterUID(ctx)
 	if err != nil {
 		return err
 	}
