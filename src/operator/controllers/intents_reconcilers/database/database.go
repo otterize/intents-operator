@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	ReasonApplyingDatabaseIntentsFailed = "ApplyingDatabaseIntentsFailed"
-	ReasonAppliedDatabaseIntents        = "AppliedDatabaseIntents"
+	ReasonApplyingDatabaseIntentsFailed     = "ApplyingDatabaseIntentsFailed"
+	ReasonAppliedDatabaseIntents            = "AppliedDatabaseIntents"
+	ReasonErrorFetchingPostgresServerConfig = "ErrorFetchingPostgresServerConfig"
 )
 
 type DatabaseReconciler struct {
@@ -82,26 +83,19 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		pgServerConf := otterizev1alpha3.PostgreSQLServerConfig{}
 		err := r.client.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: databaseName}, &pgServerConf)
 		if err != nil {
-			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database clientIntents: %s", err.Error())
+			r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
+				"Error trying to fetch '%s' PostgresServerConf for client '%s'. Error: %s",
+				databaseName, clientIntents.GetServiceName(), err.Error())
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(pgServerConf.Spec, r.client)
-		pgConfigurator.ConfigureDBFromIntents(ctx, types.NamespacedName{
-			Namespace: clientIntents.Namespace,
-			Name:      clientIntents.GetServiceName(),
-		}, dbIntents, action)
+		err = pgConfigurator.ConfigureDBFromIntents(ctx, clientIntents.GetServiceName(), clientIntents.Namespace, dbIntents, action)
+		if err != nil {
+			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+				"Failed applying database clientIntents: %s", err.Error())
+			return ctrl.Result{}, errors.Wrap(err)
+		}
 	}
-
-	//if err := r.otterizeClient.ApplyDatabaseIntent(ctx, dbIntents, action); err != nil {
-	//	errType, errMsg, ok := graphqlclient.GetGraphQLUserError(err)
-	//	if !ok || errType != graphqlclient.UserErrorTypeAppliedIntentsError {
-	//		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database clientIntents: %s", err.Error())
-	//		return ctrl.Result{}, errors.Wrap(err)
-	//	}
-	//	r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database clientIntents: %s", errMsg)
-	//	return ctrl.Result{}, errors.Wrap(err)
-	//}
-	//
 
 	r.RecordNormalEventf(clientIntents, ReasonAppliedDatabaseIntents, "Database clientIntents reconcile complete, reconciled %d intent calls", len(dbIntents))
 
@@ -121,13 +115,5 @@ func (r *DatabaseReconciler) MapDBNameToIntents(ctx context.Context, intents []o
 		}
 	}
 
-	//for dbname := range dbNamesToIntents {
-	//	pgServerConfig := otterizev1alpha3.PostgreSQLServerConfig{}
-	//	err := r.client.Get(ctx, types.NamespacedName{}, &pgServerConfig)
-	//	if err != nil {
-	//
-	//	}
-	//	}
-	//}
 	return dbNamesToIntents, nil
 }

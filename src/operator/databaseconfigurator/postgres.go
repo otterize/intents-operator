@@ -9,13 +9,12 @@ import (
 	"github.com/otterize/cloud/src/backend-service/pkg/lib/errors"
 	"github.com/otterize/cloud/src/backend-service/pkg/lib/errors/usererrors"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/clusterid"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
-	"k8s.io/apimachinery/pkg/types"
 	"net"
 	"net/url"
-	"regexp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"sync"
@@ -33,10 +32,8 @@ const (
 	PGSelectPrivilegesQuery                                        = "SELECT table_schema, table_name FROM information_schema.table_privileges where grantee = $1"
 	PGSSelectTableSequencesPrivilegesQuery                         = "SELECT split_part(column_default, '''', 2) FROM information_schema.columns WHERE column_default LIKE 'nextval%' and table_schema=$1 and table_name=$2"
 	PGSSelectSchemaNamesQuery                                      = "SELECT schema_name From information_schema.schemata where schema_name!='pg_catalog' and schema_name!='pg_toast' and schema_name!='information_schema'"
-	PGSelectAllDatabasesWithConnectPermissions                     = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT');" 	= "postgres"
+	PGSelectAllDatabasesWithConnectPermissions                     = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT');"
 )
-
-var serviceIDRegexPattern = regexp.MustCompile(`^(svc_[a-zA-Z\d]+)_.+$`)
 
 type SQLSprintfStatement string
 type NonUserInputString string
@@ -143,7 +140,8 @@ func TranslatePostgresCommandsError(err error) error {
 
 func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	ctx context.Context,
-	workloadNamespacedName types.NamespacedName,
+	workloadName string,
+	namespace string,
 	intents []otterizev1alpha3.Intent,
 	permissionChange otterizev1alpha3.DBPermissionChange) error {
 
@@ -161,17 +159,21 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	if err != nil {
 		return errors.Wrap(err)
 	}
-	username := BuildPostgresUsername(workloadNamespacedName)
-
+	clusterID, err := clusterid.GetClusterUID(ctx, p.client)
+	if err != nil {
+		return err
+	}
+	username := BuildPostgresUsername(clusterID, workloadName, namespace)
 	exists, err := p.ValidateUserExists(ctx, username)
 	if err != nil {
 		return errors.Wrap(err)
 	}
+
 	if !exists {
 		logrus.WithField("username", username).Info(
 			"Waiting for Postgres user to be created before configuring permissions")
-		return ct
-
+		return errors.Wrap(fmt.Errorf(
+			"user for workload %s.%s doesn't exist in DB yet, cannot configure permissions", workloadName, namespace))
 	}
 
 	for dbname, dbResources := range dbnameToDatabaseResources {
@@ -270,18 +272,14 @@ func (p *PostgresConfigurator) ExtractDBNameToDatabaseResourcesFromIntents(ctx c
 	return scopeToDatabaseResources, nil
 }
 
-func (p *PostgresConfigurator) SQLBatchFromDBResources(
-	ctx context.Context,
-	username string,
-	dbResources []model.DatabaseConfigInput,
-	change model.DBPermissionChange) (pgx.Batch, error) {
+func (p *PostgresConfigurator) SQLBatchFromDBResources(ctx context.Context, username string, dbResources []otterizev1alpha3.DatabaseResource, change otterizev1alpha3.DBPermissionChange) (pgx.Batch, error) {
 
 	batch := pgx.Batch{}
 
-	if change == model.DBPermissionChangeDelete {
+	if change == otterizev1alpha3.DBPermissionChangeDelete {
 		// Intent was deleted, revoke all client permissions from mentioned tables
 		for _, resource := range dbResources {
-			if lo.FromPtr(resource.Table) == "" {
+			if resource.Table == "" {
 				err := p.queueRevokePermissionsByDatabaseNameStatements(ctx, &batch, username)
 				if err != nil {
 					return pgx.Batch{}, errors.Wrap(err)
@@ -298,14 +296,14 @@ func (p *PostgresConfigurator) SQLBatchFromDBResources(
 
 	// Intent was created or updated, so we revoke current permissions and grant new ones
 	for _, resource := range dbResources {
-		if lo.FromPtr(resource.Table) == "" {
+		if resource.Table == "" {
 			err := p.queueAddPermissionsByDatabaseNameStatements(ctx, &batch, resource, username)
 			if err != nil {
 				return pgx.Batch{}, errors.Wrap(err)
 			}
 			continue
 		}
-		err := p.QueueAddPermissionsToTableStatements(ctx, &batch, resource, username)
+		err := p.queueAddPermissionsToTableStatements(ctx, &batch, resource, username)
 		if err != nil {
 			return pgx.Batch{}, errors.Wrap(err)
 		}
@@ -313,7 +311,7 @@ func (p *PostgresConfigurator) SQLBatchFromDBResources(
 	return batch, nil
 }
 
-func (p *PostgresConfigurator) QueueAddPermissionsToTableStatements(ctx context.Context, batch *pgx.Batch, resource model.DatabaseConfigInput, username string) error {
+func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.Context, batch *pgx.Batch, resource otterizev1alpha3.DatabaseResource, username string) error {
 	postgresTableIdentifier := databaseConfigInputToPostgresTableIdentifier(resource)
 	rows, err := p.Conn.Query(ctx, PGSSelectTableSequencesPrivilegesQuery, postgresTableIdentifier.tableSchema, postgresTableIdentifier.tableName)
 	if err != nil {
@@ -333,13 +331,13 @@ func (p *PostgresConfigurator) QueueAddPermissionsToTableStatements(ctx context.
 		batch.Queue(stmt)
 	}
 	// We always include the "revoke all" statement to make sure deleted permissions are removed
-	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(tableNameToIdentifier(lo.FromPtr(resource.Table)), pgx.Identifier{username})
+	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(tableNameToIdentifier(resource.Table), pgx.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
 	batch.Queue(stmt)
-	operations := p.GetGrantOperations(resource.Operations)
-	stmt, err = PGGrantStatement.PrepareSanitized(operations, tableNameToIdentifier(lo.FromPtr(resource.Table)), pgx.Identifier{username})
+	operations := p.getGrantOperations(resource.Operations)
+	stmt, err = PGGrantStatement.PrepareSanitized(operations, tableNameToIdentifier(resource.Table), pgx.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -370,12 +368,11 @@ func (p *PostgresConfigurator) CloseConnection(ctx context.Context) {
 	}
 }
 
-func (p *PostgresConfigurator) GetGrantOperations(
-	operations []model.DatabaseOperation) []model.DatabaseOperation {
+func (p *PostgresConfigurator) getGrantOperations(operations []otterizev1alpha3.DatabaseOperation) []otterizev1alpha3.DatabaseOperation {
 
-	if len(operations) == 0 || slices.Contains(operations, model.DatabaseOperationAll) {
+	if len(operations) == 0 || slices.Contains(operations, otterizev1alpha3.DatabaseOperationAll) {
 		// Omit everything else in case it's included to avoid Postgres errors, include just 'ALL'
-		return []model.DatabaseOperation{model.DatabaseOperationAll}
+		return []otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}
 	}
 
 	return operations
@@ -465,7 +462,7 @@ func (p *PostgresConfigurator) queueRevokeAllOnTableAndSequencesStatements(ctx c
 	return nil
 }
 
-func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx context.Context, batch *pgx.Batch, resource model.DatabaseConfigInput, username string) error {
+func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx context.Context, batch *pgx.Batch, resource otterizev1alpha3.DatabaseResource, username string) error {
 	// Get all schemas in current database
 	rows, err := p.Conn.Query(ctx, PGSSelectSchemaNamesQuery)
 	if err != nil {
@@ -484,7 +481,7 @@ func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx c
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
-		operations := p.GetGrantOperations(resource.Operations)
+		operations := p.getGrantOperations(resource.Operations)
 		stmt, err = PGGrantOnAllTablesInSchemaStatement.PrepareSanitized(operations, pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
