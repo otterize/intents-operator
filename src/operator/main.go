@@ -54,6 +54,7 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -548,7 +549,7 @@ func setClusterUID(ctx context.Context, mgr manager.Manager, podNamespace string
 		Data:      map[string]string{"clusteruid": clusterUID},
 	}, metav1.CreateOptions{})
 
-	if err != nil {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		logrus.WithError(err).Panic("unable to create config map with cluster UID")
 	}
 
