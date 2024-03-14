@@ -33,6 +33,7 @@ const (
 	PGSSelectTableSequencesPrivilegesQuery                         = "SELECT split_part(column_default, '''', 2) FROM information_schema.columns WHERE column_default LIKE 'nextval%' and table_schema=$1 and table_name=$2"
 	PGSSelectSchemaNamesQuery                                      = "SELECT schema_name From information_schema.schemata where schema_name!='pg_catalog' and schema_name!='pg_toast' and schema_name!='information_schema'"
 	PGSelectAllDatabasesWithConnectPermissions                     = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT');"
+	PGDefaultDatabase                                              = "postgres"
 )
 
 type SQLSprintfStatement string
@@ -145,7 +146,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	intents []otterizev1alpha3.Intent,
 	permissionChange otterizev1alpha3.DBPermissionChange) error {
 
-	connectionString := p.FormatConnectionString()
+	connectionString := p.FormatConnectionString(PGDefaultDatabase)
 	conn, err := pgx.Connect(ctx, connectionString)
 	if err != nil {
 		pgErr, ok := p.TranslatePostgresConnectionError(err)
@@ -155,7 +156,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 		return errors.Wrap(err)
 	}
 	p.SetConnection(ctx, conn)
-	// TODO: Do we need this here again ?
+
 	dbnameToDatabaseResources, err := p.ExtractDBNameToDatabaseResourcesFromIntents(ctx, intents)
 	if err != nil {
 		return errors.Wrap(err)
@@ -178,7 +179,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	}
 
 	for dbname, dbResources := range dbnameToDatabaseResources {
-		connectionString = p.FormatConnectionString()
+		connectionString = p.FormatConnectionString(dbname)
 		conn, err = pgx.Connect(ctx, connectionString)
 		// If we got invalid authorization error at this point it means we are blocked by the hba_conf file.
 		// It may occur for cloud provider databases such as "cloudsqladmin".
@@ -520,11 +521,11 @@ func (p *PostgresConfigurator) queueRevokePermissionsByDatabaseNameStatements(ct
 	return nil
 }
 
-func (p *PostgresConfigurator) FormatConnectionString() string {
+func (p *PostgresConfigurator) FormatConnectionString(databaseName string) string {
 	return fmt.Sprintf(
 		"postgres://%s:%s@%s/%s",
 		p.databaseInfo.Credentials.Username,
 		url.QueryEscape(p.databaseInfo.Credentials.Password),
 		p.databaseInfo.Address,
-		p.databaseInfo.DatabaseName)
+		databaseName)
 }

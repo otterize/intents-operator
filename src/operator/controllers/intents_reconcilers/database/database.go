@@ -86,7 +86,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
 				"Error trying to fetch '%s' PostgresServerConf for client '%s'. Error: %s",
 				databaseInstance, clientIntents.GetServiceName(), err.Error())
-			return ctrl.Result{}, errors.Wrap(err)
+			return ctrl.Result{}, nil
 		}
 		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(pgServerConf.Spec, r.client)
 		err = pgConfigurator.ConfigureDBFromIntents(ctx, clientIntents.GetServiceName(), clientIntents.Namespace, intents, action)
