@@ -5,6 +5,7 @@ resources:
 - k8s.otterize.com_clientintents.yaml
 - k8s.otterize.com_kafkaserverconfigs.yaml
 - k8s.otterize.com_protectedservices.yaml
+- k8s.otterize.com_postgresqlserverconfigs.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.

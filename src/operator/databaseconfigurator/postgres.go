@@ -155,6 +155,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 		return errors.Wrap(err)
 	}
 	p.SetConnection(ctx, conn)
+	// TODO: Do we need this here again ?
 	dbnameToDatabaseResources, err := p.ExtractDBNameToDatabaseResourcesFromIntents(ctx, intents)
 	if err != nil {
 		return errors.Wrap(err)

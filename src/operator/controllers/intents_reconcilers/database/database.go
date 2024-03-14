@@ -73,23 +73,23 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	databaseToIntents, err := r.MapDBNameToIntents(ctx, dbIntents, req.NamespacedName)
+	databaseToIntents, err := r.MapDBInstanceToIntents(dbIntents)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database clientIntents: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	for databaseName, dbIntents := range databaseToIntents {
+	for databaseInstance, intents := range databaseToIntents {
 		pgServerConf := otterizev1alpha3.PostgreSQLServerConfig{}
-		err := r.client.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: databaseName}, &pgServerConf)
+		err := r.client.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: databaseInstance}, &pgServerConf)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
 				"Error trying to fetch '%s' PostgresServerConf for client '%s'. Error: %s",
-				databaseName, clientIntents.GetServiceName(), err.Error())
+				databaseInstance, clientIntents.GetServiceName(), err.Error())
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(pgServerConf.Spec, r.client)
-		err = pgConfigurator.ConfigureDBFromIntents(ctx, clientIntents.GetServiceName(), clientIntents.Namespace, dbIntents, action)
+		err = pgConfigurator.ConfigureDBFromIntents(ctx, clientIntents.GetServiceName(), clientIntents.Namespace, intents, action)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
 				"Failed applying database clientIntents: %s", err.Error())
@@ -102,18 +102,17 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *DatabaseReconciler) MapDBNameToIntents(ctx context.Context, intents []otterizev1alpha3.Intent, namespacedName types.NamespacedName) (map[string][]otterizev1alpha3.Intent, error) {
-	dbNamesToIntents := map[string][]otterizev1alpha3.Intent{}
+func (r *DatabaseReconciler) MapDBInstanceToIntents(intents []otterizev1alpha3.Intent) (map[string][]otterizev1alpha3.Intent, error) {
+	dbInstanceToIntents := map[string][]otterizev1alpha3.Intent{}
 	for _, intent := range intents {
-		for _, dbResource := range intent.DatabaseResources {
-			dbName := dbResource.DatabaseName
-			if _, ok := dbNamesToIntents[dbName]; !ok {
-				dbNamesToIntents[dbName] = []otterizev1alpha3.Intent{intent}
-			} else {
-				dbNamesToIntents[dbName] = append(dbNamesToIntents[dbName], intent)
-			}
+		// Name represents a database instance which is represented by a matching server config CRD
+		instanceIntents, ok := dbInstanceToIntents[intent.Name]
+		if !ok {
+			dbInstanceToIntents[intent.Name] = []otterizev1alpha3.Intent{intent}
+			continue
 		}
+		dbInstanceToIntents[intent.Name] = append(instanceIntents, intent)
 	}
 
-	return dbNamesToIntents, nil
+	return dbInstanceToIntents, nil
 }

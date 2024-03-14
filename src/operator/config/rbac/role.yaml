@@ -225,3 +225,29 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - k8s.otterize.com
+  resources:
+  - postpostgresqlserverconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - k8s.otterize.com
+  resources:
+  - postgresqlserverconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - k8s.otterize.com
+  resources:
+  - postgresqlserverconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
