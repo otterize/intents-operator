@@ -68,5 +68,5 @@ type PostgreSQLServerConfigList struct {
 }
 
 func init() {
-	SchemeBuilder.Register(&PostgreSQLServerConfig{}, &PostgreSQLServerConfig{})
+	SchemeBuilder.Register(&PostgreSQLServerConfig{}, &PostgreSQLServerConfigList{})
 }
