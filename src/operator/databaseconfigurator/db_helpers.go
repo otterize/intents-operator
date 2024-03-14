@@ -7,8 +7,8 @@ import (
 
 const PGUsernameMaxLength = 63
 
-func BuildPostgresUsername(clusterUID string, client, namespace string) string {
-	username := fmt.Sprintf("%s_%s_%s", KubernetesToPostgresName(client), KubernetesToPostgresName(namespace), clusterUID)
+func BuildPostgresUsername(clusterUID string, workloadName, namespace string) string {
+	username := fmt.Sprintf("%s_%s_%s", KubernetesToPostgresName(workloadName), KubernetesToPostgresName(namespace), KubernetesToPostgresName(clusterUID))
 	if len(username) > PGUsernameMaxLength {
 		username = username[:PGUsernameMaxLength]
 	}
