@@ -5,6 +5,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v4"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -28,6 +29,7 @@ type Agent struct {
 	roleDefinitionsClient              *armauthorization.RoleDefinitionsClient
 	roleAssignmentsClient              *armauthorization.RoleAssignmentsClient
 	managedClustersClient              *armcontainerservice.ManagedClustersClient
+	vaultsClient                       *armkeyvault.VaultsClient
 }
 
 func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
@@ -58,11 +60,17 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 		return nil, errors.Wrap(err)
 	}
 
+	armkeyvaultClientFactory, err := armkeyvault.NewClientFactory(conf.SubscriptionID, credentials, nil)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
 	userAssignedIdentitiesClient := armmsiClientFactory.NewUserAssignedIdentitiesClient()
 	federatedIdentityCredentialsClient := armmsiClientFactory.NewFederatedIdentityCredentialsClient()
 	roleDefinitionsClient := armauthorizationClientFactory.NewRoleDefinitionsClient()
 	roleAssignmentsClient := armauthorizationClientFactory.NewRoleAssignmentsClient()
 	managedClustersClient := armcontainerserviceClientFactory.NewManagedClustersClient()
+	vaultsClient := armkeyvaultClientFactory.NewVaultsClient()
 
 	agent := &Agent{
 		conf:                               conf,
@@ -73,6 +81,7 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 		roleDefinitionsClient:              roleDefinitionsClient,
 		roleAssignmentsClient:              roleAssignmentsClient,
 		managedClustersClient:              managedClustersClient,
+		vaultsClient:                       vaultsClient,
 	}
 
 	if err := agent.loadConfDefaults(ctx); err != nil {
