@@ -1,4 +1,4 @@
-package aws_pod_reconciler
+package iam_pod_reconciler
 
 import (
 	"context"
@@ -25,24 +25,24 @@ const (
 
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
 
-type AWSPodReconciler struct {
+type IAMPodReconciler struct {
 	client.Client
 	serviceIdResolver *serviceidresolver.Resolver
 	injectablerecorder.InjectableRecorder
-	awsReconciler reconcile.Reconciler
+	iamReconciler reconcile.Reconciler
 }
 
-func NewAWSPodReconciler(c client.Client, eventRecorder record.EventRecorder, awsIntentsReconciler reconcile.Reconciler) *AWSPodReconciler {
+func NewIAMPodReconciler(c client.Client, eventRecorder record.EventRecorder, iamIntentsReconciler reconcile.Reconciler) *IAMPodReconciler {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
-	return &AWSPodReconciler{
+	return &IAMPodReconciler{
 		Client:             c,
 		serviceIdResolver:  serviceidresolver.NewResolver(c),
 		InjectableRecorder: recorder,
-		awsReconciler:      awsIntentsReconciler,
+		iamReconciler:      iamIntentsReconciler,
 	}
 }
 
-func (p *AWSPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (p *IAMPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logrus.WithField("namespace", req.Namespace).WithField("name", req.Name)
 	logger.Infof("Reconciling due to pod change")
 
@@ -74,17 +74,25 @@ func (p *AWSPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	logger.Infof("Found %d intents for service", len(intents.Items))
+
 	for _, intent := range intents.Items {
-		return p.awsReconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{
+		result, err := p.iamReconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{
 			Name:      intent.Name,
 			Namespace: intent.Namespace,
 		}})
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+		if result.Requeue {
+			return result, nil
+		}
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (p *AWSPodReconciler) SetupWithManager(mgr manager.Manager) error {
+func (p *IAMPodReconciler) SetupWithManager(mgr manager.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1.Pod{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).

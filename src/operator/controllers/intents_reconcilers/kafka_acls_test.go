@@ -13,6 +13,7 @@ import (
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -97,6 +98,7 @@ func (s *KafkaACLReconcilerTestSuite) TearDownSuite() {
 }
 
 func (s *KafkaACLReconcilerTestSuite) BeforeTest(_, testName string) {
+	logrus.Infof("Running test: %s", testName)
 	s.ControllerManagerTestSuiteBase.BeforeTest("", testName)
 
 	controller := gomock.NewController(s.T())
@@ -390,6 +392,7 @@ func (s *KafkaACLReconcilerTestSuite) reconcile(namespacedName types.NamespacedN
 
 	for res.Requeue {
 		if !firstRun && expectLogsOnReQueue {
+			logrus.Infof("Retrying reconcile for namespace %s", namespacedName.Namespace)
 			// List ACL is called when the reconciler is re-queued for log purposes
 			s.mockKafkaAdmin.EXPECT().ListAcls(gomock.Any()).Return([]sarama.ResourceAcls{}, nil).Times(1)
 		}

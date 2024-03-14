@@ -23,7 +23,15 @@ func addComponentInfoToBugsnagEvent(componentType string, event *bugsnag.Event) 
 	event.MetaData.Add("component", "cloudClientId", componentinfo.GlobalCloudClientId())
 }
 
+type noopLogger struct{}
+
+func (noopLogger) Printf(format string, v ...interface{}) {
+	// Do nothing intentionally
+}
+
 func Init(componentName string, version string, apiKey string) {
+	logrus.Infof("starting error telemetry for component '%s' with version '%s'", componentName, version)
+
 	if !telemetriesconfig.IsErrorTelemetryEnabled() {
 		logrus.Info("error reporting disabled")
 		return
@@ -51,7 +59,8 @@ func Init(componentName string, version string, apiKey string) {
 		AppVersion:      version,
 		AppType:         componentName,
 		ProjectPackages: []string{"main*", "github.com/otterize/**"},
-		Logger:          logrus.StandardLogger(),
+		Logger:          noopLogger{},
+		PanicHandler:    func() {},
 	}
 	bugsnag.Configure(conf)
 

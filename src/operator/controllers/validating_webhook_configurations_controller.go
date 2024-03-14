@@ -17,9 +17,9 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -27,13 +27,15 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // ValidatingWebhookConfigsReconciler reconciles webhook configurations
 type ValidatingWebhookConfigsReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	certPEM []byte
+	Scheme    *runtime.Scheme
+	certPEM   []byte
+	predicate predicate.Predicate
 }
 
 //+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list;watch
@@ -42,12 +44,14 @@ func NewValidatingWebhookConfigsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	certPem []byte,
+	predicate predicate.Predicate,
 ) *ValidatingWebhookConfigsReconciler {
 
 	return &ValidatingWebhookConfigsReconciler{
-		Client:  client,
-		Scheme:  scheme,
-		certPEM: certPem,
+		Client:    client,
+		Scheme:    scheme,
+		certPEM:   certPem,
+		predicate: predicate,
 	}
 }
 
@@ -58,6 +62,13 @@ func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req 
 	webhookConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 	if err := r.Get(ctx, req.NamespacedName, webhookConfig); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	// If all certs match, don't reconcile.
+	if lo.EveryBy(webhookConfig.Webhooks, func(item admissionregistrationv1.ValidatingWebhook) bool {
+		return bytes.Equal(item.ClientConfig.CABundle, r.certPEM)
+	}) {
+		return ctrl.Result{}, nil
 	}
 
 	// Set the new CA bundle for the validating webhooks
@@ -77,7 +88,7 @@ func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req 
 func (r *ValidatingWebhookConfigsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&admissionregistrationv1.ValidatingWebhookConfiguration{}).
-		WithEventFilter(filters.FilterByOtterizeLabelPredicate).
+		WithEventFilter(r.predicate).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 }

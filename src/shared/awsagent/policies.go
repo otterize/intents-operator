@@ -9,10 +9,40 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"time"
 )
+
+func (a *Agent) IntentType() otterizev1alpha3.IntentType {
+	return otterizev1alpha3.IntentTypeAWS
+}
+
+func (a *Agent) createPolicyFromIntents(intents []otterizev1alpha3.Intent) PolicyDocument {
+	policy := PolicyDocument{
+		Version: "2012-10-17",
+	}
+
+	for _, intent := range intents {
+		awsResource := intent.Name
+		actions := intent.AWSActions
+
+		policy.Statement = append(policy.Statement, StatementEntry{
+			Effect:   "Allow",
+			Resource: awsResource,
+			Action:   actions,
+		})
+	}
+
+	return policy
+}
+
+func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
+	policyDoc := a.createPolicyFromIntents(intents)
+	return a.AddRolePolicy(ctx, namespace, accountName, intentsServiceName, policyDoc.Statement)
+}
 
 func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName string, intentsServiceName string, statements []StatementEntry) error {
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
@@ -25,6 +55,8 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 		return errors.Errorf("role not found: %s", a.generateRoleName(namespace, accountName))
 	}
 
+	softDeletionStrategyEnabled := HasSoftDeleteStrategyTagSet(role.Tags)
+
 	policyArn := a.generatePolicyArn(a.generatePolicyName(namespace, intentsServiceName))
 
 	policyOutput, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
@@ -32,8 +64,11 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	})
 	if err != nil {
 		if isNoSuchEntityException(err) {
-			_, err := a.createPolicy(ctx, role, namespace, intentsServiceName, statements)
-
+			if len(statements) == 0 {
+				// nothing to do
+				return nil
+			}
+			_, err := a.createPolicy(ctx, role, namespace, intentsServiceName, statements, softDeletionStrategyEnabled)
 			return errors.Wrap(err)
 		}
 
@@ -43,7 +78,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	// policy exists, update it
 	policy := policyOutput.Policy
 
-	err = a.updatePolicy(ctx, policy, statements)
+	err = a.updatePolicy(ctx, policy, statements, softDeletionStrategyEnabled)
 
 	if err != nil {
 		return errors.Wrap(err)
@@ -73,6 +108,10 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 		}
 
 		return errors.Wrap(err)
+	}
+
+	if HasSoftDeleteStrategyTagSet(output.Policy.Tags) {
+		return a.softDeletePolicy(ctx, policyName)
 	}
 
 	policy := output.Policy
@@ -132,8 +171,28 @@ func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
 	return nil
 }
 
+func (a *Agent) softDeletePolicy(ctx context.Context, policyName string) error {
+	output, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
+		PolicyArn: aws.String(a.generatePolicyArn(policyName)),
+	})
+
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	policy := output.Policy
+	_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{
+		PolicyArn: policy.Arn,
+		Tags:      []types.Tag{{Key: aws.String(softDeletedTagKey), Value: aws.String(time.Now().String())}},
+	})
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
 func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string, statements []StatementEntry) error {
-	logger := logrus.WithField("account", accountName).WithField("namespace", namespace)
 	roleName := a.generateRoleName(namespace, accountName)
 
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
@@ -143,14 +202,12 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 	}
 
 	if !exists {
-		errorMessage := fmt.Sprintf("role not found: %s", roleName)
-		return errors.New(errorMessage)
+		return errors.Errorf("role not found: %s", roleName)
 	}
 
 	policyDoc, _, err := generatePolicyDocument(statements)
 
 	if err != nil {
-		logger.WithError(err).Errorf("failed to generate policy document")
 		return errors.Wrap(err)
 	}
 
@@ -167,7 +224,7 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 	return nil
 }
 
-func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace string, intentsServiceName string, statements []StatementEntry) (*types.Policy, error) {
+func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace string, intentsServiceName string, statements []StatementEntry, useSoftDeleteStrategy bool) (*types.Policy, error) {
 	fullPolicyName := a.generatePolicyName(namespace, intentsServiceName)
 	policyDoc, policyHash, err := generatePolicyDocument(statements)
 
@@ -175,23 +232,28 @@ func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace st
 		return nil, errors.Wrap(err)
 	}
 
+	tags := []types.Tag{
+		{
+			Key:   aws.String(policyNameTagKey),
+			Value: aws.String(intentsServiceName),
+		},
+		{
+			Key:   aws.String(policyNamespaceTagKey),
+			Value: aws.String(namespace),
+		},
+		{
+			Key:   aws.String(policyHashTagKey),
+			Value: aws.String(policyHash),
+		},
+	}
+	if useSoftDeleteStrategy {
+		tags = append(tags, types.Tag{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)})
+	}
+
 	policy, err := a.iamClient.CreatePolicy(ctx, &iam.CreatePolicyInput{
 		PolicyDocument: aws.String(policyDoc),
 		PolicyName:     aws.String(fullPolicyName),
-		Tags: []types.Tag{
-			{
-				Key:   aws.String(policyNameTagKey),
-				Value: aws.String(intentsServiceName),
-			},
-			{
-				Key:   aws.String(policyNamespaceTagKey),
-				Value: aws.String(namespace),
-			},
-			{
-				Key:   aws.String(policyHashTagKey),
-				Value: aws.String(policyHash),
-			},
-		},
+		Tags:           tags,
 	})
 
 	if err != nil {
@@ -207,11 +269,44 @@ func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace st
 	return policy.Policy, nil
 }
 
-func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statements []StatementEntry) error {
+func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statements []StatementEntry, useSoftDeleteStrategy bool) error {
 	policyDoc, policyHash, err := generatePolicyDocument(statements)
 
 	if err != nil {
 		return errors.Wrap(err)
+	}
+
+	if hasSoftDeletedTagSet(policy.Tags) {
+		logrus.Debugf("removing unused tag from policy: %s", *policy.PolicyName)
+		_, err = a.iamClient.UntagPolicy(ctx, &iam.UntagPolicyInput{
+			PolicyArn: policy.Arn,
+			TagKeys:   []string{softDeletedTagKey},
+		})
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	if HasSoftDeleteStrategyTagSet(policy.Tags) && !useSoftDeleteStrategy {
+		logrus.Debugf("removing soft delete stratergy tag from policy: %s", *policy.PolicyName)
+		_, err = a.iamClient.UntagPolicy(ctx, &iam.UntagPolicyInput{
+			PolicyArn: policy.Arn,
+			TagKeys:   []string{softDeletionStrategyTagKey},
+		})
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	if !HasSoftDeleteStrategyTagSet(policy.Tags) && useSoftDeleteStrategy {
+		logrus.Debugf("adding soft delete stratergy tag to policy: %s", *policy.PolicyName)
+		_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{
+			PolicyArn: policy.Arn,
+			Tags:      []types.Tag{{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)}},
+		})
+		if err != nil {
+			return errors.Wrap(err)
+		}
 	}
 
 	existingHashTag, found := lo.Find(policy.Tags, func(item types.Tag) bool {
@@ -310,8 +405,8 @@ func generatePolicyDocument(statements []StatementEntry) (string, string, error)
 	return string(serialized), fmt.Sprintf("%x", sum), nil
 }
 
-func (a *Agent) generatePolicyName(ns, intentsServiceName string) string {
-	return fmt.Sprintf("otterize-policy-%s-%s", ns, intentsServiceName)
+func (a *Agent) generatePolicyName(namespace string, intentsServiceName string) string {
+	return fmt.Sprintf("otr-%s.%s@%s", namespace, intentsServiceName, a.clusterName)
 
 }
 

@@ -6,6 +6,7 @@ configurations:
 
 commonLabels:
   app.kubernetes.io/part-of: otterize
+  app.kubernetes.io/component: intents-operator
 
 patches:
     - patch: |-
