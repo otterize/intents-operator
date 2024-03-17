@@ -156,7 +156,7 @@ func main() {
 			BindAddress: metricsAddr,
 		},
 		WebhookServer: webhook.NewServer(webhook.Options{
-			Port:    9443,
+			Port:    9444,
 			CertDir: webhooks.CertDirPath,
 		}),
 		HealthProbeBindAddress: probeAddr,
@@ -375,6 +375,10 @@ func main() {
 			logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "KafkaServerConfig")
 		}
 
+		pgServerConfValidator := webhooks.NewPostgresConfValidator(mgr.GetClient())
+		if err = (&otterizev1alpha3.PostgreSQLServerConfig{}).SetupWebhookWithManager(mgr, pgServerConfValidator); err != nil {
+			logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "PostgreSQLServerConfig")
+		}
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(

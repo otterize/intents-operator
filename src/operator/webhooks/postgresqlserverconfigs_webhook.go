@@ -37,7 +37,7 @@ type PostgresConfValidator struct {
 
 func (v *PostgresConfValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&otterizev1alpha3.ClientIntents{}).
+		For(&otterizev1alpha3.PostgreSQLServerConfig{}).
 		WithValidator(v).
 		Complete()
 }
@@ -48,7 +48,8 @@ func NewPostgresConfValidator(c client.Client) *PostgresConfValidator {
 	}
 }
 
-// +kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=postgresqlserverconfig,verbs=create;update,versions=v1alpha3,name=postgresqlserverconfigv1alpha3.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=postgresqlserverconfig,verbs=create;update,versions=v1alpha3,name=postgresqlserverconfig.kb.io,admissionReviewVersions=v1
+
 var _ webhook.CustomValidator = &PostgresConfValidator{}
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -109,7 +110,7 @@ func (v *PostgresConfValidator) ValidateNoDuplicateConfNames(
 				Field:    "name",
 				BadValue: currName,
 				Detail: fmt.Sprintf(
-					"Postgres server config already exist with name %s. Existing resource: %s.%s",
+					"Postgres server config already exists with name %s. Existing resource: %s.%s",
 					currName, conf.Name, conf.Namespace),
 			}
 		}
