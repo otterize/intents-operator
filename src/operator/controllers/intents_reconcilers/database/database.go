@@ -89,14 +89,14 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				databaseInstance, clientIntents.GetServiceName(), err.Error())
 			return ctrl.Result{}, nil
 		}
-		postgresInfo, err := r.findMatchingPGServerConfForDBInstance(databaseInstance, pgServerConfigs)
+		pgServerConf, err := findMatchingPGServerConfForDBInstance(databaseInstance, pgServerConfigs)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonMissingPostgresServerConfig,
 				"Could not find matching PostgreSQLServerConfig. Error: %s", err.Error())
 			return ctrl.Result{}, nil
 		}
 
-		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(postgresInfo.Spec, r.client)
+		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(pgServerConf.Spec, r.client)
 		err = pgConfigurator.ConfigureDBFromIntents(ctx, clientIntents.GetServiceName(), clientIntents.Namespace, intents, action)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
@@ -125,7 +125,7 @@ func (r *DatabaseReconciler) MapDBInstanceToIntents(intents []otterizev1alpha3.I
 	return dbInstanceToIntents, nil
 }
 
-func (r *DatabaseReconciler) findMatchingPGServerConfForDBInstance(
+func findMatchingPGServerConfForDBInstance(
 	databaseInstanceName string,
 	pgServerConfigList otterizev1alpha3.PostgreSQLServerConfigList) (*otterizev1alpha3.PostgreSQLServerConfig, error) {
 
