@@ -2,6 +2,7 @@ package azureagent
 
 import (
 	"context"
+	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
@@ -274,9 +275,10 @@ var azureKeyVaultPolicyTestCases = []AzureKeyVaultPolicyTestCase{
 func (s *AzureAgentPoliciesSuite) TestAddRolePolicyFromIntents_AzureKeyVaultPolicy() {
 	for _, testCase := range azureKeyVaultPolicyTestCases {
 		s.Run(testCase.Name, func() {
+			scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.KeyVault/vaults/%s", testSubscriptionID, testResourceGroup, testKeyVaultName)
 			intents := []otterizev1alpha3.Intent{
 				{
-					Name:                testKeyVaultName,
+					Name:                scope,
 					AzureKeyVaultPolicy: testCase.IntentPolicy,
 				},
 			}

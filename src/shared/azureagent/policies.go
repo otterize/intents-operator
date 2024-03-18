@@ -10,8 +10,11 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
+	"regexp"
 	"strings"
 )
+
+var KeyVaultNameRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.KeyVault/vaults/([^/]+)$`)
 
 func (a *Agent) IntentType() otterizev1alpha3.IntentType {
 	return otterizev1alpha3.IntentTypeAzure
@@ -177,6 +180,15 @@ func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otteriz
 	return nil
 }
 
+func extractKeyVaultName(scope string) (string, error) {
+	match := KeyVaultNameRegex.FindStringSubmatch(scope)
+	if len(match) != 2 {
+		return "", errors.Errorf("expected intent scope to match key vault name regex, got %s", scope)
+	}
+
+	return match[1], nil
+}
+
 func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev1alpha3.Intent) error {
 	existingKeyVaultsAccessPolicies, err := a.getExistingKeyVaultAccessPolicies(ctx, userAssignedIdentity)
 	if err != nil {
@@ -186,7 +198,16 @@ func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAss
 	var expectedIntentsKeyVaults []string
 
 	for _, intent := range intents {
-		keyVaultName := intent.Name
+		scope, err := a.getIntentScope(intent)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+
+		keyVaultName, err := extractKeyVaultName(scope)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+
 		expectedIntentsKeyVaults = append(expectedIntentsKeyVaults, keyVaultName)
 
 		if err := a.ensureKeyVaultPolicyForIntent(ctx, userAssignedIdentity, keyVaultName, intent, existingKeyVaultsAccessPolicies); err != nil {
