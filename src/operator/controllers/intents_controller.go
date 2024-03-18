@@ -244,16 +244,16 @@ func (r *IntentsReconciler) mapPostgresInstanceNameToDatabaseIntents(_ context.C
 	return requests
 }
 
-func (r *IntentsReconciler) getIntentsToPostgresInstance(conf *otterizev1alpha3.PostgreSQLServerConfig) []otterizev1alpha3.ClientIntents {
+func (r *IntentsReconciler) getIntentsToPostgresInstance(pgServerConf *otterizev1alpha3.PostgreSQLServerConfig) []otterizev1alpha3.ClientIntents {
 	intentsToReconcile := make([]otterizev1alpha3.ClientIntents, 0)
-	postgresInstanceName := conf.Name // Object name should match intents "calls" name
 	intentsList := otterizev1alpha3.ClientIntentsList{}
+	dbInstanceName := pgServerConf.Name
 	err := r.client.List(context.Background(),
 		&intentsList,
-		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: postgresInstanceName},
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: dbInstanceName},
 	)
 	if err != nil {
-		logrus.Errorf("Failed to list client intents targeting %s: %v", postgresInstanceName, err)
+		logrus.Errorf("Failed to list client intents targeting %s: %v", dbInstanceName, err)
 	}
 
 	intentsToReconcile = append(intentsToReconcile, intentsList.Items...)
@@ -308,6 +308,9 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			for _, intent := range intents.GetCallsList() {
 				if !intent.IsTargetServerKubernetesService() {
 					res = append(res, intent.GetServerFullyQualifiedName(intents.Namespace))
+				}
+				if intent.DatabaseResources != nil {
+					res = append(res, intent.GetTargetServerName())
 				}
 				fullyQualifiedSvcName, ok := intent.GetK8sServiceFullyQualifiedName(intents.Namespace)
 				if ok {
