@@ -12,6 +12,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 )
 
@@ -322,6 +323,56 @@ func (s *AzureAgentPoliciesSuite) TestAddRolePolicyFromIntents_AzureKeyVaultPoli
 			}
 		})
 	}
+}
+
+func (s *AzureAgentPoliciesSuite) TestDeleteRolePolicyFromIntents_ClearsKeyVaults() {
+	// Arrange
+	intents := []otterizev1alpha3.Intent{
+		{
+			Name: "/subscriptions/test-subscriptionid/resourceGroups/test-resourcegroup/providers/Microsoft.KeyVault/vaults/test-keyvaultname",
+		},
+	}
+
+	clientId := uuid.NewString()
+	s.expectGetUserAssignedIdentityReturnsClientID(clientId)
+	s.expectListRoleAssignmentsReturnsEmpty()
+	s.expectListKeyVaultsReturnsNames(testKeyVaultName)
+
+	s.expectGetKeyVaultReturnsAccessPolicies(testKeyVaultName, []*armkeyvault.AccessPolicyEntry{
+		{
+			ObjectID: &clientId,
+			Permissions: &armkeyvault.Permissions{
+				Certificates: []*armkeyvault.CertificatePermissions{lo.ToPtr(armkeyvault.CertificatePermissionsAll)},
+				Keys:         []*armkeyvault.KeyPermissions{lo.ToPtr(armkeyvault.KeyPermissionsAll)},
+				Secrets:      []*armkeyvault.SecretPermissions{lo.ToPtr(armkeyvault.SecretPermissionsAll)},
+				Storage:      []*armkeyvault.StoragePermissions{lo.ToPtr(armkeyvault.StoragePermissionsAll)},
+			},
+		},
+	})
+
+	var updatedPolicy armkeyvault.VaultAccessPolicyParameters
+	s.expectUpdateKeyVaultAccessPolicyWritesPolicy(testKeyVaultName, armkeyvault.AccessPolicyUpdateKindRemove, &updatedPolicy)
+
+	// Act
+	clientIntents := otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testAccountName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: testIntentsServiceName},
+			Calls:   intents,
+		},
+	}
+	err := s.agent.DeleteRolePolicyFromIntents(context.Background(), clientIntents)
+
+	// Assert
+	s.NoError(err)
+	s.Require().Len(updatedPolicy.Properties.AccessPolicies, 1)
+
+	updatedAccessPolicyEntry := updatedPolicy.Properties.AccessPolicies[0]
+	s.Require().Equal(clientId, *updatedAccessPolicyEntry.ObjectID)
+	s.Require().Nil(updatedAccessPolicyEntry.Permissions)
 }
 
 func TestAzureAgentPoliciesSuite(t *testing.T) {
