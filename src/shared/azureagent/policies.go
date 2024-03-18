@@ -177,6 +177,17 @@ func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otteriz
 		}
 	}
 
+	existingKeyVaultsAccessPolicies, err := a.getExistingKeyVaultAccessPolicies(ctx, userAssignedIdentity)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	for keyVaultName, _ := range existingKeyVaultsAccessPolicies {
+		if err := a.removeKeyVaultAccessPolicy(ctx, keyVaultName, userAssignedIdentity); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
 	return nil
 }
 

@@ -102,5 +102,5 @@ func (a *Agent) replaceKeyVaultAccessPolicy(ctx context.Context, keyVaultName st
 func (a *Agent) removeKeyVaultAccessPolicy(ctx context.Context, keyVaultName string, userAssignedIdentity armmsi.Identity) error {
 	logger := logrus.WithField("name", keyVaultName).WithField("objectId", userAssignedIdentity.Properties.ClientID)
 	logger.Debug("Removing key vault access policy")
-	return a.updateKeyVaultPolicy(ctx, keyVaultName, armkeyvault.AccessPolicyUpdateKindRemove, armkeyvault.AccessPolicyEntry{ObjectID: userAssignedIdentity.Properties.ClientID})
+	return a.updateKeyVaultPolicy(ctx, keyVaultName, armkeyvault.AccessPolicyUpdateKindRemove, armkeyvault.AccessPolicyEntry{ObjectID: userAssignedIdentity.Properties.ClientID, TenantID: userAssignedIdentity.Properties.TenantID})
 }
