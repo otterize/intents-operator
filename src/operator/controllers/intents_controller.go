@@ -191,20 +191,21 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return nil
 }
 
-func (r *IntentsReconciler) watchApiServerEndpoint(_ context.Context, obj client.Object) []reconcile.Request {
+func (r *IntentsReconciler) watchApiServerEndpoint(ctx context.Context, obj client.Object) []reconcile.Request {
 	if obj.GetNamespace() != otterizev1alpha3.KubernetesAPIServerNamespace || obj.GetName() != otterizev1alpha3.KubernetesAPIServerName {
 		return nil
 	}
 
-	intentsToReconcile := r.getIntentsToAPIServerService()
+	intentsToReconcile := r.getIntentsToAPIServerService(ctx)
 	return r.mapIntentsToRequests(intentsToReconcile)
 }
 
-func (r *IntentsReconciler) getIntentsToAPIServerService() []otterizev1alpha3.ClientIntents {
+func (r *IntentsReconciler) getIntentsToAPIServerService(ctx context.Context) []otterizev1alpha3.ClientIntents {
 	intentsToReconcile := make([]otterizev1alpha3.ClientIntents, 0)
 	fullServerName := fmt.Sprintf("svc:%s.%s", otterizev1alpha3.KubernetesAPIServerName, otterizev1alpha3.KubernetesAPIServerNamespace)
 	var intentsToServer otterizev1alpha3.ClientIntentsList
-	err := r.client.List(context.Background(),
+	err := r.client.List(
+		ctx,
 		&intentsToServer,
 		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fullServerName},
 	)
@@ -218,11 +219,11 @@ func (r *IntentsReconciler) getIntentsToAPIServerService() []otterizev1alpha3.Cl
 	return intentsToReconcile
 }
 
-func (r *IntentsReconciler) mapProtectedServiceToClientIntents(_ context.Context, obj client.Object) []reconcile.Request {
+func (r *IntentsReconciler) mapProtectedServiceToClientIntents(ctx context.Context, obj client.Object) []reconcile.Request {
 	protectedService := obj.(*otterizev1alpha3.ProtectedService)
 	logrus.Infof("Enqueueing client intents for protected services %s", protectedService.Name)
 
-	intentsToReconcile := r.getIntentsToProtectedService(protectedService)
+	intentsToReconcile := r.getIntentsToProtectedService(ctx, protectedService)
 	return r.mapIntentsToRequests(intentsToReconcile)
 }
 
@@ -274,11 +275,11 @@ func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1
 	return requests
 }
 
-func (r *IntentsReconciler) getIntentsToProtectedService(protectedService *otterizev1alpha3.ProtectedService) []otterizev1alpha3.ClientIntents {
+func (r *IntentsReconciler) getIntentsToProtectedService(ctx context.Context, protectedService *otterizev1alpha3.ProtectedService) []otterizev1alpha3.ClientIntents {
 	intentsToReconcile := make([]otterizev1alpha3.ClientIntents, 0)
 	fullServerName := fmt.Sprintf("%s.%s", protectedService.Spec.Name, protectedService.Namespace)
 	var intentsToServer otterizev1alpha3.ClientIntentsList
-	err := r.client.List(context.Background(),
+	err := r.client.List(ctx,
 		&intentsToServer,
 		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fullServerName},
 	)
