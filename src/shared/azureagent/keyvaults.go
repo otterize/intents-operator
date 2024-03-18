@@ -4,10 +4,10 @@ import (
 	"context"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
+	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 )
 
 func (a *Agent) listKeyVaults(ctx context.Context) ([]string, error) {
@@ -59,20 +59,13 @@ func (a *Agent) getExistingKeyVaultAccessPolicies(ctx context.Context, userAssig
 	return accessPoliciesByName, nil
 }
 
-// PtrSlicesEqual checks if two slices of pointers are equal, by comparing the dereferenced pointers
-func PtrSlicesEqual[T comparable](a, b []*T) bool {
-	return slices.EqualFunc(a, b, func(x, y *T) bool {
-		return lo.FromPtr(x) == lo.FromPtr(y)
-	})
-}
-
 func AccessPoliciesEqual(a, b *armkeyvault.AccessPolicyEntry) bool {
 	return lo.FromPtr(a.ObjectID) == lo.FromPtr(b.ObjectID) &&
 		lo.FromPtr(a.TenantID) == lo.FromPtr(b.TenantID) &&
-		PtrSlicesEqual(a.Permissions.Certificates, b.Permissions.Certificates) &&
-		PtrSlicesEqual(a.Permissions.Keys, b.Permissions.Keys) &&
-		PtrSlicesEqual(a.Permissions.Secrets, b.Permissions.Secrets) &&
-		PtrSlicesEqual(a.Permissions.Storage, b.Permissions.Storage)
+		agentutils.PtrSlicesEqual(a.Permissions.Certificates, b.Permissions.Certificates) &&
+		agentutils.PtrSlicesEqual(a.Permissions.Keys, b.Permissions.Keys) &&
+		agentutils.PtrSlicesEqual(a.Permissions.Secrets, b.Permissions.Secrets) &&
+		agentutils.PtrSlicesEqual(a.Permissions.Storage, b.Permissions.Storage)
 }
 
 func (a *Agent) updateKeyVaultPolicy(ctx context.Context, keyVaultName string,
