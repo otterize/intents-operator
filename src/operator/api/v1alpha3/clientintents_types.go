@@ -156,7 +156,7 @@ const (
 	AzureKeyVaultCertificatePermissionUpdate         AzureKeyVaultCertificatePermission = "update"
 )
 
-// +kubebuilder:validation:enum=all;backup;create;decrypt;delete;encrypt;get;getrotationpolicy;import;list;purge;recover;release;restore;rotate;setrotationpolicy;sign;unwrapkey;update;verify;wrapkey
+// +kubebuilder:validation:Enum=all;backup;create;decrypt;delete;encrypt;get;getrotationpolicy;import;list;purge;recover;release;restore;rotate;setrotationpolicy;sign;unwrapkey;update;verify;wrapkey
 type AzureKeyVaultKeyPermission string
 
 const (
@@ -255,7 +255,7 @@ type Intent struct {
 	AzureRoles []string `json:"azureRoles,omitempty" yaml:"azureRoles,omitempty"`
 
 	//+optional
-	AzureKeyVaultPermissions *AzureKeyVaultPermissions `json:"azureKeyVaultPermissions,omitempty" yaml:"azureKeyVaultPermissions,omitempty"`
+	AzureKeyVaultPolicy *AzureKeyVaultPolicy `json:"azureKeyVaultPolicy,omitempty" yaml:"azureKeyVaultPolicy,omitempty"`
 
 	//+optional
 	Internet *Internet `json:"internet,omitempty" yaml:"internet,omitempty"`
@@ -293,7 +293,7 @@ type ResolvedIPs struct {
 	IPs []string `json:"ips,omitempty" yaml:"ips,omitempty"`
 }
 
-type AzureKeyVaultPermissions struct {
+type AzureKeyVaultPolicy struct {
 	//+optional
 	CertificatePermissions []AzureKeyVaultCertificatePermission `json:"certificatePermissions,omitempty" yaml:"certificatePermissions,omitempty"`
 	//+optional
@@ -621,6 +621,12 @@ func databaseOperationToCloud(op DatabaseOperation) graphqlclient.DatabaseOperat
 	}
 }
 
+func enumSliceToStrPtrSlice[T ~string](enumSlice []T) []*string {
+	return lo.Map(enumSlice, func(s T, i int) *string {
+		return lo.ToPtr(string(s))
+	})
+}
+
 func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName string) graphqlclient.IntentInput {
 	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) *graphqlclient.KafkaConfigInput {
 		return lo.ToPtr(graphqlclient.KafkaConfigInput{
@@ -680,6 +686,15 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 
 	if len(in.AzureRoles) != 0 {
 		intentInput.AzureRoles = lo.ToSlicePtr(in.AzureRoles)
+	}
+
+	if in.AzureKeyVaultPolicy != nil {
+		intentInput.AzureKeyVaultPolicy = &graphqlclient.AzureKeyVaultPolicyInput{
+			CertificatePermissions: enumSliceToStrPtrSlice(in.AzureKeyVaultPolicy.CertificatePermissions),
+			KeyPermissions:         enumSliceToStrPtrSlice(in.AzureKeyVaultPolicy.KeyPermissions),
+			SecretPermissions:      enumSliceToStrPtrSlice(in.AzureKeyVaultPolicy.SecretPermissions),
+			StoragePermissions:     enumSliceToStrPtrSlice(in.AzureKeyVaultPolicy.StoragePermissions),
+		}
 	}
 
 	if len(in.GCPPermissions) != 0 {

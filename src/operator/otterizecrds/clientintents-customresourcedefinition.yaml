@@ -215,7 +215,7 @@ spec:
                         items:
                           type: string
                         type: array
-                      azureKeyVaultPermissions:
+                      azureKeyVaultPolicy:
                         properties:
                           certificatePermissions:
                             items:
@@ -241,6 +241,28 @@ spec:
                             type: array
                           keyPermissions:
                             items:
+                              enum:
+                                - all
+                                - backup
+                                - create
+                                - decrypt
+                                - delete
+                                - encrypt
+                                - get
+                                - getrotationpolicy
+                                - import
+                                - list
+                                - purge
+                                - recover
+                                - release
+                                - restore
+                                - rotate
+                                - setrotationpolicy
+                                - sign
+                                - unwrapkey
+                                - update
+                                - verify
+                                - wrapkey
                               type: string
                             type: array
                           secretPermissions:

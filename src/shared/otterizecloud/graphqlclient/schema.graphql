@@ -175,6 +175,20 @@ input AzureInfoInput {
 	namespace: String!
 }
 
+type AzureKeyVaultPolicy {
+	certificatePermissions: [String!]
+	keyPermissions: [String!]
+	secretPermissions: [String!]
+	storagePermissions: [String!]
+}
+
+input AzureKeyVaultPolicyInput {
+	certificatePermissions: [String!]
+	keyPermissions: [String!]
+	secretPermissions: [String!]
+	storagePermissions: [String!]
+}
+
 type AzureResource {
 	resource: String!
 }
@@ -679,6 +693,7 @@ type Intent {
 	databaseResources: [DatabaseConfig!]
 	awsActions: [String!]
 	azureRoles: [String!]
+	azureKeyVaultPolicy: AzureKeyVaultPolicy
 	gcpPermissions: [String!]
 	internet: InternetConfig
 	status: IntentStatus
@@ -695,6 +710,7 @@ input IntentInput {
 	databaseResources: [DatabaseConfigInput!]
 	awsActions: [String!]
 	azureRoles: [String!]
+	azureKeyVaultPolicy: AzureKeyVaultPolicyInput
 	gcpPermissions: [String!]
 	internet: InternetConfigInput
 	status: IntentStatusInput
@@ -756,6 +772,7 @@ input IntentsOperatorConfigurationInput {
 }
 
 type InternetConfig {
+	appliedDomains: [String!]
 	dnsName: String!
 	ips: [String!]
 	ports: [Int!]
@@ -1467,6 +1484,8 @@ enum TutorialEvent {
 enum TutorialName {
 	NETWORK_POLICIES
 	AWS_IAM
+	GCP_IAM
+	AZURE_IAM
 	POSTGRESQL
 	ISTIO_AUTH_POLICY_AUTOMATION
 	KAFKA_ACCESS_AUTOMATE_OTTERIZE_CLOUD

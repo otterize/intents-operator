@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
@@ -44,6 +45,25 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 		return errors.Wrap(err)
 	}
 
+	azureRBACIntents := lo.Filter(intents, func(intent otterizev1alpha3.Intent, _ int) bool {
+		return len(intent.AzureRoles) > 0
+	})
+
+	if err := a.ensureRoleAssignmentsForIntents(ctx, userAssignedIdentity, azureRBACIntents); err != nil {
+		return errors.Wrap(err)
+	}
+
+	azureKeyVaultIntents := lo.Filter(intents, func(intent otterizev1alpha3.Intent, _ int) bool {
+		return intent.AzureKeyVaultPolicy != nil
+	})
+	if err := a.ensureKeyVaultPermissionsForIntents(ctx, userAssignedIdentity, azureKeyVaultIntents); err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev1alpha3.Intent) error {
 	existingRoleAssignments, err := a.listRoleAssignments(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
@@ -155,4 +175,87 @@ func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otteriz
 	}
 
 	return nil
+}
+
+func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev1alpha3.Intent) error {
+	existingKeyVaultsAccessPolicies, err := a.getExistingKeyVaultAccessPolicies(ctx, userAssignedIdentity)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	var expectedIntentsKeyVaults []string
+
+	for _, intent := range intents {
+		keyVaultName := intent.Name
+		expectedIntentsKeyVaults = append(expectedIntentsKeyVaults, keyVaultName)
+
+		if err := a.ensureKeyVaultPolicyForIntent(ctx, userAssignedIdentity, keyVaultName, intent, existingKeyVaultsAccessPolicies); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	if err := a.removeUnexpectedKeyVaultPolicies(ctx, userAssignedIdentity, expectedIntentsKeyVaults, existingKeyVaultsAccessPolicies); err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (a *Agent) ensureKeyVaultPolicyForIntent(ctx context.Context, userAssignedIdentity armmsi.Identity, keyVaultName string, intent otterizev1alpha3.Intent, existingKeyVaultsAccessPolicies map[string][]*armkeyvault.AccessPolicyEntry) error {
+	existingAccessPolicies, ok := existingKeyVaultsAccessPolicies[keyVaultName]
+	if !ok {
+		return errors.Errorf("key vault %s not found", keyVaultName)
+	}
+
+	policy := a.vaultAccessPolicyEntryFromIntent(userAssignedIdentity, lo.FromPtr(intent.AzureKeyVaultPolicy))
+
+	if len(existingAccessPolicies) == 0 {
+		// add new policy
+		if err := a.addKeyVaultAccessPolicy(ctx, keyVaultName, policy); err != nil {
+			return errors.Wrap(err)
+		}
+		return nil
+	}
+
+	if !AccessPoliciesEqual(existingAccessPolicies[0], &policy) {
+		// update existing policy
+		if err := a.replaceKeyVaultAccessPolicy(ctx, keyVaultName, policy); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+func (a *Agent) removeUnexpectedKeyVaultPolicies(ctx context.Context, userAssignedIdentity armmsi.Identity, expectedKeyVaultNames []string, existingKeyVaultsAccessPolicies map[string][]*armkeyvault.AccessPolicyEntry) error {
+	unexpectedKeyVaultNames := lo.Without(lo.Keys(existingKeyVaultsAccessPolicies), expectedKeyVaultNames...)
+
+	for _, keyVaultName := range unexpectedKeyVaultNames {
+		if err := a.removeKeyVaultAccessPolicy(ctx, keyVaultName, userAssignedIdentity); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+func (a *Agent) vaultAccessPolicyEntryFromIntent(userAssignedIdentity armmsi.Identity, policy otterizev1alpha3.AzureKeyVaultPolicy) armkeyvault.AccessPolicyEntry {
+	return armkeyvault.AccessPolicyEntry{
+		ObjectID: userAssignedIdentity.Properties.ClientID,
+		TenantID: &a.conf.TenantID,
+		Permissions: &armkeyvault.Permissions{
+			Certificates: lo.Map(policy.CertificatePermissions, func(p otterizev1alpha3.AzureKeyVaultCertificatePermission, _ int) *armkeyvault.CertificatePermissions {
+				return lo.ToPtr(armkeyvault.CertificatePermissions(p))
+			}),
+			Keys: lo.Map(policy.KeyPermissions, func(p otterizev1alpha3.AzureKeyVaultKeyPermission, _ int) *armkeyvault.KeyPermissions {
+				return lo.ToPtr(armkeyvault.KeyPermissions(p))
+			}),
+			Secrets: lo.Map(policy.SecretPermissions, func(p otterizev1alpha3.AzureKeyVaultSecretPermission, _ int) *armkeyvault.SecretPermissions {
+				return lo.ToPtr(armkeyvault.SecretPermissions(p))
+			}),
+			Storage: lo.Map(policy.StoragePermissions, func(p otterizev1alpha3.AzureKeyVaultStoragePermission, _ int) *armkeyvault.StoragePermissions {
+				return lo.ToPtr(armkeyvault.StoragePermissions(p))
+			}),
+		},
+	}
 }
