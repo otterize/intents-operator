@@ -30,7 +30,6 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.5.5
-	github.com/otterize/cloud/src v0.0.0-20240312114633-4b037e217ed5
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
 	github.com/prometheus/client_golang v1.18.0
 	github.com/samber/lo v1.36.0

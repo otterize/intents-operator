@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/otterize/cloud/src/backend-service/pkg/graph/model"
-	"github.com/otterize/cloud/src/backend-service/pkg/lib/errors"
-	"github.com/otterize/cloud/src/backend-service/pkg/lib/errors/usererrors"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/clusterid"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
@@ -55,7 +53,6 @@ func (p PostgresTableIdentifier) ToPGXIdentifier() pgx.Identifier {
 func (s SQLSprintfStatement) PrepareSanitized(a ...any) (string, error) {
 	sanitizedItems := make([]any, len(a))
 	for i, formatInput := range a {
-		// We don't need to sanitize []model.DatabaseOperation because they were already validated by the API (It's an enum)
 		if dbOperations, ok := formatInput.([]otterizev1alpha3.DatabaseOperation); ok {
 			asStrings := lo.Map(dbOperations, func(op otterizev1alpha3.DatabaseOperation, _ int) string { return string(op) })
 			sanitizedItems[i] = strings.Join(asStrings, ",")
@@ -133,7 +130,7 @@ func TranslatePostgresCommandsError(err error) error {
 	if pgErr := &(pgconn.PgError{}); errors.As(err, &pgErr) {
 		// See: https://www.postgresql.org/docs/current/errcodes-appendix.html
 		if pgErr.Code == "42P01" || pgErr.Code == "3F000" {
-			return usererrors.AppliedIntentsError("Bad schema/table name: %s", pgErr.Message)
+			return errors.Wrap(fmt.Errorf("bad schema/table name: %s", pgErr.Message))
 		}
 	}
 	return errors.Wrap(err)
@@ -151,7 +148,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	if err != nil {
 		pgErr, ok := p.TranslatePostgresConnectionError(err)
 		if ok {
-			return usererrors.AppliedIntentsError(pgErr)
+			return errors.Wrap(errors.New(pgErr))
 		}
 		return errors.Wrap(err)
 	}
@@ -191,7 +188,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 		if err != nil {
 			pgErr, ok := p.TranslatePostgresConnectionError(err)
 			if ok {
-				return usererrors.AppliedIntentsError(pgErr)
+				return errors.Wrap(errors.New(pgErr))
 			}
 			return errors.Wrap(err)
 		}
@@ -326,7 +323,7 @@ func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.
 		if err := rows.Scan(&sequenceName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGGrantStatement.PrepareSanitized([]model.DatabaseOperation{model.DatabaseOperationAll}, pgx.Identifier{postgresTableIdentifier.tableSchema, sequenceName}, pgx.Identifier{username})
+		stmt, err := PGGrantStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, pgx.Identifier{postgresTableIdentifier.tableSchema, sequenceName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -478,7 +475,7 @@ func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx c
 		if err := rows.Scan(&schemaName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGGrantOnAllSequencesInSchemaStatement.PrepareSanitized([]model.DatabaseOperation{model.DatabaseOperationAll}, pgx.Identifier{schemaName}, pgx.Identifier{username})
+		stmt, err := PGGrantOnAllSequencesInSchemaStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
