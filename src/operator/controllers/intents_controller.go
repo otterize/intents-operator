@@ -180,6 +180,7 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Watches(&otterizev1alpha3.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
 		Watches(&corev1.Endpoints{}, handler.EnqueueRequestsFromMapFunc(r.watchApiServerEndpoint)).
+		Watches(&otterizev1alpha3.PostgreSQLServerConfig{}, handler.EnqueueRequestsFromMapFunc(r.mapPostgresInstanceNameToDatabaseIntents)).
 		Complete(r)
 	if err != nil {
 		return errors.Wrap(err)
@@ -223,6 +224,40 @@ func (r *IntentsReconciler) mapProtectedServiceToClientIntents(_ context.Context
 
 	intentsToReconcile := r.getIntentsToProtectedService(protectedService)
 	return r.mapIntentsToRequests(intentsToReconcile)
+}
+
+func (r *IntentsReconciler) mapPostgresInstanceNameToDatabaseIntents(_ context.Context, obj client.Object) []reconcile.Request {
+	pgServerConf := obj.(*otterizev1alpha3.PostgreSQLServerConfig)
+	logrus.Infof("Enqueueing client intents for PostgreSQLServerConfig change %s", pgServerConf.Name)
+
+	intentsToReconcile := r.getIntentsToPostgresInstance(pgServerConf)
+
+	requests := make([]reconcile.Request, 0)
+	for _, clientIntents := range intentsToReconcile {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      clientIntents.Name,
+				Namespace: clientIntents.Namespace,
+			},
+		})
+	}
+	return requests
+}
+
+func (r *IntentsReconciler) getIntentsToPostgresInstance(conf *otterizev1alpha3.PostgreSQLServerConfig) []otterizev1alpha3.ClientIntents {
+	intentsToReconcile := make([]otterizev1alpha3.ClientIntents, 0)
+	postgresInstanceName := conf.Name // Object name should match intents "calls" name
+	intentsList := otterizev1alpha3.ClientIntentsList{}
+	err := r.client.List(context.Background(),
+		&intentsList,
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: postgresInstanceName},
+	)
+	if err != nil {
+		logrus.Errorf("Failed to list client intents targeting %s: %v", postgresInstanceName, err)
+	}
+
+	intentsToReconcile = append(intentsToReconcile, intentsList.Items...)
+	return intentsToReconcile
 }
 
 func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1alpha3.ClientIntents) []reconcile.Request {
