@@ -9,6 +9,12 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
+)
+
+const (
+	// AzureApplyOnPodLabel is used to mark pods that should be processed by the Azure agent to create an associated Azure identity & role assignment
+	AzureApplyOnPodLabel = "credentials-operator.otterize.com/create-azure-workload-identity"
 )
 
 type Config struct {
@@ -101,4 +107,8 @@ func (a *Agent) loadConfDefaults(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
+	return pod.Labels != nil && pod.Labels[AzureApplyOnPodLabel] == "true"
 }

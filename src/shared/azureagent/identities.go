@@ -94,7 +94,7 @@ func (a *Agent) GetOrCreateUserAssignedIdentity(ctx context.Context, namespace s
 	return userAssignedIdentity.Identity, nil
 }
 
-func (a *Agent) deleteUserAssignedIdentity(ctx context.Context, namespace string, accountName string) error {
+func (a *Agent) DeleteUserAssignedIdentity(ctx context.Context, namespace string, accountName string) error {
 	logger := logrus.WithField("namespace", namespace).WithField("account", accountName)
 	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
 	federatedIdentityCredentialsName := a.generateFederatedIdentityCredentialsName(namespace, accountName)
