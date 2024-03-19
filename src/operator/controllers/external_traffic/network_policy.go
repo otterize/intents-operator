@@ -314,13 +314,12 @@ func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *c
 		return errors.Wrap(err)
 	}
 
-	ingressList, err := r.getIngressRefersToService(ctx, svc)
+	ingressList, err := getIngressRefersToService(ctx, r.client, svc)
 	if err != nil {
 		return errors.Wrap(err)
 	}
-	// If it's not a load balancer or a node port service, and the service is not referenced by any Ingress,
-	// then there's nothing we need to do.
-	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer && svc.Spec.Type != corev1.ServiceTypeNodePort && len(ingressList.Items) == 0 {
+
+	if !isServiceExternallyAccessible(svc, ingressList) {
 		return r.handlePolicyDelete(ctx, r.formatPolicyName(svc.Name), svc.Namespace)
 	}
 
@@ -413,21 +412,6 @@ func (r *NetworkPolicyHandler) getAddressesFromEndpoints(endpoints *corev1.Endpo
 
 	}
 	return addresses
-}
-
-func (r *NetworkPolicyHandler) getIngressRefersToService(ctx context.Context, svc *corev1.Service) (*v1.IngressList, error) {
-	var ingressList v1.IngressList
-	err := r.client.List(
-		ctx, &ingressList,
-		&client.MatchingFields{v1alpha3.IngressServiceNamesIndexField: svc.Name},
-		&client.ListOptions{Namespace: svc.Namespace})
-
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-
-	return &ingressList, nil
-
 }
 
 func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyName string, policyNamespace string) error {

@@ -75,6 +75,20 @@ func (mr *MockCloudClientMockRecorder) ReportComponentStatus(ctx, component inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportComponentStatus", reflect.TypeOf((*MockCloudClient)(nil).ReportComponentStatus), ctx, component)
 }
 
+// ReportExternallyAccessibleServices mocks base method.
+func (m *MockCloudClient) ReportExternallyAccessibleServices(ctx context.Context, namespace string, services []graphqlclient.ExternallyAccessibleServiceInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReportExternallyAccessibleServices", ctx, namespace, services)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReportExternallyAccessibleServices indicates an expected call of ReportExternallyAccessibleServices.
+func (mr *MockCloudClientMockRecorder) ReportExternallyAccessibleServices(ctx, namespace, services interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportExternallyAccessibleServices", reflect.TypeOf((*MockCloudClient)(nil).ReportExternallyAccessibleServices), ctx, namespace, services)
+}
+
 // ReportIntentsOperatorConfiguration mocks base method.
 func (m *MockCloudClient) ReportIntentsOperatorConfiguration(ctx context.Context, config graphqlclient.IntentsOperatorConfigurationInput) error {
 	m.ctrl.T.Helper()
