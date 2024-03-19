@@ -101,13 +101,13 @@ func (a *Agent) deleteUserAssignedIdentity(ctx context.Context, namespace string
 
 	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Debug("deleting federated identity credentials")
 	_, err := a.federatedIdentityCredentialsClient.Delete(ctx, a.conf.ResourceGroup, userAssignedIdentityName, federatedIdentityCredentialsName, nil)
-	if err != nil {
+	if err != nil && !azureerrors.IsNotFoundErr(err) {
 		return errors.Wrap(err)
 	}
 
 	logger.WithField("identity", userAssignedIdentityName).Debug("deleting user assigned identity")
 	_, err = a.userAssignedIdentitiesClient.Delete(ctx, a.conf.ResourceGroup, userAssignedIdentityName, nil)
-	if err != nil {
+	if err != nil && !azureerrors.IsNotFoundErr(err) {
 		return errors.Wrap(err)
 	}
 
