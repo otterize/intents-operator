@@ -286,16 +286,17 @@ func main() {
 		if err = reconciler.SetupWithManager(mgr); err != nil {
 			logrus.WithField("controller", "MutatingWebhookConfigs").WithError(err).Panic("unable to create controller")
 		}
-
-		if viper.GetBool(operatorconfig.EnableAWSServiceAccountManagementKey) {
-			webhookHandler = sa_pod_webhook_aws.NewServiceAccountAnnotatingPodWebhook(mgr, awsAgent)
-		}
-
-		if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
-			webhookHandler = spiffe_rolesanywhere_pod_webhook.NewSPIFFEAWSRolePodWebhook(mgr, awsAgent, viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey))
-		}
-
 		mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{Handler: webhookHandler})
+
+		if viper.GetBool(operatorconfig.EnableAWSServiceAccountManagementKey) || viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
+			var awsWebhookHandler admission.Handler = sa_pod_webhook_aws.NewServiceAccountAnnotatingPodWebhook(mgr, awsAgent)
+
+			if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
+				awsWebhookHandler = spiffe_rolesanywhere_pod_webhook.NewSPIFFEAWSRolePodWebhook(mgr, awsAgent, viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey))
+			}
+
+			mgr.GetWebhookServer().Register("/mutate-aws-v1-pod", &webhook.Admission{Handler: awsWebhookHandler})
+		}
 
 	}
 
