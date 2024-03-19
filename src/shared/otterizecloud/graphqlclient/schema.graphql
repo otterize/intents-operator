@@ -756,6 +756,7 @@ input IntentsOperatorConfigurationInput {
 }
 
 type InternetConfig {
+	appliedDomains: [String!]
 	dnsName: String!
 	ips: [String!]
 	ports: [Int!]
@@ -1467,6 +1468,8 @@ enum TutorialEvent {
 enum TutorialName {
 	NETWORK_POLICIES
 	AWS_IAM
+	GCP_IAM
+	AZURE_IAM
 	POSTGRESQL
 	ISTIO_AUTH_POLICY_AUTOMATION
 	KAFKA_ACCESS_AUTOMATE_OTTERIZE_CLOUD

@@ -23,11 +23,6 @@ mutation ReportProtectedServicesSnapshot($namespace: String!, $services: [Protec
     reportProtectedServicesSnapshot(namespace: $namespace, services: $services)
 }
 
-
-mutation HandleDatabaseIntents($intents: [IntentInput!]!, $action: DBPermissionChange!) {
-    handleDatabaseIntents(intents: $intents, action: $action)
-}
-
 query dummy {
     dummyError
 }

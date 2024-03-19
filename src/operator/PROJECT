@@ -82,4 +82,16 @@ resources:
   webhooks:
     conversion: true
     webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: k8s.otterize.com
+  group: otterize
+  kind: PostgreSQLServerConfig
+  path: github.com/otterize/intents-operator/api/v1alpha3
+  version: v1alpha3
+  webhooks:
+    validation: true
+    webhookVersion: v1
 version: "3"
