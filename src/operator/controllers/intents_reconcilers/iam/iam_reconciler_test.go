@@ -6,7 +6,7 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents"
-	mockiampolicyagents "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents/mocks"
+	mock_iampolicyagents "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents/mocks"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/stretchr/testify/suite"
@@ -31,7 +31,7 @@ type IAMIntentsReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
 	Reconciler      *IAMIntentsReconciler
 	serviceResolver *mocks.MockServiceResolver
-	gcpAgent        *mockiampolicyagents.MockIAMPolicyAgent
+	gcpAgent        *mock_iampolicyagents.MockIAMPolicyAgent
 	recorder        *record.FakeRecorder
 	scheme          *runtime.Scheme
 }
@@ -40,7 +40,7 @@ func (s *IAMIntentsReconcilerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 	s.scheme = runtime.NewScheme()
 	s.serviceResolver = mocks.NewMockServiceResolver(s.Controller)
-	s.gcpAgent = mockiampolicyagents.NewMockIAMPolicyAgent(s.Controller)
+	s.gcpAgent = mock_iampolicyagents.NewMockIAMPolicyAgent(s.Controller)
 
 	var iamAgents []iampolicyagents.IAMPolicyAgent
 	iamAgents = append(iamAgents, s.gcpAgent)
