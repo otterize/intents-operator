@@ -7,11 +7,11 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/clusterid"
+	"github.com/otterize/intents-operator/src/shared/databaseutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
-	"net"
 	"net/url"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
@@ -26,7 +26,6 @@ const (
 	PGGrantOnAllSequencesInSchemaStatement     SQLSprintfStatement = "GRANT %s ON ALL SEQUENCES IN SCHEMA %s to %s"
 	PGRevokeOnAllTablesInSchemaStatement       SQLSprintfStatement = "REVOKE ALL ON ALL TABLES IN SCHEMA %s FROM %s"
 	PGRevokeOnAllSequencesInSchemaStatement    SQLSprintfStatement = "REVOKE ALL ON ALL SEQUENCES IN SCHEMA %s FROM %s"
-	PGSelectUserQuery                                              = "SELECT FROM pg_catalog.pg_user where usename = $1"
 	PGSelectPrivilegesQuery                                        = "SELECT table_schema, table_name FROM information_schema.table_privileges where grantee = $1"
 	PGSSelectTableSequencesPrivilegesQuery                         = "SELECT split_part(column_default, '''', 2) FROM information_schema.columns WHERE column_default LIKE 'nextval%' and table_schema=$1 and table_name=$2"
 	PGSSelectSchemaNamesQuery                                      = "SELECT schema_name From information_schema.schemata where schema_name!='pg_catalog' and schema_name!='pg_toast' and schema_name!='information_schema'"
@@ -91,32 +90,6 @@ func NewPostgresConfigurator(pgServerConfSpec otterizev1alpha3.PostgreSQLServerC
 	}
 }
 
-func (p *PostgresConfigurator) TranslatePostgresConnectionError(err error) (string, bool) {
-	if opErr := &(net.OpError{}); errors.As(err, &opErr) || errors.Is(err, context.DeadlineExceeded) {
-		return "Can't reach the server", true
-	}
-
-	if connErr := &(pgconn.ConnectError{}); errors.As(err, &connErr) {
-		return "Can't reach the server", true
-	}
-
-	if dnsErr := &(net.DNSError{}); errors.As(err, &dnsErr) {
-		return "Can't resolve hostname", true
-	}
-
-	if pgErr := &(pgconn.PgError{}); errors.As(err, &pgErr) {
-		// See: https://www.postgresql.org/docs/current/errcodes-appendix.html
-		if pgErr.Code == "28P01" || pgErr.Code == "28000" {
-			return "Invalid credentials", true
-		}
-		if pgErr.Code == "3D000" {
-			return fmt.Sprintf("Database doesn't exist: %s", pgErr.Message), true
-		}
-	}
-
-	return "", false
-}
-
 func IsInvalidAuthorizationError(err error) bool {
 	if pgErr := &(pgconn.PgError{}); errors.As(err, &pgErr) {
 		if pgErr.Code == "28000" {
@@ -146,7 +119,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	connectionString := p.FormatConnectionString(PGDefaultDatabase)
 	conn, err := pgx.Connect(ctx, connectionString)
 	if err != nil {
-		pgErr, ok := p.TranslatePostgresConnectionError(err)
+		pgErr, ok := databaseutils.TranslatePostgresConnectionError(err)
 		if ok {
 			return errors.Wrap(errors.New(pgErr))
 		}
@@ -162,8 +135,8 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	if err != nil {
 		return err
 	}
-	username := BuildPostgresUsername(clusterID, workloadName, namespace)
-	exists, err := p.ValidateUserExists(ctx, username)
+	username := databaseutils.BuildPostgresUsername(clusterID, workloadName, namespace)
+	exists, err := databaseutils.ValidateUserExists(ctx, username, p.Conn)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -186,7 +159,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 			continue
 		}
 		if err != nil {
-			pgErr, ok := p.TranslatePostgresConnectionError(err)
+			pgErr, ok := databaseutils.TranslatePostgresConnectionError(err)
 			if ok {
 				return errors.Wrap(errors.New(pgErr))
 			}
@@ -342,16 +315,6 @@ func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.
 	}
 	batch.Queue(stmt)
 	return nil
-}
-
-func (p *PostgresConfigurator) ValidateUserExists(ctx context.Context, user string) (bool, error) {
-	row, err := p.Conn.Query(ctx, PGSelectUserQuery, user)
-	if err != nil {
-		return false, errors.Wrap(err)
-	}
-	defer row.Close() // "row" either holds 1 or 0 rows, and we must call Close() before reusing the connection again
-
-	return row.Next(), nil
 }
 
 // CloseConnection closes the connection to the database and logs an error
