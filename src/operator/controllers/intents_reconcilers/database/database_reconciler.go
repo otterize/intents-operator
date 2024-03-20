@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	"github.com/otterize/intents-operator/src/operator/databaseconfigurator"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,20 +75,23 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	databaseToIntents, err := r.MapDBInstanceToIntents(dbIntents)
+	dbInstanceToIntents := lo.GroupBy(dbIntents, func(intent otterizev1alpha3.Intent) string {
+		return intent.Name // "Name" is the target server, which is the db instance name in our case
+	})
+
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database clientIntents: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	for databaseInstance, intents := range databaseToIntents {
+	for databaseInstance, intents := range dbInstanceToIntents {
 		pgServerConfigs := otterizev1alpha3.PostgreSQLServerConfigList{}
 		err := r.client.List(ctx, &pgServerConfigs)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
 				"Error trying to fetch '%s' PostgresServerConf for client '%s'. Error: %s",
 				databaseInstance, clientIntents.GetServiceName(), err.Error())
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 		pgServerConf, err := findMatchingPGServerConfForDBInstance(databaseInstance, pgServerConfigs)
 		if err != nil {
@@ -110,31 +114,18 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *DatabaseReconciler) MapDBInstanceToIntents(intents []otterizev1alpha3.Intent) (map[string][]otterizev1alpha3.Intent, error) {
-	dbInstanceToIntents := map[string][]otterizev1alpha3.Intent{}
-	for _, intent := range intents {
-		// Name represents a database instance which is represented by a matching server config CRD
-		instanceIntents, ok := dbInstanceToIntents[intent.Name]
-		if !ok {
-			dbInstanceToIntents[intent.Name] = []otterizev1alpha3.Intent{intent}
-			continue
-		}
-		dbInstanceToIntents[intent.Name] = append(instanceIntents, intent)
-	}
-
-	return dbInstanceToIntents, nil
-}
-
 func findMatchingPGServerConfForDBInstance(
 	databaseInstanceName string,
 	pgServerConfigList otterizev1alpha3.PostgreSQLServerConfigList) (*otterizev1alpha3.PostgreSQLServerConfig, error) {
 
-	for _, conf := range pgServerConfigList.Items {
-		if conf.Name == databaseInstanceName {
-			return &conf, nil
-		}
+	matchingConf, found := lo.Find(pgServerConfigList.Items, func(conf otterizev1alpha3.PostgreSQLServerConfig) bool {
+		return databaseInstanceName == conf.Name
+	})
+
+	if !found {
+		return nil, errors.Wrap(fmt.Errorf(
+			"did not find Postgres server config to match database '%s' in the cluster", databaseInstanceName))
 	}
 
-	return nil, errors.Wrap(fmt.Errorf(
-		"did not find Postgres server config to match database '%s' in the cluster", databaseInstanceName))
+	return &matchingConf, nil
 }

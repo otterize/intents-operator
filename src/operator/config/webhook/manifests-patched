@@ -91,8 +91,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha3-protectedservice
   failurePolicy: Fail
   name: protectedservicev1alpha3.kb.io

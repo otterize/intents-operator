@@ -21,6 +21,7 @@ import (
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/samber/lo"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -103,17 +104,20 @@ func (v *PostgresConfValidator) ValidateNoDuplicateConfNames(
 	currName string,
 	confList []otterizev1alpha3.PostgreSQLServerConfig) *field.Error {
 
-	for _, conf := range confList {
-		if currName == conf.Name {
-			return &field.Error{
-				Type:     field.ErrorTypeDuplicate,
-				Field:    "name",
-				BadValue: currName,
-				Detail: fmt.Sprintf(
-					"Postgres server config already exists with name %s. Existing resource: %s.%s",
-					currName, conf.Name, conf.Namespace),
-			}
+	conf, found := lo.Find(confList, func(conf otterizev1alpha3.PostgreSQLServerConfig) bool {
+		return currName == conf.Name
+	})
+
+	if found {
+		return &field.Error{
+			Type:     field.ErrorTypeDuplicate,
+			Field:    "name",
+			BadValue: currName,
+			Detail: fmt.Sprintf(
+				"Postgres server config already exists with name %s. Existing resource: %s.%s",
+				currName, conf.Name, conf.Namespace),
 		}
 	}
+
 	return nil
 }
