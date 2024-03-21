@@ -28,6 +28,10 @@ mutation HandleDatabaseIntents($intents: [IntentInput!]!, $action: DBPermissionC
     handleDatabaseIntents(intents: $intents, action: $action)
 }
 
+mutation ReportExternallyAccessibleServices($namespace: String!, $services: [ExternallyAccessibleServiceInput!]!) {
+    reportExternallyAccessibleServices(namespace: $namespace, services: $services)
+}
+
 query dummy {
     dummyError
 }

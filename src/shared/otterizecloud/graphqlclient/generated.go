@@ -69,6 +69,27 @@ const (
 	DatabaseOperationDelete DatabaseOperation = "DELETE"
 )
 
+type ExternallyAccessibleServiceInput struct {
+	Namespace         string                `json:"namespace"`
+	ServerName        string                `json:"serverName"`
+	ReferredByIngress bool                  `json:"referredByIngress"`
+	ServiceType       KubernetesServiceType `json:"serviceType"`
+}
+
+// GetNamespace returns ExternallyAccessibleServiceInput.Namespace, and is useful for accessing the field via an interface.
+func (v *ExternallyAccessibleServiceInput) GetNamespace() string { return v.Namespace }
+
+// GetServerName returns ExternallyAccessibleServiceInput.ServerName, and is useful for accessing the field via an interface.
+func (v *ExternallyAccessibleServiceInput) GetServerName() string { return v.ServerName }
+
+// GetReferredByIngress returns ExternallyAccessibleServiceInput.ReferredByIngress, and is useful for accessing the field via an interface.
+func (v *ExternallyAccessibleServiceInput) GetReferredByIngress() bool { return v.ReferredByIngress }
+
+// GetServiceType returns ExternallyAccessibleServiceInput.ServiceType, and is useful for accessing the field via an interface.
+func (v *ExternallyAccessibleServiceInput) GetServiceType() KubernetesServiceType {
+	return v.ServiceType
+}
+
 type HTTPConfigInput struct {
 	Path    *string       `json:"path"`
 	Methods []*HTTPMethod `json:"methods"`
@@ -354,6 +375,15 @@ const (
 	KafkaTopicPatternPrefix  KafkaTopicPattern = "PREFIX"
 )
 
+type KubernetesServiceType string
+
+const (
+	KubernetesServiceTypeLoadBalancer KubernetesServiceType = "LOAD_BALANCER"
+	KubernetesServiceTypeNodePort     KubernetesServiceType = "NODE_PORT"
+	KubernetesServiceTypeClusterIp    KubernetesServiceType = "CLUSTER_IP"
+	KubernetesServiceTypeExternalName KubernetesServiceType = "EXTERNAL_NAME"
+)
+
 type NetworkPolicyInput struct {
 	Namespace                    string `json:"namespace"`
 	Name                         string `json:"name"`
@@ -401,6 +431,16 @@ type ReportComponentStatusResponse struct {
 // GetReportIntegrationComponentStatus returns ReportComponentStatusResponse.ReportIntegrationComponentStatus, and is useful for accessing the field via an interface.
 func (v *ReportComponentStatusResponse) GetReportIntegrationComponentStatus() bool {
 	return v.ReportIntegrationComponentStatus
+}
+
+// ReportExternallyAccessibleServicesResponse is returned by ReportExternallyAccessibleServices on success.
+type ReportExternallyAccessibleServicesResponse struct {
+	ReportExternallyAccessibleServices bool `json:"reportExternallyAccessibleServices"`
+}
+
+// GetReportExternallyAccessibleServices returns ReportExternallyAccessibleServicesResponse.ReportExternallyAccessibleServices, and is useful for accessing the field via an interface.
+func (v *ReportExternallyAccessibleServicesResponse) GetReportExternallyAccessibleServices() bool {
+	return v.ReportExternallyAccessibleServices
 }
 
 // ReportIntentsOperatorConfigurationResponse is returned by ReportIntentsOperatorConfiguration on success.
@@ -487,6 +527,20 @@ type __ReportComponentStatusInput struct {
 
 // GetComponent returns __ReportComponentStatusInput.Component, and is useful for accessing the field via an interface.
 func (v *__ReportComponentStatusInput) GetComponent() ComponentType { return v.Component }
+
+// __ReportExternallyAccessibleServicesInput is used internally by genqlient
+type __ReportExternallyAccessibleServicesInput struct {
+	Namespace string                             `json:"namespace"`
+	Services  []ExternallyAccessibleServiceInput `json:"services"`
+}
+
+// GetNamespace returns __ReportExternallyAccessibleServicesInput.Namespace, and is useful for accessing the field via an interface.
+func (v *__ReportExternallyAccessibleServicesInput) GetNamespace() string { return v.Namespace }
+
+// GetServices returns __ReportExternallyAccessibleServicesInput.Services, and is useful for accessing the field via an interface.
+func (v *__ReportExternallyAccessibleServicesInput) GetServices() []ExternallyAccessibleServiceInput {
+	return v.Services
+}
 
 // __ReportIntentsOperatorConfigurationInput is used internally by genqlient
 type __ReportIntentsOperatorConfigurationInput struct {
@@ -638,6 +692,41 @@ func ReportComponentStatus(
 	var err_ error
 
 	var data_ ReportComponentStatusResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by ReportExternallyAccessibleServices.
+const ReportExternallyAccessibleServices_Operation = `
+mutation ReportExternallyAccessibleServices ($namespace: String!, $services: [ExternallyAccessibleServiceInput!]!) {
+	reportExternallyAccessibleServices(namespace: $namespace, services: $services)
+}
+`
+
+func ReportExternallyAccessibleServices(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	namespace string,
+	services []ExternallyAccessibleServiceInput,
+) (*ReportExternallyAccessibleServicesResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportExternallyAccessibleServices",
+		Query:  ReportExternallyAccessibleServices_Operation,
+		Variables: &__ReportExternallyAccessibleServicesInput{
+			Namespace: namespace,
+			Services:  services,
+		},
+	}
+	var err_ error
+
+	var data_ ReportExternallyAccessibleServicesResponse
 	resp_ := &graphql.Response{Data: &data_}
 
 	err_ = client_.MakeRequest(
