@@ -12,7 +12,7 @@ import (
 )
 
 func (a *Agent) createRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition) error {
-	roleAssignmentName := uuid.New().String()
+	roleAssignmentName := uuid.NewString()
 	roleAssignment, err := a.roleAssignmentsClient.Create(
 		ctx,
 		scope,

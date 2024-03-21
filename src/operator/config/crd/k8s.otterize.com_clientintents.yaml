@@ -204,6 +204,91 @@ spec:
                       items:
                         type: string
                       type: array
+                    azureKeyVaultPolicy:
+                      properties:
+                        certificatePermissions:
+                          items:
+                            enum:
+                            - all
+                            - backup
+                            - create
+                            - delete
+                            - deleteissuers
+                            - get
+                            - getissuers
+                            - import
+                            - list
+                            - listissuers
+                            - managecontacts
+                            - manageissuers
+                            - purge
+                            - recover
+                            - restore
+                            - setissuers
+                            - update
+                            type: string
+                          type: array
+                        keyPermissions:
+                          items:
+                            enum:
+                            - all
+                            - backup
+                            - create
+                            - decrypt
+                            - delete
+                            - encrypt
+                            - get
+                            - getrotationpolicy
+                            - import
+                            - list
+                            - purge
+                            - recover
+                            - release
+                            - restore
+                            - rotate
+                            - setrotationpolicy
+                            - sign
+                            - unwrapkey
+                            - update
+                            - verify
+                            - wrapkey
+                            type: string
+                          type: array
+                        secretPermissions:
+                          items:
+                            enum:
+                            - all
+                            - backup
+                            - delete
+                            - get
+                            - list
+                            - purge
+                            - recover
+                            - restore
+                            - set
+                            type: string
+                          type: array
+                        storagePermissions:
+                          items:
+                            enum:
+                            - all
+                            - backup
+                            - delete
+                            - deletesas
+                            - get
+                            - getsas
+                            - list
+                            - listsas
+                            - purge
+                            - recover
+                            - regeneratekey
+                            - restore
+                            - set
+                            - setsas
+                            - update
+                            type: string
+                          type: array
+                      type: object
                     azureRoles:
                       items:
                         type: string

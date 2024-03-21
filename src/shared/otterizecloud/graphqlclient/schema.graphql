@@ -175,6 +175,20 @@ input AzureInfoInput {
 	namespace: String!
 }
 
+type AzureKeyVaultPolicy {
+	certificatePermissions: [String!]
+	keyPermissions: [String!]
+	secretPermissions: [String!]
+	storagePermissions: [String!]
+}
+
+input AzureKeyVaultPolicyInput {
+	certificatePermissions: [String!]
+	keyPermissions: [String!]
+	secretPermissions: [String!]
+	storagePermissions: [String!]
+}
+
 type AzureResource {
 	resource: String!
 }
@@ -698,6 +712,7 @@ type Intent {
 	databaseResources: [DatabaseConfig!]
 	awsActions: [String!]
 	azureRoles: [String!]
+	azureKeyVaultPolicy: AzureKeyVaultPolicy
 	gcpPermissions: [String!]
 	internet: InternetConfig
 	status: IntentStatus
@@ -714,6 +729,7 @@ input IntentInput {
 	databaseResources: [DatabaseConfigInput!]
 	awsActions: [String!]
 	azureRoles: [String!]
+	azureKeyVaultPolicy: AzureKeyVaultPolicyInput
 	gcpPermissions: [String!]
 	internet: InternetConfigInput
 	status: IntentStatusInput
