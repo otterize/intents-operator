@@ -56,6 +56,25 @@ func TranslatePostgresConnectionError(err error) (string, bool) {
 	return "", false
 }
 
+func IsInvalidAuthorizationError(err error) bool {
+	if pgErr := &(pgconn.PgError{}); errors.As(err, &pgErr) {
+		if pgErr.Code == "28000" {
+			return true
+		}
+	}
+	return false
+}
+
+func TranslatePostgresCommandsError(err error) error {
+	if pgErr := &(pgconn.PgError{}); errors.As(err, &pgErr) {
+		// See: https://www.postgresql.org/docs/current/errcodes-appendix.html
+		if pgErr.Code == "42P01" || pgErr.Code == "3F000" {
+			return errors.Wrap(fmt.Errorf("bad schema/table name: %s", pgErr.Message))
+		}
+	}
+	return errors.Wrap(err)
+}
+
 func ValidateUserExists(ctx context.Context, user string, conn *pgx.Conn) (bool, error) {
 	row, err := conn.Query(ctx, PGSelectUserQuery, user)
 	if err != nil {

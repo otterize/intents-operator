@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/clusterid"
 	"github.com/otterize/intents-operator/src/shared/databaseutils"
@@ -90,25 +89,6 @@ func NewPostgresConfigurator(pgServerConfSpec otterizev1alpha3.PostgreSQLServerC
 	}
 }
 
-func IsInvalidAuthorizationError(err error) bool {
-	if pgErr := &(pgconn.PgError{}); errors.As(err, &pgErr) {
-		if pgErr.Code == "28000" {
-			return true
-		}
-	}
-	return false
-}
-
-func TranslatePostgresCommandsError(err error) error {
-	if pgErr := &(pgconn.PgError{}); errors.As(err, &pgErr) {
-		// See: https://www.postgresql.org/docs/current/errcodes-appendix.html
-		if pgErr.Code == "42P01" || pgErr.Code == "3F000" {
-			return errors.Wrap(fmt.Errorf("bad schema/table name: %s", pgErr.Message))
-		}
-	}
-	return errors.Wrap(err)
-}
-
 func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	ctx context.Context,
 	workloadName string,
@@ -154,7 +134,7 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 		// If we got invalid authorization error at this point it means we are blocked by the hba_conf file.
 		// It may occur for cloud provider databases such as "cloudsqladmin".
 		// TODO: Remove it when we have a better solution for knowing what were the last applied intents.
-		if err != nil && IsInvalidAuthorizationError(err) {
+		if err != nil && databaseutils.IsInvalidAuthorizationError(err) {
 			logrus.Infof("Invalid authorization error to: %s", dbname)
 			continue
 		}
@@ -182,21 +162,29 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 		if err != nil {
 			return errors.Wrap(err)
 		}
-		batchResults := p.Conn.SendBatch(ctx, &statementsBatch)
-
-		for i := 0; i < statementsBatch.Len(); i++ {
-			if _, err := batchResults.Exec(); err != nil {
-				return TranslatePostgresCommandsError(err)
-			}
+		err = p.SendBatch(ctx, &statementsBatch)
+		if err != nil {
+			return errors.Wrap(err)
 		}
-		if err = batchResults.Close(); err != nil {
-			// Intentionally no error returned - clean up error
-			logrus.WithError(err).Errorf("Failed closing batch results")
-		}
-
 	}
+
 	return nil
 
+}
+
+func (p *PostgresConfigurator) SendBatch(ctx context.Context, statementsBatch *pgx.Batch) error {
+	batchResults := p.Conn.SendBatch(ctx, statementsBatch)
+
+	for i := 0; i < statementsBatch.Len(); i++ {
+		if _, err := batchResults.Exec(); err != nil {
+			return databaseutils.TranslatePostgresCommandsError(err)
+		}
+	}
+	if err := batchResults.Close(); err != nil {
+		// Intentionally no error returned - clean up error
+		logrus.WithError(err).Errorf("Failed closing batch results")
+	}
+	return nil
 }
 
 func (p *PostgresConfigurator) SetConnection(ctx context.Context, conn *pgx.Conn) {
@@ -252,7 +240,7 @@ func (p *PostgresConfigurator) SQLBatchFromDBResources(ctx context.Context, user
 		// Intent was deleted, revoke all client permissions from mentioned tables
 		for _, resource := range dbResources {
 			if resource.Table == "" {
-				err := p.queueRevokePermissionsByDatabaseNameStatements(ctx, &batch, username)
+				err := p.QueueRevokePermissionsByDatabaseNameStatements(ctx, &batch, username)
 				if err != nil {
 					return pgx.Batch{}, errors.Wrap(err)
 				}
@@ -387,7 +375,7 @@ func (p *PostgresConfigurator) revokeRemovedTablesPermissions(ctx context.Contex
 	batchResults := p.Conn.SendBatch(ctx, &batch)
 	for i := 0; i < batch.Len(); i++ {
 		if _, err := batchResults.Exec(); err != nil {
-			return TranslatePostgresCommandsError(err)
+			return databaseutils.TranslatePostgresCommandsError(err)
 		}
 	}
 	if err := batchResults.Close(); err != nil {
@@ -453,7 +441,7 @@ func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx c
 	return nil
 }
 
-func (p *PostgresConfigurator) queueRevokePermissionsByDatabaseNameStatements(ctx context.Context, batch *pgx.Batch, username string) error {
+func (p *PostgresConfigurator) QueueRevokePermissionsByDatabaseNameStatements(ctx context.Context, batch *pgx.Batch, username string) error {
 	// Get all schemas in current database
 	rows, err := p.Conn.Query(ctx, PGSSelectSchemaNamesQuery)
 	if err != nil {
