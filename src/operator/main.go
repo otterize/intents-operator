@@ -156,7 +156,7 @@ func main() {
 			BindAddress: metricsAddr,
 		},
 		WebhookServer: webhook.NewServer(webhook.Options{
-			Port:    9444,
+			Port:    9443,
 			CertDir: webhooks.CertDirPath,
 		}),
 		HealthProbeBindAddress: probeAddr,

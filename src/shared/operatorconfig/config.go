@@ -15,7 +15,7 @@ const (
 	MetricsAddrKey                              = "metrics-bind-address" // The address the metric endpoint binds to
 	MetricsAddrDefault                          = ":2112"
 	ProbeAddrKey                                = "health-probe-bind-address" // The address the probe endpoint binds to
-	ProbeAddrDefault                            = ":8182"
+	ProbeAddrDefault                            = ":8181"
 	EnableLeaderElectionKey                     = "leader-elect" // Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager
 	EnableLeaderElectionDefault                 = false
 	WatchedNamespacesKey                        = "watched-namespaces"    // Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas
