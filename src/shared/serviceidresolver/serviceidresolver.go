@@ -117,9 +117,6 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 }
 
 func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error) {
-	//if intent.Spec.Service.Kind != "" {
-	//	serviceidentity.NewFromClientIntent(intent).String()
-	//}
 	podsList := &corev1.PodList{}
 	labelSelector, err := intent.BuildPodLabelSelector()
 	if err != nil {
