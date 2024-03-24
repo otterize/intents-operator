@@ -2,6 +2,8 @@ package databaseutils
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -11,7 +13,7 @@ import (
 )
 
 const (
-	PGUsernameMaxLength = 63
+	PGUsernameMaxLength = 58
 	PGSelectUserQuery   = "SELECT FROM pg_catalog.pg_user where usename = $1"
 )
 
@@ -20,7 +22,10 @@ func BuildPostgresUsername(clusterUID string, workloadName, namespace string) st
 	if len(username) > PGUsernameMaxLength {
 		username = username[:PGUsernameMaxLength]
 	}
-	return username
+	hash := md5.Sum([]byte(username))
+	hashSuffix := hex.EncodeToString(hash[:])[:6]
+
+	return fmt.Sprintf("%s_%s", username, hashSuffix)
 }
 
 // KubernetesToPostgresName translates a name with Kubernetes conventions to Postgres conventions
