@@ -119,7 +119,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 // cleanExcessPermissions compensates for DB resources completely removed from client intents
 // Permission edits are handled by the normal flow because we run "revoke all" before adding permissions
-// This is only used when permissions are completely removed, then we
+// This is only used when permissions might have been completely removed in a ClientIntents edit operation
 func (r *DatabaseReconciler) cleanExcessPermissions(ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
 	allDBServerConfigs := otterizev1alpha3.PostgreSQLServerConfigList{}
 	if err := r.client.List(ctx, &allDBServerConfigs); err != nil {
