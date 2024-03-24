@@ -67,7 +67,8 @@ func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, prote
 			continue
 		}
 
-		formattedServerName := otterizev1alpha3.GetFormattedOtterizeIdentity(protectedService.Spec.Name, namespace)
+		serverServiceIdentity := protectedService.ToServiceIdentity()
+		formattedServerName := serverServiceIdentity.GetFormattedOtterizeIdentity()
 		policy := r.buildNetworkPolicyObjectForIntent(formattedServerName, protectedService.Spec.Name, namespace)
 		if r.netpolEnforcementEnabled {
 			serversToProtect[formattedServerName] = policy

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/networking/v1"
@@ -35,9 +36,9 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 	serviceName := "test-client"
 	serverName := "test-server"
 	serverNamespace := testServerNamespace
-	formattedServer := otterizev1alpha3.GetFormattedOtterizeIdentity(serverName, serverNamespace)
-	formattedServerService := otterizev1alpha3.GetFormattedOtterizeIdentity("svc."+serverName, serverNamespace)
-	formattedClient := otterizev1alpha3.GetFormattedOtterizeIdentity(serviceName, testNamespace)
+	formattedServer := (&serviceidentity.ServiceIdentity{Name: serverName, Namespace: serverNamespace}).GetFormattedOtterizeIdentity()
+	formattedServerService := (&serviceidentity.ServiceIdentity{Name: serverName, Namespace: serverNamespace, Kind: serviceidentity.KindService}).GetFormattedOtterizeIdentity()
+	formattedClient := (&serviceidentity.ServiceIdentity{Name: serviceName, Namespace: testNamespace}).GetFormattedOtterizeIdentity()
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
 		Name:      "client-intents",

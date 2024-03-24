@@ -28,7 +28,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -301,7 +300,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 					res = append(res, otterizev1alpha3.OtterizeInternetTargetName)
 					continue
 				}
-				service := serviceidentity.NewFromIntent(intent, intents.Namespace)
+				service := intent.ToServiceIdentity(intents.Namespace)
 				res = append(res, service.GetFormattedOtterizeIdentity())
 			}
 
@@ -310,6 +309,23 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	if err != nil {
 		return errors.Wrap(err)
 	}
+
+	//err = mgr.GetCache().IndexField(
+	//	context.Background(),
+	//	&corev1.Pod{},
+	//	otterizev1alpha3.OtterizePodByOwnerKindAndNameIndexField,
+	//	func(object client.Object) []string {
+	//		pod := object.(*corev1.Pod)
+	//		owner, err := serviceidresolver.NewResolver(r.client).GetOwnerObject(context.Background(), pod)
+	//		if err != nil {
+	//			return nil
+	//		}
+	//		serviceId := serviceidentity.NewFromPodOwner(owner)
+	//		return []string{serviceId.String()}
+	//	})
+	//if err != nil {
+	//	return errors.Wrap(err)
+	//}
 
 	return nil
 }

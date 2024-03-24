@@ -70,7 +70,8 @@ func (c *PolicyManagerImpl) DeleteAll(
 	ctx context.Context,
 	clientIntents *v1alpha3.ClientIntents,
 ) error {
-	clientFormattedIdentity := v1alpha3.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, clientIntents.Namespace)
+	clientServiceIdentity := clientIntents.ToServiceIdentity()
+	clientFormattedIdentity := clientServiceIdentity.GetFormattedOtterizeIdentity()
 
 	var existingPolicies v1beta1.AuthorizationPolicyList
 	err := c.client.List(ctx,
@@ -94,12 +95,12 @@ func (c *PolicyManagerImpl) Create(
 	clientIntents *v1alpha3.ClientIntents,
 	clientServiceAccount string,
 ) error {
-	clientFormattedIdentity := v1alpha3.GetFormattedOtterizeIdentity(clientIntents.Spec.Service.Name, clientIntents.Namespace)
+	clientServiceIdentity := clientIntents.ToServiceIdentity()
 
 	var existingPolicies v1beta1.AuthorizationPolicyList
 	err := c.client.List(ctx,
 		&existingPolicies,
-		client.MatchingLabels{v1alpha3.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
+		client.MatchingLabels{v1alpha3.OtterizeIstioClientAnnotationKey: clientServiceIdentity.GetFormattedOtterizeIdentity()})
 	if err != nil {
 		c.recorder.RecordWarningEventf(clientIntents, ReasonGettingIstioPolicyFailed, "Could not get Istio policies: %s", err.Error())
 		return errors.Wrap(err)
@@ -461,10 +462,12 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 ) *v1beta1.AuthorizationPolicy {
 	policyName := c.getPolicyName(clientIntents, intent)
 	logrus.Infof("Creating Istio policy %s for intent %s", policyName, intent.GetTargetServerName())
+	clientIdentity := clientIntents.ToServiceIdentity()
+	serverIdentity := intent.ToServiceIdentity(clientIntents.Namespace)
 
 	serverNamespace := intent.GetTargetServerNamespace(clientIntents.Namespace)
-	formattedTargetServer := v1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), serverNamespace)
-	clientFormattedIdentity := v1alpha3.GetFormattedOtterizeIdentity(clientIntents.GetServiceName(), clientIntents.Namespace)
+	formattedTargetServer := serverIdentity.GetFormattedOtterizeIdentity()
+	clientFormattedIdentity := clientIdentity.GetFormattedOtterizeIdentity()
 
 	var ruleTo []*v1beta1security.Rule_To
 	if intent.Type == v1alpha3.IntentTypeHTTP {
