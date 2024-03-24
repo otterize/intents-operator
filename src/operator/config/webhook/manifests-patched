@@ -1,7 +1,6 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  creationTimestamp: null
   labels:
     app.kubernetes.io/component: intents-operator
     app.kubernetes.io/part-of: otterize
@@ -91,8 +90,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: intents-operator-webhook-service
-      namespace: {{ .Release.Namespace }}
+      name: webhook-service
+      namespace: system
       path: /validate-k8s-otterize-com-v1alpha3-protectedservice
   failurePolicy: Fail
   name: protectedservicev1alpha3.kb.io
