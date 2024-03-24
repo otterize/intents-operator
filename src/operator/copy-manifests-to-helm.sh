@@ -1,7 +1,11 @@
 #!/bin/bash
 
-TEMPLATE_DIR=../../helm-charts/intents-operator/templates
-CRD_DIR=../../helm-charts/intents-operator/crds
+if [ -z "$HELM_CHARTS_DIR" ]; then
+  HELM_CHARTS_DIR=../../helm-charts
+fi
+
+TEMPLATE_DIR=$HELM_CHARTS_DIR/intents-operator/templates
+CRD_DIR=$HELM_CHARTS_DIR/intents-operator/crds
 
 # rename ctd files
 src_dir=config/crd

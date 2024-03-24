@@ -7,78 +7,87 @@ import (
 	"testing"
 )
 
+const (
+	testSubscriptionID = "test-subscriptionid"
+	testResourceGroup  = "test-resourcegroup"
+	testAKSClusterName = "test-aksclustername"
+	testTenantID       = "test-tenantid"
+	testLocation       = "test-location"
+	testOIDCIssuerURL  = "test-oidcissuerurl"
+
+	testNamespace          = "test-namespace"
+	testAccountName        = "test-accountname"
+	testIntentsServiceName = "test-intentsservicename"
+
+	testKeyVaultName = "test-keyvaultname"
+)
+
 type AzureAgentPoliciesSuite struct {
 	suite.Suite
+	agent *Agent
 }
 
-func (s *AzureAgentPoliciesSuite) TestGetIntentScopeAppendSubscriptionID() {
-	// Arrange
-	agent := &Agent{
+func (s *AzureAgentPoliciesSuite) SetupTest() {
+	s.agent = &Agent{
 		&azureagent.Agent{
 			Conf: azureagent.Config{
-				SubscriptionID: "subscription-id",
+				SubscriptionID: testSubscriptionID,
+				ResourceGroup:  testResourceGroup,
 			},
 		},
 	}
-	intent := otterizev1alpha3.Intent{
-		Name: "/resourceGroups/resource-group-name/providers/Microsoft.Storage/storageAccounts/storage-account-name",
-	}
-
-	// Act
-	scope, err := agent.getIntentScope(intent)
-
-	// Assert
-	s.Require().NoError(err)
-	s.Equal("/subscriptions/subscription-id/resourceGroups/resource-group-name/providers/Microsoft.Storage/storageAccounts/storage-account-name", scope)
 }
 
-func (s *AzureAgentPoliciesSuite) TestGetIntentScopeAppendSubscriptionIDAndResourceGroup() {
-	// Arrange
-	agent := &Agent{
-		&azureagent.Agent{
-			Conf: azureagent.Config{
-				SubscriptionID: "subscription-id",
-				ResourceGroup:  "resource-group-name",
-			},
-		},
-	}
-
-	intent := otterizev1alpha3.Intent{
-		Name: "/providers/Microsoft.Storage/storageAccounts/storage-account-name",
-	}
-
-	// Act
-	scope, err := agent.getIntentScope(intent)
-
-	// Assert
-	s.Require().NoError(err)
-	s.Equal("/subscriptions/subscription-id/resourceGroups/resource-group-name/providers/Microsoft.Storage/storageAccounts/storage-account-name", scope)
+type GetIntentScopeTestCase struct {
+	Name          string
+	IntentName    string
+	ExpectedScope string
 }
 
-func (s *AzureAgentPoliciesSuite) TestGetIntentScopeFullScope() {
-	// Arrange
-	agent := &Agent{}
-	intent := otterizev1alpha3.Intent{
-		Name: "/subscriptions/subscription-id/resourceGroups/resource-group-name/providers/Microsoft.Storage/storageAccounts/storage-account-name",
+var getIntentScopeTestCases = []GetIntentScopeTestCase{
+	{
+		Name:          "AppendSubscriptionID",
+		IntentName:    "/resourceGroups/resourcegroup/providers/Microsoft.Storage/storageAccounts/storage-account-name",
+		ExpectedScope: "/subscriptions/test-subscriptionid/resourceGroups/resourcegroup/providers/Microsoft.Storage/storageAccounts/storage-account-name",
+	},
+	{
+		Name:          "AppendSubscriptionIDAndResourceGroup",
+		IntentName:    "/providers/Microsoft.Storage/storageAccounts/storage-account-name",
+		ExpectedScope: "/subscriptions/test-subscriptionid/resourceGroups/test-resourcegroup/providers/Microsoft.Storage/storageAccounts/storage-account-name",
+	},
+	{
+		Name:          "IntentIsFullScope",
+		IntentName:    "/subscriptions/subscriptionid/resourceGroups/resourcegroup/providers/Microsoft.Storage/storageAccounts/storage-account-name",
+		ExpectedScope: "/subscriptions/subscriptionid/resourceGroups/resourcegroup/providers/Microsoft.Storage/storageAccounts/storage-account-name",
+	},
+}
+
+func (s *AzureAgentPoliciesSuite) TestGetIntentScope_HappyFlows() {
+	for _, testCase := range getIntentScopeTestCases {
+		s.Run(testCase.Name, func() {
+			// Arrange
+			intent := otterizev1alpha3.Intent{
+				Name: testCase.IntentName,
+			}
+
+			// Act
+			scope, err := s.agent.getIntentScope(intent)
+
+			// Assert
+			s.Require().NoError(err)
+			s.Equal(testCase.ExpectedScope, scope)
+		})
 	}
-
-	// Act
-	scope, err := agent.getIntentScope(intent)
-
-	// Assert
-	s.Require().NoError(err)
-	s.Equal("/subscriptions/subscription-id/resourceGroups/resource-group-name/providers/Microsoft.Storage/storageAccounts/storage-account-name", scope)
 }
 
 func (s *AzureAgentPoliciesSuite) TestGetIntentScopeError() {
 	// Arrange
-	agent := &Agent{}
 	intent := otterizev1alpha3.Intent{
 		Name: "invalid-scope",
 	}
 
 	// Act
-	scope, err := agent.getIntentScope(intent)
+	scope, err := s.agent.getIntentScope(intent)
 
 	// Assert
 	s.Require().Error(err)

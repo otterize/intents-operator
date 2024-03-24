@@ -26,7 +26,7 @@ const (
 	maxFederatedIdentityLength = 120
 )
 
-func (a *Agent) generateUserAssignedIdentityName(namespace string, accountName string) string {
+func (a *Agent) GenerateUserAssignedIdentityName(namespace string, accountName string) string {
 	fullName := fmt.Sprintf("ottr-uai-%s-%s-%s", namespace, accountName, a.Conf.AKSClusterName)
 	return agentutils.TruncateHashName(fullName, maxManagedIdentityLength)
 }
@@ -39,7 +39,7 @@ func (a *Agent) generateFederatedIdentityCredentialsName(namespace string, accou
 var ErrUserIdentityNotFound = errors.New("user assigned identity not found")
 
 func (a *Agent) FindUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
-	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
+	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)
 	userAssignedIdentity, err := a.userAssignedIdentitiesClient.Get(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, nil)
 	if err != nil {
 		if azureerrors.IsNotFoundErr(err) {
@@ -53,7 +53,7 @@ func (a *Agent) FindUserAssignedIdentity(ctx context.Context, namespace string, 
 
 func (a *Agent) GetOrCreateUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
 	logger := logrus.WithField("namespace", namespace).WithField("account", accountName)
-	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
+	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)
 	logger.WithField("identity", userAssignedIdentityName).Debug("getting or creating user assigned identity")
 	userAssignedIdentity, err := a.userAssignedIdentitiesClient.CreateOrUpdate(
 		ctx,
@@ -96,7 +96,7 @@ func (a *Agent) GetOrCreateUserAssignedIdentity(ctx context.Context, namespace s
 
 func (a *Agent) DeleteUserAssignedIdentity(ctx context.Context, namespace string, accountName string) error {
 	logger := logrus.WithField("namespace", namespace).WithField("account", accountName)
-	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
+	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)
 	federatedIdentityCredentialsName := a.generateFederatedIdentityCredentialsName(namespace, accountName)
 
 	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Debug("deleting federated identity credentials")
