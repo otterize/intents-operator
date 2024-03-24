@@ -23,10 +23,6 @@ import (
 // ProtectedServiceSpec defines the desired state of ProtectedService
 type ProtectedServiceSpec struct {
 	Name string `json:"name,omitempty"`
-	//+optional
-	Group string `json:"group" yaml:"group"`
-	//+optional
-	Kind string `json:"kind" yaml:"kind"`
 }
 
 // ProtectedServiceStatus defines the observed state of ProtectedService

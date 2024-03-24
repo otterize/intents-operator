@@ -310,23 +310,6 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 		return errors.Wrap(err)
 	}
 
-	//err = mgr.GetCache().IndexField(
-	//	context.Background(),
-	//	&corev1.Pod{},
-	//	otterizev1alpha3.OtterizePodByOwnerKindAndNameIndexField,
-	//	func(object client.Object) []string {
-	//		pod := object.(*corev1.Pod)
-	//		owner, err := serviceidresolver.NewResolver(r.client).GetOwnerObject(context.Background(), pod)
-	//		if err != nil {
-	//			return nil
-	//		}
-	//		serviceId := serviceidentity.NewFromPodOwner(owner)
-	//		return []string{serviceId.String()}
-	//	})
-	//if err != nil {
-	//	return errors.Wrap(err)
-	//}
-
 	return nil
 }
 

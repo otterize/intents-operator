@@ -141,10 +141,6 @@ type IntentsSpec struct {
 
 type Service struct {
 	Name string `json:"name" yaml:"name"`
-	//+optional
-	Group string `json:"group" yaml:"group"`
-	//+optional
-	Kind string `json:"kind" yaml:"kind"`
 }
 
 type Intent struct {
@@ -345,11 +341,6 @@ func (in *Intent) GetTargetServerKind() string {
 	return ""
 }
 
-func (in *Intent) GetTargetServerGroup() string {
-	// TODO: Implement this
-	return ""
-}
-
 func (in *Intent) GetServerFullyQualifiedName(intentsObjNamespace string) string {
 	fullyQualifiedName := fmt.Sprintf("%s.%s", in.GetTargetServerName(), in.GetTargetServerNamespace(intentsObjNamespace))
 	return fullyQualifiedName
@@ -402,14 +393,6 @@ func (in *ClientIntents) GetServersWithoutSidecar() (sets.Set[string], error) {
 	}
 
 	return sets.New[string](serversList...), nil
-}
-
-func (in *ClientIntents) GetClientServiceKind() string {
-	return in.Spec.Service.Kind
-}
-
-func (in *ClientIntents) GetClientServiceGroup() string {
-	return in.Spec.Service.Group
 }
 
 func (in *ClientIntents) IsServerMissingSidecar(intent Intent) (bool, error) {
