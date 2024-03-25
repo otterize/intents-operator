@@ -61,8 +61,8 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	serviceName := intents.GetServiceName()
 	intentLabels := intents.GetIntentsLabelMapping(namespace)
+	serviceIdentity := intents.ToServiceIdentity()
 
 	// List the pods in the namespace and update labels if required
 	labelSelector, err := intents.BuildPodLabelSelector()
@@ -81,8 +81,8 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	for _, pod := range podList.Items {
 		if otterizev1alpha3.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
-			logrus.Infof("Updating %s pod labels with new intents", serviceName)
-			updatedPod := otterizev1alpha3.UpdateOtterizeAccessLabels(pod.DeepCopy(), serviceName, intentLabels)
+			logrus.Infof("Updating %s pod labels with new intents", serviceIdentity.Name)
+			updatedPod := otterizev1alpha3.UpdateOtterizeAccessLabels(pod.DeepCopy(), *serviceIdentity, intentLabels)
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				r.RecordWarningEventf(intents, ReasonUpdatePodFailed, "could not update pod: %s", err.Error())
@@ -120,10 +120,8 @@ func (r *PodLabelReconciler) removeLabelsFromPods(
 		}
 		updatedPod.Annotations[otterizev1alpha3.AllIntentsRemovedAnnotation] = "true"
 		for _, intent := range intents.GetCallsList() {
-			targetServerIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(
-				intent.Name, intent.GetTargetServerNamespace(intents.Namespace))
-
-			accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity)
+			targetServerIdentity := intent.ToServiceIdentity(intents.Namespace)
+			accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity.GetFormattedOtterizeIdentity())
 			delete(updatedPod.Labels, accessLabel)
 		}
 

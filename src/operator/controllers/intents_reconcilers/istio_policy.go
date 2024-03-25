@@ -136,8 +136,8 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
 	for _, intent := range intents.Spec.Calls {
-		serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
-		pod, err := r.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, serverNamespace)
+		serviceId := intent.ToServiceIdentity(intents.Namespace)
+		pod, err := r.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, serviceId.Namespace)
 		if err != nil {
 			if errors.Is(err, serviceidresolver.ErrPodNotFound) {
 				continue
@@ -146,7 +146,7 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 		}
 
 		missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
-		formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), serverNamespace)
+		formattedTargetServer := serviceId.GetFormattedOtterizeIdentity()
 		err = r.policyManager.UpdateServerSidecar(ctx, intents, formattedTargetServer, missingSideCar)
 		if err != nil {
 			return errors.Wrap(err)

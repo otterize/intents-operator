@@ -153,8 +153,7 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 	}
 
 	for _, clientIntents := range intentsList.Items {
-		formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
-		err = p.istioPolicyAdmin.UpdateServerSidecar(ctx, &clientIntents, formattedTargetServer, missingSideCar)
+		err = p.istioPolicyAdmin.UpdateServerSidecar(ctx, &clientIntents, serviceID.GetFormattedOtterizeIdentity(), missingSideCar)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -176,7 +175,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		return nil
 	}
 
-	otterizeServerLabelValue := otterizev1alpha3.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
+	otterizeServerLabelValue := serviceID.GetFormattedOtterizeIdentity()
 	updatedPod := pod.DeepCopy()
 	hasUpdates := false
 
@@ -220,7 +219,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		}
 		if otterizev1alpha3.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
 			logrus.Infof("Updating Otterize access labels for %s", serviceID.Name)
-			updatedPod = otterizev1alpha3.UpdateOtterizeAccessLabels(updatedPod.DeepCopy(), serviceID.Name, otterizeAccessLabels)
+			updatedPod = otterizev1alpha3.UpdateOtterizeAccessLabels(updatedPod.DeepCopy(), serviceID, otterizeAccessLabels)
 			prometheus.IncrementPodsLabeledForNetworkPolicies(1)
 			hasUpdates = true
 		}

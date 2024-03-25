@@ -28,7 +28,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -303,7 +302,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 					res = append(res, otterizev1alpha3.OtterizeInternetTargetName)
 					continue
 				}
-				service := serviceidentity.NewFromIntent(intent, intents.Namespace)
+				service := intent.ToServiceIdentity(intents.Namespace)
 				res = append(res, service.GetFormattedOtterizeIdentity())
 			}
 

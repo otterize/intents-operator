@@ -1,6 +1,7 @@
 package v1alpha3
 
 import (
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	v1 "k8s.io/api/core/v1"
 	"strings"
 )
@@ -23,7 +24,7 @@ func IsMissingOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]
 
 // UpdateOtterizeAccessLabels updates a pod's labels with Otterize labels representing their intents
 // The pod is also labeled with "otterize-client=<hashed-client-name>" to mark it as having intents or being the client-side of an egress netpol
-func UpdateOtterizeAccessLabels(pod *v1.Pod, serviceName string, otterizeAccessLabels map[string]string) *v1.Pod {
+func UpdateOtterizeAccessLabels(pod *v1.Pod, serviceIdentity serviceidentity.ServiceIdentity, otterizeAccessLabels map[string]string) *v1.Pod {
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
 	}
@@ -31,7 +32,7 @@ func UpdateOtterizeAccessLabels(pod *v1.Pod, serviceName string, otterizeAccessL
 	for k, v := range otterizeAccessLabels {
 		pod.Labels[k] = v
 	}
-	pod.Labels[OtterizeClientLabelKey] = GetFormattedOtterizeIdentity(serviceName, pod.Namespace)
+	pod.Labels[OtterizeClientLabelKey] = serviceIdentity.GetFormattedOtterizeIdentity()
 	return pod
 }
 

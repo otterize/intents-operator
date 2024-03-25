@@ -17,11 +17,10 @@ limitations under the License.
 package v1alpha3
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"strconv"
 	"strings"
 
@@ -66,6 +65,7 @@ const (
 	OtterizeKafkaServerConfigServiceNameField = "spec.service.name"
 	OtterizeProtectedServiceNameIndexField    = "spec.name"
 	OtterizeFormattedTargetServerIndexField   = "formattedTargetServer"
+	OtterizePodByOwnerKindAndNameIndexField   = "podByOwnerKindAndName"
 	EndpointsPodNamesIndexField               = "endpointsPodNames"
 	IngressServiceNamesIndexField             = "ingressServiceNames"
 	MaxOtterizeNameLength                     = 20
@@ -364,11 +364,8 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 		if intent.Type == IntentTypeAWS || intent.Type == IntentTypeGCP || intent.Type == IntentTypeAzure || intent.Type == IntentTypeDatabase {
 			continue
 		}
-		ns := intent.GetTargetServerNamespace(requestNamespace)
-		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, GetFormattedOtterizeIdentity(intent.GetTargetServerName(), ns))
-		if intent.IsTargetServerKubernetesService() {
-			labelKey = fmt.Sprintf(OtterizeSvcAccessLabelKey, GetFormattedOtterizeIdentity("svc."+intent.GetTargetServerName(), ns))
-		}
+		targetServiceIdentity := intent.ToServiceIdentity(requestNamespace)
+		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentity())
 		otterizeAccessLabels[labelKey] = "true"
 	}
 
@@ -441,6 +438,13 @@ func (in *Intent) GetTargetServerName() string {
 	}
 }
 
+func (in *Intent) GetTargetServerKind() string {
+	if in.IsTargetServerKubernetesService() {
+		return serviceidentity.KindService
+	}
+	return ""
+}
+
 func (in *Intent) GetServerFullyQualifiedName(intentsObjNamespace string) string {
 	fullyQualifiedName := fmt.Sprintf("%s.%s", in.GetTargetServerName(), in.GetTargetServerNamespace(intentsObjNamespace))
 	return fullyQualifiedName
@@ -500,7 +504,7 @@ func (in *ClientIntents) IsServerMissingSidecar(intent Intent) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
-	serverIdentity := GetFormattedOtterizeIdentity(intent.GetTargetServerName(), intent.GetTargetServerNamespace(in.Namespace))
+	serverIdentity := intent.ToServiceIdentity(in.Namespace).GetFormattedOtterizeIdentity()
 	return serversSet.Has(serverIdentity), nil
 }
 
@@ -721,29 +725,6 @@ func intentsHTTPResourceToCloud(resource HTTPResource, index int) *graphqlclient
 	return &httpConfig
 }
 
-// GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)
-// It also adds a short md5 hash of the full name+ns string and returns the formatted string
-// This is due to Kubernetes' limit on 63 char label keys/values
-func GetFormattedOtterizeIdentity(name, ns string) string {
-	// Get MD5 for full length "name-namespace" string
-	hash := md5.Sum([]byte(fmt.Sprintf("%s-%s", name, ns)))
-
-	// Truncate name and namespace to 20 chars each
-	if len(name) > MaxOtterizeNameLength {
-		name = name[:MaxOtterizeNameLength]
-	}
-
-	if len(ns) > MaxNamespaceLength {
-		ns = ns[:MaxNamespaceLength]
-	}
-	// A 6 char hash, even though truncated, leaves 2 ^ 48 combinations which should be enough
-	// for unique identities in a k8s cluster
-	hashSuffix := hex.EncodeToString(hash[:])[:6]
-
-	return fmt.Sprintf("%s-%s-%s", name, ns, hashSuffix)
-
-}
-
 // BuildPodLabelSelector returns a label selector to match the otterize server labels for an intents resource
 func (in *ClientIntents) BuildPodLabelSelector() (labels.Selector, error) {
 	labelSelector, err := labels.Parse(
@@ -751,7 +732,7 @@ func (in *ClientIntents) BuildPodLabelSelector() (labels.Selector, error) {
 			OtterizeServiceLabelKey,
 			// Since all pods are also labeled with their server identity, we can use the Otterize server label
 			// To find all pods for this specific service
-			GetFormattedOtterizeIdentity(in.Spec.Service.Name, in.Namespace)))
+			in.ToServiceIdentity().GetFormattedOtterizeIdentity()))
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
