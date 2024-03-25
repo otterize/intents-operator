@@ -95,7 +95,7 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 		})
 
 	serviceSelector := map[string]string{"app": "test-server"}
-	svc := s.addExpectedKubernetesServiceCall("test-server", serverNamespace, 80, serviceSelector)
+	svc := s.addExpectedKubernetesServiceCall("test-server", serverNamespace, intstr.IntOrString{IntVal: 80}, serviceSelector)
 
 	egressRules := []v1.NetworkPolicyEgressRule{
 		{To: []v1.NetworkPolicyPeer{{
