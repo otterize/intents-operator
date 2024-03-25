@@ -148,10 +148,10 @@ func (r *DatabaseReconciler) cleanExcessPermissions(ctx context.Context, intents
 			// User was never in the db, nothing more to do
 			continue
 		}
-		_, found := lo.Find(intents.Spec.Calls, func(intent otterizev1alpha3.Intent) bool {
+		intent, found := lo.Find(intents.Spec.Calls, func(intent otterizev1alpha3.Intent) bool {
 			return intent.Name == config.Name
 		})
-		if !found {
+		if !found || (found && intent.DatabaseResources == nil) {
 			// Username exists in the database, but doesn't have any intents for it, run "revoke all" just in case
 			revokeBatch := &pgx.Batch{}
 			if err := pgConfigurator.QueueRevokePermissionsByDatabaseNameStatements(ctx, revokeBatch, pgUsername); err != nil {
