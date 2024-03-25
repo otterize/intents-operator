@@ -36,19 +36,16 @@ func (r *PortNetworkPolicyReconciler) buildIngressRulesFromEffectivePolicy(ep ef
 	ingressRules := make([]v1.NetworkPolicyIngressRule, 0)
 	fromNamespaces := goset.NewSet[string]()
 
-	portToProtocol := make(map[int]corev1.Protocol)
+	portToProtocol := make(map[intstr.IntOrString]corev1.Protocol)
 	for _, port := range svc.Spec.Ports {
-		if port.TargetPort.StrVal != "" {
-			continue
-		}
-		portToProtocol[port.TargetPort.IntValue()] = port.Protocol
+		portToProtocol[port.TargetPort] = port.Protocol
 	}
 
 	networkPolicyPorts := make([]v1.NetworkPolicyPort, 0)
 	// Create a list of network policy ports
 	for port, protocol := range portToProtocol {
 		netpolPort := v1.NetworkPolicyPort{
-			Port: &intstr.IntOrString{IntVal: int32(port)},
+			Port: lo.ToPtr(port),
 		}
 		if len(protocol) != 0 {
 			netpolPort.Protocol = lo.ToPtr(protocol)
