@@ -77,23 +77,14 @@ func getEgressRuleBasedOnServicePodSelector(svc *corev1.Service) v1.NetworkPolic
 		},
 	}
 
-	portToProtocol := make(map[int]corev1.Protocol)
-	// Gather all target ports (target ports in the pod the service proxies to)
-	for _, port := range svc.Spec.Ports {
-		if port.TargetPort.StrVal != "" {
-			continue
-		}
-		portToProtocol[port.TargetPort.IntValue()] = port.Protocol
-	}
-
-	networkPolicyPorts := make([]v1.NetworkPolicyPort, 0)
 	// Create a list of network policy ports
-	for port, protocol := range portToProtocol {
+	networkPolicyPorts := make([]v1.NetworkPolicyPort, 0)
+	for _, port := range svc.Spec.Ports {
 		netpolPort := v1.NetworkPolicyPort{
-			Port: &intstr.IntOrString{IntVal: int32(port)},
+			Port: lo.ToPtr(port.TargetPort),
 		}
-		if len(protocol) != 0 {
-			netpolPort.Protocol = lo.ToPtr(protocol)
+		if len(port.Protocol) != 0 {
+			netpolPort.Protocol = lo.ToPtr(port.Protocol)
 		}
 		networkPolicyPorts = append(networkPolicyPorts, netpolPort)
 	}

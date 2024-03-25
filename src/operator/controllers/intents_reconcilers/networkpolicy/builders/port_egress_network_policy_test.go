@@ -156,6 +156,47 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKube
 		clientIntentsName,
 		serverNamespace,
 		serviceName,
+		[]corev1.ServicePort{{TargetPort: intstr.IntOrString{IntVal: 80}}},
+		policyName,
+		formattedClient,
+		formattedServer,
+	)
+	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
+}
+
+func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetesServiceSamePortDifferentProtocol() {
+	clientIntentsName := "client-intents"
+	policyName := "test-client-access"
+	serviceName := "test-client"
+	serverNamespace := testNamespace
+	formattedClient := "test-client-test-client-namespac-edb3a2"
+	formattedServer := "test-server-test-namespace-8ddecb"
+
+	s.testCreateNetworkPolicyForKubernetesService(
+		clientIntentsName,
+		serverNamespace,
+		serviceName,
+		[]corev1.ServicePort{{Protocol: "TCP", TargetPort: intstr.IntOrString{IntVal: 80}}, {Protocol: "UDP", TargetPort: intstr.IntOrString{IntVal: 80}}},
+		policyName,
+		formattedClient,
+		formattedServer,
+	)
+	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
+}
+
+func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyNamedTagetPort() {
+	clientIntentsName := "client-intents"
+	policyName := "test-client-access"
+	serviceName := "test-client"
+	serverNamespace := testNamespace
+	formattedClient := "test-client-test-client-namespac-edb3a2"
+	formattedServer := "test-server-test-namespace-8ddecb"
+
+	s.testCreateNetworkPolicyForKubernetesService(
+		clientIntentsName,
+		serverNamespace,
+		serviceName,
+		[]corev1.ServicePort{{TargetPort: intstr.IntOrString{StrVal: "test"}}},
 		policyName,
 		formattedClient,
 		formattedServer,
@@ -311,6 +352,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForK
 	clientIntentsName string,
 	serverNamespace string,
 	serviceName string,
+	ports []corev1.ServicePort,
 	policyName string,
 	formattedClient string,
 	formattedServer string,
@@ -338,7 +380,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForK
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
-	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, 80, svcSelector)
+	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, ports, svcSelector)
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{
@@ -360,7 +402,9 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForK
 		svcObject,
 	)
 	// Add target port and change selector in ingress to use svc
-	newPolicy.Spec.Egress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
+	newPolicy.Spec.Egress[0].Ports = lo.Map(ports, func(port corev1.ServicePort, _ int) v1.NetworkPolicyPort {
+		return v1.NetworkPolicyPort{Port: &port.TargetPort, Protocol: lo.Ternary(len(port.Protocol) != 0, lo.ToPtr(port.Protocol), nil)}
+	})
 
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), gomock.Any(), gomock.Any())
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
@@ -372,7 +416,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForK
 	s.Empty(res)
 }
 
-func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesService() {
+func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKubernetesServiceNamedTargetPort() {
 	clientIntentsName := "client-intents"
 	policyName := "test-client-access"
 	serviceName := "test-client"
@@ -404,7 +448,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForK
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
-	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, 80, svcSelector)
+	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, []corev1.ServicePort{{TargetPort: intstr.IntOrString{IntVal: 80}}}, svcSelector)
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{
