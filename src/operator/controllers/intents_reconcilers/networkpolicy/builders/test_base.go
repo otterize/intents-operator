@@ -17,7 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -150,7 +149,7 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 	}).AnyTimes()
 }
 
-func (s *RulesBuilderTestSuiteBase) addExpectedKubernetesServiceCall(serviceName string, serviceNamespace string, port intstr.IntOrString, selector map[string]string) *corev1.Service {
+func (s *RulesBuilderTestSuiteBase) addExpectedKubernetesServiceCall(serviceName string, serviceNamespace string, ports []corev1.ServicePort, selector map[string]string) *corev1.Service {
 	serverStrippedSVCPrefix := strings.ReplaceAll(serviceName, "svc:", "")
 	kubernetesSvcNamespacedName := types.NamespacedName{
 		Namespace: serviceNamespace,
@@ -164,9 +163,7 @@ func (s *RulesBuilderTestSuiteBase) addExpectedKubernetesServiceCall(serviceName
 
 		Spec: corev1.ServiceSpec{
 			Selector: selector,
-			Ports: []corev1.ServicePort{{
-				TargetPort: port,
-			}},
+			Ports:    ports,
 		},
 	}
 
