@@ -6,6 +6,7 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
@@ -185,6 +186,25 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetes
 		clientIntentsName,
 		serverNamespace,
 		serviceName,
+		intstr.IntOrString{IntVal: 80},
+		policyName,
+		formattedTargetServer,
+	)
+	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
+}
+
+func (s *PortNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyNamedTargetPort() {
+	clientIntentsName := "client-intents"
+	policyName := "test-server-service-access"
+	serviceName := "test-client"
+	serverNamespace := testNamespace
+	formattedTargetServer := "svc.test-server-test-namespace-ab42d5"
+
+	s.testCreateNetworkPolicyForKubernetesService(
+		clientIntentsName,
+		serverNamespace,
+		serviceName,
+		intstr.IntOrString{StrVal: "test"},
 		policyName,
 		formattedTargetServer,
 	)
@@ -292,6 +312,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKuberne
 	clientIntentsName string,
 	serverNamespace string,
 	serviceName string,
+	port intstr.IntOrString,
 	policyName string,
 	formattedTargetServer string,
 ) {
@@ -318,7 +339,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKuberne
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
-	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, 80, svcSelector)
+	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, port, svcSelector)
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{
@@ -339,7 +360,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKuberne
 		svcObject,
 	)
 	// Add target port and change selector in ingress to use svc
-	newPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
+	newPolicy.Spec.Ingress[0].Ports = []v1.NetworkPolicyPort{{Port: lo.ToPtr(port)}}
 	selectorTyped := labels.SelectorFromSet(svcSelector)
 	newPolicy.Spec.PodSelector.MatchLabels = svcSelector
 
@@ -384,7 +405,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKuberne
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
-	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, 80, svcSelector)
+	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, intstr.IntOrString{IntVal: 80}, svcSelector)
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{
