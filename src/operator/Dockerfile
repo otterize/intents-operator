@@ -1,4 +1,4 @@
-FROM golang:1.21-alpine as builder
+FROM --platform=linux/amd64 golang:1.21-alpine as builder
 RUN apk add --no-cache ca-certificates git protoc
 RUN apk add build-base
 
