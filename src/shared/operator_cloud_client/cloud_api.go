@@ -41,7 +41,7 @@ func (c *CloudClientImpl) ReportKafkaServerConfig(ctx context.Context, namespace
 		return errors.Wrap(err)
 	}
 
-	logrus.Infof("Successfully reported KafkaServerConfig, count: %d", len(servers))
+	logrus.Debugf("Successfully reported KafkaServerConfig, count: %d", len(servers))
 
 	return nil
 }
@@ -94,7 +94,7 @@ func (c *CloudClientImpl) ReportExternallyAccessibleServices(ctx context.Context
 		return errors.Wrap(err)
 	}
 
-	logrus.Infof("Successfully reported ExternallyAccessibleServices, count: %d", len(services))
+	logrus.Debugf("Successfully reported ExternallyAccessibleServices, count: %d", len(services))
 
 	return nil
 }

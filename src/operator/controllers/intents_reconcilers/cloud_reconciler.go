@@ -72,7 +72,7 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	logrus.Infof("successfully reported %d applied intents", len(clientIntentsList.Items))
+	logrus.Debugf("successfully reported %d applied intents", len(clientIntentsList.Items))
 
 	return ctrl.Result{}, nil
 }
