@@ -82,10 +82,6 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	if pod.Labels == nil {
-		return ctrl.Result{}, nil
-	}
-
 	if err := r.applyTypedIAMIntents(ctx, pod, intents, r.agent); err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}

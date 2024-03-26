@@ -7,7 +7,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mock_iampolicyagents "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents/mocks"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
-	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
@@ -24,13 +23,15 @@ import (
 
 const (
 	testNamespace = "test-namespace"
+
+	testIntentType = otterizev1alpha3.IntentTypeGCP
 )
 
 type IAMIntentsReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
 	Reconciler      *IAMIntentsReconciler
 	serviceResolver *mocks.MockServiceResolver
-	gcpAgent        *mock_iampolicyagents.MockIAMPolicyAgent
+	iamAgent        *mock_iampolicyagents.MockIAMPolicyAgent
 	recorder        *record.FakeRecorder
 	scheme          *runtime.Scheme
 }
@@ -39,13 +40,13 @@ func (s *IAMIntentsReconcilerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 	s.scheme = runtime.NewScheme()
 	s.serviceResolver = mocks.NewMockServiceResolver(s.Controller)
-	s.gcpAgent = mock_iampolicyagents.NewMockIAMPolicyAgent(s.Controller)
+	s.iamAgent = mock_iampolicyagents.NewMockIAMPolicyAgent(s.Controller)
 
 	s.Reconciler = NewIAMIntentsReconciler(
 		s.Client,
 		s.scheme,
 		s.serviceResolver,
-		s.gcpAgent,
+		s.iamAgent,
 	)
 
 	s.recorder = record.NewFakeRecorder(100)
@@ -62,7 +63,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentNoPodLabelHasNoEffect
 	}
 	req := ctrl.Request{NamespacedName: namespacedName}
 
-	gcpIntents := otterizev1alpha3.ClientIntents{
+	iamIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
@@ -72,7 +73,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentNoPodLabelHasNoEffect
 			Calls: []otterizev1alpha3.Intent{
 				{
 					Name: "projects/_/buckets/bucket-name",
-					Type: v1alpha3.IntentTypeGCP,
+					Type: testIntentType,
 				},
 			},
 		},
@@ -94,21 +95,23 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentNoPodLabelHasNoEffect
 		},
 	}
 
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&gcpIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&iamIntents)).DoAndReturn(
 		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev1alpha3.ClientIntents, arg3 ...client.GetOption) error {
-			gcpIntents.DeepCopyInto(arg2)
+			iamIntents.DeepCopyInto(arg2)
 			return nil
 		},
 	)
 
-	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(gcpIntents)).Return(clientPod, nil)
+	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(iamIntents)).Return(clientPod, nil)
+
+	s.iamAgent.EXPECT().AppliesOnPod(gomock.AssignableToTypeOf(&clientPod)).Return(false)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
 }
 
-func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheGCPAgent() {
+func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheiamAgent() {
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 	clientServiceAccount := "test-server-sa"
@@ -122,7 +125,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheGCPAgent() 
 	filteredIntents := []otterizev1alpha3.Intent{
 		{
 			Name: "projects/_/buckets/bucket-name",
-			Type: v1alpha3.IntentTypeGCP,
+			Type: testIntentType,
 		},
 	}
 
@@ -134,7 +137,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheGCPAgent() 
 	}
 	allIntents = append(allIntents, filteredIntents...)
 
-	gcpIntents := otterizev1alpha3.ClientIntents{
+	iamIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
@@ -149,7 +152,6 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheGCPAgent() 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: testNamespace,
-			Labels:    map[string]string{gcpagent.GCPApplyOnPodLabel: "true"},
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: clientServiceAccount,
@@ -161,22 +163,22 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheGCPAgent() 
 		},
 	}
 
-	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&gcpIntents)).DoAndReturn(
+	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&iamIntents)).DoAndReturn(
 		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev1alpha3.ClientIntents, arg3 ...client.GetOption) error {
-			gcpIntents.DeepCopyInto(arg2)
+			iamIntents.DeepCopyInto(arg2)
 			return nil
 		},
 	)
 
-	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(gcpIntents)).Return(clientPod, nil)
-	s.gcpAgent.EXPECT().AppliesOnPod(gomock.AssignableToTypeOf(&clientPod)).Return(true)
-	s.gcpAgent.EXPECT().IntentType().Return(otterizev1alpha3.IntentTypeGCP)
+	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(iamIntents)).Return(clientPod, nil)
+	s.iamAgent.EXPECT().AppliesOnPod(gomock.AssignableToTypeOf(&clientPod)).Return(true)
+	s.iamAgent.EXPECT().IntentType().Return(testIntentType)
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(&otterizev1alpha3.ClientIntentsList{}),
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
-	s.gcpAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, clientServiceAccount, serviceName, filteredIntents).Return(nil)
+	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, clientServiceAccount, serviceName, filteredIntents).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -190,7 +192,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheGCPAgent() 
 	}
 }
 
-func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingTheGCPAgent() {
+func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingTheiamAgent() {
 	clientIntentsName := "client-intents"
 	serviceName := "test-client"
 	clientServiceAccount := "test-server-sa"
@@ -223,7 +225,6 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
 			Namespace: testNamespace,
-			Labels:    map[string]string{gcpagent.GCPApplyOnPodLabel: "true"},
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: clientServiceAccount,
@@ -243,14 +244,14 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 	)
 
 	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(clientIntents)).Return(clientPod, nil)
-	s.gcpAgent.EXPECT().AppliesOnPod(gomock.AssignableToTypeOf(&clientPod)).Return(true)
-	s.gcpAgent.EXPECT().IntentType().Return(otterizev1alpha3.IntentTypeGCP)
+	s.iamAgent.EXPECT().AppliesOnPod(gomock.AssignableToTypeOf(&clientPod)).Return(true)
+	s.iamAgent.EXPECT().IntentType().Return(testIntentType)
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(&otterizev1alpha3.ClientIntentsList{}),
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
-	s.gcpAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, clientServiceAccount, serviceName, []otterizev1alpha3.Intent{}).Return(nil)
+	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, clientServiceAccount, serviceName, []otterizev1alpha3.Intent{}).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
