@@ -5,7 +5,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents"
 	mock_iampolicyagents "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents/mocks"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
@@ -42,14 +41,11 @@ func (s *IAMIntentsReconcilerTestSuite) SetupTest() {
 	s.serviceResolver = mocks.NewMockServiceResolver(s.Controller)
 	s.gcpAgent = mock_iampolicyagents.NewMockIAMPolicyAgent(s.Controller)
 
-	var iamAgents []iampolicyagents.IAMPolicyAgent
-	iamAgents = append(iamAgents, s.gcpAgent)
-
 	s.Reconciler = NewIAMIntentsReconciler(
 		s.Client,
 		s.scheme,
 		s.serviceResolver,
-		iamAgents,
+		s.gcpAgent,
 	)
 
 	s.recorder = record.NewFakeRecorder(100)

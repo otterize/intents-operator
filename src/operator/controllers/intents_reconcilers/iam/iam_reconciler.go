@@ -23,20 +23,20 @@ type IAMIntentsReconciler struct {
 	Scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
 	serviceIdResolver serviceidresolver.ServiceResolver
-	agents            []iampolicyagents.IAMPolicyAgent
+	agent             iampolicyagents.IAMPolicyAgent
 }
 
 func NewIAMIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	serviceIdResolver serviceidresolver.ServiceResolver,
-	agents []iampolicyagents.IAMPolicyAgent,
+	agent iampolicyagents.IAMPolicyAgent,
 ) *IAMIntentsReconciler {
 	return &IAMIntentsReconciler{
 		Client:            client,
 		Scheme:            scheme,
 		serviceIdResolver: serviceIdResolver,
-		agents:            agents,
+		agent:             agent,
 	}
 }
 
@@ -56,11 +56,9 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	if intents.DeletionTimestamp != nil {
 		logger.Debug("Intents deleted, deleting IAM role policy for this service")
 
-		for _, agent := range r.agents {
-			err := agent.DeleteRolePolicyFromIntents(ctx, intents)
-			if err != nil {
-				return ctrl.Result{}, errors.Wrap(err)
-			}
+		err := r.agent.DeleteRolePolicyFromIntents(ctx, intents)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 
 		return ctrl.Result{}, nil
@@ -88,10 +86,8 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		return ctrl.Result{}, nil
 	}
 
-	for _, agent := range r.agents {
-		if err := r.applyTypedIAMIntents(ctx, pod, intents, agent); err != nil {
-			return ctrl.Result{}, errors.Wrap(err)
-		}
+	if err := r.applyTypedIAMIntents(ctx, pod, intents, r.agent); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil

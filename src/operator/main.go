@@ -283,11 +283,13 @@ func main() {
 		iamAgents = append(iamAgents, azureIntentsAgent)
 	}
 
-	if len(iamAgents) > 0 {
-		iamIntentsReconciler := iam.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceIdResolver, iamAgents)
+	for _, iamAgent := range iamAgents {
+		iamIntentsReconciler := iam.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceIdResolver, iamAgent)
 		additionalIntentsReconcilers = append(additionalIntentsReconcilers, iamIntentsReconciler)
+
 		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), iamIntentsReconciler)
 		err = iamPodWatcher.SetupWithManager(mgr)
+
 		if err != nil {
 			logrus.WithError(err).Panic("unable to register pod watcher")
 		}
