@@ -1,7 +1,8 @@
-package azureagent
+package azurepolicyagent
 
 import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/stretchr/testify/suite"
 	"testing"
 )
@@ -28,16 +29,13 @@ type AzureAgentPoliciesSuite struct {
 
 func (s *AzureAgentPoliciesSuite) SetupTest() {
 	s.agent = &Agent{
-		conf: Config{
-			SubscriptionID:          testSubscriptionID,
-			ResourceGroup:           testResourceGroup,
-			AKSClusterName:          testAKSClusterName,
-			TenantID:                testTenantID,
-			Location:                testLocation,
-			AKSClusterOIDCIssuerURL: testOIDCIssuerURL,
+		&azureagent.Agent{
+			Conf: azureagent.Config{
+				SubscriptionID: testSubscriptionID,
+				ResourceGroup:  testResourceGroup,
+			},
 		},
 	}
-
 }
 
 type GetIntentScopeTestCase struct {

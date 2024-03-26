@@ -1,58 +1,40 @@
 package gcpagent
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/iam/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	truncatedHashLength           = 6
-	maxK8SNameLength              = 250
-	maxK8STruncatedLength         = maxK8SNameLength - truncatedHashLength - 1
-	maxDisplayNameLength          = 100
-	maxDisplayNameTruncatedLength = maxDisplayNameLength - truncatedHashLength - 1
-	maxGCPNameLength              = 30
-	maxGCPTruncatedLength         = maxGCPNameLength - truncatedHashLength - 1
+	maxK8SNameLength     = 250
+	maxDisplayNameLength = 100
+	maxGCPNameLength     = 30
 )
-
-func (a *Agent) limitResourceName(name string, maxLength int) string {
-	var truncatedName string
-	if len(name) >= maxLength {
-		truncatedName = name[:maxLength]
-	} else {
-		truncatedName = name
-	}
-
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(name)))
-	hash = hash[:truncatedHashLength]
-
-	return fmt.Sprintf("%s-%s", truncatedName, hash)
-}
 
 func (a *Agent) generateKSAPolicyName(namespace string, intentsServiceName string) string {
 	name := fmt.Sprintf("otr-%s-%s-intent-policy", namespace, intentsServiceName)
-	return a.limitResourceName(name, maxK8STruncatedLength)
+	return agentutils.TruncateHashName(name, maxK8SNameLength)
 }
 
 func (a *Agent) generateGSAToKSAPolicyName(ksaName string) string {
 	name := fmt.Sprintf("otr-%s-gcp-identity", ksaName)
-	return a.limitResourceName(name, maxK8STruncatedLength)
+	return agentutils.TruncateHashName(name, maxK8SNameLength)
 }
 
 func (a *Agent) generateGSADisplayName(namespace string, accountName string) string {
 	name := fmt.Sprintf("otr-%s-%s-%s", a.clusterName, namespace, accountName)
-	return a.limitResourceName(name, maxDisplayNameTruncatedLength)
+	return agentutils.TruncateHashName(name, maxDisplayNameLength)
 }
 
 func (a *Agent) generateGSAName(namespace string, accountName string) string {
 	fullName := a.generateGSADisplayName(namespace, accountName)
-	return a.limitResourceName(fullName, maxGCPTruncatedLength)
+	return agentutils.TruncateHashName(fullName, maxGCPNameLength)
 }
 
 func (a *Agent) GetGSAFullName(namespace string, accountName string) string {

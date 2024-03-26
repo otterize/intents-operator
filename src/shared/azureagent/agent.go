@@ -11,6 +11,12 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
+)
+
+const (
+	// AzureApplyOnPodLabel is used to mark pods that should be processed by the Azure agent to create an associated Azure identity & role assignment
+	AzureApplyOnPodLabel = "credentials-operator.otterize.com/create-azure-workload-identity"
 )
 
 type Config struct {
@@ -23,7 +29,7 @@ type Config struct {
 }
 
 type Agent struct {
-	conf                               Config
+	Conf                               Config
 	credentials                        *azidentity.DefaultAzureCredential
 	subscriptionClient                 AzureARMSubscriptionsClient
 	resourceGroupsClient               AzureARMResourcesResourceGroupsClient
@@ -81,18 +87,7 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	managedClustersClient := armcontainerserviceClientFactory.NewManagedClustersClient()
 	vaultsClient := armkeyvaultClientFactory.NewVaultsClient()
 
-	agent := &Agent{
-		conf:                               conf,
-		credentials:                        credentials,
-		subscriptionClient:                 subscriptionClient,
-		resourceGroupsClient:               resourceGroupsClient,
-		userAssignedIdentitiesClient:       userAssignedIdentitiesClient,
-		federatedIdentityCredentialsClient: federatedIdentityCredentialsClient,
-		roleDefinitionsClient:              roleDefinitionsClient,
-		roleAssignmentsClient:              roleAssignmentsClient,
-		managedClustersClient:              managedClustersClient,
-		vaultsClient:                       vaultsClient,
-	}
+	agent := NewAzureAgentFromClients(conf, credentials, subscriptionClient, resourceGroupsClient, managedClustersClient, userAssignedIdentitiesClient, federatedIdentityCredentialsClient, roleDefinitionsClient, roleAssignmentsClient, vaultsClient)
 
 	if err := agent.loadConfDefaults(ctx); err != nil {
 		return nil, errors.Wrap(err)
@@ -101,31 +96,50 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	return agent, nil
 }
 
+func NewAzureAgentFromClients(conf Config, credentials *azidentity.DefaultAzureCredential, subscriptionClient AzureARMSubscriptionsClient, resourceGroupsClient AzureARMResourcesResourceGroupsClient, managedClustersClient AzureARMContainerServiceManagedClustersClient, userAssignedIdentitiesClient AzureARMMSIUserAssignedIdentitiesClient, federatedIdentityCredentialsClient AzureARMMSIFederatedIdentityCredentialsClient, roleDefinitionsClient AzureARMAuthorizationRoleDefinitionsClient, roleAssignmentsClient AzureARMAuthorizationRoleAssignmentsClient, vaultsClient AzureARMKeyVaultVaultsClient) *Agent {
+	return &Agent{
+		Conf:                               conf,
+		credentials:                        credentials,
+		subscriptionClient:                 subscriptionClient,
+		resourceGroupsClient:               resourceGroupsClient,
+		managedClustersClient:              managedClustersClient,
+		userAssignedIdentitiesClient:       userAssignedIdentitiesClient,
+		federatedIdentityCredentialsClient: federatedIdentityCredentialsClient,
+		roleDefinitionsClient:              roleDefinitionsClient,
+		roleAssignmentsClient:              roleAssignmentsClient,
+		vaultsClient:                       vaultsClient,
+	}
+}
+
 func (a *Agent) loadConfDefaults(ctx context.Context) error {
-	if a.conf.TenantID == "" {
-		subscription, err := a.subscriptionClient.Get(ctx, a.conf.SubscriptionID, nil)
+	if a.Conf.TenantID == "" {
+		subscription, err := a.subscriptionClient.Get(ctx, a.Conf.SubscriptionID, nil)
 		if err != nil {
 			return errors.Errorf("error querying for subscription: %w", err)
 		}
-		a.conf.TenantID = *subscription.TenantID
+		a.Conf.TenantID = *subscription.TenantID
 	}
 
-	if a.conf.Location == "" {
-		resourceGroup, err := a.resourceGroupsClient.Get(ctx, a.conf.ResourceGroup, nil)
+	if a.Conf.Location == "" {
+		resourceGroup, err := a.resourceGroupsClient.Get(ctx, a.Conf.ResourceGroup, nil)
 		if err != nil {
 			return errors.Errorf("error querying for resource group: %w", err)
 		}
 
-		a.conf.Location = *resourceGroup.Location
+		a.Conf.Location = *resourceGroup.Location
 	}
-	if a.conf.AKSClusterOIDCIssuerURL == "" {
-		cluster, err := a.managedClustersClient.Get(ctx, a.conf.ResourceGroup, a.conf.AKSClusterName, nil)
+	if a.Conf.AKSClusterOIDCIssuerURL == "" {
+		cluster, err := a.managedClustersClient.Get(ctx, a.Conf.ResourceGroup, a.Conf.AKSClusterName, nil)
 		if err != nil {
 			return errors.Errorf("error querying for managed cluster: %w", err)
 		}
 
-		a.conf.AKSClusterOIDCIssuerURL = *cluster.Properties.OidcIssuerProfile.IssuerURL
+		a.Conf.AKSClusterOIDCIssuerURL = *cluster.Properties.OidcIssuerProfile.IssuerURL
 	}
 
 	return nil
+}
+
+func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
+	return pod.Labels != nil && pod.Labels[AzureApplyOnPodLabel] == "true"
 }

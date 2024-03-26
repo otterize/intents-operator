@@ -12,7 +12,7 @@ import (
 
 func (a *Agent) listKeyVaults(ctx context.Context) ([]string, error) {
 	var keyVaults []string
-	pager := a.vaultsClient.NewListByResourceGroupPager(a.conf.ResourceGroup, nil)
+	pager := a.vaultsClient.NewListByResourceGroupPager(a.Conf.ResourceGroup, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
@@ -27,7 +27,7 @@ func (a *Agent) listKeyVaults(ctx context.Context) ([]string, error) {
 }
 
 func (a *Agent) getKeyVaultAccessPolicies(ctx context.Context, keyVaultName string, userAssignedIdentity armmsi.Identity) ([]*armkeyvault.AccessPolicyEntry, error) {
-	getResponse, err := a.vaultsClient.Get(ctx, a.conf.ResourceGroup, keyVaultName, nil)
+	getResponse, err := a.vaultsClient.Get(ctx, a.Conf.ResourceGroup, keyVaultName, nil)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -39,7 +39,7 @@ func (a *Agent) getKeyVaultAccessPolicies(ctx context.Context, keyVaultName stri
 	return accessPoliciesForIdentity, nil
 }
 
-func (a *Agent) getExistingKeyVaultAccessPolicies(ctx context.Context, userAssignedIdentity armmsi.Identity) (map[string][]*armkeyvault.AccessPolicyEntry, error) {
+func (a *Agent) GetExistingKeyVaultAccessPolicies(ctx context.Context, userAssignedIdentity armmsi.Identity) (map[string][]*armkeyvault.AccessPolicyEntry, error) {
 	keyVaults, err := a.listKeyVaults(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -71,7 +71,7 @@ func AccessPoliciesEqual(a, b *armkeyvault.AccessPolicyEntry) bool {
 func (a *Agent) updateKeyVaultPolicy(ctx context.Context, keyVaultName string,
 	operationKind armkeyvault.AccessPolicyUpdateKind, policy armkeyvault.AccessPolicyEntry) error {
 	_, err := a.vaultsClient.UpdateAccessPolicy(ctx,
-		a.conf.ResourceGroup,
+		a.Conf.ResourceGroup,
 		keyVaultName,
 		operationKind,
 		armkeyvault.VaultAccessPolicyParameters{
@@ -87,19 +87,19 @@ func (a *Agent) updateKeyVaultPolicy(ctx context.Context, keyVaultName string,
 	return nil
 }
 
-func (a *Agent) addKeyVaultAccessPolicy(ctx context.Context, keyVaultName string, policy armkeyvault.AccessPolicyEntry) error {
+func (a *Agent) AddKeyVaultAccessPolicy(ctx context.Context, keyVaultName string, policy armkeyvault.AccessPolicyEntry) error {
 	logger := logrus.WithField("name", keyVaultName).WithField("objectId", policy.ObjectID)
 	logger.Debug("Adding key vault access policy")
 	return a.updateKeyVaultPolicy(ctx, keyVaultName, armkeyvault.AccessPolicyUpdateKindAdd, policy)
 }
 
-func (a *Agent) replaceKeyVaultAccessPolicy(ctx context.Context, keyVaultName string, policy armkeyvault.AccessPolicyEntry) error {
+func (a *Agent) ReplaceKeyVaultAccessPolicy(ctx context.Context, keyVaultName string, policy armkeyvault.AccessPolicyEntry) error {
 	logger := logrus.WithField("name", keyVaultName).WithField("objectId", policy.ObjectID)
 	logger.Debug("Replacing key vault access policy")
 	return a.updateKeyVaultPolicy(ctx, keyVaultName, armkeyvault.AccessPolicyUpdateKindReplace, policy)
 }
 
-func (a *Agent) removeKeyVaultAccessPolicy(ctx context.Context, keyVaultName string, userAssignedIdentity armmsi.Identity) error {
+func (a *Agent) RemoveKeyVaultAccessPolicy(ctx context.Context, keyVaultName string, userAssignedIdentity armmsi.Identity) error {
 	logger := logrus.WithField("name", keyVaultName).WithField("objectId", userAssignedIdentity.Properties.ClientID)
 	logger.Debug("Removing key vault access policy")
 	return a.updateKeyVaultPolicy(ctx, keyVaultName, armkeyvault.AccessPolicyUpdateKindRemove, armkeyvault.AccessPolicyEntry{ObjectID: userAssignedIdentity.Properties.ClientID, TenantID: userAssignedIdentity.Properties.TenantID})
