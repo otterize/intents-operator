@@ -35,20 +35,6 @@ func (m *MockCloudClient) EXPECT() *MockCloudClientMockRecorder {
 	return m.recorder
 }
 
-// ApplyDatabaseIntent mocks base method.
-func (m *MockCloudClient) ApplyDatabaseIntent(ctx context.Context, intents []graphqlclient.IntentInput, action graphqlclient.DBPermissionChange) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplyDatabaseIntent", ctx, intents, action)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ApplyDatabaseIntent indicates an expected call of ApplyDatabaseIntent.
-func (mr *MockCloudClientMockRecorder) ApplyDatabaseIntent(ctx, intents, action interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyDatabaseIntent", reflect.TypeOf((*MockCloudClient)(nil).ApplyDatabaseIntent), ctx, intents, action)
-}
-
 // ReportAppliedIntents mocks base method.
 func (m *MockCloudClient) ReportAppliedIntents(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error {
 	m.ctrl.T.Helper()
@@ -115,6 +101,21 @@ func (m *MockCloudClient) ReportNetworkPolicies(ctx context.Context, namespace s
 func (mr *MockCloudClientMockRecorder) ReportNetworkPolicies(ctx, namespace, policies interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportNetworkPolicies", reflect.TypeOf((*MockCloudClient)(nil).ReportNetworkPolicies), ctx, namespace, policies)
+}
+
+// ReportOSSClusterID mocks base method.
+func (m *MockCloudClient) ReportOSSClusterID(ctx context.Context, clusterID string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReportOSSClusterID", ctx, clusterID)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReportOSSClusterID indicates an expected call of ReportOSSClusterID.
+func (mr *MockCloudClientMockRecorder) ReportOSSClusterID(ctx, clusterID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportOSSClusterID", reflect.TypeOf((*MockCloudClient)(nil).ReportOSSClusterID), ctx, clusterID)
 }
 
 // ReportProtectedServices mocks base method.

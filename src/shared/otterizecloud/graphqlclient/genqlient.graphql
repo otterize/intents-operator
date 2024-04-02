@@ -23,6 +23,10 @@ mutation ReportProtectedServicesSnapshot($namespace: String!, $services: [Protec
     reportProtectedServicesSnapshot(namespace: $namespace, services: $services)
 }
 
+mutation ReportOSSClusterID($clusterId: String!) {
+    reportOSSClusterId(ossClusterId: $clusterId)
+}
+
 query dummy {
     dummyError
 }

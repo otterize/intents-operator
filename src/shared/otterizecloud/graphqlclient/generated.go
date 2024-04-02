@@ -8,19 +8,33 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+type AzureKeyVaultPolicyInput struct {
+	CertificatePermissions []*string `json:"certificatePermissions"`
+	KeyPermissions         []*string `json:"keyPermissions"`
+	SecretPermissions      []*string `json:"secretPermissions"`
+	StoragePermissions     []*string `json:"storagePermissions"`
+}
+
+// GetCertificatePermissions returns AzureKeyVaultPolicyInput.CertificatePermissions, and is useful for accessing the field via an interface.
+func (v *AzureKeyVaultPolicyInput) GetCertificatePermissions() []*string {
+	return v.CertificatePermissions
+}
+
+// GetKeyPermissions returns AzureKeyVaultPolicyInput.KeyPermissions, and is useful for accessing the field via an interface.
+func (v *AzureKeyVaultPolicyInput) GetKeyPermissions() []*string { return v.KeyPermissions }
+
+// GetSecretPermissions returns AzureKeyVaultPolicyInput.SecretPermissions, and is useful for accessing the field via an interface.
+func (v *AzureKeyVaultPolicyInput) GetSecretPermissions() []*string { return v.SecretPermissions }
+
+// GetStoragePermissions returns AzureKeyVaultPolicyInput.StoragePermissions, and is useful for accessing the field via an interface.
+func (v *AzureKeyVaultPolicyInput) GetStoragePermissions() []*string { return v.StoragePermissions }
+
 type ComponentType string
 
 const (
 	ComponentTypeIntentsOperator     ComponentType = "INTENTS_OPERATOR"
 	ComponentTypeCredentialsOperator ComponentType = "CREDENTIALS_OPERATOR"
 	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
-)
-
-type DBPermissionChange string
-
-const (
-	DBPermissionChangeApply  DBPermissionChange = "APPLY"
-	DBPermissionChangeDelete DBPermissionChange = "DELETE"
 )
 
 type DatabaseConfigInput struct {
@@ -73,30 +87,21 @@ const (
 	HTTPMethodAll     HTTPMethod = "ALL"
 )
 
-// HandleDatabaseIntentsResponse is returned by HandleDatabaseIntents on success.
-type HandleDatabaseIntentsResponse struct {
-	HandleDatabaseIntents bool `json:"handleDatabaseIntents"`
-}
-
-// GetHandleDatabaseIntents returns HandleDatabaseIntentsResponse.HandleDatabaseIntents, and is useful for accessing the field via an interface.
-func (v *HandleDatabaseIntentsResponse) GetHandleDatabaseIntents() bool {
-	return v.HandleDatabaseIntents
-}
-
 type IntentInput struct {
-	Namespace         *string                `json:"namespace"`
-	ClientName        *string                `json:"clientName"`
-	ServerName        *string                `json:"serverName"`
-	ServerNamespace   *string                `json:"serverNamespace"`
-	Type              *IntentType            `json:"type"`
-	Topics            []*KafkaConfigInput    `json:"topics"`
-	Resources         []*HTTPConfigInput     `json:"resources"`
-	DatabaseResources []*DatabaseConfigInput `json:"databaseResources"`
-	AwsActions        []*string              `json:"awsActions"`
-	AzureRoles        []*string              `json:"azureRoles"`
-	GcpPermissions    []*string              `json:"gcpPermissions"`
-	Internet          *InternetConfigInput   `json:"internet"`
-	Status            *IntentStatusInput     `json:"status"`
+	Namespace           *string                   `json:"namespace"`
+	ClientName          *string                   `json:"clientName"`
+	ServerName          *string                   `json:"serverName"`
+	ServerNamespace     *string                   `json:"serverNamespace"`
+	Type                *IntentType               `json:"type"`
+	Topics              []*KafkaConfigInput       `json:"topics"`
+	Resources           []*HTTPConfigInput        `json:"resources"`
+	DatabaseResources   []*DatabaseConfigInput    `json:"databaseResources"`
+	AwsActions          []*string                 `json:"awsActions"`
+	AzureRoles          []*string                 `json:"azureRoles"`
+	AzureKeyVaultPolicy *AzureKeyVaultPolicyInput `json:"azureKeyVaultPolicy"`
+	GcpPermissions      []*string                 `json:"gcpPermissions"`
+	Internet            *InternetConfigInput      `json:"internet"`
+	Status              *IntentStatusInput        `json:"status"`
 }
 
 // GetNamespace returns IntentInput.Namespace, and is useful for accessing the field via an interface.
@@ -128,6 +133,11 @@ func (v *IntentInput) GetAwsActions() []*string { return v.AwsActions }
 
 // GetAzureRoles returns IntentInput.AzureRoles, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetAzureRoles() []*string { return v.AzureRoles }
+
+// GetAzureKeyVaultPolicy returns IntentInput.AzureKeyVaultPolicy, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetAzureKeyVaultPolicy() *AzureKeyVaultPolicyInput {
+	return v.AzureKeyVaultPolicy
+}
 
 // GetGcpPermissions returns IntentInput.GcpPermissions, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetGcpPermissions() []*string { return v.GcpPermissions }
@@ -406,6 +416,14 @@ func (v *ReportNetworkPoliciesResponse) GetReportNetworkPolicies() bool {
 	return v.ReportNetworkPolicies
 }
 
+// ReportOSSClusterIDResponse is returned by ReportOSSClusterID on success.
+type ReportOSSClusterIDResponse struct {
+	ReportOSSClusterId bool `json:"reportOSSClusterId"`
+}
+
+// GetReportOSSClusterId returns ReportOSSClusterIDResponse.ReportOSSClusterId, and is useful for accessing the field via an interface.
+func (v *ReportOSSClusterIDResponse) GetReportOSSClusterId() bool { return v.ReportOSSClusterId }
+
 // ReportProtectedServicesSnapshotResponse is returned by ReportProtectedServicesSnapshot on success.
 type ReportProtectedServicesSnapshotResponse struct {
 	ReportProtectedServicesSnapshot bool `json:"reportProtectedServicesSnapshot"`
@@ -428,18 +446,6 @@ const (
 	UserErrorTypeBadUserInput        UserErrorType = "BAD_USER_INPUT"
 	UserErrorTypeAppliedIntentsError UserErrorType = "APPLIED_INTENTS_ERROR"
 )
-
-// __HandleDatabaseIntentsInput is used internally by genqlient
-type __HandleDatabaseIntentsInput struct {
-	Intents []IntentInput      `json:"intents"`
-	Action  DBPermissionChange `json:"action"`
-}
-
-// GetIntents returns __HandleDatabaseIntentsInput.Intents, and is useful for accessing the field via an interface.
-func (v *__HandleDatabaseIntentsInput) GetIntents() []IntentInput { return v.Intents }
-
-// GetAction returns __HandleDatabaseIntentsInput.Action, and is useful for accessing the field via an interface.
-func (v *__HandleDatabaseIntentsInput) GetAction() DBPermissionChange { return v.Action }
 
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
 type __ReportAppliedKubernetesIntentsInput struct {
@@ -497,6 +503,14 @@ func (v *__ReportNetworkPoliciesInput) GetNamespace() string { return v.Namespac
 // GetPolicies returns __ReportNetworkPoliciesInput.Policies, and is useful for accessing the field via an interface.
 func (v *__ReportNetworkPoliciesInput) GetPolicies() []NetworkPolicyInput { return v.Policies }
 
+// __ReportOSSClusterIDInput is used internally by genqlient
+type __ReportOSSClusterIDInput struct {
+	ClusterId string `json:"clusterId"`
+}
+
+// GetClusterId returns __ReportOSSClusterIDInput.ClusterId, and is useful for accessing the field via an interface.
+func (v *__ReportOSSClusterIDInput) GetClusterId() string { return v.ClusterId }
+
 // __ReportProtectedServicesSnapshotInput is used internally by genqlient
 type __ReportProtectedServicesSnapshotInput struct {
 	Namespace string                  `json:"namespace"`
@@ -518,38 +532,6 @@ type dummyResponse struct {
 
 // GetDummyError returns dummyResponse.DummyError, and is useful for accessing the field via an interface.
 func (v *dummyResponse) GetDummyError() UserErrorType { return v.DummyError }
-
-func HandleDatabaseIntents(
-	ctx context.Context,
-	client graphql.Client,
-	intents []IntentInput,
-	action DBPermissionChange,
-) (*HandleDatabaseIntentsResponse, error) {
-	req := &graphql.Request{
-		OpName: "HandleDatabaseIntents",
-		Query: `
-mutation HandleDatabaseIntents ($intents: [IntentInput!]!, $action: DBPermissionChange!) {
-	handleDatabaseIntents(intents: $intents, action: $action)
-}
-`,
-		Variables: &__HandleDatabaseIntentsInput{
-			Intents: intents,
-			Action:  action,
-		},
-	}
-	var err error
-
-	var data HandleDatabaseIntentsResponse
-	resp := &graphql.Response{Data: &data}
-
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
-	)
-
-	return &data, err
-}
 
 func ReportAppliedKubernetesIntents(
 	ctx context.Context,
@@ -696,6 +678,36 @@ mutation ReportNetworkPolicies ($namespace: String!, $policies: [NetworkPolicyIn
 	var err error
 
 	var data ReportNetworkPoliciesResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func ReportOSSClusterID(
+	ctx context.Context,
+	client graphql.Client,
+	clusterId string,
+) (*ReportOSSClusterIDResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportOSSClusterID",
+		Query: `
+mutation ReportOSSClusterID ($clusterId: String!) {
+	reportOSSClusterId(ossClusterId: $clusterId)
+}
+`,
+		Variables: &__ReportOSSClusterIDInput{
+			ClusterId: clusterId,
+		},
+	}
+	var err error
+
+	var data ReportOSSClusterIDResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

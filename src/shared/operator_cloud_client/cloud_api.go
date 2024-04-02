@@ -16,7 +16,7 @@ type CloudClient interface {
 	ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType)
 	ReportNetworkPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error
 	ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error
-	ApplyDatabaseIntent(ctx context.Context, intents []graphqlclient.IntentInput, action graphqlclient.DBPermissionChange) error
+	ReportOSSClusterID(ctx context.Context, clusterID string) error
 }
 
 type CloudClientImpl struct {
@@ -96,9 +96,14 @@ func (c *CloudClientImpl) ReportProtectedServices(ctx context.Context, namespace
 	return errors.Wrap(err)
 }
 
-func (c *CloudClientImpl) ApplyDatabaseIntent(ctx context.Context, intents []graphqlclient.IntentInput, action graphqlclient.DBPermissionChange) error {
-	if _, err := graphqlclient.HandleDatabaseIntents(ctx, c.client, intents, action); err != nil {
+func (c *CloudClientImpl) ReportOSSClusterID(ctx context.Context, clusterID string) error {
+	logrus.Info("Reporting ClusterID to Otterize cloud")
+	res, err := graphqlclient.ReportOSSClusterID(ctx, c.client, clusterID)
+	if err != nil {
 		return errors.Wrap(err)
+	}
+	if res.ReportOSSClusterId {
+		logrus.Info("OSS ClusterID set for integration")
 	}
 	return nil
 }
