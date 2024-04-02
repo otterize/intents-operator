@@ -22,9 +22,10 @@ func BuildPostgresUsername(clusterUID string, workloadName, namespace string) st
 	if len(username) > PGUsernameMaxLength {
 		username = username[:PGUsernameMaxLength]
 	}
+	username = strings.TrimSuffix(username, "_") // Just in case we trimmed at an underscore separator
+
 	hash := md5.Sum([]byte(username))
 	hashSuffix := hex.EncodeToString(hash[:])[:6]
-
 	return fmt.Sprintf("%s_%s", username, hashSuffix)
 }
 
