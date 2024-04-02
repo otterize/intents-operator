@@ -2,12 +2,14 @@ package errorreporter
 
 import (
 	"context"
+	"fmt"
 	"github.com/bugsnag/bugsnag-go/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/logrus_bugsnag"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
+	"github.com/samber/lo"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -21,6 +23,21 @@ func addComponentInfoToBugsnagEvent(componentType string, event *bugsnag.Event) 
 	event.MetaData.Add("component", "componentInstanceId", componentinfo.GlobalComponentInstanceId())
 	event.MetaData.Add("component", "contextId", componentinfo.GlobalContextId())
 	event.MetaData.Add("component", "cloudClientId", componentinfo.GlobalCloudClientId())
+}
+
+func setGroupingHash(event *bugsnag.Event) {
+	// By default, bugsnag groups errors sharing the same error class, file and line number of the top in-project stack frame of the innermost exception.
+	// We override this to group by error class, file and *method name* (without line number) of the top in-project stack frame.
+	errorClass := event.ErrorClass
+	topInProjectStackFrame, found := lo.Find(event.Stacktrace, func(frame bugsnag.StackFrame) bool {
+		return frame.InProject
+	})
+	if !found {
+		// No top in-project frame found, let bugsnag handle it
+		return
+	}
+
+	event.GroupingHash = fmt.Sprintf("%s:%s:%s", errorClass, topInProjectStackFrame.File, topInProjectStackFrame.Method)
 }
 
 type noopLogger struct{}
@@ -39,6 +56,7 @@ func Init(componentName string, version string, apiKey string) {
 
 	bugsnag.OnBeforeNotify(func(event *bugsnag.Event, _ *bugsnag.Configuration) error {
 		addComponentInfoToBugsnagEvent(componentName, event)
+		setGroupingHash(event)
 		return nil
 	})
 
