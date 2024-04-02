@@ -34,6 +34,41 @@ Service name resolution is performed one of two ways:
 
 The value resulting from this process forms the value of the label `credentials-operator.otterize.com/service-name`.
 
+### AWS IAM
+The credentials operator, together with the [intents operator](https://github.com/otterize/intents-operator), enables the intent-based declarative management of AWS IAM roles and policies.
+
+To generate an AWS IAM role for a pod, apply the following label to it:
+```
+metadata:
+ labels:
+  "credentials-operator.otterize.com/create-aws-role": "true"
+```
+Try the [AWS IAM tutorial](https://docs.otterize.com/quickstart/access-control/aws-iam-eks) to learn more.
+
+
+### Azure IAM
+The credentials operator, together with the [intents operator](https://github.com/otterize/intents-operator), enables the intent-based declarative management of Azure IAM identities and role assignments.
+
+To generate an Azure managed identity for a pod, apply the following label to it:
+```
+metadata:
+ labels:
+  "credentials-operator.otterize.com/create-azure-workload-identity": "true"
+```
+Try the [Azure IAM tutorial](https://docs.otterize.com/features/azure-iam/tutorials/azure-iam-aks) to learn more.
+
+
+### Google Cloud IAM
+The credentials operator, together with the [intents operator](https://github.com/otterize/intents-operator), enables the intent-based declarative management of Google Cloud service accounts and policies.
+
+To generate a Google Cloud service account for a pod, apply the following label to it:
+```
+metadata:
+ labels:
+  "credentials-operator.otterize.com/create-gcp-sa": "true"
+```
+Try the [GCP IAM tutorial](https://docs.otterize.com/features/gcp-iam/tutorials/gcp-iam-gke) to learn more.
+
 ## Contributing
 1. Feel free to fork and open a pull request! Include tests and document your code in [Godoc style](https://go.dev/blog/godoc).
 2. In your pull request, please refer to an existing issue or open a new one.
