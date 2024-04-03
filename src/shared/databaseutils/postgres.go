@@ -18,16 +18,16 @@ const (
 )
 
 func BuildHashedUsername(workloadName, namespace, clusterUID string) string {
-	username := fmt.Sprintf("%s_%s_%s", workloadName, namespace, clusterUID)
+	username := fmt.Sprintf("%s-%s-%s", workloadName, namespace, clusterUID)
+	hash := md5.Sum([]byte(username))
+
 	if len(username) > UsernameMaxLenPreHash {
 		username = username[:UsernameMaxLenPreHash]
 	}
-	username = strings.TrimSuffix(username, "_") // Just in case we trimmed at an underscore/hyphen separator
-	username = strings.TrimSuffix(username, "-")
+	username = strings.TrimSuffix(username, "-") // Just in case we trimmed at a hyphen separator
 
-	hash := md5.Sum([]byte(username))
 	hashSuffix := hex.EncodeToString(hash[:])[:6]
-	return fmt.Sprintf("%s_%s", username, hashSuffix)
+	return fmt.Sprintf("%s-%s", username, hashSuffix)
 }
 
 // KubernetesToPostgresName translates a name with Kubernetes conventions to Postgres conventions
@@ -35,6 +35,10 @@ func KubernetesToPostgresName(kubernetesName string) string {
 	// '.' are replaced with dunders '__'
 	// '-' are replaced with single underscores '_'
 	return strings.ReplaceAll(strings.ReplaceAll(kubernetesName, ".", "__"), "-", "_")
+}
+
+func PostgresToKubernetesName(pgName string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(pgName, "__", "."), "_", "-")
 }
 
 func TranslatePostgresConnectionError(err error) (string, bool) {
