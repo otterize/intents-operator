@@ -416,14 +416,6 @@ func (v *ReportNetworkPoliciesResponse) GetReportNetworkPolicies() bool {
 	return v.ReportNetworkPolicies
 }
 
-// ReportOSSClusterIDResponse is returned by ReportOSSClusterID on success.
-type ReportOSSClusterIDResponse struct {
-	ReportOSSClusterId bool `json:"reportOSSClusterId"`
-}
-
-// GetReportOSSClusterId returns ReportOSSClusterIDResponse.ReportOSSClusterId, and is useful for accessing the field via an interface.
-func (v *ReportOSSClusterIDResponse) GetReportOSSClusterId() bool { return v.ReportOSSClusterId }
-
 // ReportProtectedServicesSnapshotResponse is returned by ReportProtectedServicesSnapshot on success.
 type ReportProtectedServicesSnapshotResponse struct {
 	ReportProtectedServicesSnapshot bool `json:"reportProtectedServicesSnapshot"`
@@ -451,6 +443,7 @@ const (
 type __ReportAppliedKubernetesIntentsInput struct {
 	Namespace *string        `json:"namespace"`
 	Intents   []*IntentInput `json:"intents"`
+	ClusterId *string        `json:"clusterId"`
 }
 
 // GetNamespace returns __ReportAppliedKubernetesIntentsInput.Namespace, and is useful for accessing the field via an interface.
@@ -458,6 +451,9 @@ func (v *__ReportAppliedKubernetesIntentsInput) GetNamespace() *string { return 
 
 // GetIntents returns __ReportAppliedKubernetesIntentsInput.Intents, and is useful for accessing the field via an interface.
 func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []*IntentInput { return v.Intents }
+
+// GetClusterId returns __ReportAppliedKubernetesIntentsInput.ClusterId, and is useful for accessing the field via an interface.
+func (v *__ReportAppliedKubernetesIntentsInput) GetClusterId() *string { return v.ClusterId }
 
 // __ReportComponentStatusInput is used internally by genqlient
 type __ReportComponentStatusInput struct {
@@ -503,14 +499,6 @@ func (v *__ReportNetworkPoliciesInput) GetNamespace() string { return v.Namespac
 // GetPolicies returns __ReportNetworkPoliciesInput.Policies, and is useful for accessing the field via an interface.
 func (v *__ReportNetworkPoliciesInput) GetPolicies() []NetworkPolicyInput { return v.Policies }
 
-// __ReportOSSClusterIDInput is used internally by genqlient
-type __ReportOSSClusterIDInput struct {
-	ClusterId string `json:"clusterId"`
-}
-
-// GetClusterId returns __ReportOSSClusterIDInput.ClusterId, and is useful for accessing the field via an interface.
-func (v *__ReportOSSClusterIDInput) GetClusterId() string { return v.ClusterId }
-
 // __ReportProtectedServicesSnapshotInput is used internally by genqlient
 type __ReportProtectedServicesSnapshotInput struct {
 	Namespace string                  `json:"namespace"`
@@ -538,17 +526,19 @@ func ReportAppliedKubernetesIntents(
 	client graphql.Client,
 	namespace *string,
 	intents []*IntentInput,
+	clusterId *string,
 ) (*ReportAppliedKubernetesIntentsResponse, error) {
 	req := &graphql.Request{
 		OpName: "ReportAppliedKubernetesIntents",
 		Query: `
-mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentInput!]!) {
-	reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents)
+mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentInput!]!, $clusterId: String!) {
+	reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents, ossClusterId: $clusterId)
 }
 `,
 		Variables: &__ReportAppliedKubernetesIntentsInput{
 			Namespace: namespace,
 			Intents:   intents,
+			ClusterId: clusterId,
 		},
 	}
 	var err error
@@ -678,36 +668,6 @@ mutation ReportNetworkPolicies ($namespace: String!, $policies: [NetworkPolicyIn
 	var err error
 
 	var data ReportNetworkPoliciesResponse
-	resp := &graphql.Response{Data: &data}
-
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
-	)
-
-	return &data, err
-}
-
-func ReportOSSClusterID(
-	ctx context.Context,
-	client graphql.Client,
-	clusterId string,
-) (*ReportOSSClusterIDResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportOSSClusterID",
-		Query: `
-mutation ReportOSSClusterID ($clusterId: String!) {
-	reportOSSClusterId(ossClusterId: $clusterId)
-}
-`,
-		Variables: &__ReportOSSClusterIDInput{
-			ClusterId: clusterId,
-		},
-	}
-	var err error
-
-	var data ReportOSSClusterIDResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

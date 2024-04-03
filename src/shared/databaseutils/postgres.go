@@ -13,16 +13,17 @@ import (
 )
 
 const (
-	PGUsernameMaxLength = 58
-	PGSelectUserQuery   = "SELECT FROM pg_catalog.pg_user where usename = $1"
+	UsernameMaxLenPreHash = 50
+	PGSelectUserQuery     = "SELECT FROM pg_catalog.pg_user where usename = $1"
 )
 
-func BuildPostgresUsername(clusterUID string, workloadName, namespace string) string {
-	username := fmt.Sprintf("%s_%s_%s", KubernetesToPostgresName(workloadName), KubernetesToPostgresName(namespace), KubernetesToPostgresName(clusterUID))
-	if len(username) > PGUsernameMaxLength {
-		username = username[:PGUsernameMaxLength]
+func BuildHashedUsername(workloadName, namespace, clusterUID string) string {
+	username := fmt.Sprintf("%s_%s_%s", workloadName, namespace, clusterUID)
+	if len(username) > UsernameMaxLenPreHash {
+		username = username[:UsernameMaxLenPreHash]
 	}
-	username = strings.TrimSuffix(username, "_") // Just in case we trimmed at an underscore separator
+	username = strings.TrimSuffix(username, "_") // Just in case we trimmed at an underscore/hyphen separator
+	username = strings.TrimSuffix(username, "-")
 
 	hash := md5.Sum([]byte(username))
 	hashSuffix := hex.EncodeToString(hash[:])[:6]

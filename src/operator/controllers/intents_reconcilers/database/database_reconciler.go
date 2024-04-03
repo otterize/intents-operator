@@ -130,7 +130,8 @@ func (r *DatabaseReconciler) cleanExcessPermissions(ctx context.Context, intents
 		return err
 	}
 
-	pgUsername := databaseutils.BuildPostgresUsername(clusterID, intents.GetServiceName(), intents.Namespace)
+	username := databaseutils.BuildHashedUsername(intents.GetServiceName(), intents.Namespace, clusterID)
+	pgUsername := databaseutils.KubernetesToPostgresName(username)
 	for _, config := range allDBServerConfigs.Items {
 		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(config.Spec, r.client)
 		connectionString := pgConfigurator.FormatConnectionString(config.Spec.DatabaseName)

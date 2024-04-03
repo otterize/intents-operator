@@ -3,8 +3,8 @@ mutation ReportKafkaServerConfig($namespace: String!, $kafkaServerConfigs: [Kafk
 }
 
 # @genqlient(pointer: true)
-mutation ReportAppliedKubernetesIntents($namespace: String!,$intents: [IntentInput!]!) {
-    reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents)
+mutation ReportAppliedKubernetesIntents($namespace: String!,$intents: [IntentInput!]!, $clusterId: String!) {
+    reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents, ossClusterId: $clusterId)
 }
 
 mutation ReportNetworkPolicies($namespace: String!, $policies: [NetworkPolicyInput!]!) {
@@ -21,10 +21,6 @@ mutation ReportComponentStatus($component: ComponentType!) {
 
 mutation ReportProtectedServicesSnapshot($namespace: String!, $services: [ProtectedServiceInput!]!) {
     reportProtectedServicesSnapshot(namespace: $namespace, services: $services)
-}
-
-mutation ReportOSSClusterID($clusterId: String!) {
-    reportOSSClusterId(ossClusterId: $clusterId)
 }
 
 query dummy {

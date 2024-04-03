@@ -103,21 +103,6 @@ func (mr *MockCloudClientMockRecorder) ReportNetworkPolicies(ctx, namespace, pol
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportNetworkPolicies", reflect.TypeOf((*MockCloudClient)(nil).ReportNetworkPolicies), ctx, namespace, policies)
 }
 
-// ReportOSSClusterID mocks base method.
-func (m *MockCloudClient) ReportOSSClusterID(ctx context.Context, clusterID string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportOSSClusterID", ctx, clusterID)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ReportOSSClusterID indicates an expected call of ReportOSSClusterID.
-func (mr *MockCloudClientMockRecorder) ReportOSSClusterID(ctx, clusterID interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportOSSClusterID", reflect.TypeOf((*MockCloudClient)(nil).ReportOSSClusterID), ctx, clusterID)
-}
-
 // ReportProtectedServices mocks base method.
 func (m *MockCloudClient) ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error {
 	m.ctrl.T.Helper()

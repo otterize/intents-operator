@@ -693,11 +693,19 @@ enum IntegrationState {
 	SUCCESS
 	FAILURE
 	PENDING
+	WARNING
 }
 
 type IntegrationStatus {
 	state: IntegrationState!
-	errorMessage: String
+	message: String
+	metadata: [IntegrationStatusMetadataItem!]
+	lastSeen: Time
+}
+
+type IntegrationStatusMetadataItem {
+	message: String!
+	extra: [LabelValueTuple!]
 }
 
 enum IntegrationType {
@@ -913,6 +921,11 @@ input LabelInput {
 	value: String
 }
 
+type LabelValueTuple {
+	label: String!
+	value: String!
+}
+
 type Me {
 """The logged-in user details."""
 	user: User!
@@ -1091,6 +1104,7 @@ type Mutation {
 	reportAppliedKubernetesIntents(
 		namespace: String!
 		intents: [IntentInput!]!
+		ossClusterId: String!
 	): Boolean!
 	handleDatabaseIntents(
 		intents: [IntentInput!]!

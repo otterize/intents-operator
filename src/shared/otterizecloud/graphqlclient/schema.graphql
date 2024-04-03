@@ -1091,10 +1091,7 @@ type Mutation {
 	reportAppliedKubernetesIntents(
 		namespace: String!
 		intents: [IntentInput!]!
-	): Boolean!
-	handleDatabaseIntents(
-		intents: [IntentInput!]!
-		action: DBPermissionChange!
+		ossClusterId: String!
 	): Boolean!
 	reportNetworkPolicies(
 		namespace: String!
@@ -1104,9 +1101,6 @@ type Mutation {
 		namespace: String!
 		services: [ExternallyAccessibleServiceInput!]!
 	): Boolean!
-  reportOSSClusterId(
-    ossClusterId: String!
-  ): Boolean!
 """Create user invite"""
 	createInvite(
 		email: String!

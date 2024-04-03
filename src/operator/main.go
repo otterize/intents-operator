@@ -294,11 +294,6 @@ func main() {
 	if connectedToCloud {
 		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig)
 		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
-		err := otterizeCloudClient.ReportOSSClusterID(signalHandlerCtx, clusterUID)
-		if err != nil {
-			logrus.WithError(err).Error("Failed reporting cluster ID to Otterize cloud")
-		}
-
 		netpolUploader := external_traffic.NewNetworkPolicyUploaderReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
 		if err = netpolUploader.SetupWithManager(mgr); err != nil {
 			logrus.WithError(err).Panic("unable to initialize NetworkPolicy reconciler")

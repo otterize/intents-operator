@@ -3,6 +3,7 @@ package operator_cloud_client
 import (
 	"context"
 	"github.com/Khan/genqlient/graphql"
+	"github.com/otterize/intents-operator/src/shared/clusterid"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -16,7 +17,6 @@ type CloudClient interface {
 	ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType)
 	ReportNetworkPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error
 	ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error
-	ReportOSSClusterID(ctx context.Context, clusterID string) error
 }
 
 type CloudClientImpl struct {
@@ -50,7 +50,12 @@ func (c *CloudClientImpl) ReportAppliedIntents(
 	namespace *string,
 	intents []*graphqlclient.IntentInput) error {
 
-	_, err := graphqlclient.ReportAppliedKubernetesIntents(ctx, c.client, namespace, intents)
+	clusterID, err := clusterid.GetClusterUID(ctx)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	_, err = graphqlclient.ReportAppliedKubernetesIntents(ctx, c.client, namespace, intents, &clusterID)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -94,16 +99,4 @@ func (c *CloudClientImpl) ReportProtectedServices(ctx context.Context, namespace
 
 	_, err := graphqlclient.ReportProtectedServicesSnapshot(ctx, c.client, namespace, protectedServices)
 	return errors.Wrap(err)
-}
-
-func (c *CloudClientImpl) ReportOSSClusterID(ctx context.Context, clusterID string) error {
-	logrus.Info("Reporting ClusterID to Otterize cloud")
-	res, err := graphqlclient.ReportOSSClusterID(ctx, c.client, clusterID)
-	if err != nil {
-		return errors.Wrap(err)
-	}
-	if res.ReportOSSClusterId {
-		logrus.Info("OSS ClusterID set for integration")
-	}
-	return nil
 }

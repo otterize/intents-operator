@@ -115,14 +115,15 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	if err != nil {
 		return err
 	}
-	username := databaseutils.BuildPostgresUsername(clusterID, workloadName, namespace)
-	exists, err := databaseutils.ValidateUserExists(ctx, username, p.Conn)
+	username := databaseutils.BuildHashedUsername(workloadName, namespace, clusterID)
+	pgUsername := databaseutils.KubernetesToPostgresName(username)
+	exists, err := databaseutils.ValidateUserExists(ctx, pgUsername, p.Conn)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
 	if !exists {
-		logrus.WithField("username", username).Info(
+		logrus.WithField("username", pgUsername).Info(
 			"Waiting for Postgres user to be created before configuring permissions")
 		return errors.Wrap(fmt.Errorf(
 			"user for workload %s.%s doesn't exist in DB yet, cannot configure permissions", workloadName, namespace))
@@ -148,17 +149,17 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 		p.SetConnection(ctx, conn)
 		if permissionChange != otterizev1alpha3.DBPermissionChangeDelete {
 			// Need to check whether tables were deleted from intents, and revoke permissions for them
-			allowedTablesDiff, err := p.getAllowedTablesDiffForUser(ctx, username, dbResources)
+			allowedTablesDiff, err := p.getAllowedTablesDiffForUser(ctx, pgUsername, dbResources)
 			if err != nil {
 				return errors.Wrap(err)
 			}
 
-			if err = p.revokeRemovedTablesPermissions(ctx, allowedTablesDiff, username); err != nil {
+			if err = p.revokeRemovedTablesPermissions(ctx, allowedTablesDiff, pgUsername); err != nil {
 				return errors.Wrap(err)
 			}
 		}
 
-		statementsBatch, err := p.SQLBatchFromDBResources(ctx, username, dbResources, permissionChange)
+		statementsBatch, err := p.SQLBatchFromDBResources(ctx, pgUsername, dbResources, permissionChange)
 		if err != nil {
 			return errors.Wrap(err)
 		}
