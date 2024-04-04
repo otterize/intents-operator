@@ -357,13 +357,11 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 			return errors.Wrap(err)
 		}
 
-		hasIngressRules := lo.SomeBy(netpolList.Items, func(netpol v1.NetworkPolicy) bool { return len(netpol.Spec.Ingress) > 0 })
-		hasDefaultDeny := lo.SomeBy(netpolList.Items, func(netpol v1.NetworkPolicy) bool {
-			netpolLabels := netpol.GetLabels()
-			return netpolLabels[v1alpha3.OtterizeNetworkPolicyServiceDefaultDeny] == "true"
+		hasIngressRules := lo.SomeBy(netpolList.Items, func(netpol v1.NetworkPolicy) bool {
+			return lo.Contains(netpol.Spec.PolicyTypes, v1.PolicyTypeIngress)
 		})
 
-		if !hasIngressRules && !hasDefaultDeny {
+		if !hasIngressRules {
 			if r.allowExternalTraffic == allowexternaltraffic.Always {
 				err := r.handleNetpolsForOtterizeServiceWithoutIntents(ctx, endpoints, serverLabel, ingressList)
 				if err != nil {
