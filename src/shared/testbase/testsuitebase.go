@@ -464,6 +464,30 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	return intents, nil
 }
 
+func (s *ControllerManagerTestSuiteBase) AddProtectedService(
+	objName,
+	serverName string,
+	namespace string) (*otterizev1alpha3.ProtectedService, error) {
+
+	protectedService := &otterizev1alpha3.ProtectedService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      objName,
+			Namespace: namespace,
+		},
+		Spec: otterizev1alpha3.ProtectedServiceSpec{
+			Name: serverName,
+		},
+	}
+
+	err := s.Mgr.GetClient().Create(context.Background(), protectedService)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	s.waitForObjectToBeCreated(protectedService)
+
+	return protectedService, nil
+}
+
 func (s *ControllerManagerTestSuiteBase) AddIntentsV1alpha2(
 	objName,
 	clientName string,
