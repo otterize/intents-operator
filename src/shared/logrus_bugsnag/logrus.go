@@ -51,35 +51,36 @@ type ErrorList interface {
 // Fire forwards an error to Bugsnag. Given a logrus.Entry, it extracts the
 // "error" field (or the Message if the error isn't present) and sends it off.
 func (hook *bugsnagHook) Fire(entry *logrus.Entry) error {
-	errFromLog := bugsnagerrors.New(entry.Message, 1).Err
-	if err, ok := entry.Data[errorLogKey].(error); ok {
-		errFromLog = err
-		// don't delete error as it's a standard logrus field and other hooks may make use of it
-
-		bugsnagErr, ok := errFromLog.(*bugsnagerrors.Error)
-		if ok {
-			// Check if the underlying error field contains a list, usually created by calling to go stdlib errors.Join
-			errList, ok := bugsnagErr.Err.(ErrorList)
-			if ok {
-				for _, errToNotify := range errList.Unwrap() {
-					err := bugsnag.Notify(errToNotify)
-					if err != nil {
-						return err
-					}
-				}
-				return nil
-			}
-		}
-	}
-
-	err := hook.notifyErr(entry, errFromLog)
+	errorsList := getErrors(entry)
+	err := hook.notifyErr(entry, errorsList)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (hook *bugsnagHook) notifyErr(entry *logrus.Entry, notifyErr error) error {
+func getErrors(entry *logrus.Entry) []error {
+	errFromMessage := bugsnagerrors.New(entry.Message, 1).Err
+	errFromLog, ok := entry.Data[errorLogKey].(error)
+	if !ok {
+		return []error{errFromMessage}
+	}
+	// don't delete error key from entry as it's a standard logrus field and other hooks may make use of it
+
+	bugsnagErr, ok := errFromLog.(*bugsnagerrors.Error)
+	if !ok {
+		return []error{errFromLog}
+	}
+
+	// Check if the underlying error field contains a list, usually created by calling to go stdlib errors.Join
+	errList, ok := bugsnagErr.Err.(ErrorList)
+	if !ok {
+		return []error{bugsnagErr}
+	}
+	return errList.Unwrap()
+}
+
+func (hook *bugsnagHook) notifyErr(entry *logrus.Entry, errList []error) error {
 	bugsnagRawData := make([]any, 0)
 
 	metadata := bugsnag.MetaData{}
@@ -92,10 +93,12 @@ func (hook *bugsnagHook) notifyErr(entry *logrus.Entry, notifyErr error) error {
 
 	bugsnagRawData = append(bugsnagRawData, metadata)
 
-	errWithStack := errors.WrapWithSkip(notifyErr, skipStackFrames)
-	bugsnagErr := bugsnag.Notify(errWithStack, bugsnagRawData...)
-	if bugsnagErr != nil {
-		return ErrBugsnagSendFailed{bugsnagErr}
+	for _, notifyErr := range errList {
+		errWithStack := errors.WrapWithSkip(notifyErr, skipStackFrames)
+		bugsnagErr := bugsnag.Notify(errWithStack, bugsnagRawData...)
+		if bugsnagErr != nil {
+			return ErrBugsnagSendFailed{bugsnagErr}
+		}
 	}
 
 	return nil
