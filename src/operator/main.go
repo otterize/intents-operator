@@ -294,8 +294,6 @@ func main() {
 		logrus.WithError(err).Panic("unable to init index for ingress")
 	}
 
-	logrus.Panic("testing")
-
 	otterizeCloudClient, connectedToCloud, err := operator_cloud_client.NewClient(signalHandlerCtx)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
