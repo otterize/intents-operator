@@ -80,10 +80,6 @@ func wrapImpl(err error, skip int) error {
 	if err == nil {
 		return nil
 	}
-	// Don't re-wrap user errors that already have a stack
-	if _, ok := err.(interface{ Unwrap() error }).Unwrap().(*bugsnagerrors.Error); ok {
-		return err
-	}
 	return bugsnagerrors.New(err, skip+1)
 }
 
