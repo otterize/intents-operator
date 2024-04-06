@@ -94,7 +94,7 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 		}
 
 		if !shouldCreatePolicy {
-			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping Kafka ACL creation for server %s in namespace %s", serverName.Name, serverName.Namespace)
+			logrus.Debugf("Enforcement is disabled globally and server is not explicitly protected, skipping Kafka ACL creation for server %s in namespace %s", serverName.Name, serverName.Namespace)
 			r.RecordNormalEventf(intents, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, Kafka ACL creation skipped", serverName.Name)
 			// Intentionally no return - KafkaIntentsAdminImpl skips the creation, but still needs to do deletion.
 		}
@@ -226,7 +226,7 @@ func (r *KafkaACLReconciler) intentsObjectUnderDeletion(intents *otterizev1alpha
 }
 
 func (r *KafkaACLReconciler) handleIntentsDeletion(ctx context.Context, intents *otterizev1alpha3.ClientIntents, logger *logrus.Entry) (ctrl.Result, error) {
-	logger.Infof("Removing associated Acls")
+	logger.Debugf("Removing associated Acls")
 	if err := r.RemoveACLs(ctx, intents); err != nil {
 		r.RecordWarningEventf(intents, ReasonRemovingKafkaACLsFailed, "Could not remove Kafka ACLs: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)

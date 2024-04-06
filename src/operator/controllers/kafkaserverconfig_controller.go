@@ -124,7 +124,7 @@ func (r *KafkaServerConfigReconciler) InitKafkaServerConfigIndices(mgr ctrl.Mana
 
 func (r *KafkaServerConfigReconciler) mapProtectedServiceToKafkaServerConfig(ctx context.Context, obj client.Object) []reconcile.Request {
 	protectedService := obj.(*otterizev1alpha3.ProtectedService)
-	logrus.Infof("Enqueueing KafkaServerConfigs for protected service %s", protectedService.Name)
+	logrus.Debugf("Enqueueing KafkaServerConfigs for protected service %s", protectedService.Name)
 
 	kscsToReconcile := r.getKSCsForProtectedService(ctx, protectedService)
 	return lo.Map(kscsToReconcile, func(ksc otterizev1alpha3.KafkaServerConfig, _ int) reconcile.Request {

@@ -53,9 +53,9 @@ func (g *GroupReconciler) Reconcile(ctx context.Context) error {
 	}
 
 	errorList := make([]error, 0)
-	logrus.Infof("Reconciling %d effectivePolicies", len(eps))
+	logrus.Debugf("Reconciling %d effectivePolicies", len(eps))
 	for _, epReconciler := range g.reconcilers {
-		logrus.Infof("Starting cycle for %T", epReconciler)
+		logrus.Debugf("Starting cycle for %T", epReconciler)
 		_, err := epReconciler.ReconcileEffectivePolicies(ctx, eps)
 		if err != nil {
 			errorList = append(errorList, errors.Wrap(err))
