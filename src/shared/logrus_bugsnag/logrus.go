@@ -47,6 +47,10 @@ const errorLogKey = "error"
 // Fire forwards an error to Bugsnag. Given a logrus.Entry, it extracts the
 // "error" field (or the Message if the error isn't present) and sends it off.
 func (hook *bugsnagHook) Fire(entry *logrus.Entry) error {
+	return SendToBugsnag(entry)
+}
+
+func SendToBugsnag(entry *logrus.Entry, rawData ...any) error {
 	notifyErr := bugsnagerrors.New(entry.Message, 1).Err
 	if err, ok := entry.Data[errorLogKey].(error); ok {
 		notifyErr = err
@@ -63,6 +67,7 @@ func (hook *bugsnagHook) Fire(entry *logrus.Entry) error {
 	}
 
 	bugsnagRawData = append(bugsnagRawData, metadata)
+	bugsnagRawData = append(bugsnagRawData, rawData...)
 
 	errWithStack := errors.WrapWithSkip(notifyErr, skipStackFrames)
 	bugsnagErr := bugsnag.Notify(errWithStack, bugsnagRawData...)
