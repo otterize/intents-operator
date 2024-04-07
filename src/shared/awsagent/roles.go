@@ -229,7 +229,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 		AssumeRolePolicyDocument: aws.String(trustPolicy),
 		Tags:                     tags,
 		Description:              aws.String(iamRoleDescription),
-		PermissionsBoundary:      aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.accountID, a.clusterName)),
+		PermissionsBoundary:      aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.AccountID, a.clusterName)),
 	}
 	createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, createRoleInput)
 
@@ -423,7 +423,7 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 				Effect: iamEffectAllow,
 				Action: []string{"sts:AssumeRoleWithWebIdentity"},
 				Principal: map[string]string{
-					"Federated": fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", a.accountID, a.oidcURL),
+					"Federated": fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", a.AccountID, a.oidcURL),
 				},
 				Condition: map[string]any{
 					"StringEquals": map[string]string{
@@ -490,5 +490,5 @@ func (a *Agent) generateRolesAnywhereProfileName(namespace string, accountName s
 
 func (a *Agent) GenerateRoleARN(namespace string, accountName string) string {
 	roleName := a.generateRoleName(namespace, accountName)
-	return fmt.Sprintf("arn:aws:iam::%s:role/%s", a.accountID, roleName)
+	return fmt.Sprintf("arn:aws:iam::%s:role/%s", a.AccountID, roleName)
 }

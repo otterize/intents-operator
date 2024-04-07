@@ -79,7 +79,8 @@ type Agent struct {
 	iamClient                        IAMClient
 	markRolesAsUnusedInsteadOfDelete bool
 	rolesAnywhereClient              RolesAnywhereClient
-	accountID                        string
+	Region                           string
+	AccountID                        string
 	oidcURL                          string
 	clusterName                      string
 	profileNameToId                  map[string]string
@@ -140,6 +141,7 @@ func NewAWSAgent(
 		iamClient:           iamClient,
 		rolesAnywhereClient: rolesAnywhereClient,
 		profileNameToId:     make(map[string]string),
+		Region:              awsConfig.Region,
 	}
 
 	for _, option := range options {
@@ -163,7 +165,7 @@ func NewAWSAgent(
 	if err != nil {
 		return nil, errors.Errorf("unable to get STS caller identity: %w", err)
 	}
-	agent.accountID = *callerIdent.Account
+	agent.AccountID = *callerIdent.Account
 
 	return agent, nil
 }

@@ -381,5 +381,5 @@ func (a *Agent) generatePolicyName(namespace string, intentsServiceName string) 
 }
 
 func (a *Agent) generatePolicyArn(policyName string) string {
-	return fmt.Sprintf("arn:aws:iam::%s:policy/%s", a.accountID, policyName)
+	return fmt.Sprintf("arn:aws:iam::%s:policy/%s", a.AccountID, policyName)
 }

@@ -4,6 +4,12 @@ import (
 	"context"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
+	"regexp"
+)
+
+var (
+	awsRegionRegex    = regexp.MustCompile(`\$\((AWS_REGION)\)`)
+	awsAccountIdRegex = regexp.MustCompile(`\$\((AWS_ACCOUNT_ID)\)`)
 )
 
 type Agent struct {
@@ -16,6 +22,13 @@ func NewAWSPolicyAgent(awsAgent *awsagent.Agent) *Agent {
 
 func (a *Agent) IntentType() otterizev1alpha3.IntentType {
 	return otterizev1alpha3.IntentTypeAWS
+}
+
+func (a *Agent) templateResourceName(resource string) string {
+	// replace template variables $(AWS_REGION) and $(AWS_ACCOUNT_ID) with a.region and a.accountID
+	resource = awsRegionRegex.ReplaceAllString(resource, a.Region)
+	resource = awsAccountIdRegex.ReplaceAllString(resource, a.AccountID)
+	return resource
 }
 
 func (a *Agent) createPolicyFromIntents(intents []otterizev1alpha3.Intent) awsagent.PolicyDocument {
