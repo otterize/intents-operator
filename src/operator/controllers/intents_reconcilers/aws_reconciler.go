@@ -112,22 +112,7 @@ func (r *AWSIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		return ctrl.Result{}, nil
 	}
 
-	policy := awsagent.PolicyDocument{
-		Version: "2012-10-17",
-	}
-
-	for _, intent := range filteredIntents {
-		awsResource := intent.Name
-		actions := intent.AWSActions
-
-		policy.Statement = append(policy.Statement, awsagent.StatementEntry{
-			Effect:   "Allow",
-			Resource: awsResource,
-			Action:   actions,
-		})
-	}
-
-	err = r.awsAgent.AddRolePolicy(ctx, req.Namespace, serviceAccountName, intents.Spec.Service.Name, policy.Statement)
+	err = r.awsAgent.AddRolePolicyFromIntents(ctx, req.Namespace, serviceAccountName, intents.Spec.Service.Name, filteredIntents)
 	if err != nil {
 		r.RecordWarningEventf(&intents, consts.ReasonReconcilingAWSPoliciesFailed, "Failed to reconcile AWS policies due to error: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
