@@ -7,6 +7,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -95,7 +96,7 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 		})
 
 	serviceSelector := map[string]string{"app": "test-server"}
-	svc := s.addExpectedKubernetesServiceCall("test-server", serverNamespace, 80, serviceSelector)
+	svc := s.addExpectedKubernetesServiceCall("test-server", serverNamespace, []corev1.ServicePort{{TargetPort: intstr.IntOrString{IntVal: 80}}}, serviceSelector)
 
 	egressRules := []v1.NetworkPolicyEgressRule{
 		{To: []v1.NetworkPolicyPeer{{

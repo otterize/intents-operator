@@ -23,6 +23,10 @@ mutation ReportProtectedServicesSnapshot($namespace: String!, $services: [Protec
     reportProtectedServicesSnapshot(namespace: $namespace, services: $services)
 }
 
+mutation ReportExternallyAccessibleServices($namespace: String!, $services: [ExternallyAccessibleServiceInput!]!) {
+    reportExternallyAccessibleServices(namespace: $namespace, services: $services)
+}
+
 query dummy {
     dummyError
 }

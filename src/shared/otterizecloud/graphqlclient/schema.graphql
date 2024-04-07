@@ -122,7 +122,6 @@ type AccessGraphFilter {
 	clusterIds: [ID!]
 	namespaceIds: [ID!]
 	serviceIds: [ID!]
-	serviceFilterType: FilterType
 	lastSeenAfter: Time
 	includeServicesWithNoEdges: Boolean
 }
@@ -538,11 +537,6 @@ input ExternallyAccessibleServiceInput {
 	serviceType: KubernetesServiceType!
 }
 
-enum FilterType {
-	INCLUDE
-	EXCLUDE
-}
-
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
 scalar Float
 
@@ -580,7 +574,6 @@ type GitHubAccessGraphFilter {
 	clusterIds: [ID!]
 	namespaceIds: [ID!]
 	serviceIds: [ID!]
-	serviceFilterType: FilterType
 	lastSeenAfter: Time
 }
 
@@ -654,7 +647,6 @@ input InputGitHubAccessGraphFilter {
 	environmentIds: [ID!]
 	clusterIds: [ID!]
 	serviceIds: [ID!]
-	serviceFilterType: FilterType
 	namespaceIds: [ID!]
 }
 
