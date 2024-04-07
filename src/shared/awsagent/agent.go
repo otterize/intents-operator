@@ -79,6 +79,7 @@ type Agent struct {
 	iamClient                        IAMClient
 	markRolesAsUnusedInsteadOfDelete bool
 	rolesAnywhereClient              RolesAnywhereClient
+	region                           string
 	accountID                        string
 	oidcURL                          string
 	clusterName                      string
@@ -140,6 +141,7 @@ func NewAWSAgent(
 		iamClient:           iamClient,
 		rolesAnywhereClient: rolesAnywhereClient,
 		profileNameToId:     make(map[string]string),
+		region:              awsConfig.Region,
 	}
 
 	for _, option := range options {
