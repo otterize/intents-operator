@@ -98,7 +98,7 @@ func (r *Reconciler) InjectRecorder(recorder record.EventRecorder) {
 }
 
 // ReconcileEffectivePolicies Gets current state of effective policies and returns number of network policies
-func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, error) {
+func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, []error) {
 	currentPolicies := goset.NewSet[types.NamespacedName]()
 	errorList := make([]error, 0)
 	for _, ep := range eps {
@@ -112,13 +112,13 @@ func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effec
 		}
 	}
 	if len(errorList) > 0 {
-		return 0, errors.Wrap(goerrors.Join(errorList...))
+		return 0, errorList
 	}
 
 	// remove policies that doesn't exist in the policy list
 	err := r.removeNetworkPoliciesThatShouldNotExist(ctx, currentPolicies)
 	if err != nil {
-		return currentPolicies.Len(), errors.Wrap(err)
+		return currentPolicies.Len(), []error{errors.Wrap(err)}
 	}
 
 	if currentPolicies.Len() != 0 {
