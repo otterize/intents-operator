@@ -71,7 +71,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	logrus.Infof("Reconciling Istio authorization policies for service %s in namespace %s",
+	logrus.Debugf("Reconciling Istio authorization policies for service %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
 
 	if !intents.DeletionTimestamp.IsZero() {
@@ -119,7 +119,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if missingSideCar {
 		r.RecordWarningEvent(intents, istiopolicy.ReasonMissingSidecar, "Client pod missing sidecar, will not create policies")
-		logrus.Infof("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
+		logrus.Debugf("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
 		return ctrl.Result{}, nil
 	}
 

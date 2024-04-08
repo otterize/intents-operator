@@ -56,7 +56,7 @@ func (g *Group) AddToGroup(reconciler ReconcilerWithEvents) {
 func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var finalErr error
 	var finalRes ctrl.Result
-	logrus.Infof("## Starting reconciliation group cycle for %s", g.name)
+	logrus.Debugf("## Starting reconciliation group cycle for %s", g.name)
 
 	resourceObject := g.baseObject.DeepCopyObject().(client.Object)
 	err := g.client.Get(ctx, req.NamespacedName, resourceObject)
@@ -64,7 +64,7 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 	if k8serrors.IsNotFound(err) {
-		logrus.Infof("Resource %s not found, skipping reconciliation", req.NamespacedName)
+		logrus.Debugf("Resource %s not found, skipping reconciliation", req.NamespacedName)
 		return ctrl.Result{}, nil
 	}
 
@@ -143,7 +143,7 @@ func (g *Group) removeFinalizer(ctx context.Context, resource client.Object) err
 
 func (g *Group) runGroup(ctx context.Context, req ctrl.Request, finalErr error, finalRes ctrl.Result) (ctrl.Result, error) {
 	for _, reconciler := range g.reconcilers {
-		logrus.Infof("Starting cycle for %T", reconciler)
+		logrus.Debugf("Starting cycle for %T", reconciler)
 		res, err := reconciler.Reconcile(ctx, req)
 		if err != nil {
 			if finalErr == nil {

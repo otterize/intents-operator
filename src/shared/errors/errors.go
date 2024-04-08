@@ -80,7 +80,6 @@ func wrapImpl(err error, skip int) error {
 	if err == nil {
 		return nil
 	}
-
 	return bugsnagerrors.New(err, skip+1)
 }
 

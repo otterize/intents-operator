@@ -27,7 +27,7 @@ func NewNamespaceWatcher(c client.Client) *NamespaceWatcher {
 }
 
 func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Infof("Reconciling due to namespace change: %s", req.Name)
+	logrus.Debugf("Reconciling due to namespace change: %s", req.Name)
 	namespace := &v1.Namespace{}
 	err := ns.Get(ctx, req.NamespacedName, namespace)
 	if k8serrors.IsNotFound(err) {
