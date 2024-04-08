@@ -64,7 +64,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 }
 
 func (a *Agent) DeleteRolePolicyByNamespacedName(ctx context.Context, namespace string, accountName string) error {
-	return a.DeleteRolePolicy(ctx, a.generateRoleName(namespace, accountName))
+	return a.DeleteRolePolicy(ctx, a.generatePolicyName(namespace, accountName))
 }
 
 func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
