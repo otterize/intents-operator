@@ -37,7 +37,7 @@ func (a *Agent) createPolicyFromIntents(intents []otterizev1alpha3.Intent) awsag
 	}
 
 	for _, intent := range intents {
-		awsResource := intent.Name
+		awsResource := a.templateResourceName(intent.Name)
 		actions := intent.AWSActions
 
 		policy.Statement = append(policy.Statement, awsagent.StatementEntry{
