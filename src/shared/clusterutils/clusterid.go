@@ -1,4 +1,4 @@
-package clusterid
+package clusterutils
 
 import (
 	"context"

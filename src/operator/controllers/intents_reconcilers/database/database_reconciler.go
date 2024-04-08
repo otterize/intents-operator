@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database/databaseconfigurator"
-	"github.com/otterize/intents-operator/src/shared/clusterid"
-	"github.com/otterize/intents-operator/src/shared/databaseutils"
+	"github.com/otterize/intents-operator/src/shared/clusterutils"
+	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/postgres"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
@@ -84,8 +83,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				"Could not find matching PostgreSQLServerConfig. Error: %s", err.Error())
 			return ctrl.Result{}, nil
 		}
-
-		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(pgServerConf.Spec, r.client)
+		pgConfigurator := postgres.NewPostgresConfigurator(pgServerConf.Spec, r.client)
 		err = pgConfigurator.ConfigureDBFromIntents(ctx, clientIntents.GetServiceName(), clientIntents.Namespace, intents, action)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
@@ -107,15 +105,15 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // Permission edits are handled by the normal flow because we run "revoke all" before adding permissions
 // This is only used when permissions might have been completely removed in a ClientIntents edit operation
 func (r *DatabaseReconciler) cleanExcessPermissions(ctx context.Context, intents *otterizev1alpha3.ClientIntents, pgServerConfigs otterizev1alpha3.PostgreSQLServerConfigList) error {
-	clusterID, err := clusterid.GetClusterUID(ctx)
+	clusterID, err := clusterutils.GetClusterUID(ctx)
 	if err != nil {
 		return err
 	}
 
-	username := databaseutils.BuildHashedUsername(intents.GetServiceName(), intents.Namespace, clusterID)
-	pgUsername := databaseutils.KubernetesToPostgresName(username)
+	username := clusterutils.BuildHashedUsername(intents.GetServiceName(), intents.Namespace, clusterID)
+	pgUsername := clusterutils.KubernetesToPostgresName(username)
 	for _, config := range pgServerConfigs.Items {
-		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(config.Spec, r.client)
+		pgConfigurator := postgres.NewPostgresConfigurator(config.Spec, r.client)
 		connectionString := pgConfigurator.FormatConnectionString(config.Spec.DatabaseName)
 		conn, err := pgx.Connect(ctx, connectionString)
 		if err != nil {
@@ -123,7 +121,7 @@ func (r *DatabaseReconciler) cleanExcessPermissions(ctx context.Context, intents
 			continue
 		}
 		pgConfigurator.SetConnection(ctx, conn)
-		exists, err := databaseutils.ValidateUserExists(ctx, pgUsername, conn)
+		exists, err := pgConfigurator.ValidateUserExists(ctx, pgUsername)
 		if err != nil {
 			return errors.Wrap(err)
 		}

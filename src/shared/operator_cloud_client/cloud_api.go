@@ -3,7 +3,7 @@ package operator_cloud_client
 import (
 	"context"
 	"github.com/Khan/genqlient/graphql"
-	"github.com/otterize/intents-operator/src/shared/clusterid"
+	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -51,7 +51,7 @@ func (c *CloudClientImpl) ReportAppliedIntents(
 	namespace *string,
 	intents []*graphqlclient.IntentInput) error {
 
-	clusterID, err := clusterid.GetClusterUID(ctx)
+	clusterID, err := clusterutils.GetClusterUID(ctx)
 	if err != nil {
 		return errors.Wrap(err)
 	}

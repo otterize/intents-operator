@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -36,7 +37,6 @@ type DatabaseReconcilerTestSuite struct {
 func (s *DatabaseReconcilerTestSuite) SetupTest() {
 	s.Controller = gomock.NewController(s.T())
 	s.client = mocks.NewMockClient(s.Controller)
-
 	s.Reconciler = NewDatabaseReconciler(
 		s.client,
 		&runtime.Scheme{},
@@ -51,7 +51,7 @@ func (s *DatabaseReconcilerTestSuite) SetupTest() {
 	}
 }
 
-func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
+func (s *DatabaseReconcilerTestSuite) TestPGServerConfNotMatching() {
 	clientIntents := otterizev1alpha3.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
@@ -81,7 +81,7 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 
 	pgServerConf := otterizev1alpha3.PostgreSQLServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      databaseInstance,
+			Name:      fmt.Sprintf("%s-other", databaseInstance),
 			Namespace: testNamespace,
 		},
 		Spec: otterizev1alpha3.PostgreSQLServerConfigSpec{
@@ -94,10 +94,10 @@ func (s *DatabaseReconcilerTestSuite) TestSimpleDatabase() {
 		},
 	}
 
-	res, err := s.reconcileWithExpectedCalls(clientIntents, pgServerConf)
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-	s.ExpectEvent(ReasonAppliedDatabaseIntents)
+	_, err := s.reconcileWithExpectedResources(clientIntents, pgServerConf)
+	s.Require().NoError(err) // Although no PGServerConf, we don't return error - just record an event
+	s.Require().Empty(ctrl.Result{})
+	s.ExpectEvent(ReasonMissingPostgresServerConfig)
 }
 
 func (s *DatabaseReconcilerTestSuite) TestNoPGServerConf() {
@@ -127,43 +127,13 @@ func (s *DatabaseReconcilerTestSuite) TestNoPGServerConf() {
 			},
 		}}
 
-	_, err := s.reconcileWithExpectedCalls(clientIntents, otterizev1alpha3.PostgreSQLServerConfig{})
+	_, err := s.reconcileWithExpectedResources(clientIntents, otterizev1alpha3.PostgreSQLServerConfig{})
 	s.Require().NoError(err) // Although no PGServerConf, we don't return error - just record an event
 	s.Require().Empty(ctrl.Result{})
 	s.ExpectEvent(ReasonMissingPostgresServerConfig)
 }
 
-func (s *DatabaseReconcilerTestSuite) expectHandleReconcilationErrorGracefully(clientIntents otterizev1alpha3.ClientIntents) {
-	emptyIntents := otterizev1alpha3.ClientIntents{}
-	
-	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
-			clientIntents.DeepCopyInto(intents)
-			return nil
-		})
-
-	req := ctrl.Request{NamespacedName: s.namespacedName}
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
-	s.Require().NoError(err)
-	s.Require().Equal(ctrl.Result{}, res)
-}
-
-func (s *DatabaseReconcilerTestSuite) assertAppliedDatabaseIntents(clientIntents otterizev1alpha3.ClientIntents) {
-	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&otterizev1alpha3.ClientIntents{})).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
-			clientIntents.DeepCopyInto(intents)
-			return nil
-		})
-
-	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.PostgreSQLServerConfigList{}), gomock.Any()).AnyTimes()
-	req := ctrl.Request{NamespacedName: s.namespacedName}
-
-	res, err := s.Reconciler.Reconcile(context.Background(), req)
-	s.Require().NoError(err)
-	s.Require().Equal(ctrl.Result{}, res)
-}
-
-func (s *DatabaseReconcilerTestSuite) reconcileWithExpectedCalls(clientIntents otterizev1alpha3.ClientIntents, pgServerConfig otterizev1alpha3.PostgreSQLServerConfig) (ctrl.Result, error) {
+func (s *DatabaseReconcilerTestSuite) reconcileWithExpectedResources(clientIntents otterizev1alpha3.ClientIntents, pgServerConfig otterizev1alpha3.PostgreSQLServerConfig) (ctrl.Result, error) {
 	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&otterizev1alpha3.ClientIntents{})).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)

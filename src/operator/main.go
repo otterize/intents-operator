@@ -35,7 +35,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
-	"github.com/otterize/intents-operator/src/shared/clusterid"
+	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -546,11 +546,11 @@ func setClusterUID(ctx context.Context, mgr manager.Manager, podNamespace string
 	}
 	_, err = k8sclient.CoreV1().ConfigMaps(podNamespace).Create(ctx, &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      clusterid.OtterizeClusterUIDResourceName,
+			Name:      clusterutils.OtterizeClusterUIDResourceName,
 			Namespace: podNamespace,
 		},
 		Immutable: lo.ToPtr(true),
-		Data:      map[string]string{clusterid.OtterizeClusterUIDKeyName: clusterUID},
+		Data:      map[string]string{clusterutils.OtterizeClusterUIDKeyName: clusterUID},
 	}, metav1.CreateOptions{})
 
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
