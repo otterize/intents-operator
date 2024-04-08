@@ -346,8 +346,8 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		}
 
 		netpolList := &v1.NetworkPolicyList{}
-		// there's only ever one
-		err = r.client.List(ctx, netpolList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: serverLabel}, client.Limit(1))
+
+		err = r.client.List(ctx, netpolList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: serverLabel})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				// only act on pods affected by Otterize policies - if they were not created yet,
@@ -357,7 +357,10 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 			return errors.Wrap(err)
 		}
 
-		hasIngressRules := lo.SomeBy(netpolList.Items, func(netpol v1.NetworkPolicy) bool { return len(netpol.Spec.Ingress) > 0 })
+		hasIngressRules := lo.SomeBy(netpolList.Items, func(netpol v1.NetworkPolicy) bool {
+			return lo.Contains(netpol.Spec.PolicyTypes, v1.PolicyTypeIngress)
+		})
+
 		if !hasIngressRules {
 			if r.allowExternalTraffic == allowexternaltraffic.Always {
 				err := r.handleNetpolsForOtterizeServiceWithoutIntents(ctx, endpoints, serverLabel, ingressList)
