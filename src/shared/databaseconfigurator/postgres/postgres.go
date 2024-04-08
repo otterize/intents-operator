@@ -96,16 +96,9 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	intents []otterizev1alpha3.Intent,
 	permissionChange otterizev1alpha3.DBPermissionChange) error {
 
-	connectionString := p.FormatConnectionString(PGDefaultDatabase)
-	conn, err := pgx.Connect(ctx, connectionString)
-	if err != nil {
-		pgErr, ok := TranslatePostgresConnectionError(err)
-		if ok {
-			return errors.Wrap(errors.New(pgErr))
-		}
+	if err := p.SetConnection(ctx, PGDefaultDatabase); err != nil {
 		return errors.Wrap(err)
 	}
-	p.SetConnection(ctx, conn)
 
 	dbnameToDatabaseResources, err := p.ExtractDBNameToDatabaseResourcesFromIntents(ctx, intents)
 	if err != nil {
@@ -130,23 +123,10 @@ func (p *PostgresConfigurator) ConfigureDBFromIntents(
 	}
 
 	for dbname, dbResources := range dbnameToDatabaseResources {
-		connectionString = p.FormatConnectionString(dbname)
-		conn, err = pgx.Connect(ctx, connectionString)
-		// If we got invalid authorization error at this point it means we are blocked by the hba_conf file.
-		// It may occur for cloud provider databases such as "cloudsqladmin".
-		// TODO: Remove it when we have a better solution for knowing what were the last applied intents.
-		if err != nil && IsInvalidAuthorizationError(err) {
-			logrus.Infof("Invalid authorization error to: %s", dbname)
-			continue
-		}
-		if err != nil {
-			pgErr, ok := TranslatePostgresConnectionError(err)
-			if ok {
-				return errors.Wrap(errors.New(pgErr))
-			}
+		if err := p.SetConnection(ctx, dbname); err != nil {
 			return errors.Wrap(err)
 		}
-		p.SetConnection(ctx, conn)
+
 		if permissionChange != otterizev1alpha3.DBPermissionChangeDelete {
 			// Need to check whether tables were deleted from intents, and revoke permissions for them
 			allowedTablesDiff, err := p.getAllowedTablesDiffForUser(ctx, pgUsername, dbResources)
@@ -188,18 +168,28 @@ func (p *PostgresConfigurator) SendBatch(ctx context.Context, statementsBatch *p
 	return nil
 }
 
-func (p *PostgresConfigurator) SetConnection(ctx context.Context, conn *pgx.Conn) {
+func (p *PostgresConfigurator) SetConnection(ctx context.Context, databaseName string) error {
+	connectionString := p.FormatConnectionString(databaseName)
+	conn, err := pgx.Connect(ctx, connectionString)
+	if err != nil {
+		pgErr, ok := TranslatePostgresConnectionError(err)
+		if ok {
+			return errors.Wrap(fmt.Errorf(pgErr))
+		}
+		return errors.Wrap(err)
+	}
 	p.setConnMutex.Lock()
 	defer p.setConnMutex.Unlock()
 	if p.conn == nil {
 		p.conn = conn
-		return
+		return nil
 	}
 	if err := p.conn.Close(ctx); err != nil {
 		// Intentionally no error returned - clean up error
 		logrus.Errorf("Failed closing connection to: %s", p.databaseInfo.Address)
 	}
 	p.conn = conn
+	return nil
 }
 
 func (p *PostgresConfigurator) ExtractDBNameToDatabaseResourcesFromIntents(ctx context.Context, intents []otterizev1alpha3.Intent) (map[string][]otterizev1alpha3.DatabaseResource, error) {

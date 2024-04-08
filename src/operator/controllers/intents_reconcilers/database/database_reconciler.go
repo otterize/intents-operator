@@ -81,7 +81,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonMissingPostgresServerConfig,
 				"Could not find matching PostgreSQLServerConfig. Error: %s", err.Error())
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, nil // Not returning error on purpose, missing PGServerConf - record event and move on
 		}
 		pgConfigurator := postgres.NewPostgresConfigurator(pgServerConf.Spec, r.client)
 		err = pgConfigurator.ConfigureDBFromIntents(ctx, clientIntents.GetServiceName(), clientIntents.Namespace, intents, action)
@@ -114,13 +114,9 @@ func (r *DatabaseReconciler) cleanExcessPermissions(ctx context.Context, intents
 	pgUsername := clusterutils.KubernetesToPostgresName(username)
 	for _, config := range pgServerConfigs.Items {
 		pgConfigurator := postgres.NewPostgresConfigurator(config.Spec, r.client)
-		connectionString := pgConfigurator.FormatConnectionString(config.Spec.DatabaseName)
-		conn, err := pgx.Connect(ctx, connectionString)
-		if err != nil {
-			logrus.WithError(err).Errorf("Failed connecting to database instace '%s'", config.Name)
-			continue
+		if err := pgConfigurator.SetConnection(ctx, config.Spec.DatabaseName); err != nil {
+			return errors.Wrap(err)
 		}
-		pgConfigurator.SetConnection(ctx, conn)
 		exists, err := pgConfigurator.ValidateUserExists(ctx, pgUsername)
 		if err != nil {
 			return errors.Wrap(err)
