@@ -116,7 +116,7 @@ func NewIntentsReconciler(
 	}
 
 	if enforcementConfig.EnableDatabasePolicy {
-		databaseReconciler := database.NewDatabaseReconciler(client, scheme, otterizeClient)
+		databaseReconciler := database.NewDatabaseReconciler(client, scheme)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
 	}
 

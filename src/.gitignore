@@ -23,4 +23,3 @@ testbin/*
 *.swp
 *.swo
 *~
-*.env

@@ -10,7 +10,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/databaseutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,21 +26,18 @@ const (
 )
 
 type DatabaseReconciler struct {
-	client         client.Client
-	scheme         *runtime.Scheme
-	otterizeClient operator_cloud_client.CloudClient
+	client client.Client
+	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
 }
 
 func NewDatabaseReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	otterizeClient operator_cloud_client.CloudClient,
 ) *DatabaseReconciler {
 	return &DatabaseReconciler{
-		client:         client,
-		scheme:         scheme,
-		otterizeClient: otterizeClient,
+		client: client,
+		scheme: scheme,
 	}
 }
 
@@ -66,32 +62,22 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		action = otterizev1alpha3.DBPermissionChangeDelete
 	}
 
-	var dbIntents []otterizev1alpha3.Intent
-	for _, intent := range clientIntents.GetCallsList() {
-		if intent.Type != otterizev1alpha3.IntentTypeDatabase {
-			continue
-		}
-		dbIntents = append(dbIntents, intent)
-	}
+	dbIntents := lo.Filter(clientIntents.GetCallsList(), func(intent otterizev1alpha3.Intent, _ int) bool {
+		return intent.Type == otterizev1alpha3.IntentTypeDatabase
+	})
 
 	dbInstanceToIntents := lo.GroupBy(dbIntents, func(intent otterizev1alpha3.Intent) string {
 		return intent.Name // "Name" is the db instance name in our case.
 	})
-
+	pgServerConfigs := otterizev1alpha3.PostgreSQLServerConfigList{}
+	err = r.client.List(ctx, &pgServerConfigs)
 	if err != nil {
-		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed, "Failed applying database clientIntents: %s", err.Error())
+		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
+			"Error listing PostgresServerConfings. Error: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	for databaseInstance, intents := range dbInstanceToIntents {
-		pgServerConfigs := otterizev1alpha3.PostgreSQLServerConfigList{}
-		err := r.client.List(ctx, &pgServerConfigs)
-		if err != nil {
-			r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
-				"Error trying to fetch '%s' PostgresServerConf for client '%s'. Error: %s",
-				databaseInstance, clientIntents.GetServiceName(), err.Error())
-			return ctrl.Result{}, errors.Wrap(err)
-		}
 		pgServerConf, err := findMatchingPGServerConfForDBInstance(databaseInstance, pgServerConfigs)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonMissingPostgresServerConfig,
@@ -108,7 +94,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	if err := r.cleanExcessPermissions(ctx, clientIntents); err != nil {
+	if err := r.cleanExcessPermissions(ctx, clientIntents, pgServerConfigs); err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
@@ -120,11 +106,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // cleanExcessPermissions compensates for DB resources completely removed from client intents
 // Permission edits are handled by the normal flow because we run "revoke all" before adding permissions
 // This is only used when permissions might have been completely removed in a ClientIntents edit operation
-func (r *DatabaseReconciler) cleanExcessPermissions(ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
-	allDBServerConfigs := otterizev1alpha3.PostgreSQLServerConfigList{}
-	if err := r.client.List(ctx, &allDBServerConfigs); err != nil {
-		return errors.Wrap(err)
-	}
+func (r *DatabaseReconciler) cleanExcessPermissions(ctx context.Context, intents *otterizev1alpha3.ClientIntents, pgServerConfigs otterizev1alpha3.PostgreSQLServerConfigList) error {
 	clusterID, err := clusterid.GetClusterUID(ctx)
 	if err != nil {
 		return err
@@ -132,7 +114,7 @@ func (r *DatabaseReconciler) cleanExcessPermissions(ctx context.Context, intents
 
 	username := databaseutils.BuildHashedUsername(intents.GetServiceName(), intents.Namespace, clusterID)
 	pgUsername := databaseutils.KubernetesToPostgresName(username)
-	for _, config := range allDBServerConfigs.Items {
+	for _, config := range pgServerConfigs.Items {
 		pgConfigurator := databaseconfigurator.NewPostgresConfigurator(config.Spec, r.client)
 		connectionString := pgConfigurator.FormatConnectionString(config.Spec.DatabaseName)
 		conn, err := pgx.Connect(ctx, connectionString)
@@ -152,7 +134,7 @@ func (r *DatabaseReconciler) cleanExcessPermissions(ctx context.Context, intents
 		intent, found := lo.Find(intents.Spec.Calls, func(intent otterizev1alpha3.Intent) bool {
 			return intent.Name == config.Name
 		})
-		if !found || (found && intent.DatabaseResources == nil) {
+		if !found || intent.DatabaseResources == nil {
 			// Username exists in the database, but doesn't have any intents for it, run "revoke all" just in case
 			revokeBatch := &pgx.Batch{}
 			if err := pgConfigurator.QueueRevokePermissionsByDatabaseNameStatements(ctx, revokeBatch, pgUsername); err != nil {
