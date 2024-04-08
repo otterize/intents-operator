@@ -13,11 +13,24 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"regexp"
 	"time"
+)
+
+var (
+	awsRegionRegex    = regexp.MustCompile(`\$\((AWS_REGION)\)`)
+	awsAccountIdRegex = regexp.MustCompile(`\$\((AWS_ACCOUNT_ID)\)`)
 )
 
 func (a *Agent) IntentType() otterizev1alpha3.IntentType {
 	return otterizev1alpha3.IntentTypeAWS
+}
+
+func (a *Agent) templateResourceName(resource string) string {
+	// replace template variables $(AWS_REGION) and $(AWS_ACCOUNT_ID) with a.region and a.accountID
+	resource = awsRegionRegex.ReplaceAllString(resource, a.region)
+	resource = awsAccountIdRegex.ReplaceAllString(resource, a.accountID)
+	return resource
 }
 
 func (a *Agent) createPolicyFromIntents(intents []otterizev1alpha3.Intent) PolicyDocument {
@@ -26,7 +39,7 @@ func (a *Agent) createPolicyFromIntents(intents []otterizev1alpha3.Intent) Polic
 	}
 
 	for _, intent := range intents {
-		awsResource := intent.Name
+		awsResource := a.templateResourceName(intent.Name)
 		actions := intent.AWSActions
 
 		policy.Statement = append(policy.Statement, StatementEntry{
