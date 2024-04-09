@@ -2,6 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
+	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -38,7 +39,7 @@ type KafkaACLReconciler struct {
 	operatorPodName         string
 	operatorPodNamespace    string
 	serviceResolver         serviceidresolver.ServiceResolver
-	activeNamespaces        []string
+	activeNamespaces        goset.Set[string]
 	injectablerecorder.InjectableRecorder
 }
 
@@ -52,7 +53,7 @@ func NewKafkaACLReconciler(
 	operatorPodName string,
 	operatorPodNamespace string,
 	serviceResolver serviceidresolver.ServiceResolver,
-	activeNamespaces []string,
+	activeNamespaces goset.Set[string],
 ) *KafkaACLReconciler {
 	return &KafkaACLReconciler{
 		client:                  client,

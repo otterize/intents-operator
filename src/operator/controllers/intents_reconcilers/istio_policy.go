@@ -2,6 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
+	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	istiopolicy "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
@@ -42,7 +43,7 @@ func NewIstioPolicyReconciler(
 	}
 
 	reconciler.policyManager = istiopolicy.NewPolicyManager(c, &reconciler.InjectableRecorder, restrictToNamespaces,
-		reconciler.enforcementDefaultState, reconciler.enableIstioPolicyCreation, nil)
+		reconciler.enforcementDefaultState, reconciler.enableIstioPolicyCreation, *goset.NewSet[string]())
 
 	return reconciler
 }

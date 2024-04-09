@@ -2,6 +2,7 @@ package builders
 
 import (
 	"context"
+	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
@@ -50,7 +51,7 @@ func (s *RulesBuilderTestSuiteBase) SetupTest() {
 		s.scheme,
 		s.externalNetpolHandler,
 		restrictToNamespaces,
-		make([]string, 0),
+		*goset.NewSet[string](),
 		true,
 		true,
 		nil,

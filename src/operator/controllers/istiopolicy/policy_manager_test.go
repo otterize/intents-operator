@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -27,7 +28,7 @@ type PolicyManagerTestSuite struct {
 
 func (s *PolicyManagerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.admin = NewPolicyManager(s.Client, &injectablerecorder.InjectableRecorder{Recorder: s.Recorder}, []string{}, true, true, nil)
+	s.admin = NewPolicyManager(s.Client, &injectablerecorder.InjectableRecorder{Recorder: s.Recorder}, []string{}, true, true, *goset.NewSet[string]())
 }
 
 func (s *PolicyManagerTestSuite) TearDownTest() {

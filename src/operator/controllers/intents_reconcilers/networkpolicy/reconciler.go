@@ -49,7 +49,7 @@ type Reconciler struct {
 	client.Client
 	Scheme                      *runtime.Scheme
 	RestrictToNamespaces        []string
-	EnforcedNamespaces          []string
+	EnforcedNamespaces          goset.Set[string]
 	EnableNetworkPolicyCreation bool
 	EnforcementDefaultState     bool
 	injectablerecorder.InjectableRecorder
@@ -63,7 +63,7 @@ func NewReconciler(
 	s *runtime.Scheme,
 	externalNetpolHandler ExternalNetpolHandler,
 	restrictToNamespaces []string,
-	enforcedNamespaces []string,
+	enforcedNamespaces goset.Set[string],
 	enableNetworkPolicyCreation bool,
 	enforcementDefaultState bool,
 	ingressBuilders []IngressRuleBuilder,
