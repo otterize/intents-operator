@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx context.Context, kube client.Client, serverName string, serverNamespace string, enforcementDefaultState bool, activeNamespaces goset.Set[string]) (bool, error) {
+func IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx context.Context, kube client.Client, serverName string, serverNamespace string, enforcementDefaultState bool, activeNamespaces *goset.Set[string]) (bool, error) {
 	if enforcementDefaultState {
 		logrus.Debug("Enforcement is default on, so all services should be protected")
 		return true, nil
@@ -19,7 +19,7 @@ func IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx context.Context
 	logrus.Debug("Protected services are enabled")
 
 	logrus.Debugf("checking if server's namespace is in acrive namespaces")
-	if activeNamespaces.Contains(serverNamespace) {
+	if activeNamespaces != nil && activeNamespaces.Contains(serverNamespace) {
 		logrus.Debugf("Server %s in namespace %s is in active namespaces", serverName, serverNamespace)
 		return true, nil
 	}

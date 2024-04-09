@@ -72,7 +72,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	defaultActive := !isShadowMode
 	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.IfBlockedByOtterize)
 	s.defaultDenyReconciler = protected_service_reconcilers.NewDefaultDenyReconciler(s.Mgr.GetClient(), netpolHandler, true)
-	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, *goset.NewSet[string](), true, defaultActive, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder()}, nil)
+	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, goset.NewSet[string](), true, defaultActive, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder()}, nil)
 	epReconciler := effectivepolicy.NewGroupReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolReconciler)
 	s.EffectivePolicyIntentsReconciler = intents_reconcilers.NewServiceEffectiveIntentsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, epReconciler)
 	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
@@ -87,7 +87,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.IngressReconciler.InjectRecorder(recorder)
 	s.Require().NoError(err)
 
-	s.podWatcher = pod_reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, defaultActive, true, *goset.NewSet[string]())
+	s.podWatcher = pod_reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, defaultActive, true, goset.NewSet[string]())
 	err = s.podWatcher.InitIntentsClientIndices(s.Mgr)
 	s.Require().NoError(err)
 

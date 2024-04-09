@@ -32,7 +32,9 @@ func NewIstioPolicyReconciler(
 	s *runtime.Scheme,
 	restrictToNamespaces []string,
 	enableIstioPolicyCreation bool,
-	enforcementDefaultState bool) *IstioPolicyReconciler {
+	enforcementDefaultState bool,
+	enforcedNamespaces *goset.Set[string],
+) *IstioPolicyReconciler {
 	reconciler := &IstioPolicyReconciler{
 		Client:                    c,
 		Scheme:                    s,
@@ -43,7 +45,7 @@ func NewIstioPolicyReconciler(
 	}
 
 	reconciler.policyManager = istiopolicy.NewPolicyManager(c, &reconciler.InjectableRecorder, restrictToNamespaces,
-		reconciler.enforcementDefaultState, reconciler.enableIstioPolicyCreation, *goset.NewSet[string]())
+		reconciler.enforcementDefaultState, reconciler.enableIstioPolicyCreation, enforcedNamespaces)
 
 	return reconciler
 }

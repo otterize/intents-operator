@@ -39,7 +39,7 @@ type KafkaACLReconciler struct {
 	operatorPodName         string
 	operatorPodNamespace    string
 	serviceResolver         serviceidresolver.ServiceResolver
-	activeNamespaces        goset.Set[string]
+	activeNamespaces        *goset.Set[string]
 	injectablerecorder.InjectableRecorder
 }
 
@@ -53,7 +53,7 @@ func NewKafkaACLReconciler(
 	operatorPodName string,
 	operatorPodNamespace string,
 	serviceResolver serviceidresolver.ServiceResolver,
-	activeNamespaces goset.Set[string],
+	activeNamespaces *goset.Set[string],
 ) *KafkaACLReconciler {
 	return &KafkaACLReconciler{
 		client:                  client,

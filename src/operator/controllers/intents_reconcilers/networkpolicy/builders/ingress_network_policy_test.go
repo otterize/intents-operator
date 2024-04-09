@@ -46,7 +46,7 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	formattedTargetServer string,
 	defaultEnforcementState bool,
 	protectedServices []otterizev1alpha3.ProtectedService,
-	enforcedNamespaces goset.Set[string],
+	enforcedNamespaces *goset.Set[string],
 ) {
 	s.Reconciler.EnforcedNamespaces = enforcedNamespaces
 	s.Reconciler.EnforcementDefaultState = defaultEnforcementState
@@ -185,7 +185,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 		formattedTargetServer,
 		true,
 		nil,
-		*goset.NewSet[string](),
+		goset.NewSet[string](),
 	)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
@@ -205,7 +205,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyActiveNamespac
 		formattedTargetServer,
 		false,
 		nil,
-		*goset.FromSlice([]string{serverNamespace}),
+		goset.FromSlice([]string{serverNamespace}),
 	)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
@@ -235,7 +235,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 		formattedTargetServer,
 		false,
 		protectedService,
-		*goset.NewSet[string](),
+		goset.NewSet[string](),
 	)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
@@ -276,7 +276,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 		formattedTargetServer,
 		false,
 		protectedServices,
-		*goset.NewSet[string](),
+		goset.NewSet[string](),
 	)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
@@ -296,7 +296,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace
 		formattedTargetServer,
 		true,
 		nil,
-		*goset.NewSet[string](),
+		goset.NewSet[string](),
 	)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }

@@ -81,15 +81,15 @@ func NewIntentsReconciler(
 	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string,
-	activeNamespaces goset.Set[string],
+	enforcedNamespaces *goset.Set[string],
 	additionalReconcilers ...reconcilergroup.ReconcilerWithEvents,
 ) *IntentsReconciler {
 
 	serviceIdResolver := serviceidresolver.NewResolver(client)
 	reconcilers := []reconcilergroup.ReconcilerWithEvents{
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
-		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver, activeNamespaces),
-		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState),
+		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver, enforcedNamespaces),
+		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState, enforcedNamespaces),
 	}
 	reconcilers = append(reconcilers, additionalReconcilers...)
 	reconcilersGroup := reconcilergroup.NewGroup(

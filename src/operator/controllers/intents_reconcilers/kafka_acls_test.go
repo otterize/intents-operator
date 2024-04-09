@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/Shopify/sarama"
-	"github.com/amit7itz/goset"
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
@@ -122,7 +121,7 @@ func (s *KafkaACLReconcilerTestSuite) initKafkaIntentsAdmin(enableAclCreation bo
 		operatorPodName,
 		s.operatorNamespace,
 		s.mockServiceResolver,
-		*goset.NewSet[string](),
+		nil,
 	)
 	s.recorder = record.NewFakeRecorder(100)
 	s.Reconciler.InjectRecorder(s.recorder)

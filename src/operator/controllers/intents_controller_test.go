@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	"github.com/amit7itz/goset"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -33,7 +32,7 @@ func (s *IntentsControllerTestSuite) SetupTest() {
 		nil,
 		"",
 		"",
-		*goset.NewSet[string](),
+		nil,
 		nil,
 	)
 }

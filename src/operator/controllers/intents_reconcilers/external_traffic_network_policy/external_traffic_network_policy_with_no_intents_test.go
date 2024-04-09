@@ -64,7 +64,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupTest() {
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Always)
-	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, *goset.NewSet[string](), true, true, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder()}, nil)
+	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, goset.NewSet[string](), true, true, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder()}, nil)
 	groupReconciler := effectivepolicy.NewGroupReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolReconciler)
 	s.EffectivePolicyIntentsReconciler = intents_reconcilers.NewServiceEffectiveIntentsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, groupReconciler)
 	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
@@ -79,7 +79,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupTest() {
 	s.IngressReconciler.InjectRecorder(recorder)
 	s.Require().NoError(err)
 
-	s.podWatcher = pod_reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, true, true, *goset.NewSet[string]())
+	s.podWatcher = pod_reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, true, true, goset.NewSet[string]())
 	err = s.podWatcher.InitIntentsClientIndices(s.Mgr)
 	s.Require().NoError(err)
 

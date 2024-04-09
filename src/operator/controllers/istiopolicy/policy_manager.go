@@ -45,7 +45,7 @@ type PolicyManagerImpl struct {
 	client                    client.Client
 	recorder                  *injectablerecorder.InjectableRecorder
 	restrictToNamespaces      []string
-	activeNamespaces          goset.Set[string]
+	activeNamespaces          *goset.Set[string]
 	enforcementDefaultState   bool
 	enableIstioPolicyCreation bool
 }
@@ -57,7 +57,7 @@ type PolicyManager interface {
 	UpdateServerSidecar(ctx context.Context, clientIntents *v1alpha3.ClientIntents, serverName string, missingSideCar bool) error
 }
 
-func NewPolicyManager(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces goset.Set[string]) *PolicyManagerImpl {
+func NewPolicyManager(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string]) *PolicyManagerImpl {
 	return &PolicyManagerImpl{
 		client:                    client,
 		recorder:                  recorder,
