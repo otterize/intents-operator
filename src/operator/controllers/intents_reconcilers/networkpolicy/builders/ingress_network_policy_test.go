@@ -45,7 +45,9 @@ func (s *NetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	formattedTargetServer string,
 	defaultEnforcementState bool,
 	protectedServices []otterizev1alpha3.ProtectedService,
+	enforcedNamespaces []string,
 ) {
+	s.Reconciler.EnforcedNamespaces = enforcedNamespaces
 	s.Reconciler.EnforcementDefaultState = defaultEnforcementState
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
@@ -182,6 +184,27 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 		formattedTargetServer,
 		true,
 		nil,
+		nil,
+	)
+	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
+}
+
+func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyActiveNamespace() {
+	clientIntentsName := "client-intents"
+	policyName := "test-server-access"
+	serviceName := "test-client"
+	serverNamespace := testNamespace
+	formattedTargetServer := "test-server-test-namespace-8ddecb"
+
+	s.testCreateNetworkPolicy(
+		clientIntentsName,
+		serverNamespace,
+		serviceName,
+		policyName,
+		formattedTargetServer,
+		false,
+		nil,
+		[]string{serverNamespace},
 	)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
@@ -211,6 +234,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 		formattedTargetServer,
 		false,
 		protectedService,
+		nil,
 	)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
@@ -251,6 +275,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyWithProtectedS
 		formattedTargetServer,
 		false,
 		protectedServices,
+		nil,
 	)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)
 }
@@ -269,6 +294,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNamespace
 		policyName,
 		formattedTargetServer,
 		true,
+		nil,
 		nil,
 	)
 	s.ExpectEvent(consts.ReasonCreatedNetworkPolicies)

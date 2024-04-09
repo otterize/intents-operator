@@ -49,6 +49,7 @@ type Reconciler struct {
 	client.Client
 	Scheme                      *runtime.Scheme
 	RestrictToNamespaces        []string
+	EnforcedNamespaces          []string
 	EnableNetworkPolicyCreation bool
 	EnforcementDefaultState     bool
 	injectablerecorder.InjectableRecorder
@@ -62,6 +63,7 @@ func NewReconciler(
 	s *runtime.Scheme,
 	externalNetpolHandler ExternalNetpolHandler,
 	restrictToNamespaces []string,
+	enforcedNamespaces []string,
 	enableNetworkPolicyCreation bool,
 	enforcementDefaultState bool,
 	ingressBuilders []IngressRuleBuilder,
@@ -71,6 +73,7 @@ func NewReconciler(
 		Client:                      c,
 		Scheme:                      s,
 		RestrictToNamespaces:        restrictToNamespaces,
+		EnforcedNamespaces:          enforcedNamespaces,
 		EnableNetworkPolicyCreation: enableNetworkPolicyCreation,
 		EnforcementDefaultState:     enforcementDefaultState,
 		egressRuleBuilders:          egressBuilders,
@@ -216,7 +219,7 @@ func (r *Reconciler) buildIngressRules(ctx context.Context, ep effectivepolicy.S
 	if len(ep.CalledBy) == 0 || len(r.ingressRuleBuilders) == 0 {
 		return rules, false, nil
 	}
-	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service.Name, ep.Service.Namespace, r.EnforcementDefaultState)
+	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service.Name, ep.Service.Namespace, r.EnforcementDefaultState, r.EnforcedNamespaces)
 	if err != nil {
 		return rules, false, errors.Wrap(err)
 	}

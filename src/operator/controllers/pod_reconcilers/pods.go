@@ -38,9 +38,9 @@ type PodWatcher struct {
 	injectablerecorder.InjectableRecorder
 }
 
-func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool) *PodWatcher {
+func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces []string) *PodWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
-	creator := istiopolicy.NewPolicyManager(c, &recorder, watchedNamespaces, enforcementDefaultState, istioEnforcementEnabled)
+	creator := istiopolicy.NewPolicyManager(c, &recorder, watchedNamespaces, enforcementDefaultState, istioEnforcementEnabled, activeNamespaces)
 	return &PodWatcher{
 		Client:             c,
 		serviceIdResolver:  serviceidresolver.NewResolver(c),

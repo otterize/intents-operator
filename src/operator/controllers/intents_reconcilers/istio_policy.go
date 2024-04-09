@@ -42,7 +42,7 @@ func NewIstioPolicyReconciler(
 	}
 
 	reconciler.policyManager = istiopolicy.NewPolicyManager(c, &reconciler.InjectableRecorder, restrictToNamespaces,
-		reconciler.enforcementDefaultState, reconciler.enableIstioPolicyCreation)
+		reconciler.enforcementDefaultState, reconciler.enableIstioPolicyCreation, nil)
 
 	return reconciler
 }
