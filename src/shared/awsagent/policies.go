@@ -376,7 +376,7 @@ func generatePolicyDocument(statements []StatementEntry) (string, string, error)
 }
 
 func (a *Agent) generatePolicyName(namespace string, intentsServiceName string) string {
-	return fmt.Sprintf("otr-%s.%s@%s", namespace, intentsServiceName, a.clusterName)
+	return fmt.Sprintf("otr-%s.%s@%s", namespace, intentsServiceName, a.ClusterName)
 
 }
 

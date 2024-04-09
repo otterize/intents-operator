@@ -151,7 +151,7 @@ func (a *Agent) CreateRolesAnywhereProfileForRole(ctx context.Context, role type
 				},
 				{
 					Key:   aws.String(clusterNameTagKey),
-					Value: aws.String(a.clusterName),
+					Value: aws.String(a.ClusterName),
 				},
 			},
 		})
@@ -218,7 +218,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 		},
 		{
 			Key:   aws.String(clusterNameTagKey),
-			Value: aws.String(a.clusterName),
+			Value: aws.String(a.ClusterName),
 		},
 	}
 	if useSoftDeleteStrategy {
@@ -229,7 +229,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 		AssumeRolePolicyDocument: aws.String(trustPolicy),
 		Tags:                     tags,
 		Description:              aws.String(iamRoleDescription),
-		PermissionsBoundary:      aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.AccountID, a.clusterName)),
+		PermissionsBoundary:      aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.AccountID, a.ClusterName)),
 	}
 	createRoleOutput, createRoleError := a.iamClient.CreateRole(ctx, createRoleInput)
 
@@ -265,8 +265,8 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	if taggedNamespace, ok := tags[serviceAccountNamespaceTagKey]; !ok || taggedNamespace != namespaceName {
 		return errors.Errorf("attempted to delete role with incorrect namespace: expected '%s' but got '%s'", namespaceName, taggedNamespace)
 	}
-	if taggedClusterName, ok := tags[clusterNameTagKey]; !ok || taggedClusterName != a.clusterName {
-		return errors.Errorf("attempted to delete role with incorrect cluster name: expected '%s' but got '%s'", a.clusterName, taggedClusterName)
+	if taggedClusterName, ok := tags[clusterNameTagKey]; !ok || taggedClusterName != a.ClusterName {
+		return errors.Errorf("attempted to delete role with incorrect cluster name: expected '%s' but got '%s'", a.ClusterName, taggedClusterName)
 	}
 
 	if HasSoftDeleteStrategyTagSet(role.Tags) {
@@ -410,11 +410,11 @@ func (a *Agent) unsetAllRolePoliciesSoftDeleteStrategyTag(ctx context.Context, r
 }
 
 func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, error) {
-	if a.rolesAnywhereEnabled {
+	if a.RolesAnywhereEnabled {
 		return a.generateTrustPolicyForRolesAnywhere(namespaceName, accountName)
 	}
 
-	oidc := strings.TrimPrefix(a.oidcURL, "https://")
+	oidc := strings.TrimPrefix(a.OidcURL, "https://")
 
 	policy := PolicyDocument{
 		Version: iamAPIVersion,
@@ -423,7 +423,7 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 				Effect: iamEffectAllow,
 				Action: []string{"sts:AssumeRoleWithWebIdentity"},
 				Principal: map[string]string{
-					"Federated": fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", a.AccountID, a.oidcURL),
+					"Federated": fmt.Sprintf("arn:aws:iam::%s:oidc-provider/%s", a.AccountID, a.OidcURL),
 				},
 				Condition: map[string]any{
 					"StringEquals": map[string]string{
@@ -457,10 +457,10 @@ func (a *Agent) generateTrustPolicyForRolesAnywhere(namespaceName, accountName s
 				},
 				Condition: map[string]any{
 					"StringEquals": map[string]string{
-						"aws:PrincipalTag/x509SAN/URI": fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", a.trustDomain, namespaceName, accountName),
+						"aws:PrincipalTag/x509SAN/URI": fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", a.TrustDomain, namespaceName, accountName),
 					},
 					"ArnEquals": map[string]string{
-						"aws:SourceArn": a.trustAnchorArn,
+						"aws:SourceArn": a.TrustAnchorArn,
 					},
 				},
 			},
@@ -478,12 +478,12 @@ func (a *Agent) generateTrustPolicyForRolesAnywhere(namespaceName, accountName s
 }
 
 func (a *Agent) generateRoleName(namespace string, accountName string) string {
-	fullName := fmt.Sprintf("otr-%s.%s@%s", namespace, accountName, a.clusterName)
+	fullName := fmt.Sprintf("otr-%s.%s@%s", namespace, accountName, a.ClusterName)
 	return agentutils.TruncateHashName(fullName, maxAWSNameLength)
 }
 
 func (a *Agent) generateRolesAnywhereProfileName(namespace string, accountName string) string {
-	fullName := fmt.Sprintf("otr-%s_%s_%s", namespace, accountName, a.clusterName)
+	fullName := fmt.Sprintf("otr-%s_%s_%s", namespace, accountName, a.ClusterName)
 
 	return agentutils.TruncateHashName(fullName, maxAWSNameLength)
 }
