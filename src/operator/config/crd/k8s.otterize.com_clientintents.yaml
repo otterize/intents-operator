@@ -223,6 +223,8 @@ spec:
                       items:
                         type: string
                       type: array
+                    group:
+                      type: string
                     internet:
                       properties:
                         domains:
@@ -264,6 +266,8 @@ spec:
                         - operations
                         type: object
                       type: array
+                    kind:
+                      type: string
                     name:
                       type: string
                     type:
@@ -280,6 +284,10 @@ spec:
                 type: array
               service:
                 properties:
+                  group:
+                    type: string
+                  kind:
+                    type: string
                   name:
                     type: string
                 required:

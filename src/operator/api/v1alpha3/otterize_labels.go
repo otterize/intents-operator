@@ -28,6 +28,7 @@ func UpdateOtterizeAccessLabels(pod *v1.Pod, serviceIdentity serviceidentity.Ser
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
 	}
+	// TODO: We should understand what kind
 	pod = cleanupOtterizeLabelsAndAnnotations(pod)
 	for k, v := range otterizeAccessLabels {
 		pod.Labels[k] = v

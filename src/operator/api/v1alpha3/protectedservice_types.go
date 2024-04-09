@@ -17,12 +17,19 @@ limitations under the License.
 package v1alpha3
 
 import (
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ProtectedServiceSpec defines the desired state of ProtectedService
 type ProtectedServiceSpec struct {
 	Name string `json:"name,omitempty"`
+
+	//+optional
+	Group string `json:"group,omitempty" yaml:"group,omitempty"`
+
+	//+optional
+	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 }
 
 // ProtectedServiceStatus defines the observed state of ProtectedService
@@ -42,6 +49,13 @@ type ProtectedService struct {
 
 	Spec   ProtectedServiceSpec   `json:"spec,omitempty"`
 	Status ProtectedServiceStatus `json:"status,omitempty"`
+}
+
+func (in *ProtectedService) GetKind() string {
+	if in.Spec.Kind == "" {
+		return serviceidentity.KindOtterizeLegacy
+	}
+	return in.Spec.Kind
 }
 
 //+kubebuilder:object:root=true

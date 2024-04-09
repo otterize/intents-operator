@@ -24,11 +24,16 @@ type ServiceIdentity struct {
 }
 
 const KindService = "Service"
+const KindOtterizeLegacy = "OttrLegacy"
 
 func (si *ServiceIdentity) GetFormattedOtterizeIdentity() string {
-	if si.Kind == KindService {
-		return GetFormattedOtterizeIdentity("svc."+si.Name, si.Namespace)
+	if si.Kind == KindOtterizeLegacy || si.Kind == "" {
+		return GetFormattedOtterizeIdentity(si.Name, si.Namespace)
 	}
+	return GetFormattedOtterizeIdentityWithGK(si.Name, si.Namespace, si.Group, si.Kind)
+}
+
+func (si *ServiceIdentity) GetFormattedOtterizeIdentityWithoutKind() string {
 	return GetFormattedOtterizeIdentity(si.Name, si.Namespace)
 }
 
@@ -37,7 +42,7 @@ func (si *ServiceIdentity) GetName() string {
 }
 
 func (si *ServiceIdentity) GetNameWithKind() string {
-	return lo.Ternary(si.Kind == "", si.Name, fmt.Sprintf("%s-%s", si.Name, strings.ToLower(si.Kind)))
+	return lo.Ternary(si.Kind == "" || si.Kind == KindOtterizeLegacy, si.Name, fmt.Sprintf("%s-%s", si.Name, strings.ToLower(si.Kind)))
 }
 
 func (si *ServiceIdentity) String() string {
@@ -79,11 +84,15 @@ func GetFormattedOtterizeIdentityWithGK(name, ns, group, kind string) string {
 	if len(ns) > MaxNamespaceLength {
 		ns = ns[:MaxNamespaceLength]
 	}
+
+	if len(kind) > 5 {
+		kind = kind[:5]
+	}
 	// A 6 char hash, even though truncated, leaves 2 ^ 48 combinations which should be enough
 	// for unique identities in a k8s cluster
 	hashSuffix := hex.EncodeToString(hash[:])[:6]
 
-	return fmt.Sprintf("%s-%s-%s", name, ns, hashSuffix)
+	return fmt.Sprintf("%s-%s-%s-%s", name, ns, strings.ToLower(kind), hashSuffix)
 
 }
 

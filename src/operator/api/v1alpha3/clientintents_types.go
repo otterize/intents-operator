@@ -141,11 +141,21 @@ type IntentsSpec struct {
 
 type Service struct {
 	Name string `json:"name" yaml:"name"`
+	//+optional
+	Group string `json:"group,omitempty" yaml:"group,omitempty"`
+	//+optional
+	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 }
 
 type Intent struct {
 	//+optional
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
+
+	//+optional
+	Group string `json:"group,omitempty" yaml:"group,omitempty"`
+
+	//+optional
+	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 
 	//+optional
 	Type IntentType `json:"type,omitempty" yaml:"type,omitempty"`
@@ -257,6 +267,13 @@ func (in *ClientIntents) GetFilteredCallsList(intentTypes ...IntentType) []Inten
 	})
 }
 
+func (in *ClientIntents) GetClientKind() string {
+	if in.Spec.Service.Kind == "" {
+		return serviceidentity.KindOtterizeLegacy
+	}
+	return in.Spec.Service.Kind
+}
+
 func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
 	otterizeAccessLabels := make(map[string]string)
 
@@ -265,7 +282,10 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 			continue
 		}
 		targetServiceIdentity := intent.ToServiceIdentity(requestNamespace)
-		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentity())
+		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentityWithoutKind())
+		if intent.IsTargetServerKubernetesService() {
+			labelKey = fmt.Sprintf(OtterizeSvcAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentity())
+		}
 		otterizeAccessLabels[labelKey] = "true"
 	}
 
@@ -293,7 +313,7 @@ func (in *Intent) GetTargetServerNamespace(intentsObjNamespace string) string {
 }
 
 func (in *Intent) IsTargetServerKubernetesService() bool {
-	return strings.HasPrefix(in.Name, "svc:")
+	return strings.HasPrefix(in.Name, "svc:") || in.Kind == serviceidentity.KindService
 }
 
 func (in *Intent) IsTargetTheKubernetesAPIServer(objectNamespace string) bool {
@@ -335,10 +355,17 @@ func (in *Intent) GetTargetServerName() string {
 }
 
 func (in *Intent) GetTargetServerKind() string {
+	if in.Kind != "" {
+		return in.Kind
+	}
 	if in.IsTargetServerKubernetesService() {
 		return serviceidentity.KindService
 	}
-	return ""
+	return serviceidentity.KindOtterizeLegacy
+}
+
+func (in *Intent) GetTargetServerGroup() string {
+	return in.Group
 }
 
 func (in *Intent) GetServerFullyQualifiedName(intentsObjNamespace string) string {

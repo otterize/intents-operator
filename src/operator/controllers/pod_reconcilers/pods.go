@@ -26,7 +26,8 @@ import (
 )
 
 const (
-	OtterizeClientNameIndexField = "spec.service.name"
+	OtterizeClientNameIndexField         = "spec.service.name"
+	OtterizeClientNameWithKindIndexField = "spec.service.nameWithKind"
 )
 
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
@@ -67,17 +68,6 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	// If a new pod starts, check if we need to do something for it.
-	var intents otterizev1alpha3.ClientIntentsList
-	err = p.List(
-		ctx,
-		&intents,
-		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
-		&client.ListOptions{Namespace: pod.Namespace})
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err)
-	}
-
 	err = p.addOtterizePodLabels(ctx, req, serviceID, pod)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
@@ -111,12 +101,7 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 		return errors.Wrap(err)
 	}
 
-	var intents otterizev1alpha3.ClientIntentsList
-	err = p.List(
-		ctx,
-		&intents,
-		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
-		&client.ListOptions{Namespace: pod.Namespace})
+	intents, err := p.getClientIntentsForServiceIdentity(ctx, serviceID)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
 		return errors.Wrap(err)
@@ -175,7 +160,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		return nil
 	}
 
-	otterizeServerLabelValue := serviceID.GetFormattedOtterizeIdentity()
+	otterizeServerLabelValue := serviceID.GetFormattedOtterizeIdentityWithoutKind()
 	updatedPod := pod.DeepCopy()
 	hasUpdates := false
 
@@ -197,12 +182,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		hasUpdates = true
 	}
 
-	var intents otterizev1alpha3.ClientIntentsList
-	err := p.List(
-		ctx, &intents,
-		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
-		&client.ListOptions{Namespace: pod.Namespace})
-
+	intents, err := p.getClientIntentsForServiceIdentity(ctx, serviceID)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
 		return errors.Wrap(err)
@@ -232,6 +212,35 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		}
 	}
 	return nil
+}
+
+func (p *PodWatcher) getClientIntentsForServiceIdentity(ctx context.Context, serviceID serviceidentity.ServiceIdentity) (otterizev1alpha3.ClientIntentsList, error) {
+	var intents otterizev1alpha3.ClientIntentsList
+
+	// first check if there are intents specifically for this service identity (with kind)
+	err := p.List(
+		ctx, &intents,
+		&client.MatchingFields{OtterizeClientNameWithKindIndexField: serviceID.GetNameWithKind()},
+		&client.ListOptions{Namespace: serviceID.Namespace})
+	if err != nil {
+		return otterizev1alpha3.ClientIntentsList{}, errors.Wrap(err)
+	}
+
+	// If there are specific intents for this service identity, return them
+	if len(intents.Items) != 0 {
+		return intents, nil
+	}
+
+	// list all intents for this service name (without kind)
+	err = p.List(
+		ctx, &intents,
+		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
+		&client.ListOptions{Namespace: serviceID.Namespace})
+
+	if err != nil {
+		return otterizev1alpha3.ClientIntentsList{}, errors.Wrap(err)
+	}
+	return intents, nil
 }
 
 func (p *PodWatcher) istioEnforcementEnabled() bool {
@@ -277,6 +286,19 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 			return []string{intents.Spec.Service.Name}
 		})
 
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	err = mgr.GetCache().IndexField(
+		context.Background(),
+		&otterizev1alpha3.ClientIntents{},
+		OtterizeClientNameWithKindIndexField,
+		func(object client.Object) []string {
+			intents := object.(*otterizev1alpha3.ClientIntents)
+			serviceIdentity := intents.ToServiceIdentity()
+			return []string{serviceIdentity.GetNameWithKind()}
+		})
 	if err != nil {
 		return errors.Wrap(err)
 	}
