@@ -1,4 +1,4 @@
-package azureagent
+package azurepolicyagent
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"regexp"
@@ -15,6 +16,14 @@ import (
 )
 
 var KeyVaultNameRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.KeyVault/vaults/([^/]+)$`)
+
+type Agent struct {
+	*azureagent.Agent
+}
+
+func NewAzurePolicyAgent(azureAgent *azureagent.Agent) *Agent {
+	return &Agent{azureAgent}
+}
 
 func (a *Agent) IntentType() otterizev1alpha3.IntentType {
 	return otterizev1alpha3.IntentTypeAzure
@@ -33,17 +42,17 @@ func (a *Agent) getIntentScope(intent otterizev1alpha3.Intent) (string, error) {
 
 	if strings.HasPrefix(name, "/resourceGroups/") {
 		// append the subscription ID to the scope
-		fullScope := fmt.Sprintf("/subscriptions/%s%s", a.conf.SubscriptionID, name)
+		fullScope := fmt.Sprintf("/subscriptions/%s%s", a.Conf.SubscriptionID, name)
 		return fullScope, nil
 	}
 
 	// append both the subscription ID and the resource group to the scope
-	fullScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s%s", a.conf.SubscriptionID, a.conf.ResourceGroup, name)
+	fullScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s%s", a.Conf.SubscriptionID, a.Conf.ResourceGroup, name)
 	return fullScope, nil
 }
 
 func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
-	userAssignedIdentity, err := a.findUserAssignedIdentity(ctx, namespace, intentsServiceName)
+	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, namespace, intentsServiceName)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -67,7 +76,7 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 }
 
 func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev1alpha3.Intent) error {
-	existingRoleAssignments, err := a.listRoleAssignments(ctx, userAssignedIdentity)
+	existingRoleAssignments, err := a.ListRoleAssignments(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -100,7 +109,7 @@ func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssigne
 }
 
 func (a *Agent) ensureRoleAssignmentsForIntent(ctx context.Context, scope string, roleNames []string, userAssignedIdentity armmsi.Identity, existingRoleAssignmentsForScope []armauthorization.RoleAssignment) error {
-	roleDefinitionsByName, err := a.findRoleDefinitionByName(ctx, scope, roleNames)
+	roleDefinitionsByName, err := a.FindRoleDefinitionByName(ctx, scope, roleNames)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -113,7 +122,7 @@ func (a *Agent) ensureRoleAssignmentsForIntent(ctx context.Context, scope string
 		roleDefinition := roleDefinitionsByName[roleName]
 		roleDefinitionID := *roleDefinition.ID
 		if !existingRoleDefinitionIDs.Contains(roleDefinitionID) {
-			if err := a.createRoleAssignment(ctx, scope, userAssignedIdentity, roleDefinition); err != nil {
+			if err := a.CreateRoleAssignment(ctx, scope, userAssignedIdentity, roleDefinition); err != nil {
 				return errors.Wrap(err)
 			}
 		}
@@ -134,7 +143,7 @@ func (a *Agent) deleteRoleAssignmentsWithUnexpectedRoleDefID(ctx context.Context
 	for _, roleAssignment := range existingRoleAssignments {
 		roleDefID := *roleAssignment.Properties.RoleDefinitionID
 		if !expectedRoleDefIDsSet.Contains(roleDefID) {
-			if err := a.deleteRoleAssignment(ctx, roleAssignment); err != nil {
+			if err := a.DeleteRoleAssignment(ctx, roleAssignment); err != nil {
 				return errors.Wrap(err)
 			}
 		}
@@ -148,7 +157,7 @@ func (a *Agent) deleteRoleAssignmentsWithUnexpectedScopes(ctx context.Context, e
 	for _, roleAssignment := range existingRoleAssignments {
 		scope := *roleAssignment.Properties.Scope
 		if !expectedScopesSet.Contains(scope) {
-			if err := a.deleteRoleAssignment(ctx, roleAssignment); err != nil {
+			if err := a.DeleteRoleAssignment(ctx, roleAssignment); err != nil {
 				return errors.Wrap(err)
 			}
 		}
@@ -158,32 +167,32 @@ func (a *Agent) deleteRoleAssignmentsWithUnexpectedScopes(ctx context.Context, e
 }
 
 func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev1alpha3.ClientIntents) error {
-	userAssignedIdentity, err := a.findUserAssignedIdentity(ctx, intents.Namespace, intents.Spec.Service.Name)
+	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, intents.Namespace, intents.Spec.Service.Name)
 	if err != nil {
-		if errors.Is(err, ErrUserIdentityNotFound) {
+		if errors.Is(err, azureagent.ErrUserIdentityNotFound) {
 			return nil
 		}
 		return errors.Wrap(err)
 	}
 
-	existingRoleAssignments, err := a.listRoleAssignments(ctx, userAssignedIdentity)
+	existingRoleAssignments, err := a.ListRoleAssignments(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
 	for _, roleAssignment := range existingRoleAssignments {
-		if err := a.deleteRoleAssignment(ctx, roleAssignment); err != nil {
+		if err := a.DeleteRoleAssignment(ctx, roleAssignment); err != nil {
 			return errors.Wrap(err)
 		}
 	}
 
-	existingKeyVaultsAccessPolicies, err := a.getExistingKeyVaultAccessPolicies(ctx, userAssignedIdentity)
+	existingKeyVaultsAccessPolicies, err := a.GetExistingKeyVaultAccessPolicies(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
 	for keyVaultName, _ := range existingKeyVaultsAccessPolicies {
-		if err := a.removeKeyVaultAccessPolicy(ctx, keyVaultName, userAssignedIdentity); err != nil {
+		if err := a.RemoveKeyVaultAccessPolicy(ctx, keyVaultName, userAssignedIdentity); err != nil {
 			return errors.Wrap(err)
 		}
 	}
@@ -201,7 +210,7 @@ func extractKeyVaultName(scope string) (string, error) {
 }
 
 func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev1alpha3.Intent) error {
-	existingKeyVaultsAccessPolicies, err := a.getExistingKeyVaultAccessPolicies(ctx, userAssignedIdentity)
+	existingKeyVaultsAccessPolicies, err := a.GetExistingKeyVaultAccessPolicies(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -243,15 +252,15 @@ func (a *Agent) ensureKeyVaultPolicyForIntent(ctx context.Context, userAssignedI
 
 	if len(existingAccessPolicies) == 0 {
 		// add new policy
-		if err := a.addKeyVaultAccessPolicy(ctx, keyVaultName, policy); err != nil {
+		if err := a.AddKeyVaultAccessPolicy(ctx, keyVaultName, policy); err != nil {
 			return errors.Wrap(err)
 		}
 		return nil
 	}
 
-	if !AccessPoliciesEqual(existingAccessPolicies[0], &policy) {
+	if !azureagent.AccessPoliciesEqual(existingAccessPolicies[0], &policy) {
 		// update existing policy
-		if err := a.replaceKeyVaultAccessPolicy(ctx, keyVaultName, policy); err != nil {
+		if err := a.ReplaceKeyVaultAccessPolicy(ctx, keyVaultName, policy); err != nil {
 			return errors.Wrap(err)
 		}
 	}
@@ -263,7 +272,7 @@ func (a *Agent) removeUnexpectedKeyVaultPolicies(ctx context.Context, userAssign
 	unexpectedKeyVaultNames := lo.Without(lo.Keys(existingKeyVaultsAccessPolicies), expectedKeyVaultNames...)
 
 	for _, keyVaultName := range unexpectedKeyVaultNames {
-		if err := a.removeKeyVaultAccessPolicy(ctx, keyVaultName, userAssignedIdentity); err != nil {
+		if err := a.RemoveKeyVaultAccessPolicy(ctx, keyVaultName, userAssignedIdentity); err != nil {
 			return errors.Wrap(err)
 		}
 	}
@@ -274,7 +283,7 @@ func (a *Agent) removeUnexpectedKeyVaultPolicies(ctx context.Context, userAssign
 func (a *Agent) vaultAccessPolicyEntryFromIntent(userAssignedIdentity armmsi.Identity, policy otterizev1alpha3.AzureKeyVaultPolicy) armkeyvault.AccessPolicyEntry {
 	return armkeyvault.AccessPolicyEntry{
 		ObjectID: userAssignedIdentity.Properties.ClientID,
-		TenantID: &a.conf.TenantID,
+		TenantID: &a.Conf.TenantID,
 		Permissions: &armkeyvault.Permissions{
 			Certificates: lo.Map(policy.CertificatePermissions, func(p otterizev1alpha3.AzureKeyVaultCertificatePermission, _ int) *armkeyvault.CertificatePermissions {
 				return lo.ToPtr(armkeyvault.CertificatePermissions(p))
