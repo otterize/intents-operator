@@ -213,7 +213,7 @@ func (r *IntentsReconciler) getIntentsToAPIServerService(ctx context.Context) []
 		logrus.WithError(err).Errorf("Failed to list client intents for client %s", fullServerName)
 		return nil
 	}
-	logrus.Infof("Enqueueing client intents %v for api server", intentsToServer.Items)
+	logrus.Debugf("Enqueueing client intents %v for api server", intentsToServer.Items)
 
 	intentsToReconcile = append(intentsToReconcile, intentsToServer.Items...)
 	return intentsToReconcile
@@ -221,7 +221,7 @@ func (r *IntentsReconciler) getIntentsToAPIServerService(ctx context.Context) []
 
 func (r *IntentsReconciler) mapProtectedServiceToClientIntents(ctx context.Context, obj client.Object) []reconcile.Request {
 	protectedService := obj.(*otterizev1alpha3.ProtectedService)
-	logrus.Infof("Enqueueing client intents for protected services %s", protectedService.Name)
+	logrus.Debugf("Enqueueing client intents for protected services %s", protectedService.Name)
 
 	intentsToReconcile := r.getIntentsToProtectedService(ctx, protectedService)
 	return r.mapIntentsToRequests(intentsToReconcile)

@@ -1,4 +1,4 @@
-package azureagent
+package azurepolicyagent
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/google/uuid"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/azureagent"
 	mock_azureagent "github.com/otterize/intents-operator/src/shared/azureagent/mocks"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
@@ -43,29 +44,30 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 	s.mockVaultsClient = mock_azureagent.NewMockAzureARMKeyVaultVaultsClient(controller)
 
 	s.agent = &Agent{
-		conf: Config{
-			SubscriptionID:          testSubscriptionID,
-			ResourceGroup:           testResourceGroup,
-			AKSClusterName:          testAKSClusterName,
-			TenantID:                testTenantID,
-			Location:                testLocation,
-			AKSClusterOIDCIssuerURL: testOIDCIssuerURL,
-		},
-		credentials:                        nil,
-		subscriptionClient:                 s.mockSubscriptionsClient,
-		resourceGroupsClient:               s.mockResourceGroupsClient,
-		managedClustersClient:              s.mockManagedClustersClient,
-		userAssignedIdentitiesClient:       s.mockUserAssignedIdentitiesClient,
-		federatedIdentityCredentialsClient: s.mockFederatedIdentityCredentialsClient,
-		roleDefinitionsClient:              s.mockRoleDefinitionsClient,
-		roleAssignmentsClient:              s.mockRoleAssignmentsClient,
-		vaultsClient:                       s.mockVaultsClient,
+		azureagent.NewAzureAgentFromClients(
+			azureagent.Config{
+				SubscriptionID:          testSubscriptionID,
+				ResourceGroup:           testResourceGroup,
+				AKSClusterName:          testAKSClusterName,
+				TenantID:                testTenantID,
+				Location:                testLocation,
+				AKSClusterOIDCIssuerURL: testOIDCIssuerURL,
+			},
+			nil,
+			s.mockSubscriptionsClient,
+			s.mockResourceGroupsClient,
+			s.mockManagedClustersClient,
+			s.mockUserAssignedIdentitiesClient,
+			s.mockFederatedIdentityCredentialsClient,
+			s.mockRoleDefinitionsClient,
+			s.mockRoleAssignmentsClient,
+			s.mockVaultsClient,
+		),
 	}
-
 }
 
 func (s *AzureAgentPoliciesKeyVaultSuite) expectGetUserAssignedIdentityReturnsClientID(clientId string) {
-	userAssignedIndentityName := s.agent.generateUserAssignedIdentityName(testNamespace, testIntentsServiceName)
+	userAssignedIndentityName := s.agent.GenerateUserAssignedIdentityName(testNamespace, testIntentsServiceName)
 	s.mockUserAssignedIdentitiesClient.EXPECT().Get(gomock.Any(), testResourceGroup, userAssignedIndentityName, nil).Return(
 		armmsi.UserAssignedIdentitiesClientGetResponse{
 			Identity: armmsi.Identity{
@@ -78,11 +80,11 @@ func (s *AzureAgentPoliciesKeyVaultSuite) expectGetUserAssignedIdentityReturnsCl
 }
 
 func (s *AzureAgentPoliciesKeyVaultSuite) expectListRoleAssignmentsReturnsEmpty() {
-	s.mockRoleAssignmentsClient.EXPECT().NewListForSubscriptionPager(nil).Return(NewListPager[armauthorization.RoleAssignmentsClientListForSubscriptionResponse]())
+	s.mockRoleAssignmentsClient.EXPECT().NewListForSubscriptionPager(nil).Return(azureagent.NewListPager[armauthorization.RoleAssignmentsClientListForSubscriptionResponse]())
 }
 
 func (s *AzureAgentPoliciesKeyVaultSuite) expectListKeyVaultsReturnsNames(names ...string) {
-	s.mockVaultsClient.EXPECT().NewListByResourceGroupPager(testResourceGroup, nil).Return(NewListPager[armkeyvault.VaultsClientListByResourceGroupResponse](
+	s.mockVaultsClient.EXPECT().NewListByResourceGroupPager(testResourceGroup, nil).Return(azureagent.NewListPager[armkeyvault.VaultsClientListByResourceGroupResponse](
 		armkeyvault.VaultsClientListByResourceGroupResponse{
 			VaultListResult: armkeyvault.VaultListResult{
 				Value: lo.Map(names, func(name string, _ int) *armkeyvault.Vault {

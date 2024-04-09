@@ -64,7 +64,7 @@ func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(errGetExistingPolicy) {
-		logrus.Infof("Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
+		logrus.Debugf("Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
 		err := r.client.Create(ctx, newPolicy)
 		if err != nil {
 			r.RecordWarningEventf(owner, ReasonCreatingExternalTrafficPolicyFailed, "failed to create external traffic network policy: %s", err.Error())
@@ -438,7 +438,7 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 		ownerObj.SetKind(ownerRef.Kind)
 		err := r.client.Get(ctx, types.NamespacedName{Name: ownerRef.Name, Namespace: policyNamespace}, ownerObj)
 		if err != nil {
-			logrus.Infof("can't get the owner of %s. So no events will be recorded for the deletion", policyName)
+			logrus.Debugf("can't get the owner of %s. So no events will be recorded for the deletion", policyName)
 		}
 		owner = ownerObj
 	}

@@ -61,7 +61,7 @@ func (c *CloudClientImpl) ReportAppliedIntents(
 		return errors.Wrap(err)
 	}
 
-	logrus.Infof("New intents count for namespace %s: %d", *namespace, len(intents))
+	logrus.Debugf("New intents count for namespace %s: %d", *namespace, len(intents))
 	return nil
 }
 

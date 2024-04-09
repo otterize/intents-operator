@@ -169,7 +169,7 @@ func (a *Agent) createGSAToKSAPolicy(ctx context.Context, namespaceName string, 
 	return nil
 }
 
-func (a *Agent) applyIAMPartialPolicy(ctx context.Context, namespaceName string, ksaName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
+func (a *Agent) ApplyIAMPartialPolicy(ctx context.Context, namespaceName string, ksaName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", ksaName)
 
 	// Create a new IAMPolicyMember from the provided intents
@@ -265,7 +265,7 @@ func (a *Agent) deleteGSAToKSAPolicy(ctx context.Context, namespaceName string, 
 	return nil
 }
 
-func (a *Agent) deleteIAMPartialPolicy(ctx context.Context, namespaceName string, intentsServiceName string) error {
+func (a *Agent) DeleteIAMPartialPolicy(ctx context.Context, namespaceName string, intentsServiceName string) error {
 	logger := logrus.WithField("namespace", namespaceName).WithField("intent", intentsServiceName)
 
 	policyName := a.generateKSAPolicyName(namespaceName, intentsServiceName)
