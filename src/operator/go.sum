@@ -406,8 +406,8 @@ github.com/onsi/ginkgo/v2 v2.14.0 h1:vSmGj2Z5YPb9JwCWT6z6ihcUvDhuXLc3sJiqd3jMKAY
 github.com/onsi/ginkgo/v2 v2.14.0/go.mod h1:JkUdW7JkN0V6rFvsHcJ478egV3XH9NxpD27Hal/PhZw=
 github.com/onsi/gomega v1.30.0 h1:hvMK7xYz4D3HapigLTeGdId/NcfQx1VHMJc60ew99+8=
 github.com/onsi/gomega v1.30.0/go.mod h1:9sxs+SwGrKI0+PWe4Fxa9tFQQBG5xSsSbMXOI8PPpoQ=
-github.com/otterize/intents-operator/src v0.0.0-20240324150435-7dce68c3126f h1:v0a0peST17hfhQheuFFB7W5eMuoBvBnsSnL2wpaiUtE=
-github.com/otterize/intents-operator/src v0.0.0-20240324150435-7dce68c3126f/go.mod h1:ymrDEakO51RVXB9Z9IKuXLDHX2pnTbYx4b/ecQFDUkg=
+github.com/otterize/intents-operator/src v0.0.0-20240409081342-707f635127b8 h1:AM/XdOWhn2RLr0a3tgVEZSXVD120kKP4ojiifKxaa/Q=
+github.com/otterize/intents-operator/src v0.0.0-20240409081342-707f635127b8/go.mod h1:ymrDEakO51RVXB9Z9IKuXLDHX2pnTbYx4b/ecQFDUkg=
 github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd h1:7Sb95VrtAPb9m2ewtqLnX1oeKQy03dt7yr6F/hP7Htg=
 github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd/go.mod h1:RXvgymN8MxiELFkmGHzJ23KJU2ObVsNsNSM80/HO8qQ=
 github.com/pascaldekloe/goe v0.1.0 h1:cBOtyMzM9HTpWjXfbbunk26uA6nG3a8n06Wieeh0MwY=

@@ -22,13 +22,13 @@ import (
 	"github.com/bombsimon/logrusr/v3"
 	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/google/uuid"
-	sa_pod_webhook_aws "github.com/otterize/credentials-operator/src/controllers/aws_iam/sa_pod_webhook"
-	"github.com/otterize/credentials-operator/src/controllers/aws_iam/serviceaccount_old"
-	"github.com/otterize/credentials-operator/src/controllers/aws_iam/spiffe_rolesanywhere_pod_webhook"
 	"github.com/otterize/credentials-operator/src/controllers/certificates/otterizecertgen"
 	"github.com/otterize/credentials-operator/src/controllers/certificates/spirecertgen"
 	"github.com/otterize/credentials-operator/src/controllers/certmanageradapter"
-	"github.com/otterize/credentials-operator/src/controllers/iam"
+	"github.com/otterize/credentials-operator/src/controllers/iam/iamcredentialsagents"
+	"github.com/otterize/credentials-operator/src/controllers/iam/iamcredentialsagents/awscredentialsagent"
+	"github.com/otterize/credentials-operator/src/controllers/iam/iamcredentialsagents/azurecredentialsagent"
+	"github.com/otterize/credentials-operator/src/controllers/iam/iamcredentialsagents/gcpcredentialsagent"
 	"github.com/otterize/credentials-operator/src/controllers/iam/pods"
 	"github.com/otterize/credentials-operator/src/controllers/iam/serviceaccounts"
 	sa_pod_webhook_generic "github.com/otterize/credentials-operator/src/controllers/iam/webhooks"
@@ -61,9 +61,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
 	"os"
+	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -202,77 +202,14 @@ func main() {
 	} else {
 		logrus.WithField("provider", viper.GetString(operatorconfig.CertProviderKey)).Panic("unexpected value for provider")
 	}
+
 	client := mgr.GetClient()
+	setupIAMAgents(signalHandlerCtx, mgr, client, podNamespace)
 
-	iamAgents := make([]iam.IAMCredentialsAgent, 0)
-
-	var awsAgent *awsagent.Agent
-
-	if viper.GetBool(operatorconfig.EnableAWSServiceAccountManagementKey) {
-		awsOptions := make([]awsagent.Option, 0)
-		if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
-			trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
-			trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
-			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterName)
-
-			awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
-
-			if viper.GetBool(operatorconfig.AWSUseSoftDeleteStrategyKey) {
-				awsOptions = append(awsOptions, awsagent.WithSoftDeleteStrategy())
-			}
-		}
-		awsAgent, err = awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
-		if err != nil {
-			logrus.WithError(err).Panic("failed to initialize AWS agent")
-		}
-		awsIAMServiceAccountReconciler := serviceaccount_old.NewServiceAccountReconciler(client, awsAgent, viper.GetBool(operatorconfig.AWSUseSoftDeleteStrategyKey))
-		if err = awsIAMServiceAccountReconciler.SetupWithManager(mgr); err != nil {
-			logrus.WithField("controller", "ServiceAccount").WithError(err).Panic("unable to create controller")
-		}
-	}
-
-	if viper.GetBool(operatorconfig.EnableGCPServiceAccountManagementKey) {
-		gcpAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx, client)
-		if err != nil {
-			logrus.WithError(err).Panic("failed to initialize GCP agent")
-		}
-
-		iamAgents = append(iamAgents, gcpAgent)
-	}
-
-	if viper.GetBool(operatorconfig.EnableAzureServiceAccountManagementKey) {
-		config := azureagent.Config{
-			SubscriptionID: viper.GetString(operatorconfig.AzureSubscriptionIdKey),
-			ResourceGroup:  viper.GetString(operatorconfig.AzureResourceGroupKey),
-			AKSClusterName: viper.GetString(operatorconfig.AzureAksClusterNameKey),
-		}
-
-		azureAgent, err := azureagent.NewAzureAgent(signalHandlerCtx, config)
-		if err != nil {
-			logrus.WithError(err).Panic("failed to initialize Azure agent")
-		}
-		iamAgents = append(iamAgents, azureAgent)
-	}
-
-	azureGCPserviceAccountReconciler := serviceaccounts.NewServiceAccountReconciler(client, iamAgents)
-	if err = azureGCPserviceAccountReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithField("controller", "ServiceAccount").WithError(err).Panic("unable to create controller")
-	}
-
-	if viper.GetBool(operatorconfig.EnableAzureServiceAccountManagementKey) ||
-		viper.GetBool(operatorconfig.EnableGCPServiceAccountManagementKey) ||
-		viper.GetBool(operatorconfig.EnableAWSServiceAccountManagementKey) {
-		podReconciler := pods.NewPodReconciler(client)
-		if err = podReconciler.SetupWithManager(mgr); err != nil {
-			logrus.WithField("controller", "Pod").WithError(err).Panic("unable to create controller")
-		}
-	}
-
+	// setup webhook
 	if viper.GetBool(operatorconfig.SelfSignedCertKey) {
-		var webhookHandler admission.Handler = sa_pod_webhook_generic.NewServiceAccountAnnotatingPodWebhook(mgr, iamAgents)
 		logrus.Infoln("Creating self signing certs")
-		certBundle, err :=
-			operatorwebhooks.GenerateSelfSignedCertificate("credentials-operator-webhook-service", podNamespace)
+		certBundle, err := operatorwebhooks.GenerateSelfSignedCertificate("credentials-operator-webhook-service", podNamespace)
 		if err != nil {
 			logrus.WithError(err).Panic("unable to create self signed certs for webhook")
 		}
@@ -286,18 +223,6 @@ func main() {
 		if err = reconciler.SetupWithManager(mgr); err != nil {
 			logrus.WithField("controller", "MutatingWebhookConfigs").WithError(err).Panic("unable to create controller")
 		}
-		mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{Handler: webhookHandler})
-
-		if viper.GetBool(operatorconfig.EnableAWSServiceAccountManagementKey) || viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
-			var awsWebhookHandler admission.Handler = sa_pod_webhook_aws.NewServiceAccountAnnotatingPodWebhook(mgr, awsAgent)
-
-			if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
-				awsWebhookHandler = spiffe_rolesanywhere_pod_webhook.NewSPIFFEAWSRolePodWebhook(mgr, awsAgent, viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey))
-			}
-
-			mgr.GetWebhookServer().Register("/mutate-aws-v1-pod", &webhook.Admission{Handler: awsWebhookHandler})
-		}
-
 	}
 
 	if viper.GetString(operatorconfig.CertProviderKey) != operatorconfig.CertProviderNone {
@@ -332,6 +257,97 @@ func main() {
 
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Panic("problem running manager")
+	}
+}
+
+func initAWSCredentialsAgent(ctx context.Context) *awscredentialsagent.Agent {
+	awsOptions := make([]awsagent.Option, 0)
+	if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
+		trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
+		trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
+		clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterName)
+
+		awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
+	}
+	if viper.GetBool(operatorconfig.AWSUseSoftDeleteStrategyKey) {
+		awsOptions = append(awsOptions, awsagent.WithSoftDeleteStrategy())
+	}
+
+	awsAgent, err := awsagent.NewAWSAgent(ctx, awsOptions...)
+	if err != nil {
+		logrus.WithError(err).Panic("failed to initialize AWS agent")
+	}
+
+	return awscredentialsagent.NewAWSCredentialsAgent(awsAgent)
+}
+
+func initGCPCredentialsAgent(ctx context.Context, client controllerruntimeclient.Client) *gcpcredentialsagent.Agent {
+	gcpAgent, err := gcpagent.NewGCPAgent(ctx, client)
+	if err != nil {
+		logrus.WithError(err).Panic("failed to initialize GCP agent")
+	}
+
+	return gcpcredentialsagent.NewGCPCredentialsAgent(gcpAgent)
+}
+
+func initAzureCredentialsAgent(ctx context.Context) *azurecredentialsagent.Agent {
+	config := azureagent.Config{
+		SubscriptionID: viper.GetString(operatorconfig.AzureSubscriptionIdKey),
+		ResourceGroup:  viper.GetString(operatorconfig.AzureResourceGroupKey),
+		AKSClusterName: viper.GetString(operatorconfig.AzureAksClusterNameKey),
+	}
+
+	azureAgent, err := azureagent.NewAzureAgent(ctx, config)
+	if err != nil {
+		logrus.WithError(err).Panic("failed to initialize Azure agent")
+	}
+	return azurecredentialsagent.NewAzureCredentialsAgent(azureAgent)
+}
+
+func setupIAMAgents(ctx context.Context, mgr ctrl.Manager, client controllerruntimeclient.Client, podNamespace string) {
+	awsIAMEnabled := viper.GetBool(operatorconfig.EnableAWSServiceAccountManagementKey)
+	azureIAMEnabled := viper.GetBool(operatorconfig.EnableAzureServiceAccountManagementKey)
+	gcpIAMEnabled := viper.GetBool(operatorconfig.EnableGCPServiceAccountManagementKey)
+
+	if !awsIAMEnabled && !azureIAMEnabled && !gcpIAMEnabled {
+		return
+	}
+
+	iamAgents := make([]iamcredentialsagents.IAMCredentialsAgent, 0)
+
+	if awsIAMEnabled {
+		awsCredentialsAgent := initAWSCredentialsAgent(ctx)
+		iamAgents = append(iamAgents, awsCredentialsAgent)
+
+		awsWebhookHandler := sa_pod_webhook_generic.NewServiceAccountAnnotatingPodWebhook(mgr, awsCredentialsAgent)
+		mgr.GetWebhookServer().Register("/mutate-aws-v1-pod", &webhook.Admission{Handler: awsWebhookHandler})
+	}
+
+	if gcpIAMEnabled {
+		gcpCredentialsAgent := initGCPCredentialsAgent(ctx, client)
+		iamAgents = append(iamAgents, gcpCredentialsAgent)
+	}
+
+	if azureIAMEnabled {
+		azureCredentialsAgent := initAzureCredentialsAgent(ctx)
+		iamAgents = append(iamAgents, azureCredentialsAgent)
+
+		azureWebhookHandler := sa_pod_webhook_generic.NewServiceAccountAnnotatingPodWebhook(mgr, azureCredentialsAgent)
+		mgr.GetWebhookServer().Register("/mutate-azure-v1-pod", &webhook.Admission{Handler: azureWebhookHandler})
+	}
+
+	// setup service account reconciler
+	for _, iamAgent := range iamAgents {
+		// setup pod reconciler
+		podReconciler := pods.NewPodReconciler(client, iamAgent)
+		if err := podReconciler.SetupWithManager(mgr); err != nil {
+			logrus.WithField("controller", "Pod").WithError(err).Panic("unable to create controller")
+		}
+
+		serviceAccountReconciler := serviceaccounts.NewServiceAccountReconciler(client, iamAgent)
+		if err := serviceAccountReconciler.SetupWithManager(mgr); err != nil {
+			logrus.WithField("controller", "ServiceAccount").WithError(err).Panic("unable to create controller")
+		}
 	}
 }
 

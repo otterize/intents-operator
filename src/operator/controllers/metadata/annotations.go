@@ -10,19 +10,9 @@ const (
 	TLSSecretNameAnnotation           = "credentials-operator.otterize.com/tls-secret-name"
 	TLSSecretNameAnnotationDeprecated = "spire-integration.otterize.com/tls-secret-name"
 
-	// ServiceAccountAWSRoleARNAnnotation is used by EKS (Kubernetes at AWS) to link between service accounts
-	// and IAM roles
-	ServiceAccountAWSRoleARNAnnotation = "eks.amazonaws.com/role-arn"
-
-	// IAMRoleFinalizer indicates that cleanup on IAM roles is needed upon termination.
-	IAMRoleFinalizer = "credentials-operator.otterize.com/iam-role"
-
-	// AWSRoleFinalizer indicates that cleanup on AWS is needed upon termination.
-	AWSRoleFinalizer = "credentials-operator.otterize.com/aws-role"
-
-	// OtterizeServiceAccountAWSRoleARNAnnotation is used to update a Pod in the mutating webhook with the role ARN
-	// so that reinvocation is triggered for the EKS pod identity mutating webhook.
-	OtterizeServiceAccountAWSRoleARNAnnotation = "credentials-operator.otterize.com/eks-role-arn"
+	// DeprecatedIAMRoleFinalizer indicates that cleanup on IAM roles is needed upon termination.
+	// Deprecated: replaced by AWSAgentFinalizer, GCPAgentFinalizer, and AzureAgentFinalizer
+	DeprecatedIAMRoleFinalizer = "credentials-operator.otterize.com/iam-role"
 
 	// DNSNamesAnnotation is a comma-separated list of additional dns names to be registered as part of the
 	// SPIRE-server entry and encoded into the certificate data

@@ -14,7 +14,7 @@ require (
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/cert-manager/cert-manager v1.12.3
 	github.com/google/uuid v1.6.0
-	github.com/otterize/intents-operator/src v0.0.0-20240324150435-7dce68c3126f
+	github.com/otterize/intents-operator/src v0.0.0-20240409081342-707f635127b8
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.1
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.0

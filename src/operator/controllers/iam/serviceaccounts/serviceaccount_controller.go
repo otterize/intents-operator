@@ -3,7 +3,7 @@ package serviceaccounts
 import (
 	"context"
 	"fmt"
-	"github.com/otterize/credentials-operator/src/controllers/iam"
+	"github.com/otterize/credentials-operator/src/controllers/iam/iamcredentialsagents"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -18,13 +18,13 @@ import (
 
 type ServiceAccountReconciler struct {
 	client.Client
-	agents []iam.IAMCredentialsAgent
+	agent iamcredentialsagents.IAMCredentialsAgent
 }
 
-func NewServiceAccountReconciler(client client.Client, agents []iam.IAMCredentialsAgent) *ServiceAccountReconciler {
+func NewServiceAccountReconciler(client client.Client, agent iamcredentialsagents.IAMCredentialsAgent) *ServiceAccountReconciler {
 	return &ServiceAccountReconciler{
 		Client: client,
-		agents: agents,
+		agent:  agent,
 	}
 }
 
@@ -48,56 +48,33 @@ func (r *ServiceAccountReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	value, ok := getLabelValue(&serviceAccount, metadata.OtterizeServiceAccountLabel)
+	value, ok := serviceAccount.Labels[r.agent.ServiceAccountLabel()]
 	if !ok {
-		logger.Debugf("serviceAccount not labeled with %s, skipping", metadata.OtterizeServiceAccountLabel)
+		logger.Debugf("serviceAccount not labeled with %s, skipping", r.agent.ServiceAccountLabel())
 		return ctrl.Result{}, nil
 	}
 
 	isReferencedByPods := value == metadata.OtterizeServiceAccountHasPodsValue
 
 	// Perform cleanup if the service account is being deleted or no longer referenced by pods
-	if serviceAccount.DeletionTimestamp != nil || !isReferencedByPods {
-		return r.HandleServiceCleanup(ctx, serviceAccount)
+	if serviceAccount.DeletionTimestamp == nil && isReferencedByPods {
+		return r.handleServiceAccountUpdate(ctx, serviceAccount)
 	}
 
-	return r.HandleServiceUpdate(ctx, serviceAccount)
+	return r.handleServiceAccountCleanup(ctx, serviceAccount)
 }
 
-func getLabelValue(serviceAccount *corev1.ServiceAccount, label string) (string, bool) {
-	if serviceAccount.Labels == nil {
-		return "", false
-	}
-	value, ok := serviceAccount.Labels[label]
-	return value, ok
-}
-
-func (r *ServiceAccountReconciler) HandleServiceCleanup(ctx context.Context, serviceAccount corev1.ServiceAccount) (ctrl.Result, error) {
-	for _, agent := range r.agents {
-		if err := agent.OnServiceAccountTermination(ctx, &serviceAccount); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to remove service account: %w", err)
-		}
-	}
-
-	if serviceAccount.DeletionTimestamp != nil {
-		updatedServiceAccount := serviceAccount.DeepCopy()
-		if controllerutil.RemoveFinalizer(updatedServiceAccount, metadata.IAMRoleFinalizer) {
-			err := r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
-			if err != nil {
-				if apierrors.IsConflict(err) {
-					return ctrl.Result{Requeue: true}, nil
-				}
-				return ctrl.Result{}, errors.Wrap(err)
-			}
-		}
-	}
-	return ctrl.Result{}, nil
-}
-
-func (r *ServiceAccountReconciler) HandleServiceUpdate(ctx context.Context, serviceAccount corev1.ServiceAccount) (ctrl.Result, error) {
-	// Add a finalizer label to the service account to block deletion until cleanup is complete
+func (r *ServiceAccountReconciler) handleServiceAccountUpdate(ctx context.Context, serviceAccount corev1.ServiceAccount) (ctrl.Result, error) {
 	updatedServiceAccount := serviceAccount.DeepCopy()
-	if controllerutil.AddFinalizer(updatedServiceAccount, metadata.IAMRoleFinalizer) {
+	updated, requeue, err := r.agent.OnServiceAccountUpdate(ctx, updatedServiceAccount)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to reconcile service account: %w", err)
+	}
+	if requeue {
+		return ctrl.Result{Requeue: true}, nil
+	}
+	if updated {
+		controllerutil.AddFinalizer(updatedServiceAccount, r.agent.FinalizerName())
 		err := r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
 		if err != nil {
 			if apierrors.IsConflict(err) {
@@ -107,27 +84,32 @@ func (r *ServiceAccountReconciler) HandleServiceUpdate(ctx context.Context, serv
 		}
 	}
 
-	hasUpdates := false
-	for _, agent := range r.agents {
-		updated, requeue, err := agent.OnServiceAccountUpdate(ctx, updatedServiceAccount)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to reconcile service account: %w", err)
-		}
-		if requeue {
-			return ctrl.Result{Requeue: true}, nil
-		}
-		hasUpdates = hasUpdates || updated
-	}
+	return ctrl.Result{}, nil
+}
 
-	if !hasUpdates {
+func (r *ServiceAccountReconciler) handleServiceAccountCleanup(ctx context.Context, serviceAccount corev1.ServiceAccount) (ctrl.Result, error) {
+	logger := logrus.WithField("name", serviceAccount.Name).WithField("namespace", serviceAccount.Namespace)
+	if !controllerutil.ContainsFinalizer(&serviceAccount, r.agent.FinalizerName()) && !controllerutil.ContainsFinalizer(&serviceAccount, metadata.DeprecatedIAMRoleFinalizer) {
+		logger.Debug("service account does not have the Otterize finalizer, skipping")
 		return ctrl.Result{}, nil
 	}
 
-	if err := r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount)); err != nil {
-		if apierrors.IsConflict(err) {
-			return ctrl.Result{Requeue: true}, nil
+	if err := r.agent.OnServiceAccountTermination(ctx, &serviceAccount); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to remove service account: %w", err)
+	}
+
+	// remove finalizer to unblock deletion
+	if serviceAccount.DeletionTimestamp != nil {
+		updatedServiceAccount := serviceAccount.DeepCopy()
+		if controllerutil.RemoveFinalizer(updatedServiceAccount, r.agent.FinalizerName()) || controllerutil.RemoveFinalizer(updatedServiceAccount, metadata.DeprecatedIAMRoleFinalizer) {
+			err := r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
+			if err != nil {
+				if apierrors.IsConflict(err) {
+					return ctrl.Result{Requeue: true}, nil
+				}
+				return ctrl.Result{}, errors.Wrap(err)
+			}
 		}
-		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
