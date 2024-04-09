@@ -101,7 +101,7 @@ func (a *Agent) DeleteUserAssignedIdentity(ctx context.Context, namespace string
 
 	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Debug("deleting federated identity credentials")
 	_, err := a.federatedIdentityCredentialsClient.Delete(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, federatedIdentityCredentialsName, nil)
-	if err != nil && !azureerrors.IsNotFoundErr(err) {
+	if err != nil && !azureerrors.IsNotFoundErr(err) && !IsParentResourceNotFoundErr(err) {
 		return errors.Wrap(err)
 	}
 
