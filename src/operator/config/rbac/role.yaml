@@ -2,7 +2,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: otterize-intents-operator-manager-role
 rules:
 - apiGroups:
@@ -55,6 +54,16 @@ rules:
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
   - validatingwebhookconfigurations
   verbs:
   - get
@@ -92,6 +101,18 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - iam.cnrm.cloud.google.com
+  resources:
+  - iampartialpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - k8s.otterize.com

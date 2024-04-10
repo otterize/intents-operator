@@ -6,6 +6,7 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/agentutils"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -41,7 +42,7 @@ func (a *Agent) GetGSAFullName(namespace string, accountName string) string {
 	return fmt.Sprintf("%s@%s.iam.gserviceaccount.com", gsaName, a.projectID)
 }
 
-func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName string, ksaName string, intents []otterizev1alpha3.Intent) *v1beta1.IAMPartialPolicy {
+func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName string, ksaName string, intents []otterizev1alpha3.Intent) (*v1beta1.IAMPartialPolicy, error) {
 	policyName := a.generateKSAPolicyName(namespace, intentsServiceName)
 	gsaFullName := a.GetGSAFullName(namespace, ksaName)
 	saMember := fmt.Sprintf("serviceAccount:%s", gsaFullName)
@@ -62,12 +63,20 @@ func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName st
 
 	// Populate bindings
 	for _, intent := range intents {
-		// TODO: need to handle wildcards
-		// Name formats - https://cloud.google.com/iam/docs/conditions-resource-attributes#resource-name
+		expression := fmt.Sprintf("resource.name == \"%s\"", intent.Name)
+		if strings.Contains(intent.Name, "*") {
+			if strings.Index(intent.Name, "*") != len(intent.Name)-1 {
+				return nil, fmt.Errorf("wildcard in the middle of the name is not supported: %s", intent.Name)
+			}
+
+			cleanName := strings.ReplaceAll(intent.Name, "*", "")
+			expression = fmt.Sprintf("resource.name.startsWith(\"%s\")", cleanName)
+		}
 		condition := v1beta1.PartialpolicyCondition{
 			Title:      fmt.Sprintf("otr-%s", intent.Name),
-			Expression: fmt.Sprintf("resource.name.startsWith(\"%s\")", intent.Name),
+			Expression: expression,
 		}
+
 		for _, permission := range intent.GCPPermissions {
 			binding := v1beta1.PartialpolicyBindings{
 				Role:      fmt.Sprintf("roles/%s", permission),
@@ -79,5 +88,5 @@ func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName st
 		}
 	}
 
-	return newIAMPolicyMember
+	return newIAMPolicyMember, nil
 }

@@ -15,6 +15,7 @@ type CloudClient interface {
 	ReportIntentsOperatorConfiguration(ctx context.Context, config graphqlclient.IntentsOperatorConfigurationInput) error
 	ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType)
 	ReportNetworkPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error
+	ReportExternallyAccessibleServices(ctx context.Context, namespace string, services []graphqlclient.ExternallyAccessibleServiceInput) error
 	ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error
 	ApplyDatabaseIntent(ctx context.Context, intents []graphqlclient.IntentInput, action graphqlclient.DBPermissionChange) error
 }
@@ -55,7 +56,7 @@ func (c *CloudClientImpl) ReportAppliedIntents(
 		return errors.Wrap(err)
 	}
 
-	logrus.Infof("New intents count for namespace %s: %d", *namespace, len(intents))
+	logrus.Debugf("New intents count for namespace %s: %d", *namespace, len(intents))
 	return nil
 }
 
@@ -85,6 +86,17 @@ func (c *CloudClientImpl) ReportNetworkPolicies(ctx context.Context, namespace s
 
 	_, err := graphqlclient.ReportNetworkPolicies(ctx, c.client, namespace, policies)
 	return errors.Wrap(err)
+}
+
+func (c *CloudClientImpl) ReportExternallyAccessibleServices(ctx context.Context, namespace string, services []graphqlclient.ExternallyAccessibleServiceInput) error {
+	_, err := graphqlclient.ReportExternallyAccessibleServices(ctx, c.client, namespace, services)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	logrus.Infof("Successfully reported ExternallyAccessibleServices, count: %d", len(services))
+
+	return nil
 }
 
 func (c *CloudClientImpl) ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error {

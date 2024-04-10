@@ -45,6 +45,7 @@ type PolicyManagerImpl struct {
 	client                    client.Client
 	recorder                  *injectablerecorder.InjectableRecorder
 	restrictToNamespaces      []string
+	activeNamespaces          *goset.Set[string]
 	enforcementDefaultState   bool
 	enableIstioPolicyCreation bool
 }
@@ -56,13 +57,14 @@ type PolicyManager interface {
 	UpdateServerSidecar(ctx context.Context, clientIntents *v1alpha3.ClientIntents, serverName string, missingSideCar bool) error
 }
 
-func NewPolicyManager(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool) *PolicyManagerImpl {
+func NewPolicyManager(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string]) *PolicyManagerImpl {
 	return &PolicyManagerImpl{
 		client:                    client,
 		recorder:                  recorder,
 		restrictToNamespaces:      restrictedNamespaces,
 		enforcementDefaultState:   enforcementDefaultState,
 		enableIstioPolicyCreation: istioEnforcementEnabled,
+		activeNamespaces:          activeNamespaces,
 	}
 }
 
@@ -216,7 +218,7 @@ func (c *PolicyManagerImpl) saveServiceAccountName(ctx context.Context, clientIn
 		return errors.Wrap(err)
 	}
 
-	logrus.Infof("updating intent %s with service account name %s", clientIntents.Name, clientServiceAccount)
+	logrus.Debugf("updating intent %s with service account name %s", clientIntents.Name, clientServiceAccount)
 
 	return nil
 }
@@ -264,7 +266,7 @@ func (c *PolicyManagerImpl) updateSharedServiceAccountsInNamespace(ctx context.C
 }
 
 func (c *PolicyManagerImpl) updateServiceAccountSharedStatus(ctx context.Context, clientIntents []v1alpha3.ClientIntents, serviceAccount string) error {
-	logrus.Infof("Found %d intents with service account %s", len(clientIntents), serviceAccount)
+	logrus.Debugf("Found %d intents with service account %s", len(clientIntents), serviceAccount)
 	isServiceAccountShared := len(clientIntents) > 1
 	sharedAccountValue := lo.Ternary(isServiceAccountShared, "true", "false")
 
@@ -322,13 +324,13 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 			continue
 		}
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
-			ctx, c.client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState)
+			ctx, c.client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState, c.activeNamespaces)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
 
 		if !shouldCreatePolicy {
-			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace))
+			logrus.Debugf("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace))
 			c.recorder.RecordNormalEventf(clientIntents, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", intent.Name)
 			continue
 		}
@@ -461,7 +463,7 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 	clientServiceAccountName string,
 ) *v1beta1.AuthorizationPolicy {
 	policyName := c.getPolicyName(clientIntents, intent)
-	logrus.Infof("Creating Istio policy %s for intent %s", policyName, intent.GetTargetServerName())
+	logrus.Debugf("Creating Istio policy %s for intent %s", policyName, intent.GetTargetServerName())
 	clientIdentity := clientIntents.ToServiceIdentity()
 	serverIdentity := intent.ToServiceIdentity(clientIntents.Namespace)
 

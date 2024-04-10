@@ -2,6 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
+	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -38,6 +39,7 @@ type KafkaACLReconciler struct {
 	operatorPodName         string
 	operatorPodNamespace    string
 	serviceResolver         serviceidresolver.ServiceResolver
+	activeNamespaces        *goset.Set[string]
 	injectablerecorder.InjectableRecorder
 }
 
@@ -51,6 +53,7 @@ func NewKafkaACLReconciler(
 	operatorPodName string,
 	operatorPodNamespace string,
 	serviceResolver serviceidresolver.ServiceResolver,
+	activeNamespaces *goset.Set[string],
 ) *KafkaACLReconciler {
 	return &KafkaACLReconciler{
 		client:                  client,
@@ -62,6 +65,7 @@ func NewKafkaACLReconciler(
 		operatorPodName:         operatorPodName,
 		operatorPodNamespace:    operatorPodNamespace,
 		serviceResolver:         serviceResolver,
+		activeNamespaces:        activeNamespaces,
 	}
 }
 
@@ -88,13 +92,13 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 
 	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha3.KafkaServerConfig, tls otterizev1alpha3.TLSSource) error {
 		intentsForServer := intentsByServer[serverName]
-		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState)
+		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState, r.activeNamespaces)
 		if err != nil {
 			return errors.Wrap(err)
 		}
 
 		if !shouldCreatePolicy {
-			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping Kafka ACL creation for server %s in namespace %s", serverName.Name, serverName.Namespace)
+			logrus.Debugf("Enforcement is disabled globally and server is not explicitly protected, skipping Kafka ACL creation for server %s in namespace %s", serverName.Name, serverName.Namespace)
 			r.RecordNormalEventf(intents, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, Kafka ACL creation skipped", serverName.Name)
 			// Intentionally no return - KafkaIntentsAdminImpl skips the creation, but still needs to do deletion.
 		}
@@ -130,7 +134,7 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 
 func (r *KafkaACLReconciler) RemoveACLs(ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
 	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha3.KafkaServerConfig, tls otterizev1alpha3.TLSSource) error {
-		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState)
+		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState, r.activeNamespaces)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -226,7 +230,7 @@ func (r *KafkaACLReconciler) intentsObjectUnderDeletion(intents *otterizev1alpha
 }
 
 func (r *KafkaACLReconciler) handleIntentsDeletion(ctx context.Context, intents *otterizev1alpha3.ClientIntents, logger *logrus.Entry) (ctrl.Result, error) {
-	logger.Infof("Removing associated Acls")
+	logger.Debugf("Removing associated Acls")
 	if err := r.RemoveACLs(ctx, intents); err != nil {
 		r.RecordWarningEventf(intents, ReasonRemovingKafkaACLsFailed, "Could not remove Kafka ACLs: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)

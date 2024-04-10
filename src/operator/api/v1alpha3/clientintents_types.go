@@ -133,6 +133,92 @@ const (
 	DatabaseOperationDelete DatabaseOperation = "DELETE"
 )
 
+// +kubebuilder:validation:Enum=all;backup;create;delete;deleteissuers;get;getissuers;import;list;listissuers;managecontacts;manageissuers;purge;recover;restore;setissuers;update
+type AzureKeyVaultCertificatePermission string
+
+const (
+	AzureKeyVaultCertificatePermissionAll            AzureKeyVaultCertificatePermission = "all"
+	AzureKeyVaultCertificatePermissionBackup         AzureKeyVaultCertificatePermission = "backup"
+	AzureKeyVaultCertificatePermissionCreate         AzureKeyVaultCertificatePermission = "create"
+	AzureKeyVaultCertificatePermissionDelete         AzureKeyVaultCertificatePermission = "delete"
+	AzureKeyVaultCertificatePermissionDeleteIssuers  AzureKeyVaultCertificatePermission = "deleteissuers"
+	AzureKeyVaultCertificatePermissionGet            AzureKeyVaultCertificatePermission = "get"
+	AzureKeyVaultCertificatePermissionGetIssuers     AzureKeyVaultCertificatePermission = "getissuers"
+	AzureKeyVaultCertificatePermissionImport         AzureKeyVaultCertificatePermission = "import"
+	AzureKeyVaultCertificatePermissionList           AzureKeyVaultCertificatePermission = "list"
+	AzureKeyVaultCertificatePermissionListIssuers    AzureKeyVaultCertificatePermission = "listissuers"
+	AzureKeyVaultCertificatePermissionManageContacts AzureKeyVaultCertificatePermission = "managecontacts"
+	AzureKeyVaultCertificatePermissionManageIssuers  AzureKeyVaultCertificatePermission = "manageissuers"
+	AzureKeyVaultCertificatePermissionPurge          AzureKeyVaultCertificatePermission = "purge"
+	AzureKeyVaultCertificatePermissionRecover        AzureKeyVaultCertificatePermission = "recover"
+	AzureKeyVaultCertificatePermissionRestore        AzureKeyVaultCertificatePermission = "restore"
+	AzureKeyVaultCertificatePermissionSetIssuers     AzureKeyVaultCertificatePermission = "setissuers"
+	AzureKeyVaultCertificatePermissionUpdate         AzureKeyVaultCertificatePermission = "update"
+)
+
+// +kubebuilder:validation:Enum=all;backup;create;decrypt;delete;encrypt;get;getrotationpolicy;import;list;purge;recover;release;restore;rotate;setrotationpolicy;sign;unwrapkey;update;verify;wrapkey
+type AzureKeyVaultKeyPermission string
+
+const (
+	AzureKeyVaultKeyPermissionAll               AzureKeyVaultKeyPermission = "all"
+	AzureKeyVaultKeyPermissionBackup            AzureKeyVaultKeyPermission = "backup"
+	AzureKeyVaultKeyPermissionCreate            AzureKeyVaultKeyPermission = "create"
+	AzureKeyVaultKeyPermissionDecrypt           AzureKeyVaultKeyPermission = "decrypt"
+	AzureKeyVaultKeyPermissionDelete            AzureKeyVaultKeyPermission = "delete"
+	AzureKeyVaultKeyPermissionEncrypt           AzureKeyVaultKeyPermission = "encrypt"
+	AzureKeyVaultKeyPermissionGet               AzureKeyVaultKeyPermission = "get"
+	AzureKeyVaultKeyPermissionGetRotationPolicy AzureKeyVaultKeyPermission = "getrotationpolicy"
+	AzureKeyVaultKeyPermissionImport            AzureKeyVaultKeyPermission = "import"
+	AzureKeyVaultKeyPermissionList              AzureKeyVaultKeyPermission = "list"
+	AzureKeyVaultKeyPermissionPurge             AzureKeyVaultKeyPermission = "purge"
+	AzureKeyVaultKeyPermissionRecover           AzureKeyVaultKeyPermission = "recover"
+	AzureKeyVaultKeyPermissionRelease           AzureKeyVaultKeyPermission = "release"
+	AzureKeyVaultKeyPermissionRestore           AzureKeyVaultKeyPermission = "restore"
+	AzureKeyVaultKeyPermissionRotate            AzureKeyVaultKeyPermission = "rotate"
+	AzureKeyVaultKeyPermissionSetRotationPolicy AzureKeyVaultKeyPermission = "setrotationpolicy"
+	AzureKeyVaultKeyPermissionSign              AzureKeyVaultKeyPermission = "sign"
+	AzureKeyVaultKeyPermissionUnwrapKey         AzureKeyVaultKeyPermission = "unwrapkey"
+	AzureKeyVaultKeyPermissionUpdate            AzureKeyVaultKeyPermission = "update"
+	AzureKeyVaultKeyPermissionVerify            AzureKeyVaultKeyPermission = "verify"
+	AzureKeyVaultKeyPermissionWrapKey           AzureKeyVaultKeyPermission = "wrapkey"
+)
+
+// +kubebuilder:validation:Enum=all;backup;delete;get;list;purge;recover;restore;set
+type AzureKeyVaultSecretPermission string
+
+const (
+	AzureKeyVaultSecretPermissionAll     AzureKeyVaultSecretPermission = "all"
+	AzureKeyVaultSecretPermissionBackup  AzureKeyVaultSecretPermission = "backup"
+	AzureKeyVaultSecretPermissionDelete  AzureKeyVaultSecretPermission = "delete"
+	AzureKeyVaultSecretPermissionGet     AzureKeyVaultSecretPermission = "get"
+	AzureKeyVaultSecretPermissionList    AzureKeyVaultSecretPermission = "list"
+	AzureKeyVaultSecretPermissionPurge   AzureKeyVaultSecretPermission = "purge"
+	AzureKeyVaultSecretPermissionRecover AzureKeyVaultSecretPermission = "recover"
+	AzureKeyVaultSecretPermissionRestore AzureKeyVaultSecretPermission = "restore"
+	AzureKeyVaultSecretPermissionSet     AzureKeyVaultSecretPermission = "set"
+)
+
+// +kubebuilder:validation:Enum=all;backup;delete;deletesas;get;getsas;list;listsas;purge;recover;regeneratekey;restore;set;setsas;update
+type AzureKeyVaultStoragePermission string
+
+const (
+	AzureKeyVaultStoragePermissionAll           AzureKeyVaultStoragePermission = "all"
+	AzureKeyVaultStoragePermissionBackup        AzureKeyVaultStoragePermission = "backup"
+	AzureKeyVaultStoragePermissionDelete        AzureKeyVaultStoragePermission = "delete"
+	AzureKeyVaultStoragePermissionDeleteSas     AzureKeyVaultStoragePermission = "deletesas"
+	AzureKeyVaultStoragePermissionGet           AzureKeyVaultStoragePermission = "get"
+	AzureKeyVaultStoragePermissionGetSas        AzureKeyVaultStoragePermission = "getsas"
+	AzureKeyVaultStoragePermissionList          AzureKeyVaultStoragePermission = "list"
+	AzureKeyVaultStoragePermissionListSas       AzureKeyVaultStoragePermission = "listsas"
+	AzureKeyVaultStoragePermissionPurge         AzureKeyVaultStoragePermission = "purge"
+	AzureKeyVaultStoragePermissionRecover       AzureKeyVaultStoragePermission = "recover"
+	AzureKeyVaultStoragePermissionRegenerateKey AzureKeyVaultStoragePermission = "regeneratekey"
+	AzureKeyVaultStoragePermissionRestore       AzureKeyVaultStoragePermission = "restore"
+	AzureKeyVaultStoragePermissionSet           AzureKeyVaultStoragePermission = "set"
+	AzureKeyVaultStoragePermissionSetSas        AzureKeyVaultStoragePermission = "setsas"
+	AzureKeyVaultStoragePermissionUpdate        AzureKeyVaultStoragePermission = "update"
+)
+
 // IntentsSpec defines the desired state of ClientIntents
 type IntentsSpec struct {
 	Service Service  `json:"service" yaml:"service"`
@@ -179,6 +265,9 @@ type Intent struct {
 	AzureRoles []string `json:"azureRoles,omitempty" yaml:"azureRoles,omitempty"`
 
 	//+optional
+	AzureKeyVaultPolicy *AzureKeyVaultPolicy `json:"azureKeyVaultPolicy,omitempty" yaml:"azureKeyVaultPolicy,omitempty"`
+
+	//+optional
 	Internet *Internet `json:"internet,omitempty" yaml:"internet,omitempty"`
 }
 
@@ -212,6 +301,17 @@ type KafkaTopic struct {
 type ResolvedIPs struct {
 	DNS string   `json:"dns,omitempty" yaml:"dns,omitempty"`
 	IPs []string `json:"ips,omitempty" yaml:"ips,omitempty"`
+}
+
+type AzureKeyVaultPolicy struct {
+	//+optional
+	CertificatePermissions []AzureKeyVaultCertificatePermission `json:"certificatePermissions,omitempty" yaml:"certificatePermissions,omitempty"`
+	//+optional
+	KeyPermissions []AzureKeyVaultKeyPermission `json:"keyPermissions,omitempty" yaml:"keyPermissions,omitempty"`
+	//+optional
+	SecretPermissions []AzureKeyVaultSecretPermission `json:"secretPermissions,omitempty" yaml:"secretPermissions,omitempty"`
+	//+optional
+	StoragePermissions []AzureKeyVaultStoragePermission `json:"storagePermissions,omitempty" yaml:"storagePermissions,omitempty"`
 }
 
 // IntentsStatus defines the observed state of ClientIntents
@@ -338,6 +438,10 @@ func (in *Intent) GetTargetServerName() string {
 
 	if in.Type == IntentTypeInternet {
 		return OtterizeInternetTargetName
+	}
+
+	if in.Type == IntentTypeAWS || in.Type == IntentTypeGCP || in.Type == IntentTypeAzure || in.Type == IntentTypeDatabase {
+		return in.Name
 	}
 
 	if in.IsTargetServerKubernetesService() {
@@ -548,6 +652,12 @@ func databaseOperationToCloud(op DatabaseOperation) graphqlclient.DatabaseOperat
 	}
 }
 
+func enumSliceToStrPtrSlice[T ~string](enumSlice []T) []*string {
+	return lo.Map(enumSlice, func(s T, i int) *string {
+		return lo.ToPtr(string(s))
+	})
+}
+
 func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName string) graphqlclient.IntentInput {
 	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTopic, i int) *graphqlclient.KafkaConfigInput {
 		return lo.ToPtr(graphqlclient.KafkaConfigInput{
@@ -607,6 +717,15 @@ func (in *Intent) ConvertToCloudFormat(resourceNamespace string, clientName stri
 
 	if len(in.AzureRoles) != 0 {
 		intentInput.AzureRoles = lo.ToSlicePtr(in.AzureRoles)
+	}
+
+	if in.AzureKeyVaultPolicy != nil {
+		intentInput.AzureKeyVaultPolicy = &graphqlclient.AzureKeyVaultPolicyInput{
+			CertificatePermissions: enumSliceToStrPtrSlice(in.AzureKeyVaultPolicy.CertificatePermissions),
+			KeyPermissions:         enumSliceToStrPtrSlice(in.AzureKeyVaultPolicy.KeyPermissions),
+			SecretPermissions:      enumSliceToStrPtrSlice(in.AzureKeyVaultPolicy.SecretPermissions),
+			StoragePermissions:     enumSliceToStrPtrSlice(in.AzureKeyVaultPolicy.StoragePermissions),
+		}
 	}
 
 	if len(in.GCPPermissions) != 0 {

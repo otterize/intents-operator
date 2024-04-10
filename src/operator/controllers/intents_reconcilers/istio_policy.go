@@ -2,6 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
+	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	istiopolicy "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
@@ -31,7 +32,9 @@ func NewIstioPolicyReconciler(
 	s *runtime.Scheme,
 	restrictToNamespaces []string,
 	enableIstioPolicyCreation bool,
-	enforcementDefaultState bool) *IstioPolicyReconciler {
+	enforcementDefaultState bool,
+	enforcedNamespaces *goset.Set[string],
+) *IstioPolicyReconciler {
 	reconciler := &IstioPolicyReconciler{
 		Client:                    c,
 		Scheme:                    s,
@@ -42,7 +45,7 @@ func NewIstioPolicyReconciler(
 	}
 
 	reconciler.policyManager = istiopolicy.NewPolicyManager(c, &reconciler.InjectableRecorder, restrictToNamespaces,
-		reconciler.enforcementDefaultState, reconciler.enableIstioPolicyCreation)
+		reconciler.enforcementDefaultState, reconciler.enableIstioPolicyCreation, enforcedNamespaces)
 
 	return reconciler
 }
@@ -71,7 +74,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	logrus.Infof("Reconciling Istio authorization policies for service %s in namespace %s",
+	logrus.Debugf("Reconciling Istio authorization policies for service %s in namespace %s",
 		intents.Spec.Service.Name, req.Namespace)
 
 	if !intents.DeletionTimestamp.IsZero() {
@@ -119,7 +122,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if missingSideCar {
 		r.RecordWarningEvent(intents, istiopolicy.ReasonMissingSidecar, "Client pod missing sidecar, will not create policies")
-		logrus.Infof("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
+		logrus.Debugf("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
 		return ctrl.Result{}, nil
 	}
 

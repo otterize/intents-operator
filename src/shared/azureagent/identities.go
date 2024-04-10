@@ -3,6 +3,7 @@ package azureagent
 import (
 	"context"
 	"fmt"
+	azureerrors "github.com/Azure/azure-sdk-for-go-extensions/pkg/errors"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -25,36 +26,41 @@ const (
 	maxFederatedIdentityLength = 120
 )
 
-func (a *Agent) generateUserAssignedIdentityName(namespace string, accountName string) string {
-	fullName := fmt.Sprintf("ottr-uai-%s-%s-%s", namespace, accountName, a.conf.AKSClusterName)
+func (a *Agent) GenerateUserAssignedIdentityName(namespace string, accountName string) string {
+	fullName := fmt.Sprintf("ottr-uai-%s-%s-%s", namespace, accountName, a.Conf.AKSClusterName)
 	return agentutils.TruncateHashName(fullName, maxManagedIdentityLength)
 }
 
 func (a *Agent) generateFederatedIdentityCredentialsName(namespace string, accountName string) string {
-	fullName := fmt.Sprintf("ottr-fic-%s-%s-%s", namespace, accountName, a.conf.AKSClusterName)
+	fullName := fmt.Sprintf("ottr-fic-%s-%s-%s", namespace, accountName, a.Conf.AKSClusterName)
 	return agentutils.TruncateHashName(fullName, maxFederatedIdentityLength)
 }
 
-func (a *Agent) findUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
-	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
-	userAssignedIdentity, err := a.userAssignedIdentitiesClient.Get(ctx, a.conf.ResourceGroup, userAssignedIdentityName, nil)
+var ErrUserIdentityNotFound = errors.New("user assigned identity not found")
+
+func (a *Agent) FindUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
+	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)
+	userAssignedIdentity, err := a.userAssignedIdentitiesClient.Get(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, nil)
 	if err != nil {
+		if azureerrors.IsNotFoundErr(err) {
+			return armmsi.Identity{}, errors.Wrap(ErrUserIdentityNotFound)
+		}
 		return armmsi.Identity{}, errors.Wrap(err)
 	}
 
 	return userAssignedIdentity.Identity, nil
 }
 
-func (a *Agent) getOrCreateUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
+func (a *Agent) GetOrCreateUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
 	logger := logrus.WithField("namespace", namespace).WithField("account", accountName)
-	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
+	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)
 	logger.WithField("identity", userAssignedIdentityName).Debug("getting or creating user assigned identity")
 	userAssignedIdentity, err := a.userAssignedIdentitiesClient.CreateOrUpdate(
 		ctx,
-		a.conf.ResourceGroup,
+		a.Conf.ResourceGroup,
 		userAssignedIdentityName,
 		armmsi.Identity{
-			Location: &a.conf.Location,
+			Location: &a.Conf.Location,
 		},
 		nil,
 	)
@@ -66,12 +72,12 @@ func (a *Agent) getOrCreateUserAssignedIdentity(ctx context.Context, namespace s
 	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Debug("getting or creating federated identity credentials")
 	_, err = a.federatedIdentityCredentialsClient.CreateOrUpdate(
 		ctx,
-		a.conf.ResourceGroup,
+		a.Conf.ResourceGroup,
 		userAssignedIdentityName,
 		federatedIdentityCredentialsName,
 		armmsi.FederatedIdentityCredential{
 			Properties: &armmsi.FederatedIdentityCredentialProperties{
-				Issuer: lo.ToPtr(a.conf.AKSClusterOIDCIssuerURL),
+				Issuer: lo.ToPtr(a.Conf.AKSClusterOIDCIssuerURL),
 				Subject: lo.ToPtr(
 					fmt.Sprintf("system:serviceaccount:%s:%s",
 						namespace,
@@ -88,20 +94,20 @@ func (a *Agent) getOrCreateUserAssignedIdentity(ctx context.Context, namespace s
 	return userAssignedIdentity.Identity, nil
 }
 
-func (a *Agent) deleteUserAssignedIdentity(ctx context.Context, namespace string, accountName string) error {
+func (a *Agent) DeleteUserAssignedIdentity(ctx context.Context, namespace string, accountName string) error {
 	logger := logrus.WithField("namespace", namespace).WithField("account", accountName)
-	userAssignedIdentityName := a.generateUserAssignedIdentityName(namespace, accountName)
+	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)
 	federatedIdentityCredentialsName := a.generateFederatedIdentityCredentialsName(namespace, accountName)
 
 	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Debug("deleting federated identity credentials")
-	_, err := a.federatedIdentityCredentialsClient.Delete(ctx, a.conf.ResourceGroup, userAssignedIdentityName, federatedIdentityCredentialsName, nil)
-	if err != nil {
+	_, err := a.federatedIdentityCredentialsClient.Delete(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, federatedIdentityCredentialsName, nil)
+	if err != nil && !azureerrors.IsNotFoundErr(err) && !IsParentResourceNotFoundErr(err) {
 		return errors.Wrap(err)
 	}
 
 	logger.WithField("identity", userAssignedIdentityName).Debug("deleting user assigned identity")
-	_, err = a.userAssignedIdentitiesClient.Delete(ctx, a.conf.ResourceGroup, userAssignedIdentityName, nil)
-	if err != nil {
+	_, err = a.userAssignedIdentitiesClient.Delete(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, nil)
+	if err != nil && !azureerrors.IsNotFoundErr(err) {
 		return errors.Wrap(err)
 	}
 

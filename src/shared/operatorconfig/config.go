@@ -18,11 +18,12 @@ const (
 	ProbeAddrDefault                            = ":8181"
 	EnableLeaderElectionKey                     = "leader-elect" // Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager
 	EnableLeaderElectionDefault                 = false
-	WatchedNamespacesKey                        = "watched-namespaces"    // Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas
-	KafkaServerTLSCertKey                       = "kafka-server-tls-cert" // name of tls certificate file
-	KafkaServerTLSKeyKey                        = "kafka-server-tls-key"  // name of tls private key file
-	KafkaServerTLSCAKey                         = "kafka-server-tls-ca"   // name of tls ca file
-	SelfSignedCertKey                           = "self-signed-cert"      // Whether to generate and use a self signed cert as the CA for webhooks
+	WatchedNamespacesKey                        = "watched-namespaces"            // Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas
+	ActiveEnforcementNamespacesKey              = "active-enforcement-namespaces" // When using the "shadow enforcement" mode, namespaces in this list will be treated as if the enforcement were active
+	KafkaServerTLSCertKey                       = "kafka-server-tls-cert"         // name of tls certificate file
+	KafkaServerTLSKeyKey                        = "kafka-server-tls-key"          // name of tls private key file
+	KafkaServerTLSCAKey                         = "kafka-server-tls-ca"           // name of tls ca file
+	SelfSignedCertKey                           = "self-signed-cert"              // Whether to generate and use a self signed cert as the CA for webhooks
 	SelfSignedCertDefault                       = true
 	DisableWebhookServerKey                     = "disable-webhook-server" // Disable webhook validator server
 	DisableWebhookServerDefault                 = false
@@ -49,6 +50,8 @@ const (
 	EnableEgressNetworkPolicyReconcilersDefault = false
 	EnableAWSPolicyKey                          = "enable-aws-iam-policy"
 	EnableAWSPolicyDefault                      = false
+	EnableAWSRolesAnywhereKey                   = "enable-aws-iam-rolesanywhere"
+	EnableAWSRolesAnywhereDefault               = false
 	EnableGCPPolicyKey                          = "enable-gcp-iam-policy"
 	EnableGCPPolicyDefault                      = false
 	EnableAzurePolicyKey                        = "enable-azure-iam-policy"
@@ -57,6 +60,9 @@ const (
 	AzureResourceGroupKey                       = "azure-resource-group"
 	AzureAKSClusterNameKey                      = "azure-aks-cluster-name"
 	EKSClusterNameOverrideKey                   = "eks-cluster-name-override"
+	AWSRolesAnywhereTrustAnchorARNKey           = "rolesanywhere-trust-anchor-arn"
+	AWSRolesAnywhereSPIFFETrustDomainKey        = "rolesanywhere-spiffe-trust-domain"
+	AWSRolesAnywhereClusterName                 = "rolesanywhere-cluster-name"
 	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
 	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"
 )
@@ -74,6 +80,7 @@ func init() {
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
 	viper.SetDefault(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault)
 	viper.SetDefault(EnableAWSPolicyKey, EnableAWSPolicyDefault)
+	viper.SetDefault(EnableAWSRolesAnywhereKey, EnableAWSRolesAnywhereDefault)
 	viper.SetDefault(EnableGCPPolicyKey, EnableGCPPolicyDefault)
 	viper.SetDefault(EnableAzurePolicyKey, EnableAzurePolicyDefault)
 	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
@@ -82,6 +89,7 @@ func init() {
 	viper.SetDefault(KafkaServerTLSCAKey, "")
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetDefault(WatchedNamespacesKey, nil)
+	viper.SetDefault(ActiveEnforcementNamespacesKey, nil)
 	viper.SetDefault(EnableDatabasePolicy, EnableDatabasePolicyDefault)
 	viper.SetDefault(RetryDelayTimeKey, RetryDelayTimeDefault)
 	viper.SetDefault(DebugLogKey, DebugLogDefault)
@@ -103,6 +111,7 @@ func InitCLIFlags() {
 	pflag.String(ProbeAddrKey, ProbeAddrDefault, "The address the probe endpoint binds to.")
 	pflag.Bool(EnableLeaderElectionKey, EnableLeaderElectionDefault, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	pflag.StringSlice(WatchedNamespacesKey, nil, "Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
+	pflag.StringSlice(ActiveEnforcementNamespacesKey, nil, "While using the shadow enforcement mode, namespaces in this list will be treated as if the enforcement were active.")
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
 	pflag.Bool(telemetriesconfig.TelemetryEnabledKey, telemetriesconfig.TelemetryEnabledDefault, "When set to false, all telemetries are disabled")
 	pflag.Bool(telemetriesconfig.TelemetryUsageEnabledKey, telemetriesconfig.TelemetryUsageEnabledDefault, "Whether usage telemetry should be enabled")

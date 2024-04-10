@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
@@ -26,6 +27,11 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/iam_pod_reconciler"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents/awspolicyagent"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents/azurepolicyagent"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents/gcppolicyagent"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy/builders"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
@@ -36,6 +42,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
+	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
@@ -55,8 +62,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -129,6 +139,7 @@ func main() {
 		EnableAWSPolicy:                      viper.GetBool(operatorconfig.EnableAWSPolicyKey),
 		EnableGCPPolicy:                      viper.GetBool(operatorconfig.EnableGCPPolicyKey),
 		EnableAzurePolicy:                    viper.GetBool(operatorconfig.EnableAzurePolicyKey),
+		EnforcedNamespaces:                   goset.FromSlice(viper.GetStringSlice(operatorconfig.ActiveEnforcementNamespacesKey)),
 	}
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev1alpha3.TLSSource{
@@ -142,9 +153,14 @@ func main() {
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
 
 	options := ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
+		Metrics: server.Options{
+			BindAddress: metricsAddr,
+		},
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Port:    9443,
+			CertDir: webhooks.CertDirPath,
+		}),
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "a3a7d614.otterize.com",
@@ -162,7 +178,9 @@ func main() {
 	}
 
 	if len(watchedNamespaces) != 0 {
-		options.Cache.Namespaces = watchedNamespaces
+		for _, namespace := range watchedNamespaces {
+			options.Cache.DefaultNamespaces[namespace] = cache.Config{}
+		}
 		logrus.Infof("Will only watch the following namespaces: %v", watchedNamespaces)
 	}
 
@@ -200,12 +218,13 @@ func main() {
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
-	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
 	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
 	svcNetworkPolicyBuilder := builders.NewPortNetworkPolicyReconciler(mgr.GetClient())
-	epNetpolReconciler := networkpolicy.NewReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState, []networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder}, make([]networkpolicy.EgressRuleBuilder, 0))
+	dnsServerNetpolBuilder := builders.NewIngressDNSServerAutoAllowNetpolBuilder()
+	epNetpolReconciler := networkpolicy.NewReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnforcedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState,
+		[]networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder, dnsServerNetpolBuilder}, make([]networkpolicy.EgressRuleBuilder, 0))
 	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
 		egressNetworkPolicyHandler := builders.NewEgressNetworkPolicyBuilder()
@@ -219,21 +238,34 @@ func main() {
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 
-	var iamAgents []intents_reconcilers.IAMPolicyAgent
+	var iamAgents []iampolicyagents.IAMPolicyAgent
+
+	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
 
 	if enforcementConfig.EnableAWSPolicy {
-		awsIntentsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx)
+		awsOptions := make([]awsagent.Option, 0)
+		if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
+			trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
+			trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
+			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterName)
+
+			awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
+		}
+		awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize AWS agent")
 		}
+		awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+
 		iamAgents = append(iamAgents, awsIntentsAgent)
 	}
 
 	if enforcementConfig.EnableGCPPolicy {
-		gcpIntentsAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx, mgr.GetClient())
+		gcpAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx, mgr.GetClient())
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize GCP agent")
 		}
+		gcpIntentsAgent := gcppolicyagent.NewGCPPolicyAgent(gcpAgent)
 		iamAgents = append(iamAgents, gcpIntentsAgent)
 	}
 
@@ -244,18 +276,22 @@ func main() {
 			AKSClusterName: MustGetEnvVar(operatorconfig.AzureAKSClusterNameKey),
 		}
 
-		azureIntentsAgent, err := azureagent.NewAzureAgent(signalHandlerCtx, config)
+		azureAgent, err := azureagent.NewAzureAgent(signalHandlerCtx, config)
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize Azure agent")
 		}
+		azureIntentsAgent := azurepolicyagent.NewAzurePolicyAgent(azureAgent)
+
 		iamAgents = append(iamAgents, azureIntentsAgent)
 	}
 
-	if len(iamAgents) > 0 {
-		iamIntentsReconciler := intents_reconcilers.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceidresolver.NewResolver(mgr.GetClient()), iamAgents)
+	for _, iamAgent := range iamAgents {
+		iamIntentsReconciler := iam.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceIdResolver, iamAgent)
 		additionalIntentsReconcilers = append(additionalIntentsReconcilers, iamIntentsReconciler)
+
 		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), iamIntentsReconciler)
 		err = iamPodWatcher.SetupWithManager(mgr)
+
 		if err != nil {
 			logrus.WithError(err).Panic("unable to register pod watcher")
 		}
@@ -264,8 +300,6 @@ func main() {
 	if err = endpointReconciler.InitIngressReferencedServicesIndex(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to init index for ingress")
 	}
-
-	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler)
 
 	otterizeCloudClient, connectedToCloud, err := operator_cloud_client.NewClient(signalHandlerCtx)
 	if err != nil {
@@ -282,6 +316,9 @@ func main() {
 	} else {
 		logrus.Info("Not configured for cloud integration")
 	}
+
+	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler, otterizeCloudClient)
+	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler, otterizeCloudClient)
 
 	if !enforcementConfig.EnforcementDefaultState {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
@@ -308,6 +345,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetScheme(),
 			certBundle.CertPem,
+			filters.PartOfOtterizeLabelPredicate(),
 		)
 		err = validatingWebhookConfigsReconciler.SetupWithManager(mgr)
 		if err != nil {
@@ -428,7 +466,7 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "ProtectedServices")
 	}
 
-	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy)
+	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
 	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler)
 
@@ -486,8 +524,13 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud
 		NetworkPolicyEnforcementEnabled:       config.EnableNetworkPolicy,
 		EgressNetworkPolicyEnforcementEnabled: config.EnableEgressNetworkPolicyReconcilers,
 		KafkaACLEnforcementEnabled:            config.EnableKafkaACL,
+		AwsIAMPolicyEnforcementEnabled:        config.EnableAWSPolicy,
+		GcpIAMPolicyEnforcementEnabled:        config.EnableGCPPolicy,
+		AzureIAMPolicyEnforcementEnabled:      config.EnableAzurePolicy,
+		DatabaseEnforcementEnabled:            config.EnableDatabasePolicy,
 		IstioPolicyEnforcementEnabled:         config.EnableIstioPolicy,
 		ProtectedServicesEnabled:              config.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
+		EnforcedNamespaces:                    config.EnforcedNamespaces.Items(),
 	})
 	if err != nil {
 		logrus.WithError(err).Error("Failed to report configuration to the cloud")

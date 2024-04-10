@@ -44,7 +44,7 @@ func NewIAMPodReconciler(c client.Client, eventRecorder record.EventRecorder, ia
 
 func (p *IAMPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := logrus.WithField("namespace", req.Namespace).WithField("name", req.Name)
-	logger.Infof("Reconciling due to pod change")
+	logger.Debugf("Reconciling due to pod change")
 
 	pod := v1.Pod{}
 	err := p.Get(ctx, req.NamespacedName, &pod)
@@ -74,7 +74,7 @@ func (p *IAMPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	logger.Infof("Found %d intents for service", len(intents.Items))
+	logger.Debugf("Found %d intents for service", len(intents.Items))
 
 	for _, intent := range intents.Items {
 		result, err := p.iamReconciler.Reconcile(ctx, reconcile.Request{NamespacedName: types.NamespacedName{

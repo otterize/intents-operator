@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"strings"
@@ -64,7 +65,7 @@ func (s *ControllerManagerTestSuiteBase) SetupTest() {
 		CertDir: s.TestEnv.WebhookInstallOptions.LocalServingCertDir,
 	})
 	var err error
-	s.Mgr, err = manager.New(s.RestConfig, manager.Options{MetricsBindAddress: "0", WebhookServer: webhookServer})
+	s.Mgr, err = manager.New(s.RestConfig, manager.Options{Metrics: server.Options{BindAddress: "0"}, WebhookServer: webhookServer})
 	s.Require().NoError(err)
 	s.Require().NoError(protected_services.InitProtectedServiceIndexField(s.Mgr))
 
@@ -461,6 +462,30 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	s.waitForObjectToBeCreated(intents)
 
 	return intents, nil
+}
+
+func (s *ControllerManagerTestSuiteBase) AddProtectedService(
+	objName,
+	serverName string,
+	namespace string) (*otterizev1alpha3.ProtectedService, error) {
+
+	protectedService := &otterizev1alpha3.ProtectedService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      objName,
+			Namespace: namespace,
+		},
+		Spec: otterizev1alpha3.ProtectedServiceSpec{
+			Name: serverName,
+		},
+	}
+
+	err := s.Mgr.GetClient().Create(context.Background(), protectedService)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	s.waitForObjectToBeCreated(protectedService)
+
+	return protectedService, nil
 }
 
 func (s *ControllerManagerTestSuiteBase) AddIntentsV1alpha2(

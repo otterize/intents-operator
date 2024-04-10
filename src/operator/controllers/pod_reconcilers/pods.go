@@ -3,6 +3,7 @@ package pod_reconcilers
 import (
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/prometheus"
@@ -39,9 +40,9 @@ type PodWatcher struct {
 	injectablerecorder.InjectableRecorder
 }
 
-func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool) *PodWatcher {
+func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string]) *PodWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
-	creator := istiopolicy.NewPolicyManager(c, &recorder, watchedNamespaces, enforcementDefaultState, istioEnforcementEnabled)
+	creator := istiopolicy.NewPolicyManager(c, &recorder, watchedNamespaces, enforcementDefaultState, istioEnforcementEnabled, activeNamespaces)
 	return &PodWatcher{
 		Client:             c,
 		serviceIdResolver:  serviceidresolver.NewResolver(c),
@@ -51,11 +52,16 @@ func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedN
 }
 
 func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Infof("Reconciling due to pod change: %s", req.Name)
+	logrus.Debugf("Reconciling due to pod change: %s", req.Name)
 	pod := v1.Pod{}
 	err := p.Get(ctx, req.NamespacedName, &pod)
 	if k8serrors.IsNotFound(err) {
 		logrus.Infoln("Pod was deleted")
+		return ctrl.Result{}, nil
+	}
+
+	if pod.Status.Phase != v1.PodPending && pod.Status.Phase != v1.PodRunning {
+		logrus.Debugf("Pod %s is not in a running state, skipping reconciliation", pod.Name)
 		return ctrl.Result{}, nil
 	}
 
@@ -156,7 +162,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 	// Intents were deleted and the pod was updated by the operator, skip reconciliation
 	_, ok := pod.Annotations[otterizev1alpha3.AllIntentsRemovedAnnotation]
 	if ok {
-		logrus.Infof("Skipping reconciliation for pod %s - pod is handled by intents-operator", req.Name)
+		logrus.Debugf("Skipping reconciliation for pod %s - pod is handled by intents-operator", req.Name)
 		return nil
 	}
 
@@ -168,7 +174,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 	// This is the pod selector used in network policies to grant access to this pod.
 	if !otterizev1alpha3.HasOtterizeServiceLabel(&pod, otterizeServerLabelValue) {
 		// Label pods as destination servers
-		logrus.Infof("Labeling pod %s with server identity %s", pod.Name, serviceID.Name)
+		logrus.Debugf("Labeling pod %s with server identity %s", pod.Name, serviceID.Name)
 		if updatedPod.Labels == nil {
 			updatedPod.Labels = make(map[string]string)
 		}
@@ -198,7 +204,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 			}
 		}
 		if otterizev1alpha3.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
-			logrus.Infof("Updating Otterize access labels for %s", serviceID.Name)
+			logrus.Debugf("Updating Otterize access labels for %s", serviceID.Name)
 			updatedPod = otterizev1alpha3.UpdateOtterizeAccessLabels(updatedPod.DeepCopy(), serviceID, otterizeAccessLabels)
 			prometheus.IncrementPodsLabeledForNetworkPolicies(1)
 			hasUpdates = true
@@ -207,7 +213,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 
 	if hasUpdates {
 		err = p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
-		if err != nil {
+		if client.IgnoreNotFound(err) != nil {
 			return errors.Errorf("failed updating Otterize labels for pod %s in namespace %s: %w", pod.Name, pod.Namespace, err)
 		}
 	}
@@ -260,7 +266,7 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 	}
 
 	if missingSideCar {
-		logrus.Infof("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
+		logrus.Debugf("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
 		return nil
 	}
 
