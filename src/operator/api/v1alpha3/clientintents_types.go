@@ -228,17 +228,12 @@ type IntentsSpec struct {
 type Service struct {
 	Name string `json:"name" yaml:"name"`
 	//+optional
-	Group string `json:"group,omitempty" yaml:"group,omitempty"`
-	//+optional
 	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 }
 
 type Intent struct {
 	//+optional
 	Name string `json:"name,omitempty" yaml:"name,omitempty"`
-
-	//+optional
-	Group string `json:"group,omitempty" yaml:"group,omitempty"`
 
 	//+optional
 	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
@@ -466,10 +461,6 @@ func (in *Intent) GetTargetServerKind() string {
 		return serviceidentity.KindService
 	}
 	return serviceidentity.KindOtterizeLegacy
-}
-
-func (in *Intent) GetTargetServerGroup() string {
-	return in.Group
 }
 
 func (in *Intent) GetServerFullyQualifiedName(intentsObjNamespace string) string {

@@ -18,7 +18,6 @@ type ServiceIdentity struct {
 	Name      string
 	Namespace string
 	Kind      string
-	Group     string
 	// OwnerObject used to resolve the service name. May be nil if service name was resolved using annotation.
 	OwnerObject client.Object
 }
@@ -30,7 +29,7 @@ func (si *ServiceIdentity) GetFormattedOtterizeIdentity() string {
 	if si.Kind == KindOtterizeLegacy || si.Kind == "" {
 		return GetFormattedOtterizeIdentity(si.Name, si.Namespace)
 	}
-	return GetFormattedOtterizeIdentityWithGK(si.Name, si.Namespace, si.Group, si.Kind)
+	return GetFormattedOtterizeIdentityWithKind(si.Name, si.Namespace, si.Kind)
 }
 
 func (si *ServiceIdentity) GetFormattedOtterizeIdentityWithoutKind() string {
@@ -46,7 +45,7 @@ func (si *ServiceIdentity) GetNameWithKind() string {
 }
 
 func (si *ServiceIdentity) String() string {
-	return fmt.Sprintf("%s/%s/%s/%s", si.Group, si.Kind, si.Namespace, si.Name)
+	return fmt.Sprintf("%s/%s/%s", si.Kind, si.Namespace, si.Name)
 }
 
 // GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)
@@ -72,9 +71,9 @@ func GetFormattedOtterizeIdentity(name, ns string) string {
 
 }
 
-func GetFormattedOtterizeIdentityWithGK(name, ns, group, kind string) string {
+func GetFormattedOtterizeIdentityWithKind(name, ns, kind string) string {
 	// Get MD5 for full length "name-namespace" string
-	hash := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s-%s", name, ns, group, kind)))
+	hash := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", name, ns, kind)))
 
 	// Truncate name and namespace to 20 chars each
 	if len(name) > MaxOtterizeNameLength {
@@ -101,6 +100,5 @@ func NewFromPodOwner(podOwner client.Object) *ServiceIdentity {
 		Name:      podOwner.GetName(),
 		Namespace: podOwner.GetNamespace(),
 		Kind:      podOwner.GetObjectKind().GroupVersionKind().Kind,
-		Group:     podOwner.GetObjectKind().GroupVersionKind().Group,
 	}
 }

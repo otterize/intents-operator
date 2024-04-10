@@ -26,9 +26,6 @@ type ProtectedServiceSpec struct {
 	Name string `json:"name,omitempty"`
 
 	//+optional
-	Group string `json:"group,omitempty" yaml:"group,omitempty"`
-
-	//+optional
 	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
 }
 

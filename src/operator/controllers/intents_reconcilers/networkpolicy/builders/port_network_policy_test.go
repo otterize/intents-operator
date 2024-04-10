@@ -46,7 +46,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded()
 	policyName := "test-server-service-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-servi-9d3e35"
+	formattedTargetServer := "test-server-test-namespace-servi-c49181"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
@@ -180,7 +180,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetes
 	policyName := "test-server-service-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-servi-9d3e35"
+	formattedTargetServer := "test-server-test-namespace-servi-c49181"
 
 	s.testCreateNetworkPolicyForKubernetesService(
 		clientIntentsName,
@@ -198,7 +198,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetes
 	policyName := "test-server-service-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-servi-9d3e35"
+	formattedTargetServer := "test-server-test-namespace-servi-c49181"
 
 	s.testCreateNetworkPolicyForKubernetesService(
 		clientIntentsName,
@@ -216,7 +216,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyNamedTarge
 	policyName := "test-server-service-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-servi-9d3e35"
+	formattedTargetServer := "test-server-test-namespace-servi-c49181"
 
 	s.testCreateNetworkPolicyForKubernetesService(
 		clientIntentsName,
@@ -399,7 +399,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKuberne
 	policyName := "test-server-service-access"
 	serviceName := "test-client"
 	serverNamespace := testNamespace
-	formattedTargetServer := "test-server-test-namespace-servi-9d3e35"
+	formattedTargetServer := "test-server-test-namespace-servi-c49181"
 
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
