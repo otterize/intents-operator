@@ -117,13 +117,13 @@ type AccessGraphEdge {
 	accessStatuses: EdgeAccessStatuses!
 }
 
+"""Access graph filter"""
 type AccessGraphFilter {
-	environmentIds: [ID!]
-	clusterIds: [ID!]
-	namespaceIds: [ID!]
-	serviceIds: [ID!]
-	lastSeenAfter: Time
-	includeServicesWithNoEdges: Boolean
+	clusterIds: IDFilterValue
+	serviceIds: IDFilterValue
+	namespaceIds: IDFilterValue
+	environmentIds: IDFilterValue
+	lastSeen: TimeFilterValue
 }
 
 enum ApiFieldAction {
@@ -574,6 +574,7 @@ type GitHubAccessGraphFilter {
 	clusterIds: [ID!]
 	namespaceIds: [ID!]
 	serviceIds: [ID!]
+	serviceFilterType: IDFilterOperators
 	lastSeenAfter: Time
 }
 
@@ -634,20 +635,41 @@ enum HTTPMethod {
 """The `ID` scalar type represents a unique identifier, often used to refetch an object or as key for a cache. The ID type appears in a JSON response as a String; however, it is not intended to be human-readable. When expected as an input type, any string (such as "4") or integer (such as 4) input value will be accepted as an ID."""
 scalar ID
 
+"""ID filters"""
+enum IDFilterOperators {
+	INCLUDE
+	EXCLUDE
+}
+
+type IDFilterValue {
+	value: [ID!]!
+	operator: IDFilterOperators!
+}
+
 input InputAccessGraphFilter {
-	environmentIds: [ID!]
-	clusterIds: [ID!]
-	serviceIds: [ID!]
-	namespaceIds: [ID!]
-	lastSeenAfter: Time
-	includeServicesWithNoEdges: Boolean
+	clusterIds: InputIDFilterValue
+	serviceIds: InputIDFilterValue
+	namespaceIds: InputIDFilterValue
+	environmentIds: InputIDFilterValue
+	lastSeen: InputTimeFilterValue
 }
 
 input InputGitHubAccessGraphFilter {
 	environmentIds: [ID!]
 	clusterIds: [ID!]
 	serviceIds: [ID!]
+	serviceFilterType: IDFilterOperators
 	namespaceIds: [ID!]
+}
+
+input InputIDFilterValue {
+	value: [ID!]!
+	operator: IDFilterOperators!
+}
+
+input InputTimeFilterValue {
+	value: Time!
+	operator: TimeFilterOperators!
 }
 
 """The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1."""
@@ -685,11 +707,19 @@ enum IntegrationState {
 	SUCCESS
 	FAILURE
 	PENDING
+	WARNING
 }
 
 type IntegrationStatus {
 	state: IntegrationState!
-	errorMessage: String
+	message: String
+	metadata: [IntegrationStatusMetadataItem!]
+	lastSeen: Time
+}
+
+type IntegrationStatusMetadataItem {
+	message: String!
+	extra: [LabelValueTuple!]
 }
 
 enum IntegrationType {
@@ -775,6 +805,7 @@ type IntentsOperatorConfiguration {
 	protectedServicesEnabled: Boolean!
 	protectedServices: [Service!]!
 	egressNetworkPolicyEnforcementEnabled: Boolean!
+	enforcedNamespaces: [String!]
 }
 
 input IntentsOperatorConfigurationInput {
@@ -788,6 +819,7 @@ input IntentsOperatorConfigurationInput {
 	gcpIAMPolicyEnforcementEnabled: Boolean
 	azureIAMPolicyEnforcementEnabled: Boolean
 	databaseEnforcementEnabled: Boolean
+	enforcedNamespaces: [String!]
 }
 
 type InternetConfig {
@@ -903,6 +935,11 @@ type Label {
 input LabelInput {
 	key: String!
 	value: String
+}
+
+type LabelValueTuple {
+	label: String!
+	value: String!
 }
 
 type Me {
@@ -1489,6 +1526,16 @@ type TestDatabaseConnectionResponse {
 }
 
 scalar Time
+
+"""Time filters"""
+enum TimeFilterOperators {
+	AFTER
+}
+
+type TimeFilterValue {
+	value: Time!
+	operator: TimeFilterOperators!
+}
 
 enum TutorialEvent {
 	CLUSTER_CREATED

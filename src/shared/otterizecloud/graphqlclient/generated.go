@@ -207,16 +207,17 @@ const (
 )
 
 type IntentsOperatorConfigurationInput struct {
-	GlobalEnforcementEnabled              bool `json:"globalEnforcementEnabled"`
-	NetworkPolicyEnforcementEnabled       bool `json:"networkPolicyEnforcementEnabled"`
-	KafkaACLEnforcementEnabled            bool `json:"kafkaACLEnforcementEnabled"`
-	IstioPolicyEnforcementEnabled         bool `json:"istioPolicyEnforcementEnabled"`
-	ProtectedServicesEnabled              bool `json:"protectedServicesEnabled"`
-	EgressNetworkPolicyEnforcementEnabled bool `json:"egressNetworkPolicyEnforcementEnabled"`
-	AwsIAMPolicyEnforcementEnabled        bool `json:"awsIAMPolicyEnforcementEnabled"`
-	GcpIAMPolicyEnforcementEnabled        bool `json:"gcpIAMPolicyEnforcementEnabled"`
-	AzureIAMPolicyEnforcementEnabled      bool `json:"azureIAMPolicyEnforcementEnabled"`
-	DatabaseEnforcementEnabled            bool `json:"databaseEnforcementEnabled"`
+	GlobalEnforcementEnabled              bool     `json:"globalEnforcementEnabled"`
+	NetworkPolicyEnforcementEnabled       bool     `json:"networkPolicyEnforcementEnabled"`
+	KafkaACLEnforcementEnabled            bool     `json:"kafkaACLEnforcementEnabled"`
+	IstioPolicyEnforcementEnabled         bool     `json:"istioPolicyEnforcementEnabled"`
+	ProtectedServicesEnabled              bool     `json:"protectedServicesEnabled"`
+	EgressNetworkPolicyEnforcementEnabled bool     `json:"egressNetworkPolicyEnforcementEnabled"`
+	AwsIAMPolicyEnforcementEnabled        bool     `json:"awsIAMPolicyEnforcementEnabled"`
+	GcpIAMPolicyEnforcementEnabled        bool     `json:"gcpIAMPolicyEnforcementEnabled"`
+	AzureIAMPolicyEnforcementEnabled      bool     `json:"azureIAMPolicyEnforcementEnabled"`
+	DatabaseEnforcementEnabled            bool     `json:"databaseEnforcementEnabled"`
+	EnforcedNamespaces                    []string `json:"enforcedNamespaces"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -267,6 +268,11 @@ func (v *IntentsOperatorConfigurationInput) GetAzureIAMPolicyEnforcementEnabled(
 // GetDatabaseEnforcementEnabled returns IntentsOperatorConfigurationInput.DatabaseEnforcementEnabled, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetDatabaseEnforcementEnabled() bool {
 	return v.DatabaseEnforcementEnabled
+}
+
+// GetEnforcedNamespaces returns IntentsOperatorConfigurationInput.EnforcedNamespaces, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetEnforcedNamespaces() []string {
+	return v.EnforcedNamespaces
 }
 
 type InternetConfigInput struct {
