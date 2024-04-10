@@ -45,6 +45,7 @@ type PolicyManagerImpl struct {
 	client                    client.Client
 	recorder                  *injectablerecorder.InjectableRecorder
 	restrictToNamespaces      []string
+	activeNamespaces          *goset.Set[string]
 	enforcementDefaultState   bool
 	enableIstioPolicyCreation bool
 }
@@ -56,13 +57,14 @@ type PolicyManager interface {
 	UpdateServerSidecar(ctx context.Context, clientIntents *v1alpha3.ClientIntents, serverName string, missingSideCar bool) error
 }
 
-func NewPolicyManager(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool) *PolicyManagerImpl {
+func NewPolicyManager(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string]) *PolicyManagerImpl {
 	return &PolicyManagerImpl{
 		client:                    client,
 		recorder:                  recorder,
 		restrictToNamespaces:      restrictedNamespaces,
 		enforcementDefaultState:   enforcementDefaultState,
 		enableIstioPolicyCreation: istioEnforcementEnabled,
+		activeNamespaces:          activeNamespaces,
 	}
 }
 
@@ -321,7 +323,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 			continue
 		}
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
-			ctx, c.client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState)
+			ctx, c.client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState, c.activeNamespaces)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
