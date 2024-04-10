@@ -14,11 +14,11 @@ const (
 func BuildHashedUsername(workloadName, namespace, clusterUID string) string {
 	// We're trying to achieve uniqueness while not completely trimming the clusterUID if username + namespace are long
 	// so we trim each section separately leaving room for 6 char hash suffix and string formatting chars
-	username := fmt.Sprintf("%s-%s-%s", workloadName, namespace, clusterUID)
-	hash := md5.Sum([]byte(username))
+	fullUsername := fmt.Sprintf("%s-%s-%s", workloadName, namespace, clusterUID)
+	hash := md5.Sum([]byte(fullUsername))
 
-	if len(username) > HashedUsernameSectionMaxLength {
-		username = username[:HashedUsernameSectionMaxLength]
+	if len(workloadName) > HashedUsernameSectionMaxLength {
+		workloadName = workloadName[:HashedUsernameSectionMaxLength]
 	}
 
 	if len(namespace) > HashedUsernameSectionMaxLength {
@@ -29,10 +29,10 @@ func BuildHashedUsername(workloadName, namespace, clusterUID string) string {
 		clusterUID = clusterUID[:HashedUsernameSectionMaxLength]
 	}
 
-	clusterUID = strings.TrimSuffix(username, "-") // Just in case we trimmed at a hyphen separator
+	clusterUID = strings.TrimSuffix(clusterUID, "-") // Just in case we trimmed at a hyphen separator
 
 	hashSuffix := hex.EncodeToString(hash[:])[:6]
-	return fmt.Sprintf("%s-%s-id-%s-%s", username, namespace, clusterUID, hashSuffix)
+	return fmt.Sprintf("%s-%s-id-%s-%s", workloadName, namespace, clusterUID, hashSuffix)
 }
 
 // KubernetesToPostgresName translates a name with Kubernetes conventions to Postgres conventions
