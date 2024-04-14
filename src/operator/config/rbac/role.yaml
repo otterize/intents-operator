@@ -169,6 +169,18 @@ rules:
 - apiGroups:
   - k8s.otterize.com
   resources:
+  - postgresqlserverconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - k8s.otterize.com
+  resources:
   - protectedservices
   verbs:
   - create

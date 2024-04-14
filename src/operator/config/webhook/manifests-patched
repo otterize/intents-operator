@@ -90,7 +90,7 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
+      name: intents-operator-webhook-service
       namespace: system
       path: /validate-k8s-otterize-com-v1alpha3-protectedservice
   failurePolicy: Fail
