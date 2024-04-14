@@ -18,10 +18,8 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/bombsimon/logrusr/v3"
 	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	"github.com/google/uuid"
 	"github.com/otterize/credentials-operator/src/controllers/certificates/otterizecertgen"
 	"github.com/otterize/credentials-operator/src/controllers/certificates/spirecertgen"
 	"github.com/otterize/credentials-operator/src/controllers/certmanageradapter"
@@ -32,6 +30,7 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/iam/pods"
 	"github.com/otterize/credentials-operator/src/controllers/iam/serviceaccounts"
 	sa_pod_webhook_generic "github.com/otterize/credentials-operator/src/controllers/iam/webhooks"
+	"github.com/otterize/credentials-operator/src/controllers/intents"
 	"github.com/otterize/credentials-operator/src/controllers/otterizeclient"
 	"github.com/otterize/credentials-operator/src/controllers/poduserpassword"
 	"github.com/otterize/credentials-operator/src/controllers/secrets"
@@ -41,10 +40,12 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/svids"
 	"github.com/otterize/credentials-operator/src/controllers/tls_pod"
 	"github.com/otterize/credentials-operator/src/operatorconfig"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	mutatingwebhookconfiguration "github.com/otterize/intents-operator/src/operator/controllers/mutating_webhook_controller"
 	operatorwebhooks "github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
+	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
@@ -57,9 +58,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/metadata"
 	"os"
 	controllerruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -94,6 +92,7 @@ func init() {
 
 	utilruntime.Must(gcpiamv1.AddToScheme(scheme))
 	utilruntime.Must(gcpk8sv1.AddToScheme(scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
 
 	// +kubebuilder:scaffold:scheme
 }
@@ -119,7 +118,6 @@ func main() {
 
 	var secretsManager tls_pod.SecretsManager
 	var workloadRegistry tls_pod.WorkloadRegistry
-	var userAndPassAcquirer poduserpassword.CloudUserAndPasswordAcquirer
 
 	if viper.GetBool(operatorconfig.DebugKey) {
 		logrus.SetLevel(logrus.DebugLevel)
@@ -150,8 +148,11 @@ func main() {
 		logrus.Panic("POD_NAMESPACE environment variable is required")
 	}
 
-	kubeSystemUID := getClusterContextId(signalHandlerCtx, mgr)
-	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(kubeSystemUID))
+	clusterUID, err := clusterutils.GetClusterUID(signalHandlerCtx)
+	if err != nil {
+		logrus.WithError(err).Panic("Failed fetching cluster UID")
+	}
+	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
 	componentinfo.SetGlobalVersion(version.Version())
 
 	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
@@ -164,7 +165,6 @@ func main() {
 
 	if clientInitializedWithCredentials {
 		otterizeclient.PeriodicallyReportConnectionToCloud(otterizeCloudClient)
-		userAndPassAcquirer = otterizeCloudClient
 	}
 
 	if viper.GetString(operatorconfig.CertProviderKey) == operatorconfig.CertProviderCloud {
@@ -235,11 +235,21 @@ func main() {
 		go certPodReconciler.MaintenanceLoop(signalHandlerCtx)
 	}
 
-	if userAndPassAcquirer != nil {
-		podUserAndPasswordReconciler := poduserpassword.NewReconciler(client, scheme, eventRecorder, serviceIdResolver, userAndPassAcquirer)
-		if err = podUserAndPasswordReconciler.SetupWithManager(mgr); err != nil {
-			logrus.WithField("controller", "podUserAndPassword").WithError(err).Panic("unable to create controller")
-		}
+	podUserAndPasswordReconciler := poduserpassword.NewReconciler(client, scheme, eventRecorder, serviceIdResolver)
+	if err = podUserAndPasswordReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithField("controller", "podUserAndPassword").WithError(err).Panic("unable to create controller")
+	}
+
+	intentsReconciler := intents.NewReconciler(client, scheme, eventRecorder, serviceIdResolver)
+	if err = intentsReconciler.InitIntentsClientIndices(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to init indices")
+	}
+	if err = intentsReconciler.InitIntentsDatabaseServerIndices(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to init database server indices")
+	}
+
+	if err := intentsReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithField("controller", "intents").WithError(err).Panic("unable to create controller")
 	}
 
 	// +kubebuilder:scaffold:builder
@@ -349,24 +359,4 @@ func setupIAMAgents(ctx context.Context, mgr ctrl.Manager, client controllerrunt
 			logrus.WithField("controller", "ServiceAccount").WithError(err).Panic("unable to create controller")
 		}
 	}
-}
-
-func getClusterContextId(ctx context.Context, mgr ctrl.Manager) string {
-	metadataClient, err := metadata.NewForConfig(ctrl.GetConfigOrDie())
-	if err != nil {
-		logrus.WithError(err).Fatal("unable to create metadata client")
-	}
-	mapping, err := mgr.GetRESTMapper().RESTMapping(schema.GroupKind{Group: "", Kind: "Namespace"}, "v1")
-	if err != nil {
-		logrus.WithError(err).Fatal("unable to create Kubernetes API REST mapping")
-	}
-	kubeSystemUID := ""
-	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(ctx, "kube-system", metav1.GetOptions{})
-	if err != nil || kubeSystemNs == nil {
-		logrus.WithError(err).Warningf("failed getting kubesystem UID: %s", err)
-		return fmt.Sprintf("rand-%s", uuid.New().String())
-	}
-	kubeSystemUID = string(kubeSystemNs.UID)
-
-	return kubeSystemUID
 }
