@@ -248,7 +248,6 @@ func (r *IntentsReconciler) mapPostgresInstanceNameToDatabaseIntents(_ context.C
 }
 
 func (r *IntentsReconciler) getIntentsToPostgresInstance(pgServerConf *otterizev1alpha3.PostgreSQLServerConfig) []otterizev1alpha3.ClientIntents {
-	intentsToReconcile := make([]otterizev1alpha3.ClientIntents, 0)
 	intentsList := otterizev1alpha3.ClientIntentsList{}
 	dbInstanceName := pgServerConf.Name
 	err := r.client.List(context.Background(),
@@ -259,8 +258,7 @@ func (r *IntentsReconciler) getIntentsToPostgresInstance(pgServerConf *otterizev
 		logrus.Errorf("Failed to list client intents targeting %s: %v", dbInstanceName, err)
 	}
 
-	intentsToReconcile = append(intentsToReconcile, intentsList.Items...)
-	return intentsToReconcile
+	return intentsList.Items
 }
 
 func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1alpha3.ClientIntents) []reconcile.Request {
