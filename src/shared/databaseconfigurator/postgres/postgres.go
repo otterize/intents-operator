@@ -11,7 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 	"net/url"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"sync"
 )
@@ -78,14 +77,12 @@ type PostgresConfigurator struct {
 	conn         *pgx.Conn
 	databaseInfo otterizev1alpha3.PostgreSQLServerConfigSpec
 	setConnMutex sync.Mutex
-	client       client.Client
 }
 
-func NewPostgresConfigurator(pgServerConfSpec otterizev1alpha3.PostgreSQLServerConfigSpec, client client.Client) *PostgresConfigurator {
+func NewPostgresConfigurator(pgServerConfSpec otterizev1alpha3.PostgreSQLServerConfigSpec) *PostgresConfigurator {
 	return &PostgresConfigurator{
 		databaseInfo: pgServerConfSpec,
 		setConnMutex: sync.Mutex{},
-		client:       client,
 	}
 }
 
