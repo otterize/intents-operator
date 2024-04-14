@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/amit7itz/goset"
 	"github.com/bombsimon/logrusr/v3"
 	"github.com/google/uuid"
