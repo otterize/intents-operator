@@ -121,6 +121,7 @@ func (s *KafkaACLReconcilerTestSuite) initKafkaIntentsAdmin(enableAclCreation bo
 		operatorPodName,
 		s.operatorNamespace,
 		s.mockServiceResolver,
+		nil,
 	)
 	s.recorder = record.NewFakeRecorder(100)
 	s.Reconciler.InjectRecorder(s.recorder)

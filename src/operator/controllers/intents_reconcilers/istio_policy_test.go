@@ -42,6 +42,7 @@ func (s *IstioPolicyReconcilerTestSuite) SetupTest() {
 		restrictToNamespaces,
 		true,
 		true,
+		nil,
 	)
 
 	s.Reconciler.Recorder = s.Recorder

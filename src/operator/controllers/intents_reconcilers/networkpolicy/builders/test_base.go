@@ -50,6 +50,7 @@ func (s *RulesBuilderTestSuiteBase) SetupTest() {
 		s.scheme,
 		s.externalNetpolHandler,
 		restrictToNamespaces,
+		nil,
 		true,
 		true,
 		nil,
