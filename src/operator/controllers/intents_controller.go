@@ -130,8 +130,10 @@ func NewIntentsReconciler(
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;list;watch;create
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 //+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list
+//+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create;patch
 //+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create;patch
 // +kubebuilder:rbac:groups=iam.cnrm.cloud.google.com,resources=iampartialpolicies,verbs=get;list;watch;create;update;patch;delete
 
@@ -147,7 +149,6 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, errors.Wrap(err)
 	}
-
 	if intents.Status.UpToDate != false && intents.Status.ObservedGeneration != intents.Generation {
 		intentsCopy := intents.DeepCopy()
 		intentsCopy.Status.UpToDate = false

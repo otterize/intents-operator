@@ -627,6 +627,21 @@ type IDFilterValue {
 	operator: IDFilterOperators!
 }
 
+input IncomingInternetSourceInput {
+	ip: String!
+}
+
+input IncomingTrafficDiscoveredIntentInput {
+	discoveredAt: Time!
+	intent: IncomingTrafficIntentInput!
+}
+
+input IncomingTrafficIntentInput {
+	serverName: String!
+	namespace: String!
+	source: IncomingInternetSourceInput!
+}
+
 input InputAccessGraphFilter {
 	clusterIds: InputIDFilterValue
 	serviceIds: InputIDFilterValue
@@ -1093,6 +1108,9 @@ type Mutation {
 	): Boolean!
 	reportExternalTrafficDiscoveredIntents(
 		intents: [ExternalTrafficDiscoveredIntentInput!]!
+	): Boolean!
+	reportIncomingTrafficDiscoveredIntents(
+		intents: [IncomingTrafficDiscoveredIntentInput!]!
 	): Boolean!
 	reportAppliedKubernetesIntents(
 		namespace: String!
