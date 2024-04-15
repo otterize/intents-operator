@@ -11,6 +11,8 @@ import (
 	intentsreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -18,7 +20,9 @@ import (
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -156,7 +160,28 @@ func (s *KafkaACLReconcilerTestSuite) TestNoACLCreatedForIntentsOperator() {
 	_, err := s.AddIntentsInNamespace(intentsName, operatorServiceName, s.operatorNamespace, operatorIntents)
 	s.Require().NoError(err)
 
-	s.mockServiceResolver.EXPECT().GetPodAnnotatedName(gomock.Any(), operatorPodName, s.operatorNamespace).Return(operatorServiceName, true, nil)
+	operatorPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				serviceidresolver.ServiceNameOverrideAnnotationKeyDefault: operatorServiceName,
+			},
+			Name:      operatorPodName,
+			Namespace: s.operatorNamespace,
+		},
+		Spec: corev1.PodSpec{Containers: []corev1.Container{
+			{
+				Name:            operatorPodName,
+				Image:           "nginx",
+				ImagePullPolicy: "Always",
+			},
+		},
+		},
+	}
+	err = s.Mgr.GetClient().Create(context.Background(), &operatorPod)
+	s.Require().NoError(err)
+	s.WaitForObjectToBeCreated(&operatorPod)
+
+	s.mockServiceResolver.EXPECT().ResolvePodToServiceIdentity(gomock.Any(), &operatorPod).Return(serviceidentity.ServiceIdentity{Name: operatorServiceName, Namespace: s.operatorNamespace}, nil)
 
 	// Shouldn't creat ACLs for the operator intents therefore not expecting any call to mockKafkaAdmin
 
