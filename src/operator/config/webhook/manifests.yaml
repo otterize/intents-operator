@@ -50,6 +50,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig
+  failurePolicy: Fail
+  name: postgresqlserverconfig.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v1alpha3
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - postgresqlserverconfig
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-k8s-otterize-com-v1alpha2-protectedservice
   failurePolicy: Fail
   name: protectedservice.kb.io
