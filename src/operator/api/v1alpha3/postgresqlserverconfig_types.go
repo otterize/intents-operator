@@ -34,9 +34,8 @@ type DatabaseCredentials struct {
 
 // PostgreSQLServerConfigSpec defines the desired state of PostgreSQLServerConfig
 type PostgreSQLServerConfigSpec struct {
-	DatabaseName string              `json:"databaseName"`
-	Address      string              `json:"address"`
-	Credentials  DatabaseCredentials `json:"credentials"`
+	Address     string              `json:"address"`
+	Credentials DatabaseCredentials `json:"credentials"`
 }
 
 // PostgreSQLServerConfigStatus defines the observed state of PostgreSQLServerConfig

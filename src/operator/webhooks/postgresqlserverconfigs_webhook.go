@@ -49,7 +49,7 @@ func NewPostgresConfValidator(c client.Client) *PostgresConfValidator {
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=postgresqlserverconfig,verbs=create;update,versions=v1alpha3,name=postgresqlserverconfig.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=postgresqlserverconfigs,verbs=create;update,versions=v1alpha3,name=postgresqlserverconfig.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &PostgresConfValidator{}
 
