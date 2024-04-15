@@ -7,17 +7,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - configmaps
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - endpoints
   verbs:
   - get
@@ -177,18 +166,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - k8s.otterize.com
-  resources:
-  - postgresqlserverconfigs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
 - apiGroups:
   - k8s.otterize.com
   resources:

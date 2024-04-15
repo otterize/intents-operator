@@ -34,7 +34,6 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.5.0
-	github.com/jackc/pgx/v5 v5.5.5
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
 	github.com/otterize/nilable v0.0.0-20240410132629-f242bb6f056f
 	github.com/prometheus/client_golang v1.18.0
@@ -100,8 +99,6 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
-	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect
