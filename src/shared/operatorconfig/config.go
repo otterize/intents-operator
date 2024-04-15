@@ -64,7 +64,13 @@ const (
 	EKSClusterNameOverrideKey                   = "eks-cluster-name-override"
 	AWSRolesAnywhereTrustAnchorARNKey           = "rolesanywhere-trust-anchor-arn"
 	AWSRolesAnywhereSPIFFETrustDomainKey        = "rolesanywhere-spiffe-trust-domain"
-	AWSRolesAnywhereClusterName                 = "rolesanywhere-cluster-name"
+	AWSRolesAnywhereClusterNameKey              = "rolesanywhere-cluster-name"
+	AWSRolesAnywhereCertDirKey                  = "rolesanywhere-cert-dir"
+	AWSRolesAnywhereCertDirDefault              = "/aws-config/credentials"
+	AWSRolesAnywherePrivKeyFilenameKey          = "rolesanywhere-priv-key-filename"
+	AWSRolesAnywhereCertChainFilenameKey        = "rolesanywhere-cert-chain-filename"
+	AWSRolesAnywherePrivKeyFilenameDefault      = "key.pem"
+	AWSRolesAnywhereCertChainFilenameDefault    = "cert.pem"
 	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
 	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"
 	AWSAccountsKey                              = "aws"
@@ -87,6 +93,9 @@ func init() {
 	viper.SetDefault(EnableGCPPolicyKey, EnableGCPPolicyDefault)
 	viper.SetDefault(EnableAzurePolicyKey, EnableAzurePolicyDefault)
 	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
+	viper.SetDefault(AWSRolesAnywhereCertDirKey, AWSRolesAnywhereCertDirDefault)
+	viper.SetDefault(AWSRolesAnywherePrivKeyFilenameKey, AWSRolesAnywherePrivKeyFilenameDefault)
+	viper.SetDefault(AWSRolesAnywhereCertChainFilenameKey, AWSRolesAnywhereCertChainFilenameDefault)
 	viper.SetDefault(KafkaServerTLSCertKey, "")
 	viper.SetDefault(KafkaServerTLSKeyKey, "")
 	viper.SetDefault(KafkaServerTLSCAKey, "")
@@ -109,7 +118,6 @@ func init() {
 }
 
 type AWSAccount struct {
-	AccountID      string
 	RoleARN        string
 	ProfileARN     string
 	TrustAnchorARN string

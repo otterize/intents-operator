@@ -245,19 +245,37 @@ func main() {
 	if enforcementConfig.EnableAWSPolicy {
 		awsOptions := make([]awsagent.Option, 0)
 		if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
-			trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
-			trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
-			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterName)
+			if viper.IsSet(operatorconfig.AWSAccountsKey) {
+				accounts := operatorconfig.GetRolesAnywhereAWSAccounts()
+				awsIntentsAgent, err := awspolicyagent.NewMultiaccountAWSPolicyAgent(signalHandlerCtx, accounts)
+				if err != nil {
+					logrus.WithError(err).Panic("could not initialize AWS agent")
+				}
+				iamAgents = append(iamAgents, awsIntentsAgent)
+			} else {
 
-			awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
-		}
-		awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
-		if err != nil {
-			logrus.WithError(err).Panic("could not initialize AWS agent")
-		}
-		awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+				trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
+				trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
+				clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterNameKey)
 
-		iamAgents = append(iamAgents, awsIntentsAgent)
+				awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
+			}
+			awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
+			if err != nil {
+				logrus.WithError(err).Panic("could not initialize AWS agent")
+			}
+			awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+
+			iamAgents = append(iamAgents, awsIntentsAgent)
+		} else {
+			awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
+			if err != nil {
+				logrus.WithError(err).Panic("could not initialize AWS agent")
+			}
+			awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+
+			iamAgents = append(iamAgents, awsIntentsAgent)
+		}
 	}
 
 	if enforcementConfig.EnableGCPPolicy {

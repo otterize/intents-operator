@@ -113,7 +113,7 @@ func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod cor
 	}
 
 	filteredIntents := intents.GetFilteredCallsList(intentType)
-	err = agent.AddRolePolicyFromIntents(ctx, pod.Namespace, serviceAccountName, intents.Spec.Service.Name, filteredIntents)
+	err = agent.AddRolePolicyFromIntents(ctx, pod.Namespace, serviceAccountName, intents.Spec.Service.Name, filteredIntents, pod)
 	if err != nil {
 		r.RecordWarningEventf(&intents, consts.ReasonReconcilingIAMPoliciesFailed, "Failed to reconcile IAM policies of type %s due to error: %s", intentType, err.Error())
 		return errors.Wrap(err)

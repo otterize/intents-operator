@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
+	"github.com/otterize/nilable"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -81,6 +82,7 @@ type Agent struct {
 	AccountID                        string
 	OidcURL                          string
 	ClusterName                      string
+	config                           nilable.Nilable[aws.Config]
 	RolesAnywhereEnabled             bool
 	TrustAnchorArn                   string
 	TrustDomain                      string
@@ -106,6 +108,10 @@ func WithSoftDeleteStrategy() Option {
 }
 
 func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
+	return AppliesOnPod(pod)
+}
+
+func AppliesOnPod(pod *corev1.Pod) bool {
 	return pod.Labels != nil && pod.Labels[ApplyOnPodLabel] == "true"
 }
 
@@ -122,35 +128,46 @@ func WithRolesAnywhere(trustAnchorArn string, trustDomain string, clusterName st
 	}
 }
 
+func WithAWSConfig(awsConfig aws.Config) Option {
+	return func(a *Agent) {
+		a.config = nilable.From(awsConfig)
+	}
+}
+
 func NewAWSAgent(
 	ctx context.Context,
 	options ...Option,
 ) (*Agent, error) {
 	logrus.Info("Initializing AWS Intents agent")
 
-	awsConfig, err := config.LoadDefaultConfig(ctx)
-
-	if err != nil {
-		return nil, errors.Errorf("could not load AWS config")
-	}
-
-	iamClient := iam.NewFromConfig(awsConfig)
-	rolesAnywhereClient := rolesanywhere.NewFromConfig(awsConfig)
-	stsClient := sts.NewFromConfig(awsConfig)
-
 	agent := &Agent{
-		iamClient:           iamClient,
-		rolesAnywhereClient: rolesAnywhereClient,
-		profileNameToId:     make(map[string]string),
-		Region:              awsConfig.Region,
+		profileNameToId: make(map[string]string),
 	}
 
 	for _, option := range options {
 		option.Apply(agent)
 	}
 
+	if !agent.config.Set {
+		// config was not initialized by option, use default
+		awsConfig, err := config.LoadDefaultConfig(ctx)
+
+		if err != nil {
+			return nil, errors.Errorf("could not load AWS config")
+		}
+		agent.config = nilable.From(awsConfig)
+	}
+
+	agent.Region = agent.config.Item.Region
+
+	iamClient := iam.NewFromConfig(agent.config.Item)
+	rolesAnywhereClient := rolesanywhere.NewFromConfig(agent.config.Item)
+	stsClient := sts.NewFromConfig(agent.config.Item)
+	agent.iamClient = iamClient
+	agent.rolesAnywhereClient = rolesAnywhereClient
+
 	if !agent.RolesAnywhereEnabled {
-		currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
+		currentCluster, err := getCurrentEKSCluster(ctx, agent.config.Item)
 
 		if err != nil {
 			return nil, errors.Errorf("failed to get current EKS cluster: %w", err)
