@@ -27,7 +27,7 @@ type PolicyManagerTestSuite struct {
 
 func (s *PolicyManagerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.admin = NewPolicyManager(s.Client, &injectablerecorder.InjectableRecorder{Recorder: s.Recorder}, []string{}, true, true)
+	s.admin = NewPolicyManager(s.Client, &injectablerecorder.InjectableRecorder{Recorder: s.Recorder}, []string{}, true, true, nil)
 }
 
 func (s *PolicyManagerTestSuite) TearDownTest() {

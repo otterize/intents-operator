@@ -64,7 +64,7 @@ func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 
 	// No matching network policy found, create one
 	if k8serrors.IsNotFound(errGetExistingPolicy) {
-		logrus.Infof("Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
+		logrus.Debugf("Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
 		err := r.client.Create(ctx, newPolicy)
 		if err != nil {
 			r.RecordWarningEventf(owner, ReasonCreatingExternalTrafficPolicyFailed, "failed to create external traffic network policy: %s", err.Error())
@@ -314,13 +314,12 @@ func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *c
 		return errors.Wrap(err)
 	}
 
-	ingressList, err := r.getIngressRefersToService(ctx, svc)
+	ingressList, err := getIngressRefersToService(ctx, r.client, svc)
 	if err != nil {
 		return errors.Wrap(err)
 	}
-	// If it's not a load balancer or a node port service, and the service is not referenced by any Ingress,
-	// then there's nothing we need to do.
-	if svc.Spec.Type != corev1.ServiceTypeLoadBalancer && svc.Spec.Type != corev1.ServiceTypeNodePort && len(ingressList.Items) == 0 {
+
+	if !isServiceExternallyAccessible(svc, ingressList) {
 		return r.handlePolicyDelete(ctx, r.formatPolicyName(svc.Name), svc.Namespace)
 	}
 
@@ -347,8 +346,8 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		}
 
 		netpolList := &v1.NetworkPolicyList{}
-		// there's only ever one
-		err = r.client.List(ctx, netpolList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: serverLabel}, client.Limit(1))
+
+		err = r.client.List(ctx, netpolList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: serverLabel})
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				// only act on pods affected by Otterize policies - if they were not created yet,
@@ -358,7 +357,10 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 			return errors.Wrap(err)
 		}
 
-		hasIngressRules := lo.SomeBy(netpolList.Items, func(netpol v1.NetworkPolicy) bool { return len(netpol.Spec.Ingress) > 0 })
+		hasIngressRules := lo.SomeBy(netpolList.Items, func(netpol v1.NetworkPolicy) bool {
+			return lo.Contains(netpol.Spec.PolicyTypes, v1.PolicyTypeIngress)
+		})
+
 		if !hasIngressRules {
 			if r.allowExternalTraffic == allowexternaltraffic.Always {
 				err := r.handleNetpolsForOtterizeServiceWithoutIntents(ctx, endpoints, serverLabel, ingressList)
@@ -415,21 +417,6 @@ func (r *NetworkPolicyHandler) getAddressesFromEndpoints(endpoints *corev1.Endpo
 	return addresses
 }
 
-func (r *NetworkPolicyHandler) getIngressRefersToService(ctx context.Context, svc *corev1.Service) (*v1.IngressList, error) {
-	var ingressList v1.IngressList
-	err := r.client.List(
-		ctx, &ingressList,
-		&client.MatchingFields{v1alpha3.IngressServiceNamesIndexField: svc.Name},
-		&client.ListOptions{Namespace: svc.Namespace})
-
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-
-	return &ingressList, nil
-
-}
-
 func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyName string, policyNamespace string) error {
 	policy := &v1.NetworkPolicy{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: policyNamespace}, policy)
@@ -451,7 +438,7 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 		ownerObj.SetKind(ownerRef.Kind)
 		err := r.client.Get(ctx, types.NamespacedName{Name: ownerRef.Name, Namespace: policyNamespace}, ownerObj)
 		if err != nil {
-			logrus.Infof("can't get the owner of %s. So no events will be recorded for the deletion", policyName)
+			logrus.Debugf("can't get the owner of %s. So no events will be recorded for the deletion", policyName)
 		}
 		owner = ownerObj
 	}

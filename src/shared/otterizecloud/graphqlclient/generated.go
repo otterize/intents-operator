@@ -8,19 +8,33 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+type AzureKeyVaultPolicyInput struct {
+	CertificatePermissions []*string `json:"certificatePermissions"`
+	KeyPermissions         []*string `json:"keyPermissions"`
+	SecretPermissions      []*string `json:"secretPermissions"`
+	StoragePermissions     []*string `json:"storagePermissions"`
+}
+
+// GetCertificatePermissions returns AzureKeyVaultPolicyInput.CertificatePermissions, and is useful for accessing the field via an interface.
+func (v *AzureKeyVaultPolicyInput) GetCertificatePermissions() []*string {
+	return v.CertificatePermissions
+}
+
+// GetKeyPermissions returns AzureKeyVaultPolicyInput.KeyPermissions, and is useful for accessing the field via an interface.
+func (v *AzureKeyVaultPolicyInput) GetKeyPermissions() []*string { return v.KeyPermissions }
+
+// GetSecretPermissions returns AzureKeyVaultPolicyInput.SecretPermissions, and is useful for accessing the field via an interface.
+func (v *AzureKeyVaultPolicyInput) GetSecretPermissions() []*string { return v.SecretPermissions }
+
+// GetStoragePermissions returns AzureKeyVaultPolicyInput.StoragePermissions, and is useful for accessing the field via an interface.
+func (v *AzureKeyVaultPolicyInput) GetStoragePermissions() []*string { return v.StoragePermissions }
+
 type ComponentType string
 
 const (
 	ComponentTypeIntentsOperator     ComponentType = "INTENTS_OPERATOR"
 	ComponentTypeCredentialsOperator ComponentType = "CREDENTIALS_OPERATOR"
 	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
-)
-
-type DBPermissionChange string
-
-const (
-	DBPermissionChangeApply  DBPermissionChange = "APPLY"
-	DBPermissionChangeDelete DBPermissionChange = "DELETE"
 )
 
 type DatabaseConfigInput struct {
@@ -48,6 +62,27 @@ const (
 	DatabaseOperationDelete DatabaseOperation = "DELETE"
 )
 
+type ExternallyAccessibleServiceInput struct {
+	Namespace         string                `json:"namespace"`
+	ServerName        string                `json:"serverName"`
+	ReferredByIngress bool                  `json:"referredByIngress"`
+	ServiceType       KubernetesServiceType `json:"serviceType"`
+}
+
+// GetNamespace returns ExternallyAccessibleServiceInput.Namespace, and is useful for accessing the field via an interface.
+func (v *ExternallyAccessibleServiceInput) GetNamespace() string { return v.Namespace }
+
+// GetServerName returns ExternallyAccessibleServiceInput.ServerName, and is useful for accessing the field via an interface.
+func (v *ExternallyAccessibleServiceInput) GetServerName() string { return v.ServerName }
+
+// GetReferredByIngress returns ExternallyAccessibleServiceInput.ReferredByIngress, and is useful for accessing the field via an interface.
+func (v *ExternallyAccessibleServiceInput) GetReferredByIngress() bool { return v.ReferredByIngress }
+
+// GetServiceType returns ExternallyAccessibleServiceInput.ServiceType, and is useful for accessing the field via an interface.
+func (v *ExternallyAccessibleServiceInput) GetServiceType() KubernetesServiceType {
+	return v.ServiceType
+}
+
 type HTTPConfigInput struct {
 	Path    *string       `json:"path"`
 	Methods []*HTTPMethod `json:"methods"`
@@ -73,30 +108,21 @@ const (
 	HTTPMethodAll     HTTPMethod = "ALL"
 )
 
-// HandleDatabaseIntentsResponse is returned by HandleDatabaseIntents on success.
-type HandleDatabaseIntentsResponse struct {
-	HandleDatabaseIntents bool `json:"handleDatabaseIntents"`
-}
-
-// GetHandleDatabaseIntents returns HandleDatabaseIntentsResponse.HandleDatabaseIntents, and is useful for accessing the field via an interface.
-func (v *HandleDatabaseIntentsResponse) GetHandleDatabaseIntents() bool {
-	return v.HandleDatabaseIntents
-}
-
 type IntentInput struct {
-	Namespace         *string                `json:"namespace"`
-	ClientName        *string                `json:"clientName"`
-	ServerName        *string                `json:"serverName"`
-	ServerNamespace   *string                `json:"serverNamespace"`
-	Type              *IntentType            `json:"type"`
-	Topics            []*KafkaConfigInput    `json:"topics"`
-	Resources         []*HTTPConfigInput     `json:"resources"`
-	DatabaseResources []*DatabaseConfigInput `json:"databaseResources"`
-	AwsActions        []*string              `json:"awsActions"`
-	AzureRoles        []*string              `json:"azureRoles"`
-	GcpPermissions    []*string              `json:"gcpPermissions"`
-	Internet          *InternetConfigInput   `json:"internet"`
-	Status            *IntentStatusInput     `json:"status"`
+	Namespace           *string                   `json:"namespace"`
+	ClientName          *string                   `json:"clientName"`
+	ServerName          *string                   `json:"serverName"`
+	ServerNamespace     *string                   `json:"serverNamespace"`
+	Type                *IntentType               `json:"type"`
+	Topics              []*KafkaConfigInput       `json:"topics"`
+	Resources           []*HTTPConfigInput        `json:"resources"`
+	DatabaseResources   []*DatabaseConfigInput    `json:"databaseResources"`
+	AwsActions          []*string                 `json:"awsActions"`
+	AzureRoles          []*string                 `json:"azureRoles"`
+	AzureKeyVaultPolicy *AzureKeyVaultPolicyInput `json:"azureKeyVaultPolicy"`
+	GcpPermissions      []*string                 `json:"gcpPermissions"`
+	Internet            *InternetConfigInput      `json:"internet"`
+	Status              *IntentStatusInput        `json:"status"`
 }
 
 // GetNamespace returns IntentInput.Namespace, and is useful for accessing the field via an interface.
@@ -129,6 +155,11 @@ func (v *IntentInput) GetAwsActions() []*string { return v.AwsActions }
 // GetAzureRoles returns IntentInput.AzureRoles, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetAzureRoles() []*string { return v.AzureRoles }
 
+// GetAzureKeyVaultPolicy returns IntentInput.AzureKeyVaultPolicy, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetAzureKeyVaultPolicy() *AzureKeyVaultPolicyInput {
+	return v.AzureKeyVaultPolicy
+}
+
 // GetGcpPermissions returns IntentInput.GcpPermissions, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetGcpPermissions() []*string { return v.GcpPermissions }
 
@@ -159,16 +190,17 @@ const (
 )
 
 type IntentsOperatorConfigurationInput struct {
-	GlobalEnforcementEnabled              bool `json:"globalEnforcementEnabled"`
-	NetworkPolicyEnforcementEnabled       bool `json:"networkPolicyEnforcementEnabled"`
-	KafkaACLEnforcementEnabled            bool `json:"kafkaACLEnforcementEnabled"`
-	IstioPolicyEnforcementEnabled         bool `json:"istioPolicyEnforcementEnabled"`
-	ProtectedServicesEnabled              bool `json:"protectedServicesEnabled"`
-	EgressNetworkPolicyEnforcementEnabled bool `json:"egressNetworkPolicyEnforcementEnabled"`
-	AwsIAMPolicyEnforcementEnabled        bool `json:"awsIAMPolicyEnforcementEnabled"`
-	GcpIAMPolicyEnforcementEnabled        bool `json:"gcpIAMPolicyEnforcementEnabled"`
-	AzureIAMPolicyEnforcementEnabled      bool `json:"azureIAMPolicyEnforcementEnabled"`
-	DatabaseEnforcementEnabled            bool `json:"databaseEnforcementEnabled"`
+	GlobalEnforcementEnabled              bool     `json:"globalEnforcementEnabled"`
+	NetworkPolicyEnforcementEnabled       bool     `json:"networkPolicyEnforcementEnabled"`
+	KafkaACLEnforcementEnabled            bool     `json:"kafkaACLEnforcementEnabled"`
+	IstioPolicyEnforcementEnabled         bool     `json:"istioPolicyEnforcementEnabled"`
+	ProtectedServicesEnabled              bool     `json:"protectedServicesEnabled"`
+	EgressNetworkPolicyEnforcementEnabled bool     `json:"egressNetworkPolicyEnforcementEnabled"`
+	AwsIAMPolicyEnforcementEnabled        bool     `json:"awsIAMPolicyEnforcementEnabled"`
+	GcpIAMPolicyEnforcementEnabled        bool     `json:"gcpIAMPolicyEnforcementEnabled"`
+	AzureIAMPolicyEnforcementEnabled      bool     `json:"azureIAMPolicyEnforcementEnabled"`
+	DatabaseEnforcementEnabled            bool     `json:"databaseEnforcementEnabled"`
+	EnforcedNamespaces                    []string `json:"enforcedNamespaces"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -219,6 +251,11 @@ func (v *IntentsOperatorConfigurationInput) GetAzureIAMPolicyEnforcementEnabled(
 // GetDatabaseEnforcementEnabled returns IntentsOperatorConfigurationInput.DatabaseEnforcementEnabled, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetDatabaseEnforcementEnabled() bool {
 	return v.DatabaseEnforcementEnabled
+}
+
+// GetEnforcedNamespaces returns IntentsOperatorConfigurationInput.EnforcedNamespaces, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetEnforcedNamespaces() []string {
+	return v.EnforcedNamespaces
 }
 
 type InternetConfigInput struct {
@@ -327,6 +364,15 @@ const (
 	KafkaTopicPatternPrefix  KafkaTopicPattern = "PREFIX"
 )
 
+type KubernetesServiceType string
+
+const (
+	KubernetesServiceTypeLoadBalancer KubernetesServiceType = "LOAD_BALANCER"
+	KubernetesServiceTypeNodePort     KubernetesServiceType = "NODE_PORT"
+	KubernetesServiceTypeClusterIp    KubernetesServiceType = "CLUSTER_IP"
+	KubernetesServiceTypeExternalName KubernetesServiceType = "EXTERNAL_NAME"
+)
+
 type NetworkPolicyInput struct {
 	Namespace                    string `json:"namespace"`
 	Name                         string `json:"name"`
@@ -374,6 +420,16 @@ type ReportComponentStatusResponse struct {
 // GetReportIntegrationComponentStatus returns ReportComponentStatusResponse.ReportIntegrationComponentStatus, and is useful for accessing the field via an interface.
 func (v *ReportComponentStatusResponse) GetReportIntegrationComponentStatus() bool {
 	return v.ReportIntegrationComponentStatus
+}
+
+// ReportExternallyAccessibleServicesResponse is returned by ReportExternallyAccessibleServices on success.
+type ReportExternallyAccessibleServicesResponse struct {
+	ReportExternallyAccessibleServices bool `json:"reportExternallyAccessibleServices"`
+}
+
+// GetReportExternallyAccessibleServices returns ReportExternallyAccessibleServicesResponse.ReportExternallyAccessibleServices, and is useful for accessing the field via an interface.
+func (v *ReportExternallyAccessibleServicesResponse) GetReportExternallyAccessibleServices() bool {
+	return v.ReportExternallyAccessibleServices
 }
 
 // ReportIntentsOperatorConfigurationResponse is returned by ReportIntentsOperatorConfiguration on success.
@@ -429,22 +485,11 @@ const (
 	UserErrorTypeAppliedIntentsError UserErrorType = "APPLIED_INTENTS_ERROR"
 )
 
-// __HandleDatabaseIntentsInput is used internally by genqlient
-type __HandleDatabaseIntentsInput struct {
-	Intents []IntentInput      `json:"intents"`
-	Action  DBPermissionChange `json:"action"`
-}
-
-// GetIntents returns __HandleDatabaseIntentsInput.Intents, and is useful for accessing the field via an interface.
-func (v *__HandleDatabaseIntentsInput) GetIntents() []IntentInput { return v.Intents }
-
-// GetAction returns __HandleDatabaseIntentsInput.Action, and is useful for accessing the field via an interface.
-func (v *__HandleDatabaseIntentsInput) GetAction() DBPermissionChange { return v.Action }
-
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
 type __ReportAppliedKubernetesIntentsInput struct {
 	Namespace *string        `json:"namespace"`
 	Intents   []*IntentInput `json:"intents"`
+	ClusterId *string        `json:"clusterId"`
 }
 
 // GetNamespace returns __ReportAppliedKubernetesIntentsInput.Namespace, and is useful for accessing the field via an interface.
@@ -453,6 +498,9 @@ func (v *__ReportAppliedKubernetesIntentsInput) GetNamespace() *string { return 
 // GetIntents returns __ReportAppliedKubernetesIntentsInput.Intents, and is useful for accessing the field via an interface.
 func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []*IntentInput { return v.Intents }
 
+// GetClusterId returns __ReportAppliedKubernetesIntentsInput.ClusterId, and is useful for accessing the field via an interface.
+func (v *__ReportAppliedKubernetesIntentsInput) GetClusterId() *string { return v.ClusterId }
+
 // __ReportComponentStatusInput is used internally by genqlient
 type __ReportComponentStatusInput struct {
 	Component ComponentType `json:"component"`
@@ -460,6 +508,20 @@ type __ReportComponentStatusInput struct {
 
 // GetComponent returns __ReportComponentStatusInput.Component, and is useful for accessing the field via an interface.
 func (v *__ReportComponentStatusInput) GetComponent() ComponentType { return v.Component }
+
+// __ReportExternallyAccessibleServicesInput is used internally by genqlient
+type __ReportExternallyAccessibleServicesInput struct {
+	Namespace string                             `json:"namespace"`
+	Services  []ExternallyAccessibleServiceInput `json:"services"`
+}
+
+// GetNamespace returns __ReportExternallyAccessibleServicesInput.Namespace, and is useful for accessing the field via an interface.
+func (v *__ReportExternallyAccessibleServicesInput) GetNamespace() string { return v.Namespace }
+
+// GetServices returns __ReportExternallyAccessibleServicesInput.Services, and is useful for accessing the field via an interface.
+func (v *__ReportExternallyAccessibleServicesInput) GetServices() []ExternallyAccessibleServiceInput {
+	return v.Services
+}
 
 // __ReportIntentsOperatorConfigurationInput is used internally by genqlient
 type __ReportIntentsOperatorConfigurationInput struct {
@@ -519,54 +581,24 @@ type dummyResponse struct {
 // GetDummyError returns dummyResponse.DummyError, and is useful for accessing the field via an interface.
 func (v *dummyResponse) GetDummyError() UserErrorType { return v.DummyError }
 
-func HandleDatabaseIntents(
-	ctx context.Context,
-	client graphql.Client,
-	intents []IntentInput,
-	action DBPermissionChange,
-) (*HandleDatabaseIntentsResponse, error) {
-	req := &graphql.Request{
-		OpName: "HandleDatabaseIntents",
-		Query: `
-mutation HandleDatabaseIntents ($intents: [IntentInput!]!, $action: DBPermissionChange!) {
-	handleDatabaseIntents(intents: $intents, action: $action)
-}
-`,
-		Variables: &__HandleDatabaseIntentsInput{
-			Intents: intents,
-			Action:  action,
-		},
-	}
-	var err error
-
-	var data HandleDatabaseIntentsResponse
-	resp := &graphql.Response{Data: &data}
-
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
-	)
-
-	return &data, err
-}
-
 func ReportAppliedKubernetesIntents(
 	ctx context.Context,
 	client graphql.Client,
 	namespace *string,
 	intents []*IntentInput,
+	clusterId *string,
 ) (*ReportAppliedKubernetesIntentsResponse, error) {
 	req := &graphql.Request{
 		OpName: "ReportAppliedKubernetesIntents",
 		Query: `
-mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentInput!]!) {
-	reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents)
+mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentInput!]!, $clusterId: String!) {
+	reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents, ossClusterId: $clusterId)
 }
 `,
 		Variables: &__ReportAppliedKubernetesIntentsInput{
 			Namespace: namespace,
 			Intents:   intents,
+			ClusterId: clusterId,
 		},
 	}
 	var err error
@@ -602,6 +634,38 @@ mutation ReportComponentStatus ($component: ComponentType!) {
 	var err error
 
 	var data ReportComponentStatusResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func ReportExternallyAccessibleServices(
+	ctx context.Context,
+	client graphql.Client,
+	namespace string,
+	services []ExternallyAccessibleServiceInput,
+) (*ReportExternallyAccessibleServicesResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportExternallyAccessibleServices",
+		Query: `
+mutation ReportExternallyAccessibleServices ($namespace: String!, $services: [ExternallyAccessibleServiceInput!]!) {
+	reportExternallyAccessibleServices(namespace: $namespace, services: $services)
+}
+`,
+		Variables: &__ReportExternallyAccessibleServicesInput{
+			Namespace: namespace,
+			Services:  services,
+		},
+	}
+	var err error
+
+	var data ReportExternallyAccessibleServicesResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(

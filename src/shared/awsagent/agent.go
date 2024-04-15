@@ -76,17 +76,19 @@ type RolesAnywhereClient interface {
 }
 
 type Agent struct {
-	iamClient                        IAMClient
-	markRolesAsUnusedInsteadOfDelete bool
-	rolesAnywhereClient              RolesAnywhereClient
-	accountID                        string
-	oidcURL                          string
-	clusterName                      string
-	profileNameToId                  map[string]string
-	profileCacheOnce                 sync.Once
-	rolesAnywhereEnabled             bool
-	trustAnchorArn                   string
-	trustDomain                      string
+	MarkRolesAsUnusedInsteadOfDelete bool
+	Region                           string
+	AccountID                        string
+	OidcURL                          string
+	ClusterName                      string
+	RolesAnywhereEnabled             bool
+	TrustAnchorArn                   string
+	TrustDomain                      string
+
+	iamClient           IAMClient
+	rolesAnywhereClient RolesAnywhereClient
+	profileNameToId     map[string]string
+	profileCacheOnce    sync.Once
 }
 
 const ApplyOnPodLabel = "credentials-operator.otterize.com/create-aws-role"
@@ -99,7 +101,7 @@ func (o Option) Apply(agent *Agent) {
 
 func WithSoftDeleteStrategy() Option {
 	return func(a *Agent) {
-		a.markRolesAsUnusedInsteadOfDelete = true
+		a.MarkRolesAsUnusedInsteadOfDelete = true
 	}
 }
 
@@ -113,10 +115,10 @@ func WithRolesAnywhere(trustAnchorArn string, trustDomain string, clusterName st
 	}
 
 	return func(a *Agent) {
-		a.rolesAnywhereEnabled = true
-		a.trustAnchorArn = trustAnchorArn
-		a.trustDomain = trustDomain
-		a.clusterName = clusterName
+		a.RolesAnywhereEnabled = true
+		a.TrustAnchorArn = trustAnchorArn
+		a.TrustDomain = trustDomain
+		a.ClusterName = clusterName
 	}
 }
 
@@ -140,22 +142,23 @@ func NewAWSAgent(
 		iamClient:           iamClient,
 		rolesAnywhereClient: rolesAnywhereClient,
 		profileNameToId:     make(map[string]string),
+		Region:              awsConfig.Region,
 	}
 
 	for _, option := range options {
 		option.Apply(agent)
 	}
 
-	if !agent.rolesAnywhereEnabled {
+	if !agent.RolesAnywhereEnabled {
 		currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
 
 		if err != nil {
 			return nil, errors.Errorf("failed to get current EKS cluster: %w", err)
 		}
-		agent.clusterName = *currentCluster.Name
+		agent.ClusterName = *currentCluster.Name
 
-		OIDCURL := *currentCluster.Identity.Oidc.Issuer
-		agent.oidcURL = strings.Split(OIDCURL, "://")[1]
+		OidcURL := *currentCluster.Identity.Oidc.Issuer
+		agent.OidcURL = strings.Split(OidcURL, "://")[1]
 	}
 
 	callerIdent, err := stsClient.GetCallerIdentity(ctx, &sts.GetCallerIdentityInput{})
@@ -163,7 +166,7 @@ func NewAWSAgent(
 	if err != nil {
 		return nil, errors.Errorf("unable to get STS caller identity: %w", err)
 	}
-	agent.accountID = *callerIdent.Account
+	agent.AccountID = *callerIdent.Account
 
 	return agent, nil
 }

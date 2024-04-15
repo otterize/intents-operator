@@ -49,6 +49,7 @@ type Reconciler struct {
 	client.Client
 	Scheme                      *runtime.Scheme
 	RestrictToNamespaces        []string
+	EnforcedNamespaces          *goset.Set[string]
 	EnableNetworkPolicyCreation bool
 	EnforcementDefaultState     bool
 	injectablerecorder.InjectableRecorder
@@ -62,6 +63,7 @@ func NewReconciler(
 	s *runtime.Scheme,
 	externalNetpolHandler ExternalNetpolHandler,
 	restrictToNamespaces []string,
+	enforcedNamespaces *goset.Set[string],
 	enableNetworkPolicyCreation bool,
 	enforcementDefaultState bool,
 	ingressBuilders []IngressRuleBuilder,
@@ -71,6 +73,7 @@ func NewReconciler(
 		Client:                      c,
 		Scheme:                      s,
 		RestrictToNamespaces:        restrictToNamespaces,
+		EnforcedNamespaces:          enforcedNamespaces,
 		EnableNetworkPolicyCreation: enableNetworkPolicyCreation,
 		EnforcementDefaultState:     enforcementDefaultState,
 		egressRuleBuilders:          egressBuilders,
@@ -98,7 +101,7 @@ func (r *Reconciler) InjectRecorder(recorder record.EventRecorder) {
 }
 
 // ReconcileEffectivePolicies Gets current state of effective policies and returns number of network policies
-func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, error) {
+func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, []error) {
 	currentPolicies := goset.NewSet[types.NamespacedName]()
 	errorList := make([]error, 0)
 	for _, ep := range eps {
@@ -112,13 +115,13 @@ func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effec
 		}
 	}
 	if len(errorList) > 0 {
-		return 0, errors.Wrap(goerrors.Join(errorList...))
+		return 0, errorList
 	}
 
 	// remove policies that doesn't exist in the policy list
 	err := r.removeNetworkPoliciesThatShouldNotExist(ctx, currentPolicies)
 	if err != nil {
-		return currentPolicies.Len(), errors.Wrap(err)
+		return currentPolicies.Len(), []error{errors.Wrap(err)}
 	}
 
 	if currentPolicies.Len() != 0 {
@@ -129,7 +132,7 @@ func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effec
 
 func (r *Reconciler) applyServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) (types.NamespacedName, bool, error) {
 	if !r.EnableNetworkPolicyCreation {
-		logrus.Infof("Network policy creation is disabled, skipping network policy creation for service %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
+		logrus.Debugf("Network policy creation is disabled, skipping network policy creation for service %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
 		if len(ep.Calls) > 0 && len(r.egressRuleBuilders) > 0 {
 			ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonEgressNetworkPolicyCreationDisabled, "Network policy creation is disabled, creation skipped")
 		}
@@ -190,7 +193,7 @@ func (r *Reconciler) buildEgressRules(ctx context.Context, ep effectivepolicy.Se
 		return rules, false, nil
 	}
 	if !r.EnforcementDefaultState {
-		logrus.Infof("Enforcement is disabled globally skipping egress network policy creation for service %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
+		logrus.Debugf("Enforcement is disabled globally skipping egress network policy creation for service %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
 		ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally, network policy creation skipped")
 		return rules, false, nil
 	}
@@ -216,12 +219,12 @@ func (r *Reconciler) buildIngressRules(ctx context.Context, ep effectivepolicy.S
 	if len(ep.CalledBy) == 0 || len(r.ingressRuleBuilders) == 0 {
 		return rules, false, nil
 	}
-	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service.Name, ep.Service.Namespace, r.EnforcementDefaultState)
+	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service.Name, ep.Service.Namespace, r.EnforcementDefaultState, r.EnforcedNamespaces)
 	if err != nil {
 		return rules, false, errors.Wrap(err)
 	}
 	if !shouldCreatePolicy {
-		logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
+		logrus.Debugf("Enforcement is disabled globally and server is not explicitly protected, skipping network policy creation for server %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
 		ep.RecordOnClientsNormalEventf(consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, network policy creation skipped", ep.Service.Name)
 		return rules, false, nil
 	}
@@ -395,7 +398,7 @@ func (r *Reconciler) removeNetworkPoliciesThatShouldNotExist(ctx context.Context
 		namespacedName := types.NamespacedName{Namespace: networkPolicy.Namespace, Name: networkPolicy.Name}
 		if !netpolNamesThatShouldExist.Contains(namespacedName) {
 			serverName := networkPolicy.Labels[otterizev1alpha3.OtterizeNetworkPolicy]
-			logrus.Infof("Removing orphaned network policy: %s server %s ns %s", networkPolicy.Name, serverName, networkPolicy.Namespace)
+			logrus.Debugf("Removing orphaned network policy: %s server %s ns %s", networkPolicy.Name, serverName, networkPolicy.Namespace)
 			err = r.removeNetworkPolicy(ctx, networkPolicy)
 			if err != nil {
 				return errors.Wrap(err)

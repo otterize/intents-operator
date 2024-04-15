@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -20,12 +21,15 @@ type ServiceReconciler struct {
 	client.Client
 	extNetpolHandler *NetworkPolicyHandler
 	injectablerecorder.InjectableRecorder
+	serviceUploader ServiceUploader
 }
 
-func NewServiceReconciler(client client.Client, extNetpolHandler *NetworkPolicyHandler) *ServiceReconciler {
+func NewServiceReconciler(client client.Client, extNetpolHandler *NetworkPolicyHandler, otterizeClient operator_cloud_client.CloudClient) *ServiceReconciler {
+	serviceUploader := NewServiceUploader(client, otterizeClient)
 	return &ServiceReconciler{
 		Client:           client,
 		extNetpolHandler: extNetpolHandler,
+		serviceUploader:  serviceUploader,
 	}
 }
 
@@ -57,7 +61,11 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	err = r.extNetpolHandler.HandleEndpoints(ctx, endpoints)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
 
+	err = r.serviceUploader.UploadNamespaceServices(ctx, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}

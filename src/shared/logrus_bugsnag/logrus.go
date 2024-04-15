@@ -44,14 +44,43 @@ func NewBugsnagHook() (*bugsnagHook, error) {
 const skipStackFrames = 3
 const errorLogKey = "error"
 
+type ErrorList interface {
+	Unwrap() []error
+}
+
 // Fire forwards an error to Bugsnag. Given a logrus.Entry, it extracts the
 // "error" field (or the Message if the error isn't present) and sends it off.
 func (hook *bugsnagHook) Fire(entry *logrus.Entry) error {
-	notifyErr := bugsnagerrors.New(entry.Message, 1).Err
-	if err, ok := entry.Data[errorLogKey].(error); ok {
-		notifyErr = err
-		// don't delete error as it's a standard logrus field and other hooks may make use of it
+	errorsList := getErrors(entry)
+	err := hook.notifyErr(entry, errorsList)
+	if err != nil {
+		return err
 	}
+	return nil
+}
+
+func getErrors(entry *logrus.Entry) []error {
+	errFromMessage := bugsnagerrors.New(entry.Message, 1).Err
+	errFromLog, ok := entry.Data[errorLogKey].(error)
+	if !ok {
+		return []error{errFromMessage}
+	}
+	// don't delete error key from entry as it's a standard logrus field and other hooks may make use of it
+
+	bugsnagErr, ok := errFromLog.(*bugsnagerrors.Error)
+	if !ok {
+		return []error{errFromLog}
+	}
+
+	// Check if the underlying error field contains a list, usually created by calling to go stdlib errors.Join
+	errList, ok := bugsnagErr.Err.(ErrorList)
+	if !ok {
+		return []error{bugsnagErr}
+	}
+	return errList.Unwrap()
+}
+
+func (hook *bugsnagHook) notifyErr(entry *logrus.Entry, errList []error) error {
 	bugsnagRawData := make([]any, 0)
 
 	metadata := bugsnag.MetaData{}
@@ -64,10 +93,12 @@ func (hook *bugsnagHook) Fire(entry *logrus.Entry) error {
 
 	bugsnagRawData = append(bugsnagRawData, metadata)
 
-	errWithStack := errors.WrapWithSkip(notifyErr, skipStackFrames)
-	bugsnagErr := bugsnag.Notify(errWithStack, bugsnagRawData...)
-	if bugsnagErr != nil {
-		return ErrBugsnagSendFailed{bugsnagErr}
+	for _, notifyErr := range errList {
+		errWithStack := errors.WrapWithSkip(notifyErr, skipStackFrames)
+		bugsnagErr := bugsnag.Notify(errWithStack, bugsnagRawData...)
+		if bugsnagErr != nil {
+			return ErrBugsnagSendFailed{bugsnagErr}
+		}
 	}
 
 	return nil

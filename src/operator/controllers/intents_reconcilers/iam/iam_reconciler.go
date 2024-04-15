@@ -1,9 +1,10 @@
-package intents_reconcilers
+package iam
 
 import (
 	"context"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -17,32 +18,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type IAMPolicyAgent interface {
-	IntentType() otterizev1alpha3.IntentType
-	AppliesOnPod(pod *corev1.Pod) bool
-	AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error
-	DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev1alpha3.ClientIntents) error
-}
-
 type IAMIntentsReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
 	serviceIdResolver serviceidresolver.ServiceResolver
-	agents            []IAMPolicyAgent
+	agent             iampolicyagents.IAMPolicyAgent
 }
 
 func NewIAMIntentsReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	serviceIdResolver serviceidresolver.ServiceResolver,
-	agents []IAMPolicyAgent,
+	agent iampolicyagents.IAMPolicyAgent,
 ) *IAMIntentsReconciler {
 	return &IAMIntentsReconciler{
 		Client:            client,
 		Scheme:            scheme,
 		serviceIdResolver: serviceIdResolver,
-		agents:            agents,
+		agent:             agent,
 	}
 }
 
@@ -62,11 +56,9 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	if intents.DeletionTimestamp != nil {
 		logger.Debug("Intents deleted, deleting IAM role policy for this service")
 
-		for _, agent := range r.agents {
-			err := agent.DeleteRolePolicyFromIntents(ctx, intents)
-			if err != nil {
-				return ctrl.Result{}, errors.Wrap(err)
-			}
+		err := r.agent.DeleteRolePolicyFromIntents(ctx, intents)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
 		}
 
 		return ctrl.Result{}, nil
@@ -90,20 +82,14 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	if pod.Labels == nil {
-		return ctrl.Result{}, nil
-	}
-
-	for _, agent := range r.agents {
-		if err := r.applyTypedIAMIntents(ctx, pod, intents, agent); err != nil {
-			return ctrl.Result{}, errors.Wrap(err)
-		}
+	if err := r.applyTypedIAMIntents(ctx, pod, intents, r.agent); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod corev1.Pod, intents otterizev1alpha3.ClientIntents, agent IAMPolicyAgent) error {
+func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod corev1.Pod, intents otterizev1alpha3.ClientIntents, agent iampolicyagents.IAMPolicyAgent) error {
 	if !agent.AppliesOnPod(&pod) {
 		return nil
 	}

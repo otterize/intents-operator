@@ -1,7 +1,11 @@
 #!/bin/bash
 
-TEMPLATE_DIR=../../helm-charts/intents-operator/templates
-CRD_DIR=../../helm-charts/intents-operator/crds
+if [ -z "$HELM_CHARTS_DIR" ]; then
+  HELM_CHARTS_DIR=../../helm-charts
+fi
+
+TEMPLATE_DIR=$HELM_CHARTS_DIR/intents-operator/templates
+CRD_DIR=$HELM_CHARTS_DIR/intents-operator/crds
 
 # rename ctd files
 src_dir=config/crd
@@ -28,14 +32,17 @@ target_path=$(echo $CRD_DIR"/"$target_file);
 cp ./config/crd/k8s.otterize.com_kafkaserverconfigs.patched $target_path
 cp ./config/crd/k8s.otterize.com_kafkaserverconfigs.patched ./otterizecrds/kafkaserverconfigs-customresourcedefinition.yaml
 
-
-
 src_name=$(echo k8s.otterize.com_protectedservices.yaml | sed -e "s/^$src_prefix//" -e "s/$src_suffix//");
 target_file=$(echo $src_name""$target_suffix);
 target_path=$(echo $CRD_DIR"/"$target_file);
 cp ./config/crd/k8s.otterize.com_protectedservices.patched $target_path
 cp ./config/crd/k8s.otterize.com_protectedservices.patched ./otterizecrds/protectedservices-customresourcedefinition.yaml
 
+src_name=$(echo k8s.otterize.com_postgresqlserverconfigs.yaml | sed -e "s/^$src_prefix//" -e "s/$src_suffix//");
+target_file=$(echo $src_name""$target_suffix);
+target_path=$(echo $CRD_DIR"/"$target_file);
+cp ./config/crd/k8s.otterize.com_postgresqlserverconfigs.patched $target_path
+cp ./config/crd/k8s.otterize.com_postgresqlserverconfigs.patched ./otterizecrds/postgresqlserverconfigs-customresourcedefinition.yaml
 
 
 # copy webhook and cluster role

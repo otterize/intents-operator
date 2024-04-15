@@ -81,7 +81,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	for _, pod := range podList.Items {
 		if otterizev1alpha3.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
-			logrus.Infof("Updating %s pod labels with new intents", serviceName)
+			logrus.Debugf("Updating %s pod labels with new intents", serviceName)
 			updatedPod := otterizev1alpha3.UpdateOtterizeAccessLabels(pod.DeepCopy(), serviceName, intentLabels)
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
@@ -97,7 +97,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 func (r *PodLabelReconciler) removeLabelsFromPods(
 	ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
 
-	logrus.Infof("Unlabeling pods for Otterize service %s", intents.Spec.Service.Name)
+	logrus.Debugf("Unlabeling pods for Otterize service %s", intents.Spec.Service.Name)
 
 	labelSelector, err := intents.BuildPodLabelSelector()
 	if err != nil {

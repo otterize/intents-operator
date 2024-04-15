@@ -97,7 +97,7 @@ func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, prote
 			if err != nil {
 				return errors.Wrap(err)
 			}
-			logrus.Infof("Deleted network policy %s", existingPolicy.Name)
+			logrus.Debugf("Deleted network policy %s", existingPolicy.Name)
 		}
 	}
 
@@ -106,7 +106,7 @@ func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, prote
 		if err != nil {
 			return errors.Wrap(err)
 		}
-		logrus.Infof("Created network policy %s", networkPolicy.Name)
+		logrus.Debugf("Created network policy %s", networkPolicy.Name)
 	}
 
 	return nil
@@ -128,7 +128,7 @@ func (r *DefaultDenyReconciler) updateIfNeeded(
 		return errors.Wrap(err)
 	}
 
-	logrus.Infof("Updated network policy %s", existingPolicy.Name)
+	logrus.Debugf("Updated network policy %s", existingPolicy.Name)
 	return nil
 }
 
@@ -173,7 +173,7 @@ func (r *DefaultDenyReconciler) DeleteAllDefaultDeny(ctx context.Context, namesp
 		if err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
-		logrus.Infof("Deleted network policy %s", existingPolicy.Name)
+		logrus.Debugf("Deleted network policy %s", existingPolicy.Name)
 	}
 
 	return ctrl.Result{}, nil

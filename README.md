@@ -11,7 +11,9 @@
 * [Quickstart & Docs](https://docs.otterize.com/)
 * [How does the intents operator work?](#how-does-the-intents-operator-work)
   * [Network policies](#network-policies)
-  * [AWS IAM policies](#aws-iam-policies)
+  * [AWS IAM policies](#aws-iam)
+  * [Azure IAM policies](#azure-iam)
+  * [Google Cloud IAM policies](#google-cloud-iam)
   * [Kafka mTLS & ACLs](#kafka-mtls--acls)
   * [Deducing workload identities](#identities)
 * [Bootstrapping](#bootstrapping)
@@ -68,10 +70,10 @@ Spec:
 
 For more usage example see the [network policy tutorial](https://docs.otterize.com/quick-tutorials/k8s-network-policies).
 
-### AWS IAM policies
+### AWS IAM
 The intents operator, together with the [credentials operator](https://github.com/otterize/credentials-operator), enables the intent-based declarative management of AWS IAM roles and policies.
 
-It's just two steps:
+To enable AWS access for a pod, follow these steps:
 1. Label a pod to have an AWS role created for it:
 ```
 metadata:
@@ -95,7 +97,88 @@ spec:
         - "s3:PutObject"
 ```
 
-Done! The pod can access AWS. Try the [AWS IAM tutorial](https://docs.otterize.com/quickstart/access-control/aws-iam-eks) to learn more.
+Try the [AWS IAM tutorial](https://docs.otterize.com/quickstart/access-control/aws-iam-eks) to learn more.
+
+### Azure IAM
+The intents operator, together with the [credentials operator](https://github.com/otterize/credentials-operator), enables the intent-based declarative management of Azure IAM identities and role assignments.
+
+To enable Azure access for a pod, follow these steps:
+1. Label a pod to have an Azure managed identity created for it:
+```
+metadata:
+ labels:
+  "credentials-operator.otterize.com/create-azure-workload-identity": "true"
+```
+
+2. Declare ClientIntents to specify which Azure scopes it needs access to:
+```yaml
+apiVersion: k8s.otterize.com/v1alpha3
+kind: ClientIntents
+metadata:
+  name: server
+spec:
+  service:
+    name: server
+  calls:
+    # The Azure resource ID that references the resource(s) for the authorization. Subscription & resource group are automatically appended.
+    - name: "/providers/Microsoft.Storage/storageAccounts/otterizeazureiamtutorial/blobServices/default/containers/otterizeazureiamtutorialcontainer"
+      type: azure
+      # one or more Azure roles that will be provided to the specified resources
+      azureRoles:
+        - "Storage Blob Data Contributor"
+    - name: "/providers/Microsoft.KeyVault/vaults/otterizetutorialazureiamkeyvault"
+      type: azure
+      # Optional - Grant Azure Key Vault data plane access by using Key Vault access policy
+      azureKeyVaultPolicy:
+        certificatePermissions:
+          - "all"
+        keyPermissions:
+          - "all"
+        secretPermissions:
+          - "all"
+        storagePermissions:
+          - "get"
+          - "list"
+```
+
+Try the [Azure IAM tutorial](https://docs.otterize.com/features/azure-iam/tutorials/azure-iam-aks) to learn more.
+
+### Google Cloud IAM
+The intents operator, together with the [credentials operator](https://github.com/otterize/credentials-operator), enables the intent-based declarative management of Google Cloud service accounts and policies.
+
+To enable Google Cloud access for a pod, follow these steps:
+1. Label a pod to have an GCP service account created for it:
+```
+metadata:
+ labels:
+  "credentials-operator.otterize.com/create-gcp-sa": "true"
+```
+
+2. Declare ClientIntents to specify which GCP resources it needs access to:
+```yaml
+apiVersion: k8s.otterize.com/v1alpha3
+kind: ClientIntents
+metadata:
+  name: server
+spec:
+  service:
+    name: server
+    calls:
+      # The GCP resource name
+      # Wildcards can be used in the end of the resource name to match multiple and nested resources
+      - name: projects/_/buckets/otterize-demo-bucket*
+        type: gcp
+        # one or more GCP Roles that will be provided to the specified resources
+        gcpPermissions:
+          - "storage.admin"
+        # Multiple call definitions can be defined for a single service.
+      - name: projects/_/buckets/otterize-read-only-bucket*
+        type: gcp
+        gcpPermissions:
+          - "storage.objectViewer"
+```
+
+Try the [GCP IAM tutorial](https://docs.otterize.com/features/gcp-iam/tutorials/gcp-iam-gke) to learn more.
 
 ### Otterize for PostgreSQL
 Otterize automates PostgreSQL access management and secrets for your workloads, all in Kubernetes.
