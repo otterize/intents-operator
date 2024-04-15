@@ -65,12 +65,9 @@ spec:
                     - password
                     - username
                   type: object
-                databaseName:
-                  type: string
               required:
                 - address
                 - credentials
-                - databaseName
               type: object
             status:
               description: PostgreSQLServerConfigStatus defines the observed state of PostgreSQLServerConfig
