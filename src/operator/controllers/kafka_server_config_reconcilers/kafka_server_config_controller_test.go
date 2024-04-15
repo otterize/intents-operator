@@ -11,10 +11,13 @@ import (
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -266,7 +269,6 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 
 func (s *KafkaServerConfigReconcilerTestSuite) TestIntentsGeneratedForOperator() {
 	operatorServiceName := "intents-operator-service"
-	s.mockServiceResolver.EXPECT().GetPodAnnotatedName(gomock.Any(), operatorPodName, operatorPodNamespace).Return(operatorServiceName, true, nil)
 
 	// Create kafka server config resource
 	kafkaServerConfig := s.generateKafkaServerConfig()
@@ -318,6 +320,23 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestIntentsGeneratedForOperator()
 		Namespace: testNamespace,
 	}
 
+	operatorPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				serviceidresolver.ServiceNameOverrideAnnotationKeyDefault: operatorServiceName,
+			},
+			Name:      operatorPodName,
+			Namespace: operatorPodNamespace,
+		},
+	}
+
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: operatorPodName, Namespace: operatorPodNamespace}, &corev1.Pod{}).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, pod *corev1.Pod, _ ...client.GetOption) error {
+			operatorPod.DeepCopyInto(pod)
+			return nil
+		})
+	s.mockServiceResolver.EXPECT().ResolvePodToServiceIdentity(gomock.Any(), &operatorPod).Return(serviceidentity.ServiceIdentity{Name: operatorServiceName, Namespace: operatorPodNamespace}, nil)
+
 	s.Client.EXPECT().Get(gomock.Any(), objectName, &emptyKSC).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev1alpha3.KafkaServerConfig, _ ...client.GetOption) error {
 			kafkaServerConfig.DeepCopyInto(actualKSC)
@@ -353,7 +372,6 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestIntentsGeneratedForOperator()
 
 func (s *KafkaServerConfigReconcilerTestSuite) TestUpdateIntentsGeneratedForOperator() {
 	operatorServiceName := "intents-operator-service"
-	s.mockServiceResolver.EXPECT().GetPodAnnotatedName(gomock.Any(), operatorPodName, operatorPodNamespace).Return(operatorServiceName, true, nil)
 
 	// Create kafka server config resource
 	kafkaServerConfig := s.generateKafkaServerConfig()
@@ -420,6 +438,23 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestUpdateIntentsGeneratedForOper
 		Name:      kafkaServiceName,
 		Namespace: testNamespace,
 	}
+
+	operatorPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				serviceidresolver.ServiceNameOverrideAnnotationKeyDefault: operatorServiceName,
+			},
+			Name:      operatorPodName,
+			Namespace: operatorPodNamespace,
+		},
+	}
+
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: operatorPodName, Namespace: operatorPodNamespace}, &corev1.Pod{}).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, pod *corev1.Pod, _ ...client.GetOption) error {
+			operatorPod.DeepCopyInto(pod)
+			return nil
+		})
+	s.mockServiceResolver.EXPECT().ResolvePodToServiceIdentity(gomock.Any(), &operatorPod).Return(serviceidentity.ServiceIdentity{Name: operatorServiceName, Namespace: operatorPodNamespace}, nil)
 
 	s.Client.EXPECT().Get(gomock.Any(), objectName, &emptyKSC).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev1alpha3.KafkaServerConfig, _ ...client.GetOption) error {

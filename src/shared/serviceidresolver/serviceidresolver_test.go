@@ -3,6 +3,7 @@ package serviceidresolver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
 	"github.com/spf13/viper"
@@ -99,39 +100,21 @@ func (s *ServiceIdResolverTestSuite) TestGetPodAnnotatedName_PodExists() {
 	podNamespace := "coolnamespace"
 	serviceName := "coolservice"
 
-	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: podName, Namespace: podNamespace}, gomock.AssignableToTypeOf(&corev1.Pod{})).Do(
-		func(_ context.Context, _ types.NamespacedName, pod *corev1.Pod, _ ...any) {
-			pod.Annotations = map[string]string{viper.GetString(serviceNameOverrideAnnotationKey): serviceName}
-		}).Return(nil)
-
-	name, found, err := s.Resolver.GetPodAnnotatedName(context.Background(), podName, podNamespace)
+	pod := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: podNamespace, Annotations: map[string]string{viper.GetString(serviceNameOverrideAnnotationKey): serviceName}}}
+	id, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &pod)
 	s.Require().NoError(err)
-	s.Require().True(found)
-	s.Require().Equal(serviceName, name)
+	s.Require().Equal(serviceName, id.Name)
 }
 
 func (s *ServiceIdResolverTestSuite) TestGetPodAnnotatedName_PodMissingAnnotation() {
 	podName := "coolpod"
 	podNamespace := "coolnamespace"
 
-	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: podName, Namespace: podNamespace}, gomock.AssignableToTypeOf(&corev1.Pod{})).Return(nil)
+	pod := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: podNamespace}}
 
-	name, found, err := s.Resolver.GetPodAnnotatedName(context.Background(), podName, podNamespace)
-	s.Require().NoError(err)
-	s.Require().False(found)
-	s.Require().Equal("", name)
-}
-
-func (s *ServiceIdResolverTestSuite) TestGetPodAnnotatedName_PodMCallFailed() {
-	podName := "coolpod"
-	podNamespace := "coolnamespace"
-
-	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: podName, Namespace: podNamespace}, gomock.AssignableToTypeOf(&corev1.Pod{})).Return(errors.New("generic error"))
-
-	name, found, err := s.Resolver.GetPodAnnotatedName(context.Background(), podName, podNamespace)
-	s.Require().Error(err)
-	s.Require().False(found)
-	s.Require().Equal("", name)
+	id, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &pod)
+	s.Require().Nil(err)
+	s.Require().Equal(podName, id.Name)
 }
 
 func (s *ServiceIdResolverTestSuite) TestDeploymentNameWithDotsReplacedByUnderscore() {
@@ -247,13 +230,74 @@ func (s *ServiceIdResolverTestSuite) TestDeploymentRead() {
 	s.Require().Equal(deploymentName, service.Name)
 }
 
+func (s *ServiceIdResolverTestSuite) TestJobWithNoParent() {
+	jobName := "my-crappy-1001-job-name-1234567890-12345"
+	podName := "cool-pod-1234567890-12345"
+	podNamespace := "cool-namespace"
+	imageName := "cool-image"
+
+	// Create a pod with reference to the deployment with dots in the name
+	myPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: podNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind:       "Job",
+					Name:       jobName,
+					APIVersion: "batch/v1",
+				},
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  "cool-container",
+					Image: fmt.Sprintf("353146681200.dkr.ecr.us-west-2.amazonaws.com/%s:some-tag", imageName),
+				},
+			},
+		},
+	}
+
+	deploymentAsObject := unstructured.Unstructured{}
+	deploymentAsObject.SetName(jobName)
+	deploymentAsObject.SetNamespace(podNamespace)
+	deploymentAsObject.SetKind("Job")
+	deploymentAsObject.SetAPIVersion("batch/v1")
+
+	emptyObject := &unstructured.Unstructured{}
+	emptyObject.SetKind("Job")
+	emptyObject.SetAPIVersion("batch/v1")
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: jobName, Namespace: podNamespace}, emptyObject).Do(
+		func(_ context.Context, _ types.NamespacedName, obj *unstructured.Unstructured, _ ...any) error {
+			deploymentAsObject.DeepCopyInto(obj)
+			return nil
+		})
+
+	viper.Set(useImageNameForServiceIDForJobs, false)
+	service, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
+	s.Require().NoError(err)
+	s.Require().Equal(jobName, service.Name)
+
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: jobName, Namespace: podNamespace}, emptyObject).Do(
+		func(_ context.Context, _ types.NamespacedName, obj *unstructured.Unstructured, _ ...any) error {
+			deploymentAsObject.DeepCopyInto(obj)
+			return nil
+		})
+
+	viper.Set(useImageNameForServiceIDForJobs, true)
+	service, err = s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
+	s.Require().NoError(err)
+	s.Require().Equal(imageName, service.Name)
+}
+
 func (s *ServiceIdResolverTestSuite) TestUserSpecifiedAnnotationForServiceName() {
 	annotationName := "coolAnnotationName"
 	expectedEnvVarName := "OTTERIZE_SERVICE_NAME_OVERRIDE_ANNOTATION"
 	_ = os.Setenv(expectedEnvVarName, annotationName)
 	s.Require().Equal(annotationName, viper.GetString(serviceNameOverrideAnnotationKey))
 	_ = os.Unsetenv(expectedEnvVarName)
-	s.Require().Equal(serviceNameOverrideAnnotationKeyDefault, viper.GetString(serviceNameOverrideAnnotationKey))
+	s.Require().Equal(ServiceNameOverrideAnnotationKeyDefault, viper.GetString(serviceNameOverrideAnnotationKey))
 }
 
 func TestServiceIdResolverTestSuite(t *testing.T) {
