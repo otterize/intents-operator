@@ -85,7 +85,8 @@ func (s *DatabaseReconcilerTestSuite) TestPGServerConfNotMatching() {
 			Namespace: testNamespace,
 		},
 		Spec: otterizev1alpha3.PostgreSQLServerConfigSpec{
-			Address: dbAddress,
+			DatabaseName: dbName,
+			Address:      dbAddress,
 			Credentials: otterizev1alpha3.DatabaseCredentials{
 				Username: "shhhhh",
 				Password: "secret",
