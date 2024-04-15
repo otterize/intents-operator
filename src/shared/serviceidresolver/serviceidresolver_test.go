@@ -297,7 +297,7 @@ func (s *ServiceIdResolverTestSuite) TestUserSpecifiedAnnotationForServiceName()
 	_ = os.Setenv(expectedEnvVarName, annotationName)
 	s.Require().Equal(annotationName, viper.GetString(serviceNameOverrideAnnotationKey))
 	_ = os.Unsetenv(expectedEnvVarName)
-	s.Require().Equal(serviceNameOverrideAnnotationKeyDefault, viper.GetString(serviceNameOverrideAnnotationKey))
+	s.Require().Equal(ServiceNameOverrideAnnotationKeyDefault, viper.GetString(serviceNameOverrideAnnotationKey))
 }
 
 func TestServiceIdResolverTestSuite(t *testing.T) {
