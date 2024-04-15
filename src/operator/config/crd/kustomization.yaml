@@ -41,3 +41,17 @@ patches:
         value: intents-operator-webhook-service
   target:
     kind: CustomResourceDefinition
+- patch: |-
+    - op: add
+      path: /metadata/annotations
+      value:
+        controller-gen.kubebuilder.io/version: v0.14.0
+        helm.sh/resource-policy: keep
+  target:
+    kind: CustomResourceDefinition
+- patch: |-
+    - op: add
+      path: /metadata/creationTimestamp
+      value: null
+  target:
+    kind: CustomResourceDefinition

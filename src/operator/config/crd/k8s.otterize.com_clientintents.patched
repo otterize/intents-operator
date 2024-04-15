@@ -3,6 +3,8 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
+    helm.sh/resource-policy: keep
+  creationTimestamp: null
   labels:
     app.kubernetes.io/part-of: otterize
   name: clientintents.k8s.otterize.com
