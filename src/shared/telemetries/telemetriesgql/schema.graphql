@@ -342,11 +342,6 @@ enum CustomConstraint {
 	ID
 }
 
-enum DBPermissionChange {
-	APPLY
-	DELETE
-}
-
 input DNSIPPairInput {
 	dnsName: String!
 	ips: [String!]
@@ -364,27 +359,13 @@ input DatabaseConfigInput {
 	operations: [DatabaseOperation!]
 }
 
-type DatabaseCredentials {
-	username: String!
-	password: String!
-}
-
-input DatabaseCredentialsInput {
-	username: String!
-	password: String!
-}
-
 type DatabaseInfo {
-	address: String!
 	databaseType: DatabaseType!
-	credentials: DatabaseCredentials!
 	visibility: DatabaseVisibilitySettings
 }
 
 input DatabaseInfoInput {
-	address: String!
 	databaseType: DatabaseType!
-	credentials: DatabaseCredentialsInput!
 	visibility: DatabaseVisibilitySettingsInput
 }
 
@@ -646,6 +627,21 @@ type IDFilterValue {
 	operator: IDFilterOperators!
 }
 
+input IncomingInternetSourceInput {
+	ip: String!
+}
+
+input IncomingTrafficDiscoveredIntentInput {
+	discoveredAt: Time!
+	intent: IncomingTrafficIntentInput!
+}
+
+input IncomingTrafficIntentInput {
+	serverName: String!
+	namespace: String!
+	source: IncomingInternetSourceInput!
+}
+
 input InputAccessGraphFilter {
 	clusterIds: InputIDFilterValue
 	serviceIds: InputIDFilterValue
@@ -805,6 +801,7 @@ type IntentsOperatorConfiguration {
 	protectedServicesEnabled: Boolean!
 	protectedServices: [Service!]!
 	egressNetworkPolicyEnforcementEnabled: Boolean!
+	enforcedNamespaces: [String!]
 }
 
 input IntentsOperatorConfigurationInput {
@@ -818,6 +815,7 @@ input IntentsOperatorConfigurationInput {
 	gcpIAMPolicyEnforcementEnabled: Boolean
 	azureIAMPolicyEnforcementEnabled: Boolean
 	databaseEnforcementEnabled: Boolean
+	enforcedNamespaces: [String!]
 }
 
 type InternetConfig {
@@ -1027,10 +1025,6 @@ type Mutation {
 		name: String!
 		databaseInfo: DatabaseInfoInput!
 	): Integration
-	updateDatabaseIntegrationCredentials(
-		integrationId: ID!
-		credentials: DatabaseCredentialsInput!
-	): Boolean!
 """Create a new Kubernetes integration"""
 	createKubernetesIntegration(
 		environmentId: ID!
@@ -1115,13 +1109,13 @@ type Mutation {
 	reportExternalTrafficDiscoveredIntents(
 		intents: [ExternalTrafficDiscoveredIntentInput!]!
 	): Boolean!
+	reportIncomingTrafficDiscoveredIntents(
+		intents: [IncomingTrafficDiscoveredIntentInput!]!
+	): Boolean!
 	reportAppliedKubernetesIntents(
 		namespace: String!
 		intents: [IntentInput!]!
-	): Boolean!
-	handleDatabaseIntents(
-		intents: [IntentInput!]!
-		action: DBPermissionChange!
+		ossClusterId: String
 	): Boolean!
 	reportNetworkPolicies(
 		namespace: String!
@@ -1311,10 +1305,6 @@ type Query {
 		clusterId: ID
 		name: String
 	): Integration!
-	testDatabaseConnection(
-		databaseInfo: DatabaseInfoInput!
-		integrationId: ID
-	): TestDatabaseConnectionResponse!
 """Test database visibility connectivity"""
 	testDatabaseVisibilityConnection(
 		databaseInfo: DatabaseInfoInput!
@@ -1459,7 +1449,6 @@ type Service {
 	azureResource: AzureResource
 	discoveredByIntegration: Integration
 	tlsKeyPair: KeyPair!
-	userAndPassword: UserAndPassword!
 }
 
 type ServiceAccessGraph {
@@ -1574,11 +1563,6 @@ type User {
 	authProviderUserId: String!
 	tutorials: [UserTutorial!]
 	activeTutorial: UserTutorial!
-}
-
-type UserAndPassword {
-	username: String!
-	password: String!
 }
 
 enum UserErrorType {
