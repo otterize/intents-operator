@@ -1,0 +1,10 @@
+{{ if or (and (eq .Values.global.allowGetAllResources nil) .Values.allowGetAllResources) .Values.global.allowGetAllResources}}
+- apiGroups:
+    - '*'
+  resources:
+    - '*'
+  verbs:
+    - get
+    - list
+    - watch
+{{ end }}
