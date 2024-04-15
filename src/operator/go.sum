@@ -436,6 +436,8 @@ github.com/otterize/intents-operator/src v0.0.0-20240415130700-939d860daba1 h1:0
 github.com/otterize/intents-operator/src v0.0.0-20240415130700-939d860daba1/go.mod h1:IHWTF4Quo6paCaZ6QPG66DcY+6LBq9fsEIB7BQuQi94=
 github.com/otterize/intents-operator/src v0.0.0-20240415220041-39ca0fd5a889 h1:E0QCEHOlYz8mvotDfZNeJLYOFFoeVqUKAZ2VVycMlhI=
 github.com/otterize/intents-operator/src v0.0.0-20240415220041-39ca0fd5a889/go.mod h1:IHWTF4Quo6paCaZ6QPG66DcY+6LBq9fsEIB7BQuQi94=
+github.com/otterize/intents-operator/src v0.0.0-20240415224106-28365bb34bb2 h1:QfdEYEoXDowz5CcTTbXmn7D8JhBTpXd5f7vuJkrF6eY=
+github.com/otterize/intents-operator/src v0.0.0-20240415224106-28365bb34bb2/go.mod h1:ymrDEakO51RVXB9Z9IKuXLDHX2pnTbYx4b/ecQFDUkg=
 github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd h1:7Sb95VrtAPb9m2ewtqLnX1oeKQy03dt7yr6F/hP7Htg=
 github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd/go.mod h1:RXvgymN8MxiELFkmGHzJ23KJU2ObVsNsNSM80/HO8qQ=
 github.com/pascaldekloe/goe v0.1.0 h1:cBOtyMzM9HTpWjXfbbunk26uA6nG3a8n06Wieeh0MwY=
