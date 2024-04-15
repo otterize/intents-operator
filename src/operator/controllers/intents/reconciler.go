@@ -154,7 +154,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 
 		pgConfigurator := postgres.NewPostgresConfigurator(pgServerConf.Spec)
-		if err := pgConfigurator.SetConnection(ctx, pgServerConf.Spec.DatabaseName); err != nil {
+		if err := pgConfigurator.SetConnection(ctx, postgres.PGDefaultDatabase); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 

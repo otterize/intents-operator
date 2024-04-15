@@ -425,14 +425,10 @@ github.com/onsi/ginkgo/v2 v2.14.0 h1:vSmGj2Z5YPb9JwCWT6z6ihcUvDhuXLc3sJiqd3jMKAY
 github.com/onsi/ginkgo/v2 v2.14.0/go.mod h1:JkUdW7JkN0V6rFvsHcJ478egV3XH9NxpD27Hal/PhZw=
 github.com/onsi/gomega v1.30.0 h1:hvMK7xYz4D3HapigLTeGdId/NcfQx1VHMJc60ew99+8=
 github.com/onsi/gomega v1.30.0/go.mod h1:9sxs+SwGrKI0+PWe4Fxa9tFQQBG5xSsSbMXOI8PPpoQ=
-github.com/otterize/intents-operator/src v0.0.0-20240408122421-c88837be05ee h1:lNXmxTfZ1+/EykuP8K5n7/ztBSQji49OMBejEafDKpM=
-github.com/otterize/intents-operator/src v0.0.0-20240408122421-c88837be05ee/go.mod h1:IHWTF4Quo6paCaZ6QPG66DcY+6LBq9fsEIB7BQuQi94=
-github.com/otterize/intents-operator/src v0.0.0-20240408165459-24a77e18f5d7 h1:ROupVuiWrqeo7IWmAEd5l5JbmeqpwW/yVSo6X/Hl2jw=
-github.com/otterize/intents-operator/src v0.0.0-20240408165459-24a77e18f5d7/go.mod h1:IHWTF4Quo6paCaZ6QPG66DcY+6LBq9fsEIB7BQuQi94=
-github.com/otterize/intents-operator/src v0.0.0-20240410120207-9f2388ec6a55 h1:QZoXreh+/K3M9OXKMw86eXvYMNfmhuwVcN9C4YYOS5w=
-github.com/otterize/intents-operator/src v0.0.0-20240410120207-9f2388ec6a55/go.mod h1:IHWTF4Quo6paCaZ6QPG66DcY+6LBq9fsEIB7BQuQi94=
 github.com/otterize/intents-operator/src v0.0.0-20240414145136-cadfc8c9f98b h1:dRoGTg9DwfK1RTcaXwdVWu2wJ4oxWn8+v/+18pIb+dE=
 github.com/otterize/intents-operator/src v0.0.0-20240414145136-cadfc8c9f98b/go.mod h1:IHWTF4Quo6paCaZ6QPG66DcY+6LBq9fsEIB7BQuQi94=
+github.com/otterize/intents-operator/src v0.0.0-20240415130700-939d860daba1 h1:0gIb2To2NxIjHFW55rrcXgKLJBjrNH8Q0vAcDtdmTMc=
+github.com/otterize/intents-operator/src v0.0.0-20240415130700-939d860daba1/go.mod h1:IHWTF4Quo6paCaZ6QPG66DcY+6LBq9fsEIB7BQuQi94=
 github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd h1:7Sb95VrtAPb9m2ewtqLnX1oeKQy03dt7yr6F/hP7Htg=
 github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd/go.mod h1:RXvgymN8MxiELFkmGHzJ23KJU2ObVsNsNSM80/HO8qQ=
 github.com/pascaldekloe/goe v0.1.0 h1:cBOtyMzM9HTpWjXfbbunk26uA6nG3a8n06Wieeh0MwY=
