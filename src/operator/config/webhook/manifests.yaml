@@ -62,7 +62,7 @@ webhooks:
     - CREATE
     - UPDATE
     resources:
-    - postgresqlserverconfig
+    - postgresqlserverconfigs
   sideEffects: None
 - admissionReviewVersions:
   - v1

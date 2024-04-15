@@ -114,7 +114,7 @@ func (r *DatabaseReconciler) cleanExcessPermissions(ctx context.Context, intents
 	pgUsername := clusterutils.KubernetesToPostgresName(username)
 	for _, config := range pgServerConfigs.Items {
 		pgConfigurator := postgres.NewPostgresConfigurator(config.Spec)
-		if err := pgConfigurator.SetConnection(ctx, config.Spec.DatabaseName); err != nil {
+		if err := pgConfigurator.SetConnection(ctx, postgres.PGDefaultDatabase); err != nil {
 			return errors.Wrap(err)
 		}
 		exists, err := pgConfigurator.ValidateUserExists(ctx, pgUsername)
