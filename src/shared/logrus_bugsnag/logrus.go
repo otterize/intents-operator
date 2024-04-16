@@ -51,12 +51,7 @@ type ErrorList interface {
 // Fire forwards an error to Bugsnag. Given a logrus.Entry, it extracts the
 // "error" field (or the Message if the error isn't present) and sends it off.
 func (hook *bugsnagHook) Fire(entry *logrus.Entry) error {
-	errorsList := getErrors(entry)
-	err := hook.notifyErr(entry, errorsList)
-	if err != nil {
-		return err
-	}
-	return nil
+	return SendToBugsnag(entry)
 }
 
 func getErrors(entry *logrus.Entry) []error {
@@ -80,8 +75,9 @@ func getErrors(entry *logrus.Entry) []error {
 	return errList.Unwrap()
 }
 
-func (hook *bugsnagHook) notifyErr(entry *logrus.Entry, errList []error) error {
+func SendToBugsnag(entry *logrus.Entry, rawData ...any) error {
 	bugsnagRawData := make([]any, 0)
+	notifyErrs := getErrors(entry)
 
 	metadata := bugsnag.MetaData{}
 	metadata["metadata"] = make(map[string]interface{})
@@ -92,8 +88,9 @@ func (hook *bugsnagHook) notifyErr(entry *logrus.Entry, errList []error) error {
 	}
 
 	bugsnagRawData = append(bugsnagRawData, metadata)
+	bugsnagRawData = append(bugsnagRawData, rawData...)
 
-	for _, notifyErr := range errList {
+	for _, notifyErr := range notifyErrs {
 		errWithStack := errors.WrapWithSkip(notifyErr, skipStackFrames)
 		bugsnagErr := bugsnag.Notify(errWithStack, bugsnagRawData...)
 		if bugsnagErr != nil {
