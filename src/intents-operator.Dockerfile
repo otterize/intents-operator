@@ -1,5 +1,5 @@
 # Upgraded Go version? Make sure to upgrade it in the GitHub Actions setup, the Dockerfile and the go.mod as well, so the linter and tests run the same version.
-FROM --platform=linux/amd64 golang:1.21 as builder
+FROM --platform=$BUILDPLATFORM golang:1.21 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
