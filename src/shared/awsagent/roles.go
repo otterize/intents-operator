@@ -50,13 +50,13 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 }
 
 func (a *Agent) initProfileCache(ctx context.Context) (err error) {
+	defer func() {
+		if err != nil {
+			a.profileNameToId = make(map[string]string)
+			a.profileCacheOnce = sync.Once{}
+		}
+	}()
 	a.profileCacheOnce.Do(func() {
-		defer func() {
-			if err != nil {
-				a.profileNameToId = make(map[string]string)
-				a.profileCacheOnce = sync.Once{}
-			}
-		}()
 		var nextToken *string = nil
 		output, listProfileErr := a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
 		if listProfileErr != nil {

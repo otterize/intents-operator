@@ -1,11 +1,13 @@
-package multi_account_aws_agent
+package rolesanywhere_creds
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
@@ -17,15 +19,17 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/samber/lo"
+	"k8s.io/client-go/util/keyutil"
 	"net/http"
+	"os"
 	"runtime"
 	"strings"
 	"time"
 )
 
-func credentialsProvider(key *ecdsa.PrivateKey, cert *x509.Certificate, account operatorconfig.AWSAccount) awsv2.CredentialsProviderFunc {
+func CredentialsProvider(keyPath string, certPath string, account operatorconfig.AWSAccount) awsv2.CredentialsProviderFunc {
 	return func(context.Context) (awsv2.Credentials, error) {
-		return getCredentials(key, cert, account.RoleARN, account)
+		return getCredentials(keyPath, certPath, account.RoleARN, account)
 	}
 }
 
@@ -46,7 +50,35 @@ func certificateChainToString(certificateChain []*x509.Certificate) string {
 	return x509ChainString.String()
 }
 
-func getCredentials(key *ecdsa.PrivateKey, cert *x509.Certificate, roleARN string, account operatorconfig.AWSAccount) (awsv2.Credentials, error) {
+func getCredentials(keyPath string, certPath string, roleARN string, account operatorconfig.AWSAccount) (awsv2.Credentials, error) {
+	certData, err := os.ReadFile(certPath)
+	if err != nil {
+		return awsv2.Credentials{}, errors.Errorf("failed to read cert chain file: %w", err)
+	}
+
+	block, rest := pem.Decode(certData)
+	if len(bytes.TrimSpace(rest)) != 0 {
+		return awsv2.Credentials{}, errors.New("multiple certificates found in cert file")
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return awsv2.Credentials{}, errors.Errorf("failed to parse certificate: %w", err)
+	}
+
+	privKey, err := os.ReadFile(keyPath)
+	if err != nil {
+		return awsv2.Credentials{}, errors.Errorf("failed to read private key file: %w", err)
+	}
+	privKeyParsed, err := keyutil.ParsePrivateKeyPEM(privKey)
+	if err != nil {
+		return awsv2.Credentials{}, errors.Errorf("failed to parse private key: %w", err)
+	}
+	privKeyEcdsa, ok := privKeyParsed.(*ecdsa.PrivateKey)
+	if !ok {
+		return awsv2.Credentials{}, errors.New("private key must be an ECDSA key")
+	}
+
 	// assign values to region and endpoint if they haven't already been assigned
 	trustAnchorArn, err := arn.Parse(account.TrustAnchorARN)
 	if err != nil {
@@ -77,8 +109,8 @@ func getCredentials(key *ecdsa.PrivateKey, cert *x509.Certificate, roleARN strin
 	rolesAnywhereClient.Handlers.Build.RemoveByName("core.SDKVersionUserAgentHandler")
 	rolesAnywhereClient.Handlers.Build.PushBackNamed(request.NamedHandler{Name: "v4x509.CredHelperUserAgentHandler", Fn: request.MakeAddToUserAgentHandler("otterize", runtime.Version(), runtime.GOOS, runtime.GOARCH)})
 	rolesAnywhereClient.Handlers.Sign.Clear()
-	// FIXME is the cert chain needed here?
-	rolesAnywhereClient.Handlers.Sign.PushBackNamed(request.NamedHandler{Name: "v4x509.SignRequestHandler", Fn: awssh.CreateSignFunction(*key, *cert, nil)})
+
+	rolesAnywhereClient.Handlers.Sign.PushBackNamed(request.NamedHandler{Name: "v4x509.SignRequestHandler", Fn: awssh.CreateSignFunction(*privKeyEcdsa, *cert, nil)})
 
 	certChainPEM := certificateToString(cert)
 	createSessionRequest := rolesanywhere.CreateSessionInput{

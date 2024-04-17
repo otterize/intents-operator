@@ -19,8 +19,7 @@ func AccountFromPod(pod *corev1.Pod) (string, bool) {
 }
 
 func AccountFromServiceAccount(serviceAccount *corev1.ServiceAccount) (string, bool) {
-	// FIXME
-	value, found := serviceAccount.Labels[awsagent.ApplyOnPodLabel]
+	value, found := serviceAccount.Annotations[awsagent.ServiceAccountAWSAccountIDAnnotation]
 	if !found {
 		return "", false
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/rolesanywhere"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/otterize/intents-operator/src/shared/awsagent/rolesanywhere_creds"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/nilable"
@@ -21,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"strings"
 	"sync"
+	"time"
 )
 
 type IAMClient interface {
@@ -95,6 +97,9 @@ type Agent struct {
 
 const ApplyOnPodLabel = "credentials-operator.otterize.com/create-aws-role"
 
+// ServiceAccountAWSAccountIDAnnotation is used by Otterize to indicate that this service account should result in a role in the specified AWS account.
+const ServiceAccountAWSAccountIDAnnotation = "credentials-operator.otterize.com/aws-account"
+
 type Option func(*Agent)
 
 func (o Option) Apply(agent *Agent) {
@@ -112,24 +117,30 @@ func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
 }
 
 func AppliesOnPod(pod *corev1.Pod) bool {
-	return pod.Labels != nil && pod.Labels[ApplyOnPodLabel] == "true"
+	if pod.Labels == nil {
+		return false
+	}
+	_, foundLabel := pod.Labels[ApplyOnPodLabel]
+	return foundLabel
 }
 
-func WithRolesAnywhere(trustAnchorArn string, trustDomain string, clusterName string) Option {
-	if trustAnchorArn == "" || trustDomain == "" || clusterName == "" {
-		logrus.Panic("AWS IAM roles anywhere is enabled but required configuration is missing: OTTERIZE_ROLESANYWHERE_TRUST_ANCHOR_ARN, OTTERIZE_ROLESANYWHERE_SPIFFE_TRUST_DOMAIN, OTTERIZE_ROLESANYWHERE_CLUSTER_NAME")
+func WithRolesAnywhere(account operatorconfig.AWSAccount, clusterName string, keyPath string, certPath string) Option {
+	configTimeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	awsConfig, err := config.LoadDefaultConfig(configTimeout,
+		config.WithCredentialsProvider(rolesanywhere_creds.CredentialsProvider(
+			keyPath,
+			certPath,
+			account)))
+	if err != nil {
+		logrus.WithError(err).Panic("failed to load AWS config")
 	}
 
 	return func(a *Agent) {
 		a.RolesAnywhereEnabled = true
-		a.TrustAnchorArn = trustAnchorArn
-		a.TrustDomain = trustDomain
+		a.TrustAnchorArn = account.TrustAnchorARN
+		a.TrustDomain = account.TrustDomain
 		a.ClusterName = clusterName
-	}
-}
-
-func WithAWSConfig(awsConfig aws.Config) Option {
-	return func(a *Agent) {
 		a.config = nilable.From(awsConfig)
 	}
 }

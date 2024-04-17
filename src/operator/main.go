@@ -62,6 +62,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/metadata"
+	"path"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -245,28 +246,31 @@ func main() {
 	if enforcementConfig.EnableAWSPolicy {
 		awsOptions := make([]awsagent.Option, 0)
 		if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
-			if viper.IsSet(operatorconfig.AWSAccountsKey) {
-				accounts := operatorconfig.GetRolesAnywhereAWSAccounts()
-				awsIntentsAgent, err := awspolicyagent.NewMultiaccountAWSPolicyAgent(signalHandlerCtx, accounts)
+			keyPath := path.Join(viper.GetString(operatorconfig.AWSRolesAnywhereCertDirKey), viper.GetString(operatorconfig.AWSRolesAnywherePrivKeyFilenameKey))
+			certPath := path.Join(viper.GetString(operatorconfig.AWSRolesAnywhereCertDirKey), viper.GetString(operatorconfig.AWSRolesAnywhereCertFilenameKey))
+			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterNameKey)
+			accounts := operatorconfig.GetRolesAnywhereAWSAccounts()
+
+			if len(accounts) == 0 {
+				logrus.Panic("no AWS accounts configured even though RolesAnywhere is enabled")
+			}
+
+			if len(accounts) == 1 {
+				awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(accounts[0], clusterName, keyPath, certPath))
+				awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
+				if err != nil {
+					logrus.WithError(err).Panic("could not initialize AWS agent")
+				}
+				awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+
+				iamAgents = append(iamAgents, awsIntentsAgent)
+			} else {
+				awsIntentsAgent, err := awspolicyagent.NewMultiaccountAWSPolicyAgent(signalHandlerCtx, accounts, clusterName, keyPath, certPath)
 				if err != nil {
 					logrus.WithError(err).Panic("could not initialize AWS agent")
 				}
 				iamAgents = append(iamAgents, awsIntentsAgent)
-			} else {
-
-				trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
-				trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
-				clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterNameKey)
-
-				awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
 			}
-			awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
-			if err != nil {
-				logrus.WithError(err).Panic("could not initialize AWS agent")
-			}
-			awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
-
-			iamAgents = append(iamAgents, awsIntentsAgent)
 		} else {
 			awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
 			if err != nil {

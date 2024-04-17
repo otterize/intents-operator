@@ -17,7 +17,7 @@ const (
 	MetricsAddrKey                              = "metrics-bind-address" // The address the metric endpoint binds to
 	MetricsAddrDefault                          = ":2112"
 	ProbeAddrKey                                = "health-probe-bind-address" // The address the probe endpoint binds to
-	ProbeAddrDefault                            = ":8181"
+	ProbeAddrDefault                            = ":8182"
 	EnableLeaderElectionKey                     = "leader-elect" // Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager
 	EnableLeaderElectionDefault                 = false
 	WatchedNamespacesKey                        = "watched-namespaces"            // Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas
@@ -68,9 +68,9 @@ const (
 	AWSRolesAnywhereCertDirKey                  = "rolesanywhere-cert-dir"
 	AWSRolesAnywhereCertDirDefault              = "/aws-config/credentials"
 	AWSRolesAnywherePrivKeyFilenameKey          = "rolesanywhere-priv-key-filename"
-	AWSRolesAnywhereCertChainFilenameKey        = "rolesanywhere-cert-chain-filename"
-	AWSRolesAnywherePrivKeyFilenameDefault      = "key.pem"
-	AWSRolesAnywhereCertChainFilenameDefault    = "cert.pem"
+	AWSRolesAnywhereCertFilenameKey             = "rolesanywhere-cert-filename"
+	AWSRolesAnywherePrivKeyFilenameDefault      = "tls.key"
+	AWSRolesAnywhereCertFilenameDefault         = "tls.crt"
 	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
 	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"
 	AWSAccountsKey                              = "aws"
@@ -95,7 +95,7 @@ func init() {
 	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
 	viper.SetDefault(AWSRolesAnywhereCertDirKey, AWSRolesAnywhereCertDirDefault)
 	viper.SetDefault(AWSRolesAnywherePrivKeyFilenameKey, AWSRolesAnywherePrivKeyFilenameDefault)
-	viper.SetDefault(AWSRolesAnywhereCertChainFilenameKey, AWSRolesAnywhereCertChainFilenameDefault)
+	viper.SetDefault(AWSRolesAnywhereCertFilenameKey, AWSRolesAnywhereCertFilenameDefault)
 	viper.SetDefault(KafkaServerTLSCertKey, "")
 	viper.SetDefault(KafkaServerTLSKeyKey, "")
 	viper.SetDefault(KafkaServerTLSCAKey, "")
@@ -108,7 +108,8 @@ func init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 
-	viper.AddConfigPath("/etc/otterize")
+	// FIXME
+	viper.AddConfigPath("/etc/otterize-intents")
 	if err := viper.ReadInConfig(); err != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
 		if !errors.As(err, &configFileNotFoundError) {

@@ -14,8 +14,8 @@ type MultiaccountAWSPolicyAgent struct {
 	agents map[string]*Agent
 }
 
-func NewMultiaccountAWSPolicyAgent(ctx context.Context, accounts []operatorconfig.AWSAccount) (*MultiaccountAWSPolicyAgent, error) {
-	agents, err := multi_account_aws_agent.MakeAgentsFromAccountList(ctx, accounts, NewAWSPolicyAgent, nil)
+func NewMultiaccountAWSPolicyAgent(ctx context.Context, accounts []operatorconfig.AWSAccount, clusterName string, keyPath string, certPath string) (*MultiaccountAWSPolicyAgent, error) {
+	agents, err := multi_account_aws_agent.MakeAgentsFromAccountList(ctx, accounts, NewAWSPolicyAgent, nil, clusterName, keyPath, certPath)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
