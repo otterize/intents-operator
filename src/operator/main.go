@@ -123,6 +123,7 @@ func main() {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 	errorreporter.Init("intents-operator", version.Version(), viper.GetString(operatorconfig.TelemetryErrorsAPIKeyKey))
+	defer errorreporter.AutoNotify()
 
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
