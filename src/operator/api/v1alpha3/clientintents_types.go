@@ -42,6 +42,7 @@ const (
 	OtterizeSvcAccessLabelKey                 = "intents.otterize.com/svc-access-%s"
 	OtterizeClientLabelKey                    = "intents.otterize.com/client"
 	OtterizeServiceLabelKey                   = "intents.otterize.com/service"
+	OtterizeOwnerKindLabelKey                 = "intents.otterize.com/owner-kind"
 	OtterizeServerLabelKeyDeprecated          = "intents.otterize.com/server"
 	OtterizeKubernetesServiceLabelKeyPrefix   = "intents.otterize.com/k8s-svc"
 	OtterizeKubernetesServiceLabelKey         = "intents.otterize.com/k8s-svc-%s"
@@ -377,7 +378,7 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 			continue
 		}
 		targetServiceIdentity := intent.ToServiceIdentity(requestNamespace)
-		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentityWithoutKind())
+		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentityWithKind())
 		if intent.IsTargetServerKubernetesService() {
 			labelKey = fmt.Sprintf(OtterizeSvcAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentity())
 		}

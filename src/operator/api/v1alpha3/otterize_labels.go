@@ -42,6 +42,11 @@ func HasOtterizeServiceLabel(pod *v1.Pod, labelValue string) bool {
 	return exists && value == labelValue
 }
 
+func HasOtterizeOwnerKindLabel(pod *v1.Pod, labelValue string) bool {
+	value, exists := pod.Labels[OtterizeOwnerKindLabelKey]
+	return exists && value == labelValue
+}
+
 func HasOtterizeDeprecatedServerLabel(pod *v1.Pod) bool {
 	_, exists := pod.Labels[OtterizeServerLabelKeyDeprecated]
 	return exists

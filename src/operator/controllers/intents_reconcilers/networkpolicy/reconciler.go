@@ -262,11 +262,12 @@ func (r *Reconciler) buildPodLabelSelectorFromServiceEffectivePolicy(ctx context
 		return metav1.LabelSelector{MatchLabels: svc.Spec.Selector}, true, nil
 	}
 
-	return metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			otterizev1alpha3.OtterizeServiceLabelKey: ep.Service.GetFormattedOtterizeIdentity(),
-		},
-	}, true, nil
+	labelsMap := map[string]string{otterizev1alpha3.OtterizeServiceLabelKey: ep.Service.GetFormattedOtterizeIdentity()}
+	if ep.Service.Kind != "" && ep.Service.Kind != serviceidentity.KindOtterizeLegacy {
+		labelsMap[otterizev1alpha3.OtterizeOwnerKindLabelKey] = ep.Service.Kind
+	}
+
+	return metav1.LabelSelector{MatchLabels: labelsMap}, true, nil
 }
 
 func (r *Reconciler) setNetworkPolicyOwnerReferenceIfNeeded(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy) error {
