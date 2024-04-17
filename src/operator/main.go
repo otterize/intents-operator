@@ -252,14 +252,14 @@ func main() {
 			accounts := operatorconfig.GetRolesAnywhereAWSAccounts()
 
 			if len(accounts) == 0 {
-				logrus.Panic("no AWS accounts configured even though RolesAnywhere is enabled")
+				logrus.Panic("No AWS accounts configured even though RolesAnywhere is enabled")
 			}
 
 			if len(accounts) == 1 {
 				awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(accounts[0], clusterName, keyPath, certPath))
 				awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
 				if err != nil {
-					logrus.WithError(err).Panic("could not initialize AWS agent")
+					logrus.WithError(err).Panic("Could not initialize AWS agent")
 				}
 				awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
 
@@ -267,14 +267,14 @@ func main() {
 			} else {
 				awsIntentsAgent, err := awspolicyagent.NewMultiaccountAWSPolicyAgent(signalHandlerCtx, accounts, clusterName, keyPath, certPath)
 				if err != nil {
-					logrus.WithError(err).Panic("could not initialize AWS agent")
+					logrus.WithError(err).Panic("Could not initialize AWS agent")
 				}
 				iamAgents = append(iamAgents, awsIntentsAgent)
 			}
 		} else {
 			awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
 			if err != nil {
-				logrus.WithError(err).Panic("could not initialize AWS agent")
+				logrus.WithError(err).Panic("Could not initialize AWS agent")
 			}
 			awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
 
@@ -285,7 +285,7 @@ func main() {
 	if enforcementConfig.EnableGCPPolicy {
 		gcpAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx, mgr.GetClient())
 		if err != nil {
-			logrus.WithError(err).Panic("could not initialize GCP agent")
+			logrus.WithError(err).Panic("Could not initialize GCP agent")
 		}
 		gcpIntentsAgent := gcppolicyagent.NewGCPPolicyAgent(gcpAgent)
 		iamAgents = append(iamAgents, gcpIntentsAgent)
