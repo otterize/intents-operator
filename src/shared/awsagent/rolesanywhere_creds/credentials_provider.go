@@ -23,7 +23,6 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"strings"
 	"time"
 )
 
@@ -36,18 +35,6 @@ func CredentialsProvider(keyPath string, certPath string, account operatorconfig
 // Convert certificate to string, so that it can be present in the HTTP request header
 func certificateToString(certificate *x509.Certificate) string {
 	return base64.StdEncoding.EncodeToString(certificate.Raw)
-}
-
-// Convert certificate chain to string, so that it can be pressent in the HTTP request header
-func certificateChainToString(certificateChain []*x509.Certificate) string {
-	var x509ChainString strings.Builder
-	for i, certificate := range certificateChain {
-		x509ChainString.WriteString(certificateToString(certificate))
-		if i != len(certificateChain)-1 {
-			x509ChainString.WriteString(",")
-		}
-	}
-	return x509ChainString.String()
 }
 
 func getCredentials(keyPath string, certPath string, roleARN string, account operatorconfig.AWSAccount) (awsv2.Credentials, error) {
