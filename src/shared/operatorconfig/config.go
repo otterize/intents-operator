@@ -108,8 +108,7 @@ func init() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 
-	// FIXME
-	viper.AddConfigPath("/etc/otterize-intents")
+	viper.AddConfigPath("/etc/otterize")
 	if err := viper.ReadInConfig(); err != nil {
 		var configFileNotFoundError viper.ConfigFileNotFoundError
 		if !errors.As(err, &configFileNotFoundError) {
