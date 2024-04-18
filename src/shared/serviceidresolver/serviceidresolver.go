@@ -148,7 +148,7 @@ func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3
 	err := r.client.List(
 		ctx,
 		podsList,
-		client.MatchingLabels{v1alpha3.OtterizeServiceLabelKey: targetServiceIdentity.GetFormattedOtterizeIdentity()},
+		client.MatchingLabels{v1alpha3.OtterizeServiceLabelKey: targetServiceIdentity.GetFormattedOtterizeIdentityWithoutKind()},
 		client.InNamespace(namespace),
 	)
 	if err != nil {

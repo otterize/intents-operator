@@ -149,7 +149,7 @@ func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, i
 		}
 
 		missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
-		formattedTargetServer := serviceId.GetFormattedOtterizeIdentity()
+		formattedTargetServer := serviceId.GetFormattedOtterizeIdentityWithoutKind()
 		err = r.policyManager.UpdateServerSidecar(ctx, intents, formattedTargetServer, missingSideCar)
 		if err != nil {
 			return errors.Wrap(err)

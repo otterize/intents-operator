@@ -34,7 +34,7 @@ func (r *EgressNetworkPolicyBuilder) buildNetworkPolicyEgressRules(ep effectivep
 				{
 					PodSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							otterizev1alpha3.OtterizeServiceLabelKey: targetServiceIdentity.GetFormattedOtterizeIdentity(),
+							otterizev1alpha3.OtterizeServiceLabelKey: targetServiceIdentity.GetFormattedOtterizeIdentityWithoutKind(),
 						},
 					},
 					NamespaceSelector: &metav1.LabelSelector{

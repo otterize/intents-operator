@@ -133,7 +133,7 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 	for _, clientIntent := range clientIntents {
 		for _, intentCall := range clientIntent.GetCallsList() {
 			serverService := intentCall.ToServiceIdentity(clientIntent.Namespace)
-			services[serverService.GetFormattedOtterizeIdentityWithKind()] = append(services[serverService.GetFormattedOtterizeIdentity()], clientIntent)
+			services[serverService.GetFormattedOtterizeIdentityWithKind()] = append(services[serverService.GetFormattedOtterizeIdentityWithoutKind()], clientIntent)
 		}
 	}
 

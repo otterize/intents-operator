@@ -18,8 +18,8 @@ func (in *Intent) ToServiceIdentity(intentsObjNamespace string) *serviceidentity
 	}
 }
 
-func (in *ProtectedService) ToServiceIdentity() *serviceidentity.ServiceIdentity {
-	return &serviceidentity.ServiceIdentity{
+func (in *ProtectedService) ToServiceIdentity() serviceidentity.ServiceIdentity {
+	return serviceidentity.ServiceIdentity{
 		Name:      in.Spec.Name,
 		Namespace: in.Namespace,
 		Kind:      in.GetKind(),

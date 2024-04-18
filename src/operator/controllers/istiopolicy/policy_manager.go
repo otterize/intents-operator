@@ -73,7 +73,7 @@ func (c *PolicyManagerImpl) DeleteAll(
 	clientIntents *v1alpha3.ClientIntents,
 ) error {
 	clientServiceIdentity := clientIntents.ToServiceIdentity()
-	clientFormattedIdentity := clientServiceIdentity.GetFormattedOtterizeIdentity()
+	clientFormattedIdentity := clientServiceIdentity.GetFormattedOtterizeIdentityWithoutKind()
 
 	var existingPolicies v1beta1.AuthorizationPolicyList
 	err := c.client.List(ctx,
@@ -102,7 +102,7 @@ func (c *PolicyManagerImpl) Create(
 	var existingPolicies v1beta1.AuthorizationPolicyList
 	err := c.client.List(ctx,
 		&existingPolicies,
-		client.MatchingLabels{v1alpha3.OtterizeIstioClientAnnotationKey: clientServiceIdentity.GetFormattedOtterizeIdentity()})
+		client.MatchingLabels{v1alpha3.OtterizeIstioClientAnnotationKey: clientServiceIdentity.GetFormattedOtterizeIdentityWithoutKind()})
 	if err != nil {
 		c.recorder.RecordWarningEventf(clientIntents, ReasonGettingIstioPolicyFailed, "Could not get Istio policies: %s", err.Error())
 		return errors.Wrap(err)
@@ -475,8 +475,8 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 	serverIdentity := intent.ToServiceIdentity(clientIntents.Namespace)
 
 	serverNamespace := intent.GetTargetServerNamespace(clientIntents.Namespace)
-	formattedTargetServer := serverIdentity.GetFormattedOtterizeIdentity()
-	clientFormattedIdentity := clientIdentity.GetFormattedOtterizeIdentity()
+	formattedTargetServer := serverIdentity.GetFormattedOtterizeIdentityWithoutKind()
+	clientFormattedIdentity := clientIdentity.GetFormattedOtterizeIdentityWithoutKind()
 
 	var ruleTo []*v1beta1security.Rule_To
 	if intent.Type == v1alpha3.IntentTypeHTTP {

@@ -40,7 +40,7 @@ func UpdateOtterizeAccessLabels(pod *v1.Pod, serviceIdentity serviceidentity.Ser
 	for k, v := range otterizeAccessLabels {
 		pod.Labels[k] = v
 	}
-	pod.Labels[OtterizeClientLabelKey] = serviceIdentity.GetFormattedOtterizeIdentity()
+	pod.Labels[OtterizeClientLabelKey] = serviceIdentity.GetFormattedOtterizeIdentityWithoutKind()
 	return pod
 }
 
@@ -103,7 +103,7 @@ func GetOtterizeLabelsFromPod(pod *v1.Pod) map[string]string {
 func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient client.Client, identity serviceidentity.ServiceIdentity) (map[string]string, bool, error) {
 	// This is here for backwards compatibility
 	if identity.Kind == "" || identity.Kind == serviceidentity.KindOtterizeLegacy {
-		return map[string]string{OtterizeServiceLabelKey: identity.GetFormattedOtterizeIdentity()}, true, nil
+		return map[string]string{OtterizeServiceLabelKey: identity.GetFormattedOtterizeIdentityWithoutKind()}, true, nil
 	}
 
 	if identity.Kind == serviceidentity.KindService {
@@ -123,5 +123,5 @@ func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient 
 
 	// This should be replaced with a logic that gets the pod owners and uses its labelsSelector (for known kinds)
 	return map[string]string{OtterizeOwnerKindLabelKey: identity.Kind,
-		OtterizeServiceLabelKey: identity.GetFormattedOtterizeIdentity()}, true, nil
+		OtterizeServiceLabelKey: identity.GetFormattedOtterizeIdentityWithoutKind()}, true, nil
 }

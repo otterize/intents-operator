@@ -344,6 +344,12 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		if !ok {
 			continue
 		}
+		matchLabels := client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: serverLabel}
+		// only act on pods affected by Otterize
+		kindLabel, ok := pod.Labels[v1alpha3.OtterizeOwnerKindLabelKey]
+		if ok {
+			matchLabels[v1alpha3.OtterizeOwnerKindLabelKey] = kindLabel
+		}
 
 		netpolList := &v1.NetworkPolicyList{}
 

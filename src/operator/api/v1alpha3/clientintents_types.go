@@ -523,7 +523,7 @@ func (in *ClientIntents) IsServerMissingSidecar(intent Intent) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
-	serverIdentity := intent.ToServiceIdentity(in.Namespace).GetFormattedOtterizeIdentity()
+	serverIdentity := intent.ToServiceIdentity(in.Namespace).GetFormattedOtterizeIdentityWithoutKind()
 	return serversSet.Has(serverIdentity), nil
 }
 
@@ -751,7 +751,7 @@ func (in *ClientIntents) BuildPodLabelSelector() (labels.Selector, error) {
 			OtterizeServiceLabelKey,
 			// Since all pods are also labeled with their server identity, we can use the Otterize server label
 			// To find all pods for this specific service
-			in.ToServiceIdentity().GetFormattedOtterizeIdentity()))
+			in.ToServiceIdentity().GetFormattedOtterizeIdentityWithoutKind()))
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}

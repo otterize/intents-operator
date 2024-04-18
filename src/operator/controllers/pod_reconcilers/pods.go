@@ -144,7 +144,7 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 	}
 
 	for _, clientIntents := range intentsList.Items {
-		err = p.istioPolicyAdmin.UpdateServerSidecar(ctx, &clientIntents, serviceID.GetFormattedOtterizeIdentity(), missingSideCar)
+		err = p.istioPolicyAdmin.UpdateServerSidecar(ctx, &clientIntents, serviceID.GetFormattedOtterizeIdentityWithoutKind(), missingSideCar)
 		if err != nil {
 			return errors.Wrap(err)
 		}

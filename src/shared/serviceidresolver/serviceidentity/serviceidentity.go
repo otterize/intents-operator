@@ -25,19 +25,15 @@ type ServiceIdentity struct {
 const KindService = "Service"
 const KindOtterizeLegacy = "OttrLegacy"
 
-func (si *ServiceIdentity) GetFormattedOtterizeIdentity() string {
-	return GetFormattedOtterizeIdentity(si.Name, si.Namespace)
+func (si *ServiceIdentity) GetFormattedOtterizeIdentityWithoutKind() string {
+	return getFormattedOtterizeIdentity(si.Name, si.Namespace)
 }
 
 func (si *ServiceIdentity) GetFormattedOtterizeIdentityWithKind() string {
 	if si.Kind == "" || si.Kind == KindOtterizeLegacy {
-		return GetFormattedOtterizeIdentity(si.Name, si.Namespace)
+		return getFormattedOtterizeIdentity(si.Name, si.Namespace)
 	}
-	return GetFormattedOtterizeIdentityWithKind(si.Name, si.Namespace, si.Kind)
-}
-
-func (si *ServiceIdentity) GetFormattedOtterizeIdentityWithoutKind() string {
-	return GetFormattedOtterizeIdentity(si.Name, si.Namespace)
+	return getFormattedOtterizeIdentityWithKind(si.Name, si.Namespace, si.Kind)
 }
 
 func (si *ServiceIdentity) GetName() string {
@@ -52,10 +48,10 @@ func (si *ServiceIdentity) String() string {
 	return fmt.Sprintf("%s/%s/%s", si.Kind, si.Namespace, si.Name)
 }
 
-// GetFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)
+// getFormattedOtterizeIdentity truncates names and namespaces to a 20 char len string (if required)
 // It also adds a short md5 hash of the full name+ns string and returns the formatted string
 // This is due to Kubernetes' limit on 63 char label keys/values
-func GetFormattedOtterizeIdentity(name, ns string) string {
+func getFormattedOtterizeIdentity(name, ns string) string {
 	// Get MD5 for full length "name-namespace" string
 	hash := md5.Sum([]byte(fmt.Sprintf("%s-%s", name, ns)))
 
@@ -75,7 +71,7 @@ func GetFormattedOtterizeIdentity(name, ns string) string {
 
 }
 
-func GetFormattedOtterizeIdentityWithKind(name, ns, kind string) string {
+func getFormattedOtterizeIdentityWithKind(name, ns, kind string) string {
 	// Get MD5 for full length "name-namespace" string
 	hash := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", name, ns, kind)))
 
@@ -97,12 +93,4 @@ func GetFormattedOtterizeIdentityWithKind(name, ns, kind string) string {
 
 	return fmt.Sprintf("%s-%s-%s-%s", name, ns, strings.ToLower(kind), hashSuffix)
 
-}
-
-func NewFromPodOwner(podOwner client.Object) *ServiceIdentity {
-	return &ServiceIdentity{
-		Name:      podOwner.GetName(),
-		Namespace: podOwner.GetNamespace(),
-		Kind:      podOwner.GetObjectKind().GroupVersionKind().Kind,
-	}
 }
