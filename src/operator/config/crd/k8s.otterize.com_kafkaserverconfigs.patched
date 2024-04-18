@@ -142,8 +142,6 @@ spec:
                   type: boolean
                 service:
                   properties:
-                    group:
-                      type: string
                     kind:
                       type: string
                     name:

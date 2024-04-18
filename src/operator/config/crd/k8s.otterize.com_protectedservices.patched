@@ -87,8 +87,6 @@ spec:
             spec:
               description: ProtectedServiceSpec defines the desired state of ProtectedService
               properties:
-                group:
-                  type: string
                 kind:
                   type: string
                 name:
