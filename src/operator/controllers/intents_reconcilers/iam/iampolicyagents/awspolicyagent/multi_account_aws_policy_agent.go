@@ -31,11 +31,11 @@ func (m *MultiaccountAWSPolicyAgent) AppliesOnPod(pod *corev1.Pod) bool {
 }
 
 func (m *MultiaccountAWSPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent, pod corev1.Pod) error {
-	accountId, found := multi_account_aws_agent.AccountFromPod(&pod)
-	if !found {
-		return errors.New("AWS account must be specified on pod")
+	agent, err := m.getAgentForPod(&pod)
+	if err != nil {
+		return errors.Wrap(err)
 	}
-	return m.agents[accountId].AddRolePolicyFromIntents(ctx, namespace, accountName, intentsServiceName, intents, pod)
+	return agent.AddRolePolicyFromIntents(ctx, namespace, accountName, intentsServiceName, intents, pod)
 }
 
 func (m *MultiaccountAWSPolicyAgent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev1alpha3.ClientIntents) error {
@@ -47,4 +47,16 @@ func (m *MultiaccountAWSPolicyAgent) DeleteRolePolicyFromIntents(ctx context.Con
 		}
 	}
 	return nil
+}
+
+func (m *MultiaccountAWSPolicyAgent) getAgentForPod(pod *corev1.Pod) (*Agent, error) {
+	accountId, found := multi_account_aws_agent.AccountFromPod(pod)
+	if !found {
+		return nil, errors.New("AWS account must be specified on pod")
+	}
+	agent, ok := m.agents[accountId]
+	if !ok {
+		return nil, errors.Errorf("AWS account ID '%s' is not configured", accountId)
+	}
+	return agent, nil
 }
