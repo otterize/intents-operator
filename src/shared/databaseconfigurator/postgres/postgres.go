@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	"github.com/jackc/pgx/v5"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
@@ -86,21 +87,15 @@ func NewPostgresConfigurator(pgServerConfSpec otterizev1alpha3.PostgreSQLServerC
 	}
 }
 
-func (p *PostgresConfigurator) ConfigureDBFromIntents(
-	ctx context.Context,
-	workloadName string,
-	namespace string,
-	intents []otterizev1alpha3.Intent,
-	permissionChange otterizev1alpha3.DBPermissionChange) error {
-
+func (p *PostgresConfigurator) ConfigureDatabasePermissions(ctx context.Context, workloadName string, namespace string, permissionChange otterizev1alpha3.DBPermissionChange, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error {
 	if err := p.SetConnection(ctx, PGDefaultDatabase); err != nil {
+		pgErr, ok := TranslatePostgresConnectionError(err)
+		if ok {
+			return errors.Wrap(fmt.Errorf(pgErr))
+		}
 		return errors.Wrap(err)
 	}
 
-	dbnameToDatabaseResources, err := p.ExtractDBNameToDatabaseResourcesFromIntents(ctx, intents)
-	if err != nil {
-		return errors.Wrap(err)
-	}
 	clusterID, err := clusterutils.GetClusterUID(ctx)
 	if err != nil {
 		return err
@@ -169,10 +164,6 @@ func (p *PostgresConfigurator) SetConnection(ctx context.Context, databaseName s
 	connectionString := p.FormatConnectionString(databaseName)
 	conn, err := pgx.Connect(ctx, connectionString)
 	if err != nil {
-		pgErr, ok := TranslatePostgresConnectionError(err)
-		if ok {
-			return errors.Wrap(fmt.Errorf(pgErr))
-		}
 		return errors.Wrap(err)
 	}
 	p.setConnMutex.Lock()
@@ -187,37 +178,6 @@ func (p *PostgresConfigurator) SetConnection(ctx context.Context, databaseName s
 	}
 	p.conn = conn
 	return nil
-}
-
-func (p *PostgresConfigurator) ExtractDBNameToDatabaseResourcesFromIntents(ctx context.Context, intents []otterizev1alpha3.Intent) (map[string][]otterizev1alpha3.DatabaseResource, error) {
-	scopeToDatabaseResources := make(map[string][]otterizev1alpha3.DatabaseResource)
-	for _, intent := range intents {
-		for _, dbResource := range intent.DatabaseResources {
-			if _, ok := scopeToDatabaseResources[dbResource.DatabaseName]; !ok {
-				scopeToDatabaseResources[dbResource.DatabaseName] = []otterizev1alpha3.DatabaseResource{dbResource}
-				continue
-			}
-			// TODO: Smart merge instead of just adding
-			resources := scopeToDatabaseResources[dbResource.DatabaseName]
-			scopeToDatabaseResources[dbResource.DatabaseName] = append(resources, dbResource)
-		}
-	}
-	rows, err := p.conn.Query(ctx, PGSelectAllDatabasesWithConnectPermissions)
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var databaseName string
-		if err := rows.Scan(&databaseName); err != nil {
-			return nil, errors.Wrap(err)
-		}
-		if _, exists := scopeToDatabaseResources[databaseName]; exists {
-			continue
-		}
-		scopeToDatabaseResources[databaseName] = []otterizev1alpha3.DatabaseResource{}
-	}
-	return scopeToDatabaseResources, nil
 }
 
 func (p *PostgresConfigurator) SQLBatchFromDBResources(ctx context.Context, username string, dbResources []otterizev1alpha3.DatabaseResource, change otterizev1alpha3.DBPermissionChange) (pgx.Batch, error) {
@@ -437,7 +397,6 @@ func (p *PostgresConfigurator) QueueRevokePermissionsByDatabaseNameStatements(ct
 	}
 	defer rows.Close()
 
-	// Grant privileges on all tables/sequences in every schema
 	for rows.Next() {
 		var schemaName string
 		if err := rows.Scan(&schemaName); err != nil {
@@ -474,4 +433,74 @@ func (p *PostgresConfigurator) ValidateUserExists(ctx context.Context, user stri
 	defer row.Close() // "row" either holds 1 or 0 rows, and we must call Close() before reusing the connection again
 
 	return row.Next(), nil
+}
+
+func (p *PostgresConfigurator) queryAllowedDatabases(ctx context.Context) ([]string, error) {
+	allowedDatabases := make([]string, 0)
+	rows, err := p.conn.Query(ctx, PGSelectAllDatabasesWithConnectPermissions)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var databaseName string
+		if err := rows.Scan(&databaseName); err != nil {
+			return nil, errors.Wrap(err)
+		}
+		allowedDatabases = append(allowedDatabases, databaseName)
+	}
+	return allowedDatabases, nil
+}
+
+func (p *PostgresConfigurator) RevokePermissionsFromInstance(ctx context.Context, pgUsername string, instanceName string, clientIntents *otterizev1alpha3.ClientIntents) error {
+	allAllowedDatabases, err := p.queryAllowedDatabases(ctx)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	databasesToRevoke := getDatabasesToRevoke(instanceName, clientIntents, allAllowedDatabases)
+	revokeBatch := &pgx.Batch{}
+	for _, databaseName := range databasesToRevoke {
+		err := p.SetConnection(ctx, databaseName)
+		if err != nil && IsInvalidAuthorizationError(err) {
+			// Probably an admin database that we're failing to connect to or something along those lines
+			// (like 'cloudsqladmin' database in managed Google cloud SQL)
+			continue
+		}
+		if err != nil {
+			pgErr, ok := TranslatePostgresConnectionError(err)
+			if ok {
+				return errors.Wrap(fmt.Errorf(pgErr))
+			}
+			return errors.Wrap(err)
+		}
+
+		if err := p.QueueRevokePermissionsByDatabaseNameStatements(ctx, revokeBatch, pgUsername); err != nil {
+			return errors.Wrap(err)
+		}
+		if err := p.SendBatch(ctx, revokeBatch); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+// getDatabasesToRevoke returns a list of all database names with connection allowed from a database instance minus
+// all database names that appear in the clientIntents
+func getDatabasesToRevoke(instanceName string, clientIntents *otterizev1alpha3.ClientIntents, allAllowedDatabases []string) []string {
+	dbIntents := clientIntents.GetDatabaseIntents()
+	intentDBNames := goset.NewSet[string]()
+	for _, intent := range dbIntents {
+		// Only get database names for instance `instanceName` as we're revoking instance by instance
+		if intent.Name == instanceName && intent.DatabaseResources != nil {
+			intentDBNames.Add(lo.Map(intent.DatabaseResources, func(resource otterizev1alpha3.DatabaseResource, _ int) string {
+				return resource.DatabaseName
+			})...)
+		}
+	}
+
+	return lo.Filter(allAllowedDatabases, func(name string, _ int) bool {
+		return !intentDBNames.Contains(name)
+	})
 }
