@@ -66,7 +66,7 @@ const (
 	AWSRolesAnywhereSPIFFETrustDomainKey        = "rolesanywhere-spiffe-trust-domain"
 	AWSRolesAnywhereClusterNameKey              = "rolesanywhere-cluster-name"
 	AWSRolesAnywhereCertDirKey                  = "rolesanywhere-cert-dir"
-	AWSRolesAnywhereCertDirDefault              = "/aws-config/credentials"
+	AWSRolesAnywhereCertDirDefault              = "/aws-config"
 	AWSRolesAnywherePrivKeyFilenameKey          = "rolesanywhere-priv-key-filename"
 	AWSRolesAnywhereCertFilenameKey             = "rolesanywhere-cert-filename"
 	AWSRolesAnywherePrivKeyFilenameDefault      = "tls.key"
