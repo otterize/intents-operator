@@ -15,7 +15,7 @@ type AWSAgentPolicySuite struct {
 func (s *AWSAgentPolicySuite) Test_templateResourceName() {
 	// Given
 	agent := &Agent{
-		Agent: &awsagent.Agent{
+		agent: &awsagent.Agent{
 			Region:    "test-region",
 			AccountID: "test-accountid",
 		},
@@ -29,7 +29,7 @@ func (s *AWSAgentPolicySuite) Test_templateResourceName() {
 func (a *AWSAgentPolicySuite) Test_createPolicyFromIntents_TemplateResourceName() {
 	// Given
 	agent := &Agent{
-		Agent: &awsagent.Agent{
+		agent: &awsagent.Agent{
 			Region:    "test-region",
 			AccountID: "test-accountid",
 		},

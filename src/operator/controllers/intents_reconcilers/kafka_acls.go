@@ -213,7 +213,7 @@ func (r *KafkaACLReconciler) isIntentsForTheIntentsOperator(ctx context.Context,
 }
 
 func (r *KafkaACLReconciler) applyAcls(ctx context.Context, logger *logrus.Entry, intents *otterizev1alpha3.ClientIntents) (ctrl.Result, error) {
-	logger.Info("Applying new ACLs")
+	logger.Debug("Applying new ACLs")
 	serverCount, err := r.applyACLs(ctx, intents)
 	if err != nil {
 		r.RecordWarningEventf(intents, ReasonApplyingKafkaACLsFailed, "could not apply Kafka ACLs: %s", err.Error())

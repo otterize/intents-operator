@@ -11,6 +11,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
+	corev1 "k8s.io/api/core/v1"
 	"regexp"
 	"strings"
 )
@@ -51,7 +52,7 @@ func (a *Agent) getIntentScope(intent otterizev1alpha3.Intent) (string, error) {
 	return fullScope, nil
 }
 
-func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
+func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, _ string, intentsServiceName string, intents []otterizev1alpha3.Intent, _ corev1.Pod) error {
 	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, namespace, intentsServiceName)
 	if err != nil {
 		return errors.Wrap(err)

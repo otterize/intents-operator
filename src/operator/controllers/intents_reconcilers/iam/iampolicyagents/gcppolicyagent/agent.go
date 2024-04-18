@@ -5,6 +5,7 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type Agent struct {
@@ -19,7 +20,7 @@ func (a *Agent) IntentType() otterizev1alpha3.IntentType {
 	return otterizev1alpha3.IntentTypeGCP
 }
 
-func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
+func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent, _ corev1.Pod) error {
 	return a.ApplyIAMPartialPolicy(ctx, namespace, accountName, intentsServiceName, intents)
 }
 
