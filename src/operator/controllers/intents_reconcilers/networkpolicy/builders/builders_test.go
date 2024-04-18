@@ -37,9 +37,9 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 	serviceName := "test-client"
 	serverName := "test-server"
 	serverNamespace := testServerNamespace
-	formattedServer := (&serviceidentity.ServiceIdentity{Name: serverName, Namespace: serverNamespace}).GetFormattedOtterizeIdentity()
-	formattedServerService := (&serviceidentity.ServiceIdentity{Name: serverName, Namespace: serverNamespace, Kind: serviceidentity.KindService}).GetFormattedOtterizeIdentity()
-	formattedClient := (&serviceidentity.ServiceIdentity{Name: serviceName, Namespace: testNamespace}).GetFormattedOtterizeIdentity()
+	formattedServer := (&serviceidentity.ServiceIdentity{Name: serverName, Namespace: serverNamespace}).GetFormattedOtterizeIdentityWithKind()
+	formattedServerService := (&serviceidentity.ServiceIdentity{Name: serverName, Namespace: serverNamespace, Kind: serviceidentity.KindService}).GetFormattedOtterizeIdentityWithKind()
+	formattedClient := (&serviceidentity.ServiceIdentity{Name: serviceName, Namespace: testNamespace}).GetFormattedOtterizeIdentityWithKind()
 	namespacedName := types.NamespacedName{
 		Namespace: testNamespace,
 		Name:      "client-intents",

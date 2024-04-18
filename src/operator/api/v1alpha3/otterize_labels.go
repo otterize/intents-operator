@@ -1,8 +1,15 @@
 package v1alpha3
 
 import (
+	"context"
+	"fmt"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
+	"golang.org/x/exp/maps"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
 
@@ -91,4 +98,30 @@ func GetOtterizeLabelsFromPod(pod *v1.Pod) map[string]string {
 	}
 
 	return otterizeLabels
+}
+
+func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient client.Client, identity serviceidentity.ServiceIdentity) (map[string]string, bool, error) {
+	// This is here for backwards compatibility
+	if identity.Kind == "" || identity.Kind == serviceidentity.KindOtterizeLegacy {
+		return map[string]string{OtterizeServiceLabelKey: identity.GetFormattedOtterizeIdentity()}, true, nil
+	}
+
+	if identity.Kind == serviceidentity.KindService {
+		svc := v1.Service{}
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: identity.Name, Namespace: identity.Namespace}, &svc)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil, false, nil
+			}
+			return nil, false, errors.Wrap(err)
+		}
+		if svc.Spec.Selector == nil {
+			return nil, false, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
+		}
+		return maps.Clone(svc.Spec.Selector), true, nil
+	}
+
+	// This should be replaced with a logic that gets the pod owners and uses its labelsSelector (for known kinds)
+	return map[string]string{OtterizeOwnerKindLabelKey: identity.Kind,
+		OtterizeServiceLabelKey: identity.GetFormattedOtterizeIdentity()}, true, nil
 }

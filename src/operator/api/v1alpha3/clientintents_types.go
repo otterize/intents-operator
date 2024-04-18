@@ -380,7 +380,7 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 		targetServiceIdentity := intent.ToServiceIdentity(requestNamespace)
 		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentityWithKind())
 		if intent.IsTargetServerKubernetesService() {
-			labelKey = fmt.Sprintf(OtterizeSvcAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentity())
+			labelKey = fmt.Sprintf(OtterizeSvcAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentityWithKind())
 		}
 		otterizeAccessLabels[labelKey] = "true"
 	}

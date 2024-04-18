@@ -26,9 +26,6 @@ const KindService = "Service"
 const KindOtterizeLegacy = "OttrLegacy"
 
 func (si *ServiceIdentity) GetFormattedOtterizeIdentity() string {
-	if si.Kind == KindService {
-		return GetFormattedOtterizeIdentityWithKind(si.Name, si.Namespace, si.Kind)
-	}
 	return GetFormattedOtterizeIdentity(si.Name, si.Namespace)
 }
 

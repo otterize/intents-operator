@@ -119,7 +119,7 @@ func (v *IntentsValidatorV1alpha3) validateNoDuplicateClients(
 	desiredClientName := intentsObj.GetServiceName()
 	for _, existingIntent := range intentsList.Items {
 		// Deny admission if intents already exist for this client, and it's not the same object being updated
-		if existingIntent.GetServiceName() == desiredClientName && existingIntent.Name != intentsObj.Name {
+		if existingIntent.GetServiceName() == desiredClientName && existingIntent.Name != intentsObj.Name && existingIntent.GetClientKind() == intentsObj.GetClientKind() {
 			return &field.Error{
 				Type:     field.ErrorTypeDuplicate,
 				Field:    "name",
@@ -134,6 +134,14 @@ func (v *IntentsValidatorV1alpha3) validateNoDuplicateClients(
 
 // validateSpec
 func (v *IntentsValidatorV1alpha3) validateSpec(intents *otterizev1alpha3.ClientIntents) *field.Error {
+	// validate that if kind is specified, it starts with an uppercase letter
+	if kind := intents.Spec.Service.Kind; kind != "" && strings.ToUpper(string(kind[0])) != string(kind[0]) {
+		return &field.Error{
+			Type:   field.ErrorTypeInvalid,
+			Field:  "kind",
+			Detail: "kubernetes kinds must start with an uppercase letter",
+		}
+	}
 	for _, intent := range intents.GetCallsList() {
 		if len(intent.Name) == 0 && intent.Type != otterizev1alpha3.IntentTypeInternet {
 			return &field.Error{

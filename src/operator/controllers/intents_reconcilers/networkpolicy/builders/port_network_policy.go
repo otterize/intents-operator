@@ -67,7 +67,7 @@ func (r *PortNetworkPolicyReconciler) buildIngressRulesFromEffectivePolicy(ep ef
 					PodSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							fmt.Sprintf(
-								otterizev1alpha3.OtterizeSvcAccessLabelKey, ep.Service.GetFormattedOtterizeIdentity()): "true",
+								otterizev1alpha3.OtterizeSvcAccessLabelKey, ep.Service.GetFormattedOtterizeIdentityWithKind()): "true",
 						},
 					},
 					NamespaceSelector: &metav1.LabelSelector{

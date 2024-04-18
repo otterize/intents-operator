@@ -305,7 +305,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 					continue
 				}
 				service := intent.ToServiceIdentity(intents.Namespace)
-				res = append(res, service.GetFormattedOtterizeIdentity())
+				res = append(res, service.GetFormattedOtterizeIdentityWithKind())
 			}
 
 			return res

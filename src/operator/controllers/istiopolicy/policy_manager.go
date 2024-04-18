@@ -351,7 +351,13 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 			continue
 		}
 
-		newPolicy := c.generateAuthorizationPolicy(clientIntents, intent, clientServiceAccount)
+		newPolicy, shouldCreate, err := c.generateAuthorizationPolicy(ctx, clientIntents, intent, clientServiceAccount)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+		if !shouldCreate {
+			continue
+		}
 		existingPolicy, found := c.findPolicy(existingPolicies, newPolicy)
 		if found {
 			err := c.updatePolicy(ctx, existingPolicy, newPolicy)
@@ -458,10 +464,11 @@ func compareHTTPRules(existingRules []*v1beta1security.Rule_To, newRules []*v1be
 }
 
 func (c *PolicyManagerImpl) generateAuthorizationPolicy(
+	ctx context.Context,
 	clientIntents *v1alpha3.ClientIntents,
 	intent v1alpha3.Intent,
 	clientServiceAccountName string,
-) *v1beta1.AuthorizationPolicy {
+) (*v1beta1.AuthorizationPolicy, bool, error) {
 	policyName := c.getPolicyName(clientIntents, intent)
 	logrus.Debugf("Creating Istio policy %s for intent %s", policyName, intent.GetTargetServerName())
 	clientIdentity := clientIntents.ToServiceIdentity()
@@ -482,6 +489,14 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 		}
 	}
 
+	podSelector, shouldCreate, err := v1alpha3.ServiceIdentityToLabelsForWorkloadSelection(ctx, c.client, *serverIdentity)
+	if err != nil {
+		return nil, false, errors.Wrap(err)
+	}
+	if !shouldCreate {
+		return nil, false, nil
+	}
+
 	source := fmt.Sprintf("cluster.local/ns/%s/sa/%s", clientIntents.Namespace, clientServiceAccountName)
 	newPolicy := &v1beta1.AuthorizationPolicy{
 		ObjectMeta: v1.ObjectMeta{
@@ -494,9 +509,7 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 		},
 		Spec: v1beta1security.AuthorizationPolicy{
 			Selector: &v1beta1type.WorkloadSelector{
-				MatchLabels: map[string]string{
-					v1alpha3.OtterizeServiceLabelKey: formattedTargetServer,
-				},
+				MatchLabels: podSelector,
 			},
 			Action: v1beta1security.AuthorizationPolicy_ALLOW,
 			Rules: []*v1beta1security.Rule{
@@ -516,7 +529,8 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 		},
 	}
 
-	return newPolicy
+	return newPolicy, true, nil
+
 }
 
 func (c *PolicyManagerImpl) intentsHTTPResourceToIstioOperations(resources []v1alpha3.HTTPResource) []*v1beta1security.Operation {
