@@ -12,7 +12,7 @@ COPY . .
 ARG TARGETOS
 ARG TARGETARCH
 RUN go test -v ./...
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -a -o manager .
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -a -o manager .
 
 # add version file
 ARG VERSION
