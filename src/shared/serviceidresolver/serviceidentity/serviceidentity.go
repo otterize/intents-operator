@@ -75,13 +75,13 @@ func getFormattedOtterizeIdentityWithKind(name, ns, kind string) string {
 	// Get MD5 for full length "name-namespace" string
 	hash := md5.Sum([]byte(fmt.Sprintf("%s-%s-%s", name, ns, kind)))
 
-	// Truncate name and namespace to 20 chars each
-	if len(name) > MaxOtterizeNameLength {
-		name = name[:MaxOtterizeNameLength]
+	// Truncate name and namespace to 19 chars each
+	if len(name) > MaxOtterizeNameLength-1 {
+		name = name[:MaxOtterizeNameLength-1]
 	}
 
-	if len(ns) > MaxNamespaceLength {
-		ns = ns[:MaxNamespaceLength]
+	if len(ns) > MaxNamespaceLength-1 {
+		ns = ns[:MaxNamespaceLength-1]
 	}
 
 	if len(kind) > 5 {
