@@ -36,7 +36,7 @@ func (a *Agent) generateFederatedIdentityCredentialsName(namespace string, accou
 	return agentutils.TruncateHashName(fullName, maxFederatedIdentityLength)
 }
 
-var ErrUserIdentityNotFound = errors.New("user assigned identity not found")
+var ErrUserIdentityNotFound = errors.NewCustomError("user assigned identity not found")
 
 func (a *Agent) FindUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
 	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)

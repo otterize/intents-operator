@@ -420,6 +420,9 @@ func (r *Reconciler) removeNetworkPolicy(ctx context.Context, networkPolicy v1.N
 		return errors.Wrap(err)
 	}
 	err = r.Delete(ctx, &networkPolicy)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return errors.Wrap(err)
 	}
