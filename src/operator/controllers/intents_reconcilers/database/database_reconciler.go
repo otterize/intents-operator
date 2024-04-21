@@ -28,6 +28,7 @@ type DatabaseReconciler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
+	clusterID *string
 }
 
 func NewDatabaseReconciler(
@@ -73,6 +74,13 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	clusterID, err := r.getClusterID(ctx)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+	username := clusterutils.BuildHashedUsername(clientIntents.GetServiceName(), clientIntents.Namespace, clusterID)
+	pgUsername := clusterutils.KubernetesToPostgresName(username)
+
 	for databaseInstance, intents := range dbInstanceToIntents {
 		pgServerConf, err := findMatchingPGServerConfForDBInstance(databaseInstance, pgServerConfigs)
 		if err != nil {
@@ -82,8 +90,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 		pgConfigurator := postgres.NewPostgresConfigurator(pgServerConf.Spec)
 		dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(intents)
-
-		err = pgConfigurator.ConfigureDatabasePermissions(ctx, clientIntents.GetServiceName(), clientIntents.Namespace, action, dbnameToDatabaseResources)
+		err = pgConfigurator.ConfigureDatabasePermissions(ctx, pgUsername, action, dbnameToDatabaseResources)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
 				"Failed applying database clientIntents: %s", err.Error())
@@ -93,7 +100,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	r.RecordNormalEventf(clientIntents, ReasonAppliedDatabaseIntents, "Database clientIntents reconcile complete, reconciled %d intent calls", len(dbIntents))
 
-	if err := r.cleanExcessPermissions(ctx, clientIntents, pgServerConfigs); err != nil {
+	if err := r.cleanExcessPermissions(ctx, pgUsername, clientIntents, pgServerConfigs); err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
@@ -105,16 +112,10 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 // This is only used when permissions might have been completely removed in a ClientIntents edit operation
 func (r *DatabaseReconciler) cleanExcessPermissions(
 	ctx context.Context,
+	pgUsername string,
 	clientIntents *otterizev1alpha3.ClientIntents,
 	pgServerConfigs otterizev1alpha3.PostgreSQLServerConfigList) error {
 
-	clusterID, err := clusterutils.GetClusterUID(ctx)
-	if err != nil {
-		return err
-	}
-
-	username := clusterutils.BuildHashedUsername(clientIntents.GetServiceName(), clientIntents.Namespace, clusterID)
-	pgUsername := clusterutils.KubernetesToPostgresName(username)
 	for _, config := range pgServerConfigs.Items {
 		pgConfigurator := postgres.NewPostgresConfigurator(config.Spec)
 		if err := pgConfigurator.SetConnection(ctx, postgres.PGDefaultDatabase); err != nil {
@@ -141,6 +142,18 @@ func (r *DatabaseReconciler) cleanExcessPermissions(
 	}
 
 	return nil
+}
+
+func (r *DatabaseReconciler) getClusterID(ctx context.Context) (string, error) {
+	if r.clusterID != nil {
+		return *r.clusterID, nil
+	}
+	clusterID, err := clusterutils.GetClusterUID(ctx)
+	if err != nil {
+		return "", errors.Wrap(err)
+	}
+	r.clusterID = &clusterID
+	return clusterID, nil
 }
 
 func getDBNameToDatabaseResourcesFromIntents(intents []otterizev1alpha3.Intent) map[string][]otterizev1alpha3.DatabaseResource {

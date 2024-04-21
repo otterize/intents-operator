@@ -6,7 +6,6 @@ import (
 	"github.com/amit7itz/goset"
 	"github.com/jackc/pgx/v5"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -87,7 +86,7 @@ func NewPostgresConfigurator(pgServerConfSpec otterizev1alpha3.PostgreSQLServerC
 	}
 }
 
-func (p *PostgresConfigurator) ConfigureDatabasePermissions(ctx context.Context, workloadName string, namespace string, permissionChange otterizev1alpha3.DBPermissionChange, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error {
+func (p *PostgresConfigurator) ConfigureDatabasePermissions(ctx context.Context, pgUsername string, permissionChange otterizev1alpha3.DBPermissionChange, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error {
 	if err := p.SetConnection(ctx, PGDefaultDatabase); err != nil {
 		pgErr, ok := TranslatePostgresConnectionError(err)
 		if ok {
@@ -96,22 +95,14 @@ func (p *PostgresConfigurator) ConfigureDatabasePermissions(ctx context.Context,
 		return errors.Wrap(err)
 	}
 
-	clusterID, err := clusterutils.GetClusterUID(ctx)
-	if err != nil {
-		return err
-	}
-	username := clusterutils.BuildHashedUsername(workloadName, namespace, clusterID)
-	pgUsername := clusterutils.KubernetesToPostgresName(username)
 	exists, err := p.ValidateUserExists(ctx, pgUsername)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
 	if !exists {
-		logrus.WithField("username", pgUsername).Info(
-			"Waiting for Postgres user to be created before configuring permissions")
-		return errors.Wrap(fmt.Errorf(
-			"user for workload %s.%s doesn't exist in DB yet, cannot configure permissions", workloadName, namespace))
+		logrus.Infof("User %s does not exist, waiting for it to be created by credentials operator", pgUsername)
+		return errors.Wrap(errors.New("user does not exist in the database"))
 	}
 
 	for dbname, dbResources := range dbnameToDatabaseResources {
