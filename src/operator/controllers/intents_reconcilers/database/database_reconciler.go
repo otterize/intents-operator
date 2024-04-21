@@ -3,7 +3,6 @@ package database
 import (
 	"context"
 	"fmt"
-	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/postgres"
@@ -99,20 +98,6 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	return ctrl.Result{}, nil
-}
-
-// getDBInstanceToDBNames maps all different database names from the client intents to a database instance
-func getDBInstanceToDBNames(dbInstanceToIntents map[string][]otterizev1alpha3.Intent) map[string]*goset.Set[string] {
-	instanceToDatabaseNames := make(map[string]*goset.Set[string])
-	for instance, intents := range dbInstanceToIntents {
-		instanceToDatabaseNames[instance] = &goset.Set[string]{}
-		for _, intent := range intents {
-			for _, resource := range intent.DatabaseResources {
-				instanceToDatabaseNames[instance].Add(resource.DatabaseName)
-			}
-		}
-	}
-	return instanceToDatabaseNames
 }
 
 // cleanExcessPermissions compensates for DB resources completely removed from client intents
