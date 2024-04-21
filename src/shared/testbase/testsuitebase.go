@@ -278,6 +278,8 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 			UID:                deployment.UID,
 		},
 	}
+	err = s.Mgr.GetClient().Update(context.Background(), replicaSet)
+	s.Require().NoError(err)
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		rs := &appsv1.ReplicaSet{}
