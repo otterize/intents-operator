@@ -83,34 +83,82 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 			return errors.Errorf("failed reconciling AWS role: %w", err)
 		}
 
-		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: "spiffe",
-			VolumeSource: corev1.VolumeSource{
-				CSI: &corev1.CSIVolumeSource{
-					Driver:   "spiffe.csi.cert-manager.io",
-					ReadOnly: lo.ToPtr(true),
-					VolumeAttributes: map[string]string{
-						"aws.spiffe.csi.cert-manager.io/trust-profile": *profile.ProfileArn,
-						"aws.spiffe.csi.cert-manager.io/trust-anchor":  a.agent.TrustAnchorArn,
-						"aws.spiffe.csi.cert-manager.io/role":          *role.Arn,
-						"aws.spiffe.csi.cert-manager.io/enable":        "true",
+		pod.Spec.Volumes = append(
+			pod.Spec.Volumes,
+			corev1.Volume{
+				Name: "spiffe",
+				VolumeSource: corev1.VolumeSource{
+					CSI: &corev1.CSIVolumeSource{
+						Driver:   "spiffe.csi.cert-manager.io",
+						ReadOnly: lo.ToPtr(true),
+						VolumeAttributes: map[string]string{
+							"aws.spiffe.csi.cert-manager.io/trust-profile": *profile.ProfileArn,
+							"aws.spiffe.csi.cert-manager.io/trust-anchor":  a.agent.TrustAnchorArn,
+							"aws.spiffe.csi.cert-manager.io/role":          *role.Arn,
+							"aws.spiffe.csi.cert-manager.io/enable":        "true",
+						},
 					},
 				},
 			},
-		})
+			corev1.Volume{
+				Name: "otterize-aws-credentials",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+		)
+
+		const credentialProcessPath = "/otterize/aws/rolesanywhere-credential-helper"
+		configFile := buildAWSConfigFile(
+			credentialProcessPath,
+			"/spiffe/tls.crt",
+			"/spiffe/tls.key",
+			*profile.ProfileArn,
+			*role.Arn,
+			a.agent.TrustAnchorArn,
+		)
+
+		pod.Spec.InitContainers = append(
+			pod.Spec.InitContainers,
+			corev1.Container{
+				Name:  "otterize-aws-roles-anywhere-credential-loader",
+				Image: "otterize/rolesanywhere-credential-helper:latest",
+				Command: []string{
+					"sh",
+					"-c",
+					"cp /rolesanywhere-credential-helper /mnt/rolesanywhere-credential-helper && echo '" + configFile + "' > /mnt/config",
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					corev1.VolumeMount{
+						Name:      "otterize-aws-credentials",
+						MountPath: "/mnt",
+					},
+				},
+			},
+		)
 
 		for i := range pod.Spec.Containers {
-			pod.Spec.Containers[i].VolumeMounts = append(pod.Spec.Containers[i].VolumeMounts, corev1.VolumeMount{
-				Name:      "spiffe",
-				MountPath: "/aws-config",
-				ReadOnly:  true,
-			})
-			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, corev1.EnvVar{
-				Name:  "AWS_SHARED_CREDENTIALS_FILE",
-				Value: "/aws-config/credentials",
-			})
+			pod.Spec.Containers[i].VolumeMounts = append(
+				pod.Spec.Containers[i].VolumeMounts,
+				corev1.VolumeMount{
+					Name:      "spiffe",
+					MountPath: "/spiffe",
+					ReadOnly:  true,
+				},
+				corev1.VolumeMount{
+					Name:      "otterize-aws-credentials",
+					MountPath: "/otterize/aws",
+					ReadOnly:  true,
+				},
+			)
+			pod.Spec.Containers[i].Env = append(
+				pod.Spec.Containers[i].Env,
+				corev1.EnvVar{
+					Name:  "AWS_CONFIG_FILE",
+					Value: "/otterize/aws/config",
+				},
+			)
 		}
-
 	}
 
 	return nil
@@ -239,4 +287,24 @@ func (a *Agent) OnServiceAccountTermination(ctx context.Context, serviceAccount 
 	}
 
 	return nil
+}
+
+func buildAWSConfigFile(
+	credentialProcessPath string,
+	certificatePath string,
+	privateKeyPath string,
+	profileARN string,
+	roleARN string,
+	trustAnchorARN string,
+) string {
+	return fmt.Sprintf(
+		`[default]
+		credential_process = %s credential-process --certificate %s --private-key %s --profile-arn %s --role-arn %s --trust-anchor-arn %s`,
+		credentialProcessPath,
+		certificatePath,
+		privateKeyPath,
+		profileARN,
+		roleARN,
+		trustAnchorARN,
+	)
 }
