@@ -65,10 +65,8 @@ func SetClusterUID(ctx context.Context) (string, error) {
 
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) || k8serrors.IsConflict(err) {
-			{
-				// Already created by a different component, try to run GetClusterUID again
-				return GetClusterUID(ctx)
-			}
+			// Already created by a different component, try to run GetClusterUID again
+			return GetClusterUID(ctx)
 		}
 		return "", errors.Wrap(err)
 	}
