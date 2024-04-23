@@ -6,6 +6,7 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +42,7 @@ func (s *DatabaseReconcilerTestSuite) SetupTest() {
 		s.client,
 		&runtime.Scheme{},
 	)
-
+	s.Reconciler.clusterID = lo.ToPtr("abc-def-ghi")
 	s.Recorder = record.NewFakeRecorder(100)
 	s.Reconciler.Recorder = s.Recorder
 
