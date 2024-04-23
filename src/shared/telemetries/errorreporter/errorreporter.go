@@ -79,7 +79,12 @@ func AutoNotify() {
 
 	if err := recover(); err != nil {
 		const shouldNotifySync = true
-		_ = bugsnag.Notify(errors.ErrorfWithSkip(2, "panic caught: %s", err), bugsnag.SeverityError, bugsnag.SeverityReasonHandledPanic, shouldNotifySync)
+		rawData := []any{bugsnag.SeverityError, bugsnag.SeverityReasonHandledPanic, shouldNotifySync}
+		if logrusEntry, ok := err.(*logrus.Entry); ok {
+			_ = logrus_bugsnag.SendToBugsnag(logrusEntry, rawData...)
+			return
+		}
+		_ = bugsnag.Notify(errors.ErrorfWithSkip(2, "panic caught: %s", err), rawData...)
 		panic(err)
 	}
 }

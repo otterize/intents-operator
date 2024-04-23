@@ -1,8 +1,10 @@
 package operatorconfig
 
 import (
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -62,9 +64,16 @@ const (
 	EKSClusterNameOverrideKey                   = "eks-cluster-name-override"
 	AWSRolesAnywhereTrustAnchorARNKey           = "rolesanywhere-trust-anchor-arn"
 	AWSRolesAnywhereSPIFFETrustDomainKey        = "rolesanywhere-spiffe-trust-domain"
-	AWSRolesAnywhereClusterName                 = "rolesanywhere-cluster-name"
+	AWSRolesAnywhereClusterNameKey              = "rolesanywhere-cluster-name"
+	AWSRolesAnywhereCertDirKey                  = "rolesanywhere-cert-dir"
+	AWSRolesAnywhereCertDirDefault              = "/aws-config"
+	AWSRolesAnywherePrivKeyFilenameKey          = "rolesanywhere-priv-key-filename"
+	AWSRolesAnywhereCertFilenameKey             = "rolesanywhere-cert-filename"
+	AWSRolesAnywherePrivKeyFilenameDefault      = "tls.key"
+	AWSRolesAnywhereCertFilenameDefault         = "tls.crt"
 	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
 	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"
+	AWSAccountsKey                              = "aws"
 )
 
 func init() {
@@ -84,6 +93,9 @@ func init() {
 	viper.SetDefault(EnableGCPPolicyKey, EnableGCPPolicyDefault)
 	viper.SetDefault(EnableAzurePolicyKey, EnableAzurePolicyDefault)
 	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
+	viper.SetDefault(AWSRolesAnywhereCertDirKey, AWSRolesAnywhereCertDirDefault)
+	viper.SetDefault(AWSRolesAnywherePrivKeyFilenameKey, AWSRolesAnywherePrivKeyFilenameDefault)
+	viper.SetDefault(AWSRolesAnywhereCertFilenameKey, AWSRolesAnywhereCertFilenameDefault)
 	viper.SetDefault(KafkaServerTLSCertKey, "")
 	viper.SetDefault(KafkaServerTLSKeyKey, "")
 	viper.SetDefault(KafkaServerTLSCAKey, "")
@@ -95,6 +107,30 @@ func init() {
 	viper.SetDefault(DebugLogKey, DebugLogDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
+
+	viper.AddConfigPath("/etc/otterize")
+	if err := viper.ReadInConfig(); err != nil {
+		var configFileNotFoundError viper.ConfigFileNotFoundError
+		if !errors.As(err, &configFileNotFoundError) {
+			logrus.WithError(err).Panic("Failed to read config file")
+		}
+	}
+}
+
+type AWSAccount struct {
+	RoleARN        string
+	ProfileARN     string
+	TrustAnchorARN string
+	TrustDomain    string
+}
+
+func GetRolesAnywhereAWSAccounts() []AWSAccount {
+	accts := make([]AWSAccount, 0)
+	err := viper.UnmarshalKey(AWSAccountsKey, &accts)
+	if err != nil {
+		logrus.WithError(err).Panic("Failed to unmarshal AWS accounts")
+	}
+	return accts
 }
 
 func InitCLIFlags() {

@@ -12,14 +12,17 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/rolesanywhere"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/otterize/intents-operator/src/shared/awsagent/rolesanywhere_creds"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
+	"github.com/otterize/nilable"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"strings"
 	"sync"
+	"time"
 )
 
 type IAMClient interface {
@@ -81,6 +84,7 @@ type Agent struct {
 	AccountID                        string
 	OidcURL                          string
 	ClusterName                      string
+	config                           nilable.Nilable[aws.Config]
 	RolesAnywhereEnabled             bool
 	TrustAnchorArn                   string
 	TrustDomain                      string
@@ -92,6 +96,9 @@ type Agent struct {
 }
 
 const ApplyOnPodLabel = "credentials-operator.otterize.com/create-aws-role"
+
+// ServiceAccountAWSAccountIDAnnotation is used by Otterize to indicate that this service account should result in a role in the specified AWS account.
+const ServiceAccountAWSAccountIDAnnotation = "credentials-operator.otterize.com/aws-account"
 
 type Option func(*Agent)
 
@@ -106,19 +113,35 @@ func WithSoftDeleteStrategy() Option {
 }
 
 func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
-	return pod.Labels != nil && pod.Labels[ApplyOnPodLabel] == "true"
+	return AppliesOnPod(pod)
 }
 
-func WithRolesAnywhere(trustAnchorArn string, trustDomain string, clusterName string) Option {
-	if trustAnchorArn == "" || trustDomain == "" || clusterName == "" {
-		logrus.Panic("AWS IAM roles anywhere is enabled but required configuration is missing: OTTERIZE_ROLESANYWHERE_TRUST_ANCHOR_ARN, OTTERIZE_ROLESANYWHERE_SPIFFE_TRUST_DOMAIN, OTTERIZE_ROLESANYWHERE_CLUSTER_NAME")
+func AppliesOnPod(pod *corev1.Pod) bool {
+	if pod.Labels == nil {
+		return false
+	}
+	_, foundLabel := pod.Labels[ApplyOnPodLabel]
+	return foundLabel
+}
+
+func WithRolesAnywhere(account operatorconfig.AWSAccount, clusterName string, keyPath string, certPath string) Option {
+	configTimeout, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	awsConfig, err := config.LoadDefaultConfig(configTimeout,
+		config.WithCredentialsProvider(rolesanywhere_creds.CredentialsProvider(
+			keyPath,
+			certPath,
+			account)))
+	if err != nil {
+		logrus.WithError(err).Panic("failed to load AWS config")
 	}
 
 	return func(a *Agent) {
 		a.RolesAnywhereEnabled = true
-		a.TrustAnchorArn = trustAnchorArn
-		a.TrustDomain = trustDomain
+		a.TrustAnchorArn = account.TrustAnchorARN
+		a.TrustDomain = account.TrustDomain
 		a.ClusterName = clusterName
+		a.config = nilable.From(awsConfig)
 	}
 }
 
@@ -128,29 +151,34 @@ func NewAWSAgent(
 ) (*Agent, error) {
 	logrus.Info("Initializing AWS Intents agent")
 
-	awsConfig, err := config.LoadDefaultConfig(ctx)
-
-	if err != nil {
-		return nil, errors.Errorf("could not load AWS config")
-	}
-
-	iamClient := iam.NewFromConfig(awsConfig)
-	rolesAnywhereClient := rolesanywhere.NewFromConfig(awsConfig)
-	stsClient := sts.NewFromConfig(awsConfig)
-
 	agent := &Agent{
-		iamClient:           iamClient,
-		rolesAnywhereClient: rolesAnywhereClient,
-		profileNameToId:     make(map[string]string),
-		Region:              awsConfig.Region,
+		profileNameToId: make(map[string]string),
 	}
 
 	for _, option := range options {
 		option.Apply(agent)
 	}
 
+	if !agent.config.Set {
+		// config was not initialized by option, use default
+		awsConfig, err := config.LoadDefaultConfig(ctx)
+
+		if err != nil {
+			return nil, errors.Errorf("could not load AWS config")
+		}
+		agent.config = nilable.From(awsConfig)
+	}
+
+	agent.Region = agent.config.Item.Region
+
+	iamClient := iam.NewFromConfig(agent.config.Item)
+	rolesAnywhereClient := rolesanywhere.NewFromConfig(agent.config.Item)
+	stsClient := sts.NewFromConfig(agent.config.Item)
+	agent.iamClient = iamClient
+	agent.rolesAnywhereClient = rolesAnywhereClient
+
 	if !agent.RolesAnywhereEnabled {
-		currentCluster, err := getCurrentEKSCluster(ctx, awsConfig)
+		currentCluster, err := getCurrentEKSCluster(ctx, agent.config.Item)
 
 		if err != nil {
 			return nil, errors.Errorf("failed to get current EKS cluster: %w", err)

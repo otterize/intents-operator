@@ -83,7 +83,7 @@ func GetAdditionalDebuggingWebhookDNSNames() []string {
 	parsedURLWithPort := shared.MustRet(url.Parse(response.Tunnels[0].PublicURL))
 	parsedURL := strings.Split(parsedURLWithPort.Host, ":")[0]
 
-	return []string{parsedURL}
+	return []string{parsedURL, "host.minikube.internal"}
 }
 
 func GenerateSelfSignedCertificate(hostname string, namespace string) (CertificateBundle, error) {

@@ -58,6 +58,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/metadata"
+	"path"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -118,6 +122,7 @@ func main() {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 	errorreporter.Init("intents-operator", version.Version(), viper.GetString(operatorconfig.TelemetryErrorsAPIKeyKey))
+	defer errorreporter.AutoNotify()
 
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
@@ -230,25 +235,46 @@ func main() {
 	if enforcementConfig.EnableAWSPolicy {
 		awsOptions := make([]awsagent.Option, 0)
 		if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
-			trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
-			trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
-			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterName)
+			keyPath := path.Join(viper.GetString(operatorconfig.AWSRolesAnywhereCertDirKey), viper.GetString(operatorconfig.AWSRolesAnywherePrivKeyFilenameKey))
+			certPath := path.Join(viper.GetString(operatorconfig.AWSRolesAnywhereCertDirKey), viper.GetString(operatorconfig.AWSRolesAnywhereCertFilenameKey))
+			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterNameKey)
+			accounts := operatorconfig.GetRolesAnywhereAWSAccounts()
 
-			awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
-		}
-		awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
-		if err != nil {
-			logrus.WithError(err).Panic("could not initialize AWS agent")
-		}
-		awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+			if len(accounts) == 0 {
+				logrus.Panic("No AWS accounts configured even though RolesAnywhere is enabled")
+			}
 
-		iamAgents = append(iamAgents, awsIntentsAgent)
+			//if len(accounts) == 1 {
+			//	awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(accounts[0], clusterName, keyPath, certPath))
+			//	awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
+			//	if err != nil {
+			//		logrus.WithError(err).Panic("Could not initialize AWS agent")
+			//	}
+			//	awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+			//
+			//	iamAgents = append(iamAgents, awsIntentsAgent)
+			//} else {
+			awsIntentsAgent, err := awspolicyagent.NewMultiaccountAWSPolicyAgent(signalHandlerCtx, accounts, clusterName, keyPath, certPath)
+			if err != nil {
+				logrus.WithError(err).Panic("Could not initialize AWS agent")
+			}
+			iamAgents = append(iamAgents, awsIntentsAgent)
+			//}
+		} else {
+			awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
+			if err != nil {
+				logrus.WithError(err).Panic("Could not initialize AWS agent")
+			}
+			awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+
+			iamAgents = append(iamAgents, awsIntentsAgent)
+		}
 	}
 
 	if enforcementConfig.EnableGCPPolicy {
 		gcpAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx, mgr.GetClient())
 		if err != nil {
-			logrus.WithError(err).Panic("could not initialize GCP agent")
+			logrus.WithError(err).Panic("Could not initialize GCP agent")
 		}
 		gcpIntentsAgent := gcppolicyagent.NewGCPPolicyAgent(gcpAgent)
 		iamAgents = append(iamAgents, gcpIntentsAgent)

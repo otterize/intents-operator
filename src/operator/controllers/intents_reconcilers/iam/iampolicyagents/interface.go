@@ -12,7 +12,7 @@ type IAMPolicyAgent interface {
 	// AppliesOnPod returns true if the agent should manage the pod
 	AppliesOnPod(pod *corev1.Pod) bool
 	// AddRolePolicyFromIntents adds the IAM-specific role policy for the kubernetes service account, based on the intents
-	AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error
+	AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent, pod corev1.Pod) error
 	// DeleteRolePolicyFromIntents deletes the IAM-specific role policy for the kubernetes service account, based on the intents
 	DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev1alpha3.ClientIntents) error
 }
