@@ -142,6 +142,7 @@ func (r *DatabaseReconciler) cleanExcessPermissions(
 		}
 		if !clientIntents.DeletionTimestamp.IsZero() {
 			// Must revoke all permissions before running DROP USER
+			logrus.Infof("ClientIntents deleted, dropping user %s from DB", pgUsername)
 			if err := pgConfigurator.DropUser(ctx, pgUsername); err != nil {
 				return errors.Wrap(err)
 			}
