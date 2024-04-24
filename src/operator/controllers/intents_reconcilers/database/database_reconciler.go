@@ -57,11 +57,6 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	action := otterizev1alpha3.DBPermissionChangeApply
-	if !clientIntents.ObjectMeta.DeletionTimestamp.IsZero() {
-		action = otterizev1alpha3.DBPermissionChangeDelete
-	}
-
 	dbIntents := clientIntents.GetDatabaseIntents()
 	dbInstanceToIntents := lo.GroupBy(dbIntents, func(intent otterizev1alpha3.Intent) string {
 		return intent.Name // "Name" is the db instance name in our case.
@@ -81,6 +76,8 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	username := clusterutils.BuildHashedUsername(clientIntents.GetServiceName(), clientIntents.Namespace, clusterID)
 	pgUsername := clusterutils.KubernetesToPostgresName(username)
 
+	action := lo.Ternary(clientIntents.DeletionTimestamp.IsZero(), otterizev1alpha3.DBPermissionChangeApply, otterizev1alpha3.DBPermissionChangeDelete)
+
 	for databaseInstance, intents := range dbInstanceToIntents {
 		pgServerConf, err := findMatchingPGServerConfForDBInstance(databaseInstance, pgServerConfigs)
 		if err != nil {
@@ -98,11 +95,11 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		}
 	}
 
-	r.RecordNormalEventf(clientIntents, ReasonAppliedDatabaseIntents, "Database clientIntents reconcile complete, reconciled %d intent calls", len(dbIntents))
-
 	if err := r.cleanExcessPermissions(ctx, pgUsername, clientIntents, pgServerConfigs); err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
+
+	r.RecordNormalEventf(clientIntents, ReasonAppliedDatabaseIntents, "Database clientIntents reconcile complete, reconciled %d intent calls", len(dbIntents))
 
 	return ctrl.Result{}, nil
 }
@@ -116,6 +113,10 @@ func (r *DatabaseReconciler) cleanExcessPermissions(
 	clientIntents *otterizev1alpha3.ClientIntents,
 	pgServerConfigs otterizev1alpha3.PostgreSQLServerConfigList) error {
 
+	/*
+		This entire block is here to compensate for intents resource updates that removed databases
+		TODO: Remove this when we calculate a state of usernames and their DB instance & tables access
+	*/
 	for _, config := range pgServerConfigs.Items {
 		pgConfigurator := postgres.NewPostgresConfigurator(config.Spec)
 		if err := pgConfigurator.SetConnection(ctx, postgres.PGDefaultDatabase); err != nil {
@@ -138,6 +139,12 @@ func (r *DatabaseReconciler) cleanExcessPermissions(
 			r.RecordWarningEventf(clientIntents, ReasonExcessPermissionsCleanupFailed,
 				"Failed cleaning excess permissions from instance %s: %s", config.Name, err.Error())
 			return errors.Wrap(err)
+		}
+		if !clientIntents.DeletionTimestamp.IsZero() {
+			// Must revoke all permissions before running DROP USER
+			if err := pgConfigurator.DropUser(ctx, pgUsername); err != nil {
+				return errors.Wrap(err)
+			}
 		}
 	}
 

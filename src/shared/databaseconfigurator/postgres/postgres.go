@@ -23,6 +23,7 @@ const (
 	PGGrantOnAllSequencesInSchemaStatement     SQLSprintfStatement = "GRANT %s ON ALL SEQUENCES IN SCHEMA %s to %s"
 	PGRevokeOnAllTablesInSchemaStatement       SQLSprintfStatement = "REVOKE ALL ON ALL TABLES IN SCHEMA %s FROM %s"
 	PGRevokeOnAllSequencesInSchemaStatement    SQLSprintfStatement = "REVOKE ALL ON ALL SEQUENCES IN SCHEMA %s FROM %s"
+	PGDropUserStatement                        SQLSprintfStatement = "DROP USER %s"
 	PGSelectUserQuery                                              = "SELECT FROM pg_catalog.pg_user where usename = $1"
 	PGSelectPrivilegesQuery                                        = "SELECT table_schema, table_name FROM information_schema.table_privileges where grantee = $1"
 	PGSSelectTableSequencesPrivilegesQuery                         = "SELECT split_part(column_default, '''', 2) FROM information_schema.columns WHERE column_default LIKE 'nextval%' and table_schema=$1 and table_name=$2"
@@ -472,6 +473,20 @@ func (p *PostgresConfigurator) RevokePermissionsFromInstance(ctx context.Context
 		if err := p.SendBatch(ctx, revokeBatch); err != nil {
 			return errors.Wrap(err)
 		}
+	}
+
+	return nil
+}
+
+func (p *PostgresConfigurator) DropUser(ctx context.Context, pgUsername string) error {
+	batch := pgx.Batch{}
+	stmt, err := PGDropUserStatement.PrepareSanitized(pgx.Identifier{pgUsername})
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	batch.Queue(stmt)
+	if err := p.SendBatch(ctx, &batch); err != nil {
+		return errors.Wrap(err)
 	}
 
 	return nil
