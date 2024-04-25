@@ -375,6 +375,12 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 	return otterizeAccessLabels
 }
 
+func (in *ClientIntents) GetDatabaseIntents() []Intent {
+	return lo.Filter(in.GetCallsList(), func(intent Intent, _ int) bool {
+		return intent.Type == IntentTypeDatabase
+	})
+}
+
 // GetTargetServerNamespace returns target namespace for intent if exists
 // or the entire resource's namespace if the specific intent has no target namespace, as it's optional
 func (in *Intent) GetTargetServerNamespace(intentsObjNamespace string) string {
