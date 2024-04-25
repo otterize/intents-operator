@@ -139,7 +139,7 @@ For more usage example see the [network policy](https://docs.otterize.com/quick-
 
 When a client intents is specified using DNS identifiers, such as `api.exampledomain.com` in the example above, it initiates a sequence of operations between the [network mapper](https://github.com/otterize/network-mapper) and the intents operator to integrate the relevant IP addresses into the appropriate `NetworkPolicies`.
 
-1. The network mapper incorporates a DNS cache layer, which identifies and archives all resolved DNS records alongside their corresponding IPv4 and IPv6 IP addresses.
+1. The network mapper incorporates a DNS cache layer, which identifies and stores all resolved DNS records alongside their corresponding IPv4 and IPv6 IP addresses.
 2. Without a client intents associated with the given domain or its related IP addresses, the network mapper will propose a policy tailored to the observed traffic.
 3. Upon applying a client intents with a domain name found in the cache, the network mapper dynamically updates the intent’s `status` section at one-second intervals with any newly identified IP addresses. It is important to note that the network mapper retains all previously identified IP addresses to ensure backward compatibility.
 4. The intents operator reviews changes within the `status` section and amends the associated network policy to include these newly discovered IP addresses.
