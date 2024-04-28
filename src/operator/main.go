@@ -18,8 +18,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/amit7itz/goset"
 	"github.com/bombsimon/logrusr/v3"
+	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
@@ -40,7 +42,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
-	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -58,6 +59,9 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/metadata"
 	"path"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -188,11 +192,23 @@ func main() {
 	}
 	signalHandlerCtx := ctrl.SetupSignalHandler()
 
-	clusterUID, err := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
+	metadataClient, err := metadata.NewForConfig(ctrl.GetConfigOrDie())
 	if err != nil {
-		logrus.WithError(err).Panic("Failed obtaining cluster ID")
+		logrus.WithError(err).Panic("unable to create metadata client")
 	}
-	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
+	mapping, err := mgr.GetRESTMapper().RESTMapping(schema.GroupKind{Group: "", Kind: "Namespace"}, "v1")
+	if err != nil {
+		logrus.WithError(err).Panic("unable to create Kubernetes API REST mapping")
+	}
+	kubeSystemUID := ""
+	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(signalHandlerCtx, "kube-system", metav1.GetOptions{})
+	if err != nil || kubeSystemNs == nil {
+		logrus.Warningf("failed getting kubesystem UID: %s", err)
+		kubeSystemUID = fmt.Sprintf("rand-%s", uuid.New().String())
+	} else {
+		kubeSystemUID = string(kubeSystemNs.UID)
+	}
+	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(kubeSystemUID))
 	componentinfo.SetGlobalVersion(version.Version())
 
 	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
@@ -221,7 +237,6 @@ func main() {
 		epNetpolReconciler.AddEgressRuleBuilder(svcEgressNetworkPolicyHandler)
 
 	}
-
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 
@@ -316,6 +331,7 @@ func main() {
 	if connectedToCloud {
 		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig)
 		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
+
 		netpolUploader := external_traffic.NewNetworkPolicyUploaderReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
 		if err = netpolUploader.SetupWithManager(mgr); err != nil {
 			logrus.WithError(err).Panic("unable to initialize NetworkPolicy reconciler")
@@ -399,10 +415,6 @@ func main() {
 			logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "KafkaServerConfig")
 		}
 
-		pgServerConfValidator := webhooks.NewPostgresConfValidator(mgr.GetClient())
-		if err = (&otterizev1alpha3.PostgreSQLServerConfig{}).SetupWebhookWithManager(mgr, pgServerConfValidator); err != nil {
-			logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "PostgreSQLServerConfig")
-		}
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(

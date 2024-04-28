@@ -20,9 +20,6 @@ var protectedServiceCRDContents []byte
 //go:embed kafkaserverconfigs-customresourcedefinition.yaml
 var KafkaServerConfigContents []byte
 
-//go:embed postgresqlserverconfigs-customresourcedefinition.yaml
-var PostgreSQLServerConfigContents []byte
-
 func Ensure(ctx context.Context, k8sClient client.Client, operatorNamespace string) error {
 	err := ensureCRD(ctx, k8sClient, operatorNamespace, clientIntentsCRDContents)
 	if err != nil {
@@ -35,10 +32,6 @@ func Ensure(ctx context.Context, k8sClient client.Client, operatorNamespace stri
 	err = ensureCRD(ctx, k8sClient, operatorNamespace, KafkaServerConfigContents)
 	if err != nil {
 		return errors.Errorf("failed to ensure KafkaServerConfig CRD: %w", err)
-	}
-	err = ensureCRD(ctx, k8sClient, operatorNamespace, PostgreSQLServerConfigContents)
-	if err != nil {
-		return errors.Errorf("failed to ensure PostgreSQLServerConfig CRD: %w", err)
 	}
 	return nil
 }
@@ -96,8 +89,6 @@ func GetCRDDefinitionByName(name string) (*apiextensionsv1.CustomResourceDefinit
 		err = yaml.Unmarshal(protectedServiceCRDContents, &crd)
 	case "kafkaserverconfigs.k8s.otterize.com":
 		err = yaml.Unmarshal(KafkaServerConfigContents, &crd)
-	case "postgresqlserverconfigs.k8s.otterize.com":
-		err = yaml.Unmarshal(PostgreSQLServerConfigContents, &crd)
 	default:
 		return nil, errors.Errorf("unknown CRD name: %s", name)
 	}

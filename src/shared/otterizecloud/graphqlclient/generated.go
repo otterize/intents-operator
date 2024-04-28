@@ -37,6 +37,13 @@ const (
 	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
 )
 
+type DBPermissionChange string
+
+const (
+	DBPermissionChangeApply  DBPermissionChange = "APPLY"
+	DBPermissionChangeDelete DBPermissionChange = "DELETE"
+)
+
 type DatabaseConfigInput struct {
 	Dbname     *string              `json:"dbname"`
 	Table      *string              `json:"table"`
@@ -107,6 +114,16 @@ const (
 	HTTPMethodConnect HTTPMethod = "CONNECT"
 	HTTPMethodAll     HTTPMethod = "ALL"
 )
+
+// HandleDatabaseIntentsResponse is returned by HandleDatabaseIntents on success.
+type HandleDatabaseIntentsResponse struct {
+	HandleDatabaseIntents bool `json:"handleDatabaseIntents"`
+}
+
+// GetHandleDatabaseIntents returns HandleDatabaseIntentsResponse.HandleDatabaseIntents, and is useful for accessing the field via an interface.
+func (v *HandleDatabaseIntentsResponse) GetHandleDatabaseIntents() bool {
+	return v.HandleDatabaseIntents
+}
 
 type IntentInput struct {
 	Namespace           *string                   `json:"namespace"`
@@ -485,11 +502,22 @@ const (
 	UserErrorTypeAppliedIntentsError UserErrorType = "APPLIED_INTENTS_ERROR"
 )
 
+// __HandleDatabaseIntentsInput is used internally by genqlient
+type __HandleDatabaseIntentsInput struct {
+	Intents []IntentInput      `json:"intents"`
+	Action  DBPermissionChange `json:"action"`
+}
+
+// GetIntents returns __HandleDatabaseIntentsInput.Intents, and is useful for accessing the field via an interface.
+func (v *__HandleDatabaseIntentsInput) GetIntents() []IntentInput { return v.Intents }
+
+// GetAction returns __HandleDatabaseIntentsInput.Action, and is useful for accessing the field via an interface.
+func (v *__HandleDatabaseIntentsInput) GetAction() DBPermissionChange { return v.Action }
+
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
 type __ReportAppliedKubernetesIntentsInput struct {
 	Namespace *string        `json:"namespace"`
 	Intents   []*IntentInput `json:"intents"`
-	ClusterId *string        `json:"clusterId"`
 }
 
 // GetNamespace returns __ReportAppliedKubernetesIntentsInput.Namespace, and is useful for accessing the field via an interface.
@@ -497,9 +525,6 @@ func (v *__ReportAppliedKubernetesIntentsInput) GetNamespace() *string { return 
 
 // GetIntents returns __ReportAppliedKubernetesIntentsInput.Intents, and is useful for accessing the field via an interface.
 func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []*IntentInput { return v.Intents }
-
-// GetClusterId returns __ReportAppliedKubernetesIntentsInput.ClusterId, and is useful for accessing the field via an interface.
-func (v *__ReportAppliedKubernetesIntentsInput) GetClusterId() *string { return v.ClusterId }
 
 // __ReportComponentStatusInput is used internally by genqlient
 type __ReportComponentStatusInput struct {
@@ -581,250 +606,307 @@ type dummyResponse struct {
 // GetDummyError returns dummyResponse.DummyError, and is useful for accessing the field via an interface.
 func (v *dummyResponse) GetDummyError() UserErrorType { return v.DummyError }
 
+// The query or mutation executed by HandleDatabaseIntents.
+const HandleDatabaseIntents_Operation = `
+mutation HandleDatabaseIntents ($intents: [IntentInput!]!, $action: DBPermissionChange!) {
+	handleDatabaseIntents(intents: $intents, action: $action)
+}
+`
+
+func HandleDatabaseIntents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	intents []IntentInput,
+	action DBPermissionChange,
+) (*HandleDatabaseIntentsResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "HandleDatabaseIntents",
+		Query:  HandleDatabaseIntents_Operation,
+		Variables: &__HandleDatabaseIntentsInput{
+			Intents: intents,
+			Action:  action,
+		},
+	}
+	var err_ error
+
+	var data_ HandleDatabaseIntentsResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by ReportAppliedKubernetesIntents.
+const ReportAppliedKubernetesIntents_Operation = `
+mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentInput!]!) {
+	reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents)
+}
+`
+
 func ReportAppliedKubernetesIntents(
-	ctx context.Context,
-	client graphql.Client,
+	ctx_ context.Context,
+	client_ graphql.Client,
 	namespace *string,
 	intents []*IntentInput,
-	clusterId *string,
 ) (*ReportAppliedKubernetesIntentsResponse, error) {
-	req := &graphql.Request{
+	req_ := &graphql.Request{
 		OpName: "ReportAppliedKubernetesIntents",
-		Query: `
-mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentInput!]!, $clusterId: String!) {
-	reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents, ossClusterId: $clusterId)
-}
-`,
+		Query:  ReportAppliedKubernetesIntents_Operation,
 		Variables: &__ReportAppliedKubernetesIntentsInput{
 			Namespace: namespace,
 			Intents:   intents,
-			ClusterId: clusterId,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportAppliedKubernetesIntentsResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportAppliedKubernetesIntentsResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportComponentStatus(
-	ctx context.Context,
-	client graphql.Client,
-	component ComponentType,
-) (*ReportComponentStatusResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportComponentStatus",
-		Query: `
+// The query or mutation executed by ReportComponentStatus.
+const ReportComponentStatus_Operation = `
 mutation ReportComponentStatus ($component: ComponentType!) {
 	reportIntegrationComponentStatus(component: $component)
 }
-`,
+`
+
+func ReportComponentStatus(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	component ComponentType,
+) (*ReportComponentStatusResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportComponentStatus",
+		Query:  ReportComponentStatus_Operation,
 		Variables: &__ReportComponentStatusInput{
 			Component: component,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportComponentStatusResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportComponentStatusResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportExternallyAccessibleServices(
-	ctx context.Context,
-	client graphql.Client,
-	namespace string,
-	services []ExternallyAccessibleServiceInput,
-) (*ReportExternallyAccessibleServicesResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportExternallyAccessibleServices",
-		Query: `
+// The query or mutation executed by ReportExternallyAccessibleServices.
+const ReportExternallyAccessibleServices_Operation = `
 mutation ReportExternallyAccessibleServices ($namespace: String!, $services: [ExternallyAccessibleServiceInput!]!) {
 	reportExternallyAccessibleServices(namespace: $namespace, services: $services)
 }
-`,
+`
+
+func ReportExternallyAccessibleServices(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	namespace string,
+	services []ExternallyAccessibleServiceInput,
+) (*ReportExternallyAccessibleServicesResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportExternallyAccessibleServices",
+		Query:  ReportExternallyAccessibleServices_Operation,
 		Variables: &__ReportExternallyAccessibleServicesInput{
 			Namespace: namespace,
 			Services:  services,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportExternallyAccessibleServicesResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportExternallyAccessibleServicesResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportIntentsOperatorConfiguration(
-	ctx context.Context,
-	client graphql.Client,
-	configuration IntentsOperatorConfigurationInput,
-) (*ReportIntentsOperatorConfigurationResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportIntentsOperatorConfiguration",
-		Query: `
+// The query or mutation executed by ReportIntentsOperatorConfiguration.
+const ReportIntentsOperatorConfiguration_Operation = `
 mutation ReportIntentsOperatorConfiguration ($configuration: IntentsOperatorConfigurationInput!) {
 	reportIntentsOperatorConfiguration(configuration: $configuration)
 }
-`,
+`
+
+func ReportIntentsOperatorConfiguration(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	configuration IntentsOperatorConfigurationInput,
+) (*ReportIntentsOperatorConfigurationResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportIntentsOperatorConfiguration",
+		Query:  ReportIntentsOperatorConfiguration_Operation,
 		Variables: &__ReportIntentsOperatorConfigurationInput{
 			Configuration: configuration,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportIntentsOperatorConfigurationResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportIntentsOperatorConfigurationResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportKafkaServerConfig(
-	ctx context.Context,
-	client graphql.Client,
-	namespace string,
-	kafkaServerConfigs []KafkaServerConfigInput,
-) (*ReportKafkaServerConfigResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportKafkaServerConfig",
-		Query: `
+// The query or mutation executed by ReportKafkaServerConfig.
+const ReportKafkaServerConfig_Operation = `
 mutation ReportKafkaServerConfig ($namespace: String!, $kafkaServerConfigs: [KafkaServerConfigInput!]!) {
 	reportKafkaServerConfigs(namespace: $namespace, serverConfigs: $kafkaServerConfigs)
 }
-`,
+`
+
+func ReportKafkaServerConfig(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	namespace string,
+	kafkaServerConfigs []KafkaServerConfigInput,
+) (*ReportKafkaServerConfigResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportKafkaServerConfig",
+		Query:  ReportKafkaServerConfig_Operation,
 		Variables: &__ReportKafkaServerConfigInput{
 			Namespace:          namespace,
 			KafkaServerConfigs: kafkaServerConfigs,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportKafkaServerConfigResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportKafkaServerConfigResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportNetworkPolicies(
-	ctx context.Context,
-	client graphql.Client,
-	namespace string,
-	policies []NetworkPolicyInput,
-) (*ReportNetworkPoliciesResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportNetworkPolicies",
-		Query: `
+// The query or mutation executed by ReportNetworkPolicies.
+const ReportNetworkPolicies_Operation = `
 mutation ReportNetworkPolicies ($namespace: String!, $policies: [NetworkPolicyInput!]!) {
 	reportNetworkPolicies(namespace: $namespace, policies: $policies)
 }
-`,
+`
+
+func ReportNetworkPolicies(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	namespace string,
+	policies []NetworkPolicyInput,
+) (*ReportNetworkPoliciesResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportNetworkPolicies",
+		Query:  ReportNetworkPolicies_Operation,
 		Variables: &__ReportNetworkPoliciesInput{
 			Namespace: namespace,
 			Policies:  policies,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportNetworkPoliciesResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportNetworkPoliciesResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportProtectedServicesSnapshot(
-	ctx context.Context,
-	client graphql.Client,
-	namespace string,
-	services []ProtectedServiceInput,
-) (*ReportProtectedServicesSnapshotResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportProtectedServicesSnapshot",
-		Query: `
+// The query or mutation executed by ReportProtectedServicesSnapshot.
+const ReportProtectedServicesSnapshot_Operation = `
 mutation ReportProtectedServicesSnapshot ($namespace: String!, $services: [ProtectedServiceInput!]!) {
 	reportProtectedServicesSnapshot(namespace: $namespace, services: $services)
 }
-`,
+`
+
+func ReportProtectedServicesSnapshot(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	namespace string,
+	services []ProtectedServiceInput,
+) (*ReportProtectedServicesSnapshotResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportProtectedServicesSnapshot",
+		Query:  ReportProtectedServicesSnapshot_Operation,
 		Variables: &__ReportProtectedServicesSnapshotInput{
 			Namespace: namespace,
 			Services:  services,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportProtectedServicesSnapshotResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportProtectedServicesSnapshotResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func dummy(
-	ctx context.Context,
-	client graphql.Client,
-) (*dummyResponse, error) {
-	req := &graphql.Request{
-		OpName: "dummy",
-		Query: `
+// The query or mutation executed by dummy.
+const dummy_Operation = `
 query dummy {
 	dummyError
 }
-`,
+`
+
+func dummy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*dummyResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "dummy",
+		Query:  dummy_Operation,
 	}
-	var err error
+	var err_ error
 
-	var data dummyResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ dummyResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }

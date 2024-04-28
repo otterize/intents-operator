@@ -118,7 +118,7 @@ func NewIntentsReconciler(
 	}
 
 	if enforcementConfig.EnableDatabasePolicy {
-		databaseReconciler := database.NewDatabaseReconciler(client, scheme)
+		databaseReconciler := database.NewDatabaseReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
 	}
 
@@ -126,14 +126,11 @@ func NewIntentsReconciler(
 }
 
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=k8s.otterize.com,resources=postgresqlserverconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
-//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;list;watch;create
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 //+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list
-//+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create;patch
 //+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create;patch
 // +kubebuilder:rbac:groups=iam.cnrm.cloud.google.com,resources=iampartialpolicies,verbs=get;list;watch;create;update;patch;delete
 
@@ -149,6 +146,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, errors.Wrap(err)
 	}
+
 	if intents.Status.UpToDate != false && intents.Status.ObservedGeneration != intents.Generation {
 		intentsCopy := intents.DeepCopy()
 		intentsCopy.Status.UpToDate = false
@@ -184,7 +182,6 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Watches(&otterizev1alpha3.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
 		Watches(&corev1.Endpoints{}, handler.EnqueueRequestsFromMapFunc(r.watchApiServerEndpoint)).
-		Watches(&otterizev1alpha3.PostgreSQLServerConfig{}, handler.EnqueueRequestsFromMapFunc(r.mapPostgresInstanceNameToDatabaseIntents)).
 		Complete(r)
 	if err != nil {
 		return errors.Wrap(err)
@@ -229,38 +226,6 @@ func (r *IntentsReconciler) mapProtectedServiceToClientIntents(ctx context.Conte
 
 	intentsToReconcile := r.getIntentsToProtectedService(ctx, protectedService)
 	return r.mapIntentsToRequests(intentsToReconcile)
-}
-
-func (r *IntentsReconciler) mapPostgresInstanceNameToDatabaseIntents(_ context.Context, obj client.Object) []reconcile.Request {
-	pgServerConf := obj.(*otterizev1alpha3.PostgreSQLServerConfig)
-	logrus.Infof("Enqueueing client intents for PostgreSQLServerConfig change %s", pgServerConf.Name)
-
-	intentsToReconcile := r.getIntentsToPostgresInstance(pgServerConf)
-
-	requests := make([]reconcile.Request, 0)
-	for _, clientIntents := range intentsToReconcile {
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      clientIntents.Name,
-				Namespace: clientIntents.Namespace,
-			},
-		})
-	}
-	return requests
-}
-
-func (r *IntentsReconciler) getIntentsToPostgresInstance(pgServerConf *otterizev1alpha3.PostgreSQLServerConfig) []otterizev1alpha3.ClientIntents {
-	intentsList := otterizev1alpha3.ClientIntentsList{}
-	dbInstanceName := pgServerConf.Name
-	err := r.client.List(context.Background(),
-		&intentsList,
-		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: dbInstanceName},
-	)
-	if err != nil {
-		logrus.Errorf("Failed to list client intents targeting %s: %v", dbInstanceName, err)
-	}
-
-	return intentsList.Items
 }
 
 func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1alpha3.ClientIntents) []reconcile.Request {
@@ -311,9 +276,6 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 			for _, intent := range intents.GetCallsList() {
 				if !intent.IsTargetServerKubernetesService() {
 					res = append(res, intent.GetServerFullyQualifiedName(intents.Namespace))
-				}
-				if intent.DatabaseResources != nil {
-					res = append(res, intent.GetTargetServerName())
 				}
 				fullyQualifiedSvcName, ok := intent.GetK8sServiceFullyQualifiedName(intents.Namespace)
 				if ok {
