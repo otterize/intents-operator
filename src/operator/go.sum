@@ -427,6 +427,8 @@ github.com/otterize/intents-operator/src v0.0.0-20240418104312-9080a98a3e4b h1:F
 github.com/otterize/intents-operator/src v0.0.0-20240418104312-9080a98a3e4b/go.mod h1:5KFX2JVBhSiEfcGfqmlDx1y0t0dbDZ9giTbVwFfFAYQ=
 github.com/otterize/intents-operator/src v0.0.0-20240418135645-66b695ce2d85 h1:hlKp5E9qecS37pulp/dif6aj/UGZ5UuhRFwZz3/G3j0=
 github.com/otterize/intents-operator/src v0.0.0-20240418135645-66b695ce2d85/go.mod h1:5KFX2JVBhSiEfcGfqmlDx1y0t0dbDZ9giTbVwFfFAYQ=
+github.com/otterize/intents-operator/src v0.0.0-20240428093949-7597a22e6e39 h1:KLj954SYQA6GuhKAJM0Ff1WFkbcHfINmTiYsNb9bQqQ=
+github.com/otterize/intents-operator/src v0.0.0-20240428093949-7597a22e6e39/go.mod h1:5KFX2JVBhSiEfcGfqmlDx1y0t0dbDZ9giTbVwFfFAYQ=
 github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd h1:7Sb95VrtAPb9m2ewtqLnX1oeKQy03dt7yr6F/hP7Htg=
 github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd/go.mod h1:RXvgymN8MxiELFkmGHzJ23KJU2ObVsNsNSM80/HO8qQ=
 github.com/otterize/nilable v0.0.0-20240410132629-f242bb6f056f h1:gv92189CW53A+Y0UQ550zr6RfCBYqvYJ8oq6Jll1YqQ=
