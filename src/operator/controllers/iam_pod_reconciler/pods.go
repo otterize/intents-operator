@@ -50,7 +50,7 @@ func (p *IAMPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	err := p.Get(ctx, req.NamespacedName, &pod)
 
 	if k8serrors.IsNotFound(err) || pod.DeletionTimestamp != nil {
-		logger.Infoln("Pod was deleted")
+		logger.Debugf("Pod was deleted")
 		return ctrl.Result{}, nil
 	}
 
