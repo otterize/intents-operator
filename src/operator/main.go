@@ -256,22 +256,22 @@ func main() {
 				logrus.Panic("No AWS accounts configured even though RolesAnywhere is enabled")
 			}
 
-			//if len(accounts) == 1 {
-			//	awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(accounts[0], clusterName, keyPath, certPath))
-			//	awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
-			//	if err != nil {
-			//		logrus.WithError(err).Panic("Could not initialize AWS agent")
-			//	}
-			//	awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
-			//
-			//	iamAgents = append(iamAgents, awsIntentsAgent)
-			//} else {
-			awsIntentsAgent, err := awspolicyagent.NewMultiaccountAWSPolicyAgent(signalHandlerCtx, accounts, clusterName, keyPath, certPath)
-			if err != nil {
-				logrus.WithError(err).Panic("Could not initialize AWS agent")
+			if len(accounts) == 1 {
+				awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(accounts[0], clusterName, keyPath, certPath))
+				awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
+				if err != nil {
+					logrus.WithError(err).Panic("Could not initialize AWS agent")
+				}
+				awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+
+				iamAgents = append(iamAgents, awsIntentsAgent)
+			} else {
+				awsIntentsAgent, err := awspolicyagent.NewMultiaccountAWSPolicyAgent(signalHandlerCtx, accounts, clusterName, keyPath, certPath)
+				if err != nil {
+					logrus.WithError(err).Panic("Could not initialize AWS agent")
+				}
+				iamAgents = append(iamAgents, awsIntentsAgent)
 			}
-			iamAgents = append(iamAgents, awsIntentsAgent)
-			//}
 		} else {
 			awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
 			if err != nil {
