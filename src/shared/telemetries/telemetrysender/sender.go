@@ -25,8 +25,7 @@ type TelemetrySender struct {
 func newGqlClient() graphql.Client {
 	apiAddress := viper.GetString(telemetriesconfig.TelemetryAPIAddressKey)
 	clientTimeout := viper.GetDuration(telemetriesconfig.TimeoutKey)
-	transport := &http.Transport{}
-	clientWithTimeout := &http.Client{Timeout: clientTimeout, Transport: transport}
+	clientWithTimeout := &http.Client{Timeout: clientTimeout}
 	return graphql.NewClient(apiAddress, clientWithTimeout)
 }
 

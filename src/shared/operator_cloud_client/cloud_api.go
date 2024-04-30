@@ -99,7 +99,7 @@ func (c *CloudClientImpl) ReportExternallyAccessibleServices(ctx context.Context
 		return errors.Wrap(err)
 	}
 
-	logrus.Infof("Successfully reported ExternallyAccessibleServices, count: %d", len(services))
+	logrus.Debugf("Successfully reported ExternallyAccessibleServices, count: %d", len(services))
 
 	return nil
 }

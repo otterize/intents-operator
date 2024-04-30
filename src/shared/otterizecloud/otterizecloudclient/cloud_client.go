@@ -57,7 +57,8 @@ func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 		}
 	}
 
-	transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: rootCAs}}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{RootCAs: rootCAs}
 
 	// Timeout for oauth token acquisition is set by http client passed to the token source context
 	// See example 'Example (CustomHTTP)' in https://pkg.go.dev/golang.org/x/oauth2
