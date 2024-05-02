@@ -45,7 +45,7 @@ func Init(componentName string, version string, apiKey string) {
 	errorsServerAddress := viper.GetString(telemetriesconfig.TelemetryErrorsAddressKey)
 	releaseStage := viper.GetString(telemetriesconfig.TelemetryErrorsStageKey)
 	// send to staging if Otterize Cloud API is not the default
-	if viper.GetString(otterizecloudclient.OtterizeAPIAddressKey) != otterizecloudclient.OtterizeAPIAddressDefault || strings.HasPrefix(version, "0.0.") || version == "0-local" {
+	if viper.GetString(otterizecloudclient.OtterizeAPIAddressKey) != otterizecloudclient.OtterizeAPIAddressDefault || isStagingOrDevVersion(version) {
 		releaseStage = "staging"
 	}
 
@@ -69,6 +69,10 @@ func Init(componentName string, version string, apiKey string) {
 		logrus.WithError(err).Panic("failed to initialize bugsnag")
 	}
 	logrus.AddHook(hook)
+}
+
+func isStagingOrDevVersion(version string) bool {
+	return strings.HasPrefix(version, "0.0.") || version == "0-local" || version == ""
 }
 
 func AutoNotify() {
