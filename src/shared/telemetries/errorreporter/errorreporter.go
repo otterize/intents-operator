@@ -71,7 +71,7 @@ func Init(componentName string, version string, apiKey string) {
 	logrus.AddHook(hook)
 }
 
-func isStagingVersion(version string) bool {
+func isStagingOrDevVersion(version string) bool {
 	return strings.HasPrefix(version, "0.0.") || version == "0-local" || version == ""
 }
 
