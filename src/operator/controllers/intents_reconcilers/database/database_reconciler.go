@@ -78,20 +78,23 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	action := lo.Ternary(clientIntents.DeletionTimestamp.IsZero(), otterizev1alpha3.DBPermissionChangeApply, otterizev1alpha3.DBPermissionChangeDelete)
 
-	for databaseInstance, intents := range dbInstanceToIntents {
-		pgServerConf, err := findMatchingPGServerConfForDBInstance(databaseInstance, pgServerConfigs)
-		if err != nil {
-			r.RecordWarningEventf(clientIntents, ReasonMissingPostgresServerConfig,
-				"Could not find matching PostgreSQLServerConfig. Error: %s", err.Error())
-			return ctrl.Result{}, nil // Not returning error on purpose, missing PGServerConf - record event and move on
-		}
-		pgConfigurator := postgres.NewPostgresConfigurator(pgServerConf.Spec)
-		dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(intents)
-		err = pgConfigurator.ConfigureDatabasePermissions(ctx, pgUsername, action, dbnameToDatabaseResources)
-		if err != nil {
-			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
-				"Failed applying database clientIntents: %s", err.Error())
-			return ctrl.Result{}, errors.Wrap(err)
+	// If intents are being deleted, skip directly to permission cleaning
+	if clientIntents.DeletionTimestamp.IsZero() {
+		for databaseInstance, intents := range dbInstanceToIntents {
+			pgServerConf, err := findMatchingPGServerConfForDBInstance(databaseInstance, pgServerConfigs)
+			if err != nil {
+				r.RecordWarningEventf(clientIntents, ReasonMissingPostgresServerConfig,
+					"Could not find matching PostgreSQLServerConfig. Error: %s", err.Error())
+				return ctrl.Result{}, nil // Not returning error on purpose, missing PGServerConf - record event and move on
+			}
+			pgConfigurator := postgres.NewPostgresConfigurator(pgServerConf.Spec)
+			dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(intents)
+			err = pgConfigurator.ConfigureDatabasePermissions(ctx, pgUsername, action, dbnameToDatabaseResources)
+			if err != nil {
+				r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+					"Failed applying database clientIntents: %s", err.Error())
+				return ctrl.Result{}, errors.Wrap(err)
+			}
 		}
 	}
 
