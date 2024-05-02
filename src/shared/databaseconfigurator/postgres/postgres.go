@@ -495,6 +495,10 @@ func (p *PostgresConfigurator) DropUser(ctx context.Context, pgUsername string) 
 // getDatabasesToRevoke returns a list of all database names with connection allowed from a database instance minus
 // all database names that appear in the clientIntents
 func getDatabasesToRevoke(instanceName string, clientIntents *otterizev1alpha3.ClientIntents, allAllowedDatabases []string) []string {
+	if !clientIntents.DeletionTimestamp.IsZero() {
+		return allAllowedDatabases
+	}
+
 	dbIntents := clientIntents.GetDatabaseIntents()
 	intentDBNames := goset.NewSet[string]()
 	for _, intent := range dbIntents {
