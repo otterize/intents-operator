@@ -45,7 +45,7 @@ func Init(componentName string, version string, apiKey string) {
 	errorsServerAddress := viper.GetString(telemetriesconfig.TelemetryErrorsAddressKey)
 	releaseStage := viper.GetString(telemetriesconfig.TelemetryErrorsStageKey)
 	// send to staging if Otterize Cloud API is not the default
-	if viper.GetString(otterizecloudclient.OtterizeAPIAddressKey) != otterizecloudclient.OtterizeAPIAddressDefault || isStagingVersion(version) {
+	if viper.GetString(otterizecloudclient.OtterizeAPIAddressKey) != otterizecloudclient.OtterizeAPIAddressDefault || isStagingOrDevVersion(version) {
 		releaseStage = "staging"
 	}
 
