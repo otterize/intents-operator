@@ -45,10 +45,12 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	clientIntents := &otterizev1alpha3.ClientIntents{}
 	logger := logrus.WithField("namespacedName", req.String())
 	err := r.client.Get(ctx, req.NamespacedName, clientIntents)
-	if err != nil && k8serrors.IsNotFound(err) {
-		logger.Info("No client intents found")
-		return ctrl.Result{}, nil
-	} else if err != nil {
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			logger.Info("No client intents found")
+			return ctrl.Result{}, nil
+
+		}
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
@@ -75,11 +77,11 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	username := clusterutils.BuildHashedUsername(clientIntents.GetServiceName(), clientIntents.Namespace, clusterID)
 	pgUsername := clusterutils.KubernetesToPostgresName(username)
-
-	action := lo.Ternary(clientIntents.DeletionTimestamp.IsZero(), otterizev1alpha3.DBPermissionChangeApply, otterizev1alpha3.DBPermissionChangeDelete)
+	intentsDeleted := !clientIntents.DeletionTimestamp.IsZero()
+	action := lo.Ternary(intentsDeleted, otterizev1alpha3.DBPermissionChangeDelete, otterizev1alpha3.DBPermissionChangeApply)
 
 	// If intents are being deleted, skip directly to permission cleaning
-	if clientIntents.DeletionTimestamp.IsZero() {
+	if !intentsDeleted {
 		for databaseInstance, intents := range dbInstanceToIntents {
 			pgServerConf, err := findMatchingPGServerConfForDBInstance(databaseInstance, pgServerConfigs)
 			if err != nil {
