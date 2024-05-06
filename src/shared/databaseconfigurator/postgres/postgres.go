@@ -3,9 +3,9 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"github.com/amit7itz/goset"
 	"github.com/jackc/pgx/v5"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -81,7 +81,7 @@ type PostgresConfigurator struct {
 	setConnMutex sync.Mutex
 }
 
-func NewPostgresConfigurator(ctx context.Context, pgServerConfSpec otterizev1alpha3.PostgreSQLServerConfigSpec) (*PostgresConfigurator, error) {
+func NewPostgresConfigurator(ctx context.Context, pgServerConfSpec otterizev1alpha3.PostgreSQLServerConfigSpec) (databaseconfigurator.DatabaseConfigurator, error) {
 	p := &PostgresConfigurator{
 		databaseInfo: pgServerConfSpec,
 		setConnMutex: sync.Mutex{},
@@ -98,47 +98,87 @@ func NewPostgresConfigurator(ctx context.Context, pgServerConfSpec otterizev1alp
 	return p, nil
 }
 
-func (p *PostgresConfigurator) ConfigureDatabasePermissions(ctx context.Context, pgUsername string, permissionChange otterizev1alpha3.DBPermissionChange, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error {
+func (p *PostgresConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error {
+	// apply new intents
+	for dbname, dbResources := range dbnameToDatabaseResources {
+		if err := p.applyDatabasePermissions(ctx, username, dbname, dbResources); err != nil {
+			return errors.Wrap(err)
+		}
+	}
 
-	exists, err := p.ValidateUserExists(ctx, pgUsername)
+	allAllowedDatabases, err := p.queryAllowedDatabases(ctx)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	if !exists {
-		logrus.Infof("User %s does not exist, waiting for it to be created by credentials operator", pgUsername)
-		return errors.Wrap(errors.New("user does not exist in the database"))
-	}
+	databasesToRevoke := lo.Without(allAllowedDatabases, lo.Keys(dbnameToDatabaseResources)...)
 
-	for dbname, dbResources := range dbnameToDatabaseResources {
-		if err := p.SetConnection(ctx, dbname); err != nil {
-			return errors.Wrap(err)
-		}
-
-		if permissionChange != otterizev1alpha3.DBPermissionChangeDelete {
-			// Need to check whether tables were deleted from intents, and revoke permissions for them
-			allowedTablesDiff, err := p.getAllowedTablesDiffForUser(ctx, pgUsername, dbResources)
-			if err != nil {
-				return errors.Wrap(err)
-			}
-
-			if err = p.revokeRemovedTablesPermissions(ctx, allowedTablesDiff, pgUsername); err != nil {
-				return errors.Wrap(err)
-			}
-		}
-
-		statementsBatch, err := p.sqlBatchFromDBResources(ctx, pgUsername, dbResources, permissionChange)
-		if err != nil {
-			return errors.Wrap(err)
-		}
-		err = p.sendBatch(ctx, &statementsBatch)
-		if err != nil {
+	for _, databaseName := range databasesToRevoke {
+		if err := p.revokeDatabasePermissions(ctx, username, databaseName); err != nil {
 			return errors.Wrap(err)
 		}
 	}
 
 	return nil
+}
 
+func (p *PostgresConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.Context, username string) error {
+	allAllowedDatabases, err := p.queryAllowedDatabases(ctx)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	for _, databaseName := range allAllowedDatabases {
+		if err := p.revokeDatabasePermissions(ctx, username, databaseName); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+func (p *PostgresConfigurator) applyDatabasePermissions(ctx context.Context, username string, dbname string, dbResources []otterizev1alpha3.DatabaseResource) error {
+	if err := p.SetConnection(ctx, dbname); err != nil {
+		return errors.Wrap(err)
+	}
+
+	statementsBatch, err := p.sqlBatchFromDBResources(ctx, username, dbResources)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	err = p.sendBatch(ctx, &statementsBatch)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (p *PostgresConfigurator) revokeDatabasePermissions(ctx context.Context, username string, dbname string) error {
+	err := p.SetConnection(ctx, dbname)
+	if err != nil && IsInvalidAuthorizationError(err) {
+		// Probably an admin database that we're failing to connect to or something along those lines
+		// (like 'cloudsqladmin' database in managed Google cloud SQL)
+		logrus.WithField("database", dbname).Debug("Skipping invalid authorization error")
+		return nil
+	}
+	if err != nil {
+		pgErr, ok := TranslatePostgresConnectionError(err)
+		if ok {
+			return errors.Wrap(fmt.Errorf(pgErr))
+		}
+		return errors.Wrap(err)
+	}
+
+	batch := &pgx.Batch{}
+	if err := p.queueRevokePermissionsByDatabaseNameStatements(ctx, batch, username); err != nil {
+		return errors.Wrap(err)
+	}
+	if err := p.sendBatch(ctx, batch); err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
 }
 
 func (p *PostgresConfigurator) sendBatch(ctx context.Context, statementsBatch *pgx.Batch) error {
@@ -176,29 +216,9 @@ func (p *PostgresConfigurator) SetConnection(ctx context.Context, databaseName s
 	return nil
 }
 
-func (p *PostgresConfigurator) sqlBatchFromDBResources(ctx context.Context, username string, dbResources []otterizev1alpha3.DatabaseResource, change otterizev1alpha3.DBPermissionChange) (pgx.Batch, error) {
-
+func (p *PostgresConfigurator) sqlBatchFromDBResources(ctx context.Context, username string, dbResources []otterizev1alpha3.DatabaseResource) (pgx.Batch, error) {
 	batch := pgx.Batch{}
 
-	if change == otterizev1alpha3.DBPermissionChangeDelete {
-		// Intent was deleted, revoke all client permissions from mentioned tables
-		for _, resource := range dbResources {
-			if resource.Table == "" {
-				err := p.queueRevokePermissionsByDatabaseNameStatements(ctx, &batch, username)
-				if err != nil {
-					return pgx.Batch{}, errors.Wrap(err)
-				}
-				continue
-			}
-			err := p.queueRevokeAllOnTableAndSequencesStatements(ctx, &batch, databaseConfigInputToPostgresTableIdentifier(resource), username)
-			if err != nil {
-				return pgx.Batch{}, errors.Wrap(err)
-			}
-		}
-		return batch, nil
-	}
-
-	// Intent was created or updated, so we revoke current permissions and grant new ones
 	for _, resource := range dbResources {
 		if resource.Table == "" {
 			err := p.queueAddPermissionsByDatabaseNameStatements(ctx, &batch, resource, username)
@@ -448,40 +468,6 @@ func (p *PostgresConfigurator) queryAllowedDatabases(ctx context.Context) ([]str
 	return allowedDatabases, nil
 }
 
-func (p *PostgresConfigurator) RevokePermissionsFromInstance(ctx context.Context, pgUsername string, instanceName string, clientIntents *otterizev1alpha3.ClientIntents) error {
-	allAllowedDatabases, err := p.queryAllowedDatabases(ctx)
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	databasesToRevoke := getDatabasesToRevoke(instanceName, clientIntents, allAllowedDatabases)
-	revokeBatch := &pgx.Batch{}
-	for _, databaseName := range databasesToRevoke {
-		err := p.SetConnection(ctx, databaseName)
-		if err != nil && IsInvalidAuthorizationError(err) {
-			// Probably an admin database that we're failing to connect to or something along those lines
-			// (like 'cloudsqladmin' database in managed Google cloud SQL)
-			continue
-		}
-		if err != nil {
-			pgErr, ok := TranslatePostgresConnectionError(err)
-			if ok {
-				return errors.Wrap(fmt.Errorf(pgErr))
-			}
-			return errors.Wrap(err)
-		}
-
-		if err := p.queueRevokePermissionsByDatabaseNameStatements(ctx, revokeBatch, pgUsername); err != nil {
-			return errors.Wrap(err)
-		}
-		if err := p.sendBatch(ctx, revokeBatch); err != nil {
-			return errors.Wrap(err)
-		}
-	}
-
-	return nil
-}
-
 func (p *PostgresConfigurator) DropUser(ctx context.Context, username string) error {
 	batch := pgx.Batch{}
 	stmt, err := PGDropUserStatement.PrepareSanitized(pgx.Identifier{username})
@@ -494,29 +480,6 @@ func (p *PostgresConfigurator) DropUser(ctx context.Context, username string) er
 	}
 
 	return nil
-}
-
-// getDatabasesToRevoke returns a list of all database names with connection allowed from a database instance minus
-// all database names that appear in the clientIntents
-func getDatabasesToRevoke(instanceName string, clientIntents *otterizev1alpha3.ClientIntents, allAllowedDatabases []string) []string {
-	if !clientIntents.DeletionTimestamp.IsZero() {
-		return allAllowedDatabases
-	}
-
-	dbIntents := clientIntents.GetDatabaseIntents()
-	intentDBNames := goset.NewSet[string]()
-	for _, intent := range dbIntents {
-		// Only get database names for instance `instanceName` as we're revoking instance by instance
-		if intent.Name == instanceName && intent.DatabaseResources != nil {
-			intentDBNames.Add(lo.Map(intent.DatabaseResources, func(resource otterizev1alpha3.DatabaseResource, _ int) string {
-				return resource.DatabaseName
-			})...)
-		}
-	}
-
-	return lo.Filter(allAllowedDatabases, func(name string, _ int) bool {
-		return !intentDBNames.Contains(name)
-	})
 }
 
 func (p *PostgresConfigurator) CreateUser(ctx context.Context, username string, password string) error {

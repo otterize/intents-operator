@@ -59,10 +59,6 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	dbIntents := clientIntents.GetDatabaseIntents()
-	dbInstanceToIntents := lo.GroupBy(dbIntents, func(intent otterizev1alpha3.Intent) string {
-		return intent.Name // "Name" is the db instance name in our case.
-	})
 	pgServerConfigs := otterizev1alpha3.PostgreSQLServerConfigList{}
 	err = r.client.List(ctx, &pgServerConfigs)
 	if err != nil {
@@ -77,36 +73,19 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 	username := clusterutils.BuildHashedUsername(clientIntents.GetServiceName(), clientIntents.Namespace, clusterID)
 	pgUsername := clusterutils.KubernetesToPostgresName(username)
-	intentsDeleted := !clientIntents.DeletionTimestamp.IsZero()
-	action := lo.Ternary(intentsDeleted, otterizev1alpha3.DBPermissionChangeDelete, otterizev1alpha3.DBPermissionChangeApply)
 
-	// If intents are being deleted, skip directly to permission cleaning
-	if !intentsDeleted {
-		for databaseInstance, intents := range dbInstanceToIntents {
-			pgServerConf, err := findMatchingPGServerConfForDBInstance(databaseInstance, pgServerConfigs)
-			if err != nil {
-				r.RecordWarningEventf(clientIntents, ReasonMissingPostgresServerConfig,
-					"Could not find matching PostgreSQLServerConfig. Error: %s", err.Error())
-				return ctrl.Result{}, nil // Not returning error on purpose, missing PGServerConf - record event and move on
-			}
-			pgConfigurator, err := postgres.NewPostgresConfigurator(ctx, pgServerConf.Spec)
-			if err != nil {
-				r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
-					"Error connecting to PostgreSQL server. Error: %s", err.Error())
-				return ctrl.Result{}, errors.Wrap(err)
-			}
-			dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(intents)
-			err = pgConfigurator.ConfigureDatabasePermissions(ctx, pgUsername, action, dbnameToDatabaseResources)
-			if err != nil {
-				r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
-					"Failed applying database clientIntents: %s", err.Error())
-				return ctrl.Result{}, errors.Wrap(err)
-			}
+	dbIntents := clientIntents.GetDatabaseIntents()
+	dbInstanceToIntents := lo.GroupBy(dbIntents, func(intent otterizev1alpha3.Intent) string {
+		return intent.Name // "Name" is the db instance name in our case.
+	})
+
+	for _, config := range pgServerConfigs.Items {
+		err := r.applyDBInstanceIntents(ctx, config, clientIntents, pgUsername, dbInstanceToIntents)
+		if err != nil {
+			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+				"Failed applying database clientIntents: %s", err.Error())
+			return ctrl.Result{}, errors.Wrap(err)
 		}
-	}
-
-	if err := r.cleanExcessPermissions(ctx, pgUsername, clientIntents, pgServerConfigs); err != nil {
-		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	r.RecordNormalEventf(clientIntents, ReasonAppliedDatabaseIntents, "Database clientIntents reconcile complete, reconciled %d intent calls", len(dbIntents))
@@ -114,46 +93,54 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-// cleanExcessPermissions compensates for DB resources completely removed from client intents
-// Permission edits are handled by the normal flow because we run "revoke all" before adding permissions
-// This is only used when permissions might have been completely removed in a ClientIntents edit operation
-func (r *DatabaseReconciler) cleanExcessPermissions(
-	ctx context.Context,
-	pgUsername string,
-	clientIntents *otterizev1alpha3.ClientIntents,
-	pgServerConfigs otterizev1alpha3.PostgreSQLServerConfigList) error {
+func (r *DatabaseReconciler) applyDBInstanceIntents(ctx context.Context, config otterizev1alpha3.PostgreSQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
+	intentsDeleted := !clientIntents.DeletionTimestamp.IsZero()
 
-	/*
-		This entire block is here to compensate for intents resource updates that removed databases
-		TODO: Remove this when we calculate a state of usernames and their DB instance & tables access
-	*/
-	for _, config := range pgServerConfigs.Items {
-		pgConfigurator, err := postgres.NewPostgresConfigurator(ctx, config.Spec)
-		if err != nil {
-			r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
-				"Error connecting to PostgreSQL server. Error: %s", err.Error())
-			return errors.Wrap(err)
-		}
-		exists, err := pgConfigurator.ValidateUserExists(ctx, pgUsername)
-		if err != nil {
-			return errors.Wrap(err)
-		}
-		if !exists {
+	dbConfigurator, err := postgres.NewPostgresConfigurator(ctx, config.Spec)
+	if err != nil {
+		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
+			"Error connecting to PostgreSQL server. Error: %s", err.Error())
+		return errors.Wrap(err)
+	}
+	userExists, err := dbConfigurator.ValidateUserExists(ctx, dbUsername)
+	if err != nil {
+		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+			"Failed querying for database user: %s", err.Error())
+		return errors.Wrap(err)
+	}
+
+	if intentsDeleted {
+		if !userExists {
 			// User was never in the db, nothing more to do
-			continue
+			return nil
 		}
-		err = pgConfigurator.RevokePermissionsFromInstance(ctx, pgUsername, config.Name, clientIntents)
+		err = dbConfigurator.RevokeAllDatabasePermissionsForUser(ctx, dbUsername)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonExcessPermissionsCleanupFailed,
-				"Failed cleaning excess permissions from instance %s: %s", config.Name, err.Error())
+				"Failed revoking all database permissions: %s", err.Error())
 			return errors.Wrap(err)
 		}
-		if !clientIntents.DeletionTimestamp.IsZero() {
-			// Must revoke all permissions before running DROP USER
-			logrus.Infof("ClientIntents deleted, dropping user %s from DB", pgUsername)
-			if err := pgConfigurator.DropUser(ctx, pgUsername); err != nil {
-				return errors.Wrap(err)
-			}
+
+		logrus.Infof("ClientIntents deleted, dropping user %s from DB", dbUsername)
+		if err := dbConfigurator.DropUser(ctx, dbUsername); err != nil {
+			return errors.Wrap(err)
+		}
+
+		return nil
+	} else {
+		if !userExists {
+			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+				"User %s does not exist, waiting for it to be created by credentials operator", dbUsername)
+			return errors.New("user does not exist in the database")
+		}
+
+		intents := dbInstanceToIntents[config.Name]
+		dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(intents)
+		err = dbConfigurator.ApplyDatabasePermissionsForUser(ctx, dbUsername, dbnameToDatabaseResources)
+		if err != nil {
+			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+				"Failed applying database clientIntents: %s", err.Error())
+			return errors.Wrap(err)
 		}
 	}
 

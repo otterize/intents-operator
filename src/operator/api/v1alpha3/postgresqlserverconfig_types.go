@@ -20,13 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type DBPermissionChange string
-
-const (
-	DBPermissionChangeApply  DBPermissionChange = "APPLY"
-	DBPermissionChangeDelete DBPermissionChange = "DELETE"
-)
-
 type DatabaseCredentials struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
