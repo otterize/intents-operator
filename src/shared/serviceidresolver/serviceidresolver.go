@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-var ErrPodNotFound = errors.New("pod not found")
+var ErrPodNotFound = errors.NewSentinelError("pod not found")
 
 //+kubebuilder:rbac:groups="apps",resources=deployments;replicasets;daemonsets;statefulsets,verbs=get;list;watch
 //+kubebuilder:rbac:groups="batch",resources=jobs;cronjobs,verbs=get;list;watch
