@@ -150,11 +150,11 @@ func buildUserAndPasswordCredentialsSecret(name, namespace, pgUsername, password
 func createServicePassword() (string, error) {
 	password, err := nanoid.Generate(DefaultCredentialsAlphabet, DefaultCredentialsLen)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err)
 	}
 	salt, err := nanoid.Generate(DefaultCredentialsAlphabet, 8)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err)
 	}
 
 	dk := pbkdf2.Key([]byte(password), []byte(salt), 2048, 16, sha256.New)
