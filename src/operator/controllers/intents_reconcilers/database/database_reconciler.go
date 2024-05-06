@@ -89,7 +89,12 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 					"Could not find matching PostgreSQLServerConfig. Error: %s", err.Error())
 				return ctrl.Result{}, nil // Not returning error on purpose, missing PGServerConf - record event and move on
 			}
-			pgConfigurator := postgres.NewPostgresConfigurator(pgServerConf.Spec)
+			pgConfigurator, err := postgres.NewPostgresConfigurator(ctx, pgServerConf.Spec)
+			if err != nil {
+				r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
+					"Error connecting to PostgreSQL server. Error: %s", err.Error())
+				return ctrl.Result{}, errors.Wrap(err)
+			}
 			dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(intents)
 			err = pgConfigurator.ConfigureDatabasePermissions(ctx, pgUsername, action, dbnameToDatabaseResources)
 			if err != nil {
@@ -123,12 +128,10 @@ func (r *DatabaseReconciler) cleanExcessPermissions(
 		TODO: Remove this when we calculate a state of usernames and their DB instance & tables access
 	*/
 	for _, config := range pgServerConfigs.Items {
-		pgConfigurator := postgres.NewPostgresConfigurator(config.Spec)
-		if err := pgConfigurator.SetConnection(ctx, postgres.PGDefaultDatabase); err != nil {
-			pgErr, ok := postgres.TranslatePostgresConnectionError(err)
-			if ok {
-				return errors.Wrap(fmt.Errorf(pgErr))
-			}
+		pgConfigurator, err := postgres.NewPostgresConfigurator(ctx, config.Spec)
+		if err != nil {
+			r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
+				"Error connecting to PostgreSQL server. Error: %s", err.Error())
 			return errors.Wrap(err)
 		}
 		exists, err := pgConfigurator.ValidateUserExists(ctx, pgUsername)
