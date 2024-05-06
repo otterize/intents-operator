@@ -107,13 +107,15 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 func (r *DatabaseReconciler) applyDBInstanceIntents(ctx context.Context, config otterizev1alpha3.PostgreSQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
 	intentsDeleted := !clientIntents.DeletionTimestamp.IsZero()
 
-	dbConfigurator, err := postgres.NewPostgresConfigurator(ctx, config.Spec)
+	pgConfigurator, err := postgres.NewPostgresConfigurator(ctx, config.Spec)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
 			"Error connecting to PostgreSQL server. Error: %s", err.Error())
 		return errors.Wrap(err)
 	}
-	userExists, err := dbConfigurator.ValidateUserExists(ctx, dbUsername)
+
+	defer pgConfigurator.CloseConnection(ctx)
+	userExists, err := pgConfigurator.ValidateUserExists(ctx, dbUsername)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
 			"Failed querying for database user: %s", err.Error())
@@ -125,7 +127,7 @@ func (r *DatabaseReconciler) applyDBInstanceIntents(ctx context.Context, config 
 			// User was never in the db, nothing more to do
 			return nil
 		}
-		err = dbConfigurator.RevokeAllDatabasePermissionsForUser(ctx, dbUsername)
+		err = pgConfigurator.RevokeAllDatabasePermissionsForUser(ctx, dbUsername)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonExcessPermissionsCleanupFailed,
 				"Failed revoking all database permissions: %s", err.Error())
@@ -133,7 +135,7 @@ func (r *DatabaseReconciler) applyDBInstanceIntents(ctx context.Context, config 
 		}
 
 		logrus.Infof("ClientIntents deleted, dropping user %s from DB", dbUsername)
-		if err := dbConfigurator.DropUser(ctx, dbUsername); err != nil {
+		if err := pgConfigurator.DropUser(ctx, dbUsername); err != nil {
 			return errors.Wrap(err)
 		}
 
@@ -147,7 +149,7 @@ func (r *DatabaseReconciler) applyDBInstanceIntents(ctx context.Context, config 
 
 		intents := dbInstanceToIntents[config.Name]
 		dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(intents)
-		err = dbConfigurator.ApplyDatabasePermissionsForUser(ctx, dbUsername, dbnameToDatabaseResources)
+		err = pgConfigurator.ApplyDatabasePermissionsForUser(ctx, dbUsername, dbnameToDatabaseResources)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
 				"Failed applying database clientIntents: %s", err.Error())

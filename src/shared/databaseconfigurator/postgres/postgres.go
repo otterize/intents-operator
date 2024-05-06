@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -81,7 +80,7 @@ type PostgresConfigurator struct {
 	setConnMutex sync.Mutex
 }
 
-func NewPostgresConfigurator(ctx context.Context, pgServerConfSpec otterizev1alpha3.PostgreSQLServerConfigSpec) (databaseconfigurator.DatabaseConfigurator, error) {
+func NewPostgresConfigurator(ctx context.Context, pgServerConfSpec otterizev1alpha3.PostgreSQLServerConfigSpec) (*PostgresConfigurator, error) {
 	p := &PostgresConfigurator{
 		databaseInfo: pgServerConfSpec,
 		setConnMutex: sync.Mutex{},
