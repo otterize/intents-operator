@@ -85,9 +85,9 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	missingPGServerConfig := lo.Without(lo.Keys(dbInstanceToIntents), existingDBInstances...)
 	for _, missingDBInstance := range missingPGServerConfig {
 		// Not returning error on purpose, missing PGServerConf - record event and move on
+		// When a new PGServerConf is created, the clientIntents will be reconciled again
 		r.RecordWarningEventf(clientIntents, ReasonMissingPostgresServerConfig,
 			"Missing PostgresServerConfig: did not find Postgres server config to match database '%s' in the cluster", missingDBInstance)
-		return ctrl.Result{}, nil
 	}
 
 	for _, config := range pgServerConfigs.Items {
