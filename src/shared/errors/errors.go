@@ -10,7 +10,7 @@ func New(text string) error {
 	return bugsnagerrors.New(text, 1)
 }
 
-func NewCustomError(text string) error {
+func NewSentinelError(text string) error {
 	return gerrors.New(text)
 }
 

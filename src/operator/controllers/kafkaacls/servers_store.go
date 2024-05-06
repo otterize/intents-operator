@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	ServerSpecNotFound = errors.NewCustomError("failed getting kafka server connection - server configuration specs not set")
+	ServerSpecNotFound = errors.NewSentinelError("failed getting kafka server connection - server configuration specs not set")
 )
 
 type ServersStore interface {
