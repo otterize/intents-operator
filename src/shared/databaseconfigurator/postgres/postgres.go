@@ -87,7 +87,7 @@ func NewPostgresConfigurator(ctx context.Context, pgServerConfSpec otterizev1alp
 		setConnMutex: sync.Mutex{},
 	}
 
-	if err := p.SetConnection(ctx, PGDefaultDatabase); err != nil {
+	if err := p.setConnection(ctx, PGDefaultDatabase); err != nil {
 		pgErr, ok := TranslatePostgresConnectionError(err)
 		if ok {
 			return nil, errors.Wrap(errors.New(pgErr))
@@ -138,7 +138,7 @@ func (p *PostgresConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.C
 }
 
 func (p *PostgresConfigurator) applyDatabasePermissions(ctx context.Context, username string, dbname string, dbResources []otterizev1alpha3.DatabaseResource) error {
-	if err := p.SetConnection(ctx, dbname); err != nil {
+	if err := p.setConnection(ctx, dbname); err != nil {
 		return errors.Wrap(err)
 	}
 
@@ -155,7 +155,7 @@ func (p *PostgresConfigurator) applyDatabasePermissions(ctx context.Context, use
 }
 
 func (p *PostgresConfigurator) revokeDatabasePermissions(ctx context.Context, username string, dbname string) error {
-	err := p.SetConnection(ctx, dbname)
+	err := p.setConnection(ctx, dbname)
 	if err != nil && IsInvalidAuthorizationError(err) {
 		// Probably an admin database that we're failing to connect to or something along those lines
 		// (like 'cloudsqladmin' database in managed Google cloud SQL)
@@ -196,7 +196,7 @@ func (p *PostgresConfigurator) sendBatch(ctx context.Context, statementsBatch *p
 	return nil
 }
 
-func (p *PostgresConfigurator) SetConnection(ctx context.Context, databaseName string) error {
+func (p *PostgresConfigurator) setConnection(ctx context.Context, databaseName string) error {
 	connectionString := p.formatConnectionString(databaseName)
 	conn, err := pgx.Connect(ctx, connectionString)
 	if err != nil {
