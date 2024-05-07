@@ -6,17 +6,9 @@ import (
 	"strings"
 )
 
-func TableNameToIdentifier(tableName string) Identifier {
-	return strings.Split(tableName, ".")
-}
-
 type SQLTableIdentifier struct {
 	TableSchema string
 	TableName   string
-}
-
-func (i SQLTableIdentifier) ToSQLIdentifier() Identifier {
-	return Identifier{i.TableSchema, i.TableName}
 }
 
 func DatabaseConfigInputToSQLTableIdentifier(resource otterizev1alpha3.DatabaseResource) SQLTableIdentifier {

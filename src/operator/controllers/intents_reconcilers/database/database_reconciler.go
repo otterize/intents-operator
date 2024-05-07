@@ -107,14 +107,14 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			"Missing database server config: did not find DB server config to match database '%s' in the cluster", missingDBInstance)
 	}
 
-	for _, config := range pgServerConfigs.Items {
-		err := r.applyPGDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents)
-		if err != nil {
-			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
-				"Failed applying database clientIntents: %s", err.Error())
-			return ctrl.Result{}, errors.Wrap(err)
-		}
-	}
+	//for _, config := range pgServerConfigs.Items {
+	//	err := r.applyPGDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents)
+	//	if err != nil {
+	//		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+	//			"Failed applying database clientIntents: %s", err.Error())
+	//		return ctrl.Result{}, errors.Wrap(err)
+	//	}
+	//}
 
 	for _, config := range mySQLServerConfigs.Items {
 		err := r.applyMySQLDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents)

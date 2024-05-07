@@ -1,4 +1,4 @@
-package sqlutils
+package mysql
 
 import (
 	"fmt"
@@ -10,19 +10,13 @@ import (
 
 type SQLSprintfStatement string
 type NonUserInputString string
+type UserDefinedIdentifier string
 
-// Identifier an SQL identifier or name. Identifiers can be composed of
-// multiple parts such as ["schema", "table"] or ["table", "column"].
-type Identifier []string
-
-// Sanitize returns a sanitized string safe for SQL interpolation.
-func (ident Identifier) Sanitize() string {
-	parts := make([]string, len(ident))
-	for i := range ident {
-		s := strings.ReplaceAll(ident[i], string([]byte{0}), "")
-		parts[i] = `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
-	}
-	return strings.Join(parts, ".")
+func (i UserDefinedIdentifier) Sanitize() string {
+	s := string(i)
+	s = strings.ReplaceAll(s, string([]byte{0}), "")
+	s = strings.ReplaceAll(s, "'", "")
+	return s
 }
 
 func (s SQLSprintfStatement) PrepareSanitized(a ...any) (string, error) {
@@ -49,7 +43,7 @@ func sanitizeFormatInput(formatInput any) (string, error) {
 	}
 
 	// Postgres identifiers like table names, users, column names, etc..
-	if ident, ok := formatInput.(Identifier); ok {
+	if ident, ok := formatInput.(UserDefinedIdentifier); ok {
 		return ident.Sanitize(), nil
 	}
 

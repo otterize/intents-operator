@@ -4,32 +4,36 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	_ "github.com/go-sql-driver/mysql"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/sqlutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	sqldblogger "github.com/simukti/sqldb-logger"
+	"github.com/simukti/sqldb-logger/logadapter/logrusadapter"
 	"github.com/sirupsen/logrus"
 	"net/url"
 	"sync"
 )
 
 const (
-	SQLCreateUserStatement sqlutils.SQLSprintfStatement = "CREATE USER %s IDENTIFIED BY %s"
-	SQLSelectUserQuery     sqlutils.SQLSprintfStatement = "SELECT 1 FROM mysql.user WHERE user = $1"
-	SQLDropUserQuery       sqlutils.SQLSprintfStatement = "DROP USER %s"
+	SQLCreateUserStatement SQLSprintfStatement = "CREATE USER %s IDENTIFIED BY %s"
+	SQLDropUserQuery       SQLSprintfStatement = "DROP USER %s"
 
-	SQLGrantPermissionsOnDatabaseStatement    sqlutils.SQLSprintfStatement = "GRANT %s ON %s.* TO %s"
-	SQLGrantAllPermissionsOnDatabaseStatement sqlutils.SQLSprintfStatement = "GRANT ALL PRIVILEGES ON %s.* TO %s"
-	SQLGrantPermissionsOnTableStatement       sqlutils.SQLSprintfStatement = "GRANT %s ON %s.%s TO %s"
-	SQLGrantAllPermissionsOnTableStatement    sqlutils.SQLSprintfStatement = "GRANT ALL PRIVILEGES ON %s.%s TO %s"
+	SQLGrantPermissionsOnDatabaseStatement    SQLSprintfStatement = "GRANT %s ON %s.* TO '%s'"
+	SQLGrantAllPermissionsOnDatabaseStatement SQLSprintfStatement = "GRANT ALL ON %s.* TO '%s'"
+	SQLGrantPermissionsOnTableStatement       SQLSprintfStatement = "GRANT %s ON %s.%s TO '%s'"
+	SQLGrantAllPermissionsOnTableStatement    SQLSprintfStatement = "GRANT ALL ON %s.%s TO '%s'"
 
-	SQLRevokeAllPermissionsForUserStatement    sqlutils.SQLSprintfStatement = "REVOKE ALL PRIVILEGES ON *.* FROM %s"
-	SQLRevokeAllPermissionsOnDatabaseStatement sqlutils.SQLSprintfStatement = "REVOKE ALL PRIVILEGES ON %s.* FROM %s"
-	SQLRevokeAllPermissionsOnTableStatement    sqlutils.SQLSprintfStatement = "REVOKE ALL PRIVILEGES ON %s FROM %s"
+	SQLRevokeAllPermissionsForUserStatement    SQLSprintfStatement = "REVOKE ALL ON *.* FROM '%s'"
+	SQLRevokeAllPermissionsOnDatabaseStatement SQLSprintfStatement = "REVOKE ALL ON %s.* FROM '%s'"
+	SQLRevokeAllPermissionsOnTableStatement    SQLSprintfStatement = "REVOKE ALL ON %s FROM '%s'"
 
-	SQLSelectDatabasesWithUserPrivilegesQuery sqlutils.SQLSprintfStatement = `select i.table_schema, i.table_name from information_schema.tables i
-left join mysql.user u on u.user = $1 and u.select_priv = 'Y'
-left join mysql.db d on d.user = $1 and d.db = i.table_schema and d.select_priv = 'Y'
-left join mysql.tables_priv t on t.user = $1 and t.db = i.table_schema and t.table_name = i.table_name and LENGTH(t.table_priv) > 0
+	SQLSelectUserQuery = "SELECT 1 FROM mysql.user WHERE user = ?"
+	// TODO: use template as to avoid passing the username multiple times
+	SQLSelectDatabasesWithUserPrivilegesQuery = `select i.table_schema, i.table_name from information_schema.tables i
+left join mysql.user u on u.user = ? and u.select_priv = 'Y'
+left join mysql.db d on d.user = ? and d.db = i.table_schema and d.select_priv = 'Y'
+left join mysql.tables_priv t on t.user = ? and t.db = i.table_schema and t.table_name = i.table_name and LENGTH(t.table_priv) > 0
 where coalesce(u.user, d.user, t.user) is not null`
 	DefaultDatabase = "mysql"
 )
@@ -51,14 +55,18 @@ func NewMySQLConfigurator(ctx context.Context, conf otterizev1alpha3.PostgreSQLS
 		return nil, errors.Wrap(err)
 	}
 
-	// TODO: ping DB?
+	if err := m.db.PingContext(ctx); err != nil {
+		defer m.Close()
+		return nil, errors.Wrap(err)
+	}
+
 	return m, nil
 }
 
 func (m *MySQLConfigurator) formatConnectionString(databaseName string) string {
 	return fmt.Sprintf(
 		// multiStatements=true to allow multiple statements in a single query
-		"%s:%s@%s/%s?multiStatements=true",
+		"%s:%s@tcp(%s)/%s",
 		m.databaseInfo.Credentials.Username,
 		url.QueryEscape(m.databaseInfo.Credentials.Password),
 		m.databaseInfo.Address,
@@ -71,6 +79,8 @@ func (m *MySQLConfigurator) setConnection(databaseName string) error {
 	if err != nil {
 		return errors.Wrap(err)
 	}
+
+	db = sqldblogger.OpenDriver(connectionString, db.Driver(), logrusadapter.New(logrus.StandardLogger()))
 
 	m.setDBMutex.Lock()
 	defer m.setDBMutex.Unlock()
@@ -86,7 +96,7 @@ func (m *MySQLConfigurator) setConnection(databaseName string) error {
 }
 
 func (m *MySQLConfigurator) CreateUser(ctx context.Context, username string, password string) error {
-	stmt, err := SQLCreateUserStatement.PrepareSanitized(sqlutils.Identifier{username}, sqlutils.NonUserInputString(password))
+	stmt, err := SQLCreateUserStatement.PrepareSanitized(UserDefinedIdentifier(username), NonUserInputString(password))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -98,11 +108,7 @@ func (m *MySQLConfigurator) CreateUser(ctx context.Context, username string, pas
 }
 
 func (m *MySQLConfigurator) ValidateUserExists(ctx context.Context, username string) (bool, error) {
-	stmt, err := SQLSelectUserQuery.PrepareSanitized()
-	if err != nil {
-		return false, errors.Wrap(err)
-	}
-	rows, err := m.db.QueryContext(ctx, stmt, username)
+	rows, err := m.db.QueryContext(ctx, SQLSelectUserQuery, username)
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
@@ -112,7 +118,7 @@ func (m *MySQLConfigurator) ValidateUserExists(ctx context.Context, username str
 }
 
 func (m *MySQLConfigurator) DropUser(ctx context.Context, username string) error {
-	stmt, err := SQLDropUserQuery.PrepareSanitized(sqlutils.Identifier{username})
+	stmt, err := SQLDropUserQuery.PrepareSanitized(UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -132,10 +138,8 @@ func (m *MySQLConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context,
 
 	// apply new intents
 	for dbname, dbResources := range dbnameToDatabaseResources {
-		for _, dbResource := range dbResources {
-			if err := m.applyDatabaseResourcePermissions(ctx, username, dbname, dbResource); err != nil {
-				return errors.Wrap(err)
-			}
+		if err := m.applyDatabasePermissions(ctx, username, dbname, dbResources); err != nil {
+			return errors.Wrap(err)
 		}
 	}
 
@@ -159,12 +163,7 @@ func (m *MySQLConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context,
 }
 
 func (m *MySQLConfigurator) queryAllowedTablesForUser(ctx context.Context, username string) ([]sqlutils.SQLTableIdentifier, error) {
-	stmt, err := SQLSelectDatabasesWithUserPrivilegesQuery.PrepareSanitized()
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-
-	rows, err := m.db.QueryContext(ctx, stmt, username)
+	rows, err := m.db.QueryContext(ctx, SQLSelectDatabasesWithUserPrivilegesQuery, username, username, username)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -182,7 +181,19 @@ func (m *MySQLConfigurator) queryAllowedTablesForUser(ctx context.Context, usern
 	return allowedTables, nil
 }
 
+func (m *MySQLConfigurator) applyDatabasePermissions(ctx context.Context, username string, dbname string, dbResources []otterizev1alpha3.DatabaseResource) error {
+	for _, dbResource := range dbResources {
+		if err := m.applyDatabaseResourcePermissions(ctx, username, dbname, dbResource); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
 func (m *MySQLConfigurator) applyDatabaseResourcePermissions(ctx context.Context, username string, dbname string, dbResource otterizev1alpha3.DatabaseResource) error {
+	// TODO: diff and revoke excess permissions
+
 	operations := sqlutils.GetGrantOperations(dbResource.Operations)
 	containsAllOperation := sqlutils.ContainsAllOperations(operations)
 	if dbResource.Table == "" {
@@ -207,7 +218,7 @@ func (m *MySQLConfigurator) applyDatabaseResourcePermissions(ctx context.Context
 }
 
 func (m *MySQLConfigurator) grantAllPermissionsOnDatabase(ctx context.Context, username string, dbname string) error {
-	stmt, err := SQLGrantAllPermissionsOnDatabaseStatement.PrepareSanitized(sqlutils.Identifier{dbname}, sqlutils.Identifier{username})
+	stmt, err := SQLGrantAllPermissionsOnDatabaseStatement.PrepareSanitized(UserDefinedIdentifier(dbname), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -219,8 +230,7 @@ func (m *MySQLConfigurator) grantAllPermissionsOnDatabase(ctx context.Context, u
 }
 
 func (m *MySQLConfigurator) grantPermissionsOnDatabase(ctx context.Context, username string, dbname string, operations []otterizev1alpha3.DatabaseOperation) error {
-	// TODO: diff and revoke excess permissions
-	stmt, err := SQLGrantPermissionsOnDatabaseStatement.PrepareSanitized(operations, sqlutils.Identifier{dbname}, sqlutils.Identifier{username})
+	stmt, err := SQLGrantPermissionsOnDatabaseStatement.PrepareSanitized(operations, UserDefinedIdentifier(dbname), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -232,7 +242,7 @@ func (m *MySQLConfigurator) grantPermissionsOnDatabase(ctx context.Context, user
 }
 
 func (m *MySQLConfigurator) grantAllPermissionsOnTable(ctx context.Context, username string, dbname string, tableName string) error {
-	stmt, err := SQLGrantAllPermissionsOnTableStatement.PrepareSanitized(sqlutils.Identifier{dbname}, sqlutils.Identifier{tableName}, sqlutils.Identifier{username})
+	stmt, err := SQLGrantAllPermissionsOnTableStatement.PrepareSanitized(UserDefinedIdentifier(dbname), UserDefinedIdentifier(tableName), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -244,8 +254,7 @@ func (m *MySQLConfigurator) grantAllPermissionsOnTable(ctx context.Context, user
 }
 
 func (m *MySQLConfigurator) grantPermissionsOnTable(ctx context.Context, username string, dbname string, tableName string, operations []otterizev1alpha3.DatabaseOperation) error {
-	// TODO: diff and revoke excess permissions
-	stmt, err := SQLGrantPermissionsOnTableStatement.PrepareSanitized(operations, sqlutils.Identifier{dbname}, sqlutils.Identifier{tableName}, sqlutils.Identifier{username})
+	stmt, err := SQLGrantPermissionsOnTableStatement.PrepareSanitized(operations, UserDefinedIdentifier(dbname), UserDefinedIdentifier(tableName), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -257,7 +266,7 @@ func (m *MySQLConfigurator) grantPermissionsOnTable(ctx context.Context, usernam
 }
 
 func (m *MySQLConfigurator) revokeTablePermissions(ctx context.Context, username string, table sqlutils.SQLTableIdentifier) error {
-	stmt, err := SQLRevokeAllPermissionsOnTableStatement.PrepareSanitized(table.ToSQLIdentifier(), sqlutils.Identifier{username})
+	stmt, err := SQLRevokeAllPermissionsOnTableStatement.PrepareSanitized(UserDefinedIdentifier(table.TableSchema), UserDefinedIdentifier(table.TableName), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -269,7 +278,7 @@ func (m *MySQLConfigurator) revokeTablePermissions(ctx context.Context, username
 }
 
 func (m *MySQLConfigurator) revokeDatabasePermissions(ctx context.Context, username string, dbname string) error {
-	stmt, err := SQLRevokeAllPermissionsOnDatabaseStatement.PrepareSanitized(sqlutils.Identifier{dbname}, sqlutils.Identifier{username})
+	stmt, err := SQLRevokeAllPermissionsOnDatabaseStatement.PrepareSanitized(UserDefinedIdentifier(dbname), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -281,7 +290,7 @@ func (m *MySQLConfigurator) revokeDatabasePermissions(ctx context.Context, usern
 }
 
 func (m *MySQLConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.Context, pgUsername string) error {
-	stmt, err := SQLRevokeAllPermissionsForUserStatement.PrepareSanitized(sqlutils.Identifier{pgUsername})
+	stmt, err := SQLRevokeAllPermissionsForUserStatement.PrepareSanitized(UserDefinedIdentifier(pgUsername))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -299,6 +308,6 @@ func (m *MySQLConfigurator) Close() {
 
 	if err := m.db.Close(); err != nil {
 		// Intentionally no error returned - clean up error
-		logrus.Errorf("Failed closing connection to: %s", p.databaseInfo.Address)
+		logrus.Errorf("Failed closing connection to: %s", m.databaseInfo.Address)
 	}
 }

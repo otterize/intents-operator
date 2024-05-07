@@ -14,21 +14,21 @@ import (
 )
 
 const (
-	PGCreateUserStatement                      sqlutils.SQLSprintfStatement = "CREATE USER %s WITH PASSWORD %s"
-	PGRevokeAllTableStatement                  sqlutils.SQLSprintfStatement = "REVOKE ALL ON TABLE %s FROM %s"
-	PGRevokeAllOnSeqStatement                  sqlutils.SQLSprintfStatement = "REVOKE ALL ON SEQUENCE %s FROM %s"
-	PGGrantStatement                           sqlutils.SQLSprintfStatement = "GRANT %s ON %s to %s"
-	PGGrantOnAllTablesInSchemaStatement        sqlutils.SQLSprintfStatement = "GRANT %s ON ALL TABLES IN SCHEMA %s to %s"
-	PGGrantOnAllSequencesInSchemaStatement     sqlutils.SQLSprintfStatement = "GRANT %s ON ALL SEQUENCES IN SCHEMA %s to %s"
-	PGRevokeOnAllTablesInSchemaStatement       sqlutils.SQLSprintfStatement = "REVOKE ALL ON ALL TABLES IN SCHEMA %s FROM %s"
-	PGRevokeOnAllSequencesInSchemaStatement    sqlutils.SQLSprintfStatement = "REVOKE ALL ON ALL SEQUENCES IN SCHEMA %s FROM %s"
-	PGDropUserStatement                        sqlutils.SQLSprintfStatement = "DROP USER %s"
-	PGSelectUserQuery                                                       = "SELECT FROM pg_catalog.pg_user where usename = $1"
-	PGSelectPrivilegesQuery                                                 = "SELECT table_schema, table_name FROM information_schema.table_privileges where grantee = $1"
-	PGSSelectTableSequencesPrivilegesQuery                                  = "SELECT split_part(column_default, '''', 2) FROM information_schema.columns WHERE column_default LIKE 'nextval%' and table_schema=$1 and table_name=$2"
-	PGSSelectSchemaNamesQuery                                               = "SELECT schema_name From information_schema.schemata where schema_name!='pg_catalog' and schema_name!='pg_toast' and schema_name!='information_schema'"
-	PGSelectAllDatabasesWithConnectPermissions sqlutils.SQLSprintfStatement = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT') and has_database_privilege(%s, d.datname, 'CONNECT');"
-	PGDefaultDatabase                                                       = "postgres"
+	PGCreateUserStatement                      SQLSprintfStatement = "CREATE USER %s WITH PASSWORD %s"
+	PGRevokeAllTableStatement                  SQLSprintfStatement = "REVOKE ALL ON TABLE %s FROM %s"
+	PGRevokeAllOnSeqStatement                  SQLSprintfStatement = "REVOKE ALL ON SEQUENCE %s FROM %s"
+	PGGrantStatement                           SQLSprintfStatement = "GRANT %s ON %s to %s"
+	PGGrantOnAllTablesInSchemaStatement        SQLSprintfStatement = "GRANT %s ON ALL TABLES IN SCHEMA %s to %s"
+	PGGrantOnAllSequencesInSchemaStatement     SQLSprintfStatement = "GRANT %s ON ALL SEQUENCES IN SCHEMA %s to %s"
+	PGRevokeOnAllTablesInSchemaStatement       SQLSprintfStatement = "REVOKE ALL ON ALL TABLES IN SCHEMA %s FROM %s"
+	PGRevokeOnAllSequencesInSchemaStatement    SQLSprintfStatement = "REVOKE ALL ON ALL SEQUENCES IN SCHEMA %s FROM %s"
+	PGDropUserStatement                        SQLSprintfStatement = "DROP USER %s"
+	PGSelectUserQuery                                              = "SELECT FROM pg_catalog.pg_user where usename = $1"
+	PGSelectPrivilegesQuery                                        = "SELECT table_schema, table_name FROM information_schema.table_privileges where grantee = $1"
+	PGSSelectTableSequencesPrivilegesQuery                         = "SELECT split_part(column_default, '''', 2) FROM information_schema.columns WHERE column_default LIKE 'nextval%' and table_schema=$1 and table_name=$2"
+	PGSSelectSchemaNamesQuery                                      = "SELECT schema_name From information_schema.schemata where schema_name!='pg_catalog' and schema_name!='pg_toast' and schema_name!='information_schema'"
+	PGSelectAllDatabasesWithConnectPermissions SQLSprintfStatement = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT') and has_database_privilege(%s, d.datname, 'CONNECT');"
+	PGDefaultDatabase                                              = "postgres"
 )
 
 type PostgresConfigurator struct {
@@ -217,20 +217,20 @@ func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.
 		if err := rows.Scan(&sequenceName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGGrantStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, sqlutils.Identifier{postgresTableIdentifier.TableSchema, sequenceName}, sqlutils.Identifier{username})
+		stmt, err := PGGrantStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, pgx.Identifier{postgresTableIdentifier.TableSchema, sequenceName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
 	}
 	// We always include the "revoke all" statement to make sure deleted permissions are removed
-	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(sqlutils.TableNameToIdentifier(resource.Table), sqlutils.Identifier{username})
+	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(tableNameToIdentifier(resource.Table), pgx.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
 	batch.Queue(stmt)
 	operations := sqlutils.GetGrantOperations(resource.Operations)
-	stmt, err = PGGrantStatement.PrepareSanitized(operations, sqlutils.TableNameToIdentifier(resource.Table), sqlutils.Identifier{username})
+	stmt, err = PGGrantStatement.PrepareSanitized(operations, tableNameToIdentifier(resource.Table), pgx.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -302,14 +302,14 @@ func (p *PostgresConfigurator) queueRevokeAllOnTableAndSequencesStatements(ctx c
 		if err := rows.Scan(&sequenceName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGRevokeAllOnSeqStatement.PrepareSanitized(sqlutils.Identifier{table.TableSchema, sequenceName}, sqlutils.Identifier{username})
+		stmt, err := PGRevokeAllOnSeqStatement.PrepareSanitized(pgx.Identifier{table.TableSchema, sequenceName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
 	}
 
-	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(table.ToSQLIdentifier(), sqlutils.Identifier{username})
+	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(pgx.Identifier{table.TableSchema, table.TableName}, pgx.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -331,13 +331,13 @@ func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx c
 		if err := rows.Scan(&schemaName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGGrantOnAllSequencesInSchemaStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, sqlutils.Identifier{schemaName}, sqlutils.Identifier{username})
+		stmt, err := PGGrantOnAllSequencesInSchemaStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
 		operations := sqlutils.GetGrantOperations(resource.Operations)
-		stmt, err = PGGrantOnAllTablesInSchemaStatement.PrepareSanitized(operations, sqlutils.Identifier{schemaName}, sqlutils.Identifier{username})
+		stmt, err = PGGrantOnAllTablesInSchemaStatement.PrepareSanitized(operations, pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -359,12 +359,12 @@ func (p *PostgresConfigurator) queueRevokePermissionsByDatabaseNameStatements(ct
 		if err := rows.Scan(&schemaName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGRevokeOnAllSequencesInSchemaStatement.PrepareSanitized(sqlutils.Identifier{schemaName}, sqlutils.Identifier{username})
+		stmt, err := PGRevokeOnAllSequencesInSchemaStatement.PrepareSanitized(pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
-		stmt, err = PGRevokeOnAllTablesInSchemaStatement.PrepareSanitized(sqlutils.Identifier{schemaName}, sqlutils.Identifier{username})
+		stmt, err = PGRevokeOnAllTablesInSchemaStatement.PrepareSanitized(pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -395,7 +395,7 @@ func (p *PostgresConfigurator) ValidateUserExists(ctx context.Context, username 
 func (p *PostgresConfigurator) queryAllowedDatabases(ctx context.Context, username string) ([]string, error) {
 	allowedDatabases := make([]string, 0)
 	// TODO: can we filter this by the workload's pgUsername? Can use `has_database_privilege` function
-	stmt, err := PGSelectAllDatabasesWithConnectPermissions.PrepareSanitized(sqlutils.Identifier{username})
+	stmt, err := PGSelectAllDatabasesWithConnectPermissions.PrepareSanitized(pgx.Identifier{username})
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -416,7 +416,7 @@ func (p *PostgresConfigurator) queryAllowedDatabases(ctx context.Context, userna
 
 func (p *PostgresConfigurator) DropUser(ctx context.Context, username string) error {
 	batch := pgx.Batch{}
-	stmt, err := PGDropUserStatement.PrepareSanitized(sqlutils.Identifier{username})
+	stmt, err := PGDropUserStatement.PrepareSanitized(pgx.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -430,7 +430,7 @@ func (p *PostgresConfigurator) DropUser(ctx context.Context, username string) er
 
 func (p *PostgresConfigurator) CreateUser(ctx context.Context, username string, password string) error {
 	batch := pgx.Batch{}
-	stmt, err := PGCreateUserStatement.PrepareSanitized(sqlutils.Identifier{username}, sqlutils.NonUserInputString(password))
+	stmt, err := PGCreateUserStatement.PrepareSanitized(pgx.Identifier{username}, NonUserInputString(password))
 	if err != nil {
 		return errors.Wrap(err)
 	}
