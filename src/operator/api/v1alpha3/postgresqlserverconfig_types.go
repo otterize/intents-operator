@@ -48,7 +48,7 @@ type PostgreSQLServerConfigStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion
 
-// PostgreSQLServerConfig is the Schema for the databaseserverconfig API
+// PostgreSQLServerConfig is the Schema for the postgresqlserverconfig API
 type PostgreSQLServerConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
