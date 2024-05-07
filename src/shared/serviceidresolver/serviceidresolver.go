@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-var ErrPodNotFound = errors.New("pod not found")
+var ErrPodNotFound = errors.NewSentinelError("pod not found")
 
 //+kubebuilder:rbac:groups="apps",resources=deployments;replicasets;daemonsets;statefulsets,verbs=get;list;watch
 //+kubebuilder:rbac:groups="batch",resources=jobs;cronjobs,verbs=get;list;watch
@@ -145,7 +145,7 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3
 		return corev1.Pod{}, errors.Wrap(err)
 	}
 	if len(podsList.Items) == 0 {
-		return corev1.Pod{}, ErrPodNotFound
+		return corev1.Pod{}, errors.Wrap(ErrPodNotFound)
 	}
 
 	for _, pod := range podsList.Items {
@@ -156,7 +156,7 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3
 		return pod, nil
 	}
 
-	return corev1.Pod{}, ErrPodNotFound
+	return corev1.Pod{}, errors.Wrap(ErrPodNotFound)
 }
 
 func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3.Intent, namespace string) (corev1.Pod, error) {
@@ -173,7 +173,7 @@ func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3
 		return corev1.Pod{}, errors.Wrap(err)
 	}
 	if len(podsList.Items) == 0 {
-		return corev1.Pod{}, ErrPodNotFound
+		return corev1.Pod{}, errors.Wrap(ErrPodNotFound)
 	}
 
 	for _, pod := range podsList.Items {
@@ -184,7 +184,7 @@ func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3
 		return pod, nil
 	}
 
-	return corev1.Pod{}, ErrPodNotFound
+	return corev1.Pod{}, errors.Wrap(ErrPodNotFound)
 }
 
 func (r *Resolver) GetKubernetesServicesTargetingPod(ctx context.Context, pod *corev1.Pod) ([]corev1.Service, error) {
