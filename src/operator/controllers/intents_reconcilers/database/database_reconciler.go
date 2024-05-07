@@ -5,6 +5,8 @@ import (
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
+	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
+	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/mysql"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/postgres"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -19,8 +21,9 @@ import (
 const (
 	ReasonApplyingDatabaseIntentsFailed     = "ApplyingDatabaseIntentsFailed"
 	ReasonAppliedDatabaseIntents            = "AppliedDatabaseIntents"
-	ReasonErrorFetchingPostgresServerConfig = "ErrorFetchingPostgresServerConfig"
-	ReasonMissingPostgresServerConfig       = "MissingPostgresServerConfig"
+	ReasonErrorFetchingPostgresServerConfig = "ErrorFetchingPostgreSQLServerConfig"
+	ReasonErrorFetchingMySQLServerConfig    = "ErrorFetchingMySQLServerConfig"
+	ReasonMissingDBServerConfig             = "MissingDBServerConfig"
 	ReasonExcessPermissionsCleanupFailed    = "ExcessPermissionsCleanupFailed"
 )
 
@@ -63,7 +66,15 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	err = r.client.List(ctx, &pgServerConfigs)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
-			"Error listing PostgresServerConfings. Error: %s", err.Error())
+			"Error listing PostgreSQLServerConfings. Error: %s", err.Error())
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
+	mySQLServerConfigs := otterizev1alpha3.PostgreSQLServerConfigList{} // TODO: read MySQLServerConfigs
+	err = r.client.List(ctx, &mySQLServerConfigs)
+	if err != nil {
+		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
+			"Error listing MySQLServerConfings. Error: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
@@ -72,26 +83,41 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 	username := clusterutils.BuildHashedUsername(clientIntents.GetServiceName(), clientIntents.Namespace, clusterID)
-	pgUsername := clusterutils.KubernetesToPostgresName(username)
+	dbUsername := clusterutils.KubernetesToPostgresName(username)
 
 	dbIntents := clientIntents.GetDatabaseIntents()
 	dbInstanceToIntents := lo.GroupBy(dbIntents, func(intent otterizev1alpha3.Intent) string {
 		return intent.Name // "Name" is the db instance name in our case.
 	})
 
-	existingDBInstances := lo.Map(pgServerConfigs.Items, func(config otterizev1alpha3.PostgreSQLServerConfig, _ int) string {
+	existingPGInstances := lo.Map(pgServerConfigs.Items, func(config otterizev1alpha3.PostgreSQLServerConfig, _ int) string {
 		return config.Name
 	})
-	missingPGServerConfig := lo.Without(lo.Keys(dbInstanceToIntents), existingDBInstances...)
-	for _, missingDBInstance := range missingPGServerConfig {
+	existingMySQLInstances := lo.Map(mySQLServerConfigs.Items, func(config otterizev1alpha3.PostgreSQLServerConfig, _ int) string {
+		return config.Name
+	})
+
+	existingDBInstances := append(existingPGInstances, existingMySQLInstances...)
+
+	missingDBServerConfig := lo.Without(lo.Keys(dbInstanceToIntents), existingDBInstances...)
+	for _, missingDBInstance := range missingDBServerConfig {
 		// Not returning error on purpose, missing PGServerConf - record event and move on
 		// When a new PGServerConf is created, the clientIntents will be reconciled again
-		r.RecordWarningEventf(clientIntents, ReasonMissingPostgresServerConfig,
-			"Missing PostgresServerConfig: did not find Postgres server config to match database '%s' in the cluster", missingDBInstance)
+		r.RecordWarningEventf(clientIntents, ReasonMissingDBServerConfig,
+			"Missing database server config: did not find DB server config to match database '%s' in the cluster", missingDBInstance)
 	}
 
 	for _, config := range pgServerConfigs.Items {
-		err := r.applyDBInstanceIntents(ctx, config, clientIntents, pgUsername, dbInstanceToIntents)
+		err := r.applyPGDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents)
+		if err != nil {
+			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+				"Failed applying database clientIntents: %s", err.Error())
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+	}
+
+	for _, config := range mySQLServerConfigs.Items {
+		err := r.applyMySQLDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
 				"Failed applying database clientIntents: %s", err.Error())
@@ -104,18 +130,36 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *DatabaseReconciler) applyDBInstanceIntents(ctx context.Context, config otterizev1alpha3.PostgreSQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
-	intentsDeleted := !clientIntents.DeletionTimestamp.IsZero()
-
-	pgConfigurator, err := postgres.NewPostgresConfigurator(ctx, config.Spec)
+func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, config otterizev1alpha3.PostgreSQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
+	dbConfigurator, err := postgres.NewPostgresConfigurator(ctx, config.Spec)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
 			"Error connecting to PostgreSQL server. Error: %s", err.Error())
 		return errors.Wrap(err)
 	}
 
-	defer pgConfigurator.CloseConnection(ctx)
-	userExists, err := pgConfigurator.ValidateUserExists(ctx, dbUsername)
+	defer dbConfigurator.CloseConnection(ctx)
+
+	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, dbInstanceToIntents[config.Name])
+}
+
+func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev1alpha3.PostgreSQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
+	dbConfigurator, err := mysql.NewMySQLConfigurator(ctx, config.Spec)
+	if err != nil {
+		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
+			"Error connecting to PostgreSQL server. Error: %s", err.Error())
+		return errors.Wrap(err)
+	}
+
+	defer dbConfigurator.Close()
+
+	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, dbInstanceToIntents[config.Name])
+}
+
+func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(ctx context.Context, dbConfigurator databaseconfigurator.DatabaseConfigurator, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceIntents []otterizev1alpha3.Intent) error {
+	intentsDeleted := !clientIntents.DeletionTimestamp.IsZero()
+
+	userExists, err := dbConfigurator.ValidateUserExists(ctx, dbUsername)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
 			"Failed querying for database user: %s", err.Error())
@@ -127,7 +171,7 @@ func (r *DatabaseReconciler) applyDBInstanceIntents(ctx context.Context, config 
 			// User was never in the db, nothing more to do
 			return nil
 		}
-		err = pgConfigurator.RevokeAllDatabasePermissionsForUser(ctx, dbUsername)
+		err = dbConfigurator.RevokeAllDatabasePermissionsForUser(ctx, dbUsername)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonExcessPermissionsCleanupFailed,
 				"Failed revoking all database permissions: %s", err.Error())
@@ -135,7 +179,7 @@ func (r *DatabaseReconciler) applyDBInstanceIntents(ctx context.Context, config 
 		}
 
 		logrus.Infof("ClientIntents deleted, dropping user %s from DB", dbUsername)
-		if err := pgConfigurator.DropUser(ctx, dbUsername); err != nil {
+		if err := dbConfigurator.DropUser(ctx, dbUsername); err != nil {
 			return errors.Wrap(err)
 		}
 
@@ -147,9 +191,8 @@ func (r *DatabaseReconciler) applyDBInstanceIntents(ctx context.Context, config 
 			return errors.New("user does not exist in the database")
 		}
 
-		intents := dbInstanceToIntents[config.Name]
-		dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(intents)
-		err = pgConfigurator.ApplyDatabasePermissionsForUser(ctx, dbUsername, dbnameToDatabaseResources)
+		dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(dbInstanceIntents)
+		err = dbConfigurator.ApplyDatabasePermissionsForUser(ctx, dbUsername, dbnameToDatabaseResources)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
 				"Failed applying database clientIntents: %s", err.Error())

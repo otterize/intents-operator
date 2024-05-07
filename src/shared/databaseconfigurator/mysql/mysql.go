@@ -34,20 +34,14 @@ where coalesce(u.user, d.user, t.user) is not null`
 	DefaultDatabase = "mysql"
 )
 
-// TODO: this should be defined in otterizev1alpha3
-type MySQLServerConfigSpec struct {
-	Address     string                               `json:"address"`
-	Credentials otterizev1alpha3.DatabaseCredentials `json:"credentials"`
-}
-
 type MySQLConfigurator struct {
-	databaseInfo MySQLServerConfigSpec
+	databaseInfo otterizev1alpha3.PostgreSQLServerConfigSpec // TODO: Use MySQLServerConfigSpec
 
 	db         *sql.DB
 	setDBMutex sync.Mutex
 }
 
-func NewMySQLConfigurator(ctx context.Context, conf MySQLServerConfigSpec) (*MySQLConfigurator, error) {
+func NewMySQLConfigurator(ctx context.Context, conf otterizev1alpha3.PostgreSQLServerConfigSpec) (*MySQLConfigurator, error) {
 	m := &MySQLConfigurator{
 		databaseInfo: conf,
 		setDBMutex:   sync.Mutex{},
@@ -296,4 +290,15 @@ func (m *MySQLConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.Cont
 	}
 
 	return nil
+}
+
+func (m *MySQLConfigurator) Close() {
+	if m.db == nil {
+		return
+	}
+
+	if err := m.db.Close(); err != nil {
+		// Intentionally no error returned - clean up error
+		logrus.Errorf("Failed closing connection to: %s", p.databaseInfo.Address)
+	}
 }
