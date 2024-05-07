@@ -186,6 +186,7 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(ctx context.Co
 		return nil
 	} else {
 		if !userExists {
+			// TODO: create the user here and annotate the pod with the user
 			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
 				"User %s does not exist, waiting for it to be created by credentials operator", dbUsername)
 			return errors.New("user does not exist in the database")
