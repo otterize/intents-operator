@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/sqlutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -15,27 +16,24 @@ import (
 )
 
 const (
-	PGCreateUserStatement                      SQLSprintfStatement = "CREATE USER %s WITH PASSWORD %s"
-	PGRevokeAllTableStatement                  SQLSprintfStatement = "REVOKE ALL ON TABLE %s FROM %s"
-	PGRevokeAllOnSeqStatement                  SQLSprintfStatement = "REVOKE ALL ON SEQUENCE %s FROM %s"
-	PGGrantStatement                           SQLSprintfStatement = "GRANT %s ON %s to %s"
-	PGGrantOnAllTablesInSchemaStatement        SQLSprintfStatement = "GRANT %s ON ALL TABLES IN SCHEMA %s to %s"
-	PGGrantOnAllSequencesInSchemaStatement     SQLSprintfStatement = "GRANT %s ON ALL SEQUENCES IN SCHEMA %s to %s"
-	PGRevokeOnAllTablesInSchemaStatement       SQLSprintfStatement = "REVOKE ALL ON ALL TABLES IN SCHEMA %s FROM %s"
-	PGRevokeOnAllSequencesInSchemaStatement    SQLSprintfStatement = "REVOKE ALL ON ALL SEQUENCES IN SCHEMA %s FROM %s"
-	PGDropUserStatement                        SQLSprintfStatement = "DROP USER %s"
-	PGSelectUserQuery                                              = "SELECT FROM pg_catalog.pg_user where usename = $1"
-	PGSelectPrivilegesQuery                                        = "SELECT table_schema, table_name FROM information_schema.table_privileges where grantee = $1"
-	PGSSelectTableSequencesPrivilegesQuery                         = "SELECT split_part(column_default, '''', 2) FROM information_schema.columns WHERE column_default LIKE 'nextval%' and table_schema=$1 and table_name=$2"
-	PGSSelectSchemaNamesQuery                                      = "SELECT schema_name From information_schema.schemata where schema_name!='pg_catalog' and schema_name!='pg_toast' and schema_name!='information_schema'"
-	PGSelectAllDatabasesWithConnectPermissions                     = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT');"
-	PGDefaultDatabase                                              = "postgres"
+	PGCreateUserStatement                      sqlutils.SQLSprintfStatement = "CREATE USER %s WITH PASSWORD %s"
+	PGRevokeAllTableStatement                  sqlutils.SQLSprintfStatement = "REVOKE ALL ON TABLE %s FROM %s"
+	PGRevokeAllOnSeqStatement                  sqlutils.SQLSprintfStatement = "REVOKE ALL ON SEQUENCE %s FROM %s"
+	PGGrantStatement                           sqlutils.SQLSprintfStatement = "GRANT %s ON %s to %s"
+	PGGrantOnAllTablesInSchemaStatement        sqlutils.SQLSprintfStatement = "GRANT %s ON ALL TABLES IN SCHEMA %s to %s"
+	PGGrantOnAllSequencesInSchemaStatement     sqlutils.SQLSprintfStatement = "GRANT %s ON ALL SEQUENCES IN SCHEMA %s to %s"
+	PGRevokeOnAllTablesInSchemaStatement       sqlutils.SQLSprintfStatement = "REVOKE ALL ON ALL TABLES IN SCHEMA %s FROM %s"
+	PGRevokeOnAllSequencesInSchemaStatement    sqlutils.SQLSprintfStatement = "REVOKE ALL ON ALL SEQUENCES IN SCHEMA %s FROM %s"
+	PGDropUserStatement                        sqlutils.SQLSprintfStatement = "DROP USER %s"
+	PGSelectUserQuery                                                       = "SELECT FROM pg_catalog.pg_user where usename = $1"
+	PGSelectPrivilegesQuery                                                 = "SELECT table_schema, table_name FROM information_schema.table_privileges where grantee = $1"
+	PGSSelectTableSequencesPrivilegesQuery                                  = "SELECT split_part(column_default, '''', 2) FROM information_schema.columns WHERE column_default LIKE 'nextval%' and table_schema=$1 and table_name=$2"
+	PGSSelectSchemaNamesQuery                                               = "SELECT schema_name From information_schema.schemata where schema_name!='pg_catalog' and schema_name!='pg_toast' and schema_name!='information_schema'"
+	PGSelectAllDatabasesWithConnectPermissions                              = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT');"
+	PGDefaultDatabase                                                       = "postgres"
 )
 
-type SQLSprintfStatement string
-type NonUserInputString string
-
-func tableNameToIdentifier(tableName string) pgx.Identifier {
+func tableNameToIdentifier(tableName string) sqlutils.Identifier {
 	return strings.Split(tableName, ".")
 }
 
@@ -44,34 +42,8 @@ type PostgresTableIdentifier struct {
 	tableName   string
 }
 
-func (p PostgresTableIdentifier) ToPGXIdentifier() pgx.Identifier {
-	return pgx.Identifier{p.tableSchema, p.tableName}
-}
-
-func (s SQLSprintfStatement) PrepareSanitized(a ...any) (string, error) {
-	sanitizedItems := make([]any, len(a))
-	for i, formatInput := range a {
-		if dbOperations, ok := formatInput.([]otterizev1alpha3.DatabaseOperation); ok {
-			asStrings := lo.Map(dbOperations, func(op otterizev1alpha3.DatabaseOperation, _ int) string { return string(op) })
-			sanitizedItems[i] = strings.Join(asStrings, ",")
-			continue
-		}
-
-		// String that was marked explicitly as non-user doesn't have to be sanitized
-		if inputStr, ok := formatInput.(NonUserInputString); ok {
-			sanitizedItems[i] = fmt.Sprintf("'%s'", inputStr)
-			continue
-		}
-
-		// Postgres identifiers like table names, users, column names, etc..
-		if ident, ok := formatInput.(pgx.Identifier); ok {
-			sanitizedItems[i] = ident.Sanitize()
-			continue
-		}
-
-		return "", errors.Errorf("received sanitize input '%v' with type '%T', which was not string or DatabaseOperation", formatInput, formatInput)
-	}
-	return fmt.Sprintf(string(s), sanitizedItems...), nil
+func (p PostgresTableIdentifier) ToPGXIdentifier() sqlutils.Identifier {
+	return sqlutils.Identifier{p.tableSchema, p.tableName}
 }
 
 type PostgresConfigurator struct {
@@ -203,13 +175,11 @@ func (p *PostgresConfigurator) setConnection(ctx context.Context, databaseName s
 	}
 	p.setConnMutex.Lock()
 	defer p.setConnMutex.Unlock()
-	if p.conn == nil {
-		p.conn = conn
-		return nil
-	}
-	if err := p.conn.Close(ctx); err != nil {
-		// Intentionally no error returned - clean up error
-		logrus.Errorf("Failed closing connection to: %s", p.databaseInfo.Address)
+	if p.conn != nil {
+		if err := p.conn.Close(ctx); err != nil {
+			// Intentionally no error returned - clean up error
+			logrus.Errorf("Failed closing connection to: %s", p.databaseInfo.Address)
+		}
 	}
 	p.conn = conn
 	return nil
@@ -247,20 +217,20 @@ func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.
 		if err := rows.Scan(&sequenceName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGGrantStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, pgx.Identifier{postgresTableIdentifier.tableSchema, sequenceName}, pgx.Identifier{username})
+		stmt, err := PGGrantStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, sqlutils.Identifier{postgresTableIdentifier.tableSchema, sequenceName}, sqlutils.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
 	}
 	// We always include the "revoke all" statement to make sure deleted permissions are removed
-	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(tableNameToIdentifier(resource.Table), pgx.Identifier{username})
+	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(tableNameToIdentifier(resource.Table), sqlutils.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
 	batch.Queue(stmt)
 	operations := p.getGrantOperations(resource.Operations)
-	stmt, err = PGGrantStatement.PrepareSanitized(operations, tableNameToIdentifier(resource.Table), pgx.Identifier{username})
+	stmt, err = PGGrantStatement.PrepareSanitized(operations, tableNameToIdentifier(resource.Table), sqlutils.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -360,14 +330,14 @@ func (p *PostgresConfigurator) queueRevokeAllOnTableAndSequencesStatements(ctx c
 		if err := rows.Scan(&sequenceName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGRevokeAllOnSeqStatement.PrepareSanitized(pgx.Identifier{table.tableSchema, sequenceName}, pgx.Identifier{username})
+		stmt, err := PGRevokeAllOnSeqStatement.PrepareSanitized(sqlutils.Identifier{table.tableSchema, sequenceName}, sqlutils.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
 	}
 
-	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(table.ToPGXIdentifier(), pgx.Identifier{username})
+	stmt, err := PGRevokeAllTableStatement.PrepareSanitized(table.ToPGXIdentifier(), sqlutils.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -389,13 +359,13 @@ func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx c
 		if err := rows.Scan(&schemaName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGGrantOnAllSequencesInSchemaStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, pgx.Identifier{schemaName}, pgx.Identifier{username})
+		stmt, err := PGGrantOnAllSequencesInSchemaStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, sqlutils.Identifier{schemaName}, sqlutils.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
 		operations := p.getGrantOperations(resource.Operations)
-		stmt, err = PGGrantOnAllTablesInSchemaStatement.PrepareSanitized(operations, pgx.Identifier{schemaName}, pgx.Identifier{username})
+		stmt, err = PGGrantOnAllTablesInSchemaStatement.PrepareSanitized(operations, sqlutils.Identifier{schemaName}, sqlutils.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -417,12 +387,12 @@ func (p *PostgresConfigurator) queueRevokePermissionsByDatabaseNameStatements(ct
 		if err := rows.Scan(&schemaName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGRevokeOnAllSequencesInSchemaStatement.PrepareSanitized(pgx.Identifier{schemaName}, pgx.Identifier{username})
+		stmt, err := PGRevokeOnAllSequencesInSchemaStatement.PrepareSanitized(sqlutils.Identifier{schemaName}, sqlutils.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		batch.Queue(stmt)
-		stmt, err = PGRevokeOnAllTablesInSchemaStatement.PrepareSanitized(pgx.Identifier{schemaName}, pgx.Identifier{username})
+		stmt, err = PGRevokeOnAllTablesInSchemaStatement.PrepareSanitized(sqlutils.Identifier{schemaName}, sqlutils.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -441,13 +411,13 @@ func (p *PostgresConfigurator) formatConnectionString(databaseName string) strin
 }
 
 func (p *PostgresConfigurator) ValidateUserExists(ctx context.Context, username string) (bool, error) {
-	row, err := p.conn.Query(ctx, PGSelectUserQuery, username)
+	rows, err := p.conn.Query(ctx, PGSelectUserQuery, username)
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
-	defer row.Close() // "row" either holds 1 or 0 rows, and we must call Close() before reusing the connection again
+	defer rows.Close() // "rows" either holds 1 or 0 rows, and we must call Close() before reusing the connection again
 
-	return row.Next(), nil
+	return rows.Next(), nil
 }
 
 func (p *PostgresConfigurator) queryAllowedDatabases(ctx context.Context) ([]string, error) {
@@ -469,7 +439,7 @@ func (p *PostgresConfigurator) queryAllowedDatabases(ctx context.Context) ([]str
 
 func (p *PostgresConfigurator) DropUser(ctx context.Context, username string) error {
 	batch := pgx.Batch{}
-	stmt, err := PGDropUserStatement.PrepareSanitized(pgx.Identifier{username})
+	stmt, err := PGDropUserStatement.PrepareSanitized(sqlutils.Identifier{username})
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -483,7 +453,7 @@ func (p *PostgresConfigurator) DropUser(ctx context.Context, username string) er
 
 func (p *PostgresConfigurator) CreateUser(ctx context.Context, username string, password string) error {
 	batch := pgx.Batch{}
-	stmt, err := PGCreateUserStatement.PrepareSanitized(pgx.Identifier{username}, NonUserInputString(password))
+	stmt, err := PGCreateUserStatement.PrepareSanitized(sqlutils.Identifier{username}, sqlutils.NonUserInputString(password))
 	if err != nil {
 		return errors.Wrap(err)
 	}
