@@ -59,13 +59,7 @@ func (r *ServiceUploadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, nil
 	}
 
-	svc := corev1.Service{}
-	err = r.Client.Get(ctx, req.NamespacedName, &svc)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(client.IgnoreNotFound(err))
-	}
-
-	err = r.serviceUploader.UploadNamespaceServices(ctx, svc)
+	err = r.serviceUploader.UploadNamespaceServices(ctx, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
