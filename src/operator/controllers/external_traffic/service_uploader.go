@@ -39,10 +39,6 @@ func NewServiceUploader(client client.Client, otterizeClient operator_cloud_clie
 }
 
 func (s *ServiceUploaderImpl) UploadNamespaceServices(ctx context.Context, namespace string) error {
-	if s.otterizeClient == nil {
-		return nil
-	}
-
 	services := &corev1.ServiceList{}
 	err := s.List(ctx, services, client.InNamespace(namespace))
 	if err != nil {
@@ -61,11 +57,15 @@ func (s *ServiceUploaderImpl) UploadNamespaceServices(ctx context.Context, names
 		}
 	}
 
-	allServicesReported := lo.EveryBy(externallyAccessibleServices, func(service graphqlclient.ExternallyAccessibleServiceInput) bool {
-		return s.reportedServicesCache.Contains(reportedServicesCacheKey(service.Namespace, service.ServerName))
+	if len(externallyAccessibleServices) == 0 {
+		return nil
+	}
+
+	allServicesReportedPreviously := lo.EveryBy(externallyAccessibleServices, func(externalSvc graphqlclient.ExternallyAccessibleServiceInput) bool {
+		return s.reportedServicesCache.Contains(reportedServicesCacheKey(externalSvc.Namespace, externalSvc.ServerName))
 	})
 
-	if allServicesReported && len(externallyAccessibleServices) != 0 {
+	if allServicesReportedPreviously {
 		return nil
 	}
 
@@ -74,8 +74,8 @@ func (s *ServiceUploaderImpl) UploadNamespaceServices(ctx context.Context, names
 		return errors.Wrap(err)
 	}
 
-	for _, service := range externallyAccessibleServices {
-		s.reportedServicesCache.Add(reportedServicesCacheKey(service.Namespace, service.ServerName), true)
+	for _, reportedSvc := range externallyAccessibleServices {
+		s.reportedServicesCache.Add(reportedServicesCacheKey(reportedSvc.Namespace, reportedSvc.ServerName), true)
 	}
 
 	return nil
