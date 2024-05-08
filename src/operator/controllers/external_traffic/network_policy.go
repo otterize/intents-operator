@@ -303,8 +303,8 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod) e
 //		   If the Service is deleted completely, then the corresponding network policy will be deleted, since it is owned
 //		   by the service.
 func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *corev1.Endpoints) error {
-	svc := &corev1.Service{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.GetName(), Namespace: endpoints.GetNamespace()}, svc)
+	svc := corev1.Service{}
+	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.GetName(), Namespace: endpoints.GetNamespace()}, &svc)
 	if k8serrors.IsNotFound(err) {
 		// delete is handled by garbage collection - the service owns the network policy
 		return nil
