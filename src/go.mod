@@ -34,6 +34,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.5.0
+	github.com/hashicorp/golang-lru v0.5.4
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
 	github.com/otterize/nilable v0.0.0-20240410132629-f242bb6f056f
