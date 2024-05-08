@@ -1,6 +1,7 @@
 package external_traffic
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	lru "github.com/hashicorp/golang-lru"
@@ -11,7 +12,8 @@ import (
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
-	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
+	"hash/crc32"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -20,9 +22,9 @@ import (
 
 type ServiceUploaderImpl struct {
 	client.Client
-	otterizeClient        operator_cloud_client.CloudClient
-	serviceIdResolver     *serviceidresolver.Resolver
-	reportedServicesCache *lru.ARCCache
+	otterizeClient                   operator_cloud_client.CloudClient
+	serviceIdResolver                *serviceidresolver.Resolver
+	namespaceToReportedServicesCache *lru.ARCCache
 }
 
 type ServiceUploader interface {
@@ -31,10 +33,10 @@ type ServiceUploader interface {
 
 func NewServiceUploader(client client.Client, otterizeClient operator_cloud_client.CloudClient) ServiceUploader {
 	return &ServiceUploaderImpl{
-		Client:                client,
-		otterizeClient:        otterizeClient,
-		serviceIdResolver:     serviceidresolver.NewResolver(client),
-		reportedServicesCache: shared.MustRet(lru.NewARC(1000)),
+		Client:                           client,
+		otterizeClient:                   otterizeClient,
+		serviceIdResolver:                serviceidresolver.NewResolver(client),
+		namespaceToReportedServicesCache: shared.MustRet(lru.NewARC(1000)),
 	}
 }
 
@@ -45,7 +47,13 @@ func (s *ServiceUploaderImpl) UploadNamespaceServices(ctx context.Context, names
 		return errors.Wrap(err)
 	}
 
+	hash := crc32.NewIEEE()
+
 	externallyAccessibleServices := make([]graphqlclient.ExternallyAccessibleServiceInput, 0)
+	// Slice must be sorted so that caching hash is the same for the same set of values.
+	slices.SortStableFunc(services.Items, func(a, b corev1.Service) bool {
+		return a.Name < b.Name
+	})
 	for _, service := range services.Items {
 		externalService, isExternal, err := s.getExternalService(ctx, service)
 		if err != nil {
@@ -54,19 +62,20 @@ func (s *ServiceUploaderImpl) UploadNamespaceServices(ctx context.Context, names
 
 		if isExternal {
 			externallyAccessibleServices = append(externallyAccessibleServices, externalService)
+			_, err := hash.Write(reportedServicesCacheValuePart(namespace, externalService.ServerName))
+			if err != nil {
+				return errors.Wrap(err)
+			}
 		}
 	}
 
-	if len(externallyAccessibleServices) == 0 {
-		return nil
-	}
+	hashSum := hash.Sum(nil)
 
-	allServicesReportedPreviously := lo.EveryBy(externallyAccessibleServices, func(externalSvc graphqlclient.ExternallyAccessibleServiceInput) bool {
-		return s.reportedServicesCache.Contains(reportedServicesCacheKey(externalSvc.Namespace, externalSvc.ServerName))
-	})
-
-	if allServicesReportedPreviously {
-		return nil
+	val, found := s.namespaceToReportedServicesCache.Get(namespace)
+	if found {
+		if bytes.Equal(val.([]byte), hashSum) {
+			return nil
+		}
 	}
 
 	err = s.otterizeClient.ReportExternallyAccessibleServices(ctx, namespace, externallyAccessibleServices)
@@ -74,15 +83,13 @@ func (s *ServiceUploaderImpl) UploadNamespaceServices(ctx context.Context, names
 		return errors.Wrap(err)
 	}
 
-	for _, reportedSvc := range externallyAccessibleServices {
-		s.reportedServicesCache.Add(reportedServicesCacheKey(reportedSvc.Namespace, reportedSvc.ServerName), true)
-	}
+	s.namespaceToReportedServicesCache.Add(namespace, hashSum)
 
 	return nil
 }
 
-func reportedServicesCacheKey(namespace, serverName string) string {
-	return fmt.Sprintf("%s%s", serverName, namespace)
+func reportedServicesCacheValuePart(namespace, serverName string) []byte {
+	return []byte(fmt.Sprintf("%s%s", serverName, namespace))
 }
 
 func (s *ServiceUploaderImpl) getExternalService(ctx context.Context, svc corev1.Service) (graphqlclient.ExternallyAccessibleServiceInput, bool, error) {

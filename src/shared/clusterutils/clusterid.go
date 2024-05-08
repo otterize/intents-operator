@@ -2,7 +2,6 @@ package clusterutils
 
 import (
 	"context"
-	"fmt"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -33,7 +32,7 @@ func GetClusterUID(ctx context.Context) (string, error) {
 	clusterUID, ok := configMap.Data[OtterizeClusterUIDKeyName]
 	if !ok || clusterUID == "" {
 		// Should never reach this part since we set config map as immutable when we create it
-		return "", errors.Wrap(fmt.Errorf("invalid cluster UID found in %s config map", OtterizeClusterUIDResourceName))
+		return "", errors.Errorf("invalid cluster UID found in %s config map", OtterizeClusterUIDResourceName)
 	}
 
 	return clusterUID, nil

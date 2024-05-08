@@ -52,13 +52,6 @@ func (r *ServiceUploadReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, errors.Wrap(client.IgnoreNotFound(err))
 	}
 
-	// If no endpoints have pods, there is nothing we can do. We will get called again when pods are added.
-	if lo.NoneBy(endpoints.Subsets, func(subset corev1.EndpointSubset) bool {
-		return len(subset.Addresses) == 0
-	}) {
-		return ctrl.Result{}, nil
-	}
-
 	err = r.serviceUploader.UploadNamespaceServices(ctx, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
