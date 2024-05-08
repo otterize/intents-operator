@@ -5,6 +5,8 @@ resources:
 - k8s.otterize.com_clientintents.yaml
 - k8s.otterize.com_kafkaserverconfigs.yaml
 - k8s.otterize.com_protectedservices.yaml
+- k8s.otterize.com_postgresqlserverconfigs.yaml
+- k8s.otterize.com_mysqlserverconfigs.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
@@ -30,6 +32,8 @@ patches:
 - path: patches/webhook_in_clientintents.yaml
 - path: patches/webhook_in_kafkaserverconfig.yaml
 - path: patches/webhook_in_protectedservice.yaml
+- path: patches/webhook_in_postgresqlserverconfig.yaml
+- path: patches/webhook_in_mysqlserverconfig.yaml
 - patch: |-
       - op: replace
         path: /spec/conversion/webhook/clientConfig/service/namespace
