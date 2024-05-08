@@ -86,10 +86,6 @@ func (s *ServiceUploaderImpl) UploadNamespaceServices(ctx context.Context, names
 	return nil
 }
 
-func reportedServicesCacheValuePart(service graphqlclient.ExternallyAccessibleServiceInput) []byte {
-	return []byte(fmt.Sprintf("%s%s%s%t", service.ServerName, service.Namespace, service.ServiceType, service.ReferredByIngress))
-}
-
 func (s *ServiceUploaderImpl) getExternalService(ctx context.Context, svc corev1.Service) (graphqlclient.ExternallyAccessibleServiceInput, bool, error) {
 	if svc.DeletionTimestamp != nil {
 		return graphqlclient.ExternallyAccessibleServiceInput{}, false, nil
@@ -148,6 +144,7 @@ func convertToCloudExternalService(svc corev1.Service, identity serviceidentity.
 		return graphqlclient.ExternallyAccessibleServiceInput{}, false, errors.Errorf("unsupported service type: %s", svc.Spec.Type)
 	}
 
+	// Remember to update the cache key that determines whether an update is needed.
 	serviceInput := graphqlclient.ExternallyAccessibleServiceInput{
 		Namespace:         identity.Namespace,
 		ServerName:        identity.Name,
@@ -155,6 +152,10 @@ func convertToCloudExternalService(svc corev1.Service, identity serviceidentity.
 		ServiceType:       cloudServiceType,
 	}
 	return serviceInput, true, nil
+}
+
+func reportedServicesCacheValuePart(service graphqlclient.ExternallyAccessibleServiceInput) []byte {
+	return []byte(fmt.Sprintf("%s%s%s%t", service.ServerName, service.Namespace, service.ServiceType, service.ReferredByIngress))
 }
 
 func getIngressRefersToService(ctx context.Context, k8sClient client.Client, svc corev1.Service) (*v1.IngressList, error) {
