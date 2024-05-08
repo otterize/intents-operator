@@ -62,7 +62,7 @@ func (s *ServiceUploaderImpl) UploadNamespaceServices(ctx context.Context, names
 
 		if isExternal {
 			externallyAccessibleServices = append(externallyAccessibleServices, externalService)
-			_, err := hash.Write(reportedServicesCacheValuePart(namespace, externalService.ServerName))
+			_, err := hash.Write(reportedServicesCacheValuePart(externalService))
 			if err != nil {
 				return errors.Wrap(err)
 			}
@@ -72,10 +72,8 @@ func (s *ServiceUploaderImpl) UploadNamespaceServices(ctx context.Context, names
 	hashSum := hash.Sum(nil)
 
 	val, found := s.namespaceToReportedServicesCache.Get(namespace)
-	if found {
-		if bytes.Equal(val.([]byte), hashSum) {
-			return nil
-		}
+	if found && bytes.Equal(val.([]byte), hashSum) {
+		return nil
 	}
 
 	err = s.otterizeClient.ReportExternallyAccessibleServices(ctx, namespace, externallyAccessibleServices)
@@ -88,8 +86,8 @@ func (s *ServiceUploaderImpl) UploadNamespaceServices(ctx context.Context, names
 	return nil
 }
 
-func reportedServicesCacheValuePart(namespace, serverName string) []byte {
-	return []byte(fmt.Sprintf("%s%s", serverName, namespace))
+func reportedServicesCacheValuePart(service graphqlclient.ExternallyAccessibleServiceInput) []byte {
+	return []byte(fmt.Sprintf("%s%s%s%t", service.ServerName, service.Namespace, service.ServiceType, service.ReferredByIngress))
 }
 
 func (s *ServiceUploaderImpl) getExternalService(ctx context.Context, svc corev1.Service) (graphqlclient.ExternallyAccessibleServiceInput, bool, error) {
