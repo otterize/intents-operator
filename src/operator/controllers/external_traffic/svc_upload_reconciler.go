@@ -7,7 +7,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,14 +45,7 @@ func (r *ServiceUploadReconciler) InjectRecorder(recorder record.EventRecorder) 
 }
 
 func (r *ServiceUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	endpoints := corev1.Endpoints{}
-
-	err := r.Client.Get(ctx, req.NamespacedName, &endpoints)
-	if err != nil && !k8serrors.IsNotFound(err) { // If it's a not found error, we want to keep going in order to report the deletion.
-		return ctrl.Result{}, errors.Wrap(err)
-	}
-
-	err = r.serviceUploader.UploadNamespaceServices(ctx, req.Namespace)
+	err := r.serviceUploader.UploadNamespaceServices(ctx, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
