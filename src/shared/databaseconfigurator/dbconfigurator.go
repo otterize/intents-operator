@@ -5,6 +5,11 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 )
 
+const (
+	DatabaseUsernameAnnotation = "intents.otterize.com/database-username"
+	DatabaseAccessAnnotation   = "intents.otterize.com/database-access"
+)
+
 type DatabaseConfigurator interface {
 	CreateUser(ctx context.Context, username string, password string) error
 	ValidateUserExists(ctx context.Context, username string) (bool, error)
