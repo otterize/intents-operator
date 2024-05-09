@@ -1,7 +1,6 @@
 package rolesanywhere_creds
 
 import (
-	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/tls"
@@ -33,25 +32,32 @@ func CredentialsProvider(keyPath string, certPath string, account operatorconfig
 }
 
 // Convert certificate to string, so that it can be present in the HTTP request header
-func certificateToString(certificate *x509.Certificate) string {
-	return base64.StdEncoding.EncodeToString(certificate.Raw)
+func certificateChainToString(certificateChainPEM []byte) string {
+	return base64.StdEncoding.EncodeToString(certificateChainPEM)
 }
 
 func getCredentials(keyPath string, certPath string, roleARN string, account operatorconfig.AWSAccount) (awsv2.Credentials, error) {
-	certData, err := os.ReadFile(certPath)
+	chainData, err := os.ReadFile(certPath)
 	if err != nil {
 		return awsv2.Credentials{}, errors.Errorf("failed to read cert chain file: %w", err)
 	}
 
-	block, rest := pem.Decode(certData)
-	if len(bytes.TrimSpace(rest)) != 0 {
-		return awsv2.Credentials{}, errors.New("multiple certificates found in cert file")
+	certs := make([]x509.Certificate, 0)
+	for block, rest := pem.Decode(chainData); block != nil; block, rest = pem.Decode(rest) {
+		crt, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return awsv2.Credentials{}, errors.Errorf("parsing issued certificate: %w", err)
+		}
+
+		certs = append(certs, *crt)
 	}
 
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return awsv2.Credentials{}, errors.Errorf("failed to parse certificate: %w", err)
+	if len(certs) == 0 {
+		return awsv2.Credentials{}, errors.Errorf("no certificates found in chain")
 	}
+
+	leaf := certs[0]
+	intermediates := certs[1:]
 
 	privKey, err := os.ReadFile(keyPath)
 	if err != nil {
@@ -97,11 +103,10 @@ func getCredentials(keyPath string, certPath string, roleARN string, account ope
 	rolesAnywhereClient.Handlers.Build.PushBackNamed(request.NamedHandler{Name: "v4x509.CredHelperUserAgentHandler", Fn: request.MakeAddToUserAgentHandler("otterize", runtime.Version(), runtime.GOOS, runtime.GOARCH)})
 	rolesAnywhereClient.Handlers.Sign.Clear()
 
-	rolesAnywhereClient.Handlers.Sign.PushBackNamed(request.NamedHandler{Name: "v4x509.SignRequestHandler", Fn: awssh.CreateSignFunction(*privKeyEcdsa, *cert, nil)})
+	rolesAnywhereClient.Handlers.Sign.PushBackNamed(request.NamedHandler{Name: "v4x509.SignRequestHandler", Fn: awssh.CreateSignFunction(*privKeyEcdsa, leaf, intermediates)})
 
-	certChainPEM := certificateToString(cert)
 	createSessionRequest := rolesanywhere.CreateSessionInput{
-		Cert:               &certChainPEM,
+		Cert:               lo.ToPtr(certificateChainToString(chainData)),
 		ProfileArn:         &account.ProfileARN,
 		TrustAnchorArn:     &account.TrustAnchorARN,
 		DurationSeconds:    lo.ToPtr(int64(43200)),
