@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	"github.com/jackc/pgx/v5"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/sqlutils"
@@ -10,6 +11,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"net/url"
+	"strings"
 	"sync"
 )
 
@@ -30,6 +32,14 @@ const (
 	PGSelectAllDatabasesWithConnectPermissions SQLSprintfStatement = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT') and has_database_privilege(%s, d.datname, 'CONNECT');"
 	PGDefaultDatabase                                              = "postgres"
 )
+
+func databaseConfigInputToSQLTableIdentifier(resource otterizev1alpha3.DatabaseResource) sqlutils.SQLTableIdentifier {
+	tableIdentifier := strings.Split(resource.Table, ".")
+	if len(tableIdentifier) == 2 {
+		return sqlutils.SQLTableIdentifier{TableSchema: tableIdentifier[0], TableName: tableIdentifier[1]}
+	}
+	return sqlutils.SQLTableIdentifier{TableSchema: "public", TableName: resource.Table}
+}
 
 type PostgresConfigurator struct {
 	conn         *pgx.Conn
@@ -55,26 +65,34 @@ func NewPostgresConfigurator(ctx context.Context, pgServerConfSpec otterizev1alp
 }
 
 func (p *PostgresConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error {
-	allowedTablesForUser, err := p.queryAllowedTablesForUser(ctx, username)
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
 	// apply new intents
 	for dbname, dbResources := range dbnameToDatabaseResources {
+		if err := p.setConnection(ctx, dbname); err != nil {
+			return errors.Wrap(err)
+		}
+
 		if err := p.applyDatabasePermissions(ctx, username, dbname, dbResources); err != nil {
+			return errors.Wrap(err)
+		}
+
+		// revoke excess permissions to tables not specified in the applied intents this database
+		allowedTablesForUser, err := p.queryAllowedTablesForUser(ctx, username)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+
+		tablesToRevoke := p.getAllowedTablesDiffForUser(allowedTablesForUser, dbResources)
+		if err = p.revokeRemovedTablesPermissions(ctx, tablesToRevoke, username); err != nil {
 			return errors.Wrap(err)
 		}
 	}
 
-	// revoke excess permissions to tables not specified in the applied intents for database that were otherwise specified
-	allowedTablesDiff := sqlutils.DiffIntentsTables(allowedTablesForUser, dbnameToDatabaseResources)
-	if err = p.revokeRemovedTablesPermissions(ctx, allowedTablesDiff, username); err != nil {
+	// revoke excess permissions to databases not specified in the applied intents
+	databasesToRevoke, err := p.getAllowedDatabasesDiffForUser(ctx, username, lo.Keys(dbnameToDatabaseResources))
+	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	// revoke excess permissions to databases not specified in the applied intents
-	databasesToRevoke := sqlutils.DiffIntentsDBs(allowedTablesForUser, dbnameToDatabaseResources)
 	for _, databaseName := range databasesToRevoke {
 		if err := p.revokeDatabasePermissions(ctx, username, databaseName); err != nil {
 			return errors.Wrap(err)
@@ -82,6 +100,41 @@ func (p *PostgresConfigurator) ApplyDatabasePermissionsForUser(ctx context.Conte
 	}
 
 	return nil
+}
+
+func (p *PostgresConfigurator) getAllowedTablesDiffForUser(allowedTablesForUser []sqlutils.SQLTableIdentifier, intentsDBResources []otterizev1alpha3.DatabaseResource) []sqlutils.SQLTableIdentifier {
+	hasWildcardTable := false
+	intentsDBSchemaToTables := make(map[string]*goset.Set[string])
+	for _, resource := range intentsDBResources {
+		if resource.Table == "" {
+			hasWildcardTable = true
+		} else {
+			tableIdentifier := databaseConfigInputToSQLTableIdentifier(resource)
+			if _, ok := intentsDBSchemaToTables[tableIdentifier.TableSchema]; !ok {
+				intentsDBSchemaToTables[tableIdentifier.TableSchema] = goset.NewSet[string]()
+			}
+			intentsDBSchemaToTables[tableIdentifier.TableSchema].Add(tableIdentifier.TableName)
+		}
+	}
+
+	isTableAllowedByIntents := func(table sqlutils.SQLTableIdentifier) bool {
+		if hasWildcardTable {
+			// the table is allowed by a wildcard intent on the entire DB
+			return true
+		}
+		intentsTables, ok := intentsDBSchemaToTables[table.TableSchema]
+		if !ok {
+			// the entire schema is not allowed
+			return false
+		}
+
+		// some allowed tables for this schema, this table is allowed if it is one of them
+		return intentsTables.Contains(table.TableName)
+	}
+
+	return lo.Filter(allowedTablesForUser, func(table sqlutils.SQLTableIdentifier, _ int) bool {
+		return !isTableAllowedByIntents(table)
+	})
 }
 
 func (p *PostgresConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.Context, username string) error {
@@ -100,10 +153,6 @@ func (p *PostgresConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.C
 }
 
 func (p *PostgresConfigurator) applyDatabasePermissions(ctx context.Context, username string, dbname string, dbResources []otterizev1alpha3.DatabaseResource) error {
-	if err := p.setConnection(ctx, dbname); err != nil {
-		return errors.Wrap(err)
-	}
-
 	statementsBatch, err := p.sqlBatchFromDBResources(ctx, username, dbResources)
 	if err != nil {
 		return errors.Wrap(err)
@@ -205,7 +254,7 @@ func (p *PostgresConfigurator) sqlBatchFromDBResources(ctx context.Context, user
 }
 
 func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.Context, batch *pgx.Batch, resource otterizev1alpha3.DatabaseResource, username string) error {
-	postgresTableIdentifier := sqlutils.DatabaseConfigInputToSQLTableIdentifier(resource)
+	postgresTableIdentifier := databaseConfigInputToSQLTableIdentifier(resource)
 	rows, err := p.conn.Query(ctx, PGSSelectTableSequencesPrivilegesQuery, postgresTableIdentifier.TableSchema, postgresTableIdentifier.TableName)
 	if err != nil {
 		return errors.Wrap(err)

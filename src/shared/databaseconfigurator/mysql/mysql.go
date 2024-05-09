@@ -8,6 +8,7 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/sqlutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/samber/lo"
 	sqldblogger "github.com/simukti/sqldb-logger"
 	"github.com/simukti/sqldb-logger/logadapter/logrusadapter"
 	"github.com/sirupsen/logrus"
@@ -26,7 +27,7 @@ const (
 
 	SQLRevokeAllPermissionsForUserStatement    SQLSprintfStatement = "REVOKE ALL ON *.* FROM '%s'"
 	SQLRevokeAllPermissionsOnDatabaseStatement SQLSprintfStatement = "REVOKE ALL ON %s.* FROM '%s'"
-	SQLRevokeAllPermissionsOnTableStatement    SQLSprintfStatement = "REVOKE ALL ON %s FROM '%s'"
+	SQLRevokeAllPermissionsOnTableStatement    SQLSprintfStatement = "REVOKE ALL ON %s.%s FROM '%s'"
 
 	SQLSelectUserQuery = "SELECT 1 FROM mysql.user WHERE user = ?"
 	// TODO: use template as to avoid passing the username multiple times
@@ -131,28 +132,24 @@ func (m *MySQLConfigurator) DropUser(ctx context.Context, username string) error
 }
 
 func (m *MySQLConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error {
-	allowedTablesForUser, err := m.queryAllowedTablesForUser(ctx, username)
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
 	// apply new intents
 	for dbname, dbResources := range dbnameToDatabaseResources {
+		// first revoke all permissions to ensure that only the permissions specified in the intents are applied
+		// TODO: this leads to a short period of inaccessibility, we should only revoke the permissions that are not in the intents
+		if err := m.revokeDatabasePermissions(ctx, username, dbname); err != nil {
+			return errors.Wrap(err)
+		}
+
 		if err := m.applyDatabasePermissions(ctx, username, dbname, dbResources); err != nil {
 			return errors.Wrap(err)
 		}
 	}
 
-	// revoke excess permissions to tables not specified in the applied intents for database that were otherwise specified
-	allowedTablesDiff := sqlutils.DiffIntentsTables(allowedTablesForUser, dbnameToDatabaseResources)
-	for _, table := range allowedTablesDiff {
-		if err := m.revokeTablePermissions(ctx, username, table); err != nil {
-			return errors.Wrap(err)
-		}
-	}
-
 	// revoke excess permissions to databases not specified in the applied intents
-	databasesToRevoke := sqlutils.DiffIntentsDBs(allowedTablesForUser, dbnameToDatabaseResources)
+	databasesToRevoke, err := m.getAllowedDBsDiff(ctx, username, dbnameToDatabaseResources)
+	if err != nil {
+		return errors.Wrap(err)
+	}
 	for _, databaseName := range databasesToRevoke {
 		if err := m.revokeDatabasePermissions(ctx, username, databaseName); err != nil {
 			return errors.Wrap(err)
@@ -160,6 +157,18 @@ func (m *MySQLConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context,
 	}
 
 	return nil
+}
+
+func (m *MySQLConfigurator) getAllowedDBsDiff(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) ([]string, error) {
+	allowedTablesForUser, err := m.queryAllowedTablesForUser(ctx, username)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	allowedDatabases := lo.Uniq(lo.Map(allowedTablesForUser, func(table sqlutils.SQLTableIdentifier, _ int) string {
+		return table.TableSchema
+	}))
+	return lo.Without(allowedDatabases, lo.Keys(dbnameToDatabaseResources)...), nil
 }
 
 func (m *MySQLConfigurator) queryAllowedTablesForUser(ctx context.Context, username string) ([]sqlutils.SQLTableIdentifier, error) {
@@ -192,8 +201,6 @@ func (m *MySQLConfigurator) applyDatabasePermissions(ctx context.Context, userna
 }
 
 func (m *MySQLConfigurator) applyDatabaseResourcePermissions(ctx context.Context, username string, dbname string, dbResource otterizev1alpha3.DatabaseResource) error {
-	// TODO: diff and revoke excess permissions
-
 	operations := sqlutils.GetGrantOperations(dbResource.Operations)
 	containsAllOperation := sqlutils.ContainsAllOperations(operations)
 	if dbResource.Table == "" {
