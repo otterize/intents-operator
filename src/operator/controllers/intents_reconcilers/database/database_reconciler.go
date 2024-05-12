@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
@@ -75,7 +74,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	mySQLServerConfigs := otterizev1alpha3.PostgreSQLServerConfigList{} // TODO: read MySQLServerConfigs
+	mySQLServerConfigs := otterizev1alpha3.MySQLServerConfigList{}
 	err = r.client.List(ctx, &mySQLServerConfigs)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
@@ -98,7 +97,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	existingPGInstances := lo.Map(pgServerConfigs.Items, func(config otterizev1alpha3.PostgreSQLServerConfig, _ int) string {
 		return config.Name
 	})
-	existingMySQLInstances := lo.Map(mySQLServerConfigs.Items, func(config otterizev1alpha3.PostgreSQLServerConfig, _ int) string {
+	existingMySQLInstances := lo.Map(mySQLServerConfigs.Items, func(config otterizev1alpha3.MySQLServerConfig, _ int) string {
 		return config.Name
 	})
 
@@ -112,14 +111,14 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			"Missing database server config: did not find DB server config to match database '%s' in the cluster", missingDBInstance)
 	}
 
-	//for _, config := range pgServerConfigs.Items {
-	//	err := r.applyPGDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents)
-	//	if err != nil {
-	//		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
-	//			"Failed applying database clientIntents: %s", err.Error())
-	//		return ctrl.Result{}, errors.Wrap(err)
-	//	}
-	//}
+	for _, config := range pgServerConfigs.Items {
+		err := r.applyPGDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents)
+		if err != nil {
+			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+				"Failed applying database clientIntents: %s", err.Error())
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+	}
 
 	for _, config := range mySQLServerConfigs.Items {
 		err := r.applyMySQLDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents)
@@ -148,7 +147,7 @@ func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, confi
 	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, dbInstanceToIntents[config.Name])
 }
 
-func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev1alpha3.PostgreSQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
+func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev1alpha3.MySQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
 	dbConfigurator, err := mysql.NewMySQLConfigurator(ctx, config.Spec)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
@@ -276,20 +275,4 @@ func getDBNameToDatabaseResourcesFromIntents(intents []otterizev1alpha3.Intent) 
 		}
 	}
 	return dbnameToResources
-}
-
-func findMatchingPGServerConfForDBInstance(
-	databaseInstanceName string,
-	pgServerConfigList otterizev1alpha3.PostgreSQLServerConfigList) (*otterizev1alpha3.PostgreSQLServerConfig, error) {
-
-	matchingConf, found := lo.Find(pgServerConfigList.Items, func(conf otterizev1alpha3.PostgreSQLServerConfig) bool {
-		return databaseInstanceName == conf.Name
-	})
-
-	if !found {
-		return nil, errors.Wrap(fmt.Errorf(
-			"did not find Postgres server config to match database '%s' in the cluster", databaseInstanceName))
-	}
-
-	return &matchingConf, nil
 }

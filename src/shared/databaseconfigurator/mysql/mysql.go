@@ -66,7 +66,7 @@ type MySQLConfigurator struct {
 	logger     *logrus.Entry
 }
 
-func NewMySQLConfigurator(ctx context.Context, conf otterizev1alpha3.PostgreSQLServerConfigSpec) (*MySQLConfigurator, error) {
+func NewMySQLConfigurator(ctx context.Context, conf otterizev1alpha3.MySQLServerConfigSpec) (*MySQLConfigurator, error) {
 	m := &MySQLConfigurator{
 		databaseInfo: conf,
 		setDBMutex:   sync.Mutex{},
