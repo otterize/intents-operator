@@ -13,6 +13,7 @@ import (
 	"github.com/simukti/sqldb-logger/logadapter/logrusadapter"
 	"github.com/sirupsen/logrus"
 	"net/url"
+	"strings"
 	"sync"
 )
 
@@ -21,36 +22,55 @@ const (
 	SQLAlterUserPasswordStatement SQLSprintfStatement = "ALTER USER %s IDENTIFIED BY %s"
 	SQLDropUserQuery              SQLSprintfStatement = "DROP USER %s"
 
-	SQLGrantPermissionsOnDatabaseStatement    SQLSprintfStatement = "GRANT %s ON %s.* TO '%s'"
-	SQLGrantAllPermissionsOnDatabaseStatement SQLSprintfStatement = "GRANT ALL ON %s.* TO '%s'"
-	SQLGrantPermissionsOnTableStatement       SQLSprintfStatement = "GRANT %s ON %s.%s TO '%s'"
-	SQLGrantAllPermissionsOnTableStatement    SQLSprintfStatement = "GRANT ALL ON %s.%s TO '%s'"
+	SQLGrantPrivilegesOnDatabaseStatement    SQLSprintfStatement = "GRANT %s ON %s.* TO '%s'"
+	SQLGrantAllPrivilegesOnDatabaseStatement SQLSprintfStatement = "GRANT ALL ON %s.* TO '%s'"
+	SQLGrantPrivilegesOnTableStatement       SQLSprintfStatement = "GRANT %s ON %s.%s TO '%s'"
+	SQLGrantAllPrivilegesOnTableStatement    SQLSprintfStatement = "GRANT ALL ON %s.%s TO '%s'"
 
-	SQLRevokeAllPermissionsForUserStatement    SQLSprintfStatement = "REVOKE ALL ON *.* FROM '%s'"
-	SQLRevokeAllPermissionsOnDatabaseStatement SQLSprintfStatement = "REVOKE ALL ON %s.* FROM '%s'"
-	SQLRevokeAllPermissionsOnTableStatement    SQLSprintfStatement = "REVOKE ALL ON %s.%s FROM '%s'"
+	SQLRevokeAllPrivilegesForUserStatement    SQLSprintfStatement = "REVOKE ALL ON *.* FROM '%s'"
+	SQLRevokeAllPrivilegesOnDatabaseStatement SQLSprintfStatement = "REVOKE ALL ON %s.* FROM '%s'"
+	SQLRevokePrivilegesOnDatabaseStatements   SQLSprintfStatement = "REVOKE %s ON %s.* FROM '%s'"
+	SQLRevokeAllPrivilegesOnTableStatement    SQLSprintfStatement = "REVOKE ALL ON %s.%s FROM '%s'"
+	SQLRevokePrivilegesOnTableStatement       SQLSprintfStatement = "REVOKE %s ON %s.%s FROM '%s'"
 
 	SQLSelectUserQuery = "SELECT 1 FROM mysql.user WHERE user = ?"
-	// TODO: use template as to avoid passing the username multiple times
-	SQLSelectDatabasesWithUserPrivilegesQuery = `select i.table_schema, i.table_name from information_schema.tables i
-left join mysql.user u on u.user = ? and u.select_priv = 'Y'
-left join mysql.db d on d.user = ? and d.db = i.table_schema and d.select_priv = 'Y'
-left join mysql.tables_priv t on t.user = ? and t.db = i.table_schema and t.table_name = i.table_name and LENGTH(t.table_priv) > 0
-where coalesce(u.user, d.user, t.user) is not null`
+
+	SQLSelectUserDBPrivilegesQuery = "SELECT * FROM mysql.db WHERE user = ?"
+	SQLSelectUserTablePrivileges   = "SELECT Db,Table_name,Table_priv FROM mysql.tables_priv WHERE user = ?"
+
 	DefaultDatabase = "mysql"
 )
+
+func privilegesToString(privs []PrivilegeType) []string {
+	return lo.Map(privs, func(priv PrivilegeType, _ int) string {
+		return priv.String()
+	})
+}
+
+type DBUserPrivilege struct {
+	Db         string
+	Privileges []PrivilegeType
+}
+
+type TablePrivilege struct {
+	Db         string
+	TableName  string
+	Privileges []PrivilegeType
+}
 
 type MySQLConfigurator struct {
 	databaseInfo otterizev1alpha3.PostgreSQLServerConfigSpec // TODO: Use MySQLServerConfigSpec
 
 	db         *sql.DB
 	setDBMutex sync.Mutex
+	logger     *logrus.Entry
 }
 
 func NewMySQLConfigurator(ctx context.Context, conf otterizev1alpha3.PostgreSQLServerConfigSpec) (*MySQLConfigurator, error) {
 	m := &MySQLConfigurator{
 		databaseInfo: conf,
 		setDBMutex:   sync.Mutex{},
+		logger:       logrus.WithField("database", conf.Address),
 	}
 
 	if err := m.setConnection(DefaultDatabase); err != nil {
@@ -63,6 +83,24 @@ func NewMySQLConfigurator(ctx context.Context, conf otterizev1alpha3.PostgreSQLS
 	}
 
 	return m, nil
+}
+
+func (m *MySQLConfigurator) dbOperationsToPrivileges(dbOperations []otterizev1alpha3.DatabaseOperation) []PrivilegeType {
+	return lo.Map(dbOperations, func(op otterizev1alpha3.DatabaseOperation, _ int) PrivilegeType {
+		switch op {
+		case otterizev1alpha3.DatabaseOperationSelect:
+			return SelectPriv
+		case otterizev1alpha3.DatabaseOperationInsert:
+			return InsertPriv
+		case otterizev1alpha3.DatabaseOperationUpdate:
+			return UpdatePriv
+		case otterizev1alpha3.DatabaseOperationDelete:
+			return DeletePriv
+		default:
+			m.logger.WithField("operation", op).Error("Unexpected DB operation, will grant usage only privileges")
+			return UsagePriv
+		}
+	})
 }
 
 func (m *MySQLConfigurator) formatConnectionString(databaseName string) string {
@@ -98,6 +136,7 @@ func (m *MySQLConfigurator) setConnection(databaseName string) error {
 }
 
 func (m *MySQLConfigurator) CreateUser(ctx context.Context, username string, password string) error {
+	m.logger.WithField("username", username).Info("Creating user")
 	stmt, err := SQLCreateUserStatement.PrepareSanitized(UserDefinedIdentifier(username), NonUserInputString(password))
 	if err != nil {
 		return errors.Wrap(err)
@@ -120,6 +159,7 @@ func (m *MySQLConfigurator) ValidateUserExists(ctx context.Context, username str
 }
 
 func (m *MySQLConfigurator) DropUser(ctx context.Context, username string) error {
+	m.logger.WithField("username", username).Info("Dropping user")
 	stmt, err := SQLDropUserQuery.PrepareSanitized(UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
@@ -147,60 +187,20 @@ func (m *MySQLConfigurator) AlterUserPassword(ctx context.Context, username stri
 func (m *MySQLConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error {
 	// apply new intents
 	for dbname, dbResources := range dbnameToDatabaseResources {
-		// first revoke all permissions to ensure that only the permissions specified in the intents are applied
-		// TODO: this leads to a short period of inaccessibility, we should only revoke the permissions that are not in the intents
-		if err := m.revokeDatabasePermissions(ctx, username, dbname); err != nil {
-			return errors.Wrap(err)
-		}
-
 		if err := m.applyDatabasePermissions(ctx, username, dbname, dbResources); err != nil {
 			return errors.Wrap(err)
 		}
 	}
 
-	// revoke excess permissions to databases not specified in the applied intents
-	databasesToRevoke, err := m.getAllowedDBsDiff(ctx, username, dbnameToDatabaseResources)
-	if err != nil {
+	if err := m.revokeExcessDBLevelPrivileges(ctx, username, dbnameToDatabaseResources); err != nil {
 		return errors.Wrap(err)
 	}
-	for _, databaseName := range databasesToRevoke {
-		if err := m.revokeDatabasePermissions(ctx, username, databaseName); err != nil {
-			return errors.Wrap(err)
-		}
+
+	if err := m.revokeExcessTableLevelPrivileges(ctx, username, dbnameToDatabaseResources); err != nil {
+		return errors.Wrap(err)
 	}
 
 	return nil
-}
-
-func (m *MySQLConfigurator) getAllowedDBsDiff(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) ([]string, error) {
-	allowedTablesForUser, err := m.queryAllowedTablesForUser(ctx, username)
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-
-	allowedDatabases := lo.Uniq(lo.Map(allowedTablesForUser, func(table sqlutils.SQLTableIdentifier, _ int) string {
-		return table.TableSchema
-	}))
-	return lo.Without(allowedDatabases, lo.Keys(dbnameToDatabaseResources)...), nil
-}
-
-func (m *MySQLConfigurator) queryAllowedTablesForUser(ctx context.Context, username string) ([]sqlutils.SQLTableIdentifier, error) {
-	rows, err := m.db.QueryContext(ctx, SQLSelectDatabasesWithUserPrivilegesQuery, username, username, username)
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-	defer rows.Close()
-
-	allowedTables := make([]sqlutils.SQLTableIdentifier, 0)
-	for rows.Next() {
-		var allowedTable sqlutils.SQLTableIdentifier
-		if err := rows.Scan(&allowedTable.TableSchema, &allowedTable.TableName); err != nil {
-			return nil, errors.Wrap(err)
-		}
-		allowedTables = append(allowedTables, allowedTable)
-	}
-
-	return allowedTables, nil
 }
 
 func (m *MySQLConfigurator) applyDatabasePermissions(ctx context.Context, username string, dbname string, dbResources []otterizev1alpha3.DatabaseResource) error {
@@ -216,29 +216,226 @@ func (m *MySQLConfigurator) applyDatabasePermissions(ctx context.Context, userna
 func (m *MySQLConfigurator) applyDatabaseResourcePermissions(ctx context.Context, username string, dbname string, dbResource otterizev1alpha3.DatabaseResource) error {
 	operations := sqlutils.GetGrantOperations(dbResource.Operations)
 	containsAllOperation := sqlutils.ContainsAllOperations(operations)
-	if dbResource.Table == "" {
-		// Apply permissions on database level
-		if containsAllOperation {
-			// Apply all permissions on database level
-			return m.grantAllPermissionsOnDatabase(ctx, username, dbname)
+	applyOnAllTables := dbResource.Table == ""
+	if containsAllOperation {
+		if applyOnAllTables {
+			return m.grantAllPrivilegesOnDatabase(ctx, username, dbname)
 		} else {
-			// Apply permissions on database level
-			return m.grantPermissionsOnDatabase(ctx, username, dbname, operations)
+			return m.grantAllPrivilegesOnTable(ctx, username, dbname, dbResource.Table)
 		}
+	}
+
+	privileges := m.dbOperationsToPrivileges(operations)
+	if applyOnAllTables {
+		// Grant specified privileges on database level
+		return m.grantPrivilegesOnDatabase(ctx, username, dbname, privileges)
 	} else {
-		// Apply permissions on table level
-		if containsAllOperation {
-			// Apply all permissions on table level
-			return m.grantAllPermissionsOnTable(ctx, username, dbname, dbResource.Table)
-		} else {
-			// Apply permissions on table level
-			return m.grantPermissionsOnTable(ctx, username, dbname, dbResource.Table, operations)
+		// Grant specified privileges on table level
+		return m.grantPrivilegesOnTable(ctx, username, dbname, dbResource.Table, privileges)
+	}
+}
+
+func (m *MySQLConfigurator) dbRowToDBPrivilege(rows *sql.Rows, columns []string) (DBUserPrivilege, error) {
+	var p DBUserPrivilege
+
+	vals := make([]any, len(columns))
+	for i, _ := range columns {
+		vals[i] = new(string)
+	}
+
+	if err := rows.Scan(vals...); err != nil {
+		return p, errors.Wrap(err)
+	}
+
+	valuesAsMap := lo.FromPairs(lo.Map(vals, func(val any, i int) lo.Entry[string, string] {
+		return lo.Entry[string, string]{Key: columns[i], Value: *(val.(*string))}
+	}))
+
+	p.Db = valuesAsMap["Db"]
+
+	privColumns := lo.Keys(Col2PrivType)
+	enabledPrivColumns := lo.Filter(privColumns, func(col string, _ int) bool {
+		return valuesAsMap[col] == "Y"
+	})
+
+	for _, col := range enabledPrivColumns {
+		priv, ok := NewPrivFromColumn(col)
+		if !ok {
+			return p, errors.Errorf("unexpected privilege column: %s", col)
+		}
+		p.Privileges = append(p.Privileges, priv)
+	}
+
+	return p, nil
+}
+
+func (m *MySQLConfigurator) queryUserDBPrivileges(ctx context.Context, username string) ([]DBUserPrivilege, error) {
+	rows, err := m.db.QueryContext(ctx, SQLSelectUserDBPrivilegesQuery, username)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	defer rows.Close()
+
+	userPrivileges := make([]DBUserPrivilege, 0)
+
+	columns, err := rows.Columns()
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	for rows.Next() {
+		p, err := m.dbRowToDBPrivilege(rows, columns)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+		userPrivileges = append(userPrivileges, p)
+	}
+
+	return userPrivileges, nil
+}
+
+func (m *MySQLConfigurator) getDBLevelPrivilegesToRevoke(userDBPrivileges DBUserPrivilege, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) []PrivilegeType {
+	dbResources, ok := dbnameToDatabaseResources[userDBPrivileges.Db]
+	if !ok {
+		// DB not specified in applied intents, should revoke all privileges
+		return []PrivilegeType{AllPriv}
+	}
+
+	applyOnAllTablesResources := lo.Filter(dbResources, func(dbResource otterizev1alpha3.DatabaseResource, _ int) bool {
+		return dbResource.Table == ""
+	})
+	if len(applyOnAllTablesResources) == 0 {
+		// no DB level intents applied, should revoke all DB-level privileges
+		return []PrivilegeType{AllPriv}
+	}
+
+	intentsAllowedOperations := lo.Flatten(lo.Map(applyOnAllTablesResources, func(dbResource otterizev1alpha3.DatabaseResource, _ int) []otterizev1alpha3.DatabaseOperation {
+		return sqlutils.GetGrantOperations(dbResource.Operations)
+	}))
+
+	if sqlutils.ContainsAllOperations(intentsAllowedOperations) {
+		// all operations are allowed on DB level, should not revoke any privileges
+		return nil
+	}
+
+	intentsAllowedPrivileges := m.dbOperationsToPrivileges(intentsAllowedOperations)
+	return lo.Without(userDBPrivileges.Privileges, intentsAllowedPrivileges...)
+}
+
+func (m *MySQLConfigurator) revokeExcessDBLevelPrivileges(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error {
+	userDBPrivileges, err := m.queryUserDBPrivileges(ctx, username)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	for _, dbPrivilege := range userDBPrivileges {
+		privilegesToRevoke := m.getDBLevelPrivilegesToRevoke(dbPrivilege, dbnameToDatabaseResources)
+		if lo.Contains(privilegesToRevoke, AllPriv) {
+			if err := m.revokeAllDatabasePrivileges(ctx, username, dbPrivilege.Db); err != nil {
+				return errors.Wrap(err)
+			}
+		} else if len(privilegesToRevoke) > 0 {
+			if err := m.revokeDatabasePrivileges(ctx, username, dbPrivilege.Db, privilegesToRevoke); err != nil {
+				return errors.Wrap(err)
+			}
 		}
 	}
+
+	return nil
 }
 
-func (m *MySQLConfigurator) grantAllPermissionsOnDatabase(ctx context.Context, username string, dbname string) error {
-	stmt, err := SQLGrantAllPermissionsOnDatabaseStatement.PrepareSanitized(UserDefinedIdentifier(dbname), UserDefinedIdentifier(username))
+func (m *MySQLConfigurator) dbRowToTablePrivilege(row *sql.Rows) (TablePrivilege, error) {
+	var p TablePrivilege
+	var tablePriv string // as set
+	if err := row.Scan(&p.Db, &p.TableName, &tablePriv); err != nil {
+		return p, errors.Wrap(err)
+	}
+	privStrings := strings.Split(tablePriv, ",")
+	for _, s := range privStrings {
+		s = strings.TrimSpace(s)
+		priv, ok := NewPrivFromSetEnum(s)
+		if !ok {
+			return p, errors.Errorf("unexpected privilege: %s", s)
+		}
+		p.Privileges = append(p.Privileges, priv)
+	}
+
+	return p, nil
+}
+
+func (m *MySQLConfigurator) queryUserTablePrivileges(ctx context.Context, username string) ([]TablePrivilege, error) {
+	rows, err := m.db.QueryContext(ctx, SQLSelectUserTablePrivileges, username)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	defer rows.Close()
+
+	tablePrivileges := make([]TablePrivilege, 0)
+	for rows.Next() {
+		p, err := m.dbRowToTablePrivilege(rows)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+		tablePrivileges = append(tablePrivileges, p)
+	}
+
+	return tablePrivileges, nil
+}
+
+func (m *MySQLConfigurator) getTableLevelPrivilegesToRevoke(userTablePrivileges TablePrivilege, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) []PrivilegeType {
+	dbResources, ok := dbnameToDatabaseResources[userTablePrivileges.Db]
+	if !ok {
+		// DB not specified in applied intents, should revoke all privileges
+		return []PrivilegeType{AllPriv}
+	}
+
+	tableResources := lo.Filter(dbResources, func(dbResource otterizev1alpha3.DatabaseResource, _ int) bool {
+		return dbResource.Table == userTablePrivileges.TableName
+	})
+
+	if len(tableResources) == 0 {
+		// No table level intents applied, should revoke all table-specific privileges
+		return []PrivilegeType{AllPriv}
+	}
+
+	intentsAllowedOperations := lo.Flatten(lo.Map(tableResources, func(dbResource otterizev1alpha3.DatabaseResource, _ int) []otterizev1alpha3.DatabaseOperation {
+		return sqlutils.GetGrantOperations(dbResource.Operations)
+	}))
+
+	if sqlutils.ContainsAllOperations(intentsAllowedOperations) {
+		// all operations are allowed on table level, should not revoke any privileges
+		return nil
+	}
+
+	intentsAllowedPrivileges := m.dbOperationsToPrivileges(intentsAllowedOperations)
+	return lo.Without(userTablePrivileges.Privileges, intentsAllowedPrivileges...)
+}
+
+func (m *MySQLConfigurator) revokeExcessTableLevelPrivileges(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error {
+	userTablePrivileges, err := m.queryUserTablePrivileges(ctx, username)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	for _, tablePrivilege := range userTablePrivileges {
+		privilegesToRevoke := m.getTableLevelPrivilegesToRevoke(tablePrivilege, dbnameToDatabaseResources)
+		if lo.Contains(privilegesToRevoke, AllPriv) {
+			if err := m.revokeAllTablePrivileges(ctx, username, sqlutils.SQLTableIdentifier{TableSchema: tablePrivilege.Db, TableName: tablePrivilege.TableName}); err != nil {
+				return errors.Wrap(err)
+			}
+		} else if len(privilegesToRevoke) > 0 {
+			if err := m.revokeTablePrivileges(ctx, username, sqlutils.SQLTableIdentifier{TableSchema: tablePrivilege.Db, TableName: tablePrivilege.TableName}, privilegesToRevoke); err != nil {
+				return errors.Wrap(err)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (m *MySQLConfigurator) grantAllPrivilegesOnDatabase(ctx context.Context, username string, dbname string) error {
+	m.logger.WithField("username", username).WithField("dbname", dbname).Debug("Granting all privileges on database")
+	stmt, err := SQLGrantAllPrivilegesOnDatabaseStatement.PrepareSanitized(UserDefinedIdentifier(dbname), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -249,8 +446,9 @@ func (m *MySQLConfigurator) grantAllPermissionsOnDatabase(ctx context.Context, u
 	return nil
 }
 
-func (m *MySQLConfigurator) grantPermissionsOnDatabase(ctx context.Context, username string, dbname string, operations []otterizev1alpha3.DatabaseOperation) error {
-	stmt, err := SQLGrantPermissionsOnDatabaseStatement.PrepareSanitized(operations, UserDefinedIdentifier(dbname), UserDefinedIdentifier(username))
+func (m *MySQLConfigurator) grantPrivilegesOnDatabase(ctx context.Context, username string, dbname string, privileges []PrivilegeType) error {
+	m.logger.WithField("username", username).WithField("dbname", dbname).WithField("privileges", privilegesToString(privileges)).Debug("Granting privileges on database")
+	stmt, err := SQLGrantPrivilegesOnDatabaseStatement.PrepareSanitized(privileges, UserDefinedIdentifier(dbname), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -261,8 +459,9 @@ func (m *MySQLConfigurator) grantPermissionsOnDatabase(ctx context.Context, user
 	return nil
 }
 
-func (m *MySQLConfigurator) grantAllPermissionsOnTable(ctx context.Context, username string, dbname string, tableName string) error {
-	stmt, err := SQLGrantAllPermissionsOnTableStatement.PrepareSanitized(UserDefinedIdentifier(dbname), UserDefinedIdentifier(tableName), UserDefinedIdentifier(username))
+func (m *MySQLConfigurator) grantAllPrivilegesOnTable(ctx context.Context, username string, dbname string, tableName string) error {
+	m.logger.WithField("username", username).WithField("dbname", dbname).WithField("tableName", tableName).Debug("Granting all privileges on table")
+	stmt, err := SQLGrantAllPrivilegesOnTableStatement.PrepareSanitized(UserDefinedIdentifier(dbname), UserDefinedIdentifier(tableName), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -273,8 +472,9 @@ func (m *MySQLConfigurator) grantAllPermissionsOnTable(ctx context.Context, user
 	return nil
 }
 
-func (m *MySQLConfigurator) grantPermissionsOnTable(ctx context.Context, username string, dbname string, tableName string, operations []otterizev1alpha3.DatabaseOperation) error {
-	stmt, err := SQLGrantPermissionsOnTableStatement.PrepareSanitized(operations, UserDefinedIdentifier(dbname), UserDefinedIdentifier(tableName), UserDefinedIdentifier(username))
+func (m *MySQLConfigurator) grantPrivilegesOnTable(ctx context.Context, username string, dbname string, tableName string, privileges []PrivilegeType) error {
+	m.logger.WithField("username", username).WithField("dbname", dbname).WithField("tableName", tableName).WithField("privileges", privilegesToString(privileges)).Debug("Granting privileges on table")
+	stmt, err := SQLGrantPrivilegesOnTableStatement.PrepareSanitized(privileges, UserDefinedIdentifier(dbname), UserDefinedIdentifier(tableName), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -285,8 +485,9 @@ func (m *MySQLConfigurator) grantPermissionsOnTable(ctx context.Context, usernam
 	return nil
 }
 
-func (m *MySQLConfigurator) revokeTablePermissions(ctx context.Context, username string, table sqlutils.SQLTableIdentifier) error {
-	stmt, err := SQLRevokeAllPermissionsOnTableStatement.PrepareSanitized(UserDefinedIdentifier(table.TableSchema), UserDefinedIdentifier(table.TableName), UserDefinedIdentifier(username))
+func (m *MySQLConfigurator) revokeAllTablePrivileges(ctx context.Context, username string, table sqlutils.SQLTableIdentifier) error {
+	m.logger.WithField("username", username).WithField("table", table).Info("Revoking all privileges on table")
+	stmt, err := SQLRevokeAllPrivilegesOnTableStatement.PrepareSanitized(UserDefinedIdentifier(table.TableSchema), UserDefinedIdentifier(table.TableName), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -297,8 +498,9 @@ func (m *MySQLConfigurator) revokeTablePermissions(ctx context.Context, username
 	return nil
 }
 
-func (m *MySQLConfigurator) revokeDatabasePermissions(ctx context.Context, username string, dbname string) error {
-	stmt, err := SQLRevokeAllPermissionsOnDatabaseStatement.PrepareSanitized(UserDefinedIdentifier(dbname), UserDefinedIdentifier(username))
+func (m *MySQLConfigurator) revokeTablePrivileges(ctx context.Context, username string, table sqlutils.SQLTableIdentifier, privileges []PrivilegeType) error {
+	m.logger.WithField("username", username).WithField("table", table).WithField("privileges", privilegesToString(privileges)).Info("Revoking privileges on table")
+	stmt, err := SQLRevokePrivilegesOnTableStatement.PrepareSanitized(privileges, UserDefinedIdentifier(table.TableSchema), UserDefinedIdentifier(table.TableName), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -309,8 +511,9 @@ func (m *MySQLConfigurator) revokeDatabasePermissions(ctx context.Context, usern
 	return nil
 }
 
-func (m *MySQLConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.Context, pgUsername string) error {
-	stmt, err := SQLRevokeAllPermissionsForUserStatement.PrepareSanitized(UserDefinedIdentifier(pgUsername))
+func (m *MySQLConfigurator) revokeAllDatabasePrivileges(ctx context.Context, username string, dbname string) error {
+	m.logger.WithField("username", username).WithField("dbname", dbname).Info("Revoking all privileges on database")
+	stmt, err := SQLRevokeAllPrivilegesOnDatabaseStatement.PrepareSanitized(UserDefinedIdentifier(dbname), UserDefinedIdentifier(username))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -319,6 +522,37 @@ func (m *MySQLConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.Cont
 	}
 
 	return nil
+}
+
+func (m *MySQLConfigurator) revokeDatabasePrivileges(ctx context.Context, username string, dbname string, privileges []PrivilegeType) error {
+	m.logger.WithField("username", username).WithField("dbname", dbname).WithField("privileges", privilegesToString(privileges)).Info("Revoking privileges on database")
+	stmt, err := SQLRevokePrivilegesOnDatabaseStatements.PrepareSanitized(privileges, UserDefinedIdentifier(dbname), UserDefinedIdentifier(username))
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	if _, err := m.db.ExecContext(ctx, stmt); err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+
+}
+
+func (m *MySQLConfigurator) revokeAllDatabasePrivilegesForUser(ctx context.Context, username string) error {
+	m.logger.WithField("username", username).Info("Revoking all privileges for user")
+	stmt, err := SQLRevokeAllPrivilegesForUserStatement.PrepareSanitized(UserDefinedIdentifier(username))
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	if _, err := m.db.ExecContext(ctx, stmt); err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (m *MySQLConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.Context, username string) error {
+	return m.revokeAllDatabasePrivilegesForUser(ctx, username)
 }
 
 func (m *MySQLConfigurator) Close() {
@@ -328,6 +562,6 @@ func (m *MySQLConfigurator) Close() {
 
 	if err := m.db.Close(); err != nil {
 		// Intentionally no error returned - clean up error
-		logrus.Errorf("Failed closing connection to: %s", m.databaseInfo.Address)
+		logrus.WithError(err).Errorf("Failed closing connection to: %s", m.databaseInfo.Address)
 	}
 }
