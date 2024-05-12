@@ -13,7 +13,7 @@ require (
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/cert-manager/cert-manager v1.12.3
 	github.com/jackc/pgx/v5 v5.5.5
-	github.com/otterize/intents-operator/src v0.0.0-20240509134932-0f70aafa8dac
+	github.com/otterize/intents-operator/src v0.0.0-20240512111236-ce49ec0fb292
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.1
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.0
