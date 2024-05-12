@@ -178,6 +178,10 @@ func (r *DatabaseUserReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 		err = r.handleDBUserCreation(ctx, intents, pgConfigurator, databaseName)
 		if err != nil {
+			if errors.Is(err, serviceidresolver.ErrPodNotFound) {
+				// Reconciler will be called again if needed, safe to ignore this error since the pod is gone.
+				return ctrl.Result{}, nil
+			}
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
