@@ -59,11 +59,10 @@ type TablePrivilege struct {
 }
 
 type MySQLConfigurator struct {
-	databaseInfo otterizev1alpha3.PostgreSQLServerConfigSpec // TODO: Use MySQLServerConfigSpec
-
-	db         *sql.DB
-	setDBMutex sync.Mutex
-	logger     *logrus.Entry
+	databaseInfo otterizev1alpha3.MySQLServerConfigSpec
+	db           *sql.DB
+	setDBMutex   sync.Mutex
+	logger       *logrus.Entry
 }
 
 func NewMySQLConfigurator(ctx context.Context, conf otterizev1alpha3.MySQLServerConfigSpec) (*MySQLConfigurator, error) {
