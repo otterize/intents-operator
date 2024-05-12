@@ -62,7 +62,8 @@ func (v *MySQLConfValidator) ValidateCreate(ctx context.Context, obj runtime.Obj
 	allErrs := field.ErrorList{}
 	pgServerConf := obj.(*otterizev1alpha3.PostgreSQLServerConfig)
 
-	err := ValidateNoDuplicateConfNames(ctx, v.Client, pgServerConf.Name)
+	err := validateNoDuplicateForCreate(ctx, v.Client, pgServerConf.Name)
+
 	if err != nil {
 		var fieldErr *field.Error
 		if goerrors.As(err, &fieldErr) {
@@ -84,7 +85,11 @@ func (v *MySQLConfValidator) ValidateUpdate(ctx context.Context, oldObj, newObj 
 	allErrs := field.ErrorList{}
 	mysqlServerConf := newObj.(*otterizev1alpha3.MySQLServerConfig)
 
-	err := ValidateNoDuplicateConfNames(ctx, v.Client, mysqlServerConf.Name)
+	err := validateNoDuplicateForUpdate(ctx, v.Client, DatabaseServerConfig{
+		Name:      mysqlServerConf.Name,
+		Namespace: mysqlServerConf.Namespace,
+		Type:      MySQL,
+	})
 	if err != nil {
 		var fieldErr *field.Error
 		if goerrors.As(err, &fieldErr) {

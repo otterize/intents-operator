@@ -62,7 +62,7 @@ func (v *PostgresConfValidator) ValidateCreate(ctx context.Context, obj runtime.
 	allErrs := field.ErrorList{}
 	pgServerConf := obj.(*otterizev1alpha3.PostgreSQLServerConfig)
 
-	err := ValidateNoDuplicateConfNames(ctx, v.Client, pgServerConf.Name)
+	err := validateNoDuplicateForCreate(ctx, v.Client, pgServerConf.Name)
 	if err != nil {
 		var fieldErr *field.Error
 		if goerrors.As(err, &fieldErr) {
@@ -84,7 +84,12 @@ func (v *PostgresConfValidator) ValidateUpdate(ctx context.Context, oldObj, newO
 	allErrs := field.ErrorList{}
 	pgServerConf := newObj.(*otterizev1alpha3.PostgreSQLServerConfig)
 
-	err := ValidateNoDuplicateConfNames(ctx, v.Client, pgServerConf.Name)
+	err := validateNoDuplicateForUpdate(ctx, v.Client, DatabaseServerConfig{
+		Name:      pgServerConf.Name,
+		Namespace: pgServerConf.Namespace,
+		Type:      Postgres,
+	})
+	
 	if err != nil {
 		var fieldErr *field.Error
 		if goerrors.As(err, &fieldErr) {
