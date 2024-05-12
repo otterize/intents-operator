@@ -10,12 +10,15 @@ import (
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/postgres"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"slices"
+	"strings"
 )
 
 const (
@@ -31,7 +34,8 @@ type DatabaseReconciler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	clusterID *string
+	clusterID         *string
+	serviceIdResolver serviceidresolver.ServiceResolver
 }
 
 func NewDatabaseReconciler(
@@ -39,8 +43,9 @@ func NewDatabaseReconciler(
 	scheme *runtime.Scheme,
 ) *DatabaseReconciler {
 	return &DatabaseReconciler{
-		client: client,
-		scheme: scheme,
+		client:            client,
+		scheme:            scheme,
+		serviceIdResolver: serviceidresolver.NewResolver(client),
 	}
 }
 
@@ -156,7 +161,13 @@ func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, co
 	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, dbInstanceToIntents[config.Name])
 }
 
-func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(ctx context.Context, dbConfigurator databaseconfigurator.DatabaseConfigurator, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceIntents []otterizev1alpha3.Intent) error {
+func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
+	ctx context.Context,
+	dbConfigurator databaseconfigurator.DatabaseConfigurator,
+	clientIntents *otterizev1alpha3.ClientIntents,
+	dbUsername string,
+	dbInstanceIntents []otterizev1alpha3.Intent) error {
+
 	intentsDeleted := !clientIntents.DeletionTimestamp.IsZero()
 
 	userExists, err := dbConfigurator.ValidateUserExists(ctx, dbUsername)
@@ -186,10 +197,15 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(ctx context.Co
 		return nil
 	} else {
 		if !userExists {
-			// TODO: create the user here and annotate the pod with the user
-			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
-				"User %s does not exist, waiting for it to be created by credentials operator", dbUsername)
-			return errors.New("user does not exist in the database")
+			err := dbConfigurator.CreateUser(ctx, dbUsername, randomPassword())
+			if err != nil {
+				r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+					"Failed creating user %s", dbUsername)
+			}
+			dbInstanceName := dbInstanceIntents[0].Name // This cannot be empty right ? otherwise we would never get here
+			if err := r.annotateDatabaseAndUsernameOnPod(ctx, *clientIntents, dbUsername, dbInstanceName); err != nil {
+				return errors.Wrap(err)
+			}
 		}
 
 		dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(dbInstanceIntents)
@@ -204,6 +220,11 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(ctx context.Co
 	return nil
 }
 
+// TODO: Copy this from credentials-operator and make it import this
+func randomPassword() string {
+	return "abcdef123456"
+}
+
 func (r *DatabaseReconciler) getClusterID(ctx context.Context) (string, error) {
 	if r.clusterID != nil {
 		return *r.clusterID, nil
@@ -214,6 +235,31 @@ func (r *DatabaseReconciler) getClusterID(ctx context.Context) (string, error) {
 	}
 	r.clusterID = &clusterID
 	return clusterID, nil
+}
+
+func (r *DatabaseReconciler) annotateDatabaseAndUsernameOnPod(ctx context.Context, intents otterizev1alpha3.ClientIntents, username string, dbInstance string) error {
+	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, intents)
+	// TODO: How to compensate for missing pods (in case of intents preceding pods) ? Need to run this logic again when they're created
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	updatedPod := pod.DeepCopy()
+	updatedPod.Annotations[databaseconfigurator.DatabaseUsernameAnnotation] = username
+	allowedDatabases, ok := updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation]
+	if !ok {
+		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = dbInstance
+	} else {
+		databaseSlice := strings.Split(allowedDatabases, ",")
+		if !slices.Contains(databaseSlice, dbInstance) {
+			databaseSlice = append(databaseSlice, dbInstance)
+		}
+		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = strings.Join(databaseSlice, ",")
+	}
+
+	if err := r.client.Patch(ctx, updatedPod, client.MergeFrom(&pod)); err != nil {
+		return errors.Wrap(err)
+	}
+	return nil
 }
 
 func getDBNameToDatabaseResourcesFromIntents(intents []otterizev1alpha3.Intent) map[string][]otterizev1alpha3.DatabaseResource {

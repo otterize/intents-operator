@@ -17,6 +17,7 @@ import (
 
 const (
 	PGCreateUserStatement                      SQLSprintfStatement = "CREATE USER %s WITH PASSWORD %s"
+	PGAlterUserPasswordStatement               SQLSprintfStatement = "ALTER USER %s PASSWORD %s"
 	PGRevokeAllTableStatement                  SQLSprintfStatement = "REVOKE ALL ON TABLE %s FROM %s"
 	PGRevokeAllOnSeqStatement                  SQLSprintfStatement = "REVOKE ALL ON SEQUENCE %s FROM %s"
 	PGGrantStatement                           SQLSprintfStatement = "GRANT %s ON %s to %s"
@@ -488,5 +489,18 @@ func (p *PostgresConfigurator) CreateUser(ctx context.Context, username string, 
 		return errors.Wrap(err)
 	}
 
+	return nil
+}
+
+func (p *PostgresConfigurator) AlterUserPassword(ctx context.Context, username string, password string) error {
+	batch := pgx.Batch{}
+	stmt, err := PGAlterUserPasswordStatement.PrepareSanitized(pgx.Identifier{username}, NonUserInputString(password))
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	batch.Queue(stmt)
+	if err := p.sendBatch(ctx, &batch); err != nil {
+		return errors.Wrap(err)
+	}
 	return nil
 }

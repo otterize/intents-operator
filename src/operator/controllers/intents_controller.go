@@ -113,7 +113,7 @@ func NewIntentsReconciler(
 	}
 
 	if otterizeClient != nil {
-		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient, serviceIdResolver)
+		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient)
 		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
 	}
 

@@ -32,14 +32,13 @@ type OtterizeCloudReconciler struct {
 func NewOtterizeCloudReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	cloudClient operator_cloud_client.CloudClient,
-	serviceIdResolver serviceidresolver.ServiceResolver) *OtterizeCloudReconciler {
+	cloudClient operator_cloud_client.CloudClient) *OtterizeCloudReconciler {
 
 	return &OtterizeCloudReconciler{
 		Client:            client,
 		Scheme:            scheme,
 		otterizeClient:    cloudClient,
-		serviceIdResolver: serviceIdResolver,
+		serviceIdResolver: serviceidresolver.NewResolver(client),
 	}
 }
 

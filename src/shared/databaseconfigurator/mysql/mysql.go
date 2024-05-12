@@ -18,8 +18,9 @@ import (
 )
 
 const (
-	SQLCreateUserStatement SQLSprintfStatement = "CREATE USER %s IDENTIFIED BY %s"
-	SQLDropUserQuery       SQLSprintfStatement = "DROP USER %s"
+	SQLCreateUserStatement        SQLSprintfStatement = "CREATE USER %s IDENTIFIED BY %s"
+	SQLAlterUserPasswordStatement SQLSprintfStatement = "ALTER USER %s IDENTIFIED BY %s"
+	SQLDropUserQuery              SQLSprintfStatement = "DROP USER %s"
 
 	SQLGrantPrivilegesOnDatabaseStatement    SQLSprintfStatement = "GRANT %s ON %s.* TO '%s'"
 	SQLGrantAllPrivilegesOnDatabaseStatement SQLSprintfStatement = "GRANT ALL ON %s.* TO '%s'"
@@ -164,6 +165,18 @@ func (m *MySQLConfigurator) DropUser(ctx context.Context, username string) error
 		return errors.Wrap(err)
 	}
 
+	if _, err := m.db.ExecContext(ctx, stmt); err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (m *MySQLConfigurator) AlterUserPassword(ctx context.Context, username string, password string) error {
+	stmt, err := SQLAlterUserPasswordStatement.PrepareSanitized(UserDefinedIdentifier(username), NonUserInputString(password))
+	if err != nil {
+		return errors.Wrap(err)
+	}
 	if _, err := m.db.ExecContext(ctx, stmt); err != nil {
 		return errors.Wrap(err)
 	}
