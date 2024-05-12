@@ -77,7 +77,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	mySQLServerConfigs := otterizev1alpha3.MySQLServerConfigList{}
 	err = r.client.List(ctx, &mySQLServerConfigs)
 	if err != nil {
-		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
+		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingMySQLServerConfig,
 			"Error listing MySQLServerConfings. Error: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
@@ -150,7 +150,7 @@ func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, confi
 func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev1alpha3.MySQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
 	dbConfigurator, err := mysql.NewMySQLConfigurator(ctx, config.Spec)
 	if err != nil {
-		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
+		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingMySQLServerConfig,
 			"Error connecting to PostgreSQL server. Error: %s", err.Error())
 		return errors.Wrap(err)
 	}
