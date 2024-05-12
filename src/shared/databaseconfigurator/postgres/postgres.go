@@ -26,11 +26,11 @@ const (
 	PGRevokeOnAllTablesInSchemaStatement       SQLSprintfStatement = "REVOKE ALL ON ALL TABLES IN SCHEMA %s FROM %s"
 	PGRevokeOnAllSequencesInSchemaStatement    SQLSprintfStatement = "REVOKE ALL ON ALL SEQUENCES IN SCHEMA %s FROM %s"
 	PGDropUserStatement                        SQLSprintfStatement = "DROP USER %s"
-	PGSelectUserQuery                                              = "SELECT FROM pg_catalog.pg_user where usename = $1"
-	PGSelectPrivilegesQuery                                        = "SELECT table_schema, table_name FROM information_schema.table_privileges where grantee = $1"
-	PGSSelectTableSequencesPrivilegesQuery                         = "SELECT split_part(column_default, '''', 2) FROM information_schema.columns WHERE column_default LIKE 'nextval%' and table_schema=$1 and table_name=$2"
-	PGSSelectSchemaNamesQuery                                      = "SELECT schema_name From information_schema.schemata where schema_name!='pg_catalog' and schema_name!='pg_toast' and schema_name!='information_schema'"
-	PGSelectAllDatabasesWithConnectPermissions SQLSprintfStatement = "SELECT datname from pg_catalog.pg_database d where datallowconn and datistemplate=false and has_database_privilege(d.datname, 'CONNECT') and has_database_privilege(%s, d.datname, 'CONNECT');"
+	PGSelectUserQuery                                              = "SELECT FROM pg_catalog.pg_user WHERE usename = $1"
+	PGSelectPrivilegesQuery                                        = "SELECT table_schema, table_name FROM information_schema.table_privileges WHERE grantee = $1"
+	PGSSelectTableSequencesPrivilegesQuery                         = "SELECT split_part(column_default, '''', 2) FROM information_schema.columns WHERE column_default LIKE 'nextval%' AND table_schema=$1 AND table_name=$2"
+	PGSSelectSchemaNamesQuery                                      = "SELECT schema_name FROM information_schema.schemata WHERE schema_name!='pg_catalog' AND schema_name!='pg_toast' AND schema_name!='information_schema'"
+	PGSelectAllDatabasesWithConnectPermissions                     = "SELECT datname FROM pg_catalog.pg_database d WHERE datallowconn AND datistemplate=false AND has_database_privilege($1, d.datname, 'CONNECT');"
 	PGDefaultDatabase                                              = "postgres"
 )
 
@@ -444,12 +444,7 @@ func (p *PostgresConfigurator) ValidateUserExists(ctx context.Context, username 
 
 func (p *PostgresConfigurator) queryAllowedDatabases(ctx context.Context, username string) ([]string, error) {
 	allowedDatabases := make([]string, 0)
-	// TODO: can we filter this by the workload's pgUsername? Can use `has_database_privilege` function
-	stmt, err := PGSelectAllDatabasesWithConnectPermissions.PrepareSanitized(pgx.Identifier{username})
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-	rows, err := p.conn.Query(ctx, stmt)
+	rows, err := p.conn.Query(ctx, PGSelectAllDatabasesWithConnectPermissions, username)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
