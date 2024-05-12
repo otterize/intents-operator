@@ -19,10 +19,10 @@ func RegisterPanicHandlers() {
 const skipStackFramesCount = 3
 
 func panicHandler(item any) {
-	err := errors.ErrorfWithSkip(3, "panic: %v", item)
+	err := errors.ErrorfWithSkip(skipStackFramesCount, "panic: %v", item)
 
 	if errOrig, ok := item.(error); ok {
-		err = errors.WrapWithSkip(errOrig, 3)
+		err = errors.WrapWithSkip(errOrig, skipStackFramesCount)
 	}
 
 	logrus.WithError(err).Error("caught panic")
