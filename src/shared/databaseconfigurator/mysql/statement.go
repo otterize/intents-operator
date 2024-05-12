@@ -2,7 +2,6 @@ package mysql
 
 import (
 	"fmt"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"strings"
@@ -32,8 +31,8 @@ func (s SQLSprintfStatement) PrepareSanitized(a ...any) (string, error) {
 }
 
 func sanitizeFormatInput(formatInput any) (string, error) {
-	if dbOperations, ok := formatInput.([]otterizev1alpha3.DatabaseOperation); ok {
-		asStrings := lo.Map(dbOperations, func(op otterizev1alpha3.DatabaseOperation, _ int) string { return string(op) })
+	if privileges, ok := formatInput.([]PrivilegeType); ok {
+		asStrings := lo.Map(privileges, func(op PrivilegeType, _ int) string { return op.String() })
 		return strings.Join(asStrings, ","), nil
 	}
 
@@ -42,7 +41,7 @@ func sanitizeFormatInput(formatInput any) (string, error) {
 		return fmt.Sprintf("'%s'", inputStr), nil
 	}
 
-	// Postgres identifiers like table names, users, column names, etc..
+	// MySQL identifiers like table names, users, column names, etc..
 	if ident, ok := formatInput.(UserDefinedIdentifier); ok {
 		return ident.Sanitize(), nil
 	}

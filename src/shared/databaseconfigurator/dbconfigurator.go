@@ -11,5 +11,5 @@ type DatabaseConfigurator interface {
 	DropUser(ctx context.Context, username string) error
 
 	ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error
-	RevokeAllDatabasePermissionsForUser(ctx context.Context, pgUsername string) error
+	RevokeAllDatabasePermissionsForUser(ctx context.Context, username string) error
 }
