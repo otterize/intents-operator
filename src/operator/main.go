@@ -38,6 +38,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
+	"github.com/otterize/intents-operator/src/shared"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
@@ -120,6 +121,7 @@ func main() {
 	}
 	errorreporter.Init("intents-operator", version.Version(), viper.GetString(operatorconfig.TelemetryErrorsAPIKeyKey))
 	defer errorreporter.AutoNotify()
+	shared.RegisterPanicHandlers()
 
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
