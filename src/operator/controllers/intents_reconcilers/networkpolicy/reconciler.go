@@ -258,16 +258,6 @@ func (r *Reconciler) buildPodLabelSelectorFromServiceEffectivePolicy(ctx context
 	return metav1.LabelSelector{MatchLabels: labelsMap}, true, nil
 }
 
-//labelsMap, ok, err := ep.Service.GetIdentityLabels(ctx, r.Client)
-//if err != nil {
-//return metav1.LabelSelector{}, false, errors.Wrap(err)
-//}
-//if !ok {
-//return metav1.LabelSelector{}, false, nil
-//}
-//
-//return metav1.LabelSelector{MatchLabels: labelsMap}, true, nil
-
 func (r *Reconciler) setNetworkPolicyOwnerReferenceIfNeeded(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy) error {
 	if ep.Service.Kind != serviceidentity.KindService {
 		return nil
