@@ -241,7 +241,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestEndpointsRec
 
 func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedDespiteLastIntentDeleted() {
 	serviceName := "test-server-load-balancer-test"
-	intents, err := s.AddIntents("test-intents", "test-client", []otterizev1alpha3.Intent{{
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev1alpha3.Intent{{
 		Name: serviceName,
 	},
 	})

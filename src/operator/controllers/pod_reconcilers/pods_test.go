@@ -73,7 +73,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels()
 
 	thisPodIdentity := (&serviceidentity.ServiceIdentity{Name: serviceID.Name, Namespace: s.TestNamespace}).GetFormattedOtterizeIdentityWithoutKind()
 
-	_, err = s.AddIntents("test-intents", serviceID.Name, []otterizev1alpha3.Intent{{
+	_, err = s.AddIntents("test-intents", serviceID.Name, "", []otterizev1alpha3.Intent{{
 		Type: otterizev1alpha3.IntentTypeHTTP, Name: intentTargetServerName,
 	},
 	})
@@ -130,7 +130,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 		map[string]string{"someLabel": "cake"},
 		map[string]string{})
 
-	_, err := s.AddIntents("test-intents", deploymentName, []otterizev1alpha3.Intent{{
+	_, err := s.AddIntents("test-intents", deploymentName, "Deployment", []otterizev1alpha3.Intent{{
 		Type: otterizev1alpha3.IntentTypeHTTP, Name: intentTargetServerName,
 	},
 	})
