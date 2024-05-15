@@ -1,6 +1,6 @@
 module github.com/otterize/intents-operator/src
 
-go 1.21.5
+go 1.22.1
 
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
@@ -18,6 +18,7 @@ require (
 	github.com/Shopify/sarama v1.34.1
 	github.com/amit7itz/goset v1.2.1
 	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
+	github.com/aws/aws-sdk-go v1.51.21
 	github.com/aws/aws-sdk-go-v2 v1.26.0
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.0
@@ -26,13 +27,17 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/iam v1.31.3
 	github.com/aws/aws-sdk-go-v2/service/rolesanywhere v1.9.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.28.5
+	github.com/aws/rolesanywhere-credential-helper v1.0.4
 	github.com/aws/smithy-go v1.20.1
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/bugsnag/bugsnag-go/v2 v2.2.0
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.5.0
+	github.com/hashicorp/golang-lru v0.5.4
+	github.com/jackc/pgx/v5 v5.5.5
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
+	github.com/otterize/nilable v0.0.0-20240410132629-f242bb6f056f
 	github.com/prometheus/client_golang v1.18.0
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.0
@@ -96,6 +101,8 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
 	github.com/jcmturner/gofork v1.0.0 // indirect

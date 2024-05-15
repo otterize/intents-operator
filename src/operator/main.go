@@ -18,10 +18,8 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/amit7itz/goset"
 	"github.com/bombsimon/logrusr/v3"
-	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
@@ -40,8 +38,10 @@ import (
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
+	"github.com/otterize/intents-operator/src/shared"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
+	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -59,9 +59,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/metadata"
+	"path"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -122,6 +120,8 @@ func main() {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 	errorreporter.Init("intents-operator", version.Version(), viper.GetString(operatorconfig.TelemetryErrorsAPIKeyKey))
+	defer errorreporter.AutoNotify()
+	shared.RegisterPanicHandlers()
 
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
@@ -190,23 +190,11 @@ func main() {
 	}
 	signalHandlerCtx := ctrl.SetupSignalHandler()
 
-	metadataClient, err := metadata.NewForConfig(ctrl.GetConfigOrDie())
+	clusterUID, err := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
 	if err != nil {
-		logrus.WithError(err).Panic("unable to create metadata client")
+		logrus.WithError(err).Panic("Failed obtaining cluster ID")
 	}
-	mapping, err := mgr.GetRESTMapper().RESTMapping(schema.GroupKind{Group: "", Kind: "Namespace"}, "v1")
-	if err != nil {
-		logrus.WithError(err).Panic("unable to create Kubernetes API REST mapping")
-	}
-	kubeSystemUID := ""
-	kubeSystemNs, err := metadataClient.Resource(mapping.Resource).Get(signalHandlerCtx, "kube-system", metav1.GetOptions{})
-	if err != nil || kubeSystemNs == nil {
-		logrus.Warningf("failed getting kubesystem UID: %s", err)
-		kubeSystemUID = fmt.Sprintf("rand-%s", uuid.New().String())
-	} else {
-		kubeSystemUID = string(kubeSystemNs.UID)
-	}
-	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(kubeSystemUID))
+	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
 	componentinfo.SetGlobalVersion(version.Version())
 
 	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
@@ -235,6 +223,7 @@ func main() {
 		epNetpolReconciler.AddEgressRuleBuilder(svcEgressNetworkPolicyHandler)
 
 	}
+
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 
@@ -245,25 +234,46 @@ func main() {
 	if enforcementConfig.EnableAWSPolicy {
 		awsOptions := make([]awsagent.Option, 0)
 		if viper.GetBool(operatorconfig.EnableAWSRolesAnywhereKey) {
-			trustAnchorArn := viper.GetString(operatorconfig.AWSRolesAnywhereTrustAnchorARNKey)
-			trustDomain := viper.GetString(operatorconfig.AWSRolesAnywhereSPIFFETrustDomainKey)
-			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterName)
+			keyPath := path.Join(viper.GetString(operatorconfig.AWSRolesAnywhereCertDirKey), viper.GetString(operatorconfig.AWSRolesAnywherePrivKeyFilenameKey))
+			certPath := path.Join(viper.GetString(operatorconfig.AWSRolesAnywhereCertDirKey), viper.GetString(operatorconfig.AWSRolesAnywhereCertFilenameKey))
+			clusterName := viper.GetString(operatorconfig.AWSRolesAnywhereClusterNameKey)
+			accounts := operatorconfig.GetRolesAnywhereAWSAccounts()
 
-			awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(trustAnchorArn, trustDomain, clusterName))
-		}
-		awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
-		if err != nil {
-			logrus.WithError(err).Panic("could not initialize AWS agent")
-		}
-		awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+			if len(accounts) == 0 {
+				logrus.Panic("No AWS accounts configured even though RolesAnywhere is enabled")
+			}
 
-		iamAgents = append(iamAgents, awsIntentsAgent)
+			if len(accounts) == 1 {
+				awsOptions = append(awsOptions, awsagent.WithRolesAnywhere(accounts[0], clusterName, keyPath, certPath))
+				awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
+				if err != nil {
+					logrus.WithError(err).Panic("Could not initialize AWS agent")
+				}
+				awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+
+				iamAgents = append(iamAgents, awsIntentsAgent)
+			} else {
+				awsIntentsAgent, err := awspolicyagent.NewMultiaccountAWSPolicyAgent(signalHandlerCtx, accounts, clusterName, keyPath, certPath)
+				if err != nil {
+					logrus.WithError(err).Panic("Could not initialize AWS agent")
+				}
+				iamAgents = append(iamAgents, awsIntentsAgent)
+			}
+		} else {
+			awsAgent, err := awsagent.NewAWSAgent(signalHandlerCtx, awsOptions...)
+			if err != nil {
+				logrus.WithError(err).Panic("Could not initialize AWS agent")
+			}
+			awsIntentsAgent := awspolicyagent.NewAWSPolicyAgent(awsAgent)
+
+			iamAgents = append(iamAgents, awsIntentsAgent)
+		}
 	}
 
 	if enforcementConfig.EnableGCPPolicy {
 		gcpAgent, err := gcpagent.NewGCPAgent(signalHandlerCtx, mgr.GetClient())
 		if err != nil {
-			logrus.WithError(err).Panic("could not initialize GCP agent")
+			logrus.WithError(err).Panic("Could not initialize GCP agent")
 		}
 		gcpIntentsAgent := gcppolicyagent.NewGCPPolicyAgent(gcpAgent)
 		iamAgents = append(iamAgents, gcpIntentsAgent)
@@ -308,17 +318,27 @@ func main() {
 	if connectedToCloud {
 		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig)
 		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
-
 		netpolUploader := external_traffic.NewNetworkPolicyUploaderReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
+		serviceUploadReconciler := external_traffic.NewServiceUploadReconciler(mgr.GetClient(), otterizeCloudClient)
+		ingressUploadReconciler := external_traffic.NewIngressUploadReconciler(mgr.GetClient(), otterizeCloudClient)
+
 		if err = netpolUploader.SetupWithManager(mgr); err != nil {
 			logrus.WithError(err).Panic("unable to initialize NetworkPolicy reconciler")
+		}
+
+		if err = serviceUploadReconciler.SetupWithManager(mgr); err != nil {
+			logrus.WithError(err).Panic("unable to create controller", "controller", "Endpoints")
+		}
+
+		if err = ingressUploadReconciler.SetupWithManager(mgr); err != nil {
+			logrus.WithError(err).Panic("unable to create controller", "controller", "Ingress")
 		}
 	} else {
 		logrus.Info("Not configured for cloud integration")
 	}
 
-	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler, otterizeCloudClient)
-	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler, otterizeCloudClient)
+	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
+	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler)
 
 	if !enforcementConfig.EnforcementDefaultState {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
@@ -392,6 +412,10 @@ func main() {
 			logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "KafkaServerConfig")
 		}
 
+		pgServerConfValidator := webhooks.NewPostgresConfValidator(mgr.GetClient())
+		if err = (&otterizev1alpha3.PostgreSQLServerConfig{}).SetupWebhookWithManager(mgr, pgServerConfValidator); err != nil {
+			logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "PostgreSQLServerConfig")
+		}
 	}
 
 	intentsReconciler := controllers.NewIntentsReconciler(

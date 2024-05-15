@@ -370,7 +370,7 @@ func (r *Reconciler) updateExistingPolicy(ctx context.Context, ep effectivepolic
 }
 
 func (r *Reconciler) removeNetworkPoliciesThatShouldNotExist(ctx context.Context, netpolNamesThatShouldExist *goset.Set[types.NamespacedName]) error {
-	logrus.Info("Searching for orphaned network policies")
+	logrus.Debug("Searching for orphaned network policies")
 	networkPolicyList := &v1.NetworkPolicyList{}
 	selector, err := matchAccessNetworkPolicy()
 	if err != nil {
@@ -409,6 +409,9 @@ func (r *Reconciler) removeNetworkPolicy(ctx context.Context, networkPolicy v1.N
 		return errors.Wrap(err)
 	}
 	err = r.Delete(ctx, &networkPolicy)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
 		return errors.Wrap(err)
 	}

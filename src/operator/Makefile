@@ -61,6 +61,7 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 	$(CONTROLLER_GEN) rbac:roleName=otterize-intents-operator-manager-role crd webhook paths="../..."
 	kubectl kustomize  ./config/webhook | sed -e "s/[']//g" > ./config/webhook/manifests-patched
 	cd ./config/crd && kubectl kustomize . | yq -s '"k8s.otterize.com_" + (.metadata.name | sub(".k8s.otterize.com", "")) + ".patched"'
+	cat ./config/rbac/role.yaml ./config/rbac/wildcard-patch > ./config/rbac/manifests-patched.yaml
 
 
 .PHONY: generate

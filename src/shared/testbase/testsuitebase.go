@@ -111,8 +111,8 @@ func (s *ControllerManagerTestSuiteBase) WaitUntilCondition(cond func(assert *as
 	}
 }
 
-// waitForObjectToBeCreated tries to get an object multiple times until it is available in the k8s API server
-func (s *ControllerManagerTestSuiteBase) waitForObjectToBeCreated(obj client.Object) {
+// WaitForObjectToBeCreated tries to get an object multiple times until it is available in the k8s API server
+func (s *ControllerManagerTestSuiteBase) WaitForObjectToBeCreated(obj client.Object) {
 	s.Require().NoError(wait.PollUntilContextTimeout(context.Background(), waitForCreationInterval, waitForCreationTimeout, true, func(ctx context.Context) (done bool, err error) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, obj)
 		if k8serrors.IsNotFound(err) {
@@ -161,7 +161,7 @@ func (s *ControllerManagerTestSuiteBase) AddPod(name string, podIp string, label
 	}
 	err := s.Mgr.GetClient().Create(context.Background(), pod)
 	s.Require().NoError(err)
-	s.waitForObjectToBeCreated(pod)
+	s.WaitForObjectToBeCreated(pod)
 
 	if podIp != "" {
 		pod.Status.PodIP = podIp
@@ -197,7 +197,7 @@ func (s *ControllerManagerTestSuiteBase) AddReplicaSet(
 	err := s.Mgr.GetClient().Create(context.Background(), replicaSet)
 	s.Require().NoError(err)
 
-	s.waitForObjectToBeCreated(replicaSet)
+	s.WaitForObjectToBeCreated(replicaSet)
 
 	for i, ip := range podIps {
 		podName := fmt.Sprintf("%s-%d", name, i)
@@ -265,7 +265,7 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 	err := s.Mgr.GetClient().Create(context.Background(), deployment)
 	s.Require().NoError(err)
 
-	s.waitForObjectToBeCreated(deployment)
+	s.WaitForObjectToBeCreated(deployment)
 
 	replicaSet := s.AddReplicaSet(name, podIps, podLabels, annotations)
 	replicaSet.ObjectMeta.OwnerReferences = []metav1.OwnerReference{
@@ -322,7 +322,7 @@ func (s *ControllerManagerTestSuiteBase) AddEndpoints(name string, podIps []stri
 	err = s.Mgr.GetClient().Create(context.Background(), endpoints)
 	s.Require().NoError(err)
 
-	s.waitForObjectToBeCreated(endpoints)
+	s.WaitForObjectToBeCreated(endpoints)
 	return endpoints
 }
 
@@ -337,7 +337,7 @@ func (s *ControllerManagerTestSuiteBase) AddService(name string, podIps []string
 	err := s.Mgr.GetClient().Create(context.Background(), service)
 	s.Require().NoError(err)
 
-	s.waitForObjectToBeCreated(service)
+	s.WaitForObjectToBeCreated(service)
 
 	s.AddEndpoints(name, podIps)
 	return service
@@ -367,7 +367,7 @@ func (s *ControllerManagerTestSuiteBase) AddIngress(serviceName string) *network
 	err := s.Mgr.GetClient().Create(context.Background(), ingress)
 	s.Require().NoError(err)
 
-	s.waitForObjectToBeCreated(ingress)
+	s.WaitForObjectToBeCreated(ingress)
 
 	return ingress
 }
@@ -383,7 +383,7 @@ func (s *ControllerManagerTestSuiteBase) AddLoadBalancerService(name string, pod
 	err := s.Mgr.GetClient().Create(context.Background(), service)
 	s.Require().NoError(err)
 
-	s.waitForObjectToBeCreated(service)
+	s.WaitForObjectToBeCreated(service)
 
 	s.AddEndpoints(name, podIps)
 	return service
@@ -400,7 +400,7 @@ func (s *ControllerManagerTestSuiteBase) AddNodePortService(name string, podIps 
 	err := s.Mgr.GetClient().Create(context.Background(), service)
 	s.Require().NoError(err)
 
-	s.waitForObjectToBeCreated(service)
+	s.WaitForObjectToBeCreated(service)
 
 	s.AddEndpoints(name, podIps)
 	return service
@@ -416,7 +416,7 @@ func (s *ControllerManagerTestSuiteBase) AddKafkaServerConfig(kafkaServerConfig 
 	err := s.Mgr.GetClient().Create(context.Background(), kafkaServerConfig)
 	s.Require().NoError(err)
 
-	s.waitForObjectToBeCreated(kafkaServerConfig)
+	s.WaitForObjectToBeCreated(kafkaServerConfig)
 }
 
 func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string) {
@@ -461,7 +461,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
-	s.waitForObjectToBeCreated(intents)
+	s.WaitForObjectToBeCreated(intents)
 
 	return intents, nil
 }
@@ -485,7 +485,7 @@ func (s *ControllerManagerTestSuiteBase) AddProtectedService(
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
-	s.waitForObjectToBeCreated(protectedService)
+	s.WaitForObjectToBeCreated(protectedService)
 
 	return protectedService, nil
 }
@@ -528,7 +528,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha2(
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
-	s.waitForObjectToBeCreated(intents)
+	s.WaitForObjectToBeCreated(intents)
 
 	return intents, nil
 }
@@ -556,7 +556,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha3(
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
-	s.waitForObjectToBeCreated(intents)
+	s.WaitForObjectToBeCreated(intents)
 
 	return intents, nil
 }

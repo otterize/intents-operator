@@ -1,14 +1,13 @@
 package kafkaacls
 
 import (
-	gerrors "errors"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
-	ServerSpecNotFound = gerrors.New("failed getting kafka server connection - server configuration specs not set")
+	ServerSpecNotFound = errors.NewSentinelError("failed getting kafka server connection - server configuration specs not set")
 )
 
 type ServersStore interface {

@@ -45,7 +45,7 @@ func Init(componentName string, version string, apiKey string) {
 	errorsServerAddress := viper.GetString(telemetriesconfig.TelemetryErrorsAddressKey)
 	releaseStage := viper.GetString(telemetriesconfig.TelemetryErrorsStageKey)
 	// send to staging if Otterize Cloud API is not the default
-	if viper.GetString(otterizecloudclient.OtterizeAPIAddressKey) != otterizecloudclient.OtterizeAPIAddressDefault || strings.HasPrefix(version, "0.0.") || version == "0-local" {
+	if viper.GetString(otterizecloudclient.OtterizeAPIAddressKey) != otterizecloudclient.OtterizeAPIAddressDefault || isStagingOrDevVersion(version) {
 		releaseStage = "staging"
 	}
 
@@ -71,6 +71,10 @@ func Init(componentName string, version string, apiKey string) {
 	logrus.AddHook(hook)
 }
 
+func isStagingOrDevVersion(version string) bool {
+	return strings.HasPrefix(version, "0.0.") || version == "0-local" || version == ""
+}
+
 func AutoNotify() {
 	// Check if bugsnag is initialized, or notify will crash.
 	if bugsnag.Config.APIKey == "" {
@@ -79,7 +83,12 @@ func AutoNotify() {
 
 	if err := recover(); err != nil {
 		const shouldNotifySync = true
-		_ = bugsnag.Notify(errors.ErrorfWithSkip(2, "panic caught: %s", err), bugsnag.SeverityError, bugsnag.SeverityReasonHandledPanic, shouldNotifySync)
+		rawData := []any{bugsnag.SeverityError, bugsnag.SeverityReasonHandledPanic, shouldNotifySync}
+		if logrusEntry, ok := err.(*logrus.Entry); ok {
+			_ = logrus_bugsnag.SendToBugsnag(logrusEntry, rawData...)
+			return
+		}
+		_ = bugsnag.Notify(errors.ErrorfWithSkip(2, "panic caught: %s", err), rawData...)
 		panic(err)
 	}
 }

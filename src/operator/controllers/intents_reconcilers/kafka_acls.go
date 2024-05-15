@@ -11,6 +11,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -198,21 +199,21 @@ func (r *KafkaACLReconciler) isIntentsForTheIntentsOperator(ctx context.Context,
 		return false, nil
 	}
 
-	name, ok, err := r.serviceResolver.GetPodAnnotatedName(ctx, r.operatorPodName, r.operatorPodNamespace)
+	var operatorPod v1.Pod
+	err := r.client.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, &operatorPod)
 	if err != nil {
-		return false, errors.Errorf("failed resolving intents operator identity - %w", err)
+		return false, errors.Wrap(err)
+	}
+	annotatedServiceName, err := r.serviceResolver.ResolvePodToServiceIdentity(ctx, &operatorPod)
+	if err != nil {
+		return false, errors.Wrap(err)
 	}
 
-	if !ok {
-		r.RecordWarningEventf(intents, ReasonIntentsOperatorIdentityResolveFailed, "failed resolving intents operator identity - service name annotation required")
-		return false, errors.Errorf("failed resolving intents operator identity - service name annotation required")
-	}
-
-	return name == intents.Spec.Service.Name, nil
+	return annotatedServiceName.Name == intents.Spec.Service.Name, nil
 }
 
 func (r *KafkaACLReconciler) applyAcls(ctx context.Context, logger *logrus.Entry, intents *otterizev1alpha3.ClientIntents) (ctrl.Result, error) {
-	logger.Info("Applying new ACLs")
+	logger.Debug("Applying new ACLs")
 	serverCount, err := r.applyACLs(ctx, intents)
 	if err != nil {
 		r.RecordWarningEventf(intents, ReasonApplyingKafkaACLsFailed, "could not apply Kafka ACLs: %s", err.Error())

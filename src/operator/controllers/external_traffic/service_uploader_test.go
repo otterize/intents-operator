@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 	"time"
@@ -36,10 +37,13 @@ func (s *ServiceUploaderTestSuite) TearDownTest() {
 
 func (s *ServiceUploaderTestSuite) TestUploadNamespaceServices() {
 	localServiceName := "local-service"
-	serviceWithIngressName := "service-with-ingress"
-	serviceWithNodePortName := "service-with-node-port"
-	deletedServiceWithNodePortName := "deleted-service-with-node-port"
-	serviceWithLoadBalancerName := "service-with-load-balancer"
+	const podForServiceWithIngressName = "pod-for-service-with-ingress"
+	const podForServiceWithNodePortName = "pod-for-service-with-nodeport"
+	const podForServiceWithLoadBalancerName = "pod-for-service-with-loadbalancer"
+	const serviceWithIngressName = "service-with-ingress"
+	const serviceWithNodePortName = "service-with-node-port"
+	const deletedServiceWithNodePortName = "deleted-service-with-node-port"
+	const serviceWithLoadBalancerName = "service-with-load-balancer"
 	localService := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      localServiceName,
@@ -56,6 +60,9 @@ func (s *ServiceUploaderTestSuite) TestUploadNamespaceServices() {
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app": "ingress",
+			},
 		},
 	}
 	serviceWithNodePort := corev1.Service{
@@ -65,6 +72,9 @@ func (s *ServiceUploaderTestSuite) TestUploadNamespaceServices() {
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeNodePort,
+			Selector: map[string]string{
+				"app": "nodeport",
+			},
 		},
 	}
 	deletedServiceWithNodePort := corev1.Service{
@@ -84,6 +94,9 @@ func (s *ServiceUploaderTestSuite) TestUploadNamespaceServices() {
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
+			Selector: map[string]string{
+				"app": "loadbalancer",
+			},
 		},
 	}
 
@@ -154,33 +167,81 @@ func (s *ServiceUploaderTestSuite) TestUploadNamespaceServices() {
 			})
 	}
 
+	s.Client.EXPECT().List(gomock.Any(),
+		gomock.Eq(&corev1.PodList{}),
+		&client.ListOptions{Namespace: testNamespace, LabelSelector: labels.SelectorFromSet(serviceWithIngress.Spec.Selector)}).DoAndReturn(
+		func(ctx context.Context, podList *corev1.PodList, listOptions ...client.ListOption) error {
+			podList.Items = []corev1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      podForServiceWithIngressName,
+						Namespace: serviceWithIngress.Namespace,
+						Labels: map[string]string{
+							"app": "ingress",
+						},
+					},
+				},
+			}
+			return nil
+		})
+
+	s.Client.EXPECT().List(gomock.Any(),
+		gomock.Eq(&corev1.PodList{}),
+		&client.ListOptions{Namespace: testNamespace, LabelSelector: labels.SelectorFromSet(serviceWithNodePort.Spec.Selector)}).DoAndReturn(
+		func(ctx context.Context, podList *corev1.PodList, listOptions ...client.ListOption) error {
+			podList.Items = []corev1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      podForServiceWithNodePortName,
+						Namespace: serviceWithNodePort.Namespace,
+						Labels: map[string]string{
+							"app": "nodeport",
+						},
+					},
+				},
+			}
+			return nil
+		})
+
+	s.Client.EXPECT().List(gomock.Any(),
+		gomock.Eq(&corev1.PodList{}),
+		&client.ListOptions{Namespace: testNamespace, LabelSelector: labels.SelectorFromSet(serviceWithLoadBalancer.Spec.Selector)}).DoAndReturn(
+		func(ctx context.Context, podList *corev1.PodList, listOptions ...client.ListOption) error {
+			podList.Items = []corev1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      podForServiceWithLoadBalancerName,
+						Namespace: serviceWithLoadBalancer.Namespace,
+						Labels: map[string]string{
+							"app": "loadbalancer",
+						},
+					},
+				},
+			}
+			return nil
+		})
+
 	externalServiceInputList := []graphqlclient.ExternallyAccessibleServiceInput{
 		{
 			Namespace:         testNamespace,
-			ServerName:        serviceWithIngressName,
+			ServerName:        podForServiceWithIngressName,
 			ReferredByIngress: true,
 			ServiceType:       graphqlclient.KubernetesServiceTypeClusterIp,
 		},
 		{
 			Namespace:         testNamespace,
-			ServerName:        serviceWithNodePortName,
+			ServerName:        podForServiceWithNodePortName,
 			ReferredByIngress: false,
 			ServiceType:       graphqlclient.KubernetesServiceTypeNodePort,
 		},
 		{
 			Namespace:         testNamespace,
-			ServerName:        serviceWithLoadBalancerName,
+			ServerName:        podForServiceWithLoadBalancerName,
 			ReferredByIngress: false,
 			ServiceType:       graphqlclient.KubernetesServiceTypeLoadBalancer,
 		},
 	}
-	s.otterizeClient.EXPECT().ReportExternallyAccessibleServices(gomock.Any(), testNamespace, externalServiceInputList).Return(nil)
-	err := s.serviceUploader.UploadNamespaceServices(context.Background(), testNamespace)
-	s.Require().NoError(err)
-}
-
-func (s *ServiceUploaderTestSuite) TestDoNotUploadNamespaceServicesIfOtterizeClientIsNil() {
-	s.serviceUploader = NewServiceUploader(s.Client, nil)
+	s.otterizeClient.EXPECT().ReportExternallyAccessibleServices(gomock.Any(), testNamespace, gomock.InAnyOrder(externalServiceInputList)).Return(nil)
 	err := s.serviceUploader.UploadNamespaceServices(context.Background(), testNamespace)
 	s.Require().NoError(err)
 }

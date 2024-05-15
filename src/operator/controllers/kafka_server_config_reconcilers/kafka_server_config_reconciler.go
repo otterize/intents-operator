@@ -133,14 +133,14 @@ func (r *KafkaServerConfigReconciler) handleResourceDeletion(ctx context.Context
 }
 
 func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx context.Context, config *otterizev1alpha3.KafkaServerConfig) error {
-	annotatedServiceName, ok, err := r.serviceResolver.GetPodAnnotatedName(ctx, r.operatorPodName, r.operatorPodNamespace)
+	var operatorPod v1.Pod
+	err := r.Client.Get(ctx, types.NamespacedName{Name: r.operatorPodName, Namespace: r.operatorPodNamespace}, &operatorPod)
 	if err != nil {
 		return errors.Wrap(err)
 	}
-
-	if !ok {
-		r.RecordWarningEventf(config, ReasonIntentsOperatorIdentityResolveFailed, "failed resolving intents operator identity - service name annotation required")
-		return errors.Errorf("failed resolving intents operator identity - service name annotation required")
+	annotatedServiceName, err := r.serviceResolver.ResolvePodToServiceIdentity(ctx, &operatorPod)
+	if err != nil {
+		return errors.Wrap(err)
 	}
 
 	newIntents := &otterizev1alpha3.ClientIntents{
@@ -150,7 +150,7 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 		},
 		Spec: &otterizev1alpha3.IntentsSpec{
 			Service: otterizev1alpha3.Service{
-				Name: annotatedServiceName,
+				Name: annotatedServiceName.Name,
 			},
 			Calls: []otterizev1alpha3.Intent{{
 				Type: otterizev1alpha3.IntentTypeKafka,

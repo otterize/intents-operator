@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/networking/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,20 +18,15 @@ type IngressReconciler struct {
 	client.Client
 	extNetpolHandler *NetworkPolicyHandler
 	injectablerecorder.InjectableRecorder
-	serviceUploader ServiceUploader
 }
 
 func NewIngressReconciler(
 	client client.Client,
 	extNetpolHandler *NetworkPolicyHandler,
-	otterizeClient operator_cloud_client.CloudClient,
 ) *IngressReconciler {
-	serviceUploader := NewServiceUploader(client, otterizeClient)
-
 	return &IngressReconciler{
 		Client:           client,
 		extNetpolHandler: extNetpolHandler,
-		serviceUploader:  serviceUploader,
 	}
 }
 
@@ -52,11 +46,6 @@ func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // and managing the network policies accordingly.
 func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	err := r.extNetpolHandler.HandleAllPods(ctx)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err)
-	}
-
-	err = r.serviceUploader.UploadNamespaceServices(ctx, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}

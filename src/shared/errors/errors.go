@@ -10,6 +10,10 @@ func New(text string) error {
 	return bugsnagerrors.New(text, 1)
 }
 
+func NewSentinelError(text string) error {
+	return gerrors.New(text)
+}
+
 func Errorf(format string, a ...any) error {
 	return bugsnagerrors.New(fmt.Errorf(format, a...), 1)
 }
