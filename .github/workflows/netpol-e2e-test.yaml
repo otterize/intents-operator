@@ -505,6 +505,7 @@ jobs:
       - e2e-test-intents-after-pods
       - e2e-test-intents-before-pods
       - e2e-test-intents-after-pods-with-egress
+      - e2e-test-intents-with-kind-after-pods-with-egress
     runs-on: ubuntu-latest
     steps:
       - run: |-
