@@ -71,7 +71,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	err = r.client.List(ctx, &pgServerConfigs)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
-			"Error listing PostgreSQLServerConfings. Error: %s", err.Error())
+			"Error listing PostgreSQLServerConfigs. Error: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
@@ -79,7 +79,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	err = r.client.List(ctx, &mySQLServerConfigs)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingMySQLServerConfig,
-			"Error listing MySQLServerConfings. Error: %s", err.Error())
+			"Error listing MySQLServerConfigs. Error: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
