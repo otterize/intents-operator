@@ -228,7 +228,7 @@ func (p *PostgresConfigurator) setConnection(ctx context.Context, databaseName s
 	if p.conn != nil {
 		if err := p.conn.Close(ctx); err != nil {
 			// Intentionally no error returned - clean up error
-			logrus.Errorf("Failed closing connection to: %s", p.databaseInfo.Address)
+			logrus.WithField("database", p.databaseInfo.Address).Error("Failed closing connection")
 		}
 	}
 	p.conn = conn
@@ -297,7 +297,7 @@ func (p *PostgresConfigurator) CloseConnection(ctx context.Context) {
 	}
 	if err := p.conn.Close(ctx); err != nil {
 		// Intentionally no error returned - clean up error
-		logrus.Errorf("Failed closing connection to: %s", p.databaseInfo.Address)
+		logrus.WithField("database", p.databaseInfo.Address).Error("Failed closing connection")
 	}
 }
 
@@ -313,7 +313,7 @@ func (p *PostgresConfigurator) queryAllowedTablesForUser(ctx context.Context, us
 		if err := rows.Scan(&allowedTable.TableSchema, &allowedTable.TableName); err != nil {
 			return nil, errors.Wrap(err)
 		}
-		logrus.Debugf("User %s has permissions for allowedTable: %s", username, allowedTable)
+		logrus.WithField("user", username).WithField("allowedTables", allowedTables).Debug("User has permissions for the following tables", username, allowedTable)
 		allowedTables = append(allowedTables, allowedTable)
 	}
 	return allowedTables, nil
@@ -334,7 +334,7 @@ func (p *PostgresConfigurator) revokeRemovedTablesPermissions(ctx context.Contex
 		}
 	}
 	if err := batchResults.Close(); err != nil {
-		logrus.WithError(err).Errorf("Failed closing batch results")
+		logrus.WithError(err).Error("Failed closing batch results")
 	}
 
 	return nil
