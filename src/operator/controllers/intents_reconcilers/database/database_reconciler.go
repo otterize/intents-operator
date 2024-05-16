@@ -28,6 +28,7 @@ const (
 	ReasonErrorConnectingToDatabase         = "ErrorConnectingToDatabase"
 	ReasonMissingDBServerConfig             = "MissingDBServerConfig"
 	ReasonExcessPermissionsCleanupFailed    = "ExcessPermissionsCleanupFailed"
+	ReasonCreatingDatabaseUserFailed        = "CreatingDatabaseUserFailed"
 )
 
 type DatabaseReconciler struct {
@@ -197,10 +198,17 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 		return nil
 	} else {
 		if !userExists {
-			err := dbConfigurator.CreateUser(ctx, dbUsername, randomPassword())
+			password, err := databaseconfigurator.GenerateRandomPassword()
 			if err != nil {
-				r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+				r.RecordWarningEventf(clientIntents, ReasonCreatingDatabaseUserFailed,
+					"Failed generating password for user %s", dbUsername)
+				return errors.Wrap(err)
+			}
+			err = dbConfigurator.CreateUser(ctx, dbUsername, password)
+			if err != nil {
+				r.RecordWarningEventf(clientIntents, ReasonCreatingDatabaseUserFailed,
 					"Failed creating user %s", dbUsername)
+				return errors.Wrap(err)
 			}
 			dbInstanceName := dbInstanceIntents[0].Name // This cannot be empty right ? otherwise we would never get here
 			if err := r.annotateDatabaseAndUsernameOnPod(ctx, *clientIntents, dbUsername, dbInstanceName); err != nil {
@@ -218,11 +226,6 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 	}
 
 	return nil
-}
-
-// TODO: Copy this from credentials-operator and make it import this
-func randomPassword() string {
-	return "abcdef123456"
 }
 
 func (r *DatabaseReconciler) getClusterID(ctx context.Context) (string, error) {
