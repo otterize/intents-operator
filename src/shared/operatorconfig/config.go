@@ -50,6 +50,8 @@ const (
 	DebugLogDefault                             = false
 	EnableEgressNetworkPolicyReconcilersKey     = "exp-enable-egress-network-policies" // Experimental - enable the generation of egress network policies alongside ingress network policies
 	EnableEgressNetworkPolicyReconcilersDefault = false
+	EnableEgressAutoallowDNSTrafficKey          = "enable-egress-autoallow-dns-traffic" // Whether to automatically allow DNS traffic in egress network policies
+	EnableEgressAutoallowDNSTrafficDefault      = true
 	EnableAWSPolicyKey                          = "enable-aws-iam-policy"
 	EnableAWSPolicyDefault                      = false
 	EnableAWSRolesAnywhereKey                   = "enable-aws-iam-rolesanywhere"
@@ -154,6 +156,7 @@ func InitCLIFlags() {
 	pflag.Bool(telemetriesconfig.TelemetryErrorsEnabledKey, telemetriesconfig.TelemetryErrorEnabledDefault, "Whether errors telemetry should be enabled")
 	pflag.Bool(EnableDatabasePolicy, EnableDatabasePolicyDefault, "Enable the database reconciler")
 	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
+	pflag.Bool(EnableEgressAutoallowDNSTrafficKey, EnableEgressAutoallowDNSTrafficDefault, "Whether to automatically allow DNS traffic in egress network policies")
 	pflag.Duration(RetryDelayTimeKey, RetryDelayTimeDefault, "Default retry delay time for retrying failed requests")
 	pflag.Bool(EnableAWSPolicyKey, EnableAWSPolicyDefault, "Enable the AWS IAM reconciler")
 	pflag.Bool(DebugLogKey, DebugLogDefault, "Enable debug logging")
