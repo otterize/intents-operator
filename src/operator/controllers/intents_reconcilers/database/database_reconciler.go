@@ -146,7 +146,7 @@ func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, confi
 
 	defer dbConfigurator.CloseConnection(ctx)
 
-	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, dbInstanceToIntents[config.Name])
+	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, config.Name, dbInstanceToIntents[config.Name])
 }
 
 func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev1alpha3.MySQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
@@ -159,7 +159,7 @@ func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, co
 
 	defer dbConfigurator.Close()
 
-	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, dbInstanceToIntents[config.Name])
+	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, config.Name, dbInstanceToIntents[config.Name])
 }
 
 func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
@@ -167,6 +167,7 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 	dbConfigurator databaseconfigurator.DatabaseConfigurator,
 	clientIntents *otterizev1alpha3.ClientIntents,
 	dbUsername string,
+	dbInstanceName string,
 	dbInstanceIntents []otterizev1alpha3.Intent) error {
 
 	intentsDeleted := !clientIntents.DeletionTimestamp.IsZero()
@@ -198,19 +199,12 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 		return nil
 	} else {
 		if !userExists {
-			password, err := databaseconfigurator.GenerateRandomPassword()
-			if err != nil {
-				r.RecordWarningEventf(clientIntents, ReasonCreatingDatabaseUserFailed,
-					"Failed generating password for user %s", dbUsername)
-				return errors.Wrap(err)
-			}
-			err = dbConfigurator.CreateUser(ctx, dbUsername, password)
+			err := r.createDBUser(ctx, dbConfigurator, dbUsername)
 			if err != nil {
 				r.RecordWarningEventf(clientIntents, ReasonCreatingDatabaseUserFailed,
 					"Failed creating user %s", dbUsername)
 				return errors.Wrap(err)
 			}
-			dbInstanceName := dbInstanceIntents[0].Name // This cannot be empty right ? otherwise we would never get here
 			if err := r.annotateDatabaseAndUsernameOnPod(ctx, *clientIntents, dbUsername, dbInstanceName); err != nil {
 				return errors.Wrap(err)
 			}
@@ -225,6 +219,17 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 		}
 	}
 
+	return nil
+}
+
+func (r *DatabaseReconciler) createDBUser(ctx context.Context, dbConfigurator databaseconfigurator.DatabaseConfigurator, dbUsername string) error {
+	password, err := databaseconfigurator.GenerateRandomPassword()
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	if err := dbConfigurator.CreateUser(ctx, dbUsername, password); err != nil {
+		return errors.Wrap(err)
+	}
 	return nil
 }
 
