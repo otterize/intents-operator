@@ -97,7 +97,7 @@ func (s *DatabaseReconcilerTestSuite) TestPGServerConfNotMatching() {
 	_, err := s.reconcileWithExpectedResources(clientIntents, []otterizev1alpha3.PostgreSQLServerConfig{pgServerConf})
 	s.Require().NoError(err) // Although no PGServerConf, we don't return error - just record an event
 	s.Require().Empty(ctrl.Result{})
-	s.ExpectEvent(ReasonMissingPostgresServerConfig)
+	s.ExpectEvent(ReasonMissingDBServerConfig)
 	s.ExpectEvent(ReasonAppliedDatabaseIntents)
 }
 
@@ -131,7 +131,7 @@ func (s *DatabaseReconcilerTestSuite) TestNoPGServerConf() {
 	_, err := s.reconcileWithExpectedResources(clientIntents, []otterizev1alpha3.PostgreSQLServerConfig{})
 	s.Require().NoError(err) // Although no PGServerConf, we don't return error - just record an event
 	s.Require().Empty(ctrl.Result{})
-	s.ExpectEvent(ReasonMissingPostgresServerConfig)
+	s.ExpectEvent(ReasonMissingDBServerConfig)
 	s.ExpectEvent(ReasonAppliedDatabaseIntents)
 }
 
