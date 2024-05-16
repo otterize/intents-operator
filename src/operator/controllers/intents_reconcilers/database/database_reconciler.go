@@ -25,6 +25,7 @@ const (
 	ReasonAppliedDatabaseIntents            = "AppliedDatabaseIntents"
 	ReasonErrorFetchingPostgresServerConfig = "ErrorFetchingPostgreSQLServerConfig"
 	ReasonErrorFetchingMySQLServerConfig    = "ErrorFetchingMySQLServerConfig"
+	ReasonErrorConnectingToDatabase         = "ErrorConnectingToDatabase"
 	ReasonMissingDBServerConfig             = "MissingDBServerConfig"
 	ReasonExcessPermissionsCleanupFailed    = "ExcessPermissionsCleanupFailed"
 )
@@ -137,7 +138,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, config otterizev1alpha3.PostgreSQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
 	dbConfigurator, err := postgres.NewPostgresConfigurator(ctx, config.Spec)
 	if err != nil {
-		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
+		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
 			"Error connecting to PostgreSQL server. Error: %s", err.Error())
 		return errors.Wrap(err)
 	}
@@ -150,7 +151,7 @@ func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, confi
 func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev1alpha3.MySQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
 	dbConfigurator, err := mysql.NewMySQLConfigurator(ctx, config.Spec)
 	if err != nil {
-		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingMySQLServerConfig,
+		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
 			"Error connecting to PostgreSQL server. Error: %s", err.Error())
 		return errors.Wrap(err)
 	}
