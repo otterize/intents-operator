@@ -125,3 +125,21 @@ func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient 
 	return map[string]string{OtterizeOwnerKindLabelKey: identity.Kind,
 		OtterizeServiceLabelKey: identity.GetFormattedOtterizeIdentityWithoutKind()}, true, nil
 }
+
+func ServiceIdentityToPodList(ctx context.Context, k8sClient client.Client, identity serviceidentity.ServiceIdentity) (*v1.PodList, bool, error) {
+	labels, ok, err := ServiceIdentityToLabelsForWorkloadSelection(ctx, k8sClient, identity)
+	if err != nil {
+		return nil, false, errors.Wrap(err)
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	podList := &v1.PodList{}
+	err = k8sClient.List(ctx, podList, client.MatchingLabels(labels))
+	if err != nil {
+		return nil, false, errors.Wrap(err)
+	}
+	return podList, len(podList.Items) > 0, nil
+
+}

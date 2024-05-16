@@ -136,9 +136,15 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
 			},
 		},
 	}
-	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(intentsObj)).Return(clientPod, nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.PodList{}), gomock.Eq(map[string]string{"intents.otterize.com/service": "test-client-test-namespace-537e87"})).Do(
+		func(ctx context.Context, list *v1.PodList, opts ...client.ListOption) {
+			list.Items = append(list.Items, clientPod)
+		})
 	s.policyAdmin.EXPECT().UpdateIntentsStatus(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount, false).Return(nil)
-	s.serviceResolver.EXPECT().ResolveIntentServerToPod(gomock.Any(), gomock.Eq(intentsObj.Spec.Calls[0]), serverNamespace).Return(serverPod, nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.PodList{}), gomock.Eq(map[string]string{"intents.otterize.com/service": "test-server-far-far-away-aa0d79"})).Do(
+		func(ctx context.Context, list *v1.PodList, opts ...client.ListOption) {
+			list.Items = append(list.Items, serverPod)
+		})
 	s.policyAdmin.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&intentsObj), "test-server-far-far-away-aa0d79", false).Return(nil)
 	s.policyAdmin.EXPECT().Create(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
@@ -159,12 +165,12 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicyToSVC() {
 		NamespacedName: namespacedName,
 	}
 
-	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	serverName := "test-server"
 	intentsSpec := &otterizev1alpha3.IntentsSpec{
 		Service: otterizev1alpha3.Service{Name: serviceName},
 		Calls: []otterizev1alpha3.Intent{
 			{
-				Name: serverName,
+				Name: fmt.Sprintf("test-server.%s", serverNamespace),
 				Kind: serviceidentity.KindService,
 			},
 		},
@@ -214,6 +220,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicyToSVC() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-server-2b5e0d",
 			Namespace: serverNamespace,
+			Labels:    map[string]string{"app": "test-server"},
 		},
 		Spec: v1.PodSpec{
 			ServiceAccountName: "test-server-sa",
@@ -227,10 +234,32 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicyToSVC() {
 			},
 		},
 	}
-	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(intentsObj)).Return(clientPod, nil)
+
+	serverService := v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serverName,
+			Namespace: serverNamespace,
+		},
+		Spec: v1.ServiceSpec{
+			Selector: map[string]string{
+				"app": "test-server",
+			},
+		},
+	}
+	s.Client.EXPECT().Get(gomock.Any(), gomock.Eq(types.NamespacedName{Name: serverName, Namespace: serverNamespace}), gomock.AssignableToTypeOf(&v1.Service{})).Do(
+		func(ctx context.Context, name types.NamespacedName, svc *v1.Service, _ ...interface{}) {
+			serverService.DeepCopyInto(svc)
+		})
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.PodList{}), gomock.Eq(map[string]string{"intents.otterize.com/service": "test-client-test-namespace-537e87"})).Do(
+		func(ctx context.Context, list *v1.PodList, opts ...client.ListOption) {
+			list.Items = append(list.Items, clientPod)
+		})
 	s.policyAdmin.EXPECT().UpdateIntentsStatus(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount, false).Return(nil)
-	s.serviceResolver.EXPECT().ResolveIntentServerToPod(gomock.Any(), gomock.Eq(intentsObj.Spec.Calls[0]), serverNamespace).Return(serverPod, nil)
-	s.policyAdmin.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&intentsObj), "test-server-far-far-away-aa0d79", false).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.PodList{}), gomock.Eq(serverService.Spec.Selector)).Do(
+		func(ctx context.Context, list *v1.PodList, opts ...client.ListOption) {
+			list.Items = append(list.Items, serverPod)
+		})
+	s.policyAdmin.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&intentsObj), "test-server-far-far-away-servi-558c21", false).Return(nil)
 	s.policyAdmin.EXPECT().Create(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -330,9 +359,15 @@ func (s *IstioPolicyReconcilerTestSuite) assertPolicyCreateCalledEvenIfDisabledE
 		},
 	}
 
-	s.serviceResolver.EXPECT().ResolveClientIntentToPod(gomock.Any(), gomock.Eq(clientIntentsObj)).Return(clientPod, nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.PodList{}), gomock.Eq(map[string]string{"intents.otterize.com/service": "test-client-test-namespace-537e87"})).Do(
+		func(ctx context.Context, list *v1.PodList, opts ...client.ListOption) {
+			list.Items = append(list.Items, clientPod)
+		})
 	s.policyAdmin.EXPECT().UpdateIntentsStatus(gomock.Any(), gomock.Eq(&clientIntentsObj), clientServiceAccount, false).Return(nil)
-	s.serviceResolver.EXPECT().ResolveIntentServerToPod(gomock.Any(), gomock.Eq(clientIntentsObj.Spec.Calls[0]), serverNamespace).Return(serverPod, nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.PodList{}), gomock.Eq(map[string]string{"intents.otterize.com/service": "test-server-far-far-away-aa0d79"})).Do(
+		func(ctx context.Context, list *v1.PodList, opts ...client.ListOption) {
+			list.Items = append(list.Items, serverPod)
+		})
 	s.policyAdmin.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&clientIntentsObj), "test-server-far-far-away-aa0d79", false).Return(nil)
 	s.policyAdmin.EXPECT().Create(gomock.Any(), gomock.Eq(&clientIntentsObj), clientServiceAccount).Return(nil)
 

@@ -73,7 +73,7 @@ func (c *PolicyManagerImpl) DeleteAll(
 	clientIntents *v1alpha3.ClientIntents,
 ) error {
 	clientServiceIdentity := clientIntents.ToServiceIdentity()
-	clientFormattedIdentity := clientServiceIdentity.GetFormattedOtterizeIdentityWithoutKind()
+	clientFormattedIdentity := clientServiceIdentity.GetFormattedOtterizeIdentityWithKind()
 
 	var existingPolicies v1beta1.AuthorizationPolicyList
 	err := c.client.List(ctx,
@@ -98,11 +98,10 @@ func (c *PolicyManagerImpl) Create(
 	clientServiceAccount string,
 ) error {
 	clientServiceIdentity := clientIntents.ToServiceIdentity()
-
 	var existingPolicies v1beta1.AuthorizationPolicyList
 	err := c.client.List(ctx,
 		&existingPolicies,
-		client.MatchingLabels{v1alpha3.OtterizeIstioClientAnnotationKey: clientServiceIdentity.GetFormattedOtterizeIdentityWithoutKind()})
+		client.MatchingLabels{v1alpha3.OtterizeIstioClientAnnotationKey: clientServiceIdentity.GetFormattedOtterizeIdentityWithKind()})
 	if err != nil {
 		c.recorder.RecordWarningEventf(clientIntents, ReasonGettingIstioPolicyFailed, "Could not get Istio policies: %s", err.Error())
 		return errors.Wrap(err)
@@ -323,8 +322,9 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP || intent.IsTargetServerKubernetesService() {
 			continue
 		}
+		si := intent.ToServiceIdentity(clientIntents.Namespace)
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
-			ctx, c.client, intent.GetTargetServerName(), intent.GetTargetServerNamespace(clientIntents.Namespace), c.enforcementDefaultState, c.activeNamespaces)
+			ctx, c.client, *si, c.enforcementDefaultState, c.activeNamespaces)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
@@ -475,8 +475,8 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 	serverIdentity := intent.ToServiceIdentity(clientIntents.Namespace)
 
 	serverNamespace := intent.GetTargetServerNamespace(clientIntents.Namespace)
-	formattedTargetServer := serverIdentity.GetFormattedOtterizeIdentityWithoutKind()
-	clientFormattedIdentity := clientIdentity.GetFormattedOtterizeIdentityWithoutKind()
+	formattedTargetServer := serverIdentity.GetFormattedOtterizeIdentityWithKind()
+	clientFormattedIdentity := clientIdentity.GetFormattedOtterizeIdentityWithKind()
 
 	var ruleTo []*v1beta1security.Rule_To
 	if intent.Type == v1alpha3.IntentTypeHTTP {

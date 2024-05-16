@@ -219,7 +219,7 @@ func (r *Reconciler) buildIngressRules(ctx context.Context, ep effectivepolicy.S
 	if len(ep.CalledBy) == 0 || len(r.ingressRuleBuilders) == 0 {
 		return rules, false, nil
 	}
-	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service.Name, ep.Service.Namespace, r.EnforcementDefaultState, r.EnforcedNamespaces)
+	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service, r.EnforcementDefaultState, r.EnforcedNamespaces)
 	if err != nil {
 		return rules, false, errors.Wrap(err)
 	}
