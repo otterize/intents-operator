@@ -319,7 +319,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 	updatedPolicies := goset.NewSet[PolicyID]()
 	createdAnyPolicies := false
 	for _, intent := range clientIntents.GetCallsList() {
-		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP || intent.IsTargetServerKubernetesService() {
+		if intent.Type != "" && intent.Type != v1alpha3.IntentTypeHTTP {
 			continue
 		}
 		si := intent.ToServiceIdentity(clientIntents.Namespace)

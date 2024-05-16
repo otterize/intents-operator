@@ -110,7 +110,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	var clientServiceAccountName string
 	for _, pod := range pods.Items {
 		if clientServiceAccountName != "" && clientServiceAccountName != pod.Spec.ServiceAccountName {
-
+			continue
 		}
 		clientServiceAccountName = pod.Spec.ServiceAccountName
 		missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)

@@ -194,41 +194,6 @@ func (s *PolicyManagerTestSuite) TestCreateIstioEnforcementDisabledNoProtectedSe
 	s.ExpectEvent(consts.ReasonIstioPolicyCreationDisabled)
 }
 
-func (s *PolicyManagerTestSuite) TestCreateIstioIgnoreK8sServiceIntents() {
-	s.admin.enableIstioPolicyCreation = false
-	clientName := "test-client"
-	serverName := "svc:otterservice.otternamespace"
-	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
-	clientIntentsNamespace := "test-namespace"
-
-	intents := &v1alpha3.ClientIntents{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      policyName,
-			Namespace: clientIntentsNamespace,
-			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
-			},
-		},
-		Spec: &v1alpha3.IntentsSpec{
-			Service: v1alpha3.Service{
-				Name: clientName,
-			},
-			Calls: []v1alpha3.Intent{
-				{
-					Name: serverName,
-				},
-			},
-		},
-	}
-	clientServiceAccountName := "test-client-sa"
-
-	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.AssignableToTypeOf(client.MatchingLabels{})).Return(nil)
-
-	err := s.admin.Create(context.Background(), intents, clientServiceAccountName)
-	s.NoError(err)
-}
-
 func (s *PolicyManagerTestSuite) TestCreateProtectedServiceIstioEnforcementDisabled() {
 	s.admin.enableIstioPolicyCreation = false
 	clientName := "test-client"
