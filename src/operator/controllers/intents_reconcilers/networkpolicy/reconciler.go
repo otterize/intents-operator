@@ -247,7 +247,7 @@ func (r *Reconciler) buildIngressRules(ctx context.Context, ep effectivepolicy.S
 
 // A function that builds pod label selector from serviceEffectivePolicy
 func (r *Reconciler) buildPodLabelSelectorFromServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) (metav1.LabelSelector, bool, error) {
-	labelsMap, ok, err := otterizev1alpha3.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.Client, ep.Service)
+	labelsMap, ok, err := otterizev1alpha3.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.Client, &ep.Service)
 	if err != nil {
 		return metav1.LabelSelector{}, false, errors.Wrap(err)
 	}

@@ -489,7 +489,7 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 		}
 	}
 
-	podSelector, shouldCreate, err := v1alpha3.ServiceIdentityToLabelsForWorkloadSelection(ctx, c.client, *serverIdentity)
+	podSelector, shouldCreate, err := v1alpha3.ServiceIdentityToLabelsForWorkloadSelection(ctx, c.client, serverIdentity)
 	if err != nil {
 		return nil, false, errors.Wrap(err)
 	}

@@ -5,6 +5,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
@@ -22,9 +23,8 @@ var ErrPodNotFound = errors.NewSentinelError("pod not found")
 
 type ServiceResolver interface {
 	ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error)
-	ResolveIntentServerToPod(ctx context.Context, intent v1alpha3.Intent, namespace string) (corev1.Pod, error)
-	GetKubernetesServicesTargetingPod(ctx context.Context, pod *corev1.Pod) ([]corev1.Service, error)
 	ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error)
+	ResolveServiceIdentityToPodSlice(ctx context.Context, identity *serviceidentity.ServiceIdentity) ([]corev1.Pod, bool, error)
 }
 
 type Resolver struct {
@@ -134,78 +134,33 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 	return obj, nil
 }
 
+func (r *Resolver) ResolveServiceIdentityToPodSlice(ctx context.Context, identity *serviceidentity.ServiceIdentity) ([]corev1.Pod, bool, error) {
+	labels, ok, err := v1alpha3.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.client, identity)
+	if err != nil {
+		return nil, false, errors.Wrap(err)
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	podList := &corev1.PodList{}
+	err = r.client.List(ctx, podList, client.MatchingLabels(labels))
+	if err != nil {
+		return nil, false, errors.Wrap(err)
+	}
+	pods := lo.Filter(podList.Items, func(pod corev1.Pod, _ int) bool { return pod.DeletionTimestamp == nil })
+
+	return pods, len(pods) > 0, nil
+}
+
 func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error) {
-	podsList := &corev1.PodList{}
-	labelSelector, err := intent.BuildPodLabelSelector()
+	serviceID := intent.ToServiceIdentity()
+	pods, ok, err := r.ResolveServiceIdentityToPodSlice(ctx, serviceID)
 	if err != nil {
 		return corev1.Pod{}, errors.Wrap(err)
 	}
-	err = r.client.List(ctx, podsList, client.MatchingLabelsSelector{Selector: labelSelector})
-	if err != nil {
-		return corev1.Pod{}, errors.Wrap(err)
-	}
-	if len(podsList.Items) == 0 {
+	if !ok {
 		return corev1.Pod{}, errors.Wrap(ErrPodNotFound)
 	}
-
-	for _, pod := range podsList.Items {
-		if pod.DeletionTimestamp != nil {
-			continue
-		}
-
-		return pod, nil
-	}
-
-	return corev1.Pod{}, errors.Wrap(ErrPodNotFound)
-}
-
-func (r *Resolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3.Intent, namespace string) (corev1.Pod, error) {
-	podsList := &corev1.PodList{}
-
-	targetServiceIdentity := intent.ToServiceIdentity(namespace)
-	err := r.client.List(
-		ctx,
-		podsList,
-		client.MatchingLabels{v1alpha3.OtterizeServiceLabelKey: targetServiceIdentity.GetFormattedOtterizeIdentityWithoutKind()},
-		client.InNamespace(namespace),
-	)
-	if err != nil {
-		return corev1.Pod{}, errors.Wrap(err)
-	}
-	if len(podsList.Items) == 0 {
-		return corev1.Pod{}, errors.Wrap(ErrPodNotFound)
-	}
-
-	for _, pod := range podsList.Items {
-		if pod.DeletionTimestamp != nil {
-			continue
-		}
-
-		return pod, nil
-	}
-
-	return corev1.Pod{}, errors.Wrap(ErrPodNotFound)
-}
-
-func (r *Resolver) GetKubernetesServicesTargetingPod(ctx context.Context, pod *corev1.Pod) ([]corev1.Service, error) {
-	serviceList := corev1.ServiceList{}
-	if err := r.client.List(ctx, &serviceList, &client.ListOptions{Namespace: pod.Namespace}); err != nil {
-		return nil, errors.Wrap(err)
-	}
-
-	servicesTargetingPod := make([]corev1.Service, 0)
-	podLabels := pod.GetLabels()
-
-	// Iterate over the services in the namespace, check their selector (which pods they are pointing to)
-	// and compare to the pod's labels.
-	for _, service := range serviceList.Items {
-		for podLabelKey, podLabelVal := range podLabels {
-			svcSelectorVal, ok := service.Spec.Selector[podLabelKey]
-			if ok && svcSelectorVal == podLabelVal {
-				servicesTargetingPod = append(servicesTargetingPod, service)
-			}
-		}
-	}
-
-	return servicesTargetingPod, nil
+	return pods[0], nil
 }

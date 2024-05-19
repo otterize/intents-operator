@@ -100,7 +100,7 @@ func GetOtterizeLabelsFromPod(pod *v1.Pod) map[string]string {
 	return otterizeLabels
 }
 
-func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient client.Client, identity serviceidentity.ServiceIdentity) (map[string]string, bool, error) {
+func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient client.Client, identity *serviceidentity.ServiceIdentity) (map[string]string, bool, error) {
 	// This is here for backwards compatibility
 	if identity.Kind == "" || identity.Kind == serviceidentity.KindOtterizeLegacy {
 		return map[string]string{OtterizeServiceLabelKey: identity.GetFormattedOtterizeIdentityWithoutKind()}, true, nil
@@ -124,22 +124,4 @@ func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient 
 	// This should be replaced with a logic that gets the pod owners and uses its labelsSelector (for known kinds)
 	return map[string]string{OtterizeOwnerKindLabelKey: identity.Kind,
 		OtterizeServiceLabelKey: identity.GetFormattedOtterizeIdentityWithoutKind()}, true, nil
-}
-
-func ServiceIdentityToPodList(ctx context.Context, k8sClient client.Client, identity serviceidentity.ServiceIdentity) (*v1.PodList, bool, error) {
-	labels, ok, err := ServiceIdentityToLabelsForWorkloadSelection(ctx, k8sClient, identity)
-	if err != nil {
-		return nil, false, errors.Wrap(err)
-	}
-	if !ok {
-		return nil, false, nil
-	}
-
-	podList := &v1.PodList{}
-	err = k8sClient.List(ctx, podList, client.MatchingLabels(labels))
-	if err != nil {
-		return nil, false, errors.Wrap(err)
-	}
-	return podList, len(podList.Items) > 0, nil
-
 }
