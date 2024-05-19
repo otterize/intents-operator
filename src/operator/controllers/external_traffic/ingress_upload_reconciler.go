@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/networking/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -14,23 +15,25 @@ import (
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=ingresses,verbs=get;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 
-type IngressReconciler struct {
+type IngressUploadReconciler struct {
 	client.Client
-	extNetpolHandler *NetworkPolicyHandler
 	injectablerecorder.InjectableRecorder
+	serviceUploader ServiceUploader
 }
 
-func NewIngressReconciler(
+func NewIngressUploadReconciler(
 	client client.Client,
-	extNetpolHandler *NetworkPolicyHandler,
-) *IngressReconciler {
-	return &IngressReconciler{
-		Client:           client,
-		extNetpolHandler: extNetpolHandler,
+	otterizeClient operator_cloud_client.CloudClient,
+) *IngressUploadReconciler {
+	serviceUploader := NewServiceUploader(client, otterizeClient)
+
+	return &IngressUploadReconciler{
+		Client:          client,
+		serviceUploader: serviceUploader,
 	}
 }
 
-func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *IngressUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	recorder := mgr.GetEventRecorderFor("intents-operator")
 	r.InjectRecorder(recorder)
 
@@ -44,8 +47,8 @@ func (r *IngressReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // the ingress refers to, and sends a Reconcile request to the EndpointsReconciler.
 // The EndpointsReconciler is responsible for determining which services and ingresses are related to an Endpoints resource
 // and managing the network policies accordingly.
-func (r *IngressReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.extNetpolHandler.HandleAllPods(ctx)
+func (r *IngressUploadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	err := r.serviceUploader.UploadNamespaceServices(ctx, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}

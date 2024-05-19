@@ -38,6 +38,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
+	"github.com/otterize/intents-operator/src/shared"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
@@ -121,6 +122,7 @@ func main() {
 	}
 	errorreporter.Init("intents-operator", version.Version(), viper.GetString(operatorconfig.TelemetryErrorsAPIKeyKey))
 	defer errorreporter.AutoNotify()
+	shared.RegisterPanicHandlers()
 
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
@@ -318,15 +320,26 @@ func main() {
 		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig)
 		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
 		netpolUploader := external_traffic.NewNetworkPolicyUploaderReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
+		serviceUploadReconciler := external_traffic.NewServiceUploadReconciler(mgr.GetClient(), otterizeCloudClient)
+		ingressUploadReconciler := external_traffic.NewIngressUploadReconciler(mgr.GetClient(), otterizeCloudClient)
+
 		if err = netpolUploader.SetupWithManager(mgr); err != nil {
 			logrus.WithError(err).Panic("unable to initialize NetworkPolicy reconciler")
+		}
+
+		if err = serviceUploadReconciler.SetupWithManager(mgr); err != nil {
+			logrus.WithError(err).Panic("unable to create controller", "controller", "Endpoints")
+		}
+
+		if err = ingressUploadReconciler.SetupWithManager(mgr); err != nil {
+			logrus.WithError(err).Panic("unable to create controller", "controller", "Ingress")
 		}
 	} else {
 		logrus.Info("Not configured for cloud integration")
 	}
 
-	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler, otterizeCloudClient)
-	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler, otterizeCloudClient)
+	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
+	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler)
 
 	if !enforcementConfig.EnforcementDefaultState {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
