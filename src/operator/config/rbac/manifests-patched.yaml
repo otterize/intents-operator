@@ -180,6 +180,18 @@ rules:
 - apiGroups:
   - k8s.otterize.com
   resources:
+  - mysqlserverconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - k8s.otterize.com
+  resources:
   - postgresqlserverconfigs
   verbs:
   - create
