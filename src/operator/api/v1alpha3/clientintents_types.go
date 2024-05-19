@@ -28,7 +28,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -749,23 +748,6 @@ func intentsHTTPResourceToCloud(resource HTTPResource, index int) *graphqlclient
 	}
 
 	return &httpConfig
-}
-
-// BuildPodLabelSelector returns a label selector to match the otterize server labels for an intents resource
-func (in *ClientIntents) BuildPodLabelSelector() (labels.Selector, error) {
-	// DELETEME
-	// Don't let me merge before I delete this function
-	labelSelector, err := labels.Parse(
-		fmt.Sprintf("%s=%s",
-			OtterizeServiceLabelKey,
-			// Since all pods are also labeled with their server identity, we can use the Otterize server label
-			// To find all pods for this specific service
-			in.ToServiceIdentity().GetFormattedOtterizeIdentityWithoutKind()))
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-
-	return labelSelector, nil
 }
 
 func (in *ClientIntents) HasKafkaTypeInCallList() bool {

@@ -58,7 +58,7 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodExists() {
 	SAName := "backendservice"
 
 	intent := v1alpha3.ClientIntents{Spec: &v1alpha3.IntentsSpec{Service: v1alpha3.Service{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
-	ls, err := intent.BuildPodLabelSelector()
+	ls, _, err := v1alpha3.ServiceIdentityToLabelsForWorkloadSelection(context.Background(), s.Client, intent.ToServiceIdentity())
 	s.Require().NoError(err)
 
 	pod := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace}, Spec: corev1.PodSpec{ServiceAccountName: SAName}}
@@ -66,7 +66,8 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodExists() {
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(&corev1.PodList{}),
-		&MatchingLabelsSelectorMatcher{client.MatchingLabelsSelector{Selector: ls}},
+		gomock.Eq(&client.ListOptions{Namespace: namespace}),
+		gomock.Eq(ls),
 	).Do(func(_ any, podList *corev1.PodList, _ ...any) {
 		podList.Items = append(podList.Items, pod)
 	})
@@ -82,13 +83,14 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodDoesntExist
 	namespace := "coolnamespace"
 
 	intent := v1alpha3.ClientIntents{Spec: &v1alpha3.IntentsSpec{Service: v1alpha3.Service{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
-	ls, err := intent.BuildPodLabelSelector()
+	ls, _, err := v1alpha3.ServiceIdentityToLabelsForWorkloadSelection(context.Background(), s.Client, intent.ToServiceIdentity())
 	s.Require().NoError(err)
 
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		gomock.AssignableToTypeOf(&corev1.PodList{}),
-		&MatchingLabelsSelectorMatcher{client.MatchingLabelsSelector{Selector: ls}},
+		gomock.Eq(&client.ListOptions{Namespace: namespace}),
+		gomock.Eq(ls),
 	).Do(func(_ any, podList *corev1.PodList, _ ...any) {})
 
 	pod, err := s.Resolver.ResolveClientIntentToPod(context.Background(), intent)
@@ -297,7 +299,7 @@ func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSe
 	namespace := "cool-namespace"
 	service := &serviceidentity.ServiceIdentity{Name: serviceName, Namespace: namespace, Kind: "Deployment"}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&corev1.PodList{}), map[string]string{
+	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&corev1.PodList{}), gomock.Eq(&client.ListOptions{Namespace: namespace}), map[string]string{
 		v1alpha3.OtterizeServiceLabelKey:   service.GetFormattedOtterizeIdentityWithoutKind(),
 		v1alpha3.OtterizeOwnerKindLabelKey: "Deployment",
 	}).Do(func(_ any, podList *corev1.PodList, _ ...any) {
@@ -323,7 +325,7 @@ func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSe
 	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: serviceName, Namespace: namespace}, &corev1.Service{}).Do(func(_ context.Context, name types.NamespacedName, svc *corev1.Service, _ ...any) {
 		serviceObj.DeepCopyInto(svc)
 	})
-	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&corev1.PodList{}), servicePodSelector).Do(func(_ any, podList *corev1.PodList, _ ...any) {
+	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&corev1.PodList{}), gomock.Eq(&client.ListOptions{Namespace: namespace}), servicePodSelector).Do(func(_ any, podList *corev1.PodList, _ ...any) {
 		podList.Items = append(podList.Items, corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "cool-pod", Namespace: namespace}})
 	})
 
@@ -359,7 +361,7 @@ func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSe
 		serviceObj.DeepCopyInto(svc)
 	})
 	// empty list
-	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&corev1.PodList{}), servicePodSelector)
+	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&corev1.PodList{}), gomock.Eq(&client.ListOptions{Namespace: namespace}), servicePodSelector)
 
 	pods, ok, err := s.Resolver.ResolveServiceIdentityToPodSlice(context.Background(), service)
 	s.Require().NoError(err)

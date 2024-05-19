@@ -160,7 +160,7 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3
 		return corev1.Pod{}, errors.Wrap(err)
 	}
 	if !ok {
-		return corev1.Pod{}, errors.Wrap(ErrPodNotFound)
+		return corev1.Pod{}, ErrPodNotFound
 	}
 	return pods[0], nil
 }
