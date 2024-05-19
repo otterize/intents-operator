@@ -273,6 +273,17 @@ func (v *InternetConfigInput) GetIps() []*string { return v.Ips }
 // GetPorts returns InternetConfigInput.Ports, and is useful for accessing the field via an interface.
 func (v *InternetConfigInput) GetPorts() []*int { return v.Ports }
 
+type IpBlockInput struct {
+	Cidr   string   `json:"cidr"`
+	Except []string `json:"except"`
+}
+
+// GetCidr returns IpBlockInput.Cidr, and is useful for accessing the field via an interface.
+func (v *IpBlockInput) GetCidr() string { return v.Cidr }
+
+// GetExcept returns IpBlockInput.Except, and is useful for accessing the field via an interface.
+func (v *IpBlockInput) GetExcept() []string { return v.Except }
+
 type IstioStatusInput struct {
 	ServiceAccountName     *string `json:"serviceAccountName"`
 	IsServiceAccountShared *bool   `json:"isServiceAccountShared"`
@@ -373,11 +384,19 @@ const (
 	KubernetesServiceTypeExternalName KubernetesServiceType = "EXTERNAL_NAME"
 )
 
+type NetworkPolicyEgressRuleInput struct {
+	To []PeerInput `json:"to"`
+}
+
+// GetTo returns NetworkPolicyEgressRuleInput.To, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyEgressRuleInput) GetTo() []PeerInput { return v.To }
+
 type NetworkPolicyInput struct {
-	Namespace                    string `json:"namespace"`
-	Name                         string `json:"name"`
-	ServerName                   string `json:"serverName"`
-	ExternalNetworkTrafficPolicy bool   `json:"externalNetworkTrafficPolicy"`
+	Namespace                    string                 `json:"namespace"`
+	Name                         string                 `json:"name"`
+	ServerName                   string                 `json:"serverName"`
+	ExternalNetworkTrafficPolicy bool                   `json:"externalNetworkTrafficPolicy"`
+	Spec                         NetworkPolicySpecInput `json:"spec"`
 }
 
 // GetNamespace returns NetworkPolicyInput.Namespace, and is useful for accessing the field via an interface.
@@ -393,6 +412,23 @@ func (v *NetworkPolicyInput) GetServerName() string { return v.ServerName }
 func (v *NetworkPolicyInput) GetExternalNetworkTrafficPolicy() bool {
 	return v.ExternalNetworkTrafficPolicy
 }
+
+// GetSpec returns NetworkPolicyInput.Spec, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetSpec() NetworkPolicySpecInput { return v.Spec }
+
+type NetworkPolicySpecInput struct {
+	Egress []NetworkPolicyEgressRuleInput `json:"egress"`
+}
+
+// GetEgress returns NetworkPolicySpecInput.Egress, and is useful for accessing the field via an interface.
+func (v *NetworkPolicySpecInput) GetEgress() []NetworkPolicyEgressRuleInput { return v.Egress }
+
+type PeerInput struct {
+	IpBlock IpBlockInput `json:"ipBlock"`
+}
+
+// GetIpBlock returns PeerInput.IpBlock, and is useful for accessing the field via an interface.
+func (v *PeerInput) GetIpBlock() IpBlockInput { return v.IpBlock }
 
 type ProtectedServiceInput struct {
 	Name string `json:"name"`
