@@ -61,6 +61,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"os"
 	"path"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -94,7 +95,7 @@ const (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(certmanager.AddToScheme(scheme))
-
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	utilruntime.Must(gcpiamv1.AddToScheme(scheme))
 	utilruntime.Must(gcpk8sv1.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
