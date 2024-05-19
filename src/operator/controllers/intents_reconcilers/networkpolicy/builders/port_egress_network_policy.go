@@ -111,6 +111,7 @@ func (r *PortEgressRulesBuilder) getIPRuleFromEndpoint(ctx context.Context, svc 
 	ipAddresses := make([]string, 0)
 	ports := make([]v1.NetworkPolicyPort, 0)
 
+	ipAddresses = append(ipAddresses, svc.Spec.ClusterIP)
 	var endpoint corev1.Endpoints
 	err := r.Client.Get(ctx, types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &endpoint)
 	if err != nil {
