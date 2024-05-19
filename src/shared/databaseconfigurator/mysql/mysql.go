@@ -77,7 +77,7 @@ func NewMySQLConfigurator(ctx context.Context, conf otterizev1alpha3.MySQLServer
 	}
 
 	if err := m.db.PingContext(ctx); err != nil {
-		defer m.Close()
+		defer m.CloseConnection(ctx)
 		return nil, errors.Wrap(err)
 	}
 
@@ -554,7 +554,7 @@ func (m *MySQLConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.Cont
 	return m.revokeAllDatabasePrivilegesForUser(ctx, username)
 }
 
-func (m *MySQLConfigurator) Close() {
+func (m *MySQLConfigurator) CloseConnection(ctx context.Context) {
 	if m.db == nil {
 		return
 	}
