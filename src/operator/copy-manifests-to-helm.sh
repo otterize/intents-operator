@@ -15,11 +15,6 @@ cp ./config/crd/k8s.otterize.com_protectedservices.patched ./otterizecrds/protec
 
 cp ./config/crd/k8s.otterize.com_postgresqlserverconfigs.patched ./otterizecrds/postgresqlserverconfigs-customresourcedefinition.yaml
 
-
-src_name=$(echo k8s.otterize.com_mysqlserverconfigs.yaml | sed -e "s/^$src_prefix//" -e "s/$src_suffix//");
-target_file=$(echo $src_name""$target_suffix);
-target_path=$(echo $CRD_DIR"/"$target_file);
-cp ./config/crd/k8s.otterize.com_mysqlserverconfigs.patched $target_path
 cp ./config/crd/k8s.otterize.com_mysqlserverconfigs.patched ./otterizecrds/mysqlserverconfigs-customresourcedefinition.yaml
 
 # copy webhook and cluster role

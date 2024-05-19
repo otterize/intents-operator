@@ -31,7 +31,7 @@ spec:
     - name: v1alpha3
       schema:
         openAPIV3Schema:
-          description: PostgreSQLServerConfig is the Schema for the databaseserverconfig API
+          description: PostgreSQLServerConfig is the Schema for the postgresqlserverconfig API
           properties:
             apiVersion:
               description: |-
