@@ -55,6 +55,7 @@ type PolicyManager interface {
 	Create(ctx context.Context, clientIntents *v1alpha3.ClientIntents, clientServiceAccount string) error
 	UpdateIntentsStatus(ctx context.Context, clientIntents *v1alpha3.ClientIntents, clientServiceAccount string, missingSideCar bool) error
 	UpdateServerSidecar(ctx context.Context, clientIntents *v1alpha3.ClientIntents, serverName string, missingSideCar bool) error
+	RemoveDeprecatedPoliciesForClient(ctx context.Context, clientIntents *v1alpha3.ClientIntents) error
 }
 
 func NewPolicyManager(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string]) *PolicyManagerImpl {
@@ -78,8 +79,37 @@ func (c *PolicyManagerImpl) DeleteAll(
 	var existingPolicies v1beta1.AuthorizationPolicyList
 	err := c.client.List(ctx,
 		&existingPolicies,
-		client.MatchingLabels{v1alpha3.OtterizeIstioClientAnnotationKey: clientFormattedIdentity})
+		client.MatchingLabels{v1alpha3.OtterizeIstioClientWithKindLabelKey: clientFormattedIdentity})
 	if client.IgnoreNotFound(err) != nil {
+		return errors.Wrap(err)
+	}
+
+	for _, policy := range existingPolicies.Items {
+		err = c.client.Delete(ctx, policy)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+	err = c.RemoveDeprecatedPoliciesForClient(ctx, clientIntents)
+	if err != nil {
+		return errors.Wrap(err)
+
+	}
+	return nil
+}
+
+func (c *PolicyManagerImpl) RemoveDeprecatedPoliciesForClient(
+	ctx context.Context,
+	clientIntents *v1alpha3.ClientIntents,
+) error {
+	clientServiceIdentity := clientIntents.ToServiceIdentity()
+	clientFormattedIdentity := clientServiceIdentity.GetFormattedOtterizeIdentityWithoutKind()
+
+	var existingPolicies v1beta1.AuthorizationPolicyList
+	err := c.client.List(ctx,
+		&existingPolicies,
+		client.MatchingLabels{v1alpha3.OtterizeIstioClientAnnotationKeyDeprecated: clientFormattedIdentity})
+	if err != nil {
 		return errors.Wrap(err)
 	}
 
@@ -101,7 +131,7 @@ func (c *PolicyManagerImpl) Create(
 	var existingPolicies v1beta1.AuthorizationPolicyList
 	err := c.client.List(ctx,
 		&existingPolicies,
-		client.MatchingLabels{v1alpha3.OtterizeIstioClientAnnotationKey: clientServiceIdentity.GetFormattedOtterizeIdentityWithKind()})
+		client.MatchingLabels{v1alpha3.OtterizeIstioClientWithKindLabelKey: clientServiceIdentity.GetFormattedOtterizeIdentityWithKind()})
 	if err != nil {
 		c.recorder.RecordWarningEventf(clientIntents, ReasonGettingIstioPolicyFailed, "Could not get Istio policies: %s", err.Error())
 		return errors.Wrap(err)
@@ -424,8 +454,8 @@ func (c *PolicyManagerImpl) updatePolicy(ctx context.Context, existingPolicy *v1
 }
 
 func (c *PolicyManagerImpl) getPolicyName(intents *v1alpha3.ClientIntents, intent v1alpha3.Intent) string {
-	clientName := fmt.Sprintf("%s.%s", intents.GetServiceName(), intents.Namespace)
-	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.GetTargetServerName(), clientName)
+	clientName := fmt.Sprintf("%s.%s", intents.ToServiceIdentity().GetNameWithKind(), intents.Namespace)
+	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.ToServiceIdentity(intents.Namespace).GetNameWithKind(), clientName)
 	return policyName
 }
 
@@ -503,8 +533,8 @@ func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 			Name:      policyName,
 			Namespace: serverNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          formattedTargetServer,
-				v1alpha3.OtterizeIstioClientAnnotationKey: clientFormattedIdentity,
+				v1alpha3.OtterizeServiceLabelKey:             formattedTargetServer,
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: clientFormattedIdentity,
 			},
 		},
 		Spec: v1beta1security.AuthorizationPolicy{

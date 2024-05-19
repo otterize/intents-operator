@@ -144,7 +144,7 @@ func (r *Resolver) ResolveServiceIdentityToPodSlice(ctx context.Context, identit
 	}
 
 	podList := &corev1.PodList{}
-	err = r.client.List(ctx, podList, client.MatchingLabels(labels))
+	err = r.client.List(ctx, podList, &client.ListOptions{Namespace: identity.Namespace}, client.MatchingLabels(labels))
 	if err != nil {
 		return nil, false, errors.Wrap(err)
 	}

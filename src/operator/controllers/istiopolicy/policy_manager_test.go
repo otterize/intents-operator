@@ -47,8 +47,8 @@ func (s *PolicyManagerTestSuite) TestCreateProtectedService() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -70,8 +70,8 @@ func (s *PolicyManagerTestSuite) TestCreateProtectedService() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
@@ -130,8 +130,8 @@ func (s *PolicyManagerTestSuite) TestCreateEnforcementDisabledNoProtectedService
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -170,8 +170,8 @@ func (s *PolicyManagerTestSuite) TestCreateIstioEnforcementDisabledNoProtectedSe
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -206,8 +206,8 @@ func (s *PolicyManagerTestSuite) TestCreateProtectedServiceIstioEnforcementDisab
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -241,8 +241,8 @@ func (s *PolicyManagerTestSuite) TestCreate() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: &v1alpha3.IntentsSpec{
@@ -264,8 +264,8 @@ func (s *PolicyManagerTestSuite) TestCreate() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
@@ -344,8 +344,8 @@ func (s *PolicyManagerTestSuite) TestCreateHTTPResources() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
@@ -446,8 +446,8 @@ func (s *PolicyManagerTestSuite) TestUpdateHTTPResources() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
@@ -500,8 +500,8 @@ func (s *PolicyManagerTestSuite) TestUpdateHTTPResources() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
@@ -592,8 +592,8 @@ func (s *PolicyManagerTestSuite) TestNothingToUpdateHTTPResources() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
@@ -711,8 +711,8 @@ func (s *PolicyManagerTestSuite) TestNamespaceAllowed() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
@@ -774,8 +774,8 @@ func (s *PolicyManagerTestSuite) TestUpdatePolicy() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
@@ -806,8 +806,8 @@ func (s *PolicyManagerTestSuite) TestUpdatePolicy() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
@@ -878,8 +878,13 @@ func (s *PolicyManagerTestSuite) TestDeleteAllPoliciesForClientIntents() {
 	}
 
 	authzPol := &v1beta1.AuthorizationPolicy{ObjectMeta: v1.ObjectMeta{Name: "blah"}}
+
+	// Expected removeDeprecatedPolicies
 	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), client.MatchingLabels{
-		v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+		v1alpha3.OtterizeIstioClientAnnotationKeyDeprecated: "test-client-test-namespace-537e87",
+	})
+	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), client.MatchingLabels{
+		v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 	}).SetArg(1, v1beta1.AuthorizationPolicyList{Items: []*v1beta1.AuthorizationPolicy{authzPol}}).Return(nil)
 
 	s.Client.EXPECT().Delete(gomock.Any(), authzPol).Return(nil)
@@ -918,8 +923,8 @@ func (s *PolicyManagerTestSuite) TestNothingToUpdate() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 		},
 		Spec: v1beta12.AuthorizationPolicy{
@@ -984,8 +989,8 @@ func (s *PolicyManagerTestSuite) TestDeletePolicy() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-test-namespace-8ddecb",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-test-namespace-8ddecb",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 			UID: "uid_1",
 		},
@@ -1016,8 +1021,8 @@ func (s *PolicyManagerTestSuite) TestDeletePolicy() {
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeServiceLabelKey:          "test-server-from-old-intent-file",
-				v1alpha3.OtterizeIstioClientAnnotationKey: "test-client-test-namespace-537e87",
+				v1alpha3.OtterizeServiceLabelKey:             "test-server-from-old-intent-file",
+				v1alpha3.OtterizeIstioClientWithKindLabelKey: "test-client-test-namespace-537e87",
 			},
 			UID: "uid_2",
 		},

@@ -133,6 +133,12 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	err = r.policyManager.RemoveDeprecatedPoliciesForClient(ctx, intents)
+	if err != nil {
+		logrus.WithError(err).Debugf("Failed to remove deprecated policies for client %s", intents.Spec.Service.Name)
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
 	return ctrl.Result{}, nil
 }
 

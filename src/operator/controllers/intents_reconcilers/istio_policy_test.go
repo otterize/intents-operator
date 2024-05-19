@@ -24,14 +24,14 @@ import (
 type IstioPolicyReconcilerTestSuite struct {
 	testbase.MocksSuiteBase
 	Reconciler      *IstioPolicyReconciler
-	policyAdmin     *mocks.MockAdmin
+	policyAdmin     *mocks.MockPolicyManager
 	serviceResolver *mocks.MockServiceResolver
 	scheme          *runtime.Scheme
 }
 
 func (s *IstioPolicyReconcilerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.policyAdmin = mocks.NewMockAdmin(s.Controller)
+	s.policyAdmin = mocks.NewMockPolicyManager(s.Controller)
 	s.serviceResolver = mocks.NewMockServiceResolver(s.Controller)
 	restrictToNamespaces := make([]string, 0)
 	s.scheme = runtime.NewScheme()
@@ -141,6 +141,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicy() {
 	s.policyAdmin.EXPECT().UpdateIntentsStatus(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount, false).Return(nil)
 	s.policyAdmin.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&intentsObj), "test-server-far-far-away-aa0d79", false).Return(nil)
 	s.policyAdmin.EXPECT().Create(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount).Return(nil)
+	s.policyAdmin.EXPECT().RemoveDeprecatedPoliciesForClient(gomock.Any(), gomock.Eq(&intentsObj)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
@@ -234,6 +235,7 @@ func (s *IstioPolicyReconcilerTestSuite) TestCreatePolicyToSVC() {
 	s.policyAdmin.EXPECT().UpdateIntentsStatus(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount, false).Return(nil)
 	s.policyAdmin.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&intentsObj), "test-server-far-far-away-servi-558c21", false).Return(nil)
 	s.policyAdmin.EXPECT().Create(gomock.Any(), gomock.Eq(&intentsObj), clientServiceAccount).Return(nil)
+	s.policyAdmin.EXPECT().RemoveDeprecatedPoliciesForClient(gomock.Any(), gomock.Eq(&intentsObj)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
@@ -337,7 +339,7 @@ func (s *IstioPolicyReconcilerTestSuite) assertPolicyCreateCalledEvenIfDisabledE
 	s.policyAdmin.EXPECT().UpdateIntentsStatus(gomock.Any(), gomock.Eq(&clientIntentsObj), clientServiceAccount, false).Return(nil)
 	s.policyAdmin.EXPECT().UpdateServerSidecar(gomock.Any(), gomock.Eq(&clientIntentsObj), "test-server-far-far-away-aa0d79", false).Return(nil)
 	s.policyAdmin.EXPECT().Create(gomock.Any(), gomock.Eq(&clientIntentsObj), clientServiceAccount).Return(nil)
-
+	s.policyAdmin.EXPECT().RemoveDeprecatedPoliciesForClient(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
@@ -387,7 +389,6 @@ func (s *IstioPolicyReconcilerTestSuite) TestIstioPolicyDeleted() {
 		})
 
 	s.policyAdmin.EXPECT().DeleteAll(gomock.Any(), gomock.Eq(&clientIntentsObj)).Return(nil)
-
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
 	s.Empty(res)
