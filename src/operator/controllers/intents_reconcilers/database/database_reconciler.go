@@ -257,7 +257,6 @@ func (r *DatabaseReconciler) annotateDatabaseAndUsernameOnPod(ctx context.Contex
 		return errors.Wrap(err)
 	}
 	updatedPod := pod.DeepCopy()
-	updatedPod.Annotations[databaseconfigurator.DatabaseUsernameAnnotation] = username
 	allowedDatabases, ok := updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation]
 	if !ok {
 		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = dbInstance
