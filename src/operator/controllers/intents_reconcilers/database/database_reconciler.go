@@ -105,16 +105,17 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 	existingDBInstances := append(existingPGInstances, existingMySQLInstances...)
 
-	missingDBServerConfig := lo.Without(lo.Keys(dbInstanceToIntents), existingDBInstances...)
-	for _, missingDBInstance := range missingDBServerConfig {
-		// Not returning error on purpose, missing PGServerConf - record event and move on
-		// When a new PGServerConf is created, the clientIntents will be reconciled again
+	intentsMissingDBInstances := lo.Without(lo.Keys(dbInstanceToIntents), existingDBInstances...)
+	for _, missingDBInstance := range intentsMissingDBInstances {
+		// DB instances mentioned in intents but not found in any DB Server Config CRD.
+		// We do not return an error on purpose, but rather record event and move on.
+		// When a new DB ServerConf is created, the clientIntents will be reconciled again.
 		r.RecordWarningEventf(clientIntents, ReasonMissingDBServerConfig,
 			"Missing database server config: did not find DB server config to match database '%s' in the cluster", missingDBInstance)
 	}
 
 	for _, config := range pgServerConfigs.Items {
-		err := r.applyPGDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents)
+		err := r.applyPGDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents[config.Name])
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
 				"Failed applying database clientIntents: %s", err.Error())
@@ -123,7 +124,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	for _, config := range mySQLServerConfigs.Items {
-		err := r.applyMySQLDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents)
+		err := r.applyMySQLDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents[config.Name])
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
 				"Failed applying database clientIntents: %s", err.Error())
@@ -136,7 +137,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, config otterizev1alpha3.PostgreSQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
+func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, config otterizev1alpha3.PostgreSQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceIntents []otterizev1alpha3.Intent) error {
 	dbConfigurator, err := postgres.NewPostgresConfigurator(ctx, config.Spec)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
@@ -146,10 +147,10 @@ func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, confi
 
 	defer dbConfigurator.CloseConnection(ctx)
 
-	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, config.Name, dbInstanceToIntents[config.Name])
+	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, config.Name, dbInstanceIntents)
 }
 
-func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev1alpha3.MySQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceToIntents map[string][]otterizev1alpha3.Intent) error {
+func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev1alpha3.MySQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceIntents []otterizev1alpha3.Intent) error {
 	dbConfigurator, err := mysql.NewMySQLConfigurator(ctx, config.Spec)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
@@ -159,7 +160,7 @@ func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, co
 
 	defer dbConfigurator.Close()
 
-	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, config.Name, dbInstanceToIntents[config.Name])
+	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, config.Name, dbInstanceIntents)
 }
 
 func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
@@ -179,7 +180,7 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 		return errors.Wrap(err)
 	}
 
-	if intentsDeleted {
+	if intentsDeleted || len(dbInstanceIntents) == 0 {
 		if !userExists {
 			// User was never in the db, nothing more to do
 			return nil
@@ -197,26 +198,27 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 		}
 
 		return nil
-	} else {
-		if !userExists {
-			err := r.createDBUser(ctx, dbConfigurator, dbUsername)
-			if err != nil {
-				r.RecordWarningEventf(clientIntents, ReasonCreatingDatabaseUserFailed,
-					"Failed creating user %s", dbUsername)
-				return errors.Wrap(err)
-			}
-			if err := r.annotateDatabaseAndUsernameOnPod(ctx, *clientIntents, dbUsername, dbInstanceName); err != nil {
-				return errors.Wrap(err)
-			}
-		}
+	}
 
-		dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(dbInstanceIntents)
-		err = dbConfigurator.ApplyDatabasePermissionsForUser(ctx, dbUsername, dbnameToDatabaseResources)
+	// intents not deleted and there are intents to apply for this db instance
+	if !userExists {
+		err := r.createDBUser(ctx, dbConfigurator, dbUsername)
 		if err != nil {
-			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
-				"Failed applying database clientIntents: %s", err.Error())
+			r.RecordWarningEventf(clientIntents, ReasonCreatingDatabaseUserFailed,
+				"Failed creating user %s", dbUsername)
 			return errors.Wrap(err)
 		}
+		if err := r.annotateDatabaseAndUsernameOnPod(ctx, *clientIntents, dbUsername, dbInstanceName); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(dbInstanceIntents)
+	err = dbConfigurator.ApplyDatabasePermissionsForUser(ctx, dbUsername, dbnameToDatabaseResources)
+	if err != nil {
+		r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+			"Failed applying database clientIntents: %s", err.Error())
+		return errors.Wrap(err)
 	}
 
 	return nil
