@@ -6,8 +6,7 @@ import (
 )
 
 const (
-	DatabaseUsernameAnnotation = "intents.otterize.com/database-username"
-	DatabaseAccessAnnotation   = "intents.otterize.com/database-access"
+	DatabaseAccessAnnotation = "intents.otterize.com/database-access"
 )
 
 type DatabaseConfigurator interface {
