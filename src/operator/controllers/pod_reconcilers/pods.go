@@ -7,6 +7,7 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/prometheus"
+	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
@@ -17,12 +18,14 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -37,9 +40,10 @@ type PodWatcher struct {
 	serviceIdResolver *serviceidresolver.Resolver
 	istioPolicyAdmin  istiopolicy.PolicyManager
 	injectablerecorder.InjectableRecorder
+	intentsReconciler reconcile.Reconciler
 }
 
-func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string]) *PodWatcher {
+func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string], intentsReconciler reconcile.Reconciler) *PodWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
 	creator := istiopolicy.NewPolicyManager(c, &recorder, watchedNamespaces, enforcementDefaultState, istioEnforcementEnabled, activeNamespaces)
 	return &PodWatcher{
@@ -47,6 +51,7 @@ func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedN
 		serviceIdResolver:  serviceidresolver.NewResolver(c),
 		istioPolicyAdmin:   creator,
 		InjectableRecorder: recorder,
+		intentsReconciler:  intentsReconciler,
 	}
 }
 
@@ -92,6 +97,15 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	err = p.handleIstioPolicy(ctx, pod, serviceID)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
+	}
+
+	res, err := p.handleDatabaseIntents(ctx, pod, intents)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
+	if res.Requeue {
+		return res, nil
 	}
 
 	return ctrl.Result{}, nil
@@ -305,4 +319,35 @@ func (p *PodWatcher) Register(mgr manager.Manager) error {
 	}
 
 	return nil
+}
+
+func (p *PodWatcher) handleDatabaseIntents(ctx context.Context, pod v1.Pod, clientIntentsList otterizev1alpha3.ClientIntentsList) (ctrl.Result, error) {
+	if pod.Annotations == nil {
+		return ctrl.Result{}, nil
+	}
+
+	if _, ok := pod.Annotations[databaseconfigurator.DatabaseAccessAnnotation]; ok {
+		// Has database access annotation, no need to do anything
+		return ctrl.Result{}, nil
+	}
+
+	dbIntents := lo.Filter(clientIntentsList.Items, func(clientIntents otterizev1alpha3.ClientIntents, _ int) bool {
+		return len(clientIntents.GetDatabaseIntents()) > 0
+	})
+	for _, clientIntents := range dbIntents {
+		res, err := p.intentsReconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: clientIntents.Namespace,
+				Name:      clientIntents.Name,
+			},
+		})
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+		if res.Requeue {
+			return res, nil
+		}
+	}
+
+	return ctrl.Result{}, nil
 }
