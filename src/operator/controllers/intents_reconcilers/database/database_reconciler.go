@@ -158,7 +158,7 @@ func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, co
 		return errors.Wrap(err)
 	}
 
-	defer dbConfigurator.Close()
+	defer dbConfigurator.CloseConnection(ctx)
 
 	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, config.Name, dbInstanceIntents)
 }

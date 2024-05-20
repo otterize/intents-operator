@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	HashedUsernameSectionMaxLength = 11 // TODO: change back to longer for postgres?
+	HashedUsernameSectionMaxLength = 11
 )
 
 func BuildHashedUsername(workloadName, namespace, clusterUID string) string {

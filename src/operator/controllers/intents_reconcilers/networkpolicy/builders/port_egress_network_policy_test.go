@@ -6,7 +6,9 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/samber/lo"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
@@ -45,6 +47,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 	formattedServer string,
 	intentsObjNamespace string,
 	svcObject *corev1.Service,
+	allowDNS bool,
 ) *v1.NetworkPolicy {
 	netpol := &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -79,6 +82,16 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 				},
 			},
 		},
+	}
+	if allowDNS {
+		netpol.Spec.Egress = append(netpol.Spec.Egress, v1.NetworkPolicyEgressRule{
+			Ports: []v1.NetworkPolicyPort{
+				{
+					Protocol: lo.ToPtr(corev1.ProtocolUDP),
+					Port:     lo.ToPtr(intstr.FromInt32(53)),
+				},
+			},
+		})
 	}
 	return netpol
 }
@@ -160,6 +173,32 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKube
 		policyName,
 		formattedClient,
 		formattedServer,
+		false,
+	)
+	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
+}
+
+func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKubernetesServiceWithAutoallowedDNS() {
+	clientIntentsName := "client-intents"
+	policyName := "test-client-access"
+	serviceName := "test-client"
+	serverNamespace := testNamespace
+	formattedClient := "test-client-test-client-namespac-edb3a2"
+	formattedServer := "test-server-test-namespace-8ddecb"
+	viper.Set(operatorconfig.EnableEgressAutoallowDNSTrafficKey, true)
+	defer func() {
+		viper.Set(operatorconfig.EnableEgressAutoallowDNSTrafficKey, false)
+	}()
+
+	s.testCreateNetworkPolicyForKubernetesService(
+		clientIntentsName,
+		serverNamespace,
+		serviceName,
+		[]corev1.ServicePort{{TargetPort: intstr.IntOrString{IntVal: 80}}},
+		policyName,
+		formattedClient,
+		formattedServer,
+		true,
 	)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
@@ -180,6 +219,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyKube
 		policyName,
 		formattedClient,
 		formattedServer,
+		false,
 	)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
@@ -200,6 +240,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyName
 		policyName,
 		formattedClient,
 		formattedServer,
+		false,
 	)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
@@ -356,6 +397,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForK
 	policyName string,
 	formattedClient string,
 	formattedServer string,
+	expectAllowDNS bool,
 ) {
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
@@ -400,6 +442,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForK
 		formattedServer,
 		testNamespace,
 		svcObject,
+		expectAllowDNS,
 	)
 	// Add target port and change selector in ingress to use svc
 	newPolicy.Spec.Egress[0].Ports = lo.Map(ports, func(port corev1.ServicePort, _ int) v1.NetworkPolicyPort {
@@ -463,6 +506,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForK
 		formattedServer,
 		testNamespace,
 		svcObject,
+		false,
 	)
 	// Add target port and change selector in egress to use svc
 	newPolicy.Spec.Egress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
@@ -544,6 +588,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKu
 		formattedTargetServer,
 		testNamespace,
 		&svcObject,
+		false,
 	)
 	// Add target port and change selector in ingress to use svc
 	existingPolicy.Spec.Egress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
