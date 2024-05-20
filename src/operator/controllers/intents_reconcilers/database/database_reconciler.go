@@ -248,8 +248,11 @@ func (r *DatabaseReconciler) getClusterID(ctx context.Context) (string, error) {
 }
 
 func (r *DatabaseReconciler) annotateDatabaseAndUsernameOnPod(ctx context.Context, intents otterizev1alpha3.ClientIntents, username string, dbInstance string) error {
+	// We annotate a pod here to trigger the credentials operator flow
+	// It will create a user-password secret and modify the databases so those credentials could connect successfully
+	// We only annotate one pod since we just need to trigger the credentials operator once, to create the secret
+	// All pods replicas could then load the secret data and use it as login credentials
 	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, intents)
-	// TODO: How to compensate for missing pods (in case of intents preceding pods) ? Need to run this logic again when they're created
 	if err != nil {
 		return errors.Wrap(err)
 	}
