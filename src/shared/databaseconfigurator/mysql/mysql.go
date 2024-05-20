@@ -104,7 +104,6 @@ func (m *MySQLConfigurator) dbOperationsToPrivileges(dbOperations []otterizev1al
 
 func (m *MySQLConfigurator) formatConnectionString(databaseName string) string {
 	return fmt.Sprintf(
-		// multiStatements=true to allow multiple statements in a single query
 		"%s:%s@tcp(%s)/%s",
 		m.databaseInfo.Credentials.Username,
 		url.QueryEscape(m.databaseInfo.Credentials.Password),
