@@ -139,7 +139,7 @@ func (v *IntentsValidatorV1alpha3) validateSpec(intents *otterizev1alpha3.Client
 		return &field.Error{
 			Type:   field.ErrorTypeInvalid,
 			Field:  "kind",
-			Detail: "kubernetes kinds must start with an uppercase letter",
+			Detail: "Kubernetes Kinds must start with an uppercase letter",
 		}
 	}
 	for _, intent := range intents.GetCallsList() {
