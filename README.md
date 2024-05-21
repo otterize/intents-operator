@@ -69,6 +69,14 @@ metadata:
 ```
 Try the [GCP IAM tutorial](https://docs.otterize.com/features/gcp-iam/tutorials/gcp-iam-gke) to learn more.
 
+### Database just-in-time access
+The credentials operator, together with the [intents operator](https://github.com/otterize/intents-operator), enables the intent-based declarative management of just-in-time database credentials and access permissions. 
+This feature is currently supported for PostgreSQL and MySQL databases. 
+
+Try the following tutorials to learn more:
+- [PostgreSQL JIT access](https://docs.otterize.com/features/postgresql/tutorials/postgres)
+- [MySQL JIT access](https://docs.otterize.com/features/mysql/tutorials/mysql)
+
 ## Contributing
 1. Feel free to fork and open a pull request! Include tests and document your code in [Godoc style](https://go.dev/blog/godoc).
 2. In your pull request, please refer to an existing issue or open a new one.

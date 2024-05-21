@@ -30,7 +30,6 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/iam/pods"
 	"github.com/otterize/credentials-operator/src/controllers/iam/serviceaccounts"
 	sa_pod_webhook_generic "github.com/otterize/credentials-operator/src/controllers/iam/webhooks"
-	"github.com/otterize/credentials-operator/src/controllers/intents"
 	"github.com/otterize/credentials-operator/src/controllers/otterizeclient"
 	"github.com/otterize/credentials-operator/src/controllers/poduserpassword"
 	"github.com/otterize/credentials-operator/src/controllers/secrets"
@@ -257,18 +256,6 @@ func main() {
 	podUserAndPasswordReconciler := poduserpassword.NewReconciler(client, scheme, eventRecorder, serviceIdResolver)
 	if err = podUserAndPasswordReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithField("controller", "podUserAndPassword").WithError(err).Panic("unable to create controller")
-	}
-
-	intentsReconciler := intents.NewReconciler(client, scheme, eventRecorder, serviceIdResolver)
-	if err = intentsReconciler.InitIntentsClientIndices(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to init indices")
-	}
-	if err = intentsReconciler.InitIntentsDatabaseServerIndices(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to init database server indices")
-	}
-
-	if err := intentsReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithField("controller", "intents").WithError(err).Panic("unable to create controller")
 	}
 
 	// +kubebuilder:scaffold:builder
