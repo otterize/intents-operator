@@ -45,6 +45,7 @@ const (
 	EventTypeIntentsDiscoveredCapture    EventType = "INTENTS_DISCOVERED_CAPTURE"
 	EventTypeIntentsDiscoveredKafka      EventType = "INTENTS_DISCOVERED_KAFKA"
 	EventTypeIntentsDiscoveredIstio      EventType = "INTENTS_DISCOVERED_ISTIO"
+	EventTypeIntentsDiscoveredTcp        EventType = "INTENTS_DISCOVERED_TCP"
 	EventTypeMapperExport                EventType = "MAPPER_EXPORT"
 	EventTypeMapperVisualize             EventType = "MAPPER_VISUALIZE"
 	EventTypeKafkaServerConfigApplied    EventType = "KAFKA_SERVER_CONFIG_APPLIED"
