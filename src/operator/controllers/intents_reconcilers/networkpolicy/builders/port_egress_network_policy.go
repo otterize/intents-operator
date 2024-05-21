@@ -51,7 +51,7 @@ func (r *PortEgressRulesBuilder) buildEgressRulesFromEffectivePolicy(ctx context
 		if svc.Spec.Selector != nil {
 			egressRule = getEgressRuleBasedOnServicePodSelector(&svc)
 		} else if intent.IsTargetTheKubernetesAPIServer(ep.Service.Namespace) {
-			egressRule, err = r.getIPRuleFromEndpoint(ctx, &svc)
+			egressRule, err = r.collectIpsFromSVC(ctx, &svc)
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
@@ -107,11 +107,17 @@ func getEgressRuleBasedOnServicePodSelector(svc *corev1.Service) v1.NetworkPolic
 	return podSelectorEgressRule
 }
 
-func (r *PortEgressRulesBuilder) getIPRuleFromEndpoint(ctx context.Context, svc *corev1.Service) (v1.NetworkPolicyEgressRule, error) {
+func (r *PortEgressRulesBuilder) collectIpsFromSVC(ctx context.Context, svc *corev1.Service) (v1.NetworkPolicyEgressRule, error) {
 	ipAddresses := make([]string, 0)
 	ports := make([]v1.NetworkPolicyPort, 0)
 
-	ipAddresses = append(ipAddresses, svc.Spec.ClusterIP)
+	if svc.Spec.ClusterIP != "" {
+		ipAddresses = append(ipAddresses, svc.Spec.ClusterIP)
+	}
+	if len(svc.Spec.ClusterIPs) > 0 {
+		ipAddresses = append(ipAddresses, svc.Spec.ClusterIPs...)
+	}
+
 	var endpoint corev1.Endpoints
 	err := r.Client.Get(ctx, types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &endpoint)
 	if err != nil {
