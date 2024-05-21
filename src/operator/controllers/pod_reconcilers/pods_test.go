@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
@@ -48,8 +49,9 @@ func (s *WatcherPodLabelReconcilerTestSuite) SetupSuite() {
 
 func (s *WatcherPodLabelReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
+
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
-	s.Reconciler = NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, true, true, nil)
+	s.Reconciler = NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, true, true, nil, &mocks.MockIntentsReconcilerForTestEnv{})
 	s.Require().NoError(s.Reconciler.InitIntentsClientIndices(s.Mgr))
 }
 

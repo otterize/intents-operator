@@ -94,10 +94,12 @@ func (s *DatabaseReconcilerTestSuite) TestPGServerConfNotMatching() {
 		},
 	}
 
-	_, err := s.reconcileWithExpectedResources(clientIntents, pgServerConf)
-	s.Require().NoError(err) // Although no PGServerConf, we don't return error - just record an event
+	_, err := s.reconcileWithExpectedResources(clientIntents, []otterizev1alpha3.PostgreSQLServerConfig{pgServerConf})
+	s.Require().Error(err, "Can't reach the server")
 	s.Require().Empty(ctrl.Result{})
-	s.ExpectEvent(ReasonMissingPostgresServerConfig)
+	s.ExpectEvent(ReasonMissingDBServerConfig)
+	s.ExpectEvent(ReasonErrorConnectingToDatabase)
+	s.ExpectEvent(ReasonApplyingDatabaseIntentsFailed)
 }
 
 func (s *DatabaseReconcilerTestSuite) TestNoPGServerConf() {
@@ -127,13 +129,14 @@ func (s *DatabaseReconcilerTestSuite) TestNoPGServerConf() {
 			},
 		}}
 
-	_, err := s.reconcileWithExpectedResources(clientIntents, otterizev1alpha3.PostgreSQLServerConfig{})
+	_, err := s.reconcileWithExpectedResources(clientIntents, []otterizev1alpha3.PostgreSQLServerConfig{})
 	s.Require().NoError(err) // Although no PGServerConf, we don't return error - just record an event
 	s.Require().Empty(ctrl.Result{})
-	s.ExpectEvent(ReasonMissingPostgresServerConfig)
+	s.ExpectEvent(ReasonMissingDBServerConfig)
+	s.ExpectEvent(ReasonAppliedDatabaseIntents)
 }
 
-func (s *DatabaseReconcilerTestSuite) reconcileWithExpectedResources(clientIntents otterizev1alpha3.ClientIntents, pgServerConfig otterizev1alpha3.PostgreSQLServerConfig) (ctrl.Result, error) {
+func (s *DatabaseReconcilerTestSuite) reconcileWithExpectedResources(clientIntents otterizev1alpha3.ClientIntents, pgServerConfigs []otterizev1alpha3.PostgreSQLServerConfig) (ctrl.Result, error) {
 	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&otterizev1alpha3.ClientIntents{})).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)
@@ -142,7 +145,13 @@ func (s *DatabaseReconcilerTestSuite) reconcileWithExpectedResources(clientInten
 
 	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.PostgreSQLServerConfigList{}), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, pgServerConfList *otterizev1alpha3.PostgreSQLServerConfigList, options ...client.ListOption) error {
-			pgServerConfList.Items = []otterizev1alpha3.PostgreSQLServerConfig{pgServerConfig}
+			pgServerConfList.Items = pgServerConfigs
+			return nil
+		})
+
+	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.MySQLServerConfigList{}), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, mySQLServerConfList *otterizev1alpha3.MySQLServerConfigList, options ...client.ListOption) error {
+			mySQLServerConfList.Items = []otterizev1alpha3.MySQLServerConfig{}
 			return nil
 		})
 

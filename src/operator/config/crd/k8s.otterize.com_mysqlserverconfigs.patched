@@ -8,7 +8,7 @@ metadata:
   creationTimestamp: null
   labels:
     app.kubernetes.io/part-of: otterize
-  name: postgresqlserverconfigs.k8s.otterize.com
+  name: mysqlserverconfigs.k8s.otterize.com
 spec:
   conversion:
     strategy: Webhook
@@ -22,16 +22,16 @@ spec:
         - v1
   group: k8s.otterize.com
   names:
-    kind: PostgreSQLServerConfig
-    listKind: PostgreSQLServerConfigList
-    plural: postgresqlserverconfigs
-    singular: postgresqlserverconfig
+    kind: MySQLServerConfig
+    listKind: MySQLServerConfigList
+    plural: mysqlserverconfigs
+    singular: mysqlserverconfig
   scope: Namespaced
   versions:
     - name: v1alpha3
       schema:
         openAPIV3Schema:
-          description: PostgreSQLServerConfig is the Schema for the postgresqlserverconfig API
+          description: MySQLServerConfig is the Schema for the mysqlserverconfig API
           properties:
             apiVersion:
               description: |-
@@ -51,7 +51,7 @@ spec:
             metadata:
               type: object
             spec:
-              description: PostgreSQLServerConfigSpec defines the desired state of PostgreSQLServerConfig
+              description: MySQLServerConfigSpec defines the desired state of MySQLServerConfig
               properties:
                 address:
                   type: string
@@ -70,7 +70,7 @@ spec:
                 - credentials
               type: object
             status:
-              description: PostgreSQLServerConfigStatus defines the observed state of PostgreSQLServerConfig
+              description: MySQLServerConfigStatus defines the observed state of MySQLServerConfig
               type: object
           type: object
       served: true

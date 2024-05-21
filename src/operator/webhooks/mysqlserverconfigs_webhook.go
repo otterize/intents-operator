@@ -31,38 +31,39 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-type PostgresConfValidator struct {
+type MySQLConfValidator struct {
 	client.Client
 }
 
-func (v *PostgresConfValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (v *MySQLConfValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&otterizev1alpha3.PostgreSQLServerConfig{}).
+		For(&otterizev1alpha3.MySQLServerConfig{}).
 		WithValidator(v).
 		Complete()
 }
 
-func NewPostgresConfValidator(c client.Client) *PostgresConfValidator {
-	return &PostgresConfValidator{
+func NewMySQLConfValidator(c client.Client) *MySQLConfValidator {
+	return &MySQLConfValidator{
 		Client: c,
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=postgresqlserverconfigs,verbs=create;update,versions=v1alpha3,name=postgresqlserverconfig.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha3-mysqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=mysqlserverconfigs,verbs=create;update,versions=v1alpha3,name=mysqlserverconfig.kb.io,admissionReviewVersions=v1
 
-var _ webhook.CustomValidator = &PostgresConfValidator{}
+var _ webhook.CustomValidator = &MySQLConfValidator{}
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *PostgresConfValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *MySQLConfValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *PostgresConfValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *MySQLConfValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
 	pgServerConf := obj.(*otterizev1alpha3.PostgreSQLServerConfig)
 
 	err := validateNoDuplicateForCreate(ctx, v.Client, pgServerConf.Name)
+
 	if err != nil {
 		var fieldErr *field.Error
 		if goerrors.As(err, &fieldErr) {
@@ -80,24 +81,23 @@ func (v *PostgresConfValidator) ValidateCreate(ctx context.Context, obj runtime.
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *PostgresConfValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *MySQLConfValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
-	pgServerConf := newObj.(*otterizev1alpha3.PostgreSQLServerConfig)
+	mysqlServerConf := newObj.(*otterizev1alpha3.MySQLServerConfig)
 
 	err := validateNoDuplicateForUpdate(ctx, v.Client, DatabaseServerConfig{
-		Name:      pgServerConf.Name,
-		Namespace: pgServerConf.Namespace,
-		Type:      Postgres,
+		Name:      mysqlServerConf.Name,
+		Namespace: mysqlServerConf.Namespace,
+		Type:      MySQL,
 	})
-	
 	if err != nil {
 		var fieldErr *field.Error
 		if goerrors.As(err, &fieldErr) {
 			allErrs = append(allErrs, fieldErr)
-			gvk := pgServerConf.GroupVersionKind()
+			gvk := mysqlServerConf.GroupVersionKind()
 			return nil, k8serrors.NewInvalid(
 				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-				pgServerConf.Name, allErrs)
+				mysqlServerConf.Name, allErrs)
 		}
 
 		return nil, errors.Wrap(err)
