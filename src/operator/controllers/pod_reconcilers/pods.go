@@ -89,7 +89,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	res, err := p.handleDatabaseIntents(ctx, pod, intents)
+	res, err := p.handleDatabaseIntents(ctx, pod, serviceID)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
@@ -348,7 +348,7 @@ func (p *PodWatcher) Register(mgr manager.Manager) error {
 	return nil
 }
 
-func (p *PodWatcher) handleDatabaseIntents(ctx context.Context, pod v1.Pod, clientIntentsList otterizev1alpha3.ClientIntentsList) (ctrl.Result, error) {
+func (p *PodWatcher) handleDatabaseIntents(ctx context.Context, pod v1.Pod, serviceID serviceidentity.ServiceIdentity) (ctrl.Result, error) {
 	if pod.Annotations == nil {
 		return ctrl.Result{}, nil
 	}
@@ -356,6 +356,11 @@ func (p *PodWatcher) handleDatabaseIntents(ctx context.Context, pod v1.Pod, clie
 	if _, ok := pod.Annotations[databaseconfigurator.DatabaseAccessAnnotation]; ok {
 		// Has database access annotation, no need to do anything
 		return ctrl.Result{}, nil
+	}
+
+	clientIntentsList, err := p.getClientIntentsForServiceIdentity(ctx, serviceID)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	dbIntents := lo.Filter(clientIntentsList.Items, func(clientIntents otterizev1alpha3.ClientIntents, _ int) bool {
