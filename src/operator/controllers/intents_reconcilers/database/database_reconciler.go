@@ -21,14 +21,15 @@ import (
 )
 
 const (
-	ReasonApplyingDatabaseIntentsFailed     = "ApplyingDatabaseIntentsFailed"
-	ReasonAppliedDatabaseIntents            = "AppliedDatabaseIntents"
-	ReasonErrorFetchingPostgresServerConfig = "ErrorFetchingPostgreSQLServerConfig"
-	ReasonErrorFetchingMySQLServerConfig    = "ErrorFetchingMySQLServerConfig"
-	ReasonErrorConnectingToDatabase         = "ErrorConnectingToDatabase"
-	ReasonMissingDBServerConfig             = "MissingDBServerConfig"
-	ReasonExcessPermissionsCleanupFailed    = "ExcessPermissionsCleanupFailed"
-	ReasonCreatingDatabaseUserFailed        = "CreatingDatabaseUserFailed"
+	ReasonApplyingDatabaseIntentsFailed         = "ApplyingDatabaseIntentsFailed"
+	ReasonAppliedDatabaseIntents                = "AppliedDatabaseIntents"
+	ReasonErrorFetchingPostgresServerConfig     = "ErrorFetchingPostgreSQLServerConfig"
+	ReasonErrorFetchingMySQLServerConfig        = "ErrorFetchingMySQLServerConfig"
+	ReasonErrorConnectingToDatabase             = "ErrorConnectingToDatabase"
+	ReasonMissingDBServerConfig                 = "MissingDBServerConfig"
+	ReasonExcessPermissionsCleanupFailed        = "ExcessPermissionsCleanupFailed"
+	ReasonCreatingDatabaseUserFailed            = "CreatingDatabaseUserFailed"
+	ReasonAnnotatingPodFailedWithDBAccessFailed = "AnnotatingPodFailedWithDBAccessFailed"
 )
 
 type DatabaseReconciler struct {
@@ -205,12 +206,15 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 		err := r.createDBUser(ctx, dbConfigurator, dbUsername)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonCreatingDatabaseUserFailed,
-				"Failed creating user %s", dbUsername)
+				"Failed creating user %s: %s", dbUsername, err.Error())
 			return errors.Wrap(err)
 		}
-		if err := r.annotateDatabaseAndUsernameOnPod(ctx, *clientIntents, dbUsername, dbInstanceName); err != nil {
-			return errors.Wrap(err)
-		}
+	}
+
+	if err := r.annotateDatabaseOnPod(ctx, *clientIntents, dbInstanceName); err != nil {
+		r.RecordWarningEventf(clientIntents, ReasonAnnotatingPodFailedWithDBAccessFailed,
+			"Failed annotating pod with databse: %s", err.Error())
+		return errors.Wrap(err)
 	}
 
 	dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(dbInstanceIntents)
@@ -247,13 +251,19 @@ func (r *DatabaseReconciler) getClusterID(ctx context.Context) (string, error) {
 	return clusterID, nil
 }
 
-func (r *DatabaseReconciler) annotateDatabaseAndUsernameOnPod(ctx context.Context, intents otterizev1alpha3.ClientIntents, username string, dbInstance string) error {
+func (r *DatabaseReconciler) annotateDatabaseOnPod(ctx context.Context, intents otterizev1alpha3.ClientIntents, dbInstance string) error {
 	// We annotate a pod here to trigger the credentials operator flow
 	// It will create a user-password secret and modify the databases so those credentials could connect successfully
 	// We only annotate one pod since we just need to trigger the credentials operator once, to create the secret
 	// All pods replicas could then load the secret data and use it as login credentials
 	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, intents)
 	if err != nil {
+		if errors.Is(err, serviceidresolver.ErrPodNotFound) {
+			// no matching pods are deployed yet, but that's OK.
+			// the first pod to admit with matching database intents will trigger the intents reconcile loop
+			// which will lead it to this code path again.
+			return nil
+		}
 		return errors.Wrap(err)
 	}
 	updatedPod := pod.DeepCopy()
