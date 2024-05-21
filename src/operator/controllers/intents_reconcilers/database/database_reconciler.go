@@ -258,6 +258,12 @@ func (r *DatabaseReconciler) annotateDatabaseOnPod(ctx context.Context, intents 
 	// All pods replicas could then load the secret data and use it as login credentials
 	pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, intents)
 	if err != nil {
+		if errors.Is(err, serviceidresolver.ErrPodNotFound) {
+			// no matching pods are deployed yet, but that's OK.
+			// the first pod to admit with matching database intents will trigger the intents reconcile loop
+			// which will lead it to this code path again.
+			return nil
+		}
 		return errors.Wrap(err)
 	}
 	updatedPod := pod.DeepCopy()
