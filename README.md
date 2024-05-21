@@ -230,7 +230,7 @@ spec:
 
 Otterize then creates a user and matching grants on the target database.
 
-Try the [Just-in-time PostgreSQL users & access](https://docs.otterize.com/quickstart/access-control/postgresql) or [Just-in-time MySQL users & access](https://docs.otterize.com/quickstart/access-control/mysql) tutorials to learn more.
+Try the [Just-in-time PostgreSQL users & access](https://docs.otterize.com/features/postgresql/tutorials/postgres) or [Just-in-time MySQL users & access](https://docs.otterize.com/features/mysql/tutorials/mysql) tutorials to learn more.
 
 ### Kafka mTLS & ACLs
 The intents operator automatically creates, updates, and deletes ACLs in Kafka clusters running within your Kubernetes cluster. 
