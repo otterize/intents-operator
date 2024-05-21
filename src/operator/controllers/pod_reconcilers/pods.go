@@ -326,8 +326,8 @@ func (p *PodWatcher) handleDatabaseIntents(ctx context.Context, pod v1.Pod, clie
 		return ctrl.Result{}, nil
 	}
 
-	if _, ok := pod.Annotations[databaseconfigurator.DatabaseUsernameAnnotation]; ok {
-		// Has DB username annotation, no need to do anything
+	if _, ok := pod.Annotations[databaseconfigurator.DatabaseAccessAnnotation]; ok {
+		// Has database access annotation, no need to do anything
 		return ctrl.Result{}, nil
 	}
 
