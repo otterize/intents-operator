@@ -180,17 +180,30 @@ spec:
 
 Try the [GCP IAM tutorial](https://docs.otterize.com/features/gcp-iam/tutorials/gcp-iam-gke) to learn more.
 
-### Otterize for PostgreSQL
-Otterize automates PostgreSQL access management and secrets for your workloads, all in Kubernetes.
+### Otterize for PostgreSQL & MySQL
+Otterize automates PostgreSQL & MySQL access management and secrets for your workloads, all in Kubernetes.
 
 Here is how:
-1. Annotate a pod, requesting a user and a password to be provisioned and bound to the pod.
+1. Annotate a pod, requesting a user and a password to be provisioned and bound to the pod, using the following annotation:
+```
+credentials-operator.otterize.com/user-password-secret-name: booking-service-secret`
+```
 
-Annotate the pod with this annotation:
+2. Apply a PostgreSQLServerConfig or a MySQLServerConfig to the cluster, specifying the database name, user, and password.
 
-`credentials-operator.otterize.com/user-password-secret-name: booking-service-secret`
+```yaml
+apiVersion: k8s.otterize.com/v1alpha3
+kind: PostgreSQLServerConfig
+metadata:
+  name: bookings
+spec:
+  address: db.bookings-database.svc.cluster.local:5432
+  credentials:
+    username: admin
+    password: password
+```
 
-2. Declare your workload’s ClientIntents, specifying desired permissions.
+3. Declare your workload’s ClientIntents, specifying desired permissions.
 
 ```yaml
 apiVersion: k8s.otterize.com/v1alpha3
@@ -205,19 +218,19 @@ spec:
     - name: bookings
       type: database
       databaseResources:
-        - table: users
-          databaseName: bookings-db
+        - databaseName: bookings-db
+          table: users
           operations:
             - SELECT
-        - table: products
-          databaseName: bookings-db
+        - databaseName: bookings-db
+          table: products
           operations:
             - ALL
 ```
 
 Otterize then creates a user and matching grants on the target database.
 
-Try the [Just-in-time PostgreSQL users & access](https://docs.otterize.com/quickstart/access-control/postgresql) to learn more.
+Try the [Just-in-time PostgreSQL users & access](https://docs.otterize.com/quickstart/access-control/postgresql) or [Just-in-time MySQL users & access](https://docs.otterize.com/quickstart/access-control/mysql) tutorials to learn more.
 
 ### Kafka mTLS & ACLs
 The intents operator automatically creates, updates, and deletes ACLs in Kafka clusters running within your Kubernetes cluster. 
