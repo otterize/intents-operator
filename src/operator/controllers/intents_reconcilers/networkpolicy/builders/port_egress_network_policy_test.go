@@ -366,9 +366,14 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
-					To: []v1.NetworkPolicyPeer{{
-						IPBlock: &v1.IPBlock{CIDR: endpointIp + "/32"},
-					}},
+					To: []v1.NetworkPolicyPeer{
+						{
+							IPBlock: &v1.IPBlock{CIDR: serviceIp + "/32"},
+						},
+						{
+							IPBlock: &v1.IPBlock{CIDR: endpointIp + "/32"},
+						},
+					},
 					Ports: []v1.NetworkPolicyPort{{
 						Port:     &intstr.IntOrString{IntVal: endpointPort},
 						Protocol: lo.ToPtr(corev1.ProtocolTCP),
@@ -389,6 +394,8 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
+// &NetworkPolicy{ObjectMeta:{test-client-access  test-client-namespace    0 0001-01-01 00:00:00 +0000 UTC <nil> <nil> map[intents.otterize.com/network-policy:test-client-test-client-namespac-edb3a2] map[] [] [] []},Spec:NetworkPolicySpec{PodSelector:{map[intents.otterize.com/service:test-client-test-client-namespac-edb3a2] []},Ingress:[]NetworkPolicyIngressRule{},Egress:[]NetworkPolicyEgressRule{NetworkPolicyEgressRule{Ports:[]NetworkPolicyPort{NetworkPolicyPort{Protocol:*TCP,Port:8443,EndPort:nil,},},To:[]NetworkPolicyPeer{NetworkPolicyPeer{PodSelector:nil,NamespaceSelector:nil,IPBlock:&IPBlock{CIDR:10.96.1.1/32,Except:[],},},NetworkPolicyPeer{PodSelector:nil,NamespaceSelector:nil,IPBlock:&IPBlock{CIDR:10.128.0.9/32,Except:[],},},},},},PolicyTypes:[Egress],},} (*v1.NetworkPolicy)
+// &NetworkPolicy{ObjectMeta:{test-client-access  test-client-namespace    0 0001-01-01 00:00:00 +0000 UTC <nil> <nil> map[intents.otterize.com/network-policy:test-client-test-client-namespac-edb3a2] map[] [] [] []},Spec:NetworkPolicySpec{PodSelector:{map[intents.otterize.com/service:test-client-test-client-namespac-edb3a2] []},Ingress:[]NetworkPolicyIngressRule{},Egress:[]NetworkPolicyEgressRule{NetworkPolicyEgressRule{Ports:[]NetworkPolicyPort{NetworkPolicyPort{Protocol:*TCP,Port:8443,EndPort:nil,},},To:[]NetworkPolicyPeer{NetworkPolicyPeer{PodSelector:nil,NamespaceSelector:nil,IPBlock:&IPBlock{CIDR:10.128.0.9/32,Except:[],},},NetworkPolicyPeer{PodSelector:nil,NamespaceSelector:nil,IPBlock:&IPBlock{CIDR:10.96.1.1/32,Except:[],},},},},},PolicyTypes:[Egress],},} (*v1.NetworkPolicy)
 func (s *PortEgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKubernetesService(
 	clientIntentsName string,
 	serverNamespace string,
