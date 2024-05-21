@@ -21,14 +21,15 @@ import (
 )
 
 const (
-	ReasonApplyingDatabaseIntentsFailed     = "ApplyingDatabaseIntentsFailed"
-	ReasonAppliedDatabaseIntents            = "AppliedDatabaseIntents"
-	ReasonErrorFetchingPostgresServerConfig = "ErrorFetchingPostgreSQLServerConfig"
-	ReasonErrorFetchingMySQLServerConfig    = "ErrorFetchingMySQLServerConfig"
-	ReasonErrorConnectingToDatabase         = "ErrorConnectingToDatabase"
-	ReasonMissingDBServerConfig             = "MissingDBServerConfig"
-	ReasonExcessPermissionsCleanupFailed    = "ExcessPermissionsCleanupFailed"
-	ReasonCreatingDatabaseUserFailed        = "CreatingDatabaseUserFailed"
+	ReasonApplyingDatabaseIntentsFailed         = "ApplyingDatabaseIntentsFailed"
+	ReasonAppliedDatabaseIntents                = "AppliedDatabaseIntents"
+	ReasonErrorFetchingPostgresServerConfig     = "ErrorFetchingPostgreSQLServerConfig"
+	ReasonErrorFetchingMySQLServerConfig        = "ErrorFetchingMySQLServerConfig"
+	ReasonErrorConnectingToDatabase             = "ErrorConnectingToDatabase"
+	ReasonMissingDBServerConfig                 = "MissingDBServerConfig"
+	ReasonExcessPermissionsCleanupFailed        = "ExcessPermissionsCleanupFailed"
+	ReasonCreatingDatabaseUserFailed            = "CreatingDatabaseUserFailed"
+	ReasonAnnotatingPodFailedWithDBAccessFailed = "AnnotatingPodFailedWithDBAccessFailed"
 )
 
 type DatabaseReconciler struct {
@@ -205,12 +206,15 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 		err := r.createDBUser(ctx, dbConfigurator, dbUsername)
 		if err != nil {
 			r.RecordWarningEventf(clientIntents, ReasonCreatingDatabaseUserFailed,
-				"Failed creating user %s", dbUsername)
+				"Failed creating user %s: %s", dbUsername, err.Error())
 			return errors.Wrap(err)
 		}
-		if err := r.annotateDatabaseAndUsernameOnPod(ctx, *clientIntents, dbUsername, dbInstanceName); err != nil {
-			return errors.Wrap(err)
-		}
+	}
+
+	if err := r.annotateDatabaseAndUsernameOnPod(ctx, *clientIntents, dbUsername, dbInstanceName); err != nil {
+		r.RecordWarningEventf(clientIntents, ReasonAnnotatingPodFailedWithDBAccessFailed,
+			"Failed annotating pod with databse: %s", err.Error())
+		return errors.Wrap(err)
 	}
 
 	dbnameToDatabaseResources := getDBNameToDatabaseResourcesFromIntents(dbInstanceIntents)
