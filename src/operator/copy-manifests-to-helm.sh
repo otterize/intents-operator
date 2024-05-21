@@ -15,6 +15,7 @@ cp ./config/crd/k8s.otterize.com_protectedservices.patched ./otterizecrds/protec
 
 cp ./config/crd/k8s.otterize.com_postgresqlserverconfigs.patched ./otterizecrds/postgresqlserverconfigs-customresourcedefinition.yaml
 
+cp ./config/crd/k8s.otterize.com_mysqlserverconfigs.patched ./otterizecrds/mysqlserverconfigs-customresourcedefinition.yaml
 
 # copy webhook and cluster role
 cp ./config/webhook/manifests-patched $TEMPLATE_DIR"/"otterize-validating-webhook-configuration.yaml

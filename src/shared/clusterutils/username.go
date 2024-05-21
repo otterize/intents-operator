@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	HashedUsernameSectionMaxLength = 17
+	HashedUsernameSectionMaxLength = 11
 )
 
 func BuildHashedUsername(workloadName, namespace, clusterUID string) string {
@@ -25,14 +25,8 @@ func BuildHashedUsername(workloadName, namespace, clusterUID string) string {
 		namespace = namespace[:HashedUsernameSectionMaxLength]
 	}
 
-	if len(clusterUID) > HashedUsernameSectionMaxLength {
-		clusterUID = clusterUID[:HashedUsernameSectionMaxLength]
-	}
-
-	clusterUID = strings.TrimSuffix(clusterUID, "-") // Just in case we trimmed at a hyphen separator
-
 	hashSuffix := hex.EncodeToString(hash[:])[:6]
-	return fmt.Sprintf("%s-%s-id-%s-%s", workloadName, namespace, clusterUID, hashSuffix)
+	return fmt.Sprintf("%s-%s-id-%s", workloadName, namespace, hashSuffix)
 }
 
 // KubernetesToPostgresName translates a name with Kubernetes conventions to Postgres conventions

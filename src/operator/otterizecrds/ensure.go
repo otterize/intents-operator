@@ -23,6 +23,9 @@ var KafkaServerConfigContents []byte
 //go:embed postgresqlserverconfigs-customresourcedefinition.yaml
 var PostgreSQLServerConfigContents []byte
 
+//go:embed mysqlserverconfigs-customresourcedefinition.yaml
+var MySQLServerConfigContents []byte
+
 func Ensure(ctx context.Context, k8sClient client.Client, operatorNamespace string) error {
 	err := ensureCRD(ctx, k8sClient, operatorNamespace, clientIntentsCRDContents)
 	if err != nil {
@@ -39,6 +42,10 @@ func Ensure(ctx context.Context, k8sClient client.Client, operatorNamespace stri
 	err = ensureCRD(ctx, k8sClient, operatorNamespace, PostgreSQLServerConfigContents)
 	if err != nil {
 		return errors.Errorf("failed to ensure PostgreSQLServerConfig CRD: %w", err)
+	}
+	err = ensureCRD(ctx, k8sClient, operatorNamespace, MySQLServerConfigContents)
+	if err != nil {
+		return errors.Errorf("failed to ensure MySQLServerConfig CRD: %w", err)
 	}
 	return nil
 }
@@ -98,6 +105,8 @@ func GetCRDDefinitionByName(name string) (*apiextensionsv1.CustomResourceDefinit
 		err = yaml.Unmarshal(KafkaServerConfigContents, &crd)
 	case "postgresqlserverconfigs.k8s.otterize.com":
 		err = yaml.Unmarshal(PostgreSQLServerConfigContents, &crd)
+	case "mysqlserverconfigs.k8s.otterize.com":
+		err = yaml.Unmarshal(MySQLServerConfigContents, &crd)
 	default:
 		return nil, errors.Errorf("unknown CRD name: %s", name)
 	}
