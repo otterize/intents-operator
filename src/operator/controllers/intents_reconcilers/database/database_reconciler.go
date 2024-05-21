@@ -211,7 +211,7 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 		}
 	}
 
-	if err := r.annotateDatabaseAndUsernameOnPod(ctx, *clientIntents, dbUsername, dbInstanceName); err != nil {
+	if err := r.annotateDatabaseOnPod(ctx, *clientIntents, dbInstanceName); err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonAnnotatingPodFailedWithDBAccessFailed,
 			"Failed annotating pod with databse: %s", err.Error())
 		return errors.Wrap(err)
@@ -251,7 +251,7 @@ func (r *DatabaseReconciler) getClusterID(ctx context.Context) (string, error) {
 	return clusterID, nil
 }
 
-func (r *DatabaseReconciler) annotateDatabaseAndUsernameOnPod(ctx context.Context, intents otterizev1alpha3.ClientIntents, username string, dbInstance string) error {
+func (r *DatabaseReconciler) annotateDatabaseOnPod(ctx context.Context, intents otterizev1alpha3.ClientIntents, dbInstance string) error {
 	// We annotate a pod here to trigger the credentials operator flow
 	// It will create a user-password secret and modify the databases so those credentials could connect successfully
 	// We only annotate one pod since we just need to trigger the credentials operator once, to create the secret
