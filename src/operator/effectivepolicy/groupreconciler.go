@@ -79,14 +79,14 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		if !clientIntent.DeletionTimestamp.IsZero() {
 			continue
 		}
-		service := *clientIntent.ToServiceIdentity()
+		service := clientIntent.ToServiceIdentity()
 		services.Add(service)
 		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
 			if !g.shouldCreateEffectivePolicyForIntentTargetServer(intentCall, clientIntent.Namespace) {
 				continue
 			}
-			services.Add(*intentCall.ToServiceIdentity(clientIntent.Namespace))
+			services.Add(intentCall.ToServiceIdentity(clientIntent.Namespace))
 		}
 	}
 

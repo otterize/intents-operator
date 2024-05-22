@@ -68,7 +68,7 @@ func (mr *MockServiceResolverMockRecorder) ResolvePodToServiceIdentity(ctx, pod 
 }
 
 // ResolveServiceIdentityToPodSlice mocks base method.
-func (m *MockServiceResolver) ResolveServiceIdentityToPodSlice(ctx context.Context, identity *serviceidentity.ServiceIdentity) ([]v1.Pod, bool, error) {
+func (m *MockServiceResolver) ResolveServiceIdentityToPodSlice(ctx context.Context, identity serviceidentity.ServiceIdentity) ([]v1.Pod, bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveServiceIdentityToPodSlice", ctx, identity)
 	ret0, _ := ret[0].([]v1.Pod)

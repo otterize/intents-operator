@@ -354,7 +354,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 		}
 		si := intent.ToServiceIdentity(clientIntents.Namespace)
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
-			ctx, c.client, *si, c.enforcementDefaultState, c.activeNamespaces)
+			ctx, c.client, si, c.enforcementDefaultState, c.activeNamespaces)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
@@ -454,8 +454,10 @@ func (c *PolicyManagerImpl) updatePolicy(ctx context.Context, existingPolicy *v1
 }
 
 func (c *PolicyManagerImpl) getPolicyName(intents *v1alpha3.ClientIntents, intent v1alpha3.Intent) string {
-	clientName := fmt.Sprintf("%s.%s", intents.ToServiceIdentity().GetNameWithKind(), intents.Namespace)
-	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, intent.ToServiceIdentity(intents.Namespace).GetNameWithKind(), clientName)
+	clientIdentity := intents.ToServiceIdentity()
+	clientName := fmt.Sprintf("%s.%s", clientIdentity.GetNameWithKind(), intents.Namespace)
+	serverIdentity := intent.ToServiceIdentity(intents.Namespace)
+	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, serverIdentity.GetNameWithKind(), clientName)
 	return policyName
 }
 

@@ -35,7 +35,7 @@ func UpdateOtterizeAccessLabels(pod *v1.Pod, serviceIdentity serviceidentity.Ser
 	if pod.Labels == nil {
 		pod.Labels = make(map[string]string)
 	}
-	// TODO: We should understand what kind
+
 	pod = cleanupOtterizeLabelsAndAnnotations(pod)
 	for k, v := range otterizeAccessLabels {
 		pod.Labels[k] = v
@@ -75,20 +75,6 @@ func isOtterizeAccessLabel(s string) bool {
 	return strings.HasPrefix(s, OtterizeAccessLabelPrefix) || strings.HasPrefix(s, OtterizeServiceAccessLabelPrefix)
 }
 
-func CleanupOtterizeKubernetesServiceLabels(pod *v1.Pod) *v1.Pod {
-	for k := range pod.Labels {
-		if isOtterizeKubernetesServiceLabel(k) {
-			delete(pod.Labels, k)
-		}
-	}
-
-	return pod
-}
-
-func isOtterizeKubernetesServiceLabel(s string) bool {
-	return strings.HasPrefix(s, OtterizeKubernetesServiceLabelKeyPrefix)
-}
-
 func GetOtterizeLabelsFromPod(pod *v1.Pod) map[string]string {
 	otterizeLabels := make(map[string]string)
 	for k, v := range pod.Labels {
@@ -100,7 +86,7 @@ func GetOtterizeLabelsFromPod(pod *v1.Pod) map[string]string {
 	return otterizeLabels
 }
 
-func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient client.Client, identity *serviceidentity.ServiceIdentity) (map[string]string, bool, error) {
+func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient client.Client, identity serviceidentity.ServiceIdentity) (map[string]string, bool, error) {
 	// This is here for backwards compatibility
 	if identity.Kind == "" || identity.Kind == serviceidentity.KindOtterizeLegacy {
 		return map[string]string{OtterizeServiceLabelKey: identity.GetFormattedOtterizeIdentityWithoutKind()}, true, nil

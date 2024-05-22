@@ -43,8 +43,6 @@ const (
 	OtterizeServiceLabelKey                    = "intents.otterize.com/service"
 	OtterizeOwnerKindLabelKey                  = "intents.otterize.com/owner-kind"
 	OtterizeServerLabelKeyDeprecated           = "intents.otterize.com/server"
-	OtterizeKubernetesServiceLabelKeyPrefix    = "intents.otterize.com/k8s-svc"
-	OtterizeKubernetesServiceLabelKey          = "intents.otterize.com/k8s-svc-%s"
 	KubernetesStandardNamespaceNameLabelKey    = "kubernetes.io/metadata.name"
 	AllIntentsRemovedAnnotation                = "intents.otterize.com/all-intents-removed"
 	OtterizeCreatedForServiceAnnotation        = "intents.otterize.com/created-for-service"
@@ -529,8 +527,9 @@ func (in *ClientIntents) IsServerMissingSidecar(intent Intent) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
-	serverIdentity := intent.ToServiceIdentity(in.Namespace).GetFormattedOtterizeIdentityWithoutKind()
-	return serversSet.Has(serverIdentity), nil
+	serviceIdentity := intent.ToServiceIdentity(in.Namespace)
+	formattedServerIdentity := serviceIdentity.GetFormattedOtterizeIdentityWithoutKind()
+	return serversSet.Has(formattedServerIdentity), nil
 }
 
 func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentInput, error) {

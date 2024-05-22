@@ -24,7 +24,7 @@ var ErrPodNotFound = errors.NewSentinelError("pod not found")
 type ServiceResolver interface {
 	ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error)
 	ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error)
-	ResolveServiceIdentityToPodSlice(ctx context.Context, identity *serviceidentity.ServiceIdentity) ([]corev1.Pod, bool, error)
+	ResolveServiceIdentityToPodSlice(ctx context.Context, identity serviceidentity.ServiceIdentity) ([]corev1.Pod, bool, error)
 }
 
 type Resolver struct {
@@ -134,7 +134,7 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 	return obj, nil
 }
 
-func (r *Resolver) ResolveServiceIdentityToPodSlice(ctx context.Context, identity *serviceidentity.ServiceIdentity) ([]corev1.Pod, bool, error) {
+func (r *Resolver) ResolveServiceIdentityToPodSlice(ctx context.Context, identity serviceidentity.ServiceIdentity) ([]corev1.Pod, bool, error) {
 	labels, ok, err := v1alpha3.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.client, identity)
 	if err != nil {
 		return nil, false, errors.Wrap(err)

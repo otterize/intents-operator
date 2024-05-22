@@ -297,7 +297,7 @@ func (s *ServiceIdResolverTestSuite) TestJobWithNoParent() {
 func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSelection_DeploymentKind() {
 	serviceName := "cool-service"
 	namespace := "cool-namespace"
-	service := &serviceidentity.ServiceIdentity{Name: serviceName, Namespace: namespace, Kind: "Deployment"}
+	service := serviceidentity.ServiceIdentity{Name: serviceName, Namespace: namespace, Kind: "Deployment"}
 
 	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&corev1.PodList{}), gomock.Eq(&client.ListOptions{Namespace: namespace}), map[string]string{
 		v1alpha3.OtterizeServiceLabelKey:   service.GetFormattedOtterizeIdentityWithoutKind(),
@@ -316,7 +316,7 @@ func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSe
 	serviceName := "cool-service"
 	namespace := "cool-namespace"
 	servicePodSelector := map[string]string{"cool-key": "cool-value"}
-	service := &serviceidentity.ServiceIdentity{Name: serviceName, Namespace: namespace, Kind: serviceidentity.KindService}
+	service := serviceidentity.ServiceIdentity{Name: serviceName, Namespace: namespace, Kind: serviceidentity.KindService}
 
 	serviceObj := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
@@ -338,7 +338,7 @@ func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSe
 func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSelection_ServiceKind_serviceNotFound() {
 	serviceName := "cool-service"
 	namespace := "cool-namespace"
-	service := &serviceidentity.ServiceIdentity{Name: serviceName, Namespace: namespace, Kind: serviceidentity.KindService}
+	service := serviceidentity.ServiceIdentity{Name: serviceName, Namespace: namespace, Kind: serviceidentity.KindService}
 
 	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: serviceName, Namespace: namespace}, &corev1.Service{}).Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: "services"}, serviceName))
 	pods, ok, err := s.Resolver.ResolveServiceIdentityToPodSlice(context.Background(), service)
@@ -351,7 +351,7 @@ func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSe
 	serviceName := "cool-service"
 	namespace := "cool-namespace"
 	servicePodSelector := map[string]string{"cool-key": "cool-value"}
-	service := &serviceidentity.ServiceIdentity{Name: serviceName, Namespace: namespace, Kind: serviceidentity.KindService}
+	service := serviceidentity.ServiceIdentity{Name: serviceName, Namespace: namespace, Kind: serviceidentity.KindService}
 
 	serviceObj := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace},
