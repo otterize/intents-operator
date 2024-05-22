@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"strings"
+	"time"
 )
 
 const (
@@ -50,6 +51,8 @@ const (
 	EnableLeaderElectionKey                    = "leader-elect"
 	EnableLeaderElectionDefault                = false
 	EnvPrefix                                  = "OTTERIZE"
+	DatabasePasswordRotationIntervalKey        = "database-password-rotation-interval"
+	DatabasePasswordRotationIntervalDefault    = time.Hour * 8
 )
 
 const (
@@ -60,6 +63,7 @@ const (
 )
 
 func init() {
+	viper.SetDefault(DatabasePasswordRotationIntervalKey, DatabasePasswordRotationIntervalDefault)
 	viper.SetDefault(EnableAWSServiceAccountManagementKey, EnableAWSServiceAccountManagementDefault)
 	viper.SetDefault(EnableGCPServiceAccountManagementKey, EnableGCPServiceAccountManagementDefault)
 	viper.SetDefault(EnableAzureServiceAccountManagementKey, EnableAzureServiceAccountManagementDefault)

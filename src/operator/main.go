@@ -257,6 +257,7 @@ func main() {
 	if err = podUserAndPasswordReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithField("controller", "podUserAndPassword").WithError(err).Panic("unable to create controller")
 	}
+	go podUserAndPasswordReconciler.RotateSecretsLoop(signalHandlerCtx)
 
 	// +kubebuilder:scaffold:builder
 

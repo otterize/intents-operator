@@ -72,4 +72,6 @@ const (
 	TLSSecretExpiryAnnotation = "credentials-operator.otterize.com/svid-expires-at"
 	// TLSRestartTimeAfterRenewal is the last time the owner's pods were restarted due to a secret being refrshed
 	TLSRestartTimeAfterRenewal = "credentials-operator.otterize.com/restart-time-after-renewal"
+	// SecretLastUpdatedTimestampAnnotation represents the last time the secret data was updated, used for rotating passwords
+	SecretLastUpdatedTimestampAnnotation = "credentials-operator.otterize.com/last-updated-timestamp"
 )
