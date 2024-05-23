@@ -3,7 +3,6 @@ package basicbatch
 // it's britney batch
 
 import (
-	"context"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	"sync"
@@ -17,7 +16,6 @@ type Batcher[T any] struct {
 	items         chan T
 	startOnce     sync.Once
 	maxBatchSize  int
-	flushChan     chan chan struct{}
 }
 
 func NewBatcher[T any](handler func(batch []T) error, minDelay time.Duration, maxBatchSize int, bufferSize int) *Batcher[T] {
@@ -26,18 +24,6 @@ func NewBatcher[T any](handler func(batch []T) error, minDelay time.Duration, ma
 		minDelay:     minDelay,
 		items:        make(chan T, bufferSize),
 		maxBatchSize: maxBatchSize,
-		flushChan:    make(chan chan struct{}, 100),
-	}
-}
-
-func (b *Batcher[T]) Flush(ctx context.Context) error {
-	flushSignal := make(chan struct{})
-	b.flushChan <- flushSignal
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-flushSignal:
-		return nil
 	}
 }
 
@@ -46,10 +32,6 @@ func (b *Batcher[T]) getBatch() (items []T, flushSignal chan struct{}) {
 		select {
 		case item := <-b.items:
 			items = append(items, item)
-			select {
-			case flushSignal = <-b.flushChan:
-			default:
-			}
 			if len(items) == b.maxBatchSize || time.Now().After(b.lastExecution.Add(b.minDelay)) {
 				time.Sleep(time.Until(b.lastExecution.Add(b.minDelay)))
 				return items, flushSignal

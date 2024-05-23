@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"github.com/amit7itz/goset"
 	"github.com/bombsimon/logrusr/v3"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
@@ -133,8 +132,6 @@ func main() {
 	errorreporter.Init(telemetriesgql.TelemetryComponentTypeIntentsOperator, version.Version())
 	defer errorreporter.AutoNotify()
 	shared.RegisterPanicHandlers()
-
-	logrus.WithError(errors.New("bloop panic")).Panic("bloop test 1")
 
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)

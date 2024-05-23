@@ -55,10 +55,6 @@ func New(componentType telemetriesgql.TelemetryComponentType) *ErrorSender {
 
 }
 
-func (s *ErrorSender) Flush(ctx context.Context) error {
-	return s.errorBatcher.Flush(ctx)
-}
-
 func (s *ErrorSender) SendAsync(err telemetriesgql.Error) error {
 	if !s.enabled {
 		return nil
