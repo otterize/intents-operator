@@ -60,18 +60,18 @@ func (v *MySQLConfValidator) ValidateDelete(ctx context.Context, obj runtime.Obj
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *MySQLConfValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
-	pgServerConf := obj.(*otterizev1alpha3.PostgreSQLServerConfig)
+	mysqlServerConf := obj.(*otterizev1alpha3.MySQLServerConfig)
 
-	err := validateNoDuplicateForCreate(ctx, v.Client, pgServerConf.Name)
+	err := validateNoDuplicateForCreate(ctx, v.Client, mysqlServerConf.Name)
 
 	if err != nil {
 		var fieldErr *field.Error
 		if goerrors.As(err, &fieldErr) {
 			allErrs = append(allErrs, fieldErr)
-			gvk := pgServerConf.GroupVersionKind()
+			gvk := mysqlServerConf.GroupVersionKind()
 			return nil, k8serrors.NewInvalid(
 				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-				pgServerConf.Name, allErrs)
+				mysqlServerConf.Name, allErrs)
 		}
 
 		return nil, errors.Wrap(err)
