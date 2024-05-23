@@ -157,7 +157,7 @@ func (s *KafkaACLReconcilerTestSuite) TestNoACLCreatedForIntentsOperator() {
 		}},
 	}}
 
-	_, err := s.AddIntentsInNamespace(intentsName, operatorServiceName, s.operatorNamespace, operatorIntents)
+	_, err := s.AddIntentsInNamespace(intentsName, operatorServiceName, "", s.operatorNamespace, operatorIntents)
 	s.Require().NoError(err)
 
 	operatorPod := corev1.Pod{
@@ -250,7 +250,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 	intentsConfig := s.generateIntents(otterizev1alpha3.KafkaOperationProduce)
 
 	intentsConsume := []otterizev1alpha3.Intent{intentsConfig}
-	_, err := s.AddIntents(intentsObjectName, clientName, intentsConsume)
+	_, err := s.AddIntents(intentsObjectName, clientName, "", intentsConsume)
 	s.Require().NoError(err)
 	namespacedName := types.NamespacedName{
 		Namespace: s.TestNamespace,
@@ -322,7 +322,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLDeletedAfterIntentsRemoved() {
 	intentsConfig := s.generateIntents(otterizev1alpha3.KafkaOperationConsume)
 	intents := []otterizev1alpha3.Intent{intentsConfig}
 
-	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
+	clientIntents, err := s.AddIntents(intentsObjectName, clientName, "", intents)
 	s.Require().NoError(err)
 
 	namespacedName := types.NamespacedName{
@@ -371,7 +371,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLCreationDisabled() {
 	intentsConfig := s.generateIntents(otterizev1alpha3.KafkaOperationConsume)
 	intents := []otterizev1alpha3.Intent{intentsConfig}
 
-	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
+	clientIntents, err := s.AddIntents(intentsObjectName, clientName, "", intents)
 	s.Require().NoError(err)
 
 	namespacedName := types.NamespacedName{
@@ -394,7 +394,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLEnforcementGloballyDisabled() 
 	intentsConfig := s.generateIntents(otterizev1alpha3.KafkaOperationConsume)
 	intents := []otterizev1alpha3.Intent{intentsConfig}
 
-	clientIntents, err := s.AddIntents(intentsObjectName, clientName, intents)
+	clientIntents, err := s.AddIntents(intentsObjectName, clientName, "", intents)
 	s.Require().NoError(err)
 
 	namespacedName := types.NamespacedName{

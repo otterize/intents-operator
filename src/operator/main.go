@@ -463,7 +463,7 @@ func main() {
 
 	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, intentsReconciler)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
-	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler)
+	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler, enforcementConfig.EnableNetworkPolicy, extNetpolHandler)
 
 	err = svcWatcher.SetupWithManager(mgr)
 	if err != nil {

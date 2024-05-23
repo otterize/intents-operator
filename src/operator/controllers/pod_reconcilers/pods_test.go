@@ -5,6 +5,7 @@ import (
 	"fmt"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -72,10 +73,9 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels()
 	serviceID, err := s.Reconciler.serviceIdResolver.ResolvePodToServiceIdentity(context.Background(), &pod)
 	s.Require().NoError(err)
 
-	thisPodIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(
-		serviceID.Name, s.TestNamespace)
+	thisPodIdentity := (&serviceidentity.ServiceIdentity{Name: serviceID.Name, Namespace: s.TestNamespace}).GetFormattedOtterizeIdentityWithoutKind()
 
-	_, err = s.AddIntents("test-intents", serviceID.Name, []otterizev1alpha3.Intent{{
+	_, err = s.AddIntents("test-intents", serviceID.Name, "", []otterizev1alpha3.Intent{{
 		Type: otterizev1alpha3.IntentTypeHTTP, Name: intentTargetServerName,
 	},
 	})
@@ -111,8 +111,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels()
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 
-	targetServerIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(
-		intentTargetServerName, s.TestNamespace)
+	targetServerIdentity := (&serviceidentity.ServiceIdentity{Name: intentTargetServerName, Namespace: s.TestNamespace}).GetFormattedOtterizeIdentityWithoutKind()
 	accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
@@ -133,7 +132,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 		map[string]string{"someLabel": "cake"},
 		map[string]string{})
 
-	_, err := s.AddIntents("test-intents", deploymentName, []otterizev1alpha3.Intent{{
+	_, err := s.AddIntents("test-intents", deploymentName, "Deployment", []otterizev1alpha3.Intent{{
 		Type: otterizev1alpha3.IntentTypeHTTP, Name: intentTargetServerName,
 	},
 	})
@@ -159,8 +158,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 	serviceID, err := s.Reconciler.serviceIdResolver.ResolvePodToServiceIdentity(context.Background(), &pod)
 	s.Require().NoError(err)
 
-	thisPodIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(
-		serviceID.Name, s.TestNamespace)
+	thisPodIdentity := (&serviceidentity.ServiceIdentity{Name: serviceID.Name, Namespace: s.TestNamespace}).GetFormattedOtterizeIdentityWithoutKind()
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
@@ -180,8 +178,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 		},
 	})
 
-	targetServerIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(
-		intentTargetServerName, s.TestNamespace)
+	targetServerIdentity := (&serviceidentity.ServiceIdentity{Name: intentTargetServerName, Namespace: s.TestNamespace}).GetFormattedOtterizeIdentityWithoutKind()
 
 	accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {

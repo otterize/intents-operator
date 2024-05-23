@@ -30,7 +30,8 @@ import (
 )
 
 const (
-	OtterizeClientNameIndexField = "spec.service.name"
+	OtterizeClientNameIndexField         = "spec.service.name"
+	OtterizeClientNameWithKindIndexField = "spec.service.nameWithKind"
 )
 
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
@@ -78,17 +79,6 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	// If a new pod starts, check if we need to do something for it.
-	var intents otterizev1alpha3.ClientIntentsList
-	err = p.List(
-		ctx,
-		&intents,
-		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
-		&client.ListOptions{Namespace: pod.Namespace})
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err)
-	}
-
 	err = p.addOtterizePodLabels(ctx, req, serviceID, pod)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
@@ -99,7 +89,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	res, err := p.handleDatabaseIntents(ctx, pod, intents)
+	res, err := p.handleDatabaseIntents(ctx, pod, serviceID)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
@@ -131,12 +121,7 @@ func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceI
 		return errors.Wrap(err)
 	}
 
-	var intents otterizev1alpha3.ClientIntentsList
-	err = p.List(
-		ctx,
-		&intents,
-		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
-		&client.ListOptions{Namespace: pod.Namespace})
+	intents, err := p.getClientIntentsForServiceIdentity(ctx, serviceID)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
 		return errors.Wrap(err)
@@ -173,8 +158,7 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 	}
 
 	for _, clientIntents := range intentsList.Items {
-		formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
-		err = p.istioPolicyAdmin.UpdateServerSidecar(ctx, &clientIntents, formattedTargetServer, missingSideCar)
+		err = p.istioPolicyAdmin.UpdateServerSidecar(ctx, &clientIntents, serviceID.GetFormattedOtterizeIdentityWithoutKind(), missingSideCar)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -196,7 +180,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		return nil
 	}
 
-	otterizeServerLabelValue := otterizev1alpha3.GetFormattedOtterizeIdentity(serviceID.Name, pod.Namespace)
+	otterizeServerLabelValue := serviceID.GetFormattedOtterizeIdentityWithoutKind()
 	updatedPod := pod.DeepCopy()
 	hasUpdates := false
 
@@ -212,18 +196,19 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		hasUpdates = true
 	}
 
+	if !otterizev1alpha3.HasOtterizeOwnerKindLabel(&pod, serviceID.Kind) {
+		logrus.Debugf("Labeling pod %s with owner kind %s", pod.Name, serviceID.Kind)
+		updatedPod.Labels[otterizev1alpha3.OtterizeOwnerKindLabelKey] = serviceID.Kind
+		hasUpdates = true
+	}
+
 	if otterizev1alpha3.HasOtterizeDeprecatedServerLabel(&pod) {
 		logrus.Debugf("Removing deprecated label for pod %s with server identity %s", pod.Name, serviceID.Name)
 		delete(updatedPod.Labels, otterizev1alpha3.OtterizeServerLabelKeyDeprecated)
 		hasUpdates = true
 	}
 
-	var intents otterizev1alpha3.ClientIntentsList
-	err := p.List(
-		ctx, &intents,
-		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
-		&client.ListOptions{Namespace: pod.Namespace})
-
+	intents, err := p.getClientIntentsForServiceIdentity(ctx, serviceID)
 	if err != nil {
 		logrus.WithFields(logrus.Fields{"ServiceName": serviceID, "Namespace": pod.Namespace}).Errorln("Failed listing intents")
 		return errors.Wrap(err)
@@ -240,7 +225,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		}
 		if otterizev1alpha3.IsMissingOtterizeAccessLabels(&pod, otterizeAccessLabels) {
 			logrus.Debugf("Updating Otterize access labels for %s", serviceID.Name)
-			updatedPod = otterizev1alpha3.UpdateOtterizeAccessLabels(updatedPod.DeepCopy(), serviceID.Name, otterizeAccessLabels)
+			updatedPod = otterizev1alpha3.UpdateOtterizeAccessLabels(updatedPod.DeepCopy(), serviceID, otterizeAccessLabels)
 			prometheus.IncrementPodsLabeledForNetworkPolicies(1)
 			hasUpdates = true
 		}
@@ -253,6 +238,35 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 		}
 	}
 	return nil
+}
+
+func (p *PodWatcher) getClientIntentsForServiceIdentity(ctx context.Context, serviceID serviceidentity.ServiceIdentity) (otterizev1alpha3.ClientIntentsList, error) {
+	var intents otterizev1alpha3.ClientIntentsList
+
+	// first check if there are intents specifically for this service identity (with kind)
+	err := p.List(
+		ctx, &intents,
+		&client.MatchingFields{OtterizeClientNameWithKindIndexField: serviceID.GetNameWithKind()},
+		&client.ListOptions{Namespace: serviceID.Namespace})
+	if err != nil {
+		return otterizev1alpha3.ClientIntentsList{}, errors.Wrap(err)
+	}
+
+	// If there are specific intents for this service identity, return them
+	if len(intents.Items) != 0 {
+		return intents, nil
+	}
+
+	// list all intents for this service name (without kind)
+	err = p.List(
+		ctx, &intents,
+		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
+		&client.ListOptions{Namespace: serviceID.Namespace})
+
+	if err != nil {
+		return otterizev1alpha3.ClientIntentsList{}, errors.Wrap(err)
+	}
+	return intents, nil
 }
 
 func (p *PodWatcher) istioEnforcementEnabled() bool {
@@ -302,6 +316,19 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 		return errors.Wrap(err)
 	}
 
+	err = mgr.GetCache().IndexField(
+		context.Background(),
+		&otterizev1alpha3.ClientIntents{},
+		OtterizeClientNameWithKindIndexField,
+		func(object client.Object) []string {
+			intents := object.(*otterizev1alpha3.ClientIntents)
+			serviceIdentity := intents.ToServiceIdentity()
+			return []string{serviceIdentity.GetNameWithKind()}
+		})
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
 	return nil
 }
 
@@ -321,7 +348,7 @@ func (p *PodWatcher) Register(mgr manager.Manager) error {
 	return nil
 }
 
-func (p *PodWatcher) handleDatabaseIntents(ctx context.Context, pod v1.Pod, clientIntentsList otterizev1alpha3.ClientIntentsList) (ctrl.Result, error) {
+func (p *PodWatcher) handleDatabaseIntents(ctx context.Context, pod v1.Pod, serviceID serviceidentity.ServiceIdentity) (ctrl.Result, error) {
 	if pod.Annotations == nil {
 		return ctrl.Result{}, nil
 	}
@@ -329,6 +356,11 @@ func (p *PodWatcher) handleDatabaseIntents(ctx context.Context, pod v1.Pod, clie
 	if _, ok := pod.Annotations[databaseconfigurator.DatabaseAccessAnnotation]; ok {
 		// Has database access annotation, no need to do anything
 		return ctrl.Result{}, nil
+	}
+
+	clientIntentsList, err := p.getClientIntentsForServiceIdentity(ctx, serviceID)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	dbIntents := lo.Filter(clientIntentsList.Items, func(clientIntents otterizev1alpha3.ClientIntents, _ int) bool {

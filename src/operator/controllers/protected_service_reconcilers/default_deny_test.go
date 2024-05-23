@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -144,6 +145,84 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
 				MatchLabels: map[string]string{
 					otterizev1alpha3.OtterizeServiceLabelKey: formattedServerName,
 				},
+			},
+			Ingress: []v1.NetworkPolicyIngressRule{},
+		},
+	}
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(&policy)).Return(nil).Times(1)
+
+	s.extNetpolHandler.EXPECT().HandleAllPods(gomock.Any())
+	res, err := s.reconciler.Reconcile(context.Background(), request)
+	s.Require().Empty(res)
+	s.Require().NoError(err)
+}
+
+func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate_KindService() {
+	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev1alpha3.ProtectedService{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      protectedServicesResourceName,
+				Namespace: testNamespace,
+			},
+			Spec: otterizev1alpha3.ProtectedServiceSpec{
+				Name: protectedServiceName,
+				Kind: "Service",
+			},
+		},
+	}
+
+	k8sService := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      protectedServiceName,
+			Namespace: testNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{"app": "test"},
+		},
+	}
+
+	s.Client.EXPECT().Get(gomock.Any(), gomock.Eq(types.NamespacedName{Name: protectedServiceName, Namespace: testNamespace}), gomock.Any()).Do(
+		func(ctx context.Context, name types.NamespacedName, service *corev1.Service, _ ...any) error {
+			k8sService.DeepCopyInto(service)
+			return nil
+		})
+
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
+			protectedServicesResources.DeepCopyInto(list)
+			return nil
+		})
+
+	request := ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: testNamespace,
+			Name:      protectedServicesResourceName,
+		},
+	}
+
+	// Get all existing network policies
+	// No network policies exist
+	var networkPolicies v1.NetworkPolicyList
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
+		otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+	}).Return(nil).Times(1)
+
+	// Create network policy
+	formattedServerName := protectedServiceFormattedName
+	policy := v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default-deny-test-service-service",
+			Namespace: testNamespace,
+			Labels: map[string]string{
+				otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev1alpha3.OtterizeNetworkPolicy:                   formattedServerName,
+			},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: k8sService.Spec.Selector,
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
 		},
