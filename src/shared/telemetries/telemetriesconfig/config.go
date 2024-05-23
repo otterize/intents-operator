@@ -7,6 +7,7 @@ import (
 
 const (
 	TelemetryAPIAddressKey         = "telemetry-address"
+	TelemetryAPIAddressDefault     = "http://localhost:8081/api/telemetry/query"
 	TimeoutKey                     = "telemetry-client-timeout"
 	CloudClientTimeoutDefault      = "30s"
 	TelemetryEnabledKey            = "telemetry-enabled"
@@ -17,7 +18,6 @@ const (
 	TelemetryMaxBatchSizeDefault   = 100
 	TelemetryIntervalKey           = "telemetry-interval-seconds"
 	TelemetryIntervalDefault       = 5
-	TelemetryAddressDefault        = "https://app.otterize.com/api/telemetry/query"
 	TelemetryResetIntervalKey      = "telemetry-reset-interval-duration"
 	TelemetryResetIntervalDefault  = "24h"
 	TelemetryActiveIntervalKey     = "telemetry-active-interval-duration"
@@ -32,7 +32,7 @@ const (
 )
 
 func init() {
-	viper.SetDefault(TelemetryAPIAddressKey, TelemetryAddressDefault)
+	viper.SetDefault(TelemetryAPIAddressKey, TelemetryAPIAddressDefault)
 	viper.SetDefault(TimeoutKey, CloudClientTimeoutDefault)
 	viper.SetDefault(TelemetryIntervalKey, TelemetryIntervalDefault)
 	viper.SetDefault(TelemetryMaxBatchSizeKey, TelemetryMaxBatchSizeDefault)

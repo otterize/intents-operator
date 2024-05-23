@@ -3,10 +3,12 @@ package telemetrysender
 import (
 	"context"
 	"flag"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
+	"github.com/otterize/intents-operator/src/shared/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"sync"
@@ -44,17 +46,16 @@ func incrementCounter(componentType telemetriesgql.TelemetryComponentType, event
 
 func currentComponent(componentType telemetriesgql.TelemetryComponentType) telemetriesgql.Component {
 	return telemetriesgql.Component{
-		CloudClientId:       componentinfo.GlobalCloudClientId(),
+		CloudClientId:       viper.GetString(otterizecloudclient.ApiClientIdKey),
 		ComponentType:       componentType,
 		ComponentInstanceId: componentinfo.GlobalComponentInstanceId(),
 		ContextId:           componentinfo.GlobalContextId(),
-		Version:             componentinfo.GlobalVersion(),
+		Version:             version.Version(),
 	}
 }
 
 func initSender() {
 	sender = New()
-	componentinfo.SetGlobalComponentInstanceId()
 	if flag.Lookup("test.v") != nil {
 		logrus.Infof("Disabling telemetry sender because this is a test")
 		sender.enabled = false

@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"github.com/amit7itz/goset"
 	"github.com/bombsimon/logrusr/v3"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
@@ -120,9 +121,20 @@ func main() {
 	if viper.GetBool(operatorconfig.DebugLogKey) {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
-	errorreporter.Init("intents-operator", version.Version(), viper.GetString(operatorconfig.TelemetryErrorsAPIKeyKey))
+
+	signalHandlerCtx := ctrl.SetupSignalHandler()
+
+	clusterUID, err := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
+	if err != nil {
+		logrus.WithError(err).Panic("Failed obtaining cluster ID")
+	}
+	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
+
+	errorreporter.Init(telemetriesgql.TelemetryComponentTypeIntentsOperator, version.Version())
 	defer errorreporter.AutoNotify()
 	shared.RegisterPanicHandlers()
+
+	logrus.WithError(errors.New("bloop panic")).Panic("bloop test 1")
 
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
@@ -189,14 +201,6 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Panic(err, "unable to start manager")
 	}
-	signalHandlerCtx := ctrl.SetupSignalHandler()
-
-	clusterUID, err := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
-	if err != nil {
-		logrus.WithError(err).Panic("Failed obtaining cluster ID")
-	}
-	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
-	componentinfo.SetGlobalVersion(version.Version())
 
 	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
 	if err != nil {

@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	version string
+	version = "0-local"
 	once    sync.Once
 )
 

@@ -6,7 +6,7 @@ import (
 	bugsnagerrors "github.com/bugsnag/bugsnag-go/v2/errors"
 )
 
-func New(text string) error {
+func New(text string) *bugsnagerrors.Error {
 	return bugsnagerrors.New(text, 1)
 }
 
@@ -14,11 +14,11 @@ func NewSentinelError(text string) error {
 	return gerrors.New(text)
 }
 
-func Errorf(format string, a ...any) error {
+func Errorf(format string, a ...any) *bugsnagerrors.Error {
 	return bugsnagerrors.New(fmt.Errorf(format, a...), 1)
 }
 
-func ErrorfWithSkip(skip int, format string, a ...any) error {
+func ErrorfWithSkip(skip int, format string, a ...any) *bugsnagerrors.Error {
 	return bugsnagerrors.New(fmt.Errorf(format, a...), 1+skip)
 }
 
@@ -80,17 +80,17 @@ func Unwrap(err error) error {
 	return gerrors.Unwrap(err)
 }
 
-func wrapImpl(err error, skip int) error {
+func wrapImpl(err error, skip int) *bugsnagerrors.Error {
 	if err == nil {
 		return nil
 	}
 	return bugsnagerrors.New(err, skip+1)
 }
 
-func Wrap(err error) error {
+func Wrap(err error) *bugsnagerrors.Error {
 	return wrapImpl(err, 1)
 }
 
-func WrapWithSkip(err error, skip int) error {
+func WrapWithSkip(err error, skip int) *bugsnagerrors.Error {
 	return wrapImpl(err, skip+1)
 }
