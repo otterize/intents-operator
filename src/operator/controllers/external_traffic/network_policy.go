@@ -352,7 +352,6 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		if err != nil {
 			return errors.Wrap(err)
 		}
-		logrus.Infof("ServiceId: %v", serviceId)
 		netpolList := &v1.NetworkPolicyList{}
 		// Get netpolSlice which was created by intents targeting this pod by its owner with "kind"
 		err = r.client.List(ctx, netpolList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithKind()})
