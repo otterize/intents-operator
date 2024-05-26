@@ -9,6 +9,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"net"
@@ -50,7 +51,7 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 		})
 	}
 	if len(rules) == 0 {
-		return nil, errors.New("cannot create rules for internet network policy")
+		logrus.Info("cannot create rules for internet network policy")
 	}
 	return rules, nil
 }
