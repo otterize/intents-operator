@@ -133,8 +133,8 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 	s.ignoreRemoveOrphan()
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
+	s.Require().NoError(err)
+	s.Require().Empty(res)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
@@ -240,8 +240,8 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS
 	s.ignoreRemoveOrphan()
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
+	s.Require().NoError(err)
+	s.Require().Empty(res)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
@@ -345,8 +345,8 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyFromDN
 	s.ignoreRemoveOrphan()
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
+	s.Require().NoError(err)
+	s.Require().Empty(res)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
@@ -474,8 +474,8 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyMultip
 	s.ignoreRemoveOrphan()
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
+	s.Require().NoError(err)
+	s.Require().Empty(res)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
@@ -565,8 +565,8 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNetworkPolicyDeletedClean
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(existingPolicy)).Return(nil)
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
+	s.Require().NoError(err)
+	s.Require().Empty(res)
 }
 
 func (s *InternetNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
@@ -672,8 +672,8 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(newPolicy), intents_reconcilers.MatchPatch(client.MergeFrom(existingBadPolicy))).Return(nil)
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
+	s.Require().NoError(err)
+	s.Require().Empty(res)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
@@ -826,7 +826,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 		})
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
+	s.Require().NoError(err)
 	s.Empty(res)
 }
 
@@ -882,11 +882,11 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 	s.ignoreRemoveOrphan()
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
+	s.Require().NoError(err)
 	s.Empty(res)
 }
 
-func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForDNS() {
+func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForOneDNSButFoundForAnotherGeneratesRuleSuccessfully() {
 	s.Reconciler.EnforcementDefaultState = true
 
 	clientIntentsName := "client-intents"
@@ -980,9 +980,8 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForDNS() {
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), gomock.Any(), gomock.Any())
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.NoError(err)
-	s.Empty(res)
-	s.ExpectEvent(consts.ReasonIntentToUnresolvedDns)
+	s.Require().NoError(err)
+	s.Require().Empty(res)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
@@ -1024,14 +1023,12 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForAnyDNS() {
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.ignoreRemoveOrphan()
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.Error(err, "cannot create rules for internet network policy")
-	s.Empty(res)
-	s.ExpectEvent(consts.ReasonIntentToUnresolvedDns)
-	s.ExpectEvent(consts.ReasonIntentToUnresolvedDns)
-	s.ExpectEvent(consts.ReasonNetworkPolicyCreationFailedMissingIP)
-	s.ExpectEvent(consts.ReasonCreatingEgressNetworkPoliciesFailed)
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+	s.ExpectEvent(consts.ReasonInternetEgressNetworkPolicyCreationWaitingUnresolvedDNS)
 }
 
 func TestInternetNetworkPolicyReconcilerTestSuite(t *testing.T) {

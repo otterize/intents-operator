@@ -38,7 +38,7 @@ func (s *MocksSuiteBase) ExpectEvent(expectedEventReason string) {
 	case event := <-s.Recorder.Events:
 		s.Require().Contains(event, expectedEventReason)
 	default:
-		s.Fail("Expected event not found")
+		s.Failf("Expected event not found", "Event '%v'", expectedEventReason)
 	}
 }
 
