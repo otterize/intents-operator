@@ -27,20 +27,20 @@ func NewBatcher[T any](handler func(batch []T) error, minDelay time.Duration, ma
 	}
 }
 
-func (b *Batcher[T]) getBatch() (items []T, flushSignal chan struct{}) {
+func (b *Batcher[T]) getBatch() (items []T) {
 	for {
 		select {
 		case item := <-b.items:
 			items = append(items, item)
 			if len(items) == b.maxBatchSize || time.Now().After(b.lastExecution.Add(b.minDelay)) {
 				time.Sleep(time.Until(b.lastExecution.Add(b.minDelay)))
-				return items, flushSignal
+				return items
 			}
 		case <-time.After(b.minDelay):
 			if len(items) == 0 {
 				continue
 			}
-			return items, flushSignal
+			return items
 		}
 	}
 }
@@ -58,13 +58,10 @@ func (b *Batcher[T]) runForever() {
 		panic(r)
 	}()
 	for {
-		batchItems, flushSignal := b.getBatch()
+		batchItems := b.getBatch()
 		err := b.handleBatchWithPanicRecovery(batchItems)
 		if err != nil {
 			logrus.WithError(err).Error("failed handling batch, skipping")
-		}
-		if flushSignal != nil {
-			close(flushSignal)
 		}
 		b.lastExecution = time.Now()
 	}
