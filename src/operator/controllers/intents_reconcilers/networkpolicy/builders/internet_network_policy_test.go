@@ -1024,14 +1024,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForAnyDNS() {
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
 	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.ignoreRemoveOrphan()
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.Error(err, "cannot create rules for internet network policy")
+	s.Require().NoError(err)
 	s.Empty(res)
 	s.ExpectEvent(consts.ReasonIntentToUnresolvedDns)
 	s.ExpectEvent(consts.ReasonIntentToUnresolvedDns)
 	s.ExpectEvent(consts.ReasonNetworkPolicyCreationFailedMissingIP)
-	s.ExpectEvent(consts.ReasonCreatingEgressNetworkPoliciesFailed)
 }
 
 func TestInternetNetworkPolicyReconcilerTestSuite(t *testing.T) {
