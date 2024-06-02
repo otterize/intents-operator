@@ -6,17 +6,12 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
-	"github.com/samber/lo"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
@@ -57,33 +52,6 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicy() {
 		formattedTargetServer,
 		true,
 		nil,
-		false,
-	)
-	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
-}
-
-func (s *EgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyDNSAutoallow() {
-	clientIntentsName := "client-intents"
-	policyName := "test-client-access"
-	serviceName := "test-client"
-	serverNamespace := testServerNamespace
-	clientNamespace := testClientNamespace
-	formattedTargetServer := "test-server-test-server-namespac-48aee4"
-	viper.Set(operatorconfig.EnableEgressAutoallowDNSTrafficKey, true)
-	defer func() {
-		viper.Set(operatorconfig.EnableEgressAutoallowDNSTrafficKey, false)
-	}()
-
-	s.testCreateNetworkPolicy(
-		clientIntentsName,
-		clientNamespace,
-		serverNamespace,
-		serviceName,
-		policyName,
-		formattedTargetServer,
-		true,
-		nil,
-		true,
 	)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
@@ -105,7 +73,6 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateCrossNam
 		formattedTargetServer,
 		true,
 		nil,
-		false,
 	)
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
@@ -188,7 +155,6 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 		"test-client-test-client-namespac-edb3a2",
 		formattedTargetServer,
 		testClientNamespace,
-		false,
 	)
 	existingBadPolicy := newPolicy.DeepCopy()
 	existingBadPolicy.Spec.Egress[0].To[0].PodSelector.MatchLabels["another-label"] = "just to create diff from real policy"
@@ -254,7 +220,6 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 		"test-client-test-server-namespac-8e2cac",
 		formattedTargetServer,
 		testServerNamespace,
-		false,
 	)
 	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
 		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
@@ -285,7 +250,6 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 		"test-client-test-server-namespac-8e2cac",
 		nonExistingServer,
 		testServerNamespace,
-		false,
 	)
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v1.NetworkPolicyList{}), &client.ListOptions{LabelSelector: selector}).DoAndReturn(
 		func(ctx context.Context, list *v1.NetworkPolicyList, options ...client.ListOption) error {
@@ -342,7 +306,6 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIn
 		"test-client-test-client-namespac-edb3a2",
 		formattedTargetServer,
 		testServerNamespace,
-		false,
 	)
 
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), gomock.Eq(existingPolicy))
@@ -363,7 +326,6 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	formattedTargetServer string,
 	defaultEnforcementState bool,
 	protectedServices []otterizev1alpha3.ProtectedService,
-	expectAllowDNS bool,
 ) {
 	s.Reconciler.EnforcementDefaultState = defaultEnforcementState
 	namespacedName := types.NamespacedName{
@@ -415,7 +377,6 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 		"test-client-test-client-namespac-edb3a2",
 		formattedTargetServer,
 		testClientNamespace,
-		expectAllowDNS,
 	)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
@@ -434,9 +395,8 @@ func networkPolicyEgressTemplate(
 	formattedTargetClient string,
 	formattedTargetServer string,
 	intentsObjNamespace string,
-	allowDNS bool,
 ) *v1.NetworkPolicy {
-	netpol := &v1.NetworkPolicy{
+	return &v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
 			Namespace: intentsObjNamespace,
@@ -472,18 +432,6 @@ func networkPolicyEgressTemplate(
 			},
 		},
 	}
-
-	if allowDNS {
-		netpol.Spec.Egress = append(netpol.Spec.Egress, v1.NetworkPolicyEgressRule{
-			Ports: []v1.NetworkPolicyPort{
-				{
-					Protocol: lo.ToPtr(corev1.ProtocolUDP),
-					Port:     lo.ToPtr(intstr.FromInt32(53)),
-				},
-			},
-		})
-	}
-	return netpol
 }
 
 func (s *EgressNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateEnforcementDisabled() {

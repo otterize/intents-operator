@@ -7,9 +7,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/samber/lo"
-	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -59,17 +57,6 @@ func (r *PortEgressRulesBuilder) buildEgressRulesFromEffectivePolicy(ctx context
 			return nil, errors.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
 		}
 		egressRules = append(egressRules, egressRule)
-		if viper.GetBool(operatorconfig.EnableEgressAutoallowDNSTrafficKey) {
-			// DNS
-			egressRules = append(egressRules, v1.NetworkPolicyEgressRule{
-				Ports: []v1.NetworkPolicyPort{
-					{
-						Protocol: lo.ToPtr(corev1.ProtocolUDP),
-						Port:     lo.ToPtr(intstr.FromInt32(53)),
-					},
-				},
-			})
-		}
 	}
 	return egressRules, nil
 }
