@@ -23,7 +23,7 @@ func NewDNSEgressNetworkPolicyBuilder() *DNSEgressNetworkPolicyBuilder {
 // a function that creates []NetworkPolicyEgressRule from ep
 func (r *DNSEgressNetworkPolicyBuilder) buildNetworkPolicyEgressRules(ep effectivepolicy.ServiceEffectivePolicy) []v1.NetworkPolicyEgressRule {
 	if lo.NoneBy(ep.Calls, func(call otterizev1alpha3.Intent) bool {
-		return call.Type == "" || call.Type == otterizev1alpha3.IntentTypeHTTP || call.Type == otterizev1alpha3.IntentTypeKafka
+		return call.IsTargetInCluster()
 	}) {
 		return make([]v1.NetworkPolicyEgressRule, 0)
 	}
