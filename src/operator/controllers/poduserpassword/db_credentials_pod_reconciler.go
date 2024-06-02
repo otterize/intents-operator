@@ -77,6 +77,16 @@ func hasDatabaseAccessAnnotation(pod v1.Pod) bool {
 }
 
 func (e *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	// Fix for when the namespace is terminating but pods aren't getting the delete trigger just yet
+	namespace := v1.Namespace{}
+	if err := e.client.Get(ctx, types.NamespacedName{Name: req.Namespace}, &namespace); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
+	if !namespace.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	var pod v1.Pod
 	err := e.client.Get(ctx, req.NamespacedName, &pod)
 	if err != nil {
