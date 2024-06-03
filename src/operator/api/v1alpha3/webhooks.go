@@ -132,11 +132,11 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	for i, call := range in.Spec.Calls {
 		if call.IsTargetInCluster() && call.Type != IntentTypeKafka {
 			kubernetesTarget := v2alpha1.KubernetesTarget{Name: call.GetServerFullyQualifiedName(in.Namespace), Kind: call.GetTargetServerKind()}
-			if call.Type ==  IntentTypeHTTP && len(call.HTTPResources) > 0 {
+			if call.Type == IntentTypeHTTP && len(call.HTTPResources) > 0 {
 				httpTargets := make([]v2alpha1.HTTPTarget, len(call.HTTPResources))
 				for j, http := range call.HTTPResources {
 					methods := lo.Map(http.Methods, func(method HTTPMethod, _ int) v2alpha1.HTTPMethod { return v2alpha1.HTTPMethod(method) })
-					httpTargets[j] = v2alpha1.HTTPTarget{Path: http.Path, Methods: methods})
+					httpTargets[j] = v2alpha1.HTTPTarget{Path: http.Path, Methods: methods}
 				}
 				kubernetesTarget.HTTP = httpTargets
 			}
@@ -145,13 +145,17 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 		}
 		if call.Type == IntentTypeKafka && len(call.Topics) > 0 {
 			topics := lo.Map(call.Topics, func(topic KafkaTopic, _ int) v2alpha1.KafkaTopic {
-				return v2alpha1.KafkaTopic{Name: topic.Name, Operations: lo.Map(topic.Operations, func(operation KafkaOperation, _ int) v2alpha1.KafkaOperation { return v2alpha1.KafkaOperation(operation) })}
+				return v2alpha1.KafkaTopic{Name: topic.Name, Operations: lo.Map(topic.Operations, func(operation KafkaOperation, _ int) v2alpha1.KafkaOperation {
+					return v2alpha1.KafkaOperation(operation)
+				})}
 			})
 			dst.Spec.Targets[i] = v2alpha1.Target{Kafka: lo.ToPtr(v2alpha1.KafkaTarget{Name: call.Name, Topics: topics})}
 		}
 		if call.Type == IntentTypeDatabase && len(call.DatabaseResources) > 0 {
 			tables := lo.Map(call.DatabaseResources, func(resource DatabaseResource, _ int) v2alpha1.SQLPermissions {
-				return v2alpha1.SQLPermissions{Table: resource.Table, DatabaseName: resource.DatabaseName, Operations: lo.Map(resource.Operations, func(operation DatabaseOperation, _ int) v2alpha1.DatabaseOperation { return v2alpha1.DatabaseOperation(operation) })}
+				return v2alpha1.SQLPermissions{Table: resource.Table, DatabaseName: resource.DatabaseName, Operations: lo.Map(resource.Operations, func(operation DatabaseOperation, _ int) v2alpha1.DatabaseOperation {
+					return v2alpha1.DatabaseOperation(operation)
+				})}
 			})
 			dst.Spec.Targets[i] = v2alpha1.Target{SQL: lo.ToPtr(v2alpha1.SQLTarget{Name: call.Name, Permissions: tables})}
 			continue
@@ -170,10 +174,18 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 				continue
 			}
 			dst.Spec.Targets[i].Azure.KeyVaultPolicy = &v2alpha1.AzureKeyVaultPolicy{}
-			dst.Spec.Targets[i].Azure.KeyVaultPolicy.KeyPermissions = lo.Map(call.AzureKeyVaultPolicy.KeyPermissions, func(permission AzureKeyVaultKeyPermission, _ int) v2alpha1.AzureKeyVaultKeyPermission { return v2alpha1.AzureKeyVaultKeyPermission(permission) })
-			dst.Spec.Targets[i].Azure.KeyVaultPolicy.SecretPermissions = lo.Map(call.AzureKeyVaultPolicy.SecretPermissions, func(permission AzureKeyVaultSecretPermission, _ int) v2alpha1.AzureKeyVaultSecretPermission { return v2alpha1.AzureKeyVaultSecretPermission(permission) })
-			dst.Spec.Targets[i].Azure.KeyVaultPolicy.CertificatePermissions = lo.Map(call.AzureKeyVaultPolicy.CertificatePermissions, func(permission AzureKeyVaultCertificatePermission, _ int) v2alpha1.AzureKeyVaultCertificatePermission { return v2alpha1.AzureKeyVaultCertificatePermission(permission) })
-			dst.Spec.Targets[i].Azure.KeyVaultPolicy.StoragePermissions = lo.Map(call.AzureKeyVaultPolicy.StoragePermissions, func(permission AzureKeyVaultStoragePermission, _ int) v2alpha1.AzureKeyVaultStoragePermission { return v2alpha1.AzureKeyVaultStoragePermission(permission) })
+			dst.Spec.Targets[i].Azure.KeyVaultPolicy.KeyPermissions = lo.Map(call.AzureKeyVaultPolicy.KeyPermissions, func(permission AzureKeyVaultKeyPermission, _ int) v2alpha1.AzureKeyVaultKeyPermission {
+				return v2alpha1.AzureKeyVaultKeyPermission(permission)
+			})
+			dst.Spec.Targets[i].Azure.KeyVaultPolicy.SecretPermissions = lo.Map(call.AzureKeyVaultPolicy.SecretPermissions, func(permission AzureKeyVaultSecretPermission, _ int) v2alpha1.AzureKeyVaultSecretPermission {
+				return v2alpha1.AzureKeyVaultSecretPermission(permission)
+			})
+			dst.Spec.Targets[i].Azure.KeyVaultPolicy.CertificatePermissions = lo.Map(call.AzureKeyVaultPolicy.CertificatePermissions, func(permission AzureKeyVaultCertificatePermission, _ int) v2alpha1.AzureKeyVaultCertificatePermission {
+				return v2alpha1.AzureKeyVaultCertificatePermission(permission)
+			})
+			dst.Spec.Targets[i].Azure.KeyVaultPolicy.StoragePermissions = lo.Map(call.AzureKeyVaultPolicy.StoragePermissions, func(permission AzureKeyVaultStoragePermission, _ int) v2alpha1.AzureKeyVaultStoragePermission {
+				return v2alpha1.AzureKeyVaultStoragePermission(permission)
+			})
 		}
 		if call.Type == IntentTypeInternet && call.Internet != nil {
 			dst.Spec.Targets[i] = v2alpha1.Target{Internet: lo.ToPtr(v2alpha1.Internet{Domains: call.Internet.Domains, Ports: call.Internet.Ports, Ips: call.Internet.Ips})}
@@ -217,7 +229,9 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 		}
 		if target.SQL != nil {
 			in.Spec.Calls[i] = Intent{Type: IntentTypeDatabase, Name: target.SQL.Name, DatabaseResources: lo.Map(target.SQL.Permissions, func(permission v2alpha1.SQLPermissions, _ int) DatabaseResource {
-				return DatabaseResource{Table: permission.Table, DatabaseName: permission.DatabaseName, Operations: lo.Map(permission.Operations, func(operation v2alpha1.DatabaseOperation, _ int) DatabaseOperation { return DatabaseOperation(operation) })}
+				return DatabaseResource{Table: permission.Table, DatabaseName: permission.DatabaseName, Operations: lo.Map(permission.Operations, func(operation v2alpha1.DatabaseOperation, _ int) DatabaseOperation {
+					return DatabaseOperation(operation)
+				})}
 			})}
 			continue
 		}
@@ -235,10 +249,18 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 				continue
 			}
 			in.Spec.Calls[i].AzureKeyVaultPolicy = &AzureKeyVaultPolicy{}
-			in.Spec.Calls[i].AzureKeyVaultPolicy.KeyPermissions = lo.Map(target.Azure.KeyVaultPolicy.KeyPermissions, func(permission v2alpha1.AzureKeyVaultKeyPermission, _ int) AzureKeyVaultKeyPermission { return AzureKeyVaultKeyPermission(permission) })
-			in.Spec.Calls[i].AzureKeyVaultPolicy.SecretPermissions = lo.Map(target.Azure.KeyVaultPolicy.SecretPermissions, func(permission v2alpha1.AzureKeyVaultSecretPermission, _ int) AzureKeyVaultSecretPermission { return AzureKeyVaultSecretPermission(permission) })
-			in.Spec.Calls[i].AzureKeyVaultPolicy.CertificatePermissions = lo.Map(target.Azure.KeyVaultPolicy.CertificatePermissions, func(permission v2alpha1.AzureKeyVaultCertificatePermission, _ int) AzureKeyVaultCertificatePermission { return AzureKeyVaultCertificatePermission(permission) })
-			in.Spec.Calls[i].AzureKeyVaultPolicy.StoragePermissions = lo.Map(target.Azure.KeyVaultPolicy.StoragePermissions, func(permission v2alpha1.AzureKeyVaultStoragePermission, _ int) AzureKeyVaultStoragePermission { return AzureKeyVaultStoragePermission(permission) })
+			in.Spec.Calls[i].AzureKeyVaultPolicy.KeyPermissions = lo.Map(target.Azure.KeyVaultPolicy.KeyPermissions, func(permission v2alpha1.AzureKeyVaultKeyPermission, _ int) AzureKeyVaultKeyPermission {
+				return AzureKeyVaultKeyPermission(permission)
+			})
+			in.Spec.Calls[i].AzureKeyVaultPolicy.SecretPermissions = lo.Map(target.Azure.KeyVaultPolicy.SecretPermissions, func(permission v2alpha1.AzureKeyVaultSecretPermission, _ int) AzureKeyVaultSecretPermission {
+				return AzureKeyVaultSecretPermission(permission)
+			})
+			in.Spec.Calls[i].AzureKeyVaultPolicy.CertificatePermissions = lo.Map(target.Azure.KeyVaultPolicy.CertificatePermissions, func(permission v2alpha1.AzureKeyVaultCertificatePermission, _ int) AzureKeyVaultCertificatePermission {
+				return AzureKeyVaultCertificatePermission(permission)
+			})
+			in.Spec.Calls[i].AzureKeyVaultPolicy.StoragePermissions = lo.Map(target.Azure.KeyVaultPolicy.StoragePermissions, func(permission v2alpha1.AzureKeyVaultStoragePermission, _ int) AzureKeyVaultStoragePermission {
+				return AzureKeyVaultStoragePermission(permission)
+			})
 		}
 		if target.Internet != nil {
 			in.Spec.Calls[i] = Intent{Type: IntentTypeInternet, Internet: &Internet{Domains: target.Internet.Domains, Ports: target.Internet.Ports, Ips: target.Internet.Ips}}
