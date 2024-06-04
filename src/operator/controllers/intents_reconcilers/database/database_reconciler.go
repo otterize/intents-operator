@@ -200,6 +200,10 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 			return errors.Wrap(err)
 		}
 
+		if err := r.handleDatabaseAnnotationOnPod(ctx, *clientIntents, dbInstanceName); err != nil {
+			return errors.Wrap(err)
+		}
+
 		return nil
 	}
 
