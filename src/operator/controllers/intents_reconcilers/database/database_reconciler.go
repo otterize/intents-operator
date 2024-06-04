@@ -12,12 +12,14 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"slices"
 	"strings"
+	"time"
 )
 
 const (
@@ -211,7 +213,7 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 		}
 	}
 
-	if err := r.annotateDatabaseOnPod(ctx, *clientIntents, dbInstanceName); err != nil {
+	if err := r.handleDatabaseAnnotationOnPod(ctx, *clientIntents, dbInstanceName); err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonAnnotatingPodFailedWithDBAccessFailed,
 			"Failed annotating pod with databse: %s", err.Error())
 		return errors.Wrap(err)
@@ -251,7 +253,7 @@ func (r *DatabaseReconciler) getClusterID(ctx context.Context) (string, error) {
 	return clusterID, nil
 }
 
-func (r *DatabaseReconciler) annotateDatabaseOnPod(ctx context.Context, intents otterizev1alpha3.ClientIntents, dbInstance string) error {
+func (r *DatabaseReconciler) handleDatabaseAnnotationOnPod(ctx context.Context, intents otterizev1alpha3.ClientIntents, dbInstance string) error {
 	// We annotate a pod here to trigger the credentials operator flow
 	// It will create a user-password secret and modify the databases so those credentials could connect successfully
 	// We only annotate one pod since we just need to trigger the credentials operator once, to create the secret
@@ -266,22 +268,39 @@ func (r *DatabaseReconciler) annotateDatabaseOnPod(ctx context.Context, intents 
 		}
 		return errors.Wrap(err)
 	}
+
+	if !pod.DeletionTimestamp.IsZero() {
+		return nil
+	}
+
 	updatedPod := pod.DeepCopy()
-	allowedDatabases, ok := updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation]
-	if !ok {
-		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = dbInstance
+	updatedPod.Annotations[databaseconfigurator.LatestAccessChangeAnnotation] = time.Now().Format(time.RFC3339)
+	if !intents.DeletionTimestamp.IsZero() {
+		// Clean all databases
+		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = ""
 	} else {
-		databaseSlice := strings.Split(allowedDatabases, ",")
-		if !slices.Contains(databaseSlice, dbInstance) {
-			databaseSlice = append(databaseSlice, dbInstance)
-		}
-		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = strings.Join(databaseSlice, ",")
+		// We cannot simply add all DB instances mentioned in the client intents because we also depend on server configs
+		// So we add one instance at a time, and only those which the operator successfully created a user for
+		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = strings.Join(getAllowedDatabasesSlice(pod, dbInstance), ",")
 	}
 
 	if err := r.client.Patch(ctx, updatedPod, client.MergeFrom(&pod)); err != nil {
 		return errors.Wrap(err)
 	}
 	return nil
+}
+
+func getAllowedDatabasesSlice(pod corev1.Pod, dbInstance string) []string {
+	allowedDatabases, ok := pod.Annotations[databaseconfigurator.DatabaseAccessAnnotation]
+	if !ok {
+		return []string{dbInstance}
+	} else {
+		databaseSlice := strings.Split(allowedDatabases, ",")
+		if !slices.Contains(databaseSlice, dbInstance) {
+			databaseSlice = append(databaseSlice, dbInstance)
+		}
+		return databaseSlice
+	}
 }
 
 func getDBNameToDatabaseResourcesFromIntents(intents []otterizev1alpha3.Intent) map[string][]otterizev1alpha3.DatabaseResource {
