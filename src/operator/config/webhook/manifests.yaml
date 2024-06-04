@@ -50,6 +50,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-k8s-otterize-com-v2alpha1-clientintents
+  failurePolicy: Fail
+  name: clientintentsv2alpha1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clientintents
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-k8s-otterize-com-v1alpha3-mysqlserverconfig
   failurePolicy: Fail
   name: mysqlserverconfig.kb.io

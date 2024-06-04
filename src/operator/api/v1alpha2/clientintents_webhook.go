@@ -18,6 +18,7 @@ package v1alpha2
 
 import (
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
@@ -32,11 +33,9 @@ func (in *ClientIntents) SetupWebhookWithManager(mgr ctrl.Manager, validator adm
 
 // ConvertTo converts this ClientIntents to the Hub version (v1alpha3).
 func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v1alpha3.ClientIntents)
+	dst := &v1alpha3.ClientIntents{}
+	dst.Spec = &v1alpha3.IntentsSpec{}
 	dst.ObjectMeta = in.ObjectMeta
-	if dst.Spec == nil {
-		dst.Spec = &v1alpha3.IntentsSpec{}
-	}
 	dst.Spec.Service.Name = in.Spec.Service.Name
 	dst.Spec.Calls = make([]v1alpha3.Intent, len(in.Spec.Calls))
 	for i, call := range in.Spec.Calls {
@@ -46,7 +45,7 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 		dst.Spec.Calls[i].HTTPResources = convertHTTPResourcesV1alpha2toV1alpha3(call.HTTPResources)
 		dst.Spec.Calls[i].DatabaseResources = convertDatabaseResourcesV1alpha2toV1alpha3(call.DatabaseResources)
 	}
-	return nil
+	return dst.ConvertTo(dstRaw)
 }
 
 func convertDatabaseResourcesV1alpha2toV1alpha3(srcResources []DatabaseResource) []v1alpha3.DatabaseResource {
@@ -83,7 +82,10 @@ func convertTopicsV1alpha2toV1alpha3(srcTopics []KafkaTopic) []v1alpha3.KafkaTop
 
 // ConvertFrom converts the Hub version (v1alpha3) to this ClientIntents.
 func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1alpha3.ClientIntents)
+	src := &v1alpha3.ClientIntents{}
+	if err := src.ConvertFrom(srcRaw); err != nil {
+		return errors.Wrap(err)
+	}
 	in.ObjectMeta = src.ObjectMeta
 	if in.Spec == nil {
 		in.Spec = &IntentsSpec{}

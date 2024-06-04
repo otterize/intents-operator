@@ -415,6 +415,334 @@ spec:
             type: object
         type: object
     served: true
+    storage: false
+    subresources:
+      status: {}
+  - name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClientIntents is the Schema for the intents API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: IntentsSpec defines the desired state of ClientIntents
+            properties:
+              calls:
+                items:
+                  properties:
+                    aws:
+                      properties:
+                        actions:
+                          items:
+                            type: string
+                          type: array
+                        arn:
+                          type: string
+                      type: object
+                    azure:
+                      properties:
+                        keyVaultPolicy:
+                          properties:
+                            certificatePermissions:
+                              items:
+                                enum:
+                                - all
+                                - backup
+                                - create
+                                - delete
+                                - deleteissuers
+                                - get
+                                - getissuers
+                                - import
+                                - list
+                                - listissuers
+                                - managecontacts
+                                - manageissuers
+                                - purge
+                                - recover
+                                - restore
+                                - setissuers
+                                - update
+                                type: string
+                              type: array
+                            keyPermissions:
+                              items:
+                                enum:
+                                - all
+                                - backup
+                                - create
+                                - decrypt
+                                - delete
+                                - encrypt
+                                - get
+                                - getrotationpolicy
+                                - import
+                                - list
+                                - purge
+                                - recover
+                                - release
+                                - restore
+                                - rotate
+                                - setrotationpolicy
+                                - sign
+                                - unwrapkey
+                                - update
+                                - verify
+                                - wrapkey
+                                type: string
+                              type: array
+                            secretPermissions:
+                              items:
+                                enum:
+                                - all
+                                - backup
+                                - delete
+                                - get
+                                - list
+                                - purge
+                                - recover
+                                - restore
+                                - set
+                                type: string
+                              type: array
+                            storagePermissions:
+                              items:
+                                enum:
+                                - all
+                                - backup
+                                - delete
+                                - deletesas
+                                - get
+                                - getsas
+                                - list
+                                - listsas
+                                - purge
+                                - recover
+                                - regeneratekey
+                                - restore
+                                - set
+                                - setsas
+                                - update
+                                type: string
+                              type: array
+                          type: object
+                        roles:
+                          items:
+                            type: string
+                          type: array
+                        scope:
+                          type: string
+                      type: object
+                    gcp:
+                      properties:
+                        permissions:
+                          items:
+                            type: string
+                          type: array
+                        resource:
+                          type: string
+                      type: object
+                    internet:
+                      properties:
+                        domains:
+                          items:
+                            type: string
+                          type: array
+                        ips:
+                          items:
+                            type: string
+                          type: array
+                        ports:
+                          items:
+                            type: integer
+                          type: array
+                      type: object
+                    kafka:
+                      properties:
+                        name:
+                          type: string
+                        topics:
+                          items:
+                            properties:
+                              name:
+                                type: string
+                              operations:
+                                items:
+                                  enum:
+                                  - all
+                                  - consume
+                                  - produce
+                                  - create
+                                  - alter
+                                  - delete
+                                  - describe
+                                  - ClusterAction
+                                  - DescribeConfigs
+                                  - AlterConfigs
+                                  - IdempotentWrite
+                                  type: string
+                                type: array
+                            required:
+                            - name
+                            - operations
+                            type: object
+                          type: array
+                      required:
+                      - name
+                      type: object
+                    kubernetes:
+                      properties:
+                        HTTPResources:
+                          items:
+                            properties:
+                              methods:
+                                items:
+                                  enum:
+                                  - GET
+                                  - POST
+                                  - PUT
+                                  - DELETE
+                                  - OPTIONS
+                                  - TRACE
+                                  - PATCH
+                                  - CONNECT
+                                  type: string
+                                type: array
+                              path:
+                                type: string
+                            required:
+                            - methods
+                            - path
+                            type: object
+                          type: array
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                      - kind
+                      - name
+                      type: object
+                    service:
+                      properties:
+                        HTTPResources:
+                          items:
+                            properties:
+                              methods:
+                                items:
+                                  enum:
+                                  - GET
+                                  - POST
+                                  - PUT
+                                  - DELETE
+                                  - OPTIONS
+                                  - TRACE
+                                  - PATCH
+                                  - CONNECT
+                                  type: string
+                                type: array
+                              path:
+                                type: string
+                            required:
+                            - methods
+                            - path
+                            type: object
+                          type: array
+                        name:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    sql:
+                      properties:
+                        databaseName:
+                          type: string
+                        name:
+                          type: string
+                        permissions:
+                          items:
+                            properties:
+                              databaseName:
+                                type: string
+                              operations:
+                                items:
+                                  enum:
+                                  - ALL
+                                  - SELECT
+                                  - INSERT
+                                  - UPDATE
+                                  - DELETE
+                                  type: string
+                                type: array
+                              table:
+                                type: string
+                            required:
+                            - databaseName
+                            - table
+                            type: object
+                          type: array
+                      required:
+                      - databaseName
+                      - name
+                      type: object
+                  type: object
+                type: array
+              service:
+                properties:
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - calls
+            - service
+            type: object
+          status:
+            description: IntentsStatus defines the observed state of ClientIntents
+            properties:
+              observedGeneration:
+                description: The last generation of the intents that was successfully
+                  reconciled.
+                format: int64
+                type: integer
+              resolvedIPs:
+                items:
+                  properties:
+                    dns:
+                      type: string
+                    ips:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
+              upToDate:
+                description: |-
+                  upToDate field reflects whether the client intents have successfully been applied
+                  to the cluster to the state specified
+                type: boolean
+            type: object
+        type: object
+    served: true
     storage: true
     subresources:
       status: {}

@@ -91,6 +91,29 @@ func (ksc *KafkaServerConfig) ConvertTo(dstRaw conversion.Hub) error {
 	return nil
 }
 
+func (ksc *KafkaServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v2alpha1.KafkaServerConfig)
+	ksc.ObjectMeta = src.ObjectMeta
+	// convert each spec attribute
+	ksc.Spec.Service.Name = src.Spec.Service.Name
+	ksc.Spec.NoAutoCreateIntentsForOperator = src.Spec.NoAutoCreateIntentsForOperator
+	ksc.Spec.Addr = src.Spec.Addr
+	ksc.Spec.TLS = TLSSource{
+		CertFile:   src.Spec.TLS.CertFile,
+		KeyFile:    src.Spec.TLS.KeyFile,
+		RootCAFile: src.Spec.TLS.RootCAFile,
+	}
+	ksc.Spec.Topics = make([]TopicConfig, len(src.Spec.Topics))
+	for i, topic := range src.Spec.Topics {
+		ksc.Spec.Topics[i].Topic = topic.Topic
+		ksc.Spec.Topics[i].Pattern = ResourcePatternType(topic.Pattern)
+		ksc.Spec.Topics[i].ClientIdentityRequired = topic.ClientIdentityRequired
+		ksc.Spec.Topics[i].IntentsRequired = topic.IntentsRequired
+	}
+	return nil
+
+}
+
 // ProtectedService //
 
 func (in *ProtectedService) SetupWebhookWithManager(mgr ctrl.Manager, validator webhook.CustomValidator) error {
