@@ -222,8 +222,8 @@ const (
 
 // IntentsSpec defines the desired state of ClientIntents
 type IntentsSpec struct {
-	Workload Workload `json:"service" yaml:"service"`
-	Targets  []Target `json:"calls" yaml:"calls"`
+	Workload Workload `json:"workload" yaml:"workload"`
+	Targets  []Target `json:"targets" yaml:"targets"`
 }
 
 type Workload struct {
@@ -297,15 +297,15 @@ type Internet struct {
 }
 
 type SQLTarget struct {
-	Name         string `json:"name" yaml:"name"`
-	DatabaseName string `json:"databaseName" yaml:"databaseName"`
+	Name string `json:"name" yaml:"name"`
 	//+optional
 	Permissions []SQLPermissions `json:"permissions,omitempty" yaml:"permissions,omitempty"`
 }
 
 type SQLPermissions struct {
-	Table        string `json:"table" yaml:"table"`
 	DatabaseName string `json:"databaseName" yaml:"databaseName"`
+	//+optional
+	Table string `json:"table" yaml:"table"`
 	//+optional
 	Operations []DatabaseOperation `json:"operations" yaml:"operations"`
 }
@@ -473,7 +473,35 @@ func (in *Target) GetTargetServerNamespace(intentsObjNamespace string) string {
 }
 
 func (in *Target) IsTargetServerKubernetesService() bool {
-	return in.Service != nil || in.Kubernetes.Kind == serviceidentity.KindService
+	return in.Service != nil || (in.Kubernetes != nil && in.Kubernetes.Kind == serviceidentity.KindService)
+}
+
+func (in *Target) GetIntentType() IntentType {
+	if in.Kubernetes != nil && in.Kubernetes.HTTP != nil {
+		return IntentTypeHTTP
+	}
+	if in.Service != nil && in.Service.HTTP != nil {
+		return IntentTypeHTTP
+	}
+	if in.Kafka != nil {
+		return IntentTypeKafka
+	}
+	if in.SQL != nil {
+		return IntentTypeDatabase
+	}
+	if in.AWS != nil {
+		return IntentTypeAWS
+	}
+	if in.GCP != nil {
+		return IntentTypeGCP
+	}
+	if in.Azure != nil {
+		return IntentTypeAzure
+	}
+	if in.Internet != nil {
+		return IntentTypeInternet
+	}
+	return ""
 }
 
 func (in *Target) IsTargetTheKubernetesAPIServer(objectNamespace string) bool {
@@ -556,7 +584,7 @@ func (in *Target) GetK8sServiceFullyQualifiedName(intentsObjNamespace string) (s
 	return "", false
 }
 
-func (in *Target) typeAsGQLType() graphqlclient.IntentType {
+func (in *Target) typeAsGQLTypeUnsafe() graphqlclient.IntentType {
 	if in.Kubernetes != nil && in.Kubernetes.HTTP != nil {
 		return graphqlclient.IntentTypeHttp
 	}
@@ -583,6 +611,13 @@ func (in *Target) typeAsGQLType() graphqlclient.IntentType {
 		return graphqlclient.IntentTypeInternet
 	}
 
+	return ""
+}
+
+func (in *Target) typeAsGQLType() graphqlclient.IntentType {
+	if gqlType := in.typeAsGQLTypeUnsafe(); gqlType != "" {
+		return gqlType
+	}
 	panic("Not supposed to reach here")
 }
 
@@ -610,30 +645,31 @@ func (in *ClientIntents) IsServerMissingSidecar(intent Target) (bool, error) {
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
-	serverIdentity := intent.ToServiceIdentity(in.Namespace).GetFormattedOtterizeIdentityWithoutKind()
+	identity := intent.ToServiceIdentity(in.Namespace)
+	serverIdentity := identity.GetFormattedOtterizeIdentityWithoutKind()
 	return serversSet.Has(serverIdentity), nil
 }
 
-//func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentInput, error) {
-//	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
-//	for _, clientIntents := range in.Items {
-//		for _, intent := range clientIntents.GetCallsList() {
-//			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetWorkloadName())
-//			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
-//			if err != nil {
-//				return nil, errors.Wrap(err)
-//			}
-//
-//			input.Status = nil
-//			if ok {
-//				input.Status = statusInput
-//			}
-//			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
-//		}
-//	}
-//
-//	return otterizeIntents, nil
-//}
+func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentInput, error) {
+	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
+	for _, clientIntents := range in.Items {
+		for _, intent := range clientIntents.GetCallsList() {
+			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetWorkloadName())
+			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+
+			input.Status = nil
+			if ok {
+				input.Status = statusInput
+			}
+			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
+		}
+	}
+
+	return otterizeIntents, nil
+}
 
 func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Target) (*graphqlclient.IntentStatusInput, bool, error) {
 	status := graphqlclient.IntentStatusInput{
@@ -737,88 +773,97 @@ func enumSliceToStrPtrSlice[T ~string](enumSlice []T) []*string {
 	})
 }
 
-//func (in *Target) ConvertToCloudFormat(resourceNamespace string, clientName string) graphqlclient.IntentInput {
-//	otterizeTopics := lo.Map(in.Topics, func(topic KafkaTarget, i int) *graphqlclient.KafkaConfigInput {
-//		return lo.ToPtr(graphqlclient.KafkaConfigInput{
-//			Table: lo.ToPtr(topic.Table),
-//			Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) *graphqlclient.KafkaOperation {
-//				operation := kafkaOperationK8sToCloud(op)
-//				return &operation
-//			}),
-//		})
-//	})
-//
-//	intentInput := graphqlclient.IntentInput{
-//		ClientName:      lo.ToPtr(clientName),
-//		ServerName:      lo.ToPtr(in.GetTargetServerName()),
-//		Namespace:       lo.ToPtr(resourceNamespace),
-//		ServerNamespace: toPtrOrNil(in.GetTargetServerNamespace(resourceNamespace)),
-//	}
-//
-//	if in.Type != "" {
-//		intentInput.Type = lo.ToPtr(in.typeAsGQLType())
-//	}
-//
-//	if in.HTTPResources != nil {
-//		intentInput.Resources = lo.Map(in.HTTPResources, intentsHTTPResourceToCloud)
-//	}
-//
-//	if in.Database != nil {
-//		intentInput.DatabaseResources = lo.Map(in.Database, func(resource DatabaseResource, _ int) *graphqlclient.DatabaseConfigInput {
-//			databaseConfigInput := graphqlclient.DatabaseConfigInput{
-//				Table:  lo.ToPtr(resource.Table),
-//				Dbname: lo.ToPtr(resource.DatabaseName),
-//				Operations: lo.Map(resource.Operations, func(operation DatabaseOperation, _ int) *graphqlclient.DatabaseOperation {
-//					cloudOperation := databaseOperationToCloud(operation)
-//					return &cloudOperation
-//				}),
-//			}
-//			return &databaseConfigInput
-//		})
-//	}
-//
-//	if in.Internet != nil {
-//		intentInput.Internet = &graphqlclient.InternetConfigInput{}
-//		if len(in.Internet.Domains) != 0 {
-//			intentInput.Internet.Domains = lo.ToSlicePtr(in.Internet.Domains)
-//		}
-//		if len(in.Internet.Ips) != 0 {
-//			intentInput.Internet.Ips = lo.ToSlicePtr(in.Internet.Ips)
-//		}
-//		if in.Internet.Ports != nil && len(in.Internet.Ports) != 0 {
-//			intentInput.Internet.Ports = lo.ToSlicePtr(in.Internet.Ports)
-//		}
-//	}
-//
-//	if len(in.AWSActions) != 0 {
-//		intentInput.AwsActions = lo.ToSlicePtr(in.AWSActions)
-//	}
-//
-//	if len(in.AzureRoles) != 0 {
-//		intentInput.AzureRoles = lo.ToSlicePtr(in.AzureRoles)
-//	}
-//
-//	if in.KeyVaultPolicy != nil {
-//		intentInput.KeyVaultPolicy = &graphqlclient.AzureKeyVaultPolicyInput{
-//			CertificatePermissions: enumSliceToStrPtrSlice(in.KeyVaultPolicy.CertificatePermissions),
-//			KeyPermissions:         enumSliceToStrPtrSlice(in.KeyVaultPolicy.KeyPermissions),
-//			SecretPermissions:      enumSliceToStrPtrSlice(in.KeyVaultPolicy.SecretPermissions),
-//			StoragePermissions:     enumSliceToStrPtrSlice(in.KeyVaultPolicy.StoragePermissions),
-//		}
-//	}
-//
-//	if len(in.GCPPermissions) != 0 {
-//		intentInput.GcpPermissions = lo.ToSlicePtr(in.GCPPermissions)
-//	}
-//
-//	if len(otterizeTopics) != 0 {
-//		intentInput.Topics = otterizeTopics
-//	}
-//
-//	return intentInput
-//}
+func (in *Target) GetHTTPResources() []HTTPTarget {
+	if in.Kubernetes != nil && len(in.Kubernetes.HTTP) > 0 {
+		return in.Kubernetes.HTTP
+	}
+	if in.Service != nil && len(in.Kubernetes.HTTP) > 0 {
+		return in.Service.HTTP
+	}
+	return make([]HTTPTarget, 0)
+}
 
-func intentsHTTPResourceToCloud(resource HTTPTarget, index int) *graphqlclient.HTTPConfigInput {
+func (in *Target) ConvertToCloudFormat(resourceNamespace string, clientName string) graphqlclient.IntentInput {
+
+	intentInput := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr(in.GetTargetServerName()),
+		Namespace:       lo.ToPtr(resourceNamespace),
+		ServerNamespace: toPtrOrNil(in.GetTargetServerNamespace(resourceNamespace)),
+	}
+	if gqlType := in.typeAsGQLTypeUnsafe(); gqlType != "" {
+		intentInput.Type = lo.ToPtr(gqlType)
+	}
+
+	if in.Kafka != nil {
+		otterizeTopics := lo.Map(in.Kafka.Topics, func(topic KafkaTopic, i int) *graphqlclient.KafkaConfigInput {
+			return lo.ToPtr(graphqlclient.KafkaConfigInput{
+				Name: lo.ToPtr(topic.Name),
+				Operations: lo.Map(topic.Operations, func(op KafkaOperation, i int) *graphqlclient.KafkaOperation {
+					operation := kafkaOperationK8sToCloud(op)
+					return &operation
+				}),
+			})
+		})
+		intentInput.Topics = otterizeTopics
+	}
+
+	if in.typeAsGQLTypeUnsafe() == graphqlclient.IntentTypeHttp {
+		intentInput.Resources = lo.Map(in.GetHTTPResources(), intentsHTTPResourceToCloud)
+	}
+
+	if in.SQL != nil {
+		intentInput.DatabaseResources = lo.Map(in.SQL.Permissions, func(resource SQLPermissions, _ int) *graphqlclient.DatabaseConfigInput {
+			databaseConfigInput := graphqlclient.DatabaseConfigInput{
+				Table:  lo.ToPtr(resource.Table),
+				Dbname: lo.ToPtr(resource.DatabaseName),
+				Operations: lo.Map(resource.Operations, func(operation DatabaseOperation, _ int) *graphqlclient.DatabaseOperation {
+					cloudOperation := databaseOperationToCloud(operation)
+					return &cloudOperation
+				}),
+			}
+			return &databaseConfigInput
+		})
+	}
+
+	if in.Internet != nil {
+		intentInput.Internet = &graphqlclient.InternetConfigInput{}
+		if len(in.Internet.Domains) != 0 {
+			intentInput.Internet.Domains = lo.ToSlicePtr(in.Internet.Domains)
+		}
+		if len(in.Internet.Ips) != 0 {
+			intentInput.Internet.Ips = lo.ToSlicePtr(in.Internet.Ips)
+		}
+		if in.Internet.Ports != nil && len(in.Internet.Ports) != 0 {
+			intentInput.Internet.Ports = lo.ToSlicePtr(in.Internet.Ports)
+		}
+		intentInput.Type = lo.ToPtr(graphqlclient.IntentTypeInternet)
+	}
+
+	if in.AWS != nil {
+		intentInput.AwsActions = lo.ToSlicePtr(in.AWS.Actions)
+	}
+
+	if in.Azure != nil {
+		intentInput.AzureRoles = lo.ToSlicePtr(in.Azure.Roles)
+		if in.Azure.KeyVaultPolicy != nil {
+			intentInput.AzureKeyVaultPolicy = &graphqlclient.AzureKeyVaultPolicyInput{
+				CertificatePermissions: enumSliceToStrPtrSlice(in.Azure.KeyVaultPolicy.CertificatePermissions),
+				KeyPermissions:         enumSliceToStrPtrSlice(in.Azure.KeyVaultPolicy.KeyPermissions),
+				SecretPermissions:      enumSliceToStrPtrSlice(in.Azure.KeyVaultPolicy.SecretPermissions),
+				StoragePermissions:     enumSliceToStrPtrSlice(in.Azure.KeyVaultPolicy.StoragePermissions),
+			}
+		}
+	}
+
+	if in.GCP != nil {
+		intentInput.GcpPermissions = lo.ToSlicePtr(in.GCP.Permissions)
+	}
+
+	return intentInput
+}
+
+func intentsHTTPResourceToCloud(resource HTTPTarget, _ int) *graphqlclient.HTTPConfigInput {
 	methods := lo.Map(resource.Methods, func(method HTTPMethod, _ int) *graphqlclient.HTTPMethod {
 		return lo.ToPtr(graphqlclient.HTTPMethod(method))
 	})

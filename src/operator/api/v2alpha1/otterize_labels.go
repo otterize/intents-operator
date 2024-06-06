@@ -100,7 +100,7 @@ func GetOtterizeLabelsFromPod(pod *v1.Pod) map[string]string {
 	return otterizeLabels
 }
 
-func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient client.Client, identity *serviceidentity.ServiceIdentity) (map[string]string, bool, error) {
+func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient client.Client, identity serviceidentity.ServiceIdentity) (map[string]string, bool, error) {
 	// This is here for backwards compatibility
 	if identity.Kind == "" || identity.Kind == serviceidentity.KindOtterizeLegacy {
 		return map[string]string{OtterizeServiceLabelKey: identity.GetFormattedOtterizeIdentityWithoutKind()}, true, nil

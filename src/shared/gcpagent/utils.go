@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/iam/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"strings"
 
@@ -42,7 +42,7 @@ func (a *Agent) GetGSAFullName(namespace string, accountName string) string {
 	return fmt.Sprintf("%s@%s.iam.gserviceaccount.com", gsaName, a.projectID)
 }
 
-func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName string, ksaName string, intents []otterizev1alpha3.Intent) (*v1beta1.IAMPartialPolicy, error) {
+func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName string, ksaName string, intents []otterizev2alpha1.Target) (*v1beta1.IAMPartialPolicy, error) {
 	policyName := a.generateKSAPolicyName(namespace, intentsServiceName)
 	gsaFullName := a.GetGSAFullName(namespace, ksaName)
 	saMember := fmt.Sprintf("serviceAccount:%s", gsaFullName)
@@ -63,21 +63,21 @@ func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName st
 
 	// Populate bindings
 	for _, intent := range intents {
-		expression := fmt.Sprintf("resource.name == \"%s\"", intent.Name)
-		if strings.Contains(intent.Name, "*") {
-			if strings.Index(intent.Name, "*") != len(intent.Name)-1 {
-				return nil, fmt.Errorf("wildcard in the middle of the name is not supported: %s", intent.Name)
+		expression := fmt.Sprintf("resource.name == \"%s\"", intent.GetTargetServerName())
+		if strings.Contains(intent.GetTargetServerName(), "*") {
+			if strings.Index(intent.GetTargetServerName(), "*") != len(intent.GetTargetServerName())-1 {
+				return nil, fmt.Errorf("wildcard in the middle of the name is not supported: %s", intent.GetTargetServerName())
 			}
 
-			cleanName := strings.ReplaceAll(intent.Name, "*", "")
+			cleanName := strings.ReplaceAll(intent.GetTargetServerName(), "*", "")
 			expression = fmt.Sprintf("resource.name.startsWith(\"%s\")", cleanName)
 		}
 		condition := v1beta1.PartialpolicyCondition{
-			Title:      fmt.Sprintf("otr-%s", intent.Name),
+			Title:      fmt.Sprintf("otr-%s", intent.GetTargetServerName()),
 			Expression: expression,
 		}
 
-		for _, permission := range intent.GCPPermissions {
+		for _, permission := range intent.GCP.Permissions {
 			binding := v1beta1.PartialpolicyBindings{
 				Role:      fmt.Sprintf("roles/%s", permission),
 				Members:   []v1beta1.PartialpolicyMembers{{Member: &saMember}},

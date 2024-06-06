@@ -2,7 +2,7 @@ package awspolicyagent
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/awsagent/multi_account_aws_agent"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -22,15 +22,15 @@ func NewMultiaccountAWSPolicyAgent(ctx context.Context, accounts []operatorconfi
 	return &MultiaccountAWSPolicyAgent{agents: agents}, nil
 }
 
-func (m *MultiaccountAWSPolicyAgent) IntentType() otterizev1alpha3.IntentType {
-	return otterizev1alpha3.IntentTypeAWS
+func (m *MultiaccountAWSPolicyAgent) IntentType() otterizev2alpha1.IntentType {
+	return otterizev2alpha1.IntentTypeAWS
 }
 
 func (m *MultiaccountAWSPolicyAgent) AppliesOnPod(pod *corev1.Pod) bool {
 	return awsagent.AppliesOnPod(pod)
 }
 
-func (m *MultiaccountAWSPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent, pod corev1.Pod) error {
+func (m *MultiaccountAWSPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev2alpha1.Target, pod corev1.Pod) error {
 	agent, err := m.getAgentForPod(&pod)
 	if err != nil {
 		return errors.Wrap(err)
@@ -38,7 +38,7 @@ func (m *MultiaccountAWSPolicyAgent) AddRolePolicyFromIntents(ctx context.Contex
 	return agent.AddRolePolicyFromIntents(ctx, namespace, accountName, intentsServiceName, intents, pod)
 }
 
-func (m *MultiaccountAWSPolicyAgent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev1alpha3.ClientIntents) error {
+func (m *MultiaccountAWSPolicyAgent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
 	// Go over all accounts and delete policies
 	for _, agent := range m.agents {
 		err := agent.DeleteRolePolicyFromIntents(ctx, intents)

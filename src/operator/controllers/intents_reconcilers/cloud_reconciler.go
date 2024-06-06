@@ -2,7 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -44,12 +44,12 @@ func NewOtterizeCloudReconciler(
 
 func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	// Report Applied intents from namespace
-	clientIntentsList := &otterizev1alpha3.ClientIntentsList{}
+	clientIntentsList := &otterizev2alpha1.ClientIntentsList{}
 	if err := r.List(ctx, clientIntentsList, &client.ListOptions{Namespace: req.Namespace}); err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	clientIntentsList.Items = lo.Filter(clientIntentsList.Items, func(intents otterizev1alpha3.ClientIntents, _ int) bool {
+	clientIntentsList.Items = lo.Filter(clientIntentsList.Items, func(intents otterizev2alpha1.ClientIntents, _ int) bool {
 		return intents.DeletionTimestamp == nil
 	})
 
@@ -78,11 +78,11 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 	ctx context.Context,
-	clientIntentsList *otterizev1alpha3.ClientIntentsList) (*otterizev1alpha3.ClientIntentsList, error) {
+	clientIntentsList *otterizev2alpha1.ClientIntentsList) (*otterizev2alpha1.ClientIntentsList, error) {
 
 	// TODO: Remove when access graph supports Kubernetes services
 	for _, clientIntent := range clientIntentsList.Items {
-		callList := make([]otterizev1alpha3.Intent, 0)
+		callList := make([]otterizev2alpha1.Target, 0)
 		for _, intent := range clientIntent.GetCallsList() {
 			if !intent.IsTargetServerKubernetesService() {
 				callList = append(callList, intent)
@@ -90,7 +90,12 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 			}
 			if intent.IsTargetTheKubernetesAPIServer(clientIntent.Namespace) {
 				intentCopy := intent.DeepCopy()
-				intentCopy.Name = intent.GetServerFullyQualifiedName(clientIntent.Namespace)
+				if intent.Kubernetes != nil {
+					intentCopy.Kubernetes.Name = intent.GetServerFullyQualifiedName(clientIntent.Namespace)
+				}
+				if intent.Service != nil {
+					intentCopy.Service.Name = intent.GetServerFullyQualifiedName(clientIntent.Namespace)
+				}
 				callList = append(callList, intent)
 				continue
 			}
@@ -118,10 +123,15 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 				if err != nil {
 					return nil, errors.Wrap(err)
 				}
-				intent.Name = otterizeIdentity.Name
+				if intent.Kubernetes != nil {
+					intent.Kubernetes.Name = otterizeIdentity.Name
+				}
+				if intent.Service != nil {
+					intent.Service.Name = otterizeIdentity.Name
+				}
 				callList = append(callList, intent)
 			}
-			clientIntent.Spec.Calls = callList
+			clientIntent.Spec.Targets = callList
 		}
 	}
 

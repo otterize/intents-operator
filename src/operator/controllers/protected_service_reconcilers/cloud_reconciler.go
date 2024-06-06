@@ -2,7 +2,7 @@ package protected_service_reconcilers
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -42,7 +42,7 @@ func (r *CloudReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 }
 
 func (r *CloudReconciler) reportAllProtectedServicesInNamespace(ctx context.Context, namespace string) error {
-	var protectedServices otterizev1alpha3.ProtectedServiceList
+	var protectedServices otterizev2alpha1.ProtectedServiceList
 	err := r.List(ctx, &protectedServices, client.InNamespace(namespace))
 	if err != nil {
 		return errors.Wrap(err)

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
@@ -34,6 +35,7 @@ import (
 	"path/filepath"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -68,15 +70,18 @@ func (s *ValidationWebhookTestSuite) SetupSuite() {
 	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev2alpha1.AddToScheme(s.TestEnv.Scheme))
 
 }
 
 func (s *ValidationWebhookTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
 	intentsValidator := NewIntentsValidatorV1alpha2(s.Mgr.GetClient())
-	s.Require().NoError(intentsValidator.SetupWebhookWithManager(s.Mgr))
-	intentsValidator3 := NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
-	s.Require().NoError(intentsValidator3.SetupWebhookWithManager(s.Mgr))
+	s.Require().NoError((&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator))
+	intentsValidator13 := NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator13))
+	intentsValidator2 := NewIntentsValidatorV2alpha1(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev2alpha1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
 }
 
 func (s *ValidationWebhookTestSuite) BeforeTest(suiteName, testName string) {
@@ -94,10 +99,10 @@ func (s *ValidationWebhookTestSuite) BeforeTest(suiteName, testName string) {
 }
 
 func (s *ValidationWebhookTestSuite) TestNoDuplicateClientsAllowed() {
-	_, err := s.AddIntentsV1alpha2("intents", "someclient", []otterizev1alpha2.Intent{})
+	_, err := s.AddIntentsv2alpha1("intents", "someclient", []otterizev2alpha1.Target{})
 	s.Require().NoError(err)
 
-	_, err = s.AddIntentsV1alpha2("intents2", "someclient", []otterizev1alpha2.Intent{})
+	_, err = s.AddIntentsv2alpha1("intents2", "someclient", []otterizev2alpha1.Target{})
 	s.Require().ErrorContains(err, "Intents for client someclient already exist in resource")
 }
 
@@ -145,56 +150,85 @@ func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntentsAfterUpdate() {
 
 func (s *ValidationWebhookTestSuite) TestNameRequiredForEveryTypeExceptInternet() {
 	missingNameFieldErr := "invalid intent format, field name is required"
-	_, err := s.AddIntentsV1alpha3("kafka-intents", "kafka-client", []otterizev1alpha3.Intent{
+	_, err := s.AddIntentsv2alpha1("kafka-intents", "kafka-client", []otterizev2alpha1.Target{
 		{
-			Type: otterizev1alpha3.IntentTypeKafka,
-			Topics: []otterizev1alpha3.KafkaTopic{{
-				Name:       "sometopic",
-				Operations: []otterizev1alpha3.KafkaOperation{otterizev1alpha3.KafkaOperationConsume},
-			}},
+			Kafka: &otterizev2alpha1.KafkaTarget{
+				Topics: []otterizev2alpha1.KafkaTopic{{
+					Name:       "sometopic",
+					Operations: []otterizev2alpha1.KafkaOperation{otterizev2alpha1.KafkaOperationConsume},
+				}},
+			},
 		},
 	})
+	logrus.Infof("Error: %v", err)
 	s.Require().ErrorContains(err, missingNameFieldErr)
 
-	_, err = s.AddIntentsV1alpha3("http-intents", "http-client", []otterizev1alpha3.Intent{
+	_, err = s.AddIntentsv2alpha1("http-intents", "http-client", []otterizev2alpha1.Target{
 		{
-			Type: otterizev1alpha3.IntentTypeHTTP,
-			HTTPResources: []otterizev1alpha3.HTTPResource{{
-				Path:    "/somepath",
-				Methods: []otterizev1alpha3.HTTPMethod{otterizev1alpha3.HTTPMethodGet},
-			}},
+			Kubernetes: &otterizev2alpha1.KubernetesTarget{
+				HTTP: []otterizev2alpha1.HTTPTarget{{
+					Path:    "/somepath",
+					Methods: []otterizev2alpha1.HTTPMethod{otterizev2alpha1.HTTPMethodGet},
+				}},
+			},
 		},
 	})
+	logrus.Infof("Error: %v", err)
 	s.Require().ErrorContains(err, missingNameFieldErr)
 
-	_, err = s.AddIntentsV1alpha3("database-intents", "database-client", []otterizev1alpha3.Intent{
+	_, err = s.AddIntentsv2alpha1("database-intents", "database-client", []otterizev2alpha1.Target{
 		{
-			Type: otterizev1alpha3.IntentTypeDatabase,
-			DatabaseResources: []otterizev1alpha3.DatabaseResource{{
-				Table:      "sometable",
-				Operations: []otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationSelect},
-			}},
+			SQL: &otterizev2alpha1.SQLTarget{
+				Permissions: []otterizev2alpha1.SQLPermissions{{
+					DatabaseName: "sadfsdf",
+					Table:        "sometable",
+					Operations:   []otterizev2alpha1.DatabaseOperation{otterizev2alpha1.DatabaseOperationSelect},
+				}},
+			},
 		},
 	})
+	logrus.Infof("Error: %v", err)
 	s.Require().ErrorContains(err, missingNameFieldErr)
 
-	_, err = s.AddIntentsV1alpha3("aws-intents", "aws-client", []otterizev1alpha3.Intent{
+	_, err = s.AddIntentsv2alpha1("aws-intents", "aws-client", []otterizev2alpha1.Target{
 		{
-			Type:       otterizev1alpha3.IntentTypeAWS,
-			AWSActions: []string{"s3:GetObject"},
+			AWS: &otterizev2alpha1.AWSTarget{
+				Actions: []string{"s3:GetObject"},
+			},
 		},
 	})
-	s.Require().ErrorContains(err, missingNameFieldErr)
+	logrus.Infof("Error: %v", err)
+	s.Require().ErrorContains(err, strings.Replace(missingNameFieldErr, "name", "ARN", 1))
 
-	_, err = s.AddIntentsV1alpha3("internet-intents", "internet-client", []otterizev1alpha3.Intent{
+	_, err = s.AddIntentsv2alpha1("azure-intents", "aws-client", []otterizev2alpha1.Target{
 		{
-			Type: otterizev1alpha3.IntentTypeInternet,
-			Internet: &otterizev1alpha3.Internet{
+			Azure: &otterizev2alpha1.AzureTarget{
+				Roles: []string{"Contributor"},
+			},
+		},
+	})
+	logrus.Infof("Error: %v", err)
+	s.Require().ErrorContains(err, strings.Replace(missingNameFieldErr, "name", "scope", 1))
+
+	_, err = s.AddIntentsv2alpha1("gcp-intents", "aws-client", []otterizev2alpha1.Target{
+		{
+			GCP: &otterizev2alpha1.GCPTarget{
+				Permissions: []string{"storage.objects.get"},
+			},
+		},
+	})
+	logrus.Infof("Error: %v", err)
+	s.Require().ErrorContains(err, strings.Replace(missingNameFieldErr, "name", "resource", 1))
+
+	_, err = s.AddIntentsv2alpha1("internet-intents", "internet-client", []otterizev2alpha1.Target{
+		{
+			Internet: &otterizev2alpha1.Internet{
 				Ips:   []string{"1.1.1.1"},
 				Ports: []int{80},
 			},
 		},
 	})
+	logrus.Infof("Error: %v", err)
 	s.Require().NoError(err)
 }
 

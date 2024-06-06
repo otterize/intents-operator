@@ -2,7 +2,7 @@ package serviceidresolver
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
@@ -22,7 +22,7 @@ var ErrPodNotFound = errors.NewSentinelError("pod not found")
 //+kubebuilder:rbac:groups="batch",resources=jobs;cronjobs,verbs=get;list;watch
 
 type ServiceResolver interface {
-	ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error)
+	ResolveClientIntentToPod(ctx context.Context, intent v2alpha1.ClientIntents) (corev1.Pod, error)
 	ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error)
 	ResolveServiceIdentityToPodSlice(ctx context.Context, identity serviceidentity.ServiceIdentity) ([]corev1.Pod, bool, error)
 }
@@ -135,7 +135,7 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 }
 
 func (r *Resolver) ResolveServiceIdentityToPodSlice(ctx context.Context, identity serviceidentity.ServiceIdentity) ([]corev1.Pod, bool, error) {
-	labels, ok, err := v1alpha3.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.client, identity)
+	labels, ok, err := v2alpha1.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.client, identity)
 	if err != nil {
 		return nil, false, errors.Wrap(err)
 	}
@@ -153,7 +153,7 @@ func (r *Resolver) ResolveServiceIdentityToPodSlice(ctx context.Context, identit
 	return pods, len(pods) > 0, nil
 }
 
-func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (corev1.Pod, error) {
+func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v2alpha1.ClientIntents) (corev1.Pod, error) {
 	serviceID := intent.ToServiceIdentity()
 	pods, ok, err := r.ResolveServiceIdentityToPodSlice(ctx, serviceID)
 	if err != nil {

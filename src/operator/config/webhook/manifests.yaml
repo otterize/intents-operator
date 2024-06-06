@@ -90,6 +90,26 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-k8s-otterize-com-v2alpha1-mysqlserverconfig
+  failurePolicy: Fail
+  name: mysqlserverconfigv2alpha1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - mysqlserverconfigs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig
   failurePolicy: Fail
   name: postgresqlserverconfig.kb.io
@@ -98,6 +118,26 @@ webhooks:
     - k8s.otterize.com
     apiVersions:
     - v1alpha3
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - postgresqlserverconfigs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-k8s-otterize-com-v2alpha1-postgresqlserverconfig
+  failurePolicy: Fail
+  name: postgresqlserverconfigv2alpha1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2alpha1
     operations:
     - CREATE
     - UPDATE
@@ -138,6 +178,26 @@ webhooks:
     - k8s.otterize.com
     apiVersions:
     - v1alpha3
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - protectedservice
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-k8s-otterize-com-v2alpha1-protectedservice
+  failurePolicy: Fail
+  name: protectedservicev2alpha1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2alpha1
     operations:
     - CREATE
     - UPDATE

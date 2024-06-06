@@ -3,7 +3,7 @@ package postgres
 import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"strings"
@@ -29,8 +29,8 @@ func (s SQLSprintfStatement) PrepareSanitized(a ...any) (string, error) {
 }
 
 func sanitizeFormatInput(formatInput any) (string, error) {
-	if dbOperations, ok := formatInput.([]otterizev1alpha3.DatabaseOperation); ok {
-		asStrings := lo.Map(dbOperations, func(op otterizev1alpha3.DatabaseOperation, _ int) string { return string(op) })
+	if dbOperations, ok := formatInput.([]otterizev2alpha1.DatabaseOperation); ok {
+		asStrings := lo.Map(dbOperations, func(op otterizev2alpha1.DatabaseOperation, _ int) string { return string(op) })
 		return strings.Join(asStrings, ","), nil
 	}
 

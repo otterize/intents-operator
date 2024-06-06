@@ -4,7 +4,7 @@ import (
 	"context"
 	goerrors "errors"
 	"github.com/amit7itz/goset"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
@@ -65,14 +65,14 @@ func (g *GroupReconciler) Reconcile(ctx context.Context) error {
 }
 
 func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([]ServiceEffectivePolicy, error) {
-	var intentsList v1alpha3.ClientIntentsList
+	var intentsList v2alpha1.ClientIntentsList
 
 	err := g.Client.List(ctx, &intentsList)
 	if err != nil {
 		return nil, err
 	}
 
-	serviceToIntent := make(map[serviceidentity.ServiceIdentity]v1alpha3.ClientIntents)
+	serviceToIntent := make(map[serviceidentity.ServiceIdentity]v2alpha1.ClientIntents)
 	// Extract all services from intents
 	services := goset.NewSet[serviceidentity.ServiceIdentity]()
 	for _, clientIntent := range intentsList.Items {
@@ -110,7 +110,7 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 }
 
 // shouldCreateEffectivePolicyForIntentTargetServer that checks if we should create a SEP for a given intent target server
-func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(intent v1alpha3.Intent, clinetIntentNamespace string) bool {
+func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(intent v2alpha1.Target, clinetIntentNamespace string) bool {
 	if intent.IsTargetOutOfCluster() {
 		return false
 	}
@@ -131,7 +131,7 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, servi
 		if !clientIntent.DeletionTimestamp.IsZero() || clientIntent.Spec == nil {
 			continue
 		}
-		clientCalls := g.filterAndTransformClientIntentsIntoClientCalls(clientIntent, func(intent v1alpha3.Intent) bool {
+		clientCalls := g.filterAndTransformClientIntentsIntoClientCalls(clientIntent, func(intent v2alpha1.Target) bool {
 			if service.Kind == serviceidentity.KindService {
 				return intent.IsTargetServerKubernetesService() && intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
 			}
@@ -142,8 +142,8 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, servi
 	return ep, nil
 }
 
-func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientIntent v1alpha3.ClientIntents, filter func(intent v1alpha3.Intent) bool) []ClientCall {
-	clientService := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Service.Name, Namespace: clientIntent.Namespace}
+func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientIntent v2alpha1.ClientIntents, filter func(intent v2alpha1.Target) bool) []ClientCall {
+	clientService := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Workload.Name, Namespace: clientIntent.Namespace}
 	clientCalls := make([]ClientCall, 0)
 	for _, intendedCall := range clientIntent.GetCallsList() {
 		if !filter(intendedCall) {
@@ -155,9 +155,9 @@ func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientI
 	return clientCalls
 }
 
-func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v1alpha3.ClientIntents, error) {
-	var intentsList v1alpha3.ClientIntentsList
-	matchFields := client.MatchingFields{v1alpha3.OtterizeFormattedTargetServerIndexField: server.GetFormattedOtterizeIdentityWithKind()}
+func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v2alpha1.ClientIntents, error) {
+	var intentsList v2alpha1.ClientIntentsList
+	matchFields := client.MatchingFields{v2alpha1.OtterizeFormattedTargetServerIndexField: server.GetFormattedOtterizeIdentityWithKind()}
 	err := g.Client.List(
 		ctx, &intentsList,
 		&matchFields,

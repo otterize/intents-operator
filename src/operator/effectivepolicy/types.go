@@ -1,7 +1,7 @@
 package effectivepolicy
 
 import (
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
@@ -9,15 +9,15 @@ import (
 
 type ClientCall struct {
 	Service             serviceidentity.ServiceIdentity
-	IntendedCall        v1alpha3.Intent
+	IntendedCall        v2alpha1.Target
 	ObjectEventRecorder *injectablerecorder.ObjectEventRecorder
 }
 
 type ServiceEffectivePolicy struct {
 	Service                    serviceidentity.ServiceIdentity
 	CalledBy                   []ClientCall
-	Calls                      []v1alpha3.Intent
-	ClientIntentsStatus        v1alpha3.IntentsStatus
+	Calls                      []v2alpha1.Target
+	ClientIntentsStatus        v2alpha1.IntentsStatus
 	ClientIntentsEventRecorder *injectablerecorder.ObjectEventRecorder
 }
 

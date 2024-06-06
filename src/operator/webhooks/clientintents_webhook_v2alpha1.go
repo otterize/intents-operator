@@ -185,6 +185,21 @@ func (v *IntentsValidatorV2alpha1) validateIntentTarget(intentTarget otterizev2a
 	if err := v.validateKafkaTarget(intentTarget.Kafka); err != nil {
 		return err
 	}
+	if err := v.validateSQLTarget(intentTarget.SQL); err != nil {
+		return err
+	}
+
+	if err := v.validateAWSTarget(intentTarget.AWS); err != nil {
+		return err
+	}
+
+	if err := v.validateGCPTarget(intentTarget.GCP); err != nil {
+		return err
+	}
+
+	if err := v.validateAzureTarget(intentTarget.Azure); err != nil {
+		return err
+	}
 
 	if err := v.validateInternetTarget(intentTarget.Internet); err != nil {
 		return err
@@ -237,7 +252,7 @@ func (v *IntentsValidatorV2alpha1) validateKubernetesTarget(kubernetesTarget *ot
 		return &field.Error{
 			Type:   field.ErrorTypeRequired,
 			Field:  "name",
-			Detail: "name is required",
+			Detail: "invalid intent format, field name is required",
 		}
 	}
 	if strings.Count(kubernetesTarget.Name, ".") > 1 {
@@ -265,7 +280,7 @@ func (v *IntentsValidatorV2alpha1) validateServiceTarget(serviceTarget *otterize
 		return &field.Error{
 			Type:   field.ErrorTypeRequired,
 			Field:  "name",
-			Detail: "name is required",
+			Detail: "invalid intent format, field name is required",
 		}
 	}
 	if strings.Count(serviceTarget.Name, ".") > 1 {
@@ -304,10 +319,74 @@ func (v *IntentsValidatorV2alpha1) validateKafkaTarget(kafkaTarget *otterizev2al
 		return &field.Error{
 			Type:   field.ErrorTypeRequired,
 			Field:  "name",
-			Detail: "name is required",
+			Detail: "invalid intent format, field name is required",
 		}
 	}
 	return nil
+}
+
+// validate SQLTarget
+func (v *IntentsValidatorV2alpha1) validateSQLTarget(sqlTarget *otterizev2alpha1.SQLTarget) *field.Error {
+	if sqlTarget == nil {
+		return nil
+	}
+	if sqlTarget.Name == "" {
+		return &field.Error{
+			Type:   field.ErrorTypeRequired,
+			Field:  "name",
+			Detail: "invalid intent format, field name is required",
+		}
+	}
+	return nil
+
+}
+
+// validate AWSTarget
+func (v *IntentsValidatorV2alpha1) validateAWSTarget(awsTarget *otterizev2alpha1.AWSTarget) *field.Error {
+	if awsTarget == nil {
+		return nil
+	}
+	if awsTarget.ARN == "" {
+		return &field.Error{
+			Type:   field.ErrorTypeRequired,
+			Field:  "ARN",
+			Detail: "invalid intent format, field ARN is required",
+		}
+	}
+	return nil
+
+}
+
+// validate GCPTarget
+func (v *IntentsValidatorV2alpha1) validateGCPTarget(gcpTarget *otterizev2alpha1.GCPTarget) *field.Error {
+	if gcpTarget == nil {
+		return nil
+	}
+	if gcpTarget.Resource == "" {
+		return &field.Error{
+			Type:   field.ErrorTypeRequired,
+			Field:  "resource",
+			Detail: "invalid intent format, field resource is required",
+		}
+	}
+	return nil
+
+}
+
+// validate AzureTarget
+func (v *IntentsValidatorV2alpha1) validateAzureTarget(azureTarget *otterizev2alpha1.AzureTarget) *field.Error {
+	if azureTarget == nil {
+		return nil
+	}
+	if azureTarget.Scope == "" {
+		return &field.Error{
+			Type:   field.ErrorTypeRequired,
+			Field:  "scope",
+			Detail: "invalid intent format, field scope is required",
+		}
+	}
+	return nil
+
 }
 
 // validate internet target

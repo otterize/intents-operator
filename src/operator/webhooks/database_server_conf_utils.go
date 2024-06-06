@@ -3,7 +3,7 @@ package webhooks
 import (
 	"context"
 	"fmt"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -27,11 +27,11 @@ type DatabaseServerConfig struct {
 }
 
 func buildAllConfigsList(ctx context.Context, c client.Client) ([]DatabaseServerConfig, error) {
-	pgServerConfList := otterizev1alpha3.PostgreSQLServerConfigList{}
+	pgServerConfList := otterizev2alpha1.PostgreSQLServerConfigList{}
 	if err := c.List(ctx, &pgServerConfList); err != nil {
 		return nil, errors.Wrap(err)
 	}
-	postgresConfigs := lo.Map(pgServerConfList.Items, func(conf otterizev1alpha3.PostgreSQLServerConfig, _ int) DatabaseServerConfig {
+	postgresConfigs := lo.Map(pgServerConfList.Items, func(conf otterizev2alpha1.PostgreSQLServerConfig, _ int) DatabaseServerConfig {
 		return DatabaseServerConfig{
 			Namespace: conf.Namespace,
 			Name:      conf.Name,
@@ -39,11 +39,11 @@ func buildAllConfigsList(ctx context.Context, c client.Client) ([]DatabaseServer
 		}
 	})
 
-	mysqlServerConfList := otterizev1alpha3.MySQLServerConfigList{}
+	mysqlServerConfList := otterizev2alpha1.MySQLServerConfigList{}
 	if err := c.List(ctx, &mysqlServerConfList); err != nil {
 		return nil, errors.Wrap(err)
 	}
-	mysqlConfigs := lo.Map(mysqlServerConfList.Items, func(conf otterizev1alpha3.MySQLServerConfig, _ int) DatabaseServerConfig {
+	mysqlConfigs := lo.Map(mysqlServerConfList.Items, func(conf otterizev2alpha1.MySQLServerConfig, _ int) DatabaseServerConfig {
 		return DatabaseServerConfig{
 			Namespace: conf.Namespace,
 			Name:      conf.Name,

@@ -2,7 +2,7 @@ package iam
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -43,7 +43,7 @@ func NewIAMIntentsReconciler(
 func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	logger := logrus.WithField("namespace", req.Namespace).WithField("name", req.Name)
 
-	intents := otterizev1alpha3.ClientIntents{}
+	intents := otterizev2alpha1.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, &intents)
 
 	if err != nil {
@@ -75,7 +75,7 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 				&intents,
 				consts.ReasonPodsNotFound,
 				"Could not find non-terminating pods for service %s in namespace %s. Intents could not be reconciled now, but will be reconciled if pods appear later.",
-				intents.Spec.Service.Name,
+				intents.Spec.Workload.Name,
 				intents.Namespace)
 			return ctrl.Result{}, nil
 		}
@@ -89,7 +89,7 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	return ctrl.Result{}, nil
 }
 
-func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod corev1.Pod, intents otterizev1alpha3.ClientIntents, agent iampolicyagents.IAMPolicyAgent) error {
+func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod corev1.Pod, intents otterizev2alpha1.ClientIntents, agent iampolicyagents.IAMPolicyAgent) error {
 	if !agent.AppliesOnPod(&pod) {
 		return nil
 	}
@@ -113,7 +113,7 @@ func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod cor
 	}
 
 	filteredIntents := intents.GetFilteredCallsList(intentType)
-	err = agent.AddRolePolicyFromIntents(ctx, pod.Namespace, serviceAccountName, intents.Spec.Service.Name, filteredIntents, pod)
+	err = agent.AddRolePolicyFromIntents(ctx, pod.Namespace, serviceAccountName, intents.Spec.Workload.Name, filteredIntents, pod)
 	if err != nil {
 		r.RecordWarningEventf(&intents, consts.ReasonReconcilingIAMPoliciesFailed, "Failed to reconcile IAM policies of type %s due to error: %s", intentType, err.Error())
 		return errors.Wrap(err)
@@ -123,8 +123,8 @@ func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod cor
 	return nil
 }
 
-func (r *IAMIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.Context, serviceAccountName string, namespace string, intentType otterizev1alpha3.IntentType) (bool, error) {
-	var intents otterizev1alpha3.ClientIntentsList
+func (r *IAMIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.Context, serviceAccountName string, namespace string, intentType otterizev2alpha1.IntentType) (bool, error) {
+	var intents otterizev2alpha1.ClientIntentsList
 	err := r.List(ctx, &intents, &client.ListOptions{Namespace: namespace})
 	if err != nil {
 		return false, errors.Wrap(err)
@@ -134,7 +134,7 @@ func (r *IAMIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.C
 		return false, nil
 	}
 
-	intentsWithSameTypeInSameNamespace := lo.Filter(intents.Items, func(intent otterizev1alpha3.ClientIntents, _ int) bool {
+	intentsWithSameTypeInSameNamespace := lo.Filter(intents.Items, func(intent otterizev2alpha1.ClientIntents, _ int) bool {
 		return len(intent.GetFilteredCallsList(intentType)) != 0
 	})
 

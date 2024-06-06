@@ -2,7 +2,7 @@ package builders
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
@@ -73,7 +73,7 @@ func (s *RulesBuilderTestSuiteBase) TearDownTest() {
 }
 
 func (s *RulesBuilderTestSuiteBase) ignoreRemoveDeprecatedPolicies() {
-	deprecatedLabels := []string{otterizev1alpha3.OtterizeEgressNetworkPolicy, otterizev1alpha3.OtterizeSvcEgressNetworkPolicy, otterizev1alpha3.OtterizeInternetNetworkPolicy, otterizev1alpha3.OtterizeSvcNetworkPolicy}
+	deprecatedLabels := []string{otterizev2alpha1.OtterizeEgressNetworkPolicy, otterizev2alpha1.OtterizeSvcEgressNetworkPolicy, otterizev2alpha1.OtterizeInternetNetworkPolicy, otterizev2alpha1.OtterizeSvcNetworkPolicy}
 	for _, label := range deprecatedLabels {
 		selectorRequirement := metav1.LabelSelectorRequirement{
 			Key:      label,
@@ -95,15 +95,15 @@ func (s *RulesBuilderTestSuiteBase) ignoreRemoveOrphan() {
 func (s *RulesBuilderTestSuiteBase) expectRemoveOrphanFindsPolicies(netpols []v1.NetworkPolicy) {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
+			Key:      otterizev2alpha1.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 		{
-			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
+			Key:      otterizev2alpha1.OtterizeNetworkPolicyExternalTraffic,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 		{
-			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
+			Key:      otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
@@ -120,16 +120,16 @@ func (s *RulesBuilderTestSuiteBase) expectRemoveOrphanFindsPolicies(netpols []v1
 	s.ignoreRemoveDeprecatedPolicies()
 }
 
-func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents []otterizev1alpha3.ClientIntents) {
-	var intentsList otterizev1alpha3.ClientIntentsList
+func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents []otterizev2alpha1.ClientIntents) {
+	var intentsList otterizev2alpha1.ClientIntentsList
 
-	s.Client.EXPECT().List(gomock.Any(), &intentsList).DoAndReturn(func(_ context.Context, intents *otterizev1alpha3.ClientIntentsList, _ ...any) error {
+	s.Client.EXPECT().List(gomock.Any(), &intentsList).DoAndReturn(func(_ context.Context, intents *otterizev2alpha1.ClientIntentsList, _ ...any) error {
 		intents.Items = append(intents.Items, clientIntents...)
 		return nil
 	})
 
 	// create service to ClientIntents pointing to it
-	services := make(map[string][]otterizev1alpha3.ClientIntents)
+	services := make(map[string][]otterizev2alpha1.ClientIntents)
 	for _, clientIntent := range clientIntents {
 		for _, intentCall := range clientIntent.GetCallsList() {
 			serverService := intentCall.ToServiceIdentity(clientIntent.Namespace)
@@ -140,11 +140,11 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 	matchFieldsPtr := &client.MatchingFields{}
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		&otterizev1alpha3.ClientIntentsList{},
+		&otterizev2alpha1.ClientIntentsList{},
 		gomock.AssignableToTypeOf(matchFieldsPtr),
-	).DoAndReturn(func(_ context.Context, intents *otterizev1alpha3.ClientIntentsList, args ...any) error {
+	).DoAndReturn(func(_ context.Context, intents *otterizev2alpha1.ClientIntentsList, args ...any) error {
 		matchFields := args[0].(*client.MatchingFields)
-		intents.Items = services[(*matchFields)[otterizev1alpha3.OtterizeFormattedTargetServerIndexField]]
+		intents.Items = services[(*matchFields)[otterizev2alpha1.OtterizeFormattedTargetServerIndexField]]
 		return nil
 	}).AnyTimes()
 }

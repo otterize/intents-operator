@@ -2,7 +2,7 @@ package external_traffic
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	otterizecloudmocks "github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -159,7 +159,7 @@ func (s *ServiceUploaderTestSuite) TestUploadNamespaceServices() {
 		s.Client.EXPECT().List(
 			gomock.Any(),
 			gomock.Eq(&emptyIngressesList),
-			gomock.Eq(&client.MatchingFields{v1alpha3.IngressServiceNamesIndexField: svc.Name}),
+			gomock.Eq(&client.MatchingFields{v2alpha1.IngressServiceNamesIndexField: svc.Name}),
 			gomock.Eq(&client.ListOptions{Namespace: svc.Namespace})).DoAndReturn(
 			func(ctx context.Context, list *v1.IngressList, opts ...client.ListOption) error {
 				result.DeepCopyInto(list)

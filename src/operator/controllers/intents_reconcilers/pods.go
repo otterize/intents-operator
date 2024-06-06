@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/prometheus"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -37,7 +37,7 @@ func NewPodLabelReconciler(c client.Client, s *runtime.Scheme) *PodLabelReconcil
 func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	namespace := req.NamespacedName.Namespace
 
-	intents := &otterizev1alpha3.ClientIntents{}
+	intents := &otterizev2alpha1.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		logrus.WithField("namespacedName", req.String()).Infof("Intents deleted")
@@ -76,9 +76,9 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	for _, pod := range pods {
-		if otterizev1alpha3.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
+		if otterizev2alpha1.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
 			logrus.Debugf("Updating %s pod labels with new intents", serviceIdentity.Name)
-			updatedPod := otterizev1alpha3.UpdateOtterizeAccessLabels(pod.DeepCopy(), serviceIdentity, intentLabels)
+			updatedPod := otterizev2alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), serviceIdentity, intentLabels)
 			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 			if err != nil {
 				r.RecordWarningEventf(intents, ReasonUpdatePodFailed, "could not update pod: %s", err.Error())
@@ -91,9 +91,9 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *PodLabelReconciler) removeLabelsFromPods(
-	ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
+	ctx context.Context, intents *otterizev2alpha1.ClientIntents) error {
 
-	logrus.Debugf("Unlabeling pods for Otterize service %s", intents.Spec.Service.Name)
+	logrus.Debugf("Unlabeling pods for Otterize service %s", intents.Spec.Workload.Name)
 
 	si := intents.ToServiceIdentity()
 	pods, ok, err := serviceidresolver.NewResolver(r.Client).ResolveServiceIdentityToPodSlice(ctx, si)
@@ -112,10 +112,10 @@ func (r *PodLabelReconciler) removeLabelsFromPods(
 		if updatedPod.Annotations == nil {
 			updatedPod.Annotations = make(map[string]string)
 		}
-		updatedPod.Annotations[otterizev1alpha3.AllIntentsRemovedAnnotation] = "true"
+		updatedPod.Annotations[otterizev2alpha1.AllIntentsRemovedAnnotation] = "true"
 		for _, intent := range intents.GetCallsList() {
 			targetServerIdentity := intent.ToServiceIdentity(intents.Namespace)
-			accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity.GetFormattedOtterizeIdentityWithoutKind())
+			accessLabel := fmt.Sprintf(otterizev2alpha1.OtterizeAccessLabelKey, targetServerIdentity.GetFormattedOtterizeIdentityWithoutKind())
 			delete(updatedPod.Labels, accessLabel)
 		}
 

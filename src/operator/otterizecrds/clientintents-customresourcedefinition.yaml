@@ -455,7 +455,7 @@ spec:
             spec:
               description: IntentsSpec defines the desired state of ClientIntents
               properties:
-                calls:
+                targets:
                   items:
                     properties:
                       aws:
@@ -683,8 +683,6 @@ spec:
                         type: object
                       sql:
                         properties:
-                          databaseName:
-                            type: string
                           name:
                             type: string
                           permissions:
@@ -706,16 +704,14 @@ spec:
                                   type: string
                               required:
                                 - databaseName
-                                - table
                               type: object
                             type: array
                         required:
-                          - databaseName
                           - name
                         type: object
                     type: object
                   type: array
-                service:
+                workload:
                   properties:
                     kind:
                       type: string
@@ -725,8 +721,8 @@ spec:
                     - name
                   type: object
               required:
-                - calls
-                - service
+                - targets
+                - workload
               type: object
             status:
               description: IntentsStatus defines the observed state of ClientIntents
