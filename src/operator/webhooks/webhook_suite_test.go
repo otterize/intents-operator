@@ -98,6 +98,53 @@ func (s *ValidationWebhookTestSuite) BeforeTest(suiteName, testName string) {
 	}
 }
 
+// Test Only one Target Type Can be used in a target
+func (s *ValidationWebhookTestSuite) TestOnlyOneTargetTypeAllowed() {
+	_, err := s.AddIntentsv2alpha1("intents", "someclient", []otterizev2alpha1.Target{
+		{
+			Kafka: &otterizev2alpha1.KafkaTarget{
+				Topics: []otterizev2alpha1.KafkaTopic{{
+					Name:       "sometopic",
+					Operations: []otterizev2alpha1.KafkaOperation{otterizev2alpha1.KafkaOperationConsume},
+				}},
+			},
+			Internet: &otterizev2alpha1.Internet{
+				Ips:   []string{"8.8.8.8"},
+				Ports: []int{80},
+			},
+		},
+	})
+	s.Require().ErrorContains(err, "each target must have exactly one field set")
+
+	_, err = s.AddIntentsv2alpha1("intents", "someclient", []otterizev2alpha1.Target{
+		{
+			AWS: &otterizev2alpha1.AWSTarget{
+				Actions: []string{"s3:GetObject"},
+				ARN:     "arn:aws:s3:::mybucket/*",
+			},
+			Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: "omriservice", Kind: "Deployment"},
+		},
+	})
+	s.Require().ErrorContains(err, "each target must have exactly one field set")
+
+	_, err = s.AddIntentsv2alpha1("intents", "someclient", []otterizev2alpha1.Target{
+		{
+			Azure: &otterizev2alpha1.AzureTarget{
+				Roles: []string{"Contributor"},
+				Scope: "subscriptions/1234-5678-9012-3456",
+			},
+			SQL: &otterizev2alpha1.SQLTarget{
+				Permissions: []otterizev2alpha1.SQLPermissions{{
+					DatabaseName: "sadfsdf",
+					Table:        "sometable",
+					Operations:   []otterizev2alpha1.DatabaseOperation{otterizev2alpha1.DatabaseOperationSelect},
+				}},
+			},
+		},
+	})
+	s.Require().ErrorContains(err, "each target must have exactly one field set")
+}
+
 func (s *ValidationWebhookTestSuite) TestNoDuplicateClientsAllowed() {
 	_, err := s.AddIntentsv2alpha1("intents", "someclient", []otterizev2alpha1.Target{})
 	s.Require().NoError(err)
