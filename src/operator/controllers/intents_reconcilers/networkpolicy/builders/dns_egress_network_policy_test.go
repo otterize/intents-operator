@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/golang/mock/gomock"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/samber/lo"
@@ -71,7 +71,7 @@ func (s *EgressDNSNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyDNS(
 	policyName string,
 	formattedTargetServer string,
 	defaultEnforcementState bool,
-	protectedServices []otterizev1alpha3.ProtectedService,
+	protectedServices []otterizev2alpha1.ProtectedService,
 ) {
 	s.Reconciler.EnforcementDefaultState = defaultEnforcementState
 	namespacedName := types.NamespacedName{
@@ -83,23 +83,23 @@ func (s *EgressDNSNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyDNS(
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverName,
+				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serverName},
 			},
 		},
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
 
 	if defaultEnforcementState == false {
-		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
+		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
 				list.Items = append(list.Items, protectedServices...)
 				return nil
 			})
@@ -128,7 +128,7 @@ func (s *EgressDNSNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyDNS(
 
 	s.ignoreRemoveOrphan()
 
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), gomock.Any(), gomock.Any())
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -147,14 +147,14 @@ func networkPolicyDNSEgressTemplate(
 			Name:      policyName,
 			Namespace: intentsObjNamespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeNetworkPolicy: formattedTargetClient,
+				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServiceLabelKey: formattedTargetClient,
+					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
 			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
