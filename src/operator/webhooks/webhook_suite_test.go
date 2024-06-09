@@ -326,6 +326,401 @@ func (s *ValidationWebhookTestSuite) TestValidateProtectedServicesFailIfUppercas
 	s.Require().Error(err)
 }
 
+type ConversionWebhookTestSuite struct {
+	suite.Suite
+}
+
+// Validate the conversion between v1alpha3 and v2alpha1 works properly
+func (s *ConversionWebhookTestSuite) TestConversionWebhookRegularIntents() {
+	// Create a v1alpha3 object
+	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "intents",
+			Namespace: "test-namespace",
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: "name", Kind: "Depoloyment"},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "server",
+				},
+			},
+		},
+	}
+
+	// Convert the v1alpha3 object to a v2alpha1 object
+	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Convert the v2alpha1 object back to a v1alpha3 object
+	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
+	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Check that the two v1alpha3 objects are equal
+	s.Require().Equal(v1alpha3Intents.GetClientKind(), anotherV1alpha3Intents.GetClientKind())
+	s.Require().Equal(v1alpha3Intents.GetServiceName(), anotherV1alpha3Intents.GetServiceName())
+	s.Require().Equal(len(v1alpha3Intents.GetCallsList()), len(anotherV1alpha3Intents.GetCallsList()))
+	for i := range v1alpha3Intents.GetCallsList() {
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].GetServerFullyQualifiedName(v1alpha3Intents.GetNamespace()), anotherV1alpha3Intents.GetCallsList()[i].GetServerFullyQualifiedName(anotherV1alpha3Intents.GetNamespace()))
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].GetTargetServerKind(), anotherV1alpha3Intents.GetCallsList()[i].GetTargetServerKind())
+	}
+}
+
+// Validate the conversion between v1alpha3 and v2alpha1 works properly - kafka intents
+func (s *ConversionWebhookTestSuite) TestConversionWebhookKafkaIntents() {
+	// Create a v1alpha3 object
+	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "intents",
+			Namespace: "test-namespace",
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: "name", Kind: "Depoloyment"},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "server",
+					Type: otterizev1alpha3.IntentTypeKafka,
+					Topics: []otterizev1alpha3.KafkaTopic{
+						{
+							Name:       "sometopic",
+							Operations: []otterizev1alpha3.KafkaOperation{otterizev1alpha3.KafkaOperationConsume, otterizev1alpha3.KafkaOperationProduce},
+						},
+						{
+							Name:       "sometopic2",
+							Operations: []otterizev1alpha3.KafkaOperation{otterizev1alpha3.KafkaOperationConsume},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Convert the v1alpha3 object to a v2alpha1 object
+	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Convert the v2alpha1 object back to a v1alpha3 object
+	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
+	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Check that the two v1alpha3 objects are equal
+	s.Require().Equal(v1alpha3Intents.GetClientKind(), anotherV1alpha3Intents.GetClientKind())
+	s.Require().Equal(v1alpha3Intents.GetServiceName(), anotherV1alpha3Intents.GetServiceName())
+	s.Require().Equal(len(v1alpha3Intents.GetCallsList()), len(anotherV1alpha3Intents.GetCallsList()))
+	for i := range v1alpha3Intents.GetCallsList() {
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].GetServerFullyQualifiedName(v1alpha3Intents.GetNamespace()), anotherV1alpha3Intents.GetCallsList()[i].GetServerFullyQualifiedName(anotherV1alpha3Intents.GetNamespace()))
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].GetTargetServerKind(), anotherV1alpha3Intents.GetCallsList()[i].GetTargetServerKind())
+		s.Require().Equal(len(v1alpha3Intents.GetCallsList()[i].Topics), len(anotherV1alpha3Intents.GetCallsList()[i].Topics))
+		for j := range v1alpha3Intents.GetCallsList()[i].Topics {
+			s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Topics[j].Name, anotherV1alpha3Intents.GetCallsList()[i].Topics[j].Name)
+			s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Topics[j].Operations, anotherV1alpha3Intents.GetCallsList()[i].Topics[j].Operations)
+		}
+	}
+}
+
+// Validate the conversion between v1alpha3 and v2alpha1 works properly - http intents
+func (s *ConversionWebhookTestSuite) TestConversionWebhookHTTPIntents() {
+	// Create a v1alpha3 object
+	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "intents",
+			Namespace: "test-namespace",
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: "name", Kind: "Depoloyment"},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "svc:server",
+					Type: otterizev1alpha3.IntentTypeHTTP,
+					HTTPResources: []otterizev1alpha3.HTTPResource{
+						{
+							Path:    "/somepath",
+							Methods: []otterizev1alpha3.HTTPMethod{otterizev1alpha3.HTTPMethodGet, otterizev1alpha3.HTTPMethodPost},
+						},
+						{
+							Path:    "/somepath2",
+							Methods: []otterizev1alpha3.HTTPMethod{otterizev1alpha3.HTTPMethodGet},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Convert the v1alpha3 object to a v2alpha1 object
+	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Convert the v2alpha1 object back to a v1alpha3 object
+	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
+	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Check that the two v1alpha3 objects are equal
+	s.Require().Equal(v1alpha3Intents.GetClientKind(), anotherV1alpha3Intents.GetClientKind())
+	s.Require().Equal(v1alpha3Intents.GetServiceName(), anotherV1alpha3Intents.GetServiceName())
+	s.Require().Equal(len(v1alpha3Intents.GetCallsList()), len(anotherV1alpha3Intents.GetCallsList()))
+	for i := range v1alpha3Intents.GetCallsList() {
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Type, anotherV1alpha3Intents.GetCallsList()[i].Type)
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].GetServerFullyQualifiedName(v1alpha3Intents.GetNamespace()), anotherV1alpha3Intents.GetCallsList()[i].GetServerFullyQualifiedName(anotherV1alpha3Intents.GetNamespace()))
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].GetTargetServerKind(), anotherV1alpha3Intents.GetCallsList()[i].GetTargetServerKind())
+		s.Require().Equal(len(v1alpha3Intents.GetCallsList()[i].HTTPResources), len(anotherV1alpha3Intents.GetCallsList()[i].HTTPResources))
+		for j := range v1alpha3Intents.GetCallsList()[i].HTTPResources {
+			s.Require().Equal(v1alpha3Intents.GetCallsList()[i].HTTPResources[j].Path, anotherV1alpha3Intents.GetCallsList()[i].HTTPResources[j].Path)
+			s.Require().Equal(v1alpha3Intents.GetCallsList()[i].HTTPResources[j].Methods, anotherV1alpha3Intents.GetCallsList()[i].HTTPResources[j].Methods)
+		}
+	}
+}
+
+// Validate the conversion between v1alpha3 and v2alpha1 works properly - database intents
+func (s *ConversionWebhookTestSuite) TestConversionWebhookDatabaseIntents() {
+	// Create a v1alpha3 object
+	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "intents",
+			Namespace: "test-namespace",
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: "name", Kind: "Depoloyment"},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "server",
+					Type: otterizev1alpha3.IntentTypeDatabase,
+					DatabaseResources: []otterizev1alpha3.DatabaseResource{
+						{
+							DatabaseName: "somedb",
+							Table:        "sometable",
+							Operations:   []otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationSelect, otterizev1alpha3.DatabaseOperationInsert},
+						},
+						{
+							DatabaseName: "somedb2",
+							Table:        "sometable2",
+							Operations:   []otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationSelect},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Convert the v1alpha3 object to a v2alpha1 object
+	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Convert the v2alpha1 object back to a v1alpha3 object
+	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
+	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Check that the two v1alpha3 objects are equal
+	s.Require().Equal(v1alpha3Intents.GetClientKind(), anotherV1alpha3Intents.GetClientKind())
+	s.Require().Equal(v1alpha3Intents.GetServiceName(), anotherV1alpha3Intents.GetServiceName())
+	s.Require().Equal(len(v1alpha3Intents.GetCallsList()), len(anotherV1alpha3Intents.GetCallsList()))
+	for i := range v1alpha3Intents.GetCallsList() {
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Type, anotherV1alpha3Intents.GetCallsList()[i].Type)
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].GetServerFullyQualifiedName(v1alpha3Intents.GetNamespace()), anotherV1alpha3Intents.GetCallsList()[i].GetServerFullyQualifiedName(anotherV1alpha3Intents.GetNamespace()))
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].GetTargetServerKind(), anotherV1alpha3Intents.GetCallsList()[i].GetTargetServerKind())
+		s.Require().Equal(len(v1alpha3Intents.GetCallsList()[i].DatabaseResources), len(anotherV1alpha3Intents.GetCallsList()[i].DatabaseResources))
+		for j := range v1alpha3Intents.GetCallsList()[i].DatabaseResources {
+			s.Require().Equal(v1alpha3Intents.GetCallsList()[i].DatabaseResources[j].DatabaseName, anotherV1alpha3Intents.GetCallsList()[i].DatabaseResources[j].DatabaseName)
+			s.Require().Equal(v1alpha3Intents.GetCallsList()[i].DatabaseResources[j].Table, anotherV1alpha3Intents.GetCallsList()[i].DatabaseResources[j].Table)
+			s.Require().Equal(v1alpha3Intents.GetCallsList()[i].DatabaseResources[j].Operations, anotherV1alpha3Intents.GetCallsList()[i].DatabaseResources[j].Operations)
+		}
+	}
+}
+
+// Validate the conversion between v1alpha3 and v2alpha1 works properly - aws intents
+func (s *ConversionWebhookTestSuite) TestConversionWebhookAWSIntents() {
+	// Create a v1alpha3 object
+	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "intents",
+			Namespace: "test-namespace",
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: "name", Kind: "Depoloyment"},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "aen:server",
+					Type: otterizev1alpha3.IntentTypeAWS,
+					AWSActions: []string{
+						"s3:GetObject",
+						"s3:PutObject",
+					},
+				},
+			},
+		},
+	}
+
+	// Convert the v1alpha3 object to a v2alpha1 object
+	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Convert the v2alpha1 object back to a v1alpha3 object
+	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
+	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Check that the two v1alpha3 objects are equal
+	s.Require().Equal(v1alpha3Intents.GetClientKind(), anotherV1alpha3Intents.GetClientKind())
+	s.Require().Equal(v1alpha3Intents.GetServiceName(), anotherV1alpha3Intents.GetServiceName())
+	s.Require().Equal(len(v1alpha3Intents.GetCallsList()), len(anotherV1alpha3Intents.GetCallsList()))
+	for i := range v1alpha3Intents.GetCallsList() {
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Type, anotherV1alpha3Intents.GetCallsList()[i].Type)
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Name, anotherV1alpha3Intents.GetCallsList()[i].Name)
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].AWSActions, anotherV1alpha3Intents.GetCallsList()[i].AWSActions)
+	}
+}
+
+// Validate the conversion between v1alpha3 and v2alpha1 works properly - azure intents
+func (s *ConversionWebhookTestSuite) TestConversionWebhookAzureIntents() {
+	// Create a v1alpha3 object
+	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "intents",
+			Namespace: "test-namespace",
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: "name", Kind: "Depoloyment"},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "aen:server",
+					Type: otterizev1alpha3.IntentTypeAzure,
+					AzureRoles: []string{
+						"Contributor",
+						"Reader",
+					},
+				},
+			},
+		},
+	}
+
+	// Convert the v1alpha3 object to a v2alpha1 object
+	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Convert the v2alpha1 object back to a v1alpha3 object
+	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
+	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Check that the two v1alpha3 objects are equal
+	s.Require().Equal(v1alpha3Intents.GetClientKind(), anotherV1alpha3Intents.GetClientKind())
+	s.Require().Equal(v1alpha3Intents.GetServiceName(), anotherV1alpha3Intents.GetServiceName())
+	s.Require().Equal(len(v1alpha3Intents.GetCallsList()), len(anotherV1alpha3Intents.GetCallsList()))
+	for i := range v1alpha3Intents.GetCallsList() {
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Type, anotherV1alpha3Intents.GetCallsList()[i].Type)
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Name, anotherV1alpha3Intents.GetCallsList()[i].Name)
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].AzureRoles, anotherV1alpha3Intents.GetCallsList()[i].AzureRoles)
+	}
+}
+
+// Validate the conversion between v1alpha3 and v2alpha1 works properly - gcp intents
+func (s *ConversionWebhookTestSuite) TestConversionWebhookGCPIntents() {
+	// Create a v1alpha3 object
+	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "intents",
+			Namespace: "test-namespace",
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: "name", Kind: "Depoloyment"},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Name: "aen:server",
+					Type: otterizev1alpha3.IntentTypeGCP,
+					GCPPermissions: []string{
+						"storage.objects.get",
+						"storage.objects.create",
+					},
+				},
+			},
+		},
+	}
+
+	// Convert the v1alpha3 object to a v2alpha1 object
+	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Convert the v2alpha1 object back to a v1alpha3 object
+	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
+	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Check that the two v1alpha3 objects are equal
+	s.Require().Equal(v1alpha3Intents.GetClientKind(), anotherV1alpha3Intents.GetClientKind())
+	s.Require().Equal(v1alpha3Intents.GetServiceName(), anotherV1alpha3Intents.GetServiceName())
+	s.Require().Equal(len(v1alpha3Intents.GetCallsList()), len(anotherV1alpha3Intents.GetCallsList()))
+	for i := range v1alpha3Intents.GetCallsList() {
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Type, anotherV1alpha3Intents.GetCallsList()[i].Type)
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Name, anotherV1alpha3Intents.GetCallsList()[i].Name)
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].GCPPermissions, anotherV1alpha3Intents.GetCallsList()[i].GCPPermissions)
+	}
+}
+
+// Validate the conversion between v1alpha3 and v2alpha1 works properly - internet intents
+func (s *ConversionWebhookTestSuite) TestConversionWebhookInternetIntents() {
+	// Create a v1alpha3 object
+	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "intents",
+			Namespace: "test-namespace",
+		},
+		Spec: &otterizev1alpha3.IntentsSpec{
+			Service: otterizev1alpha3.Service{Name: "name", Kind: "Depoloyment"},
+			Calls: []otterizev1alpha3.Intent{
+				{
+					Type: otterizev1alpha3.IntentTypeInternet,
+					Internet: &otterizev1alpha3.Internet{
+						Ips:   []string{"1.3.3.7", "122.133.144.155"},
+						Ports: []int{80, 443},
+					},
+				},
+				{
+					Type: otterizev1alpha3.IntentTypeInternet,
+					Internet: &otterizev1alpha3.Internet{
+						Domains: []string{"www.google.com", "www.facebook.com"},
+					},
+				},
+			},
+		},
+	}
+
+	// Convert the v1alpha3 object to a v2alpha1 object
+	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Convert the v2alpha1 object back to a v1alpha3 object
+	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
+	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	s.Require().NoError(err)
+
+	// Check that the two v1alpha3 objects are equal
+	s.Require().Equal(v1alpha3Intents.GetClientKind(), anotherV1alpha3Intents.GetClientKind())
+	s.Require().Equal(v1alpha3Intents.GetServiceName(), anotherV1alpha3Intents.GetServiceName())
+	s.Require().Equal(len(v1alpha3Intents.GetCallsList()), len(anotherV1alpha3Intents.GetCallsList()))
+	for i := range v1alpha3Intents.GetCallsList() {
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Type, anotherV1alpha3Intents.GetCallsList()[i].Type)
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Internet.Ips, anotherV1alpha3Intents.GetCallsList()[i].Internet.Ips)
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Internet.Ports, anotherV1alpha3Intents.GetCallsList()[i].Internet.Ports)
+		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Internet.Domains, anotherV1alpha3Intents.GetCallsList()[i].Internet.Domains)
+	}
+}
+
 func TestValidationWebhookTestSuite(t *testing.T) {
 	suite.Run(t, new(ValidationWebhookTestSuite))
+}
+
+func TestConversionWebhookTestSuite(t *testing.T) {
+	suite.Run(t, new(ConversionWebhookTestSuite))
 }
