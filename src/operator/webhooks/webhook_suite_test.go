@@ -53,8 +53,9 @@ func (s *ValidationWebhookTestSuite) SetupSuite() {
 	var err error
 	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "config", "crd")}
 	s.TestEnv.WebhookInstallOptions = envtest.WebhookInstallOptions{
-		Paths:            []string{filepath.Join("..", "config", "webhook")},
-		LocalServingHost: "localhost",
+		Paths:                   []string{filepath.Join("..", "config", "webhook")},
+		IgnoreSchemeConvertible: true,
+		LocalServingHost:        "localhost",
 	}
 
 	s.RestConfig, err = s.TestEnv.Start()

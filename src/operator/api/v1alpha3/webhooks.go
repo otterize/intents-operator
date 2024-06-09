@@ -149,6 +149,9 @@ func (in *ClientIntents) SetupWebhookWithManager(mgr ctrl.Manager, validator web
 func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v2alpha1.ClientIntents)
 	dst.ObjectMeta = in.ObjectMeta
+	if dst.Spec == nil {
+		dst.Spec = &v2alpha1.IntentsSpec{}
+	}
 	dst.Spec.Workload.Name = in.Spec.Service.Name
 	dst.Spec.Workload.Kind = in.Spec.Service.Kind
 	dst.Spec.Targets = make([]v2alpha1.Target, len(in.Spec.Calls))
@@ -220,6 +223,7 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v2alpha1.ClientIntents)
 	in.ObjectMeta = src.ObjectMeta
+	in.Spec = &IntentsSpec{}
 	in.Spec.Service.Name = src.Spec.Workload.Name
 	in.Spec.Service.Kind = src.Spec.Workload.Kind
 	in.Spec.Calls = make([]Intent, len(src.Spec.Targets))
