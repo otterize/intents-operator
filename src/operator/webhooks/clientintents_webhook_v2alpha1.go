@@ -52,7 +52,7 @@ func NewIntentsValidatorV2alpha1(c client.Client) *IntentsValidatorV2alpha1 {
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v2alpha1-clientintents,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=clientintents,verbs=create;update,versions=v2alpha1,name=clientintentsv2alpha1.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v2alpha1-clientintents,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=clientintents,verbs=create;update,versions=v2alpha1,name=clientintentsv2alpha1.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &IntentsValidatorV2alpha1{}
 

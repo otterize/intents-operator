@@ -12,6 +12,7 @@ webhooks:
       namespace: system
       path: /validate-k8s-otterize-com-v1alpha2-clientintents
   failurePolicy: Fail
+  matchPolicy: Exact
   name: clientintents.kb.io
   rules:
   - apiGroups:
@@ -32,6 +33,7 @@ webhooks:
       namespace: system
       path: /validate-k8s-otterize-com-v1alpha3-clientintents
   failurePolicy: Fail
+  matchPolicy: Exact
   name: clientintentsv1alpha3.kb.io
   rules:
   - apiGroups:
@@ -52,6 +54,7 @@ webhooks:
       namespace: system
       path: /validate-k8s-otterize-com-v2alpha1-clientintents
   failurePolicy: Fail
+  matchPolicy: Exact
   name: clientintentsv2alpha1.kb.io
   rules:
   - apiGroups:
@@ -72,6 +75,7 @@ webhooks:
       namespace: system
       path: /validate-k8s-otterize-com-v1alpha3-mysqlserverconfig
   failurePolicy: Fail
+  matchPolicy: Exact
   name: mysqlserverconfig.kb.io
   rules:
   - apiGroups:
@@ -92,6 +96,7 @@ webhooks:
       namespace: system
       path: /validate-k8s-otterize-com-v2alpha1-mysqlserverconfig
   failurePolicy: Fail
+  matchPolicy: Exact
   name: mysqlserverconfigv2alpha1.kb.io
   rules:
   - apiGroups:
@@ -112,6 +117,7 @@ webhooks:
       namespace: system
       path: /validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig
   failurePolicy: Fail
+  matchPolicy: Exact
   name: postgresqlserverconfig.kb.io
   rules:
   - apiGroups:
@@ -132,6 +138,7 @@ webhooks:
       namespace: system
       path: /validate-k8s-otterize-com-v2alpha1-postgresqlserverconfig
   failurePolicy: Fail
+  matchPolicy: Exact
   name: postgresqlserverconfigv2alpha1.kb.io
   rules:
   - apiGroups:
@@ -152,6 +159,7 @@ webhooks:
       namespace: system
       path: /validate-k8s-otterize-com-v1alpha2-protectedservice
   failurePolicy: Fail
+  matchPolicy: Exact
   name: protectedservice.kb.io
   rules:
   - apiGroups:
@@ -172,6 +180,7 @@ webhooks:
       namespace: system
       path: /validate-k8s-otterize-com-v1alpha3-protectedservice
   failurePolicy: Fail
+  matchPolicy: Exact
   name: protectedservicev1alpha3.kb.io
   rules:
   - apiGroups:
@@ -192,6 +201,7 @@ webhooks:
       namespace: system
       path: /validate-k8s-otterize-com-v2alpha1-protectedservice
   failurePolicy: Fail
+  matchPolicy: Exact
   name: protectedservicev2alpha1.kb.io
   rules:
   - apiGroups:

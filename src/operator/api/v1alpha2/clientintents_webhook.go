@@ -80,7 +80,7 @@ func convertTopicsV1alpha2toV1alpha3(srcTopics []KafkaTopic) []v1alpha3.KafkaTop
 	return dstTopics
 }
 
-// ConvertFrom converts the Hub version (v1alpha3) to this ClientIntents.
+// ConvertFrom converts the Hub version (v2alpha1) to this ClientIntents.
 func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	src := &v1alpha3.ClientIntents{}
 	if err := src.ConvertFrom(srcRaw); err != nil {

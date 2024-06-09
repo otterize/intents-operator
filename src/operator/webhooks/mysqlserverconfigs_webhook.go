@@ -48,7 +48,7 @@ func NewMySQLConfValidator(c client.Client) *MySQLConfValidator {
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha3-mysqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=mysqlserverconfigs,verbs=create;update,versions=v1alpha3,name=mysqlserverconfig.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v1alpha3-mysqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=mysqlserverconfigs,verbs=create;update,versions=v1alpha3,name=mysqlserverconfig.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &MySQLConfValidator{}
 

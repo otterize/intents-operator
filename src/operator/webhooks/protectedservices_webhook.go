@@ -50,7 +50,7 @@ func NewProtectedServiceValidatorV1alpha2(c client.Client) *ProtectedServiceVali
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha2-protectedservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=protectedservice,verbs=create;update,versions=v1alpha2,name=protectedservice.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v1alpha2-protectedservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=protectedservice,verbs=create;update,versions=v1alpha2,name=protectedservice.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &ProtectedServiceValidatorV1alpha2{}
 
