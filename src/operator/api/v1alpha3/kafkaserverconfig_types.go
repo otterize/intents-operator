@@ -79,8 +79,6 @@ type KafkaServerConfig struct {
 	Status KafkaServerConfigStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
-func (ksc *KafkaServerConfig) Hub() {}
-
 //+kubebuilder:object:root=true
 
 // KafkaServerConfigList contains a list of KafkaServerConfig
