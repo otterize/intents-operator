@@ -37,11 +37,12 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 	}
 
 	for _, intent := range intents {
-		peers, ports, ok, err := r.buildRuleForIntent(intent, ep)
+		peers, ports, foundResolvedDNSNames, err := r.buildRuleForIntent(intent, ep)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
-		if !ok {
+		if !foundResolvedDNSNames {
+			ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonInternetEgressNetworkPolicyCreationWaitingUnresolvedDNS, "Network policy not created for internet intents as no DNS names were resolved yet; once traffic is observed, a matching network policy will be created")
 			continue
 		}
 		rules = append(rules, v1.NetworkPolicyEgressRule{
@@ -49,9 +50,7 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 			Ports: ports,
 		})
 	}
-	if len(rules) == 0 {
-		return nil, errors.New("cannot create rules for internet network policy")
-	}
+
 	return rules, nil
 }
 
@@ -62,11 +61,6 @@ func (r *InternetEgressRulesBuilder) buildRuleForIntent(intent otterizev2alpha1.
 	ips = append(ips, intent.Internet.Ips...)
 
 	if len(ips) == 0 {
-		dnsNames := lo.Reduce(intent.Internet.Domains, func(names, dns string, _ int) string {
-			return fmt.Sprintf("%s %s", names, dns)
-		}, "")
-
-		ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonNetworkPolicyCreationFailedMissingIP, "no IPs found for internet intent %s", dnsNames)
 		return nil, nil, false, nil
 	}
 
@@ -87,7 +81,6 @@ func (r *InternetEgressRulesBuilder) getIpsForDNS(intent otterizev2alpha1.Target
 		})
 
 		if !found {
-			ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonIntentToUnresolvedDns, "could not find IP for DNS %s", dns)
 			continue
 		}
 

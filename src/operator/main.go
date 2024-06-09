@@ -164,6 +164,7 @@ func main() {
 			CertDir: webhooks.CertDirPath,
 		}),
 		HealthProbeBindAddress: probeAddr,
+		PprofBindAddress:       viper.GetString(operatorconfig.PprofBindAddressKey),
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "a3a7d614.otterize.com",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
@@ -223,7 +224,10 @@ func main() {
 		epNetpolReconciler.AddEgressRuleBuilder(internetNetpolReconciler)
 		svcEgressNetworkPolicyHandler := builders.NewPortEgressRulesBuilder(mgr.GetClient())
 		epNetpolReconciler.AddEgressRuleBuilder(svcEgressNetworkPolicyHandler)
-
+		if viper.GetBool(operatorconfig.EnableEgressAutoallowDNSTrafficKey) {
+			dnsEgressNetpolBuilder := builders.NewDNSEgressNetworkPolicyBuilder()
+			epNetpolReconciler.AddEgressRuleBuilder(dnsEgressNetpolBuilder)
+		}
 	}
 
 	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
