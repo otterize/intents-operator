@@ -96,6 +96,7 @@ func init() {
 	utilruntime.Must(istiosecurityscheme.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
+	utilruntime.Must(otterizev2alpha1.AddToScheme(scheme))
 
 	// Config Connector CRDs
 	utilruntime.Must(gcpiamv1.AddToScheme(scheme))
