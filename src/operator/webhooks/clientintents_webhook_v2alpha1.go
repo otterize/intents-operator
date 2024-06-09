@@ -208,7 +208,7 @@ func (v *IntentsValidatorV2alpha1) validateIntentTarget(intentTarget otterizev2a
 	return nil
 }
 
-// Validate that one and only one of the target's fields is set. Wwe do it by marshal the target to json and check there's only one key
+// Validate that one and only one of the target's fields is set. We do it by marshal the target to json and check there's only one key
 func (v *IntentsValidatorV2alpha1) validateOnlyOneTargetFieldSet(target otterizev2alpha1.Target) *field.Error {
 	// Marshal the target to json:
 	jsonString, err := json.Marshal(target)
