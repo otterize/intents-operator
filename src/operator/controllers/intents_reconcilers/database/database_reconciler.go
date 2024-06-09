@@ -281,7 +281,8 @@ func (r *DatabaseReconciler) handleDatabaseAnnotationOnPod(ctx context.Context, 
 	updatedPod.Annotations[databaseconfigurator.LatestAccessChangeAnnotation] = time.Now().Format(time.RFC3339)
 	if !intents.DeletionTimestamp.IsZero() {
 		// Clean all databases
-		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = ""
+		delete(updatedPod.Annotations, databaseconfigurator.DatabaseAccessAnnotation)
+		delete(updatedPod.Annotations, databaseconfigurator.LatestAccessChangeAnnotation)
 	} else {
 		// We cannot simply add all DB instances mentioned in the client intents because we also depend on server configs
 		// So we add one instance at a time, and only those which the operator successfully created a user for
