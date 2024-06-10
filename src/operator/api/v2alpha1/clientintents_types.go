@@ -543,11 +543,12 @@ func (in *Target) GetTargetServerName() string {
 		return in.SQL.Name
 	}
 
+	var name string
+
 	if in.Kafka != nil {
-		return in.Kafka.Name
+		name = in.Kafka.Name
 	}
 
-	var name string
 	if in.Service != nil {
 		name = in.Service.Name
 	}
