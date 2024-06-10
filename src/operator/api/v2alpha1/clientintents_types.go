@@ -777,7 +777,7 @@ func (in *Target) GetHTTPResources() []HTTPTarget {
 	if in.Kubernetes != nil && len(in.Kubernetes.HTTP) > 0 {
 		return in.Kubernetes.HTTP
 	}
-	if in.Service != nil && len(in.Kubernetes.HTTP) > 0 {
+	if in.Service != nil && len(in.Service.HTTP) > 0 {
 		return in.Service.HTTP
 	}
 	return make([]HTTPTarget, 0)
