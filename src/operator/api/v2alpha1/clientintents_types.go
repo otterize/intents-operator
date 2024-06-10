@@ -584,7 +584,7 @@ func (in *Target) GetK8sServiceFullyQualifiedName(intentsObjNamespace string) (s
 	return "", false
 }
 
-func (in *Target) typeAsGQLTypeUnsafe() graphqlclient.IntentType {
+func (in *Target) typeAsGQLType() graphqlclient.IntentType {
 	if in.Kubernetes != nil && in.Kubernetes.HTTP != nil {
 		return graphqlclient.IntentTypeHttp
 	}
@@ -612,13 +612,6 @@ func (in *Target) typeAsGQLTypeUnsafe() graphqlclient.IntentType {
 	}
 
 	return ""
-}
-
-func (in *Target) typeAsGQLType() graphqlclient.IntentType {
-	if gqlType := in.typeAsGQLTypeUnsafe(); gqlType != "" {
-		return gqlType
-	}
-	panic("Not supposed to reach here")
 }
 
 func (in *ClientIntents) GetServersWithoutSidecar() (sets.Set[string], error) {
@@ -791,7 +784,7 @@ func (in *Target) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		Namespace:       lo.ToPtr(resourceNamespace),
 		ServerNamespace: toPtrOrNil(in.GetTargetServerNamespace(resourceNamespace)),
 	}
-	if gqlType := in.typeAsGQLTypeUnsafe(); gqlType != "" {
+	if gqlType := in.typeAsGQLType(); gqlType != "" {
 		intentInput.Type = lo.ToPtr(gqlType)
 	}
 
@@ -808,7 +801,7 @@ func (in *Target) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		intentInput.Topics = otterizeTopics
 	}
 
-	if in.typeAsGQLTypeUnsafe() == graphqlclient.IntentTypeHttp {
+	if in.typeAsGQLType() == graphqlclient.IntentTypeHttp {
 		intentInput.Resources = lo.Map(in.GetHTTPResources(), intentsHTTPResourceToCloud)
 	}
 
@@ -837,7 +830,6 @@ func (in *Target) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		if in.Internet.Ports != nil && len(in.Internet.Ports) != 0 {
 			intentInput.Internet.Ports = lo.ToSlicePtr(in.Internet.Ports)
 		}
-		intentInput.Type = lo.ToPtr(graphqlclient.IntentTypeInternet)
 	}
 
 	if in.AWS != nil {
