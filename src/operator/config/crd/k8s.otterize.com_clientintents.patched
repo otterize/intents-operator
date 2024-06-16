@@ -620,7 +620,7 @@ spec:
                         type: object
                       kubernetes:
                         properties:
-                          HTTPResources:
+                          http:
                             items:
                               properties:
                                 methods:
@@ -653,7 +653,7 @@ spec:
                         type: object
                       service:
                         properties:
-                          HTTPResources:
+                          http:
                             items:
                               properties:
                                 methods:

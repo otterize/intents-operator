@@ -279,12 +279,12 @@ type AzureTarget struct {
 type KubernetesTarget struct {
 	Name string       `json:"name" yaml:"name"`
 	Kind string       `json:"kind" yaml:"kind"`
-	HTTP []HTTPTarget `json:"HTTPResources,omitempty" yaml:"HTTPResources,omitempty"`
+	HTTP []HTTPTarget `json:"http,omitempty" yaml:"http,omitempty"`
 }
 
 type ServiceTarget struct {
 	Name string       `json:"name" yaml:"name"`
-	HTTP []HTTPTarget `json:"HTTPResources,omitempty" yaml:"HTTPResources,omitempty"`
+	HTTP []HTTPTarget `json:"http,omitempty" yaml:"http,omitempty"`
 }
 
 type Internet struct {

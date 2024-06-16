@@ -901,6 +901,7 @@ type InternetConfig {
 
 input InternetConfigInput {
 	domains: [String!]
+	discoveredTarget: DNSIPPairInput
 	ips: [String!]
 	ports: [Int!]
 }
@@ -951,7 +952,7 @@ input K8sIngressHttpPathInput {
 
 input K8sIngressInput {
 	namespace: String!
-	otterizeServer: String
+	name: String!
 	ingress: K8sResourceIngressInput!
 }
 
@@ -1049,6 +1050,7 @@ input K8sResourceServiceStatusInput {
 input K8sServiceInput {
 	namespace: String!
 	otterizeServer: String!
+	resourceName: String!
 	service: K8sResourceServiceInput!
 }
 
@@ -1811,6 +1813,7 @@ enum ServiceType {
 	DATABASE
 	INTERNET
 	DATABASE_USER
+	KUBERNETES_LOAD_BALANCER
 }
 
 enum SessionAffinity {
