@@ -477,10 +477,10 @@ func (in *Target) IsTargetServerKubernetesService() bool {
 }
 
 func (in *Target) GetIntentType() IntentType {
-	if in.Kubernetes != nil && in.Kubernetes.HTTP != nil {
+	if in.Kubernetes != nil && len(in.Kubernetes.HTTP) > 0 {
 		return IntentTypeHTTP
 	}
-	if in.Service != nil && in.Service.HTTP != nil {
+	if in.Service != nil && len(in.Service.HTTP) > 0 {
 		return IntentTypeHTTP
 	}
 	if in.Kafka != nil {
