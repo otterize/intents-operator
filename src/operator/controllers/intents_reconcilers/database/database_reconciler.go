@@ -167,7 +167,6 @@ func (r *DatabaseReconciler) extractDBCredentials(ctx context.Context, namespace
 	}
 
 	if creds.Username == "" || creds.Password == "" {
-		// TODO: should validate this as part of admission webhook
 		return creds, errors.New("credentials missing either username or password")
 	}
 

@@ -61,20 +61,23 @@ func (v *MySQLConfValidator) ValidateDelete(ctx context.Context, obj runtime.Obj
 func (v *MySQLConfValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
 	mysqlServerConf := obj.(*otterizev1alpha3.MySQLServerConfig)
+	gvk := mysqlServerConf.GroupVersionKind()
+
+	if err := validateCredentialsNotEmpty(mysqlServerConf.Spec.Credentials); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
 	err := validateNoDuplicateForCreate(ctx, v.Client, mysqlServerConf.Name)
-
-	if err != nil {
-		var fieldErr *field.Error
-		if goerrors.As(err, &fieldErr) {
-			allErrs = append(allErrs, fieldErr)
-			gvk := mysqlServerConf.GroupVersionKind()
-			return nil, k8serrors.NewInvalid(
-				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-				mysqlServerConf.Name, allErrs)
-		}
-
+	if fieldErr := (&field.Error{}); goerrors.As(err, &fieldErr) {
+		allErrs = append(allErrs, fieldErr)
+	} else if err != nil {
 		return nil, errors.Wrap(err)
+	}
+
+	if len(allErrs) > 0 {
+		return nil, k8serrors.NewInvalid(
+			schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
+			mysqlServerConf.Name, allErrs)
 	}
 
 	return nil, nil
@@ -84,23 +87,28 @@ func (v *MySQLConfValidator) ValidateCreate(ctx context.Context, obj runtime.Obj
 func (v *MySQLConfValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
 	mysqlServerConf := newObj.(*otterizev1alpha3.MySQLServerConfig)
+	gvk := mysqlServerConf.GroupVersionKind()
+
+	if err := validateCredentialsNotEmpty(mysqlServerConf.Spec.Credentials); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
 	err := validateNoDuplicateForUpdate(ctx, v.Client, DatabaseServerConfig{
 		Name:      mysqlServerConf.Name,
 		Namespace: mysqlServerConf.Namespace,
 		Type:      MySQL,
 	})
-	if err != nil {
-		var fieldErr *field.Error
-		if goerrors.As(err, &fieldErr) {
-			allErrs = append(allErrs, fieldErr)
-			gvk := mysqlServerConf.GroupVersionKind()
-			return nil, k8serrors.NewInvalid(
-				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-				mysqlServerConf.Name, allErrs)
-		}
-
+	if fieldErr := (&field.Error{}); goerrors.As(err, &fieldErr) {
+		allErrs = append(allErrs, fieldErr)
+	} else if err != nil {
 		return nil, errors.Wrap(err)
 	}
+
+	if len(allErrs) > 0 {
+		return nil, k8serrors.NewInvalid(
+			schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
+			mysqlServerConf.Name, allErrs)
+	}
+
 	return nil, nil
 }
