@@ -47,7 +47,7 @@ type DatabaseCredentials struct {
 	Password string `json:"password"`
 	// SecretRef is a reference to a k8s secret storing the credentials
 	//+optional
-	SecretRef DatabaseCredentialsSecretRef `json:"secretRef"`
+	SecretRef *DatabaseCredentialsSecretRef `json:"secretRef"`
 }
 
 // PostgreSQLServerConfigSpec defines the desired state of PostgreSQLServerConfig

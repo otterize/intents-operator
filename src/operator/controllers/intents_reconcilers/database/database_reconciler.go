@@ -140,8 +140,60 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
+func (r *DatabaseReconciler) extractDBCredentials(ctx context.Context, namespace string, credentialsSpec otterizev1alpha3.DatabaseCredentials) (databaseconfigurator.DatabaseCredentials, error) {
+	creds := databaseconfigurator.DatabaseCredentials{}
+	if credentialsSpec.Username != "" {
+		creds.Username = credentialsSpec.Username
+	}
+	if credentialsSpec.Password != "" {
+		creds.Password = credentialsSpec.Password
+	}
+	if credentialsSpec.SecretRef != nil {
+		secret := corev1.Secret{}
+		name := credentialsSpec.SecretRef.Name
+		if credentialsSpec.SecretRef.Namespace != "" {
+			namespace = credentialsSpec.SecretRef.Namespace
+		}
+		err := r.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, &secret)
+		if err != nil {
+			return creds, errors.Wrap(err)
+		}
+		if username, ok := secret.Data[credentialsSpec.SecretRef.UsernameKey]; ok {
+			creds.Username = string(username)
+		}
+		if password, ok := secret.Data[credentialsSpec.SecretRef.PasswordKey]; ok {
+			creds.Password = string(password)
+		}
+	}
+
+	if creds.Username == "" || creds.Password == "" {
+		// TODO: should validate this as part of admission webhook
+		return creds, errors.New("credentials missing either username or password")
+	}
+
+	return creds, nil
+}
+
+func (r *DatabaseReconciler) createPostgresDBConfigurator(ctx context.Context, pgServerConfig otterizev1alpha3.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+	credentials, err := r.extractDBCredentials(ctx, pgServerConfig.Namespace, pgServerConfig.Spec.Credentials)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	dbInfo := postgres.PostgresDatabaseInfo{
+		Credentials: credentials,
+		Address:     pgServerConfig.Spec.Address,
+	}
+
+	dbConfigurator, err := postgres.NewPostgresConfigurator(ctx, dbInfo)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	return dbConfigurator, nil
+}
+
 func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, config otterizev1alpha3.PostgreSQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceIntents []otterizev1alpha3.Intent) error {
-	dbConfigurator, err := postgres.NewPostgresConfigurator(ctx, config.Spec)
+	dbConfigurator, err := r.createPostgresDBConfigurator(ctx, config)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
 			"Error connecting to PostgreSQL server. Error: %s", err.Error())
@@ -153,11 +205,29 @@ func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, confi
 	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, config.Name, dbInstanceIntents)
 }
 
+func (r *DatabaseReconciler) createMySQLDBConfigurator(ctx context.Context, mySqlServerConfig otterizev1alpha3.MySQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+	credentials, err := r.extractDBCredentials(ctx, mySqlServerConfig.Namespace, mySqlServerConfig.Spec.Credentials)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	dbInfo := mysql.MySQLDatabaseInfo{
+		Credentials: credentials,
+		Address:     mySqlServerConfig.Spec.Address,
+	}
+
+	dbConfigurator, err := mysql.NewMySQLConfigurator(ctx, dbInfo)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	return dbConfigurator, nil
+}
+
 func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev1alpha3.MySQLServerConfig, clientIntents *otterizev1alpha3.ClientIntents, dbUsername string, dbInstanceIntents []otterizev1alpha3.Intent) error {
-	dbConfigurator, err := mysql.NewMySQLConfigurator(ctx, config.Spec)
+	dbConfigurator, err := r.createMySQLDBConfigurator(ctx, config)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
-			"Error connecting to PostgreSQL server. Error: %s", err.Error())
+			"Error connecting to MySQL server. Error: %s", err.Error())
 		return errors.Wrap(err)
 	}
 
