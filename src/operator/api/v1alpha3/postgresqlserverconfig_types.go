@@ -20,9 +20,34 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type DatabaseCredentialsSecretRef struct {
+	// Name is the name of he k8s secret storing the credentials
+	Name string `json:"name"`
+	// Namespace is the namespace in which the secret is stored.
+	// If not provided, the operator will look for the secret in the same namespace as the database ServerConfig.
+	//+optional
+	Namespace string `json:"namespace"`
+	// UsernameKey is the key in the secret that stores the username
+	//+optional
+	//+kubebuilder:default="username"
+	UsernameKey string `json:"usernameKey"`
+	// PasswordKey is the key in the secret that stores the password
+	//+optional
+	//+kubebuilder:default="password"
+	PasswordKey string `json:"passwordKey"`
+}
+
+// DatabaseCredentials defines the credentials to access the database
 type DatabaseCredentials struct {
+	// Username is the plaintext username to access the database
+	//+optional
 	Username string `json:"username"`
+	// Password is the plaintext password to access the database
+	//+optional
 	Password string `json:"password"`
+	// SecretRef is a reference to a k8s secret storing the credentials
+	//+optional
+	SecretRef DatabaseCredentialsSecretRef `json:"secretRef"`
 }
 
 // PostgreSQLServerConfigSpec defines the desired state of PostgreSQLServerConfig

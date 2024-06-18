@@ -111,32 +111,35 @@ type __SendTelemetriesInput struct {
 // GetTelemetries returns __SendTelemetriesInput.Telemetries, and is useful for accessing the field via an interface.
 func (v *__SendTelemetriesInput) GetTelemetries() []TelemetryInput { return v.Telemetries }
 
-func SendTelemetries(
-	ctx context.Context,
-	client graphql.Client,
-	telemetries []TelemetryInput,
-) (*SendTelemetriesResponse, error) {
-	req := &graphql.Request{
-		OpName: "SendTelemetries",
-		Query: `
+// The query or mutation executed by SendTelemetries.
+const SendTelemetries_Operation = `
 mutation SendTelemetries ($telemetries: [TelemetryInput!]!) {
 	sendTelemetries(telemetries: $telemetries)
 }
-`,
+`
+
+func SendTelemetries(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	telemetries []TelemetryInput,
+) (*SendTelemetriesResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "SendTelemetries",
+		Query:  SendTelemetries_Operation,
 		Variables: &__SendTelemetriesInput{
 			Telemetries: telemetries,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data SendTelemetriesResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ SendTelemetriesResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
