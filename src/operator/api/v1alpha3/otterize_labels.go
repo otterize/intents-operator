@@ -2,6 +2,7 @@ package v1alpha3
 
 import (
 	"context"
+	"fmt"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"golang.org/x/exp/maps"
@@ -11,6 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
+
+var ServiceHasNoSelector = errors.NewSentinelError("service has no selector")
 
 // IsMissingOtterizeAccessLabels checks if a pod's labels need updating
 func IsMissingOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) bool {
@@ -101,7 +104,7 @@ func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient 
 			return nil, false, errors.Wrap(err)
 		}
 		if svc.Spec.Selector == nil {
-			return nil, false, errors.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
+			return nil, false, fmt.Errorf("%w %s/%s", ServiceHasNoSelector, svc.Namespace, svc.Name)
 		}
 		return maps.Clone(svc.Spec.Selector), true, nil
 	}

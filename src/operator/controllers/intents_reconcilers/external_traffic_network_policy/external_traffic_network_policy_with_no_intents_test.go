@@ -14,6 +14,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -66,7 +67,8 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupTest() {
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Always)
 	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, goset.NewSet[string](), true, true, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder()}, nil)
-	groupReconciler := effectivepolicy.NewGroupReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolReconciler)
+	serviceIdResolver := serviceidresolver.NewResolver(s.Mgr.GetClient())
+	groupReconciler := effectivepolicy.NewGroupReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, serviceIdResolver, netpolReconciler)
 	s.EffectivePolicyIntentsReconciler = intents_reconcilers.NewServiceEffectiveIntentsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, groupReconciler)
 	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
 	s.EffectivePolicyIntentsReconciler.InjectRecorder(recorder)

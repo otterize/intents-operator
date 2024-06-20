@@ -98,7 +98,6 @@ func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req
 // SetupWithManager sets up the controller with the Manager.
 func (r *CustomResourceDefinitionsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logrus.Info("Registered CustomResourceDefinitionsReconciler")
-
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&apiextensionsv1.CustomResourceDefinition{}).
 		WithEventFilter(filters.PartOfOtterizeLabelPredicate()).

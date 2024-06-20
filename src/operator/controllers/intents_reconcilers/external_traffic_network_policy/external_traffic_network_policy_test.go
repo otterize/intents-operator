@@ -16,6 +16,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
@@ -75,7 +76,8 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.IfBlockedByOtterize)
 	s.defaultDenyReconciler = protected_service_reconcilers.NewDefaultDenyReconciler(s.Mgr.GetClient(), netpolHandler, true)
 	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, goset.NewSet[string](), true, defaultActive, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder(), builders.NewPortNetworkPolicyReconciler(s.Mgr.GetClient())}, nil)
-	epReconciler := effectivepolicy.NewGroupReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolReconciler)
+	serviceIdResolver := serviceidresolver.NewResolver(s.Mgr.GetClient())
+	epReconciler := effectivepolicy.NewGroupReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, serviceIdResolver, netpolReconciler)
 	s.EffectivePolicyIntentsReconciler = intents_reconcilers.NewServiceEffectiveIntentsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, epReconciler)
 	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
 	s.EffectivePolicyIntentsReconciler.InjectRecorder(recorder)
@@ -484,6 +486,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	})
 }
 
+// This one is flaky
 func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedAndDeletedWhenLastIntentDeleted() {
 	serviceName := "test-server-load-balancer-test"
 	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev1alpha3.Intent{{
