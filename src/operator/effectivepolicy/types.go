@@ -13,10 +13,15 @@ type ClientCall struct {
 	ObjectEventRecorder *injectablerecorder.ObjectEventRecorder
 }
 
+type Call struct {
+	v1alpha3.Intent
+	EventRecorder *injectablerecorder.ObjectEventRecorder
+}
+
 type ServiceEffectivePolicy struct {
 	Service                    serviceidentity.ServiceIdentity
 	CalledBy                   []ClientCall
-	Calls                      []v1alpha3.Intent
+	Calls                      []Call
 	ClientIntentsStatus        v1alpha3.IntentsStatus
 	ClientIntentsEventRecorder *injectablerecorder.ObjectEventRecorder
 }
