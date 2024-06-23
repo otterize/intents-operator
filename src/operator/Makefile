@@ -138,8 +138,7 @@ deploy: manifests copy-manifests-to-helm helm-dependency
 deploy-local: manifests copy-manifests-to-helm helm-dependency ## Deploy images built locally into the cluster.
 	helm upgrade --install -n otterize-system --create-namespace otterize $(OTTERIZE_HELM_CHART_DIR) \
 	--set intentsOperator.operator.tag=$(LOCAL_IMAGE_TAG) \
-	--set intentsOperator.operator.pullPolicy=Never \
-	--set global.telemetry.enabled=false
+	--set intentsOperator.operator.pullPolicy=Never
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.

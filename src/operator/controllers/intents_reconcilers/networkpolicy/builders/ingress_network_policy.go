@@ -42,7 +42,7 @@ func (r *IngressNetpolBuilder) buildIngressRulesFromServiceEffectivePolicy(ep ef
 					PodSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							fmt.Sprintf(
-								otterizev1alpha3.OtterizeAccessLabelKey, ep.Service.GetFormattedOtterizeIdentityWithKind()): "true",
+								otterizev1alpha3.OtterizeAccessLabelKey, ep.Service.GetFormattedOtterizeIdentity()): "true",
 						},
 					},
 					NamespaceSelector: &metav1.LabelSelector{

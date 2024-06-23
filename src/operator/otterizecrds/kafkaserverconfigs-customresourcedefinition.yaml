@@ -144,8 +144,6 @@ spec:
                   type: boolean
                 service:
                   properties:
-                    kind:
-                      type: string
                     name:
                       type: string
                   required:

@@ -107,14 +107,9 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
-	if missingSideCar {
-		r.RecordWarningEvent(intents, istiopolicy.ReasonMissingSidecar, "Client pod missing sidecar, will not create policies")
-		logrus.Debugf("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
-		return ctrl.Result{}, nil
-	}
-
 	clientServiceAccountName := pod.Spec.ServiceAccountName
+	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
+
 	err = r.policyManager.UpdateIntentsStatus(ctx, intents, clientServiceAccountName, missingSideCar)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
@@ -125,6 +120,12 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	if missingSideCar {
+		r.RecordWarningEvent(intents, istiopolicy.ReasonMissingSidecar, "Client pod missing sidecar, will not create policies")
+		logrus.Debugf("Pod %s/%s does not have a sidecar, skipping Istio policy creation", pod.Namespace, pod.Name)
+		return ctrl.Result{}, nil
+	}
+
 	err = r.policyManager.Create(ctx, intents, clientServiceAccountName)
 	if err != nil {
 		if k8serrors.IsConflict(err) {
@@ -133,35 +134,27 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	err = r.policyManager.RemoveDeprecatedPoliciesForClient(ctx, intents)
-	if err != nil {
-		logrus.WithError(err).Debugf("Failed to remove deprecated policies for client %s", intents.Spec.Service.Name)
-		return ctrl.Result{}, errors.Wrap(err)
-	}
-
 	return ctrl.Result{}, nil
 }
 
 func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
 	for _, intent := range intents.Spec.Calls {
-		serviceId := intent.ToServiceIdentity(intents.Namespace)
-		pods, ok, err := r.serviceIdResolver.ResolveServiceIdentityToPodSlice(ctx, serviceId)
+		serverNamespace := intent.GetTargetServerNamespace(intents.Namespace)
+		pod, err := r.serviceIdResolver.ResolveIntentServerToPod(ctx, intent, serverNamespace)
 		if err != nil {
-			return errors.Wrap(err)
-		}
-		if !ok {
-			continue
-		}
-		missingSideCar := false
-		for _, pod := range pods {
-			missingSideCar = missingSideCar || !istiopolicy.IsPodPartOfIstioMesh(pod)
-		}
-
-		err = r.policyManager.UpdateServerSidecar(ctx, intents, serviceId.GetFormattedOtterizeIdentityWithKind(), missingSideCar)
-		if err != nil {
+			if errors.Is(err, serviceidresolver.ErrPodNotFound) {
+				continue
+			}
 			return errors.Wrap(err)
 		}
 
+		missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
+		formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intent.GetTargetServerName(), serverNamespace)
+		err = r.policyManager.UpdateServerSidecar(ctx, intents, formattedTargetServer, missingSideCar)
+		if err != nil {
+			return errors.Wrap(err)
+		}
 	}
+
 	return nil
 }
