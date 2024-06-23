@@ -20,7 +20,13 @@ jobs:
   build:
     name: Build & Test
     runs-on: ubuntu-latest
+    outputs:
+      registry: ${{ steps.registry.outputs.registry }} # workaround since env is not available outside of steps, i.e. in calling external workflows like we later do in e2e-test
+
     steps:
+      - id: registry
+        run: echo "registry=${{ env.REGISTRY }}" >> "$GITHUB_OUTPUT"
+
       - name: Check out the code
         uses: actions/checkout@v2
         with:
@@ -59,6 +65,15 @@ jobs:
           build-args: |
             "VERSION=0.0.${{ github.run_id }}"
 
+  helm-e2e-test:
+    uses: otterize/helm-charts/.github/workflows/e2e-test.yaml@main
+    name: Trigger e2e tests from helm charts repo
+    secrets: inherit
+    with:
+      gcr-registry: ${{ needs.build.outputs.registry }}
+      credentials-operator-tag: ${{ github.sha }}
+    needs:
+      - build
 
   tag-latest:
     name: Tag latest

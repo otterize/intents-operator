@@ -118,10 +118,6 @@ func initSpireClient(ctx context.Context, spireServerAddr string) (spireclient.S
 }
 
 func main() {
-	errorreporter.Init("credentials-operator", version.Version(), viper.GetString(operatorconfig.TelemetryErrorsAPIKeyKey))
-	defer errorreporter.AutoNotify()
-	shared.RegisterPanicHandlers()
-
 	var secretsManager tls_pod.SecretsManager
 	var workloadRegistry tls_pod.WorkloadRegistry
 
@@ -132,7 +128,19 @@ func main() {
 		TimestampFormat: time.RFC3339,
 	})
 
+	signalHandlerCtx := ctrl.SetupSignalHandler()
+
+	clusterUID, err := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
+	if err != nil {
+		logrus.WithError(err).Panic("Failed obtaining cluster ID")
+	}
+	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
+
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
+
+	errorreporter.Init(telemetriesgql.TelemetryComponentTypeCredentialsOperator, version.Version())
+	defer errorreporter.AutoNotify()
+	shared.RegisterPanicHandlers()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
@@ -148,7 +156,6 @@ func main() {
 		logrus.WithError(err).Panic("unable to initialize manager")
 	}
 
-	signalHandlerCtx := ctrl.SetupSignalHandler()
 	podNamespace := os.Getenv("POD_NAMESPACE")
 	if podNamespace == "" {
 		logrus.Panic("POD_NAMESPACE environment variable is required")
@@ -165,13 +172,6 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Panic("unable to ensure otterize CRDs")
 	}
-
-	clusterUID, err := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
-	if err != nil {
-		logrus.WithError(err).Panic("Failed fetching cluster UID")
-	}
-	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
-	componentinfo.SetGlobalVersion(version.Version())
 
 	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
 	eventRecorder := mgr.GetEventRecorderFor("credentials-operator")

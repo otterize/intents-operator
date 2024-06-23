@@ -436,6 +436,16 @@ github.com/otterize/intents-operator/src v0.0.0-20240521053840-36662b8fd8fa h1:R
 github.com/otterize/intents-operator/src v0.0.0-20240521053840-36662b8fd8fa/go.mod h1:7vDL6/NAo7AobUGqDGU/277xGyb0KTRQoqRjoouhh44=
 github.com/otterize/intents-operator/src v0.0.0-20240521104220-ba00b7c59637 h1:fhtXDgHYymOrHaAdaBg7kTs8D53u35nmGXYLiDhVjtU=
 github.com/otterize/intents-operator/src v0.0.0-20240521104220-ba00b7c59637/go.mod h1:7vDL6/NAo7AobUGqDGU/277xGyb0KTRQoqRjoouhh44=
+github.com/otterize/intents-operator/src v0.0.0-20240618094714-4c1711705a94 h1:WdA+1YWuYc75WGuhQ2XGdZGD/PQQq/Qoml3CJYYs1xE=
+github.com/otterize/intents-operator/src v0.0.0-20240618094714-4c1711705a94/go.mod h1:7vDL6/NAo7AobUGqDGU/277xGyb0KTRQoqRjoouhh44=
+github.com/otterize/intents-operator/src v0.0.0-20240623111815-b96773bfb6c6 h1:M5ZLoxXTpm5u3MV3c0M5WOsIB03ESLZiHDjTl5y2xYg=
+github.com/otterize/intents-operator/src v0.0.0-20240623111815-b96773bfb6c6/go.mod h1:7vDL6/NAo7AobUGqDGU/277xGyb0KTRQoqRjoouhh44=
+github.com/otterize/intents-operator/src v0.0.0-20240623113422-6820f7294c78 h1:YDVGIeLdoLqSZfF9eRJyBP0GRK7UsIoWWCUQcX9qW5M=
+github.com/otterize/intents-operator/src v0.0.0-20240623113422-6820f7294c78/go.mod h1:7vDL6/NAo7AobUGqDGU/277xGyb0KTRQoqRjoouhh44=
+github.com/otterize/intents-operator/src v0.0.0-20240623153715-3086fe975a9f h1:60VQ/nyov3Pqq6NCBPrf4VjJzpsfjSsC6L7Zw9qot8Q=
+github.com/otterize/intents-operator/src v0.0.0-20240623153715-3086fe975a9f/go.mod h1:7vDL6/NAo7AobUGqDGU/277xGyb0KTRQoqRjoouhh44=
+github.com/otterize/intents-operator/src v0.0.0-20240623163818-27d9ebb4f4eb h1:aGBbne9jtKspb0fgvQHpIgN5t9mErIMXBNp1Y7XEx8g=
+github.com/otterize/intents-operator/src v0.0.0-20240623163818-27d9ebb4f4eb/go.mod h1:7vDL6/NAo7AobUGqDGU/277xGyb0KTRQoqRjoouhh44=
 github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd h1:7Sb95VrtAPb9m2ewtqLnX1oeKQy03dt7yr6F/hP7Htg=
 github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd/go.mod h1:RXvgymN8MxiELFkmGHzJ23KJU2ObVsNsNSM80/HO8qQ=
 github.com/otterize/nilable v0.0.0-20240410132629-f242bb6f056f h1:gv92189CW53A+Y0UQ550zr6RfCBYqvYJ8oq6Jll1YqQ=

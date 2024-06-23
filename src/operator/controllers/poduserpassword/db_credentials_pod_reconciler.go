@@ -296,17 +296,86 @@ func (e *Reconciler) runAlterPasswordForSecrets(ctx context.Context, secrets []v
 	return nil
 }
 
+func (e *Reconciler) extractDBCredentials(ctx context.Context, namespace string, credentialsSpec otterizev1alpha3.DatabaseCredentials) (databaseconfigurator.DatabaseCredentials, error) {
+	creds := databaseconfigurator.DatabaseCredentials{}
+	if credentialsSpec.Username != "" {
+		creds.Username = credentialsSpec.Username
+	}
+	if credentialsSpec.Password != "" {
+		creds.Password = credentialsSpec.Password
+	}
+	if credentialsSpec.SecretRef != nil {
+		secret := v1.Secret{}
+		name := credentialsSpec.SecretRef.Name
+		if credentialsSpec.SecretRef.Namespace != "" {
+			namespace = credentialsSpec.SecretRef.Namespace
+		}
+		err := e.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, &secret)
+		if err != nil {
+			return creds, errors.Wrap(err)
+		}
+		if username, ok := secret.Data[credentialsSpec.SecretRef.UsernameKey]; ok {
+			creds.Username = string(username)
+		}
+		if password, ok := secret.Data[credentialsSpec.SecretRef.PasswordKey]; ok {
+			creds.Password = string(password)
+		}
+	}
+
+	if creds.Username == "" || creds.Password == "" {
+		return creds, errors.New("credentials missing either username or password")
+	}
+
+	return creds, nil
+}
+
+func (e *Reconciler) createPostgresDBConfigurator(ctx context.Context, pgServerConfig otterizev1alpha3.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+	credentials, err := e.extractDBCredentials(ctx, pgServerConfig.Namespace, pgServerConfig.Spec.Credentials)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	dbInfo := postgres.PostgresDatabaseInfo{
+		Credentials: credentials,
+		Address:     pgServerConfig.Spec.Address,
+	}
+
+	dbconfigurator, err := postgres.NewPostgresConfigurator(ctx, dbInfo)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	return dbconfigurator, nil
+}
+
+func (e *Reconciler) createMySQLDBConfigurator(ctx context.Context, mySQLServerConfig otterizev1alpha3.MySQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+	credentials, err := e.extractDBCredentials(ctx, mySQLServerConfig.Namespace, mySQLServerConfig.Spec.Credentials)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	dbInfo := mysql.MySQLDatabaseInfo{
+		Credentials: credentials,
+		Address:     mySQLServerConfig.Spec.Address,
+	}
+
+	dbconfigurator, err := mysql.NewMySQLConfigurator(ctx, dbInfo)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	return dbconfigurator, nil
+}
+
 func (e *Reconciler) createDBConfigurator(
 	ctx context.Context,
 	database string,
 	mysqlServerConfigs []otterizev1alpha3.MySQLServerConfig,
 	pgServerConfigs []otterizev1alpha3.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, bool, error) {
 
-	mysqlConf, found := lo.Find(mysqlServerConfigs, func(config otterizev1alpha3.MySQLServerConfig) bool {
+	mysqlServerConf, found := lo.Find(mysqlServerConfigs, func(config otterizev1alpha3.MySQLServerConfig) bool {
 		return config.Name == database
 	})
 	if found {
-		dbconfigurator, err := mysql.NewMySQLConfigurator(ctx, mysqlConf.Spec)
+		dbconfigurator, err := e.createMySQLDBConfigurator(ctx, mysqlServerConf)
 		if err != nil {
 			return nil, false, errors.Wrap(err)
 		}
@@ -317,7 +386,7 @@ func (e *Reconciler) createDBConfigurator(
 		return config.Name == database
 	})
 	if found {
-		dbconfigurator, err := postgres.NewPostgresConfigurator(ctx, pgServerConf.Spec)
+		dbconfigurator, err := e.createPostgresDBConfigurator(ctx, pgServerConf)
 		if err != nil {
 			return nil, false, errors.Wrap(err)
 		}
@@ -359,7 +428,7 @@ func closeAllConnections(ctx context.Context, allConfigurators []databaseconfigu
 func (e *Reconciler) GetAllDBConfigurators(ctx context.Context, mysqlServerConfigs []otterizev1alpha3.MySQLServerConfig, pgServerConfigs []otterizev1alpha3.PostgreSQLServerConfig) []databaseconfigurator.DatabaseConfigurator {
 	configurators := make([]databaseconfigurator.DatabaseConfigurator, 0)
 	for _, mysqlServerConfig := range mysqlServerConfigs {
-		dbconfigurator, err := mysql.NewMySQLConfigurator(ctx, mysqlServerConfig.Spec)
+		dbconfigurator, err := e.createMySQLDBConfigurator(ctx, mysqlServerConfig)
 		if err != nil {
 			logrus.WithError(err).Errorf("Failed to create configurator for MySQL server config: %s", mysqlServerConfig.Name)
 			continue
@@ -367,7 +436,7 @@ func (e *Reconciler) GetAllDBConfigurators(ctx context.Context, mysqlServerConfi
 		configurators = append(configurators, dbconfigurator)
 	}
 	for _, pgServerConfig := range pgServerConfigs {
-		dbconfigurator, err := postgres.NewPostgresConfigurator(ctx, pgServerConfig.Spec)
+		dbconfigurator, err := e.createPostgresDBConfigurator(ctx, pgServerConfig)
 		if err != nil {
 			logrus.WithError(err).Errorf("Failed to create configurator for PostgreSQL server config: %s", pgServerConfig.Name)
 			continue
