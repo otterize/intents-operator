@@ -97,6 +97,10 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	err = p.handleIstioPolicy(ctx, pod, serviceID)
 	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			// Can happen if the Istio policy is created in parallel by another controller
+			return ctrl.Result{Requeue: true}, nil
+		}
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
@@ -279,7 +283,6 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1
 
 	err = p.istioPolicyAdmin.Create(ctx, &intents, pod.Spec.ServiceAccountName)
 	if err != nil {
-		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
 		return errors.Wrap(err)
 	}
 
