@@ -71,7 +71,6 @@ func sendToErrorTelemetry(entry *logrus.Entry, sync bool) error {
 			return sendErrorSync(errWithStack, metadata)
 		}
 		sendErrorAsync(errWithStack, metadata)
-		return nil
 	}
 
 	return nil
