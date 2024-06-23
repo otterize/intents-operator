@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -106,6 +107,21 @@ func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.
 		ownerObj := &unstructured.Unstructured{}
 		ownerObj.SetAPIVersion(owner.APIVersion)
 		ownerObj.SetKind(owner.Kind)
+		// If the kind is not found, we try to resolve it without the version
+		// This is a workaround to handle the Kubernetes migration from CronJob at batch/v1beta1 to batch/v1, which resulted in CronJobs with v1beta1
+		// version still existing in the cluster despite this kind version not existing anymore. See https://app.bugsnag.com/otterize/intents-operator/errors/660f3f15aec08200089f3c22
+		if owner.Kind == "CronJob" {
+			mapping, err := r.client.RESTMapper().RESTMapping(ownerObj.GroupVersionKind().GroupKind(), ownerObj.GroupVersionKind().Version)
+			if errors.Is(err, &meta.NoKindMatchError{}) {
+				mapping, err = r.client.RESTMapper().RESTMapping(ownerObj.GroupVersionKind().GroupKind(), "")
+			}
+			if err != nil {
+				return nil, errors.Errorf("error getting REST mapping for owner reference: %w", err)
+			}
+			gvk := ownerObj.GroupVersionKind()
+			gvk.Version = mapping.GroupVersionKind.Version
+			ownerObj.SetGroupVersionKind(gvk)
+		}
 		err := r.client.Get(ctx, types.NamespacedName{Name: owner.Name, Namespace: obj.GetNamespace()}, ownerObj)
 		if err != nil {
 			if k8serrors.IsForbidden(err) {
