@@ -34,7 +34,3 @@ func KubernetesToPostgresName(kubernetesName string) string {
 	// '.' and '-' are replaced with single underscores '_'
 	return strings.ReplaceAll(strings.ReplaceAll(kubernetesName, ".", "_"), "-", "_")
 }
-
-func PostgresToKubernetesName(pgName string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(pgName, "__", "."), "_", "-")
-}
