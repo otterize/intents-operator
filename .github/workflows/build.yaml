@@ -95,7 +95,7 @@ jobs:
       - build
 
   helm-e2e-test:
-    uses: otterize/helm-charts/.github/workflows/e2e-test.yaml@b5d416e5977f52f7cd605f608b3666e423c53004
+    uses: otterize/helm-charts/.github/workflows/e2e-test.yaml@f22acf2f52cd61bf9b3633849cf5edf3213d524f
     name: Trigger e2e tests from helm charts repo
     secrets: inherit
     with:
