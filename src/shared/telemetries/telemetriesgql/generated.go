@@ -32,11 +32,11 @@ func (v *Component) GetVersion() string { return v.Version }
 func (v *Component) GetCloudClientId() string { return v.CloudClientId }
 
 type Error struct {
-	Message    *string          `json:"Message"`
-	ErrorClass *string          `json:"ErrorClass"`
-	Cause      *Error           `json:"Cause"`
-	Stack      []*StackFrame    `json:"Stack"`
-	Metadata   []*MetadataEntry `json:"Metadata"`
+	Message    *string          `json:"message"`
+	ErrorClass *string          `json:"errorClass"`
+	Cause      *Error           `json:"cause"`
+	Stack      []*StackFrame    `json:"stack"`
+	Metadata   []*MetadataEntry `json:"metadata"`
 }
 
 // GetMessage returns Error.Message, and is useful for accessing the field via an interface.
@@ -115,10 +115,10 @@ type SendTelemetriesResponse struct {
 func (v *SendTelemetriesResponse) GetSendTelemetries() bool { return v.SendTelemetries }
 
 type StackFrame struct {
-	File       *string `json:"File"`
-	LineNumber *int    `json:"LineNumber"`
-	Name       *string `json:"Name"`
-	Package    *string `json:"Package"`
+	File       *string `json:"file"`
+	LineNumber *int    `json:"lineNumber"`
+	Name       *string `json:"name"`
+	Package    *string `json:"package"`
 }
 
 // GetFile returns StackFrame.File, and is useful for accessing the field via an interface.

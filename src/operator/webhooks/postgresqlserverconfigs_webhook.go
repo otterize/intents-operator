@@ -61,19 +61,23 @@ func (v *PostgresConfValidator) ValidateDelete(ctx context.Context, obj runtime.
 func (v *PostgresConfValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
 	pgServerConf := obj.(*otterizev1alpha3.PostgreSQLServerConfig)
+	gvk := pgServerConf.GroupVersionKind()
+
+	if err := validateCredentialsNotEmpty(pgServerConf.Spec.Credentials); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
 	err := validateNoDuplicateForCreate(ctx, v.Client, pgServerConf.Name)
-	if err != nil {
-		var fieldErr *field.Error
-		if goerrors.As(err, &fieldErr) {
-			allErrs = append(allErrs, fieldErr)
-			gvk := pgServerConf.GroupVersionKind()
-			return nil, k8serrors.NewInvalid(
-				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-				pgServerConf.Name, allErrs)
-		}
-
+	if fieldErr := (&field.Error{}); goerrors.As(err, &fieldErr) {
+		allErrs = append(allErrs, fieldErr)
+	} else if err != nil {
 		return nil, errors.Wrap(err)
+	}
+
+	if len(allErrs) > 0 {
+		return nil, k8serrors.NewInvalid(
+			schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
+			pgServerConf.Name, allErrs)
 	}
 
 	return nil, nil
@@ -83,24 +87,28 @@ func (v *PostgresConfValidator) ValidateCreate(ctx context.Context, obj runtime.
 func (v *PostgresConfValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
 	pgServerConf := newObj.(*otterizev1alpha3.PostgreSQLServerConfig)
+	gvk := pgServerConf.GroupVersionKind()
+
+	if err := validateCredentialsNotEmpty(pgServerConf.Spec.Credentials); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
 	err := validateNoDuplicateForUpdate(ctx, v.Client, DatabaseServerConfig{
 		Name:      pgServerConf.Name,
 		Namespace: pgServerConf.Namespace,
 		Type:      Postgres,
 	})
-	
-	if err != nil {
-		var fieldErr *field.Error
-		if goerrors.As(err, &fieldErr) {
-			allErrs = append(allErrs, fieldErr)
-			gvk := pgServerConf.GroupVersionKind()
-			return nil, k8serrors.NewInvalid(
-				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-				pgServerConf.Name, allErrs)
-		}
-
+	if fieldErr := (&field.Error{}); goerrors.As(err, &fieldErr) {
+		allErrs = append(allErrs, fieldErr)
+	} else if err != nil {
 		return nil, errors.Wrap(err)
 	}
+
+	if len(allErrs) > 0 {
+		return nil, k8serrors.NewInvalid(
+			schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
+			pgServerConf.Name, allErrs)
+	}
+
 	return nil, nil
 }

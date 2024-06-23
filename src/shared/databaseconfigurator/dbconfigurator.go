@@ -10,6 +10,11 @@ const (
 	LatestAccessChangeAnnotation = "intents.otterize.com/database-access-update-time"
 )
 
+type DatabaseCredentials struct {
+	Username string
+	Password string
+}
+
 type DatabaseConfigurator interface {
 	CreateUser(ctx context.Context, username string, password string) error
 	ValidateUserExists(ctx context.Context, username string) (bool, error)

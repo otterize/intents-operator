@@ -106,6 +106,7 @@ type AccessGraph {
 	clusters: [Cluster!]!
 	serviceAccessGraphs: [ServiceAccessGraph!]!
 	serviceCount: Int!
+	findings: [Finding!]!
 }
 
 type AccessGraphEdge {
@@ -115,6 +116,7 @@ type AccessGraphEdge {
 	appliedIntents: [Intent!]!
 	accessStatus: EdgeAccessStatus!
 	accessStatuses: EdgeAccessStatuses!
+	missingTags: [MissingTagInfo!]
 }
 
 """Access graph filter"""
@@ -124,6 +126,7 @@ type AccessGraphFilter {
 	namespaceIds: IDFilterValue
 	environmentIds: IDFilterValue
 	lastSeen: TimeFilterValue
+	featureFlags: FeatureFlags
 }
 
 enum ApiFieldAction {
@@ -231,6 +234,14 @@ enum CertificateProvider {
 	NONE
 }
 
+input ChannelInfoInput {
+	channelName: String!
+}
+
+input ClientIPConfig {
+	timeoutSeconds: Int
+}
+
 type ClientIntentsFileRepresentation {
 	fileName: String!
 	service: Service!
@@ -329,6 +340,11 @@ type CreateGitHubIntegrationResponse {
 }
 
 type CreateGitLabIntegrationResponse {
+	integration: Integration!
+	nextURL: String!
+}
+
+type CreateSlackIntegrationResponse {
 	integration: Integration!
 	nextURL: String!
 }
@@ -475,6 +491,14 @@ type Environment {
 	appliedIntentsCount: Int!
 }
 
+input Error {
+	message: String!
+	errorClass: String!
+	cause: Error
+	stack: [StackFrame]
+	metadata: [MetadataEntry!]
+}
+
 enum EventType {
 	INTENTS_DELETED
 	INTENTS_APPLIED
@@ -522,6 +546,21 @@ input ExternallyAccessibleServiceInput {
 	serverName: String!
 	referredByIngress: Boolean!
 	serviceType: KubernetesServiceType!
+}
+
+type FeatureFlags {
+	isCloudServicesDetectionEnabled: Boolean
+	isCloudSecurityEnabled: Boolean
+}
+
+type Finding {
+	id: ID!
+	severity: Severity!
+	message: String!
+	server: ServiceAccessGraph!
+	clientsMissingTags: [ServiceAccessGraph!]!
+	ruleTags: [String!]!
+	totalClientsCount: Int!
 }
 
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
@@ -656,6 +695,12 @@ type IDFilterValue {
 	operator: IDFilterOperators!
 }
 
+enum IPFamily {
+	IPV4
+	IPV6
+	UNKNOWN
+}
+
 input IncomingInternetSourceInput {
 	ip: String!
 }
@@ -677,6 +722,12 @@ input InputAccessGraphFilter {
 	namespaceIds: InputIDFilterValue
 	environmentIds: InputIDFilterValue
 	lastSeen: InputTimeFilterValue
+	featureFlags: InputFeatureFlags
+}
+
+input InputFeatureFlags {
+	isCloudServicesDetectionEnabled: Boolean
+	isCloudSecurityEnabled: Boolean
 }
 
 input InputIDFilterValue {
@@ -700,6 +751,12 @@ input InputTimeFilterValue {
 """The `Int` scalar type represents non-fractional signed whole numeric values. Int can represent values between -(2^31) and 2^31 - 1."""
 scalar Int
 
+input IntOrStringInput {
+	isInt: Boolean!
+	intVal: Int
+	strVal: String
+}
+
 type Integration {
 	id: ID!
 	name: String!
@@ -714,6 +771,7 @@ type Integration {
 	azureInfo: AzureInfo
 	gitHubSettings: GitHubSettings
 	gitLabSettings: GitLabSettings
+	slackSettings: SlackSettings
 	organizationId: String!
 	status: IntegrationStatus
 }
@@ -766,6 +824,7 @@ enum IntegrationType {
 	GITHUB
 	GITLAB
 	AZURE
+	SLACK
 }
 
 type Intent {
@@ -867,6 +926,7 @@ type InternetConfig {
 
 input InternetConfigInput {
 	domains: [String!]
+	discoveredTarget: DNSIPPairInput
 	ips: [String!]
 	ports: [Int!]
 }
@@ -891,11 +951,148 @@ input IpBlockInput {
 	except: [String!]
 }
 
+enum IpFamilyPolicy {
+	SINGLE_STACK
+	PREFER_DUAL_STACK
+	REQUIRE_DUAL_STACK
+}
+
 input IstioStatusInput {
 	serviceAccountName: String!
 	isServiceAccountShared: Boolean!
 	isServerMissingSidecar: Boolean!
 	isClientMissingSidecar: Boolean!
+}
+
+input K8sIngressBackendInput {
+	service: K8sIngressServiceBackendInput
+	resource: K8sIngressResourceBackendInput
+}
+
+input K8sIngressHttpPathInput {
+	path: String
+	pathType: PathType
+	backend: K8sIngressBackendInput!
+}
+
+input K8sIngressInput {
+	namespace: String!
+	name: String!
+	ingress: K8sResourceIngressInput!
+}
+
+input K8sIngressResourceBackendInput {
+	apiGroup: String
+	kind: String!
+	name: String!
+}
+
+input K8sIngressRuleInput {
+	host: String
+	httpPaths: [K8sIngressHttpPathInput!]
+}
+
+input K8sIngressServiceBackendInput {
+	name: String!
+	port: ServiceBackendPortInput!
+}
+
+input K8sIngressTLSInput {
+	hosts: [String!]
+	secretName: String
+}
+
+enum K8sPortProtocol {
+	TCP
+	UDP
+	SCTP
+}
+
+input K8sResourceIngressInput {
+	spec: K8sResourceIngressSpecInput!
+	status: K8sResourceIngressStatusInput
+}
+
+input K8sResourceIngressSpecInput {
+	ingressClassName: String
+	defaultBackend: K8sIngressBackendInput
+	tls: [K8sIngressTLSInput!]
+	rules: [K8sIngressRuleInput!]
+}
+
+input K8sResourceIngressStatusInput {
+	loadBalancer: [K8sResourceLoadBalancerIngressInput!]
+}
+
+input K8sResourceLoadBalancerIngressInput {
+	ip: String
+	hostname: String
+	ports: [PortStatusInput!]
+}
+
+input K8sResourceServiceInput {
+	spec: K8sResourceServiceSpecInput!
+	status: K8sResourceServiceStatusInput
+}
+
+input K8sResourceServiceLoadBalancerIngressInput {
+	ip: String
+	hostname: String
+	ipMode: LoadBalancerIPMode
+	ports: [PortStatusInput!]
+}
+
+input K8sResourceServiceLoadBalancerStatusInput {
+	ingress: [K8sResourceServiceLoadBalancerIngressInput!]
+}
+
+input K8sResourceServiceSpecInput {
+	ports: [K8sServicePort!]!
+	selector: [SelectorKeyValueInput!]!
+	clusterIP: String
+	clusterIPs: [String!]
+	type: K8sServiceType
+	externalIPs: [String!]
+	sessionAffinity: SessionAffinity
+	loadBalancerIP: String
+	loadBalancerSourceRanges: [String!]
+	externalName: String
+	externalTrafficPolicy: ServiceExternalTrafficPolicy
+	healthCheckNodePort: Int
+	publishNotReadyAddresses: Boolean
+	sessionAffinityConfig: SessionAffinityConfig
+	ipFamilies: [IPFamily!]
+	ipFamilyPolicy: IpFamilyPolicy
+	allocateLoadBalancerNodePorts: Boolean
+	loadBalancerClass: String
+	internalTrafficPolicy: ServiceInternalTrafficPolicy
+}
+
+input K8sResourceServiceStatusInput {
+	loadBalancer: K8sResourceServiceLoadBalancerStatusInput
+}
+
+input K8sServiceInput {
+	namespace: String!
+	otterizeServer: String!
+	resourceName: String!
+	service: K8sResourceServiceInput!
+}
+
+input K8sServicePort {
+	name: String
+	protocol: K8sPortProtocol
+	appProtocol: String
+	port: Int!
+	targetPort: IntOrStringInput
+	nodePort: Int
+}
+
+enum K8sServiceType {
+	CLUSTER_IP
+	NODE_PORT
+	LOAD_BALANCER
+	EXTERNAL_NAME
 }
 
 type KafkaConfig {
@@ -983,6 +1180,11 @@ type LabelValueTuple {
 	value: String!
 }
 
+enum LoadBalancerIPMode {
+	VIP
+	PROXY
+}
+
 type Me {
 """The logged-in user details."""
 	user: User!
@@ -1005,6 +1207,16 @@ type MergedYAMLFile {
 	fileName: String!
 	rows: [ClientIntentsRow!]!
 	content: String!
+}
+
+input MetadataEntry {
+	key: String!
+	value: String!
+}
+
+type MissingTagInfo {
+	tags: [String!]!
+	reason: String!
 }
 
 type Mutation {
@@ -1062,6 +1274,10 @@ type Mutation {
 		id: ID!
 		key: String!
 	): Environment!
+	sendErrors(
+		component: Component
+		errors: [Error!]!
+	): Boolean!
 """Create a new generic integration"""
 	createGenericIntegration(
 		name: String!
@@ -1101,6 +1317,17 @@ type Mutation {
 		name: String!
 		gitLabSettings: GitLabSettingsInput!
 	): CreateGitLabIntegrationResponse
+"""Create a new Slack integration"""
+	createSlackIntegration(
+		name: String!
+		slackSettings: SlackSettingsInput!
+	): CreateSlackIntegrationResponse
+"""Update a Slack integration"""
+	updateSlackIntegration(
+		id: ID!
+		name: String!
+		slackSettings: SlackSettingsInput!
+	): Integration
 """Create a new GCP integration"""
 	createGCPIntegration(
 		name: String!
@@ -1193,6 +1420,14 @@ type Mutation {
 	acceptInvite(
 		id: ID!
 	): Invite!
+	reportK8sServices(
+		namespace: String!
+		services: [K8sServiceInput!]!
+	): Boolean!
+	reportK8sIngresses(
+		namespace: String!
+		ingresses: [K8sIngressInput!]!
+	): Boolean!
 	reportKafkaServerConfigs(
 		namespace: String!
 		serverConfigs: [KafkaServerConfigInput!]!
@@ -1229,6 +1464,11 @@ type Mutation {
 		id: ID!
 		tags: [String!]
 	): Service!
+"""Bulk Update services"""
+	addTagsToServices(
+		ids: [ID!]!
+		tags: [String!]!
+	): [Service!]!
 	sendTelemetries(
 		telemetries: [TelemetryInput!]!
 	): Boolean!
@@ -1267,6 +1507,12 @@ type Namespace {
 	environment: Environment!
 	services: [Service!]!
 	serviceCount: Int!
+}
+
+input NamespaceFilterInput {
+	name: String
+	clusterIds: [ID!]
+	environmentIds: [ID!]
 }
 
 input NamespacedPodOwner {
@@ -1326,8 +1572,20 @@ input OrganizationSettingsInput {
 	domains: [String]
 }
 
+enum PathType {
+	IMPLEMENTATION_SPECIFIC
+	PREFIX
+	EXACT
+}
+
 input PeerInput {
 	ipBlock: IpBlockInput!
+}
+
+input PortStatusInput {
+	port: Int!
+	protocol: K8sPortProtocol!
+	error: String
 }
 
 input ProtectedServiceInput {
@@ -1341,12 +1599,16 @@ type Query {
 	accessGraph(
 		filter: InputAccessGraphFilter
 	): AccessGraph!
+	serviceAccessGraph(
+		id: ID!
+	): ServiceAccessGraph!
 	serviceClientIntents(
 		id: ID!
 		asServiceId: ID
 		lastSeenAfter: Time!
 		clusterIds: [ID!]
 		enableInternetIntents: Boolean
+		featureFlags: InputFeatureFlags
 	): ServiceClientIntents!
 """Get cluster"""
 	cluster(
@@ -1373,6 +1635,9 @@ type Query {
 	oneEnvironment(
 		name: String!
 	): Environment!
+	findings(
+		filter: InputAccessGraphFilter!
+	): [Finding!]!
 """List integrations"""
 	integrations(
 		name: String
@@ -1420,6 +1685,7 @@ type Query {
 		environmentId: ID
 		clusterId: ID
 		name: String
+		filter: NamespaceFilterInput
 	): [Namespace!]!
 """Get one namespace"""
 	oneNamespace(
@@ -1435,10 +1701,14 @@ type Query {
 	): Organization!
 """Checks the availability of the API server"""
 	ping: Boolean!
+	resources(
+		filter: InputAccessGraphFilter
+	): [Resource!]!
 """Get service"""
 	service(
 		id: ID!
 	): Service!
+	tagOptions: [String!]
 """List services"""
 	services(
 		environmentId: ID
@@ -1457,11 +1727,26 @@ type Query {
 	user(
 		id: ID!
 	): User!
+	workloads(
+		filter: InputAccessGraphFilter
+	): [Workload!]!
+}
+
+type Resource {
+	id: ID!
+	service: Service!
+	types: [ServiceType!]!
+	inboundStatus: ServerProtectionStatusVerdict!
 }
 
 enum RowDiff {
 	ADDED
 	REMOVED
+}
+
+input SelectorKeyValueInput {
+	key: String
+	value: String
 }
 
 type ServerBlockingStatus {
@@ -1556,16 +1841,24 @@ type ServiceAccessStatus {
 	hasAppliedIntents: Boolean!
 }
 
+input ServiceBackendPortInput {
+	name: String
+	number: Int
+}
+
 type ServiceClientIntents {
 	asClient: ClientIntentsFiles
 	asServer: ClientIntentsFiles
 }
 
-enum ServiceTags {
-	PCI
-	PII
-	HIPAA
-	SENSITIVE
+enum ServiceExternalTrafficPolicy {
+	CLUSTER
+	LOCAL
+}
+
+enum ServiceInternalTrafficPolicy {
+	CLUSTER
+	LOCAL
 }
 
 enum ServiceType {
@@ -1579,6 +1872,55 @@ enum ServiceType {
 	DATABASE
 	INTERNET
 	DATABASE_USER
+	KUBERNETES_LOAD_BALANCER
+}
+
+enum SessionAffinity {
+	CLIENT_IP
+	NONE
+}
+
+input SessionAffinityConfig {
+	clientIP: ClientIPConfig
+}
+
+enum Severity {
+	CRITICAL
+	HIGH
+	MEDIUM
+	LOW
+	INFORMATIONAL
+}
+
+type SlackChannelInfo {
+	channelName: String!
+}
+
+type SlackFilterPair {
+	filter: IntegrationAccessGraphFilter!
+	channelInfo: SlackChannelInfo!
+}
+
+input SlackFilterPairInput {
+	filter: InputIntegrationAccessGraphFilter
+	channelInfo: ChannelInfoInput!
+}
+
+type SlackSettings {
+	isActive: Boolean!
+	channelFilterPairs: [SlackFilterPair!]!
+}
+
+input SlackSettingsInput {
+	isActive: Boolean!
+	channelFilterPairs: [SlackFilterPairInput!]!
+}
+
+input StackFrame {
+	file: String!
+	lineNumber: Int!
+	name: String!
+	package: String!
 }
 
 """The `String`scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text."""
@@ -1681,6 +2023,14 @@ type UserTutorial {
 	isCompleted: Boolean!
 	step: String!
 	stepSeen: String!
+}
+
+type Workload {
+	id: ID!
+	service: Service!
+	types: [ServiceType!]!
+	inboundStatus: ServerProtectionStatusVerdict!
+	outboundStatus: EdgeAccessStatusVerdict!
 }
 
 
