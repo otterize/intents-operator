@@ -31,6 +31,29 @@ func (v *Component) GetVersion() string { return v.Version }
 // GetCloudClientId returns Component.CloudClientId, and is useful for accessing the field via an interface.
 func (v *Component) GetCloudClientId() string { return v.CloudClientId }
 
+type Error struct {
+	Message    *string          `json:"Message"`
+	ErrorClass *string          `json:"ErrorClass"`
+	Cause      *Error           `json:"Cause"`
+	Stack      []*StackFrame    `json:"Stack"`
+	Metadata   []*MetadataEntry `json:"Metadata"`
+}
+
+// GetMessage returns Error.Message, and is useful for accessing the field via an interface.
+func (v *Error) GetMessage() *string { return v.Message }
+
+// GetErrorClass returns Error.ErrorClass, and is useful for accessing the field via an interface.
+func (v *Error) GetErrorClass() *string { return v.ErrorClass }
+
+// GetCause returns Error.Cause, and is useful for accessing the field via an interface.
+func (v *Error) GetCause() *Error { return v.Cause }
+
+// GetStack returns Error.Stack, and is useful for accessing the field via an interface.
+func (v *Error) GetStack() []*StackFrame { return v.Stack }
+
+// GetMetadata returns Error.Metadata, and is useful for accessing the field via an interface.
+func (v *Error) GetMetadata() []*MetadataEntry { return v.Metadata }
+
 type EventType string
 
 const (
@@ -64,6 +87,25 @@ const (
 	EventTypeActive                      EventType = "ACTIVE"
 )
 
+type MetadataEntry struct {
+	Key   *string `json:"key"`
+	Value *string `json:"value"`
+}
+
+// GetKey returns MetadataEntry.Key, and is useful for accessing the field via an interface.
+func (v *MetadataEntry) GetKey() *string { return v.Key }
+
+// GetValue returns MetadataEntry.Value, and is useful for accessing the field via an interface.
+func (v *MetadataEntry) GetValue() *string { return v.Value }
+
+// ReportErrorsResponse is returned by ReportErrors on success.
+type ReportErrorsResponse struct {
+	SendErrors *bool `json:"sendErrors"`
+}
+
+// GetSendErrors returns ReportErrorsResponse.SendErrors, and is useful for accessing the field via an interface.
+func (v *ReportErrorsResponse) GetSendErrors() *bool { return v.SendErrors }
+
 // SendTelemetriesResponse is returned by SendTelemetries on success.
 type SendTelemetriesResponse struct {
 	SendTelemetries bool `json:"sendTelemetries"`
@@ -71,6 +113,25 @@ type SendTelemetriesResponse struct {
 
 // GetSendTelemetries returns SendTelemetriesResponse.SendTelemetries, and is useful for accessing the field via an interface.
 func (v *SendTelemetriesResponse) GetSendTelemetries() bool { return v.SendTelemetries }
+
+type StackFrame struct {
+	File       *string `json:"File"`
+	LineNumber *int    `json:"LineNumber"`
+	Name       *string `json:"Name"`
+	Package    *string `json:"Package"`
+}
+
+// GetFile returns StackFrame.File, and is useful for accessing the field via an interface.
+func (v *StackFrame) GetFile() *string { return v.File }
+
+// GetLineNumber returns StackFrame.LineNumber, and is useful for accessing the field via an interface.
+func (v *StackFrame) GetLineNumber() *int { return v.LineNumber }
+
+// GetName returns StackFrame.Name, and is useful for accessing the field via an interface.
+func (v *StackFrame) GetName() *string { return v.Name }
+
+// GetPackage returns StackFrame.Package, and is useful for accessing the field via an interface.
+func (v *StackFrame) GetPackage() *string { return v.Package }
 
 type TelemetryComponentType string
 
@@ -103,6 +164,18 @@ func (v *TelemetryInput) GetComponent() Component { return v.Component }
 // GetData returns TelemetryInput.Data, and is useful for accessing the field via an interface.
 func (v *TelemetryInput) GetData() TelemetryData { return v.Data }
 
+// __ReportErrorsInput is used internally by genqlient
+type __ReportErrorsInput struct {
+	Component *Component `json:"component"`
+	Errors    []*Error   `json:"errors"`
+}
+
+// GetComponent returns __ReportErrorsInput.Component, and is useful for accessing the field via an interface.
+func (v *__ReportErrorsInput) GetComponent() *Component { return v.Component }
+
+// GetErrors returns __ReportErrorsInput.Errors, and is useful for accessing the field via an interface.
+func (v *__ReportErrorsInput) GetErrors() []*Error { return v.Errors }
+
 // __SendTelemetriesInput is used internally by genqlient
 type __SendTelemetriesInput struct {
 	Telemetries []TelemetryInput `json:"telemetries"`
@@ -110,6 +183,41 @@ type __SendTelemetriesInput struct {
 
 // GetTelemetries returns __SendTelemetriesInput.Telemetries, and is useful for accessing the field via an interface.
 func (v *__SendTelemetriesInput) GetTelemetries() []TelemetryInput { return v.Telemetries }
+
+// The query or mutation executed by ReportErrors.
+const ReportErrors_Operation = `
+mutation ReportErrors ($component: Component!, $errors: [Error!]!) {
+	sendErrors(component: $component, errors: $errors)
+}
+`
+
+func ReportErrors(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	component *Component,
+	errors []*Error,
+) (*ReportErrorsResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportErrors",
+		Query:  ReportErrors_Operation,
+		Variables: &__ReportErrorsInput{
+			Component: component,
+			Errors:    errors,
+		},
+	}
+	var err_ error
+
+	var data_ ReportErrorsResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
 
 // The query or mutation executed by SendTelemetries.
 const SendTelemetries_Operation = `

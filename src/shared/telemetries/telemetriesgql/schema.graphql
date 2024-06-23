@@ -492,11 +492,11 @@ type Environment {
 }
 
 input Error {
-	message: String!
-	errorClass: String!
-	cause: Error
-	stack: [StackFrame]
-	metadata: [MetadataEntry!]
+	Message: String!
+	ErrorClass: String!
+	Cause: Error
+	Stack: [StackFrame]
+	Metadata: [MetadataEntry!]
 }
 
 enum EventType {
@@ -1219,6 +1219,11 @@ type MissingTagInfo {
 	reason: String!
 }
 
+input MetadataEntry {
+	key: String!
+	value: String!
+}
+
 type Mutation {
 """This is just a placeholder since currently GraphQL does not allow empty types"""
 	dummy: Boolean
@@ -1921,6 +1926,13 @@ input StackFrame {
 	lineNumber: Int!
 	name: String!
 	package: String!
+}
+
+input StackFrame {
+	File: String!
+	LineNumber: Int!
+	Name: String!
+	Package: String!
 }
 
 """The `String`scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text."""
