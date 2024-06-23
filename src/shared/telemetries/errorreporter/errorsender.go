@@ -28,7 +28,10 @@ func newGqlClient() graphql.Client {
 }
 
 func (s *ErrorSender) SendSync(errs []*telemetriesgql.Error) error {
-	ctxTimeout, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	if !s.enabled {
+		return nil
+	}
+	ctxTimeout, cancel := context.WithTimeout(context.Background(), viper.GetDuration(telemetriesconfig.TimeoutKey))
 	defer cancel()
 	_, err := telemetriesgql.ReportErrors(ctxTimeout, s.gqlClient, lo.ToPtr(s.component), errs)
 	if err != nil {

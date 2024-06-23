@@ -7,7 +7,7 @@ import (
 
 const (
 	TelemetryAPIAddressKey         = "telemetry-address"
-	TelemetryAPIAddressDefault     = "http://localhost:8081/api/telemetry/query"
+	TelemetryAPIAddressDefault     = "https://app.otterize.com/api/telemetry/query"
 	TimeoutKey                     = "telemetry-client-timeout"
 	CloudClientTimeoutDefault      = "30s"
 	TelemetryEnabledKey            = "telemetry-enabled"
