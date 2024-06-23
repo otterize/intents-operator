@@ -219,7 +219,7 @@ func (r *Reconciler) buildIngressRules(ctx context.Context, ep effectivepolicy.S
 	if len(ep.CalledBy) == 0 || len(r.ingressRuleBuilders) == 0 {
 		return rules, false, nil
 	}
-	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service, r.EnforcementDefaultState, r.EnforcedNamespaces)
+	shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.Client, ep.Service.Name, ep.Service.Namespace, r.EnforcementDefaultState, r.EnforcedNamespaces)
 	if err != nil {
 		return rules, false, errors.Wrap(err)
 	}
@@ -247,15 +247,26 @@ func (r *Reconciler) buildIngressRules(ctx context.Context, ep effectivepolicy.S
 
 // A function that builds pod label selector from serviceEffectivePolicy
 func (r *Reconciler) buildPodLabelSelectorFromServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) (metav1.LabelSelector, bool, error) {
-	labelsMap, ok, err := otterizev1alpha3.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.Client, ep.Service)
-	if err != nil {
-		return metav1.LabelSelector{}, false, errors.Wrap(err)
-	}
-	if !ok {
-		return metav1.LabelSelector{}, false, nil
+	if ep.Service.Kind == serviceidentity.KindService {
+		svc := corev1.Service{}
+		err := r.Get(ctx, types.NamespacedName{Name: ep.Service.Name, Namespace: ep.Service.Namespace}, &svc)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				return metav1.LabelSelector{}, false, nil
+			}
+			return metav1.LabelSelector{}, false, errors.Wrap(err)
+		}
+		if svc.Spec.Selector == nil {
+			return metav1.LabelSelector{}, false, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
+		}
+		return metav1.LabelSelector{MatchLabels: svc.Spec.Selector}, true, nil
 	}
 
-	return metav1.LabelSelector{MatchLabels: labelsMap}, true, nil
+	return metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			otterizev1alpha3.OtterizeServiceLabelKey: ep.Service.GetFormattedOtterizeIdentity(),
+		},
+	}, true, nil
 }
 
 func (r *Reconciler) setNetworkPolicyOwnerReferenceIfNeeded(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy) error {
@@ -305,7 +316,7 @@ func (r *Reconciler) buildNetworkPolicy(ctx context.Context, ep effectivepolicy.
 			Name:      fmt.Sprintf(otterizev1alpha3.OtterizeSingleNetworkPolicyNameTemplate, ep.Service.GetNameWithKind()),
 			Namespace: ep.Service.Namespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
+				otterizev1alpha3.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentity(),
 			},
 		},
 		Spec: v1.NetworkPolicySpec{

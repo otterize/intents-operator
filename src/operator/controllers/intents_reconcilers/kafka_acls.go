@@ -10,7 +10,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -94,7 +93,7 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 
 	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha3.KafkaServerConfig, tls otterizev1alpha3.TLSSource) error {
 		intentsForServer := intentsByServer[serverName]
-		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serviceidentity.ServiceIdentity{Name: serverName.Name, Namespace: serverName.Namespace}, r.enforcementDefaultState, r.activeNamespaces)
+		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState, r.activeNamespaces)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -136,7 +135,7 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev1a
 
 func (r *KafkaACLReconciler) RemoveACLs(ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
 	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev1alpha3.KafkaServerConfig, tls otterizev1alpha3.TLSSource) error {
-		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serviceidentity.ServiceIdentity{Name: serverName.Name, Namespace: serverName.Namespace}, r.enforcementDefaultState, r.activeNamespaces)
+		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serverName.Name, serverName.Namespace, r.enforcementDefaultState, r.activeNamespaces)
 		if err != nil {
 			return errors.Wrap(err)
 		}

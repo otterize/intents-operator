@@ -155,7 +155,6 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 			Calls: []otterizev1alpha3.Intent{{
 				Type: otterizev1alpha3.IntentTypeKafka,
 				Name: fmt.Sprintf("%s.%s", config.Spec.Service.Name, config.Namespace),
-				Kind: config.Spec.Service.Kind,
 				Topics: []otterizev1alpha3.KafkaTopic{{
 					Name: "*",
 					Operations: []otterizev1alpha3.KafkaOperation{

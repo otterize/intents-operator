@@ -359,8 +359,6 @@ spec:
                         - operations
                         type: object
                       type: array
-                    kind:
-                      type: string
                     name:
                       type: string
                     type:
@@ -377,8 +375,6 @@ spec:
                 type: array
               service:
                 properties:
-                  kind:
-                    type: string
                   name:
                     type: string
                 required:

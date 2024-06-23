@@ -63,20 +63,6 @@ func (mr *MockPolicyManagerMockRecorder) DeleteAll(ctx, clientIntents interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAll", reflect.TypeOf((*MockPolicyManager)(nil).DeleteAll), ctx, clientIntents)
 }
 
-// RemoveDeprecatedPoliciesForClient mocks base method.
-func (m *MockPolicyManager) RemoveDeprecatedPoliciesForClient(ctx context.Context, clientIntents *v1alpha3.ClientIntents) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RemoveDeprecatedPoliciesForClient", ctx, clientIntents)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// RemoveDeprecatedPoliciesForClient indicates an expected call of RemoveDeprecatedPoliciesForClient.
-func (mr *MockPolicyManagerMockRecorder) RemoveDeprecatedPoliciesForClient(ctx, clientIntents interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveDeprecatedPoliciesForClient", reflect.TypeOf((*MockPolicyManager)(nil).RemoveDeprecatedPoliciesForClient), ctx, clientIntents)
-}
-
 // UpdateIntentsStatus mocks base method.
 func (m *MockPolicyManager) UpdateIntentsStatus(ctx context.Context, clientIntents *v1alpha3.ClientIntents, clientServiceAccount string, missingSideCar bool) error {
 	m.ctrl.T.Helper()

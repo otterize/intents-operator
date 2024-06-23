@@ -7,6 +7,7 @@ import (
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -132,8 +133,8 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 	services := make(map[string][]otterizev1alpha3.ClientIntents)
 	for _, clientIntent := range clientIntents {
 		for _, intentCall := range clientIntent.GetCallsList() {
-			serverService := intentCall.ToServiceIdentity(clientIntent.Namespace)
-			services[serverService.GetFormattedOtterizeIdentityWithKind()] = append(services[serverService.GetFormattedOtterizeIdentityWithoutKind()], clientIntent)
+			serverService := serviceidentity.NewFromIntent(intentCall, clientIntent.Namespace)
+			services[serverService.GetFormattedOtterizeIdentity()] = append(services[serverService.GetFormattedOtterizeIdentity()], clientIntent)
 		}
 	}
 
