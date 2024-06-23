@@ -2,15 +2,16 @@ package serviceidresolver
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,13 +42,16 @@ func (m *MatchingLabelsSelectorMatcher) String() string {
 
 type ServiceIdResolverTestSuite struct {
 	suite.Suite
-	Client   *serviceidresolvermocks.MockClient
-	Resolver *Resolver
+	Client     *serviceidresolvermocks.MockClient
+	RESTMapper *serviceidresolvermocks.MockRESTMapper
+	Resolver   *Resolver
 }
 
 func (s *ServiceIdResolverTestSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
 	s.Client = serviceidresolvermocks.NewMockClient(controller)
+	s.RESTMapper = serviceidresolvermocks.NewMockRESTMapper(controller)
+	s.Client.EXPECT().RESTMapper().Return(s.RESTMapper).AnyTimes()
 	s.Resolver = NewResolver(s.Client)
 }
 
@@ -91,7 +95,7 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodDoesntExist
 	).Do(func(_ any, podList *corev1.PodList, _ ...any) {})
 
 	pod, err := s.Resolver.ResolveClientIntentToPod(context.Background(), intent)
-	s.Require().Equal(err, ErrPodNotFound)
+	s.Require().True(errors.Is(err, ErrPodNotFound))
 	s.Require().Equal(corev1.Pod{}, pod)
 }
 
@@ -289,6 +293,92 @@ func (s *ServiceIdResolverTestSuite) TestJobWithNoParent() {
 	service, err = s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
 	s.Require().NoError(err)
 	s.Require().Equal(imageName, service.Name)
+}
+func (s *ServiceIdResolverTestSuite) TestJobCronJobWithRemovedVersion() {
+	jobName := "my-crappy-1001-job-name-1234567890-12345"
+	podName := "cool-pod-1234567890-12345"
+	podNamespace := "cool-namespace"
+	cronJobName := "cool-cron-job"
+
+	// Create a pod with reference to the deployment with dots in the name
+	myPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: podNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind:       "Job",
+					Name:       jobName,
+					APIVersion: "batch/v1beta1",
+				},
+			},
+		},
+	}
+
+	jobAsObject := unstructured.Unstructured{}
+	jobAsObject.SetName(jobName)
+	jobAsObject.SetNamespace(podNamespace)
+	jobAsObject.SetKind("Job")
+	jobAsObject.SetAPIVersion("batch/v1beta1")
+	jobAsObject.SetOwnerReferences(
+		[]metav1.OwnerReference{
+			{
+				Kind:       "CronJob",
+				Name:       cronJobName,
+				APIVersion: "batch/v1beta1",
+			},
+		})
+
+	jobEmptyObject := &unstructured.Unstructured{}
+	jobEmptyObject.SetKind("Job")
+	jobEmptyObject.SetAPIVersion("batch/v1beta1")
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: jobName, Namespace: podNamespace}, jobEmptyObject).Do(
+		func(_ context.Context, _ types.NamespacedName, obj *unstructured.Unstructured, _ ...any) error {
+			jobAsObject.DeepCopyInto(obj)
+			return nil
+		})
+	s.RESTMapper.EXPECT().RESTMapping(schema.GroupKind{
+		Group: "batch",
+		Kind:  "CronJob",
+	}, "v1beta1").Return(nil, &meta.NoKindMatchError{})
+
+	cronJobRESTMapping := &meta.RESTMapping{
+		Resource: schema.GroupVersionResource{
+			Group:    "batch",
+			Version:  "v1",
+			Resource: "cronjobs",
+		},
+		GroupVersionKind: schema.GroupVersionKind{
+			Group:   "batch",
+			Version: "v1",
+			Kind:    "CronJob",
+		},
+		Scope: meta.RESTScopeRoot,
+	}
+
+	s.RESTMapper.EXPECT().RESTMapping(schema.GroupKind{
+		Group: "batch",
+		Kind:  "CronJob",
+	}, "").Return(cronJobRESTMapping, nil)
+
+	cronJobEmptyObject := &unstructured.Unstructured{}
+	cronJobEmptyObject.SetKind("CronJob")
+	cronJobEmptyObject.SetAPIVersion("batch/v1")
+	cronjobAsObject := unstructured.Unstructured{}
+	cronjobAsObject.SetName(cronJobName)
+	cronjobAsObject.SetNamespace(podNamespace)
+	cronjobAsObject.SetKind("CronJob")
+	cronjobAsObject.SetAPIVersion("batch/v1")
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: cronJobName, Namespace: podNamespace}, cronJobEmptyObject).Do(
+		func(_ context.Context, _ types.NamespacedName, obj *unstructured.Unstructured, _ ...any) error {
+			cronjobAsObject.DeepCopyInto(obj)
+			return nil
+		})
+
+	service, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
+	s.Require().NoError(err)
+	s.Require().Equal(cronJobName, service.Name)
+
 }
 
 func (s *ServiceIdResolverTestSuite) TestUserSpecifiedAnnotationForServiceName() {
