@@ -3,7 +3,7 @@ package basicbatch
 // it's britney batch
 
 import (
-	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
@@ -27,9 +27,7 @@ func NewBatcher[T any](handler func(batch []T) error, minDelay time.Duration, ma
 	}
 }
 
-func (b *Batcher[T]) getBatch() []T {
-	items := make([]T, 0)
-
+func (b *Batcher[T]) getBatch() (items []T) {
 	for {
 		select {
 		case item := <-b.items:
@@ -57,17 +55,40 @@ func (b *Batcher[T]) runForever() {
 			}
 			logger.Error("recovered from panic in batcher: %r")
 		}
+		panic(r)
 	}()
-	defer errorreporter.AutoNotify()
 	for {
 		batchItems := b.getBatch()
-		err := b.handleBatch(batchItems)
+		err := b.handleBatchWithPanicRecovery(batchItems)
 		if err != nil {
 			logrus.WithError(err).Error("failed handling batch, skipping")
 		}
 		b.lastExecution = time.Now()
 	}
 }
+
+func (b *Batcher[T]) handleBatchWithPanicRecovery(batch []T) (err error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			logger := logrus.WithField("panic", r)
+			if rErr, ok := r.(error); ok {
+				err = rErr
+			}
+			if err == nil {
+				err = errors.Errorf("recovered from panic in batcher: %r", r)
+			}
+			logger.WithError(err).Error("recovered from panic in batcher")
+			return
+		}
+	}()
+	err = b.handleBatch(batch)
+	if err != nil {
+		logrus.WithError(err).Error("failed handling batch")
+	}
+	return err
+}
+
 func (b *Batcher[T]) AddNoWait(item T) bool {
 	b.startOnce.Do(func() {
 		go b.runForever()

@@ -1,42 +1,40 @@
 package componentinfo
 
-import "github.com/google/uuid"
+import (
+	"flag"
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
+	"sync"
+)
 
 var (
-	globalContextId           string
-	globalComponentInstanceId string
-	globalVersion             string
-	globalCloudClientId       string
+	globalContextId               string
+	globalComponentInstanceId     string
+	globalComponentInstanceIdOnce sync.Once
 )
 
 func SetGlobalContextId(contextId string) {
 	globalContextId = contextId
 }
 
-func SetGlobalVersion(version string) {
-	globalVersion = version
-}
-
-func SetGlobalCloudClientId(clientId string) {
-	globalCloudClientId = clientId
-}
-
-func SetGlobalComponentInstanceId() {
-	globalComponentInstanceId = uuid.NewString()
-}
-
 func GlobalContextId() string {
+	if IsRunningUnderTest() {
+		globalContextId = "test"
+	}
+
+	if globalContextId == "" {
+		logrus.Panic("context ID not set")
+	}
 	return globalContextId
 }
 
+func IsRunningUnderTest() bool {
+	return flag.Lookup("test.v") != nil
+}
+
 func GlobalComponentInstanceId() string {
+	globalComponentInstanceIdOnce.Do(func() {
+		globalComponentInstanceId = uuid.NewString()
+	})
 	return globalComponentInstanceId
-}
-
-func GlobalVersion() string {
-	return globalVersion
-}
-
-func GlobalCloudClientId() string {
-	return globalCloudClientId
 }

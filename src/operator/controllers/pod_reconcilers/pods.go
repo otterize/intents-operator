@@ -59,6 +59,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logrus.Debugf("Reconciling due to pod change: %s", req.Name)
 	pod := v1.Pod{}
 	err := p.Get(ctx, req.NamespacedName, &pod)
+
 	if k8serrors.IsNotFound(err) {
 		logrus.Debugf("Pod was deleted")
 		return ctrl.Result{}, nil
