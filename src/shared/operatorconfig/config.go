@@ -18,6 +18,8 @@ const (
 	MetricsAddrDefault                          = ":2112"
 	ProbeAddrKey                                = "health-probe-bind-address" // The address the probe endpoint binds to
 	ProbeAddrDefault                            = ":8181"
+	PprofBindAddressKey                         = "pprof-bind-address"
+	PprofAddrDefault                            = "127.0.0.1:9001"
 	EnableLeaderElectionKey                     = "leader-elect" // Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager
 	EnableLeaderElectionDefault                 = false
 	WatchedNamespacesKey                        = "watched-namespaces"            // Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas
@@ -147,6 +149,7 @@ func InitCLIFlags() {
 	pflag.Bool(EnableKafkaACLKey, EnableKafkaACLDefault, "Whether to disable Intents Kafka ACL creation")
 	pflag.String(MetricsAddrKey, MetricsAddrDefault, "The address the metric endpoint binds to.")
 	pflag.String(ProbeAddrKey, ProbeAddrDefault, "The address the probe endpoint binds to.")
+	pflag.String(PprofBindAddressKey, PprofAddrDefault, "The address that the Go pprof profiler binds to.")
 	pflag.Bool(EnableLeaderElectionKey, EnableLeaderElectionDefault, "Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager.")
 	pflag.StringSlice(WatchedNamespacesKey, nil, "Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas.")
 	pflag.StringSlice(ActiveEnforcementNamespacesKey, nil, "While using the shadow enforcement mode, namespaces in this list will be treated as if the enforcement were active.")

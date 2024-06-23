@@ -5,13 +5,8 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
-	"github.com/samber/lo"
-	"github.com/spf13/viper"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // The EgressNetworkPolicyBuilder creates network policies that allow egress traffic from pods.
@@ -50,18 +45,6 @@ func (r *EgressNetworkPolicyBuilder) buildNetworkPolicyEgressRules(ep effectivep
 				},
 			},
 		})
-
-		if viper.GetBool(operatorconfig.EnableEgressAutoallowDNSTrafficKey) {
-			// DNS
-			egressRules = append(egressRules, v1.NetworkPolicyEgressRule{
-				Ports: []v1.NetworkPolicyPort{
-					{
-						Protocol: lo.ToPtr(corev1.ProtocolUDP),
-						Port:     lo.ToPtr(intstr.FromInt32(53)),
-					},
-				},
-			})
-		}
 	}
 	return egressRules
 }
