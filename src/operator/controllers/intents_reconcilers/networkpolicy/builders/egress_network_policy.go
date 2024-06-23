@@ -28,18 +28,17 @@ func (r *EgressNetworkPolicyBuilder) buildNetworkPolicyEgressRules(ep effectivep
 		if call.IsTargetServerKubernetesService() {
 			continue
 		}
-		targetServiceIdentity := call.ToServiceIdentity(ep.Service.Namespace)
 		egressRules = append(egressRules, v1.NetworkPolicyEgressRule{
 			To: []v1.NetworkPolicyPeer{
 				{
 					PodSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							otterizev1alpha3.OtterizeServiceLabelKey: targetServiceIdentity.GetFormattedOtterizeIdentityWithoutKind(),
+							otterizev1alpha3.OtterizeServiceLabelKey: otterizev1alpha3.GetFormattedOtterizeIdentity(call.GetTargetServerName(), call.GetTargetServerNamespace(ep.Service.Namespace)),
 						},
 					},
 					NamespaceSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: targetServiceIdentity.Namespace,
+							otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: call.GetTargetServerNamespace(ep.Service.Namespace),
 						},
 					},
 				},
