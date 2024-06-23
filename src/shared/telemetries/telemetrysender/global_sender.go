@@ -2,7 +2,6 @@ package telemetrysender
 
 import (
 	"context"
-	"flag"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
@@ -25,6 +24,10 @@ func send(componentType telemetriesgql.TelemetryComponentType, eventType telemet
 		initSender()
 	})
 
+	if componentinfo.IsRunningUnderTest() {
+		return
+	}
+
 	component := currentComponent(componentType)
 	err := sender.Send(component, eventType, count)
 	if err != nil {
@@ -36,6 +39,10 @@ func incrementCounter(componentType telemetriesgql.TelemetryComponentType, event
 	senderInitOnce.Do(func() {
 		initSender()
 	})
+
+	if componentinfo.IsRunningUnderTest() {
+		return
+	}
 
 	component := currentComponent(componentType)
 	err := sender.IncrementCounter(component, eventType, key)
@@ -56,7 +63,7 @@ func currentComponent(componentType telemetriesgql.TelemetryComponentType) telem
 
 func initSender() {
 	sender = New()
-	if flag.Lookup("test.v") != nil {
+	if componentinfo.IsRunningUnderTest() {
 		logrus.Infof("Disabling telemetry sender because this is a test")
 		sender.enabled = false
 	}

@@ -6,9 +6,11 @@ import (
 )
 
 var (
-	version = "0-local"
+	version = VersionLocal
 	once    sync.Once
 )
+
+const VersionLocal = "0-local"
 
 // Version returns the current version.
 // It is implemented by reading a file instead of go:embed to avoid cache busting the Dockerfile before the build.

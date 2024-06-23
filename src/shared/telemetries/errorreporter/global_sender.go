@@ -1,7 +1,6 @@
 package errorreporter
 
 import (
-	"flag"
 	"fmt"
 	bugsnagerrors "github.com/bugsnag/bugsnag-go/v2/errors"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -53,6 +52,10 @@ func sendErrorAsync(err *bugsnagerrors.Error, metadata map[string]string) {
 		return
 	}
 
+	if sender.enabled == false {
+		return
+	}
+
 	gqlErr := errorFromErrorWithStackFrames(err, metadata)
 
 	sendErr := sender.SendAsync(gqlErr)
@@ -64,6 +67,10 @@ func sendErrorAsync(err *bugsnagerrors.Error, metadata map[string]string) {
 func sendErrorSync(err *bugsnagerrors.Error, metadata map[string]string) error {
 	if sender == nil {
 		return errors.New("failed to send error because sender is not initialized")
+	}
+
+	if sender.enabled == false {
+		return nil
 	}
 
 	gqlErr := errorFromErrorWithStackFrames(err, metadata)
@@ -88,8 +95,8 @@ func currentComponent(componentType telemetriesgql.TelemetryComponentType) telem
 
 func initSender(componentType telemetriesgql.TelemetryComponentType) {
 	sender = New(componentType)
-	if flag.Lookup("test.v") != nil {
-		logrus.Infof("Disabling telemetry sender because this is a test")
+	if componentinfo.IsRunningUnderTest() {
+		logrus.Infof("Disabling error sender because this is a test")
 		sender.enabled = false
 	}
 }
