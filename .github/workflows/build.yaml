@@ -112,7 +112,6 @@ jobs:
     needs:
       - build
       - netpol-e2e-test
-      - helm-e2e-test
     runs-on: ubuntu-latest
 
     steps:
