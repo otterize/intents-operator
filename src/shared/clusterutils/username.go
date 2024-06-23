@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	HashedUsernameSectionMaxLength = 11
+	HashedUsernameSectionMaxLength = 10
 )
 
 func BuildHashedUsername(workloadName, namespace, clusterUID string) string {
@@ -18,11 +18,11 @@ func BuildHashedUsername(workloadName, namespace, clusterUID string) string {
 	hash := md5.Sum([]byte(fullUsername))
 
 	if len(workloadName) > HashedUsernameSectionMaxLength {
-		workloadName = workloadName[:HashedUsernameSectionMaxLength]
+		workloadName = strings.TrimSuffix(workloadName[:HashedUsernameSectionMaxLength], "-")
 	}
 
 	if len(namespace) > HashedUsernameSectionMaxLength {
-		namespace = namespace[:HashedUsernameSectionMaxLength]
+		namespace = strings.TrimSuffix(namespace[:HashedUsernameSectionMaxLength], "-")
 	}
 
 	hashSuffix := hex.EncodeToString(hash[:])[:6]
@@ -31,9 +31,8 @@ func BuildHashedUsername(workloadName, namespace, clusterUID string) string {
 
 // KubernetesToPostgresName translates a name with Kubernetes conventions to Postgres conventions
 func KubernetesToPostgresName(kubernetesName string) string {
-	// '.' are replaced with dunders '__'
-	// '-' are replaced with single underscores '_'
-	return strings.ReplaceAll(strings.ReplaceAll(kubernetesName, ".", "__"), "-", "_")
+	// '.' and '-' are replaced with single underscores '_'
+	return strings.ReplaceAll(strings.ReplaceAll(kubernetesName, ".", "_"), "-", "_")
 }
 
 func PostgresToKubernetesName(pgName string) string {
