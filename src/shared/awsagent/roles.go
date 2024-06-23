@@ -442,7 +442,7 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 		return "", errors.Wrap(err)
 	}
 
-	return string(serialized), errors.Wrap(err)
+	return string(serialized), nil
 }
 
 func (a *Agent) generateTrustPolicyForRolesAnywhere(namespaceName, accountName string) (string, error) {

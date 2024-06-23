@@ -68,9 +68,9 @@ func sendToErrorTelemetry(entry *logrus.Entry, sync bool) error {
 	for _, notifyErr := range notifyErrs {
 		errWithStack := errors.WrapWithSkip(notifyErr, skipStackFrames)
 		if sync {
-			return sendErrorSync(errWithStack, metadata)
+			return sendErrorSync(errWithStack.(*bugsnagerrors.Error), metadata)
 		}
-		sendErrorAsync(errWithStack, metadata)
+		sendErrorAsync(errWithStack.(*bugsnagerrors.Error), metadata)
 	}
 
 	return nil

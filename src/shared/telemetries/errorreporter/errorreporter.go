@@ -1,6 +1,7 @@
 package errorreporter
 
 import (
+	bugsnagerrors "github.com/bugsnag/bugsnag-go/v2/errors"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
@@ -29,7 +30,7 @@ func AutoNotify() {
 			_ = sendToErrorTelemetry(logrusEntry, true)
 			return
 		}
-		_ = sendErrorSync(errors.ErrorfWithSkip(2, "panic caught: %s", err), nil)
+		_ = sendErrorSync(errors.ErrorfWithSkip(2, "panic caught: %s", err).(*bugsnagerrors.Error), nil)
 		panic(err)
 	}
 }
