@@ -35,6 +35,7 @@ const (
 	ReasonGeneratePodDatabaseUserFailed          = "GeneratePodDatabaseUserFailed"
 	ReasonEnsuringPodUserAndPasswordFailed       = "EnsuringPodUserAndPasswordFailed"
 	ReasonEnsuringDatabasePasswordFailed         = "EnsuringDatabasePasswordFailed"
+	ReasonEnsuredDatabasePassword                = "EnsuredPasswordInDatabases"
 	ReasonRotatingSecretFailed                   = "RotatingSecretFailed"
 	ReasonRestartingPodAfterSecretRotationFailed = "RestartingPodAfterSecretRotationFailed"
 )
@@ -121,7 +122,7 @@ func (e *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	secretName := pod.Annotations[metadata.UserAndPasswordSecretNameAnnotation]
 	logrus.Debug("Ensuring user-password credentials secrets for pod")
-	result, createdSecret, err := e.ensurePodUserAndPasswordSecret(ctx, &pod, secretName, username)
+	result, created, password, err := e.ensurePodUserAndPasswordSecret(ctx, &pod, secretName, username)
 	if err != nil {
 		e.recorder.Eventf(&pod, v1.EventTypeWarning, ReasonEnsuringPodUserAndPasswordFailed, "Failed to ensure user-password credentials secret: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
@@ -131,33 +132,24 @@ func (e *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return result, nil
 	}
 
-	if createdSecret {
-		secret := v1.Secret{}
-		if err := e.client.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: secretName}, &secret); err != nil {
+	e.recorder.Event(&pod, v1.EventTypeNormal, ReasonEnsuredPodUserAndPassword, "Ensured user-password credentials in specified secret")
+
+	if hasDatabaseAccessAnnotation(pod) {
+		logrus.Debug("Validating password in all databases")
+		err = e.ensurePasswordInDatabases(ctx, pod, username, password)
+		if err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
-		password := string(secret.Data["password"])
+		e.recorder.Event(&pod, v1.EventTypeNormal, ReasonEnsuredDatabasePassword, "Ensured password in databases")
+	}
 
-		if hasDatabaseAccessAnnotation(pod) {
-			logrus.Debug("Validating password in all databases")
-			err = e.ensurePasswordInDatabases(ctx, pod, username, password)
-			if err != nil {
-				return ctrl.Result{}, errors.Wrap(err)
-			}
-			// We only move on to restart if the pod has any database annotations
-			// Basically, we did not run "alter password" in any databases, we don't need to trigger restarts
-			if hasRestartAnnotation(pod) {
-				logrus.Debug("Triggering pod restart for newly created secret")
-				err := e.TriggerPodRestart(ctx, &pod)
-				if err != nil {
-					e.recorder.Eventf(&pod, v1.EventTypeWarning,
-						ReasonRestartingPodAfterSecretRotationFailed, "Failed restarting pod after secret creation: %s", err.Error())
-				}
-			}
-
+	if created && hasRestartAnnotation(pod) {
+		logrus.Debug("Triggering pod restart for newly created secret")
+		err := e.TriggerPodRestart(ctx, &pod)
+		if err != nil {
+			e.recorder.Eventf(&pod, v1.EventTypeWarning,
+				ReasonRestartingPodAfterSecretRotationFailed, "Failed restarting pod after secret creation: %s", err.Error())
 		}
-
-		e.recorder.Event(&pod, v1.EventTypeNormal, ReasonEnsuredPodUserAndPassword, "Ensured user-password credentials in specified secret")
 	}
 
 	return ctrl.Result{}, nil
@@ -178,7 +170,7 @@ func (e *Reconciler) generateServiceDatabaseUsername(ctx context.Context, pod *v
 	return clusterutils.KubernetesToPostgresName(username), nil
 }
 
-func (e *Reconciler) ensurePodUserAndPasswordSecret(ctx context.Context, pod *v1.Pod, secretName string, username string) (ctrl.Result, bool, error) {
+func (e *Reconciler) ensurePodUserAndPasswordSecret(ctx context.Context, pod *v1.Pod, secretName string, username string) (ctrl.Result, bool, string, error) {
 	log := logrus.WithFields(logrus.Fields{"pod": pod.Name, "namespace": pod.Namespace})
 	secret := v1.Secret{}
 	err := e.client.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: secretName}, &secret)
@@ -187,29 +179,29 @@ func (e *Reconciler) ensurePodUserAndPasswordSecret(ctx context.Context, pod *v1
 		log.Debug("Creating user-password credentials secret for pod")
 		password, err := databaseconfigurator.GenerateRandomPassword()
 		if err != nil {
-			return ctrl.Result{}, false, errors.Wrap(err)
+			return ctrl.Result{}, false, "", errors.Wrap(err)
 		}
 
 		secret := buildUserAndPasswordCredentialsSecret(secretName, pod.Namespace, username, password)
 		log.WithField("secret", secretName).Debug("Creating new secret with user-password credentials")
 		if err := e.client.Create(ctx, secret); err != nil {
-			return ctrl.Result{}, false, errors.Wrap(err)
+			return ctrl.Result{}, false, "", errors.Wrap(err)
 		}
-		return ctrl.Result{}, true, nil
+		return ctrl.Result{}, true, password, nil
 	}
 
 	if err != nil {
-		return ctrl.Result{}, false, errors.Wrap(err)
+		return ctrl.Result{}, false, "", errors.Wrap(err)
 	}
 
 	// If secret exists but is being deleted we need to requeue until it is deleted
 	if !secret.DeletionTimestamp.IsZero() {
 		logrus.Debug("Secret is being deleted, retriggering reconcile")
-		return ctrl.Result{Requeue: true}, false, nil
+		return ctrl.Result{Requeue: true}, false, "", nil
 	}
 
 	log.Debug("Secret exists, nothing to do")
-	return ctrl.Result{}, false, nil
+	return ctrl.Result{}, false, string(secret.Data["password"]), nil
 }
 
 func (e *Reconciler) ensurePasswordInDatabases(ctx context.Context, pod v1.Pod, username string, password string) error {
