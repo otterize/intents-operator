@@ -6,6 +6,9 @@ const (
 	// UserAndPasswordSecretNameAnnotation is the name of the secret in which the user and password are stored
 	UserAndPasswordSecretNameAnnotation = "credentials-operator.otterize.com/user-password-secret-name"
 
+	// RestartOnSecretRotation signals the
+	RestartOnSecretRotation = "credentials-operator.otterize.com/restart-on-secret-rotation"
+
 	// TLSSecretNameAnnotation is the name of the K8s secret in which the certificate data is stored
 	TLSSecretNameAnnotation           = "credentials-operator.otterize.com/tls-secret-name"
 	TLSSecretNameAnnotationDeprecated = "spire-integration.otterize.com/tls-secret-name"
