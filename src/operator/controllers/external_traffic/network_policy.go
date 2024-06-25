@@ -7,6 +7,8 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -344,20 +346,35 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		if !ok {
 			continue
 		}
+		netpolSlice := make([]v1.NetworkPolicy, 0)
 
-		netpolList := &v1.NetworkPolicyList{}
-
-		err = r.client.List(ctx, netpolList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: serverLabel})
+		serviceId, err := serviceidresolver.NewResolver(r.client).ResolvePodToServiceIdentity(ctx, pod)
 		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				// only act on pods affected by Otterize policies - if they were not created yet,
-				// the intents reconciler will call the endpoints reconciler once it does.
-				continue
-			}
+			return errors.Wrap(err)
+		}
+		netpolList := &v1.NetworkPolicyList{}
+		// Get netpolSlice which was created by intents targeting this pod by its owner with "kind"
+		err = r.client.List(ctx, netpolList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithKind()})
+		if err != nil {
+			return errors.Wrap(err)
+		}
+		netpolSlice = append(netpolSlice, netpolList.Items...)
+		// Get netpolSlice which was created by intents targeting this pod by its owner without "kind"
+		err = r.client.List(ctx, netpolList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithoutKind()})
+		if err != nil {
+			return errors.Wrap(err)
+		}
+		netpolSlice = append(netpolSlice, netpolList.Items...)
+
+		// Get netpolSlice which was created by intents targeting this pod by its service
+		err = r.client.List(ctx, netpolList, client.MatchingLabels{v1alpha3.OtterizeNetworkPolicy: (&serviceidentity.ServiceIdentity{Name: endpoints.Name, Namespace: endpoints.Namespace, Kind: serviceidentity.KindService}).GetFormattedOtterizeIdentityWithKind()})
+		if err != nil {
 			return errors.Wrap(err)
 		}
 
-		hasIngressRules := lo.SomeBy(netpolList.Items, func(netpol v1.NetworkPolicy) bool {
+		netpolSlice = append(netpolSlice, netpolList.Items...)
+
+		hasIngressRules := lo.SomeBy(netpolSlice, func(netpol v1.NetworkPolicy) bool {
 			return lo.Contains(netpol.Spec.PolicyTypes, v1.PolicyTypeIngress)
 		})
 
@@ -370,9 +387,6 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 			}
 			continue
 		}
-
-		netpolSlice := make([]v1.NetworkPolicy, 0)
-		netpolSlice = append(netpolSlice, netpolList.Items...)
 
 		foundOtterizeNetpolsAffectingPods = true
 		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, netpolSlice)

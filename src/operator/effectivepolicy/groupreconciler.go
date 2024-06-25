@@ -79,14 +79,14 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		if !clientIntent.DeletionTimestamp.IsZero() {
 			continue
 		}
-		service := serviceidentity.NewFromClientIntent(clientIntent)
+		service := clientIntent.ToServiceIdentity()
 		services.Add(service)
 		serviceToIntent[service] = clientIntent
 		for _, intentCall := range clientIntent.GetCallsList() {
 			if !g.shouldCreateEffectivePolicyForIntentTargetServer(intentCall, clientIntent.Namespace) {
 				continue
 			}
-			services.Add(serviceidentity.NewFromIntent(intentCall, clientIntent.Namespace))
+			services.Add(intentCall.ToServiceIdentity(clientIntent.Namespace))
 		}
 	}
 
@@ -157,7 +157,7 @@ func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientI
 
 func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v1alpha3.ClientIntents, error) {
 	var intentsList v1alpha3.ClientIntentsList
-	matchFields := client.MatchingFields{v1alpha3.OtterizeFormattedTargetServerIndexField: server.GetFormattedOtterizeIdentity()}
+	matchFields := client.MatchingFields{v1alpha3.OtterizeFormattedTargetServerIndexField: server.GetFormattedOtterizeIdentityWithKind()}
 	err := g.Client.List(
 		ctx, &intentsList,
 		&matchFields,
