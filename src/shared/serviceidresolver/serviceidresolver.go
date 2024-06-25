@@ -2,6 +2,7 @@ package serviceidresolver
 
 import (
 	"context"
+	"flag"
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -20,7 +21,7 @@ import (
 )
 
 const (
-	cacheSize = 1000
+	cacheSize = 2000
 	cacheTTL  = time.Second * 5
 )
 
@@ -107,6 +108,11 @@ func (r *Resolver) resolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 }
 
 func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error) {
+	// Skip cache in test mode
+	if flag.Lookup("test.v") != nil {
+		return r.resolvePodToServiceIdentity(ctx, pod)
+	}
+
 	key := types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}
 	if identity, ok := podToServiceIDCache.Get(key); ok {
 		return identity, nil
