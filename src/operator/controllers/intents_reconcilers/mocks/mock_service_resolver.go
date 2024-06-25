@@ -37,21 +37,6 @@ func (m *MockServiceResolver) EXPECT() *MockServiceResolverMockRecorder {
 	return m.recorder
 }
 
-// GetKubernetesServicesTargetingPod mocks base method.
-func (m *MockServiceResolver) GetKubernetesServicesTargetingPod(ctx context.Context, pod *v1.Pod) ([]v1.Service, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetKubernetesServicesTargetingPod", ctx, pod)
-	ret0, _ := ret[0].([]v1.Service)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetKubernetesServicesTargetingPod indicates an expected call of GetKubernetesServicesTargetingPod.
-func (mr *MockServiceResolverMockRecorder) GetKubernetesServicesTargetingPod(ctx, pod interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKubernetesServicesTargetingPod", reflect.TypeOf((*MockServiceResolver)(nil).GetKubernetesServicesTargetingPod), ctx, pod)
-}
-
 // ResolveClientIntentToPod mocks base method.
 func (m *MockServiceResolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (v1.Pod, error) {
 	m.ctrl.T.Helper()
@@ -67,21 +52,6 @@ func (mr *MockServiceResolverMockRecorder) ResolveClientIntentToPod(ctx, intent 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveClientIntentToPod", reflect.TypeOf((*MockServiceResolver)(nil).ResolveClientIntentToPod), ctx, intent)
 }
 
-// ResolveIntentServerToPod mocks base method.
-func (m *MockServiceResolver) ResolveIntentServerToPod(ctx context.Context, intent v1alpha3.Intent, namespace string) (v1.Pod, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveIntentServerToPod", ctx, intent, namespace)
-	ret0, _ := ret[0].(v1.Pod)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ResolveIntentServerToPod indicates an expected call of ResolveIntentServerToPod.
-func (mr *MockServiceResolverMockRecorder) ResolveIntentServerToPod(ctx, intent, namespace interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveIntentServerToPod", reflect.TypeOf((*MockServiceResolver)(nil).ResolveIntentServerToPod), ctx, intent, namespace)
-}
-
 // ResolvePodToServiceIdentity mocks base method.
 func (m *MockServiceResolver) ResolvePodToServiceIdentity(ctx context.Context, pod *v1.Pod) (serviceidentity.ServiceIdentity, error) {
 	m.ctrl.T.Helper()
@@ -95,4 +65,20 @@ func (m *MockServiceResolver) ResolvePodToServiceIdentity(ctx context.Context, p
 func (mr *MockServiceResolverMockRecorder) ResolvePodToServiceIdentity(ctx, pod interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolvePodToServiceIdentity", reflect.TypeOf((*MockServiceResolver)(nil).ResolvePodToServiceIdentity), ctx, pod)
+}
+
+// ResolveServiceIdentityToPodSlice mocks base method.
+func (m *MockServiceResolver) ResolveServiceIdentityToPodSlice(ctx context.Context, identity serviceidentity.ServiceIdentity) ([]v1.Pod, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveServiceIdentityToPodSlice", ctx, identity)
+	ret0, _ := ret[0].([]v1.Pod)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ResolveServiceIdentityToPodSlice indicates an expected call of ResolveServiceIdentityToPodSlice.
+func (mr *MockServiceResolverMockRecorder) ResolveServiceIdentityToPodSlice(ctx, identity interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveServiceIdentityToPodSlice", reflect.TypeOf((*MockServiceResolver)(nil).ResolveServiceIdentityToPodSlice), ctx, identity)
 }

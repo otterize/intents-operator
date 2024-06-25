@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"context"
-	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -91,7 +90,7 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		&otterizev1alpha3.ClientIntentsList{},
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fullServerName},
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fullServerName},
 	).DoAndReturn(
 		func(ctx context.Context, list *otterizev1alpha3.ClientIntentsList, opts ...client.ListOption) error {
 			list.Items = clientIntents
@@ -131,7 +130,7 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntentNoInten
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		&otterizev1alpha3.ClientIntentsList{},
-		&client.MatchingFields{otterizev1alpha2.OtterizeTargetServerIndexField: fullServerName},
+		&client.MatchingFields{otterizev1alpha3.OtterizeTargetServerIndexField: fullServerName},
 	).Return(nil)
 
 	expected := make([]reconcile.Request, 0)

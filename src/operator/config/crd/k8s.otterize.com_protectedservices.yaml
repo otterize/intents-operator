@@ -75,6 +75,8 @@ spec:
           spec:
             description: ProtectedServiceSpec defines the desired state of ProtectedService
             properties:
+              kind:
+                type: string
               name:
                 type: string
             type: object

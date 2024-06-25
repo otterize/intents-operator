@@ -278,6 +278,8 @@ func (s *ControllerManagerTestSuiteBase) AddDeployment(
 			UID:                deployment.UID,
 		},
 	}
+	err = s.Mgr.GetClient().Update(context.Background(), replicaSet)
+	s.Require().NoError(err)
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		rs := &appsv1.ReplicaSet{}
@@ -430,14 +432,16 @@ func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string)
 
 func (s *ControllerManagerTestSuiteBase) AddIntents(
 	objName,
-	clientName string,
+	clientName,
+	clientKind string,
 	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
-	return s.AddIntentsInNamespace(objName, clientName, s.TestNamespace, callList)
+	return s.AddIntentsInNamespace(objName, clientName, clientKind, s.TestNamespace, callList)
 }
 
 func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	objName,
 	clientName string,
+	clientKind string,
 	namespace string,
 	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
 
@@ -451,7 +455,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 			},
 		},
 		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{Name: clientName},
+			Service: otterizev1alpha3.Service{Name: clientName, Kind: clientKind},
 			Calls:   callList,
 		},
 	}
