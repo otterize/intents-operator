@@ -63,7 +63,7 @@ func (v *MySQLConfValidator) ValidateCreate(ctx context.Context, obj runtime.Obj
 	mysqlServerConf := obj.(*otterizev1alpha3.MySQLServerConfig)
 	gvk := mysqlServerConf.GroupVersionKind()
 
-	if err := validateCredentialsNotEmpty(mysqlServerConf.Spec.Credentials); err != nil {
+	if err := validateCredentialsNotEmptyV1alpha3(mysqlServerConf.Spec.Credentials); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -89,7 +89,7 @@ func (v *MySQLConfValidator) ValidateUpdate(ctx context.Context, oldObj, newObj 
 	mysqlServerConf := newObj.(*otterizev1alpha3.MySQLServerConfig)
 	gvk := mysqlServerConf.GroupVersionKind()
 
-	if err := validateCredentialsNotEmpty(mysqlServerConf.Spec.Credentials); err != nil {
+	if err := validateCredentialsNotEmptyV1alpha3(mysqlServerConf.Spec.Credentials); err != nil {
 		allErrs = append(allErrs, err)
 	}
 

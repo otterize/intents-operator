@@ -48,7 +48,7 @@ func NewPostgresConfValidatorV2alpha1(c client.Client) *PostgresConfValidatorV2a
 	}
 }
 
-//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v2alpha1-postgresqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=postgresqlserverconfigs,verbs=create;update,versions=v2alpha1,name=postgresqlserverconfigv2alpha1.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v2alpha1-postgresqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=postgresqlserverconfigs,verbs=create;update,versions=v2alpha1,name=postgresqlserverconfig.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &PostgresConfValidatorV2alpha1{}
 
@@ -61,19 +61,23 @@ func (v *PostgresConfValidatorV2alpha1) ValidateDelete(ctx context.Context, obj 
 func (v *PostgresConfValidatorV2alpha1) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
 	pgServerConf := obj.(*otterizev2alpha1.PostgreSQLServerConfig)
+	gvk := pgServerConf.GroupVersionKind()
+
+	if err := validateCredentialsNotEmpty(pgServerConf.Spec.Credentials); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
 	err := validateNoDuplicateForCreate(ctx, v.Client, pgServerConf.Name)
-	if err != nil {
-		var fieldErr *field.Error
-		if goerrors.As(err, &fieldErr) {
-			allErrs = append(allErrs, fieldErr)
-			gvk := pgServerConf.GroupVersionKind()
-			return nil, k8serrors.NewInvalid(
-				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-				pgServerConf.Name, allErrs)
-		}
-
+	if fieldErr := (&field.Error{}); goerrors.As(err, &fieldErr) {
+		allErrs = append(allErrs, fieldErr)
+	} else if err != nil {
 		return nil, errors.Wrap(err)
+	}
+
+	if len(allErrs) > 0 {
+		return nil, k8serrors.NewInvalid(
+			schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
+			pgServerConf.Name, allErrs)
 	}
 
 	return nil, nil
@@ -83,6 +87,11 @@ func (v *PostgresConfValidatorV2alpha1) ValidateCreate(ctx context.Context, obj 
 func (v *PostgresConfValidatorV2alpha1) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
 	pgServerConf := newObj.(*otterizev2alpha1.PostgreSQLServerConfig)
+	gvk := pgServerConf.GroupVersionKind()
+
+	if err := validateCredentialsNotEmpty(pgServerConf.Spec.Credentials); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
 	err := validateNoDuplicateForUpdate(ctx, v.Client, DatabaseServerConfig{
 		Name:      pgServerConf.Name,
@@ -90,17 +99,17 @@ func (v *PostgresConfValidatorV2alpha1) ValidateUpdate(ctx context.Context, oldO
 		Type:      Postgres,
 	})
 
-	if err != nil {
-		var fieldErr *field.Error
-		if goerrors.As(err, &fieldErr) {
-			allErrs = append(allErrs, fieldErr)
-			gvk := pgServerConf.GroupVersionKind()
-			return nil, k8serrors.NewInvalid(
-				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-				pgServerConf.Name, allErrs)
-		}
-
+	if fieldErr := (&field.Error{}); goerrors.As(err, &fieldErr) {
+		allErrs = append(allErrs, fieldErr)
+	} else if err != nil {
 		return nil, errors.Wrap(err)
 	}
+
+	if len(allErrs) > 0 {
+		return nil, k8serrors.NewInvalid(
+			schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
+			pgServerConf.Name, allErrs)
+	}
+
 	return nil, nil
 }

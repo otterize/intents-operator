@@ -3,6 +3,7 @@ package webhooks
 import (
 	"context"
 	"fmt"
+	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -108,7 +109,20 @@ func validateNoDuplicateForUpdate(ctx context.Context, client client.Client, con
 	return nil
 }
 
-func validateCredentialsNotEmpty(credentials otterizev1alpha3.DatabaseCredentials) *field.Error {
+func validateCredentialsNotEmpty(credentials otterizev2alpha1.DatabaseCredentials) *field.Error {
+	if (credentials.Username == "" || credentials.Password == "") && credentials.SecretRef == nil {
+		return &field.Error{
+			Type:     field.ErrorTypeRequired,
+			Field:    "credentials",
+			BadValue: credentials,
+			Detail:   "Either username and password must be provided or a secretRef must be provided",
+		}
+	}
+
+	return nil
+}
+
+func validateCredentialsNotEmptyV1alpha3(credentials otterizev1alpha3.DatabaseCredentials) *field.Error {
 	if (credentials.Username == "" || credentials.Password == "") && credentials.SecretRef == nil {
 		return &field.Error{
 			Type:     field.ErrorTypeRequired,

@@ -140,7 +140,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *DatabaseReconciler) extractDBCredentials(ctx context.Context, namespace string, credentialsSpec otterizev1alpha3.DatabaseCredentials) (databaseconfigurator.DatabaseCredentials, error) {
+func (r *DatabaseReconciler) extractDBCredentials(ctx context.Context, namespace string, credentialsSpec otterizev2alpha1.DatabaseCredentials) (databaseconfigurator.DatabaseCredentials, error) {
 	creds := databaseconfigurator.DatabaseCredentials{}
 	if credentialsSpec.Username != "" {
 		creds.Username = credentialsSpec.Username
@@ -173,7 +173,7 @@ func (r *DatabaseReconciler) extractDBCredentials(ctx context.Context, namespace
 	return creds, nil
 }
 
-func (r *DatabaseReconciler) createPostgresDBConfigurator(ctx context.Context, pgServerConfig otterizev1alpha3.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+func (r *DatabaseReconciler) createPostgresDBConfigurator(ctx context.Context, pgServerConfig otterizev2alpha1.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
 	credentials, err := r.extractDBCredentials(ctx, pgServerConfig.Namespace, pgServerConfig.Spec.Credentials)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -204,7 +204,7 @@ func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, confi
 	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, config.Name, dbInstanceIntents)
 }
 
-func (r *DatabaseReconciler) createMySQLDBConfigurator(ctx context.Context, mySqlServerConfig otterizev1alpha3.MySQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+func (r *DatabaseReconciler) createMySQLDBConfigurator(ctx context.Context, mySqlServerConfig otterizev2alpha1.MySQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
 	credentials, err := r.extractDBCredentials(ctx, mySqlServerConfig.Namespace, mySqlServerConfig.Spec.Credentials)
 	if err != nil {
 		return nil, errors.Wrap(err)

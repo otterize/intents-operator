@@ -48,7 +48,7 @@ func NewMySQLConfValidatorV2alpha1(c client.Client) *MySQLConfValidatorV2alpha1 
 	}
 }
 
-//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v2alpha1-mysqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=mysqlserverconfigs,verbs=create;update,versions=v2alpha1,name=mysqlserverconfigv2alpha1.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v2alpha1-mysqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=mysqlserverconfigs,verbs=create;update,versions=v2alpha1,name=mysqlserverconfig.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &MySQLConfValidatorV2alpha1{}
 
@@ -61,20 +61,23 @@ func (v *MySQLConfValidatorV2alpha1) ValidateDelete(ctx context.Context, obj run
 func (v *MySQLConfValidatorV2alpha1) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
 	mysqlServerConf := obj.(*otterizev2alpha1.MySQLServerConfig)
+	gvk := mysqlServerConf.GroupVersionKind()
+
+	if err := validateCredentialsNotEmpty(mysqlServerConf.Spec.Credentials); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
 	err := validateNoDuplicateForCreate(ctx, v.Client, mysqlServerConf.Name)
-
-	if err != nil {
-		var fieldErr *field.Error
-		if goerrors.As(err, &fieldErr) {
-			allErrs = append(allErrs, fieldErr)
-			gvk := mysqlServerConf.GroupVersionKind()
-			return nil, k8serrors.NewInvalid(
-				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-				mysqlServerConf.Name, allErrs)
-		}
-
+	if fieldErr := (&field.Error{}); goerrors.As(err, &fieldErr) {
+		allErrs = append(allErrs, fieldErr)
+	} else if err != nil {
 		return nil, errors.Wrap(err)
+	}
+
+	if len(allErrs) > 0 {
+		return nil, k8serrors.NewInvalid(
+			schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
+			mysqlServerConf.Name, allErrs)
 	}
 
 	return nil, nil
@@ -84,23 +87,28 @@ func (v *MySQLConfValidatorV2alpha1) ValidateCreate(ctx context.Context, obj run
 func (v *MySQLConfValidatorV2alpha1) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
 	mysqlServerConf := newObj.(*otterizev2alpha1.MySQLServerConfig)
+	gvk := mysqlServerConf.GroupVersionKind()
+
+	if err := validateCredentialsNotEmpty(mysqlServerConf.Spec.Credentials); err != nil {
+		allErrs = append(allErrs, err)
+	}
 
 	err := validateNoDuplicateForUpdate(ctx, v.Client, DatabaseServerConfig{
 		Name:      mysqlServerConf.Name,
 		Namespace: mysqlServerConf.Namespace,
 		Type:      MySQL,
 	})
-	if err != nil {
-		var fieldErr *field.Error
-		if goerrors.As(err, &fieldErr) {
-			allErrs = append(allErrs, fieldErr)
-			gvk := mysqlServerConf.GroupVersionKind()
-			return nil, k8serrors.NewInvalid(
-				schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
-				mysqlServerConf.Name, allErrs)
-		}
-
+	if fieldErr := (&field.Error{}); goerrors.As(err, &fieldErr) {
+		allErrs = append(allErrs, fieldErr)
+	} else if err != nil {
 		return nil, errors.Wrap(err)
 	}
+
+	if len(allErrs) > 0 {
+		return nil, k8serrors.NewInvalid(
+			schema.GroupKind{Group: gvk.Group, Kind: gvk.Kind},
+			mysqlServerConf.Name, allErrs)
+	}
+
 	return nil, nil
 }

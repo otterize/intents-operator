@@ -63,7 +63,7 @@ func (v *PostgresConfValidator) ValidateCreate(ctx context.Context, obj runtime.
 	pgServerConf := obj.(*otterizev1alpha3.PostgreSQLServerConfig)
 	gvk := pgServerConf.GroupVersionKind()
 
-	if err := validateCredentialsNotEmpty(pgServerConf.Spec.Credentials); err != nil {
+	if err := validateCredentialsNotEmptyV1alpha3(pgServerConf.Spec.Credentials); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -89,7 +89,7 @@ func (v *PostgresConfValidator) ValidateUpdate(ctx context.Context, oldObj, newO
 	pgServerConf := newObj.(*otterizev1alpha3.PostgreSQLServerConfig)
 	gvk := pgServerConf.GroupVersionKind()
 
-	if err := validateCredentialsNotEmpty(pgServerConf.Spec.Credentials); err != nil {
+	if err := validateCredentialsNotEmptyV1alpha3(pgServerConf.Spec.Credentials); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
