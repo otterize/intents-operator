@@ -106,6 +106,7 @@ type AccessGraph {
 	clusters: [Cluster!]!
 	serviceAccessGraphs: [ServiceAccessGraph!]!
 	serviceCount: Int!
+	findings: [Finding!]!
 }
 
 type AccessGraphEdge {
@@ -115,6 +116,7 @@ type AccessGraphEdge {
 	appliedIntents: [Intent!]!
 	accessStatus: EdgeAccessStatus!
 	accessStatuses: EdgeAccessStatuses!
+	missingTags: [MissingTagInfo!]
 }
 
 """Access graph filter"""
@@ -232,6 +234,10 @@ enum CertificateProvider {
 	NONE
 }
 
+input ChannelInfoInput {
+	channelName: String!
+}
+
 input ClientIPConfig {
 	timeoutSeconds: Int
 }
@@ -334,6 +340,11 @@ type CreateGitHubIntegrationResponse {
 }
 
 type CreateGitLabIntegrationResponse {
+	integration: Integration!
+	nextURL: String!
+}
+
+type CreateSlackIntegrationResponse {
 	integration: Integration!
 	nextURL: String!
 }
@@ -539,6 +550,17 @@ input ExternallyAccessibleServiceInput {
 
 type FeatureFlags {
 	isCloudServicesDetectionEnabled: Boolean
+	isCloudSecurityEnabled: Boolean
+}
+
+type Finding {
+	id: ID!
+	severity: Severity!
+	message: String!
+	server: ServiceAccessGraph!
+	clientsMissingTags: [ServiceAccessGraph!]!
+	ruleTags: [String!]!
+	totalClientsCount: Int!
 }
 
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
@@ -705,6 +727,7 @@ input InputAccessGraphFilter {
 
 input InputFeatureFlags {
 	isCloudServicesDetectionEnabled: Boolean
+	isCloudSecurityEnabled: Boolean
 }
 
 input InputIDFilterValue {
@@ -748,6 +771,7 @@ type Integration {
 	azureInfo: AzureInfo
 	gitHubSettings: GitHubSettings
 	gitLabSettings: GitLabSettings
+	slackSettings: SlackSettings
 	organizationId: String!
 	status: IntegrationStatus
 }
@@ -800,6 +824,7 @@ enum IntegrationType {
 	GITHUB
 	GITLAB
 	AZURE
+	SLACK
 }
 
 type Intent {
@@ -1189,6 +1214,11 @@ input MetadataEntry {
 	value: String!
 }
 
+type MissingTagInfo {
+	tags: [String!]!
+	reason: String!
+}
+
 type Mutation {
 """This is just a placeholder since currently GraphQL does not allow empty types"""
 	dummy: Boolean
@@ -1287,6 +1317,17 @@ type Mutation {
 		name: String!
 		gitLabSettings: GitLabSettingsInput!
 	): CreateGitLabIntegrationResponse
+"""Create a new Slack integration"""
+	createSlackIntegration(
+		name: String!
+		slackSettings: SlackSettingsInput!
+	): CreateSlackIntegrationResponse
+"""Update a Slack integration"""
+	updateSlackIntegration(
+		id: ID!
+		name: String!
+		slackSettings: SlackSettingsInput!
+	): Integration
 """Create a new GCP integration"""
 	createGCPIntegration(
 		name: String!
@@ -1423,6 +1464,11 @@ type Mutation {
 		id: ID!
 		tags: [String!]
 	): Service!
+"""Bulk Update services"""
+	addTagsToServices(
+		ids: [ID!]!
+		tags: [String!]!
+	): [Service!]!
 	sendTelemetries(
 		telemetries: [TelemetryInput!]!
 	): Boolean!
@@ -1553,6 +1599,9 @@ type Query {
 	accessGraph(
 		filter: InputAccessGraphFilter
 	): AccessGraph!
+	serviceAccessGraph(
+		id: ID!
+	): ServiceAccessGraph!
 	serviceClientIntents(
 		id: ID!
 		asServiceId: ID
@@ -1586,6 +1635,9 @@ type Query {
 	oneEnvironment(
 		name: String!
 	): Environment!
+	findings(
+		filter: InputAccessGraphFilter!
+	): [Finding!]!
 """List integrations"""
 	integrations(
 		name: String
@@ -1649,10 +1701,14 @@ type Query {
 	): Organization!
 """Checks the availability of the API server"""
 	ping: Boolean!
+	resources(
+		filter: InputAccessGraphFilter
+	): [Resource!]!
 """Get service"""
 	service(
 		id: ID!
 	): Service!
+	tagOptions: [String!]
 """List services"""
 	services(
 		environmentId: ID
@@ -1671,6 +1727,16 @@ type Query {
 	user(
 		id: ID!
 	): User!
+	workloads(
+		filter: InputAccessGraphFilter
+	): [Workload!]!
+}
+
+type Resource {
+	id: ID!
+	service: Service!
+	types: [ServiceType!]!
+	inboundStatus: ServerProtectionStatusVerdict!
 }
 
 enum RowDiff {
@@ -1795,13 +1861,6 @@ enum ServiceInternalTrafficPolicy {
 	LOCAL
 }
 
-enum ServiceTags {
-	PCI
-	PII
-	HIPAA
-	SENSITIVE
-}
-
 enum ServiceType {
 	NODE_GROUP
 	PREFIX_GROUP
@@ -1823,6 +1882,38 @@ enum SessionAffinity {
 
 input SessionAffinityConfig {
 	clientIP: ClientIPConfig
+}
+
+enum Severity {
+	CRITICAL
+	HIGH
+	MEDIUM
+	LOW
+	INFORMATIONAL
+}
+
+type SlackChannelInfo {
+	channelName: String!
+}
+
+type SlackFilterPair {
+	filter: IntegrationAccessGraphFilter!
+	channelInfo: SlackChannelInfo!
+}
+
+input SlackFilterPairInput {
+	filter: InputIntegrationAccessGraphFilter
+	channelInfo: ChannelInfoInput!
+}
+
+type SlackSettings {
+	isActive: Boolean!
+	channelFilterPairs: [SlackFilterPair!]!
+}
+
+input SlackSettingsInput {
+	isActive: Boolean!
+	channelFilterPairs: [SlackFilterPairInput!]!
 }
 
 input StackFrame {
@@ -1932,6 +2023,14 @@ type UserTutorial {
 	isCompleted: Boolean!
 	step: String!
 	stepSeen: String!
+}
+
+type Workload {
+	id: ID!
+	service: Service!
+	types: [ServiceType!]!
+	inboundStatus: ServerProtectionStatusVerdict!
+	outboundStatus: EdgeAccessStatusVerdict!
 }
 
 

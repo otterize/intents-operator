@@ -60,6 +60,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	logrus.Debugf("Reconciling due to pod change: %s", req.Name)
 	pod := v1.Pod{}
 	err := p.Get(ctx, req.NamespacedName, &pod)
+
 	if k8serrors.IsNotFound(err) {
 		logrus.Debugf("Pod was deleted")
 		return ctrl.Result{}, nil
@@ -86,6 +87,10 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	err = p.handleIstioPolicy(ctx, pod, serviceID)
 	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			// Can happen if the Istio policy is created in parallel by another controller
+			return ctrl.Result{Requeue: true}, nil
+		}
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
@@ -292,7 +297,6 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev2
 
 	err = p.istioPolicyAdmin.Create(ctx, &intents, pod.Spec.ServiceAccountName)
 	if err != nil {
-		logrus.WithError(err).Errorln("Failed creating Istio authorization policy")
 		return errors.Wrap(err)
 	}
 

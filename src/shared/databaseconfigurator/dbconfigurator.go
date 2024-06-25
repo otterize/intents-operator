@@ -6,8 +6,14 @@ import (
 )
 
 const (
-	DatabaseAccessAnnotation = "intents.otterize.com/database-access"
+	DatabaseAccessAnnotation     = "intents.otterize.com/database-access"
+	LatestAccessChangeAnnotation = "intents.otterize.com/database-access-update-time"
 )
+
+type DatabaseCredentials struct {
+	Username string
+	Password string
+}
 
 type DatabaseConfigurator interface {
 	CreateUser(ctx context.Context, username string, password string) error

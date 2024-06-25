@@ -6,6 +6,7 @@ import (
 	"github.com/amit7itz/goset"
 	"github.com/jackc/pgx/v5"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/sqlutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -42,15 +43,20 @@ func databaseConfigInputToSQLTableIdentifier(resource otterizev2alpha1.SQLPermis
 	return sqlutils.SQLTableIdentifier{TableSchema: "public", TableName: resource.Table}
 }
 
+type PostgresDatabaseInfo struct {
+	Address     string
+	Credentials databaseconfigurator.DatabaseCredentials
+}
+
 type PostgresConfigurator struct {
 	conn         *pgx.Conn
-	databaseInfo otterizev2alpha1.PostgreSQLServerConfigSpec
+	databaseInfo PostgresDatabaseInfo
 	setConnMutex sync.Mutex
 }
 
-func NewPostgresConfigurator(ctx context.Context, pgServerConfSpec otterizev2alpha1.PostgreSQLServerConfigSpec) (*PostgresConfigurator, error) {
+func NewPostgresConfigurator(ctx context.Context, databaseInfo PostgresDatabaseInfo) (*PostgresConfigurator, error) {
 	p := &PostgresConfigurator{
-		databaseInfo: pgServerConfSpec,
+		databaseInfo: databaseInfo,
 		setConnMutex: sync.Mutex{},
 	}
 

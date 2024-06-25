@@ -131,6 +131,7 @@ func NewIntentsReconciler(
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;list;watch;create
+//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 //+kubebuilder:rbac:groups="admissionregistration.k8s.io",resources=validatingwebhookconfigurations,verbs=get;update;patch;list
 //+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create;patch

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
@@ -160,6 +161,17 @@ func (s *DatabaseReconcilerTestSuite) reconcileWithExpectedResources(clientInten
 	req := ctrl.Request{NamespacedName: s.namespacedName}
 
 	return s.Reconciler.Reconcile(context.Background(), req)
+}
+
+func (s *DatabaseReconcilerTestSuite) TestHashedUsernameLength() {
+	longWorkloadName := "my.super.long-workload-name"
+	longNamespace := "my.super.long-namespace-name"
+	clusterID := "abc-def-ghi-jkl-mno-189023123"
+	hashedUsername := clusterutils.BuildHashedUsername(longWorkloadName, longNamespace, clusterID)
+	s.Require().True(len(hashedUsername) <= 32)
+
+	pgUsername := clusterutils.KubernetesToPostgresName(hashedUsername)
+	s.Require().True(len(pgUsername) <= 32)
 }
 
 func TestDatabaseReconcilerTestSuite(t *testing.T) {

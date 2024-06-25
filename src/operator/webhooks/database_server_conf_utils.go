@@ -107,3 +107,16 @@ func validateNoDuplicateForUpdate(ctx context.Context, client client.Client, con
 
 	return nil
 }
+
+func validateCredentialsNotEmpty(credentials otterizev1alpha3.DatabaseCredentials) *field.Error {
+	if (credentials.Username == "" || credentials.Password == "") && credentials.SecretRef == nil {
+		return &field.Error{
+			Type:     field.ErrorTypeRequired,
+			Field:    "credentials",
+			BadValue: credentials,
+			Detail:   "Either username and password must be provided or a secretRef must be provided",
+		}
+	}
+
+	return nil
+}

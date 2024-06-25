@@ -122,7 +122,16 @@ func main() {
 	if viper.GetBool(operatorconfig.DebugLogKey) {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
-	errorreporter.Init("intents-operator", version.Version(), viper.GetString(operatorconfig.TelemetryErrorsAPIKeyKey))
+
+	signalHandlerCtx := ctrl.SetupSignalHandler()
+
+	clusterUID, err := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
+	if err != nil {
+		logrus.WithError(err).Panic("Failed obtaining cluster ID")
+	}
+	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
+
+	errorreporter.Init(telemetriesgql.TelemetryComponentTypeIntentsOperator, version.Version())
 	defer errorreporter.AutoNotify()
 	shared.RegisterPanicHandlers()
 
@@ -192,14 +201,6 @@ func main() {
 	if err != nil {
 		logrus.WithError(err).Panic(err, "unable to start manager")
 	}
-	signalHandlerCtx := ctrl.SetupSignalHandler()
-
-	clusterUID, err := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
-	if err != nil {
-		logrus.WithError(err).Panic("Failed obtaining cluster ID")
-	}
-	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
-	componentinfo.SetGlobalVersion(version.Version())
 
 	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
 	if err != nil {

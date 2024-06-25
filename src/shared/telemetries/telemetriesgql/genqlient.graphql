@@ -2,3 +2,7 @@ mutation SendTelemetries($telemetries: [TelemetryInput!]!) {
     sendTelemetries(telemetries: $telemetries)
 }
 
+# @genqlient(pointer: true)
+mutation ReportErrors($component: Component!, $errors: [Error!]!) {
+    sendErrors(component: $component, errors: $errors)
+}

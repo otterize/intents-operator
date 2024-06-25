@@ -6,6 +6,7 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/sqlutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -47,6 +48,11 @@ func privilegesToString(privs []PrivilegeType) []string {
 	})
 }
 
+type MySQLDatabaseInfo struct {
+	Address     string
+	Credentials databaseconfigurator.DatabaseCredentials
+}
+
 type DBUserPrivilege struct {
 	Db         string
 	Privileges []PrivilegeType
@@ -59,17 +65,17 @@ type TablePrivilege struct {
 }
 
 type MySQLConfigurator struct {
-	databaseInfo otterizev2alpha1.MySQLServerConfigSpec
+	databaseInfo MySQLDatabaseInfo
 	db           *sql.DB
 	setDBMutex   sync.Mutex
 	logger       *logrus.Entry
 }
 
-func NewMySQLConfigurator(ctx context.Context, conf otterizev2alpha1.MySQLServerConfigSpec) (*MySQLConfigurator, error) {
+func NewMySQLConfigurator(ctx context.Context, databaseInfo MySQLDatabaseInfo) (*MySQLConfigurator, error) {
 	m := &MySQLConfigurator{
-		databaseInfo: conf,
+		databaseInfo: databaseInfo,
 		setDBMutex:   sync.Mutex{},
-		logger:       logrus.WithField("database", conf.Address),
+		logger:       logrus.WithField("database", databaseInfo.Address),
 	}
 
 	if err := m.setConnection(DefaultDatabase); err != nil {

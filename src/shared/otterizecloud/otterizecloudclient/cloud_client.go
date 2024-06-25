@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/Khan/genqlient/graphql"
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
@@ -32,7 +31,6 @@ func NewClient(ctx context.Context) (graphql.Client, bool, error) {
 		return nil, false, errors.New("missing cloud integration secret")
 	}
 
-	componentinfo.SetGlobalCloudClientId(clientID)
 	cfg := clientcredentials.Config{
 		ClientID:     clientID,
 		ClientSecret: secret,

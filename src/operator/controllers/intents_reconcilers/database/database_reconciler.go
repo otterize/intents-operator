@@ -12,12 +12,14 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"slices"
 	"strings"
+	"time"
 )
 
 const (
@@ -138,8 +140,59 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
+func (r *DatabaseReconciler) extractDBCredentials(ctx context.Context, namespace string, credentialsSpec otterizev1alpha3.DatabaseCredentials) (databaseconfigurator.DatabaseCredentials, error) {
+	creds := databaseconfigurator.DatabaseCredentials{}
+	if credentialsSpec.Username != "" {
+		creds.Username = credentialsSpec.Username
+	}
+	if credentialsSpec.Password != "" {
+		creds.Password = credentialsSpec.Password
+	}
+	if credentialsSpec.SecretRef != nil {
+		secret := corev1.Secret{}
+		name := credentialsSpec.SecretRef.Name
+		if credentialsSpec.SecretRef.Namespace != "" {
+			namespace = credentialsSpec.SecretRef.Namespace
+		}
+		err := r.client.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, &secret)
+		if err != nil {
+			return creds, errors.Wrap(err)
+		}
+		if username, ok := secret.Data[credentialsSpec.SecretRef.UsernameKey]; ok {
+			creds.Username = string(username)
+		}
+		if password, ok := secret.Data[credentialsSpec.SecretRef.PasswordKey]; ok {
+			creds.Password = string(password)
+		}
+	}
+
+	if creds.Username == "" || creds.Password == "" {
+		return creds, errors.New("credentials missing either username or password")
+	}
+
+	return creds, nil
+}
+
+func (r *DatabaseReconciler) createPostgresDBConfigurator(ctx context.Context, pgServerConfig otterizev1alpha3.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+	credentials, err := r.extractDBCredentials(ctx, pgServerConfig.Namespace, pgServerConfig.Spec.Credentials)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	dbInfo := postgres.PostgresDatabaseInfo{
+		Credentials: credentials,
+		Address:     pgServerConfig.Spec.Address,
+	}
+
+	dbConfigurator, err := postgres.NewPostgresConfigurator(ctx, dbInfo)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	return dbConfigurator, nil
+}
+
 func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, config otterizev2alpha1.PostgreSQLServerConfig, clientIntents *otterizev2alpha1.ClientIntents, dbUsername string, dbInstanceIntents []otterizev2alpha1.Target) error {
-	dbConfigurator, err := postgres.NewPostgresConfigurator(ctx, config.Spec)
+	dbConfigurator, err := r.createPostgresDBConfigurator(ctx, config)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
 			"Error connecting to PostgreSQL server. Error: %s", err.Error())
@@ -151,11 +204,29 @@ func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, confi
 	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, config.Name, dbInstanceIntents)
 }
 
+func (r *DatabaseReconciler) createMySQLDBConfigurator(ctx context.Context, mySqlServerConfig otterizev1alpha3.MySQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+	credentials, err := r.extractDBCredentials(ctx, mySqlServerConfig.Namespace, mySqlServerConfig.Spec.Credentials)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	dbInfo := mysql.MySQLDatabaseInfo{
+		Credentials: credentials,
+		Address:     mySqlServerConfig.Spec.Address,
+	}
+
+	dbConfigurator, err := mysql.NewMySQLConfigurator(ctx, dbInfo)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	return dbConfigurator, nil
+}
+
 func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev2alpha1.MySQLServerConfig, clientIntents *otterizev2alpha1.ClientIntents, dbUsername string, dbInstanceIntents []otterizev2alpha1.Target) error {
-	dbConfigurator, err := mysql.NewMySQLConfigurator(ctx, config.Spec)
+	dbConfigurator, err := r.createMySQLDBConfigurator(ctx, config)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
-			"Error connecting to PostgreSQL server. Error: %s", err.Error())
+			"Error connecting to MySQL server. Error: %s", err.Error())
 		return errors.Wrap(err)
 	}
 
@@ -198,6 +269,10 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 			return errors.Wrap(err)
 		}
 
+		if err := r.handleDatabaseAnnotationOnPod(ctx, *clientIntents, dbInstanceName); err != nil {
+			return errors.Wrap(err)
+		}
+
 		return nil
 	}
 
@@ -211,7 +286,7 @@ func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 		}
 	}
 
-	if err := r.annotateDatabaseOnPod(ctx, *clientIntents, dbInstanceName); err != nil {
+	if err := r.handleDatabaseAnnotationOnPod(ctx, *clientIntents, dbInstanceName); err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonAnnotatingPodFailedWithDBAccessFailed,
 			"Failed annotating pod with databse: %s", err.Error())
 		return errors.Wrap(err)
@@ -251,7 +326,7 @@ func (r *DatabaseReconciler) getClusterID(ctx context.Context) (string, error) {
 	return clusterID, nil
 }
 
-func (r *DatabaseReconciler) annotateDatabaseOnPod(ctx context.Context, intents otterizev2alpha1.ClientIntents, dbInstance string) error {
+func (r *DatabaseReconciler) handleDatabaseAnnotationOnPod(ctx context.Context, intents otterizev2alpha1.ClientIntents, dbInstance string) error {
 	// We annotate a pod here to trigger the credentials operator flow
 	// It will create a user-password secret and modify the databases so those credentials could connect successfully
 	// We only annotate one pod since we just need to trigger the credentials operator once, to create the secret
@@ -266,22 +341,40 @@ func (r *DatabaseReconciler) annotateDatabaseOnPod(ctx context.Context, intents 
 		}
 		return errors.Wrap(err)
 	}
+
+	if !pod.DeletionTimestamp.IsZero() {
+		return nil
+	}
+
 	updatedPod := pod.DeepCopy()
-	allowedDatabases, ok := updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation]
-	if !ok {
-		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = dbInstance
+	updatedPod.Annotations[databaseconfigurator.LatestAccessChangeAnnotation] = time.Now().Format(time.RFC3339)
+	if !intents.DeletionTimestamp.IsZero() {
+		// Clean all databases
+		delete(updatedPod.Annotations, databaseconfigurator.DatabaseAccessAnnotation)
+		delete(updatedPod.Annotations, databaseconfigurator.LatestAccessChangeAnnotation)
 	} else {
-		databaseSlice := strings.Split(allowedDatabases, ",")
-		if !slices.Contains(databaseSlice, dbInstance) {
-			databaseSlice = append(databaseSlice, dbInstance)
-		}
-		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = strings.Join(databaseSlice, ",")
+		// We cannot simply add all DB instances mentioned in the client intents because we also depend on server configs
+		// So we add one instance at a time, and only those which the operator successfully created a user for
+		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = strings.Join(getAllowedDatabasesSlice(pod, dbInstance), ",")
 	}
 
 	if err := r.client.Patch(ctx, updatedPod, client.MergeFrom(&pod)); err != nil {
 		return errors.Wrap(err)
 	}
 	return nil
+}
+
+func getAllowedDatabasesSlice(pod corev1.Pod, dbInstance string) []string {
+	allowedDatabases, ok := pod.Annotations[databaseconfigurator.DatabaseAccessAnnotation]
+	if !ok {
+		return []string{dbInstance}
+	} else {
+		databaseSlice := strings.Split(allowedDatabases, ",")
+		if !slices.Contains(databaseSlice, dbInstance) {
+			databaseSlice = append(databaseSlice, dbInstance)
+		}
+		return databaseSlice
+	}
 }
 
 func getDBNameToDatabaseResourcesFromIntents(intents []otterizev2alpha1.Target) map[string][]otterizev2alpha1.SQLPermissions {
