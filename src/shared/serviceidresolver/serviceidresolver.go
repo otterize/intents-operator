@@ -2,6 +2,7 @@ package serviceidresolver
 
 import (
 	"context"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
@@ -15,9 +16,18 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
+	"time"
 )
 
-var ErrPodNotFound = errors.NewSentinelError("pod not found")
+const (
+	cacheSize = 1000
+	cacheTTL  = time.Second * 5
+)
+
+var (
+	ErrPodNotFound      = errors.NewSentinelError("pod not found")
+	podToServiceIDCache = expirable.NewLRU[types.NamespacedName, serviceidentity.ServiceIdentity](cacheSize, nil, cacheTTL)
+)
 
 //+kubebuilder:rbac:groups="apps",resources=deployments;replicasets;daemonsets;statefulsets,verbs=get;list;watch
 //+kubebuilder:rbac:groups="batch",resources=jobs;cronjobs,verbs=get;list;watch
@@ -66,11 +76,11 @@ func ResolvePodToServiceIdentityUsingImageName(pod *corev1.Pod) string {
 	return strings.Join(images, "-")
 }
 
-// ResolvePodToServiceIdentity resolves a pod object to its otterize service ID, referenced in intents objects.
+// resolvePodToServiceIdentity resolves a pod object to its otterize service ID, referenced in intents objects.
 // It calls GetOwnerObject to recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference.
 // In case the pod is annotated with an "intents.otterize.com/service-name" annotation, that annotation's value will override
 // any owner reference name as the service name.
-func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error) {
+func (r *Resolver) resolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error) {
 	annotatedServiceName, ok := ResolvePodToServiceIdentityUsingAnnotationOnly(pod)
 	if ok {
 		return serviceidentity.ServiceIdentity{Name: annotatedServiceName, Namespace: pod.Namespace}, nil
@@ -94,6 +104,20 @@ func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.
 
 	ownerKind := ownerObj.GetObjectKind().GroupVersionKind().Kind
 	return serviceidentity.ServiceIdentity{Name: otterizeServiceName, Namespace: pod.Namespace, OwnerObject: ownerObj, Kind: ownerKind}, nil
+}
+
+func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error) {
+	key := types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}
+	if identity, ok := podToServiceIDCache.Get(key); ok {
+		return identity, nil
+	}
+
+	identity, err := r.resolvePodToServiceIdentity(ctx, pod)
+	if err != nil {
+		return serviceidentity.ServiceIdentity{}, errors.Wrap(err)
+	}
+	podToServiceIDCache.Add(key, identity)
+	return identity, nil
 }
 
 // GetOwnerObject recursively iterates over the pod's owner reference hierarchy until reaching a root owner reference
