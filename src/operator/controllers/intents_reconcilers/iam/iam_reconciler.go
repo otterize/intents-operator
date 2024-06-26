@@ -112,7 +112,7 @@ func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod cor
 		return nil
 	}
 
-	filteredIntents := intents.GetFilteredCallsList(intentType)
+	filteredIntents := intents.GetFilteredTargetList(intentType)
 	err = agent.AddRolePolicyFromIntents(ctx, pod.Namespace, serviceAccountName, intents.Spec.Workload.Name, filteredIntents, pod)
 	if err != nil {
 		r.RecordWarningEventf(&intents, consts.ReasonReconcilingIAMPoliciesFailed, "Failed to reconcile IAM policies of type %s due to error: %s", intentType, err.Error())
@@ -135,7 +135,7 @@ func (r *IAMIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.C
 	}
 
 	intentsWithSameTypeInSameNamespace := lo.Filter(intents.Items, func(intent otterizev2alpha1.ClientIntents, _ int) bool {
-		return len(intent.GetFilteredCallsList(intentType)) != 0
+		return len(intent.GetFilteredTargetList(intentType)) != 0
 	})
 
 	countUsesOfServiceAccountName := 0

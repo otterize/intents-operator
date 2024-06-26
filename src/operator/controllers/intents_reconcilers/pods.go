@@ -113,7 +113,7 @@ func (r *PodLabelReconciler) removeLabelsFromPods(
 			updatedPod.Annotations = make(map[string]string)
 		}
 		updatedPod.Annotations[otterizev2alpha1.AllIntentsRemovedAnnotation] = "true"
-		for _, intent := range intents.GetCallsList() {
+		for _, intent := range intents.GetTargetList() {
 			targetServerIdentity := intent.ToServiceIdentity(intents.Namespace)
 			accessLabel := fmt.Sprintf(otterizev2alpha1.OtterizeAccessLabelKey, targetServerIdentity.GetFormattedOtterizeIdentityWithoutKind())
 			delete(updatedPod.Labels, accessLabel)

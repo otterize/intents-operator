@@ -178,12 +178,12 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 			dst.Spec.Targets[i] = v2alpha1.Target{Kafka: lo.ToPtr(v2alpha1.KafkaTarget{Name: call.Name, Topics: topics})}
 		}
 		if call.Type == IntentTypeDatabase && len(call.DatabaseResources) > 0 {
-			tables := lo.Map(call.DatabaseResources, func(resource DatabaseResource, _ int) v2alpha1.SQLPermissions {
-				return v2alpha1.SQLPermissions{Table: resource.Table, DatabaseName: resource.DatabaseName, Operations: lo.Map(resource.Operations, func(operation DatabaseOperation, _ int) v2alpha1.DatabaseOperation {
+			tables := lo.Map(call.DatabaseResources, func(resource DatabaseResource, _ int) v2alpha1.SQLPrivileges {
+				return v2alpha1.SQLPrivileges{Table: resource.Table, DatabaseName: resource.DatabaseName, Operations: lo.Map(resource.Operations, func(operation DatabaseOperation, _ int) v2alpha1.DatabaseOperation {
 					return v2alpha1.DatabaseOperation(operation)
 				})}
 			})
-			dst.Spec.Targets[i] = v2alpha1.Target{SQL: lo.ToPtr(v2alpha1.SQLTarget{Name: call.Name, Permissions: tables})}
+			dst.Spec.Targets[i] = v2alpha1.Target{SQL: lo.ToPtr(v2alpha1.SQLTarget{Name: call.Name, Privileges: tables})}
 			continue
 		}
 		if call.Type == IntentTypeAWS {
@@ -255,7 +255,7 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 			continue
 		}
 		if target.SQL != nil {
-			in.Spec.Calls[i] = Intent{Type: IntentTypeDatabase, Name: target.SQL.Name, DatabaseResources: lo.Map(target.SQL.Permissions, func(permission v2alpha1.SQLPermissions, _ int) DatabaseResource {
+			in.Spec.Calls[i] = Intent{Type: IntentTypeDatabase, Name: target.SQL.Name, DatabaseResources: lo.Map(target.SQL.Privileges, func(permission v2alpha1.SQLPrivileges, _ int) DatabaseResource {
 				return DatabaseResource{Table: permission.Table, DatabaseName: permission.DatabaseName, Operations: lo.Map(permission.Operations, func(operation v2alpha1.DatabaseOperation, _ int) DatabaseOperation {
 					return DatabaseOperation(operation)
 				})}

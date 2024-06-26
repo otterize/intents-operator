@@ -348,7 +348,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 ) (*goset.Set[PolicyID], error) {
 	updatedPolicies := goset.NewSet[PolicyID]()
 	createdAnyPolicies := false
-	for _, intent := range clientIntents.GetCallsList() {
+	for _, intent := range clientIntents.GetTargetList() {
 		if intent.Kubernetes == nil && intent.Service == nil {
 			continue
 		}
@@ -408,7 +408,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 	}
 
 	if updatedPolicies.Len() != 0 || createdAnyPolicies {
-		c.recorder.RecordNormalEventf(clientIntents, ReasonCreatedIstioPolicy, "Istio policy reconcile complete, reconciled %d servers", len(clientIntents.GetCallsList()))
+		c.recorder.RecordNormalEventf(clientIntents, ReasonCreatedIstioPolicy, "Istio policy reconcile complete, reconciled %d servers", len(clientIntents.GetTargetList()))
 	}
 
 	return updatedPolicies, nil

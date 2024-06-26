@@ -68,7 +68,7 @@ func (s *DatabaseReconcilerTestSuite) TestPGServerConfNotMatching() {
 				{
 					SQL: &otterizev2alpha1.SQLTarget{
 						Name: databaseInstance,
-						Permissions: []otterizev2alpha1.SQLPermissions{{
+						Privileges: []otterizev2alpha1.SQLPrivileges{{
 							DatabaseName: dbName,
 							Table:        tableName,
 							Operations: []otterizev2alpha1.DatabaseOperation{
@@ -119,7 +119,7 @@ func (s *DatabaseReconcilerTestSuite) TestNoPGServerConf() {
 				{
 					SQL: &otterizev2alpha1.SQLTarget{
 						Name: databaseInstance,
-						Permissions: []otterizev2alpha1.SQLPermissions{{
+						Privileges: []otterizev2alpha1.SQLPrivileges{{
 							DatabaseName: dbName,
 							Table:        tableName,
 							Operations: []otterizev2alpha1.DatabaseOperation{

@@ -299,10 +299,10 @@ type Internet struct {
 type SQLTarget struct {
 	Name string `json:"name" yaml:"name"`
 	//+optional
-	Permissions []SQLPermissions `json:"permissions,omitempty" yaml:"permissions,omitempty"`
+	Privileges []SQLPrivileges `json:"privileges,omitempty" yaml:"privileges,omitempty"`
 }
 
-type SQLPermissions struct {
+type SQLPrivileges struct {
 	DatabaseName string `json:"databaseName" yaml:"databaseName"`
 	//+optional
 	Table string `json:"table" yaml:"table"`
@@ -351,6 +351,7 @@ type IntentsStatus struct {
 	// The last generation of the intents that was successfully reconciled.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration"`
+	// ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
 	// +optional
 	ResolvedIPs []ResolvedIPs `json:"resolvedIPs,omitempty" yaml:"resolvedIPs,omitempty"`
 }
@@ -385,12 +386,12 @@ func (in *ClientIntents) GetWorkloadName() string {
 	return in.Spec.Workload.Name
 }
 
-func (in *ClientIntents) GetCallsList() []Target {
+func (in *ClientIntents) GetTargetList() []Target {
 	return in.Spec.Targets
 }
 
-func (in *ClientIntents) GetFilteredCallsList(intentTypes ...IntentType) []Target {
-	return lo.Filter(in.GetCallsList(), func(item Target, index int) bool {
+func (in *ClientIntents) GetFilteredTargetList(intentTypes ...IntentType) []Target {
+	return lo.Filter(in.GetTargetList(), func(item Target, index int) bool {
 		for _, intentType := range intentTypes {
 			if intentType == IntentTypeHTTP {
 				if item.Kubernetes != nil && len(item.Kubernetes.HTTP) > 0 {
@@ -433,8 +434,8 @@ func (in *ClientIntents) GetClientKind() string {
 func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
 	otterizeAccessLabels := make(map[string]string)
 
-	for _, intent := range in.GetCallsList() {
-		if intent.AWS != nil || intent.GCP != nil || intent.Azure != nil || intent.SQL != nil {
+	for _, intent := range in.GetTargetList() {
+		if intent.IsTargetOutOfCluster() {
 			continue
 		}
 		targetServiceIdentity := intent.ToServiceIdentity(requestNamespace)
@@ -449,7 +450,7 @@ func (in *ClientIntents) GetIntentsLabelMapping(requestNamespace string) map[str
 }
 
 func (in *ClientIntents) GetDatabaseIntents() []Target {
-	return in.GetFilteredCallsList(IntentTypeDatabase)
+	return in.GetFilteredTargetList(IntentTypeDatabase)
 }
 
 // GetTargetServerNamespace returns target namespace for intent if exists
@@ -586,33 +587,24 @@ func (in *Target) GetK8sServiceFullyQualifiedName(intentsObjNamespace string) (s
 }
 
 func (in *Target) typeAsGQLType() graphqlclient.IntentType {
-	if in.Kubernetes != nil && in.Kubernetes.HTTP != nil {
+	switch in.GetIntentType() {
+	case IntentTypeHTTP:
 		return graphqlclient.IntentTypeHttp
-	}
-	if in.Service != nil && in.Service.HTTP != nil {
-		return graphqlclient.IntentTypeHttp
-	}
-	if in.Kafka != nil {
+	case IntentTypeKafka:
 		return graphqlclient.IntentTypeKafka
-	}
-	if in.SQL != nil {
+	case IntentTypeDatabase:
 		return graphqlclient.IntentTypeDatabase
-	}
-	if in.AWS != nil {
+	case IntentTypeAWS:
 		return graphqlclient.IntentTypeAws
-	}
-	if in.GCP != nil {
+	case IntentTypeGCP:
 		return graphqlclient.IntentTypeGcp
-	}
-	if in.Azure != nil {
+	case IntentTypeAzure:
 		return graphqlclient.IntentTypeAzure
-	}
-
-	if in.Internet != nil {
+	case IntentTypeInternet:
 		return graphqlclient.IntentTypeInternet
+	default:
+		return ""
 	}
-
-	return ""
 }
 
 func (in *ClientIntents) GetServersWithoutSidecar() (sets.Set[string], error) {
@@ -647,7 +639,7 @@ func (in *ClientIntents) IsServerMissingSidecar(intent Target) (bool, error) {
 func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentInput, error) {
 	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
 	for _, clientIntents := range in.Items {
-		for _, intent := range clientIntents.GetCallsList() {
+		for _, intent := range clientIntents.GetTargetList() {
 			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetWorkloadName())
 			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {
@@ -807,7 +799,7 @@ func (in *Target) ConvertToCloudFormat(resourceNamespace string, clientName stri
 	}
 
 	if in.SQL != nil {
-		intentInput.DatabaseResources = lo.Map(in.SQL.Permissions, func(resource SQLPermissions, _ int) *graphqlclient.DatabaseConfigInput {
+		intentInput.DatabaseResources = lo.Map(in.SQL.Privileges, func(resource SQLPrivileges, _ int) *graphqlclient.DatabaseConfigInput {
 			databaseConfigInput := graphqlclient.DatabaseConfigInput{
 				Table:  lo.ToPtr(resource.Table),
 				Dbname: lo.ToPtr(resource.DatabaseName),
@@ -870,7 +862,7 @@ func intentsHTTPResourceToCloud(resource HTTPTarget, _ int) *graphqlclient.HTTPC
 }
 
 func (in *ClientIntents) HasKafkaTypeInCallList() bool {
-	for _, intent := range in.GetCallsList() {
+	for _, intent := range in.GetTargetList() {
 		if intent.Kafka != nil {
 			return true
 		}
@@ -879,7 +871,7 @@ func (in *ClientIntents) HasKafkaTypeInCallList() bool {
 }
 
 func (in *ClientIntents) HasDatabaseTypeInCallList() bool {
-	for _, intent := range in.GetCallsList() {
+	for _, intent := range in.GetTargetList() {
 		if intent.SQL != nil {
 			return true
 		}

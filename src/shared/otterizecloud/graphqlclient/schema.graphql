@@ -234,6 +234,14 @@ enum CertificateProvider {
 	NONE
 }
 
+input ChannelInfoInput {
+	channelName: String!
+}
+
+input ClientIPConfig {
+	timeoutSeconds: Int
+}
+
 type ClientIntentsFileRepresentation {
 	fileName: String!
 	service: Service!
@@ -540,6 +548,21 @@ input ExternallyAccessibleServiceInput {
 	serviceType: KubernetesServiceType!
 }
 
+type FeatureFlags {
+	isCloudServicesDetectionEnabled: Boolean
+	isCloudSecurityEnabled: Boolean
+}
+
+type Finding {
+	id: ID!
+	severity: Severity!
+	message: String!
+	server: ServiceAccessGraph!
+	clientsMissingTags: [ServiceAccessGraph!]!
+	ruleTags: [String!]!
+	totalClientsCount: Int!
+}
+
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
 scalar Float
 
@@ -699,6 +722,12 @@ input InputAccessGraphFilter {
 	namespaceIds: InputIDFilterValue
 	environmentIds: InputIDFilterValue
 	lastSeen: InputTimeFilterValue
+	featureFlags: InputFeatureFlags
+}
+
+input InputFeatureFlags {
+	isCloudServicesDetectionEnabled: Boolean
+	isCloudSecurityEnabled: Boolean
 }
 
 input InputIDFilterValue {
@@ -801,6 +830,7 @@ enum IntegrationType {
 type Intent {
 	id: ID!
 	server: Service!
+	serverAlias: ServerAlias
 	client: Service!
 	type: IntentType
 	kafkaTopics: [KafkaConfig!]
@@ -817,7 +847,10 @@ type Intent {
 input IntentInput {
 	namespace: String!
 	clientName: String!
+	clientWorkloadKind: String
 	serverName: String!
+	serverWorkloadKind: String
+	serverAlias: ServerAliasInput
 	serverNamespace: String
 	type: IntentType
 	topics: [KafkaConfigInput!]
@@ -1178,6 +1211,16 @@ type MergedYAMLFile {
 	fileName: String!
 	rows: [ClientIntentsRow!]!
 	content: String!
+}
+
+input MetadataEntry {
+	key: String!
+	value: String!
+}
+
+type MissingTagInfo {
+	tags: [String!]!
+	reason: String!
 }
 
 type Mutation {
@@ -1710,6 +1753,16 @@ input SelectorKeyValueInput {
 	value: String
 }
 
+type ServerAlias {
+	name: String!
+	kind: String
+}
+
+input ServerAliasInput {
+	name: String!
+	kind: String
+}
+
 type ServerBlockingStatus {
 	verdict: ServerBlockingStatusVerdict!
 	reason: ServerBlockingStatusReason!
@@ -1771,6 +1824,8 @@ type Service {
 	id: ID!
 	name: String!
 	tags: [String!]
+	workloadKind: String
+	aliases: [ServerAlias!]
 	namespace: Namespace
 	environment: Environment!
 """If service is Kafka, its KafkaServerConfig."""
@@ -1812,11 +1867,14 @@ type ServiceClientIntents {
 	asServer: ClientIntentsFiles
 }
 
-enum ServiceTags {
-	PCI
-	PII
-	HIPAA
-	SENSITIVE
+enum ServiceExternalTrafficPolicy {
+	CLUSTER
+	LOCAL
+}
+
+enum ServiceInternalTrafficPolicy {
+	CLUSTER
+	LOCAL
 }
 
 enum ServiceType {
@@ -1830,6 +1888,55 @@ enum ServiceType {
 	DATABASE
 	INTERNET
 	DATABASE_USER
+	KUBERNETES_LOAD_BALANCER
+}
+
+enum SessionAffinity {
+	CLIENT_IP
+	NONE
+}
+
+input SessionAffinityConfig {
+	clientIP: ClientIPConfig
+}
+
+enum Severity {
+	CRITICAL
+	HIGH
+	MEDIUM
+	LOW
+	INFORMATIONAL
+}
+
+type SlackChannelInfo {
+	channelName: String!
+}
+
+type SlackFilterPair {
+	filter: IntegrationAccessGraphFilter!
+	channelInfo: SlackChannelInfo!
+}
+
+input SlackFilterPairInput {
+	filter: InputIntegrationAccessGraphFilter
+	channelInfo: ChannelInfoInput!
+}
+
+type SlackSettings {
+	isActive: Boolean!
+	channelFilterPairs: [SlackFilterPair!]!
+}
+
+input SlackSettingsInput {
+	isActive: Boolean!
+	channelFilterPairs: [SlackFilterPairInput!]!
+}
+
+input StackFrame {
+	file: String!
+	lineNumber: Int!
+	name: String!
+	package: String!
 }
 
 """The `String`scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text."""

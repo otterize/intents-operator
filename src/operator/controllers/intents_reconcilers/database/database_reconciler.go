@@ -377,12 +377,12 @@ func getAllowedDatabasesSlice(pod corev1.Pod, dbInstance string) []string {
 	}
 }
 
-func getDBNameToDatabaseResourcesFromIntents(intents []otterizev2alpha1.Target) map[string][]otterizev2alpha1.SQLPermissions {
-	dbnameToResources := make(map[string][]otterizev2alpha1.SQLPermissions)
+func getDBNameToDatabaseResourcesFromIntents(intents []otterizev2alpha1.Target) map[string][]otterizev2alpha1.SQLPrivileges {
+	dbnameToResources := make(map[string][]otterizev2alpha1.SQLPrivileges)
 	for _, intent := range intents {
-		for _, dbResource := range intent.SQL.Permissions {
+		for _, dbResource := range intent.SQL.Privileges {
 			if _, ok := dbnameToResources[dbResource.DatabaseName]; !ok {
-				dbnameToResources[dbResource.DatabaseName] = []otterizev2alpha1.SQLPermissions{dbResource}
+				dbnameToResources[dbResource.DatabaseName] = []otterizev2alpha1.SQLPrivileges{dbResource}
 				continue
 			}
 			// TODO: Smart merge instead of just adding

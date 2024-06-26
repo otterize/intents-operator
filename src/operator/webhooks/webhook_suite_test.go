@@ -134,7 +134,7 @@ func (s *ValidationWebhookTestSuite) TestOnlyOneTargetTypeAllowed() {
 				Scope: "subscriptions/1234-5678-9012-3456",
 			},
 			SQL: &otterizev2alpha1.SQLTarget{
-				Permissions: []otterizev2alpha1.SQLPermissions{{
+				Privileges: []otterizev2alpha1.SQLPrivileges{{
 					DatabaseName: "sadfsdf",
 					Table:        "sometable",
 					Operations:   []otterizev2alpha1.DatabaseOperation{otterizev2alpha1.DatabaseOperationSelect},
@@ -226,7 +226,7 @@ func (s *ValidationWebhookTestSuite) TestNameRequiredForEveryTypeExceptInternet(
 	_, err = s.AddIntentsv2alpha1("database-intents", "database-client", []otterizev2alpha1.Target{
 		{
 			SQL: &otterizev2alpha1.SQLTarget{
-				Permissions: []otterizev2alpha1.SQLPermissions{{
+				Privileges: []otterizev2alpha1.SQLPrivileges{{
 					DatabaseName: "sadfsdf",
 					Table:        "sometable",
 					Operations:   []otterizev2alpha1.DatabaseOperation{otterizev2alpha1.DatabaseOperationSelect},

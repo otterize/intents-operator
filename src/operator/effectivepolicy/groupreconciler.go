@@ -82,7 +82,7 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		service := clientIntent.ToServiceIdentity()
 		services.Add(service)
 		serviceToIntent[service] = clientIntent
-		for _, intentCall := range clientIntent.GetCallsList() {
+		for _, intentCall := range clientIntent.GetTargetList() {
 			if !g.shouldCreateEffectivePolicyForIntentTargetServer(intentCall, clientIntent.Namespace) {
 				continue
 			}
@@ -99,7 +99,7 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		}
 		// Ignore intents in deletion process
 		if clientIntents, ok := serviceToIntent[service]; ok && clientIntents.DeletionTimestamp.IsZero() && clientIntents.Spec != nil {
-			ep.Calls = append(ep.Calls, clientIntents.GetCallsList()...)
+			ep.Calls = append(ep.Calls, clientIntents.GetTargetList()...)
 			ep.ClientIntentsEventRecorder = injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntents))
 			ep.ClientIntentsStatus = clientIntents.Status
 		}
@@ -145,7 +145,7 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, servi
 func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientIntent v2alpha1.ClientIntents, filter func(intent v2alpha1.Target) bool) []ClientCall {
 	clientService := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Workload.Name, Namespace: clientIntent.Namespace}
 	clientCalls := make([]ClientCall, 0)
-	for _, intendedCall := range clientIntent.GetCallsList() {
+	for _, intendedCall := range clientIntent.GetTargetList() {
 		if !filter(intendedCall) {
 			continue
 		}

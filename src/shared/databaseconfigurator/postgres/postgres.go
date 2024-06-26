@@ -35,7 +35,7 @@ const (
 	PGDefaultDatabase                                              = "postgres"
 )
 
-func databaseConfigInputToSQLTableIdentifier(resource otterizev2alpha1.SQLPermissions) sqlutils.SQLTableIdentifier {
+func databaseConfigInputToSQLTableIdentifier(resource otterizev2alpha1.SQLPrivileges) sqlutils.SQLTableIdentifier {
 	tableIdentifier := strings.Split(resource.Table, ".")
 	if len(tableIdentifier) == 2 {
 		return sqlutils.SQLTableIdentifier{TableSchema: tableIdentifier[0], TableName: tableIdentifier[1]}
@@ -71,7 +71,7 @@ func NewPostgresConfigurator(ctx context.Context, databaseInfo PostgresDatabaseI
 	return p, nil
 }
 
-func (p *PostgresConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToSQLPermissionss map[string][]otterizev2alpha1.SQLPermissions) error {
+func (p *PostgresConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToSQLPermissionss map[string][]otterizev2alpha1.SQLPrivileges) error {
 	// apply new intents
 	for dbname, dbResources := range dbnameToSQLPermissionss {
 		if err := p.setConnection(ctx, dbname); err != nil {
@@ -109,7 +109,7 @@ func (p *PostgresConfigurator) ApplyDatabasePermissionsForUser(ctx context.Conte
 	return nil
 }
 
-func (p *PostgresConfigurator) getAllowedTablesDiffForUser(allowedTablesForUser []sqlutils.SQLTableIdentifier, intentsDBResources []otterizev2alpha1.SQLPermissions) []sqlutils.SQLTableIdentifier {
+func (p *PostgresConfigurator) getAllowedTablesDiffForUser(allowedTablesForUser []sqlutils.SQLTableIdentifier, intentsDBResources []otterizev2alpha1.SQLPrivileges) []sqlutils.SQLTableIdentifier {
 	hasWildcardTable := false
 	intentsDBSchemaToTables := make(map[string]*goset.Set[string])
 	for _, resource := range intentsDBResources {
@@ -159,7 +159,7 @@ func (p *PostgresConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.C
 	return nil
 }
 
-func (p *PostgresConfigurator) applyDatabasePermissions(ctx context.Context, username string, dbname string, dbResources []otterizev2alpha1.SQLPermissions) error {
+func (p *PostgresConfigurator) applyDatabasePermissions(ctx context.Context, username string, dbname string, dbResources []otterizev2alpha1.SQLPrivileges) error {
 	statementsBatch, err := p.sqlBatchFromDBResources(ctx, username, dbResources)
 	if err != nil {
 		return errors.Wrap(err)
@@ -241,7 +241,7 @@ func (p *PostgresConfigurator) setConnection(ctx context.Context, databaseName s
 	return nil
 }
 
-func (p *PostgresConfigurator) sqlBatchFromDBResources(ctx context.Context, username string, dbResources []otterizev2alpha1.SQLPermissions) (pgx.Batch, error) {
+func (p *PostgresConfigurator) sqlBatchFromDBResources(ctx context.Context, username string, dbResources []otterizev2alpha1.SQLPrivileges) (pgx.Batch, error) {
 	batch := pgx.Batch{}
 
 	for _, resource := range dbResources {
@@ -260,7 +260,7 @@ func (p *PostgresConfigurator) sqlBatchFromDBResources(ctx context.Context, user
 	return batch, nil
 }
 
-func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.Context, batch *pgx.Batch, resource otterizev2alpha1.SQLPermissions, username string) error {
+func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.Context, batch *pgx.Batch, resource otterizev2alpha1.SQLPrivileges, username string) error {
 	postgresTableIdentifier := databaseConfigInputToSQLTableIdentifier(resource)
 	rows, err := p.conn.Query(ctx, PGSSelectTableSequencesPrivilegesQuery, postgresTableIdentifier.TableSchema, postgresTableIdentifier.TableName)
 	if err != nil {
@@ -373,7 +373,7 @@ func (p *PostgresConfigurator) queueRevokeAllOnTableAndSequencesStatements(ctx c
 	return nil
 }
 
-func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx context.Context, batch *pgx.Batch, resource otterizev2alpha1.SQLPermissions, username string) error {
+func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx context.Context, batch *pgx.Batch, resource otterizev2alpha1.SQLPrivileges, username string) error {
 	// Get all schemas in current database
 	rows, err := p.conn.Query(ctx, PGSSelectSchemaNamesQuery)
 	if err != nil {

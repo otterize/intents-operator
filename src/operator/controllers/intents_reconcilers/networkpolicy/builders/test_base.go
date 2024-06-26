@@ -131,7 +131,7 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 	// create service to ClientIntents pointing to it
 	services := make(map[string][]otterizev2alpha1.ClientIntents)
 	for _, clientIntent := range clientIntents {
-		for _, intentCall := range clientIntent.GetCallsList() {
+		for _, intentCall := range clientIntent.GetTargetList() {
 			serverService := intentCall.ToServiceIdentity(clientIntent.Namespace)
 			services[serverService.GetFormattedOtterizeIdentityWithKind()] = append(services[serverService.GetFormattedOtterizeIdentityWithoutKind()], clientIntent)
 		}

@@ -673,7 +673,7 @@ spec:
                       properties:
                         name:
                           type: string
-                        permissions:
+                        privileges:
                           items:
                             properties:
                               databaseName:
@@ -721,6 +721,8 @@ spec:
                 format: int64
                 type: integer
               resolvedIPs:
+                description: ResolvedIPs stores resolved IPs for a domain name - the
+                  network mapper populates it when DNS internetTarget is used
                 items:
                   properties:
                     dns:

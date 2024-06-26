@@ -309,7 +309,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 				return nil
 			}
 
-			for _, intent := range intents.GetCallsList() {
+			for _, intent := range intents.GetTargetList() {
 				if !intent.IsTargetServerKubernetesService() {
 					res = append(res, intent.GetServerFullyQualifiedName(intents.Namespace))
 				}
@@ -339,7 +339,7 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 				return nil
 			}
 
-			for _, intent := range intents.GetCallsList() {
+			for _, intent := range intents.GetTargetList() {
 				if intent.Internet != nil {
 					res = append(res, otterizev2alpha1.OtterizeInternetTargetName)
 					continue

@@ -159,7 +159,7 @@ func (v *IntentsValidatorV2alpha1) validateSpec(intents *otterizev2alpha1.Client
 		}
 	}
 
-	for _, target := range intents.GetCallsList() {
+	for _, target := range intents.GetTargetList() {
 		err := v.validateIntentTarget(target)
 		if err != nil {
 			return err
