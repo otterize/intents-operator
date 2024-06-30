@@ -184,70 +184,64 @@ type __SendTelemetriesInput struct {
 // GetTelemetries returns __SendTelemetriesInput.Telemetries, and is useful for accessing the field via an interface.
 func (v *__SendTelemetriesInput) GetTelemetries() []TelemetryInput { return v.Telemetries }
 
-// The query or mutation executed by ReportErrors.
-const ReportErrors_Operation = `
-mutation ReportErrors ($component: Component!, $errors: [Error!]!) {
-	sendErrors(component: $component, errors: $errors)
-}
-`
-
 func ReportErrors(
-	ctx_ context.Context,
-	client_ graphql.Client,
+	ctx context.Context,
+	client graphql.Client,
 	component *Component,
 	errors []*Error,
 ) (*ReportErrorsResponse, error) {
-	req_ := &graphql.Request{
+	req := &graphql.Request{
 		OpName: "ReportErrors",
-		Query:  ReportErrors_Operation,
+		Query: `
+mutation ReportErrors ($component: Component!, $errors: [Error!]!) {
+	sendErrors(component: $component, errors: $errors)
+}
+`,
 		Variables: &__ReportErrorsInput{
 			Component: component,
 			Errors:    errors,
 		},
 	}
-	var err_ error
+	var err error
 
-	var data_ ReportErrorsResponse
-	resp_ := &graphql.Response{Data: &data_}
+	var data ReportErrorsResponse
+	resp := &graphql.Response{Data: &data}
 
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
 	)
 
-	return &data_, err_
+	return &data, err
 }
 
-// The query or mutation executed by SendTelemetries.
-const SendTelemetries_Operation = `
+func SendTelemetries(
+	ctx context.Context,
+	client graphql.Client,
+	telemetries []TelemetryInput,
+) (*SendTelemetriesResponse, error) {
+	req := &graphql.Request{
+		OpName: "SendTelemetries",
+		Query: `
 mutation SendTelemetries ($telemetries: [TelemetryInput!]!) {
 	sendTelemetries(telemetries: $telemetries)
 }
-`
-
-func SendTelemetries(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	telemetries []TelemetryInput,
-) (*SendTelemetriesResponse, error) {
-	req_ := &graphql.Request{
-		OpName: "SendTelemetries",
-		Query:  SendTelemetries_Operation,
+`,
 		Variables: &__SendTelemetriesInput{
 			Telemetries: telemetries,
 		},
 	}
-	var err_ error
+	var err error
 
-	var data_ SendTelemetriesResponse
-	resp_ := &graphql.Response{Data: &data_}
+	var data SendTelemetriesResponse
+	resp := &graphql.Response{Data: &data}
 
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
 	)
 
-	return &data_, err_
+	return &data, err
 }
