@@ -8,6 +8,8 @@ import (
 	"net"
 )
 
+var ErrUndefinedObject = errors.New("undefined object")
+
 func TranslatePostgresConnectionError(err error) (string, bool) {
 	if opErr := &(net.OpError{}); errors.As(err, &opErr) || errors.Is(err, context.DeadlineExceeded) {
 		return "Can't reach the server", true
@@ -48,6 +50,9 @@ func TranslatePostgresCommandsError(err error) error {
 		// See: https://www.postgresql.org/docs/current/errcodes-appendix.html
 		if pgErr.Code == "42P01" || pgErr.Code == "3F000" {
 			return errors.Wrap(fmt.Errorf("bad schema/table name: %s", pgErr.Message))
+		}
+		if pgErr.Code == "42704" {
+			return errors.Wrap(ErrUndefinedObject)
 		}
 	}
 	return errors.Wrap(err)
