@@ -460,7 +460,7 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 	r.RecordNormalEvent(owner, ReasonRemovingExternalTrafficPolicy, "removing external traffic network policy, reconciler was disabled")
 
 	err = r.client.Delete(ctx, policy)
-	if err != nil {
+	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(owner, ReasonRemovingExternalTrafficPolicyFailed, "failed removing external traffic network policy: %s", err.Error())
 		return errors.Wrap(err)
 	}
