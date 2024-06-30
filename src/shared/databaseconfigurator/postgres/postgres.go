@@ -503,8 +503,5 @@ func (p *PostgresConfigurator) AlterUserPassword(ctx context.Context, username s
 	if err := p.sendBatch(ctx, &batch); err != nil {
 		return errors.Wrap(err)
 	}
-	if errors.Is(err, ErrUndefinedObject) {
-		logrus.WithField("username", username).Debug("User does not exist, skipping password update")
-	}
 	return nil
 }
