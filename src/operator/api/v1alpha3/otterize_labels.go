@@ -2,7 +2,6 @@ package v1alpha3
 
 import (
 	"context"
-	"fmt"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"golang.org/x/exp/maps"
@@ -102,7 +101,7 @@ func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient 
 			return nil, false, errors.Wrap(err)
 		}
 		if svc.Spec.Selector == nil {
-			return nil, false, fmt.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
+			return nil, false, errors.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
 		}
 		return maps.Clone(svc.Spec.Selector), true, nil
 	}
