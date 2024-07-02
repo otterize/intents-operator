@@ -2,7 +2,6 @@ package otterizeclient
 
 import (
 	"context"
-	"fmt"
 	"github.com/Khan/genqlient/graphql"
 	"github.com/amit7itz/goset"
 	"github.com/otterize/credentials-operator/src/controllers/otterizeclient/otterizegraphql"
@@ -67,10 +66,10 @@ func (c *CloudClient) CleanupOrphanK8SPodEntries(ctx context.Context, _ string, 
 	}
 	res, err := otterizegraphql.ReportActiveCertificateRequesters(ctx, c.graphqlClient, namespacedPodOwners)
 	if err != nil {
-		return fmt.Errorf("failed removing orphan entries: %w", err)
+		return errors.Errorf("failed removing orphan entries: %w", err)
 	}
 	if !res.ReportActiveCertificateRequesters {
-		return fmt.Errorf("failed removing orphan entries")
+		return errors.Errorf("failed removing orphan entries")
 	}
 
 	return nil

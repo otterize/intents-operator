@@ -2,7 +2,7 @@ package secretstypes
 
 import (
 	"context"
-	"fmt"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"strings"
@@ -24,7 +24,7 @@ func StrToCertType(strCertType string) (CertType, error) {
 	case PEMCertType:
 		return PEMCertType, nil
 	default:
-		return "", fmt.Errorf("certificate type: %s is not a valid certificate type. valid types: [jks pem]", strCertType)
+		return "", errors.Errorf("certificate type: %s is not a valid certificate type. valid types: [jks pem]", strCertType)
 	}
 }
 

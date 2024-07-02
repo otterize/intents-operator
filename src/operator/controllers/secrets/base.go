@@ -276,7 +276,7 @@ func (m *K8sSecretsManagerBase[T]) TriggerPodRestarts(ctx context.Context, owner
 		m.eventRecorder.Eventf(&daemonSet, corev1.EventTypeNormal, CertRenewReason, "Successfully restarted DaemonSet after secret '%s' renewal", secret.Name)
 
 	default:
-		return fmt.Errorf("unsupported owner type: %s", kind)
+		return errors.Errorf("unsupported owner type: %s", kind)
 	}
 	return nil
 }

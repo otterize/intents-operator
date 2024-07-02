@@ -2,7 +2,6 @@ package tls_pod
 
 import (
 	"context"
-	"fmt"
 	"github.com/amit7itz/goset"
 	"github.com/asaskevich/govalidator"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
@@ -124,7 +123,7 @@ func (r *PodReconciler) ensurePodTLSSecret(ctx context.Context, pod *corev1.Pod,
 	secretName := metadata.GetAnnotationValue(pod.Annotations, metadata.TLSSecretNameAnnotation)
 	certConfig, err := certConfigFromPod(pod)
 	if err != nil {
-		return fmt.Errorf("failed parsing annotations: %w", err)
+		return errors.Errorf("failed parsing annotations: %w", err)
 	}
 	log.WithFields(logrus.Fields{"secret_name": secretName, "cert_config": certConfig}).Info("ensuring TLS secret")
 	secretConfig := secretstypes.NewSecretConfig(entryID, entryHash, secretName, pod.Namespace, serviceName, certConfig, shouldRestartPodOnRenewal)
@@ -216,7 +215,7 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	dnsNames, err := r.resolvePodToCertDNSNames(pod)
 	if err != nil {
-		err = fmt.Errorf("error resolving pod cert DNS names, will continue with an empty DNS names list: %w", err)
+		err = errors.Errorf("error resolving pod cert DNS names, will continue with an empty DNS names list: %w", err)
 		r.eventRecorder.Eventf(pod, corev1.EventTypeWarning, ReasonCertDNSResolutionFailed, "Resolving cert DNS names failed: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
@@ -260,7 +259,7 @@ func getEntryHash(namespace string, serviceName string, ttl int32, dnsNames []st
 	entryPropertiesHashMaker := fnv.New32a()
 	_, err := entryPropertiesHashMaker.Write([]byte(namespace + metadata.RegisteredServiceNameLabel + serviceName + string(ttl) + strings.Join(dnsNames, "")))
 	if err != nil {
-		return "", fmt.Errorf("failed hashing workload entry properties %w", err)
+		return "", errors.Errorf("failed hashing workload entry properties %w", err)
 	}
 	hashStr := strconv.Itoa(int(entryPropertiesHashMaker.Sum32()))
 	return hashStr, nil
@@ -275,7 +274,7 @@ func (r *PodReconciler) resolvePodToCertDNSNames(pod *corev1.Pod) ([]string, err
 	dnsNames := strings.Split(dnsNamesStr, ",")
 	for _, name := range dnsNames {
 		if !govalidator.IsDNSName(name) {
-			return nil, fmt.Errorf("invalid DNS name: %s", name)
+			return nil, errors.Errorf("invalid DNS name: %s", name)
 		}
 	}
 	return dnsNames, nil
@@ -289,7 +288,7 @@ func (r *PodReconciler) resolvePodToCertTTl(pod *corev1.Pod) (int32, error) {
 
 	ttl64, err := strconv.ParseInt(ttlString, 0, 32)
 	if err != nil {
-		return 0, fmt.Errorf("failed converting ttl: %s str to int. %w", ttlString, err)
+		return 0, errors.Errorf("failed converting ttl: %s str to int. %w", ttlString, err)
 	}
 
 	return int32(ttl64), nil
@@ -319,7 +318,7 @@ func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *PodReconciler) cleanupOrphanEntries(ctx context.Context) error {
 	podsList := corev1.PodList{}
 	if err := r.Client.List(ctx, &podsList, client.HasLabels{metadata.RegisteredServiceNameLabel}); err != nil {
-		return fmt.Errorf("error listing pods with service name labels: %w", err)
+		return errors.Errorf("error listing pods with service name labels: %w", err)
 	}
 
 	existingServicesByNamespace := map[string]*goset.Set[string]{}
@@ -334,7 +333,7 @@ func (r *PodReconciler) cleanupOrphanEntries(ctx context.Context) error {
 	}
 
 	if err := r.workloadRegistry.CleanupOrphanK8SPodEntries(ctx, metadata.RegisteredServiceNameLabel, existingServicesByNamespace); err != nil {
-		return fmt.Errorf("error cleaning up orphan entries: %w", err)
+		return errors.Errorf("error cleaning up orphan entries: %w", err)
 	}
 
 	return nil

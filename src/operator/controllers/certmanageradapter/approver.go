@@ -2,12 +2,12 @@ package certmanageradapter
 
 import (
 	"context"
-	"fmt"
 	apiutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	utilpki "github.com/cert-manager/cert-manager/pkg/util/pki"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -79,30 +79,30 @@ func (a *CertificateApprover) Reconcile(ctx context.Context, req ctrl.Request) (
 func (a *CertificateApprover) Evaluate(req *cmapi.CertificateRequest) error {
 	csr, err := utilpki.DecodeX509CertificateRequestBytes(req.Spec.Request)
 	if err != nil {
-		return fmt.Errorf("failed to parse request: %w", err)
+		return errors.Errorf("failed to parse request: %w", err)
 	}
 
 	if err := csr.CheckSignature(); err != nil {
-		return fmt.Errorf("signature check failed for csr: %w", err)
+		return errors.Errorf("signature check failed for csr: %w", err)
 	}
 
 	// if the csr contains any other options set, error
 	if len(csr.IPAddresses) > 0 || len(csr.EmailAddresses) > 0 {
-		return fmt.Errorf("forbidden extensions, IPs=%q Emails=%q",
+		return errors.Errorf("forbidden extensions, IPs=%q Emails=%q",
 			csr.IPAddresses, csr.EmailAddresses)
 	}
 
 	if req.Spec.IsCA {
-		return fmt.Errorf("request contains spec.isCA=true")
+		return errors.Errorf("request contains spec.isCA=true")
 	}
 
 	entryId, ok := req.Annotations[metadata.TLSSecretEntryIDAnnotation]
 	if !ok {
-		return fmt.Errorf("credentials-operator's annotation not found")
+		return errors.Errorf("credentials-operator's annotation not found")
 	}
 
 	if a.registry.getPodEntryById(entryId) == nil {
-		return fmt.Errorf("entry-id does not exist: %q", entryId)
+		return errors.Errorf("entry-id does not exist: %q", entryId)
 	}
 
 	return nil

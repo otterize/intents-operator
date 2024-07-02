@@ -2,7 +2,6 @@ package serviceaccounts
 
 import (
 	"context"
-	"fmt"
 	"github.com/otterize/credentials-operator/src/controllers/iam/iamcredentialsagents"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -68,7 +67,7 @@ func (r *ServiceAccountReconciler) handleServiceAccountUpdate(ctx context.Contex
 	updatedServiceAccount := serviceAccount.DeepCopy()
 	updated, requeue, err := r.agent.OnServiceAccountUpdate(ctx, updatedServiceAccount)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to reconcile service account: %w", err)
+		return ctrl.Result{}, errors.Errorf("failed to reconcile service account: %w", err)
 	}
 	if requeue {
 		return ctrl.Result{Requeue: true}, nil
@@ -95,7 +94,7 @@ func (r *ServiceAccountReconciler) handleServiceAccountCleanup(ctx context.Conte
 	}
 
 	if err := r.agent.OnServiceAccountTermination(ctx, &serviceAccount); err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to remove service account: %w", err)
+		return ctrl.Result{}, errors.Errorf("failed to remove service account: %w", err)
 	}
 
 	// remove finalizer to unblock deletion

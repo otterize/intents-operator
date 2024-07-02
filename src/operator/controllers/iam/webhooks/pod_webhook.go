@@ -3,7 +3,6 @@ package sa_pod_webhook
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/otterize/credentials-operator/src/controllers/iam/iamcredentialsagents"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	"github.com/otterize/credentials-operator/src/shared/apiutils"
@@ -60,19 +59,19 @@ func (w *ServiceAccountAnnotatingPodWebhook) handleOnce(ctx context.Context, pod
 		Name:      pod.Spec.ServiceAccountName,
 	}, &serviceAccount)
 	if err != nil {
-		return corev1.Pod{}, false, "", fmt.Errorf("could not get service account: %w", err)
+		return corev1.Pod{}, false, "", errors.Errorf("could not get service account: %w", err)
 	}
 
 	updatedServiceAccount := serviceAccount.DeepCopy()
 	if err := w.agent.OnPodAdmission(ctx, &pod, updatedServiceAccount, dryRun); err != nil {
-		return corev1.Pod{}, false, "", fmt.Errorf("failed to handle pod admission: %w", err)
+		return corev1.Pod{}, false, "", errors.Errorf("failed to handle pod admission: %w", err)
 	}
 
 	if !dryRun {
 		apiutils.AddLabel(updatedServiceAccount, w.agent.ServiceAccountLabel(), metadata.OtterizeServiceAccountHasPodsValue)
 		err = w.client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
 		if err != nil {
-			return corev1.Pod{}, false, "", fmt.Errorf("could not patch service account: %w", err)
+			return corev1.Pod{}, false, "", errors.Errorf("could not patch service account: %w", err)
 		}
 	}
 

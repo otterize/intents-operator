@@ -2,7 +2,6 @@ package secrets
 
 import (
 	"context"
-	"fmt"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	"github.com/otterize/credentials-operator/src/controllers/secrets/types"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -103,7 +102,7 @@ func (m *DirectSecretsManager) getCertificateData(ctx context.Context, entryID s
 			ExpiryStr: pemCert.Expiry,
 		}, nil
 	default:
-		return secretstypes.CertificateData{}, fmt.Errorf("failed generating secret data. unsupported cert type %s", certConfig.CertType)
+		return secretstypes.CertificateData{}, errors.Errorf("failed generating secret data. unsupported cert type %s", certConfig.CertType)
 	}
 }
 

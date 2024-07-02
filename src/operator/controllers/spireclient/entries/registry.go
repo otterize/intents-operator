@@ -71,7 +71,7 @@ func (r *spireRegistry) RegisterK8SPod(ctx context.Context, namespace string, se
 	}
 
 	if len(resp.Results) != 1 {
-		return "", fmt.Errorf("unexpected number of results returned from SPIRE server, expected exactly 1 and got %d", len(resp.Results))
+		return "", errors.Errorf("unexpected number of results returned from SPIRE server, expected exactly 1 and got %d", len(resp.Results))
 	}
 
 	result := resp.Results[0]
@@ -91,7 +91,7 @@ func (r *spireRegistry) RegisterK8SPod(ctx context.Context, namespace string, se
 			log.WithField("entry_id", result.Entry.Id).Info("SPIRE server entry already exists")
 		}
 	default:
-		return "", fmt.Errorf("entry failed to create with status %s", result.Status)
+		return "", errors.Errorf("entry failed to create with status %s", result.Status)
 	}
 
 	return result.Entry.Id, nil
@@ -101,9 +101,9 @@ func (r *spireRegistry) updateSpireEntry(ctx context.Context, entry *types.Entry
 	batchUpdateEntryRequest := entryv1.BatchUpdateEntryRequest{Entries: []*types.Entry{entry}}
 	updateResp, err := r.entryClient.BatchUpdateEntry(ctx, &batchUpdateEntryRequest)
 	if err != nil {
-		return "", fmt.Errorf("entry update failed with error %w", err)
+		return "", errors.Errorf("entry update failed with error %w", err)
 	} else if status := updateResp.Results[0].Status; status.Code != int32(codes.OK) {
-		return "", fmt.Errorf("entry update failed with status %s", status)
+		return "", errors.Errorf("entry update failed with status %s", status)
 	}
 	return updateResp.Results[0].Entry.Id, nil
 }
@@ -128,7 +128,7 @@ func (r *spireRegistry) paginatedListEntries(ctx context.Context, pageToken stri
 
 	listResp, err := r.entryClient.ListEntries(ctx, &listEntriesRequest)
 	if err != nil {
-		return nil, "", fmt.Errorf("list entries failed with error %w", err)
+		return nil, "", errors.Errorf("list entries failed with error %w", err)
 	}
 
 	return listResp.Entries, listResp.NextPageToken, nil
@@ -168,7 +168,7 @@ func (r *spireRegistry) deleteEntries(ctx context.Context, entryIDs []string) er
 
 	deleteResp, err := r.entryClient.BatchDeleteEntry(ctx, &batchDeleteEntriesRequest)
 	if err != nil {
-		return fmt.Errorf("entry delete failed with error %w", err)
+		return errors.Errorf("entry delete failed with error %w", err)
 	}
 
 	errStatuses := lo.Filter(deleteResp.Results, func(res *entryv1.BatchDeleteEntryResponse_Result, _ int) bool {
@@ -185,7 +185,7 @@ func (r *spireRegistry) deleteEntries(ctx context.Context, entryIDs []string) er
 	})
 
 	if len(errStatuses) != 0 {
-		return fmt.Errorf("some entries failed to delete failed with status: %v", errStatuses)
+		return errors.Errorf("some entries failed to delete failed with status: %v", errStatuses)
 	}
 
 	return nil

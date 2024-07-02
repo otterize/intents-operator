@@ -2,7 +2,6 @@ package awscredentialsagent
 
 import (
 	"context"
-	"fmt"
 	awstypes "github.com/aws/aws-sdk-go-v2/service/iam/types"
 	rolesanywhereTypes "github.com/aws/aws-sdk-go-v2/service/rolesanywhere/types"
 	"github.com/otterize/credentials-operator/src/shared/apiutils"
@@ -182,7 +181,7 @@ func (a *Agent) OnServiceAccountUpdate(ctx context.Context, serviceAccount *core
 	role, err := a.agent.CreateOtterizeIAMRole(ctx, serviceAccount.Namespace, serviceAccount.Name, a.shouldUseSoftDeleteStrategy(serviceAccount))
 
 	if err != nil {
-		return false, false, fmt.Errorf("failed creating AWS role for service account: %w", err)
+		return false, false, errors.Errorf("failed creating AWS role for service account: %w", err)
 	}
 	logger.WithField("arn", *role.Arn).Info("created AWS role for ServiceAccount")
 
@@ -222,13 +221,13 @@ func (a *Agent) OnServiceAccountTermination(ctx context.Context, serviceAccount 
 
 	err := a.agent.DeleteOtterizeIAMRole(ctx, serviceAccount.Namespace, serviceAccount.Name)
 	if err != nil {
-		return fmt.Errorf("failed to remove service account: %w", err)
+		return errors.Errorf("failed to remove service account: %w", err)
 	}
 
 	if a.agent.RolesAnywhereEnabled {
 		deleted, err := a.agent.DeleteRolesAnywhereProfileForServiceAccount(ctx, serviceAccount.Namespace, serviceAccount.Name)
 		if err != nil {
-			return fmt.Errorf("failed to remove rolesanywhere profile for service account: %w", err)
+			return errors.Errorf("failed to remove rolesanywhere profile for service account: %w", err)
 		}
 
 		if !deleted {

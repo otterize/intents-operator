@@ -65,7 +65,7 @@ func PemToKeyStore(certificatesChainPEM [][]byte, keyPem []byte, password string
 			return keystore.KeyStore{}, errors.Wrap(err)
 		}
 	default:
-		return keystore.KeyStore{}, fmt.Errorf("unsupprted block type for pricate key: %s", block.Type)
+		return keystore.KeyStore{}, errors.Errorf("unsupprted block type for private key: %s", block.Type)
 
 	}
 
