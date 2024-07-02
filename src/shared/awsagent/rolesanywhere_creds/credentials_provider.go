@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
-	"fmt"
 	awsv2 "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/arn"
 	"github.com/aws/aws-sdk-go/aws"
@@ -116,7 +115,7 @@ func getCredentials(keyPath string, certPath string, roleARN string, account ope
 	}
 	output, err := rolesAnywhereClient.CreateSession(&createSessionRequest)
 	if err != nil {
-		return awsv2.Credentials{}, fmt.Errorf("failed to create session: %w", err)
+		return awsv2.Credentials{}, errors.Errorf("failed to create session: %w", err)
 	}
 
 	if len(output.CredentialSet) == 0 {
@@ -126,7 +125,7 @@ func getCredentials(keyPath string, certPath string, roleARN string, account ope
 	credentials := output.CredentialSet[0].Credentials
 	expirationAsTime, err := time.Parse(time.RFC3339, *credentials.Expiration)
 	if err != nil {
-		return awsv2.Credentials{}, fmt.Errorf("failed to parse expiration time: %w", err)
+		return awsv2.Credentials{}, errors.Errorf("failed to parse expiration time: %w", err)
 	}
 	finalCredentials := awsv2.Credentials{
 		AccessKeyID:     *credentials.AccessKeyId,

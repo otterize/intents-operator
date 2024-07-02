@@ -6,6 +6,7 @@ import (
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/agentutils"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,7 +67,7 @@ func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName st
 		expression := fmt.Sprintf("resource.name == \"%s\"", intent.Name)
 		if strings.Contains(intent.Name, "*") {
 			if strings.Index(intent.Name, "*") != len(intent.Name)-1 {
-				return nil, fmt.Errorf("wildcard in the middle of the name is not supported: %s", intent.Name)
+				return nil, errors.Errorf("wildcard in the middle of the name is not supported: %s", intent.Name)
 			}
 
 			cleanName := strings.ReplaceAll(intent.Name, "*", "")

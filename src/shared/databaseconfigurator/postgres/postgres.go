@@ -192,7 +192,7 @@ func (p *PostgresConfigurator) revokeDatabasePermissions(ctx context.Context, us
 	if err != nil {
 		pgErr, ok := TranslatePostgresConnectionError(err)
 		if ok {
-			return errors.Wrap(fmt.Errorf(pgErr))
+			return errors.Errorf(pgErr)
 		}
 		return errors.Wrap(err)
 	}

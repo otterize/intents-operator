@@ -49,7 +49,7 @@ func TranslatePostgresCommandsError(err error) error {
 	if pgErr := &(pgconn.PgError{}); errors.As(err, &pgErr) {
 		// See: https://www.postgresql.org/docs/current/errcodes-appendix.html
 		if pgErr.Code == "42P01" || pgErr.Code == "3F000" {
-			return errors.Wrap(fmt.Errorf("bad schema/table name: %s", pgErr.Message))
+			return errors.Errorf("bad schema/table name: %s", pgErr.Message)
 		}
 		if pgErr.Code == "42704" {
 			return errors.Wrap(ErrUndefinedObject)
