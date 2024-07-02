@@ -17,10 +17,14 @@ limitations under the License.
 package v2alpha1
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/podownerresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 	"strings"
 
@@ -358,7 +362,6 @@ type IntentsStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:storageversion
 
 // ClientIntents is the Schema for the intents API
 type ClientIntents struct {
@@ -636,11 +639,15 @@ func (in *ClientIntents) IsServerMissingSidecar(intent Target) (bool, error) {
 	return serversSet.Has(serverIdentity), nil
 }
 
-func (in *ClientIntentsList) FormatAsOtterizeIntents() ([]*graphqlclient.IntentInput, error) {
+func (in *ClientIntentsList) FormatAsOtterizeIntents(ctx context.Context, k8sClient client.Client) ([]*graphqlclient.IntentInput, error) {
 	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
 	for _, clientIntents := range in.Items {
 		for _, intent := range clientIntents.GetTargetList() {
-			input := intent.ConvertToCloudFormat(clientIntents.Namespace, clientIntents.GetWorkloadName())
+			clientServiceIdentity := clientIntents.ToServiceIdentity()
+			input, err := intent.ConvertToCloudFormat(ctx, k8sClient, clientServiceIdentity)
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
 			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {
 				return nil, errors.Wrap(err)
@@ -769,13 +776,44 @@ func (in *Target) GetHTTPResources() []HTTPTarget {
 	return make([]HTTPTarget, 0)
 }
 
-func (in *Target) ConvertToCloudFormat(resourceNamespace string, clientName string) graphqlclient.IntentInput {
+func (in *Target) ConvertToCloudFormat(ctx context.Context, k8sClient client.Client, clientServiceIdentity serviceidentity.ServiceIdentity) (graphqlclient.IntentInput, error) {
+	serverServiceIdentity := in.ToServiceIdentity(clientServiceIdentity.Namespace)
+	var alias *graphqlclient.ServerAliasInput
+	if in.IsTargetServerKubernetesService() {
+		// alias should be the kubernetes service
+		alias = &graphqlclient.ServerAliasInput{
+			Name: lo.ToPtr(serverServiceIdentity.Name),
+			Kind: lo.ToPtr(serverServiceIdentity.Kind),
+		}
+		labelSelector, ok, err := ServiceIdentityToLabelsForWorkloadSelection(ctx, k8sClient, serverServiceIdentity)
+		if err != nil {
+			return graphqlclient.IntentInput{}, errors.Wrap(err)
+		}
+		if ok {
+			podList := &corev1.PodList{}
+			err := k8sClient.List(ctx, podList, client.InNamespace(serverServiceIdentity.Namespace), client.MatchingLabels(labelSelector))
+			if err != nil {
+				return graphqlclient.IntentInput{}, errors.Wrap(err)
+			}
+			if len(podList.Items) > 0 {
+				si, err := podownerresolver.ResolvePodToServiceIdentity(ctx, k8sClient, &podList.Items[0])
+				if err != nil {
+					return graphqlclient.IntentInput{}, errors.Wrap(err)
+				}
+				// The server service Identity should be the workload (Deployment, statefulset, etc)
+				serverServiceIdentity = si
+			}
+		}
+
+	}
 
 	intentInput := graphqlclient.IntentInput{
-		ClientName:      lo.ToPtr(clientName),
-		ServerName:      lo.ToPtr(in.GetTargetServerName()),
-		Namespace:       lo.ToPtr(resourceNamespace),
-		ServerNamespace: toPtrOrNil(in.GetTargetServerNamespace(resourceNamespace)),
+		ClientName:         lo.ToPtr(clientServiceIdentity.Name),
+		ClientWorkloadKind: lo.Ternary(clientServiceIdentity.Kind != serviceidentity.KindOtterizeLegacy, lo.ToPtr(clientServiceIdentity.Kind), nil),
+		ServerName:         lo.ToPtr(in.GetTargetServerName()),
+		Namespace:          lo.ToPtr(clientServiceIdentity.Namespace),
+		ServerNamespace:    toPtrOrNil(in.GetTargetServerNamespace(clientServiceIdentity.Namespace)),
+		ServerAlias:        alias,
 	}
 	if gqlType := in.typeAsGQLType(); gqlType != "" {
 		intentInput.Type = lo.ToPtr(gqlType)
@@ -845,7 +883,7 @@ func (in *Target) ConvertToCloudFormat(resourceNamespace string, clientName stri
 		intentInput.GcpPermissions = lo.ToSlicePtr(in.GCP.Permissions)
 	}
 
-	return intentInput
+	return intentInput, nil
 }
 
 func intentsHTTPResourceToCloud(resource HTTPTarget, _ int) *graphqlclient.HTTPConfigInput {

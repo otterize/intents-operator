@@ -58,7 +58,7 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	intentsInput, err := clientIntentsListConverted.FormatAsOtterizeIntents()
+	intentsInput, err := clientIntentsListConverted.FormatAsOtterizeIntents(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}

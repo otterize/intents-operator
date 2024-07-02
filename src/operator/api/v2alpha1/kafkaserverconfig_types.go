@@ -69,7 +69,6 @@ type KafkaServerConfigStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:storageversion
 
 // KafkaServerConfig is the Schema for the kafkaserverconfigs API
 type KafkaServerConfig struct {

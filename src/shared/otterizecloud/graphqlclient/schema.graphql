@@ -382,11 +382,14 @@ input DatabaseConfigInput {
 
 type DatabaseInfo {
 	databaseType: DatabaseType!
+	address: String!
+	username: String!
 	visibility: DatabaseVisibilitySettings
 }
 
 input DatabaseInfoInput {
 	databaseType: DatabaseType!
+	address: String!
 	visibility: DatabaseVisibilitySettingsInput
 }
 
@@ -400,6 +403,7 @@ enum DatabaseOperation {
 
 enum DatabaseType {
 	POSTGRESQL
+	MYSQL
 }
 
 type DatabaseVisibilitySettings {

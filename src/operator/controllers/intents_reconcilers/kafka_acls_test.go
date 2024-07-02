@@ -12,6 +12,7 @@ import (
 	intentsreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
+	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
 	"path/filepath"
@@ -56,9 +58,20 @@ type KafkaACLReconcilerTestSuite struct {
 }
 
 func (s *KafkaACLReconcilerTestSuite) SetupSuite() {
-	s.TestEnv = &envtest.Environment{}
+	logrus.Info("Setting up test suite")
+	s.TestEnv = &envtest.Environment{Scheme: scheme.Scheme}
 	var err error
 	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd")}
+	s.TestEnv.WebhookInstallOptions = envtest.WebhookInstallOptions{
+		Paths:            []string{filepath.Join("..", "..", "config", "webhook")},
+		LocalServingHost: "localhost",
+	}
+	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev2alpha1.AddToScheme(s.TestEnv.Scheme))
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
@@ -67,13 +80,6 @@ func (s *KafkaACLReconcilerTestSuite) SetupSuite() {
 	s.K8sDirectClient, err = kubernetes.NewForConfig(s.RestConfig)
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
-
-	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev2alpha1.AddToScheme(s.TestEnv.Scheme))
 }
 
 func (s *KafkaACLReconcilerTestSuite) setupServerStore(serviceName string) *kafkaacls.ServersStoreImpl {
@@ -199,6 +205,16 @@ func (s *KafkaACLReconcilerTestSuite) initOperatorNamespace() {
 	s.operatorNamespace = operatorPodNamespacePrefix + "-" + uuid.New().String()
 	s.CreateNamespace(s.operatorNamespace)
 	s.Reconciler.operatorPodNamespace = s.operatorNamespace
+}
+
+func (s *KafkaACLReconcilerTestSuite) SetupTest() {
+	s.ControllerManagerTestSuiteBase.SetupTest()
+	intentsValidator := webhooks.NewIntentsValidatorV1alpha2(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator))
+	intentsValidator13 := webhooks.NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator13))
+	intentsValidator2 := webhooks.NewIntentsValidatorV2alpha1(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev2alpha1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
 }
 
 func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnIntents() {

@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -158,7 +159,7 @@ func (r *KafkaACLReconciler) RemoveACLs(ctx context.Context, intents *otterizev2
 func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	intents := &otterizev2alpha1.ClientIntents{}
 	logger := logrus.WithField("namespacedName", req.String())
-	err := r.client.Get(ctx, req.NamespacedName, intents)
+	err := r.client.Get(ctx, req.NamespacedName, intents, &client.GetOptions{Raw: &metav1.GetOptions{ResourceVersion: "v2alpha1"}})
 	if err != nil && k8serrors.IsNotFound(err) {
 		logger.Info("No intents found")
 		return ctrl.Result{}, nil

@@ -8,6 +8,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -760,7 +761,8 @@ func (s *CloudReconcilerTestSuite) TestNamespaceParseSuccess() {
 	serverName := "server.other-namespace"
 	intent := &otterizev2alpha1.Target{Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serverName}}
 
-	cloudIntent := intent.ConvertToCloudFormat(testNamespace, clientName)
+	cloudIntent, err := intent.ConvertToCloudFormat(context.Background(), s.client, serviceidentity.ServiceIdentity{Name: clientName, Namespace: testNamespace})
+	s.Require().NoError(err)
 
 	s.Require().Equal(lo.FromPtr(cloudIntent.Namespace), testNamespace)
 	s.Require().Equal(lo.FromPtr(cloudIntent.ClientName), clientName)
@@ -771,7 +773,8 @@ func (s *CloudReconcilerTestSuite) TestNamespaceParseSuccess() {
 func (s *CloudReconcilerTestSuite) TestTargetNamespaceAsSourceNamespace() {
 	serverName := "server"
 	intent := &otterizev2alpha1.Target{Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serverName}}
-	cloudIntent := intent.ConvertToCloudFormat(testNamespace, clientName)
+	cloudIntent, err := intent.ConvertToCloudFormat(context.Background(), s.client, serviceidentity.ServiceIdentity{Name: clientName, Namespace: testNamespace})
+	s.Require().NoError(err)
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), testNamespace)
 }
 
