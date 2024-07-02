@@ -2,7 +2,7 @@ package pod_reconcilers
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -47,7 +47,7 @@ func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if updatedNS.Labels == nil {
 		updatedNS.Labels = make(map[string]string)
 	}
-	updatedNS.Labels[otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey] = req.Name
+	updatedNS.Labels[otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey] = req.Name
 	err = ns.Patch(ctx, updatedNS, client.MergeFrom(namespace))
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
@@ -57,7 +57,7 @@ func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ct
 }
 
 func (ns *NamespaceWatcher) hasKubernetesNameLabel(namespace *v1.Namespace) bool {
-	_, exists := namespace.Labels[otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey]
+	_, exists := namespace.Labels[otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey]
 	return exists
 }
 

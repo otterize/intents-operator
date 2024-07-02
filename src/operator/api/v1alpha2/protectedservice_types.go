@@ -18,6 +18,7 @@ package v1alpha2
 
 import (
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -60,16 +61,20 @@ func init() {
 
 // ConvertTo converts this ProtectedService to the Hub version (v1alpha3).
 func (ps *ProtectedService) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v1alpha3.ProtectedService)
+	dst := &v1alpha3.ProtectedService{}
 	dst.ObjectMeta = ps.ObjectMeta
 	dst.Spec = v1alpha3.ProtectedServiceSpec{}
 	dst.Spec.Name = ps.Spec.Name
-	return nil
+	return dst.ConvertTo(dstRaw)
 }
 
 // ConvertFrom converts the Hub version (v1alpha3) to this ProtectedService.
 func (ps *ProtectedService) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v1alpha3.ProtectedService)
+	src := &v1alpha3.ProtectedService{}
+	err := src.ConvertFrom(srcRaw)
+	if err != nil {
+		return errors.Wrap(err)
+	}
 	ps.ObjectMeta = src.ObjectMeta
 	ps.Spec = ProtectedServiceSpec{}
 	ps.Spec.Name = src.Spec.Name

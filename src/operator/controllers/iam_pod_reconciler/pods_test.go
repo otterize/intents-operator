@@ -2,7 +2,7 @@ package iam_pod_reconciler
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/iam_pod_reconciler/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -27,19 +27,20 @@ func (s *IAMPodReconcilerSuite) TestCallsIAMIntentsReconciler() {
 		Namespace: "test",
 	}
 
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: "service1"},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: "service1"},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: "arn:aws::s3:my-s3-bucket/*",
-				Type: otterizev1alpha3.IntentTypeAWS,
-				AWSActions: []string{
-					"s3:*",
+				AWS: &otterizev2alpha1.AWSTarget{
+					ARN: "arn:aws::s3:my-s3-bucket/*",
+					Actions: []string{
+						"s3:*",
+					},
 				},
 			},
 		},
 	}
-	clientIntents := otterizev1alpha3.ClientIntents{
+	clientIntents := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "client-intents",
 			Namespace: "test",
@@ -65,12 +66,12 @@ func (s *IAMPodReconcilerSuite) TestCallsIAMIntentsReconciler() {
 	)
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		gomock.Eq(&otterizev1alpha3.ClientIntentsList{}),
+		gomock.Eq(&otterizev2alpha1.ClientIntentsList{}),
 		gomock.Any(), // FIXME client.MatchingFields{OtterizeClientNameIndexField: pod.Name},
 		gomock.Any(), // FIXME &client.ListOptions{Namespace: namespacedName.Namespace}
 	).DoAndReturn(
-		func(arg0 context.Context, arg1 *otterizev1alpha3.ClientIntentsList, arg2 ...client.ListOption) error {
-			clientIntentsList := otterizev1alpha3.ClientIntentsList{Items: []otterizev1alpha3.ClientIntents{clientIntents}}
+		func(arg0 context.Context, arg1 *otterizev2alpha1.ClientIntentsList, arg2 ...client.ListOption) error {
+			clientIntentsList := otterizev2alpha1.ClientIntentsList{Items: []otterizev2alpha1.ClientIntents{clientIntents}}
 
 			clientIntentsList.DeepCopyInto(arg1)
 			return nil

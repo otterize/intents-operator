@@ -48,7 +48,7 @@ func NewPostgresConfValidator(c client.Client) *PostgresConfValidator {
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=postgresqlserverconfigs,verbs=create;update,versions=v1alpha3,name=postgresqlserverconfig.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=postgresqlserverconfigs,verbs=create;update,versions=v1alpha3,name=postgresqlserverconfig.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &PostgresConfValidator{}
 
@@ -63,7 +63,7 @@ func (v *PostgresConfValidator) ValidateCreate(ctx context.Context, obj runtime.
 	pgServerConf := obj.(*otterizev1alpha3.PostgreSQLServerConfig)
 	gvk := pgServerConf.GroupVersionKind()
 
-	if err := validateCredentialsNotEmpty(pgServerConf.Spec.Credentials); err != nil {
+	if err := validateCredentialsNotEmptyV1alpha3(pgServerConf.Spec.Credentials); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -89,7 +89,7 @@ func (v *PostgresConfValidator) ValidateUpdate(ctx context.Context, oldObj, newO
 	pgServerConf := newObj.(*otterizev1alpha3.PostgreSQLServerConfig)
 	gvk := pgServerConf.GroupVersionKind()
 
-	if err := validateCredentialsNotEmpty(pgServerConf.Spec.Credentials); err != nil {
+	if err := validateCredentialsNotEmptyV1alpha3(pgServerConf.Spec.Credentials); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -98,6 +98,7 @@ func (v *PostgresConfValidator) ValidateUpdate(ctx context.Context, oldObj, newO
 		Namespace: pgServerConf.Namespace,
 		Type:      Postgres,
 	})
+
 	if fieldErr := (&field.Error{}); goerrors.As(err, &fieldErr) {
 		allErrs = append(allErrs, fieldErr)
 	} else if err != nil {

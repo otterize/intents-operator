@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	v2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	serviceidentity "github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
@@ -38,7 +38,7 @@ func (m *MockServiceResolver) EXPECT() *MockServiceResolverMockRecorder {
 }
 
 // ResolveClientIntentToPod mocks base method.
-func (m *MockServiceResolver) ResolveClientIntentToPod(ctx context.Context, intent v1alpha3.ClientIntents) (v1.Pod, error) {
+func (m *MockServiceResolver) ResolveClientIntentToPod(ctx context.Context, intent v2alpha1.ClientIntents) (v1.Pod, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveClientIntentToPod", ctx, intent)
 	ret0, _ := ret[0].(v1.Pod)

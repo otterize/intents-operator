@@ -2,7 +2,7 @@ package kafka_server_config_reconcilers
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -39,13 +39,13 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 	server := "test-server"
 	anotherServer := "another-test-server"
 
-	serverConfig := otterizev1alpha3.KafkaServerConfig{
+	serverConfig := otterizev2alpha1.KafkaServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kscResourceName,
 			Namespace: testNamespace,
 		},
-		Spec: otterizev1alpha3.KafkaServerConfigSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: otterizev2alpha1.KafkaServerConfigSpec{
+			Service: otterizev2alpha1.Workload{
 				Name: server,
 			},
 		},
@@ -57,13 +57,13 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 	s.applyConfig(serverConfig)
 	s.Require().Equal(1, s.Reconciler.kafkaServerCounter.Len())
 
-	anotherConfig := otterizev1alpha3.KafkaServerConfig{
+	anotherConfig := otterizev2alpha1.KafkaServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kscResourceName,
 			Namespace: testNamespace,
 		},
-		Spec: otterizev1alpha3.KafkaServerConfigSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: otterizev2alpha1.KafkaServerConfigSpec{
+			Service: otterizev2alpha1.Workload{
 				Name: anotherServer,
 			},
 		},
@@ -71,13 +71,13 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 	s.applyConfig(anotherConfig)
 	s.Require().Equal(2, s.Reconciler.kafkaServerCounter.Len())
 
-	serverConfig = otterizev1alpha3.KafkaServerConfig{
+	serverConfig = otterizev2alpha1.KafkaServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kscResourceName,
 			Namespace: testNamespace,
 		},
-		Spec: otterizev1alpha3.KafkaServerConfigSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: otterizev2alpha1.KafkaServerConfigSpec{
+			Service: otterizev2alpha1.Workload{
 				Name: server,
 			},
 		},
@@ -85,13 +85,13 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 	s.applyConfig(serverConfig)
 	s.Require().Equal(2, s.Reconciler.kafkaServerCounter.Len())
 
-	configInAnotherNamespace := otterizev1alpha3.KafkaServerConfig{
+	configInAnotherNamespace := otterizev2alpha1.KafkaServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kscResourceName,
 			Namespace: anotherNamespace,
 		},
-		Spec: otterizev1alpha3.KafkaServerConfigSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: otterizev2alpha1.KafkaServerConfigSpec{
+			Service: otterizev2alpha1.Workload{
 				Name: server,
 			},
 		},
@@ -99,13 +99,13 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 	s.applyConfig(configInAnotherNamespace)
 	s.Require().Equal(3, s.Reconciler.kafkaServerCounter.Len())
 
-	anotherConfigInAnotherNamespace := otterizev1alpha3.KafkaServerConfig{
+	anotherConfigInAnotherNamespace := otterizev2alpha1.KafkaServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kscResourceName,
 			Namespace: anotherNamespace,
 		},
-		Spec: otterizev1alpha3.KafkaServerConfigSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: otterizev2alpha1.KafkaServerConfigSpec{
+			Service: otterizev2alpha1.Workload{
 				Name: anotherServer,
 			},
 		},
@@ -121,7 +121,7 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 	s.Require().Equal(2, s.Reconciler.kafkaServerCounter.Len())
 }
 
-func (s *CountReconcilerTestSuite) applyConfig(resource otterizev1alpha3.KafkaServerConfig) {
+func (s *CountReconcilerTestSuite) applyConfig(resource otterizev2alpha1.KafkaServerConfig) {
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: testNamespace,
@@ -129,9 +129,9 @@ func (s *CountReconcilerTestSuite) applyConfig(resource otterizev1alpha3.KafkaSe
 		},
 	}
 
-	emptyConfig := &otterizev1alpha3.KafkaServerConfig{}
+	emptyConfig := &otterizev2alpha1.KafkaServerConfig{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyConfig)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, serverConfig *otterizev1alpha3.KafkaServerConfig, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, serverConfig *otterizev2alpha1.KafkaServerConfig, options ...client.ListOption) error {
 			resource.DeepCopyInto(serverConfig)
 			return nil
 		})
@@ -141,7 +141,7 @@ func (s *CountReconcilerTestSuite) applyConfig(resource otterizev1alpha3.KafkaSe
 	s.Require().Equal(ctrl.Result{}, res)
 }
 
-func (s *CountReconcilerTestSuite) removeConfig(resource otterizev1alpha3.KafkaServerConfig) {
+func (s *CountReconcilerTestSuite) removeConfig(resource otterizev2alpha1.KafkaServerConfig) {
 	resource.DeletionTimestamp = &metav1.Time{Time: time.Date(2020, 12, 1, 17, 14, 0, 0, time.UTC)}
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -150,9 +150,9 @@ func (s *CountReconcilerTestSuite) removeConfig(resource otterizev1alpha3.KafkaS
 		},
 	}
 
-	emptyConfig := &otterizev1alpha3.KafkaServerConfig{}
+	emptyConfig := &otterizev2alpha1.KafkaServerConfig{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyConfig)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, serverConfig *otterizev1alpha3.KafkaServerConfig, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, serverConfig *otterizev2alpha1.KafkaServerConfig, options ...client.ListOption) error {
 			resource.DeepCopyInto(serverConfig)
 			return nil
 		})

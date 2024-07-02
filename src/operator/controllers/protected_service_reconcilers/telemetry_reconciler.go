@@ -3,7 +3,7 @@ package protected_service_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/prometheus"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -30,7 +30,7 @@ func NewTelemetryReconciler(client client.Client) *TelemetryReconciler {
 }
 
 func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
-	protectedService := &otterizev1alpha3.ProtectedService{}
+	protectedService := &otterizev2alpha1.ProtectedService{}
 	err := r.Get(ctx, req.NamespacedName, protectedService)
 	if k8serrors.IsNotFound(err) {
 		return ctrl.Result{}, nil

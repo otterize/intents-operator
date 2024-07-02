@@ -5,7 +5,7 @@ import (
 	gcpk8s "github.com/GoogleCloudPlatform/k8s-config-connector/operator/pkg/k8s"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/iam/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -169,7 +169,7 @@ func (a *Agent) createGSAToKSAPolicy(ctx context.Context, namespaceName string, 
 	return nil
 }
 
-func (a *Agent) ApplyIAMPartialPolicy(ctx context.Context, namespaceName string, ksaName string, intentsServiceName string, intents []otterizev1alpha3.Intent) error {
+func (a *Agent) ApplyIAMPartialPolicy(ctx context.Context, namespaceName string, ksaName string, intentsServiceName string, intents []otterizev2alpha1.Target) error {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", ksaName)
 
 	// Create a new IAMPolicyMember from the provided intents

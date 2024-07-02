@@ -2,7 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -38,19 +38,21 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 	server := "test-server"
 	anotherServer := "another-test-server"
 
-	clientIntents1 := otterizev1alpha3.ClientIntents{
+	clientIntents1 := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{
+						Name: server,
+					},
 				},
 			},
 		},
@@ -66,19 +68,21 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev1alpha3.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: anotherServer,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{
+						Name: anotherServer,
+					},
 				},
 			},
 		},
@@ -89,22 +93,22 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev1alpha3.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: server},
 				},
 				{
-					Name: anotherServer,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: anotherServer},
 				},
 			},
 		},
@@ -115,19 +119,19 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents2 := otterizev1alpha3.ClientIntents{
+	clientIntents2 := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: server},
 				},
 			},
 		},
@@ -138,19 +142,19 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents3 := otterizev1alpha3.ClientIntents{
+	clientIntents3 := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: "another-test-namespace",
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: server},
 				},
 			},
 		},
@@ -171,19 +175,19 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 	server := "test-server"
 	anotherServer := "another-test-server"
 
-	clientIntents1 := otterizev1alpha3.ClientIntents{
+	clientIntents1 := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: server},
 				},
 			},
 		},
@@ -199,26 +203,27 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev1alpha3.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: anotherServer,
-					Type: otterizev1alpha3.IntentTypeKafka,
-					Topics: []otterizev1alpha3.KafkaTopic{
-						{
-							Name: "the-topic-I-want-to-talk-about",
-							Operations: []otterizev1alpha3.KafkaOperation{
-								otterizev1alpha3.KafkaOperationConsume,
-								otterizev1alpha3.KafkaOperationProduce,
+					Kafka: &otterizev2alpha1.KafkaTarget{
+						Name: anotherServer,
+						Topics: []otterizev2alpha1.KafkaTopic{
+							{
+								Name: "the-topic-I-want-to-talk-about",
+								Operations: []otterizev2alpha1.KafkaOperation{
+									otterizev2alpha1.KafkaOperationConsume,
+									otterizev2alpha1.KafkaOperationProduce,
+								},
 							},
 						},
 					},
@@ -232,38 +237,40 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 	s.Require().Equal(1, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev1alpha3.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
-					Type: otterizev1alpha3.IntentTypeKafka,
-					Topics: []otterizev1alpha3.KafkaTopic{
-						{
-							Name: "two-operations-topic",
-							Operations: []otterizev1alpha3.KafkaOperation{
-								otterizev1alpha3.KafkaOperationConsume,
-								otterizev1alpha3.KafkaOperationProduce,
+					Kafka: &otterizev2alpha1.KafkaTarget{
+						Name: server,
+						Topics: []otterizev2alpha1.KafkaTopic{
+							{
+								Name: "two-operations-topic",
+								Operations: []otterizev2alpha1.KafkaOperation{
+									otterizev2alpha1.KafkaOperationConsume,
+									otterizev2alpha1.KafkaOperationProduce,
+								},
 							},
 						},
 					},
 				},
 				{
-					Name: anotherServer,
-					Type: otterizev1alpha3.IntentTypeKafka,
-					Topics: []otterizev1alpha3.KafkaTopic{
-						{
-							Name: "one-operation-topic",
-							Operations: []otterizev1alpha3.KafkaOperation{
-								otterizev1alpha3.KafkaOperationProduce,
+					Kafka: &otterizev2alpha1.KafkaTarget{
+						Name: anotherServer,
+						Topics: []otterizev2alpha1.KafkaTopic{
+							{
+								Name: "one-operation-topic",
+								Operations: []otterizev2alpha1.KafkaOperation{
+									otterizev2alpha1.KafkaOperationProduce,
+								},
 							},
 						},
 					},
@@ -277,19 +284,19 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 	s.Require().Equal(2, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents2 := otterizev1alpha3.ClientIntents{
+	clientIntents2 := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: server},
 				},
 			},
 		},
@@ -300,25 +307,26 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 	s.Require().Equal(2, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents3 := otterizev1alpha3.ClientIntents{
+	clientIntents3 := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
-					Type: otterizev1alpha3.IntentTypeKafka,
-					Topics: []otterizev1alpha3.KafkaTopic{
-						{
-							Name: "a-topic",
-							Operations: []otterizev1alpha3.KafkaOperation{
-								otterizev1alpha3.KafkaOperationAll,
+					Kafka: &otterizev2alpha1.KafkaTarget{
+						Name: server,
+						Topics: []otterizev2alpha1.KafkaTopic{
+							{
+								Name: "a-topic",
+								Operations: []otterizev2alpha1.KafkaOperation{
+									otterizev2alpha1.KafkaOperationAll,
+								},
 							},
 						},
 					},
@@ -342,19 +350,19 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	server := "test-server"
 	anotherServer := "another-test-server"
 
-	clientIntents1 := otterizev1alpha3.ClientIntents{
+	clientIntents1 := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: server},
 				},
 			},
 		},
@@ -370,26 +378,27 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev1alpha3.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: anotherServer,
-					Type: otterizev1alpha3.IntentTypeHTTP,
-					HTTPResources: []otterizev1alpha3.HTTPResource{
-						{
-							Path: "/the-path-to-success",
-							Methods: []otterizev1alpha3.HTTPMethod{
-								otterizev1alpha3.HTTPMethodGet,
-								otterizev1alpha3.HTTPMethodPost,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{
+						Name: anotherServer,
+						HTTP: []otterizev2alpha1.HTTPTarget{
+							{
+								Path: "/the-path-to-success",
+								Methods: []otterizev2alpha1.HTTPMethod{
+									otterizev2alpha1.HTTPMethodGet,
+									otterizev2alpha1.HTTPMethodPost,
+								},
 							},
 						},
 					},
@@ -403,38 +412,40 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(1, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev1alpha3.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
-					Type: otterizev1alpha3.IntentTypeHTTP,
-					HTTPResources: []otterizev1alpha3.HTTPResource{
-						{
-							Path: "/the-path-to-success",
-							Methods: []otterizev1alpha3.HTTPMethod{
-								otterizev1alpha3.HTTPMethodGet,
-								otterizev1alpha3.HTTPMethodPost,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{
+						Name: server,
+						HTTP: []otterizev2alpha1.HTTPTarget{
+							{
+								Path: "/the-path-to-success",
+								Methods: []otterizev2alpha1.HTTPMethod{
+									otterizev2alpha1.HTTPMethodGet,
+									otterizev2alpha1.HTTPMethodPost,
+								},
 							},
 						},
 					},
 				},
 				{
-					Name: anotherServer,
-					Type: otterizev1alpha3.IntentTypeHTTP,
-					HTTPResources: []otterizev1alpha3.HTTPResource{
-						{
-							Path: "/the-path-to-success",
-							Methods: []otterizev1alpha3.HTTPMethod{
-								otterizev1alpha3.HTTPMethodGet,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{
+						Name: anotherServer,
+						HTTP: []otterizev2alpha1.HTTPTarget{
+							{
+								Path: "/the-path-to-success",
+								Methods: []otterizev2alpha1.HTTPMethod{
+									otterizev2alpha1.HTTPMethodGet,
+								},
 							},
 						},
 					},
@@ -448,19 +459,19 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(2, httpIntentsCount(s.Reconciler))
 
-	clientIntents2 := otterizev1alpha3.ClientIntents{
+	clientIntents2 := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: server},
 				},
 			},
 		},
@@ -471,25 +482,26 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(2, httpIntentsCount(s.Reconciler))
 
-	clientIntents3 := otterizev1alpha3.ClientIntents{
+	clientIntents3 := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
 				Name: clientName,
 			},
-			Calls: []otterizev1alpha3.Intent{
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: server,
-					Type: otterizev1alpha3.IntentTypeHTTP,
-					HTTPResources: []otterizev1alpha3.HTTPResource{
-						{
-							Path: "/the-path-to-success",
-							Methods: []otterizev1alpha3.HTTPMethod{
-								otterizev1alpha3.HTTPMethodGet,
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{
+						Name: server,
+						HTTP: []otterizev2alpha1.HTTPTarget{
+							{
+								Path: "/the-path-to-success",
+								Methods: []otterizev2alpha1.HTTPMethod{
+									otterizev2alpha1.HTTPMethodGet,
+								},
 							},
 						},
 					},
@@ -509,7 +521,7 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	s.Require().Equal(1, httpIntentsCount(s.Reconciler))
 }
 
-func (s *CountReconcilerTestSuite) applyIntent(clientIntents otterizev1alpha3.ClientIntents) {
+func (s *CountReconcilerTestSuite) applyIntent(clientIntents otterizev2alpha1.ClientIntents) {
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: testNamespace,
@@ -517,9 +529,9 @@ func (s *CountReconcilerTestSuite) applyIntent(clientIntents otterizev1alpha3.Cl
 		},
 	}
 
-	emptyIntents := &otterizev1alpha3.ClientIntents{}
+	emptyIntents := &otterizev2alpha1.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)
 			return nil
 		})
@@ -529,7 +541,7 @@ func (s *CountReconcilerTestSuite) applyIntent(clientIntents otterizev1alpha3.Cl
 	s.Require().Equal(ctrl.Result{}, res)
 }
 
-func (s *CountReconcilerTestSuite) removeIntent(clientIntents otterizev1alpha3.ClientIntents) {
+func (s *CountReconcilerTestSuite) removeIntent(clientIntents otterizev2alpha1.ClientIntents) {
 	clientIntents.DeletionTimestamp = &metav1.Time{Time: time.Date(2020, 12, 1, 17, 14, 0, 0, time.UTC)}
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -538,9 +550,9 @@ func (s *CountReconcilerTestSuite) removeIntent(clientIntents otterizev1alpha3.C
 		},
 	}
 
-	emptyIntents := &otterizev1alpha3.ClientIntents{}
+	emptyIntents := &otterizev2alpha1.ClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev1alpha3.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)
 			return nil
 		})
@@ -561,7 +573,7 @@ func appliedIntentsCount(reconciler *TelemetryReconciler) int {
 func kafkaIntentsCount(reconciler *TelemetryReconciler) int {
 	count := 0
 	for _, calls := range reconciler.typedIntentsCounter {
-		count += calls[otterizev1alpha3.IntentTypeKafka]
+		count += calls[otterizev2alpha1.IntentTypeKafka]
 	}
 	return count
 }
@@ -569,7 +581,7 @@ func kafkaIntentsCount(reconciler *TelemetryReconciler) int {
 func httpIntentsCount(reconciler *TelemetryReconciler) int {
 	count := 0
 	for _, calls := range reconciler.typedIntentsCounter {
-		count += calls[otterizev1alpha3.IntentTypeHTTP]
+		count += calls[otterizev2alpha1.IntentTypeHTTP]
 	}
 	return count
 }

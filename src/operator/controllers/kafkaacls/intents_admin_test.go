@@ -2,7 +2,7 @@ package kafkaacls
 
 import (
 	"github.com/Shopify/sarama"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
@@ -34,20 +34,20 @@ func (s *IntentAdminSuite) SetupTest() {
 
 func (s *IntentAdminSuite) TestApplyServerConfig() {
 	topicName := "my-topic"
-	kafkaServerConfig := otterizev1alpha3.KafkaServerConfig{
+	kafkaServerConfig := otterizev2alpha1.KafkaServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kafkaServerConfigResourceName,
 			Namespace: testNamespace,
 		},
-		Spec: otterizev1alpha3.KafkaServerConfigSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: otterizev2alpha1.KafkaServerConfigSpec{
+			Service: otterizev2alpha1.Workload{
 				Name: serverName,
 			},
 			Addr: serverAddress,
-			Topics: []otterizev1alpha3.TopicConfig{
+			Topics: []otterizev2alpha1.TopicConfig{
 				{
 					Topic:                  topicName,
-					Pattern:                otterizev1alpha3.ResourcePatternTypeLiteral,
+					Pattern:                otterizev2alpha1.ResourcePatternTypeLiteral,
 					ClientIdentityRequired: true,
 					IntentsRequired:        false,
 				},
@@ -99,20 +99,20 @@ func (s *IntentAdminSuite) TestApplyServerConfig() {
 
 func (s *IntentAdminSuite) TestApplyServerConfigPermissionExists() {
 	topicName := "my-topic"
-	kafkaServerConfig := otterizev1alpha3.KafkaServerConfig{
+	kafkaServerConfig := otterizev2alpha1.KafkaServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kafkaServerConfigResourceName,
 			Namespace: testNamespace,
 		},
-		Spec: otterizev1alpha3.KafkaServerConfigSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: otterizev2alpha1.KafkaServerConfigSpec{
+			Service: otterizev2alpha1.Workload{
 				Name: serverName,
 			},
 			Addr: serverAddress,
-			Topics: []otterizev1alpha3.TopicConfig{
+			Topics: []otterizev2alpha1.TopicConfig{
 				{
 					Topic:                  topicName,
-					Pattern:                otterizev1alpha3.ResourcePatternTypeLiteral,
+					Pattern:                otterizev2alpha1.ResourcePatternTypeLiteral,
 					ClientIdentityRequired: true,
 					IntentsRequired:        false,
 				},
@@ -193,21 +193,21 @@ func (s *IntentAdminSuite) TestApplyServerConfigPermissionExists() {
 
 func (s *IntentAdminSuite) TestDeleteServerConfig() {
 	topicName := "my-topic"
-	kafkaServerConfig := otterizev1alpha3.KafkaServerConfig{
+	kafkaServerConfig := otterizev2alpha1.KafkaServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              kafkaServerConfigResourceName,
 			Namespace:         testNamespace,
 			DeletionTimestamp: lo.ToPtr(metav1.Date(2021, 6, 13, 0, 0, 0, 0, time.UTC)),
 		},
-		Spec: otterizev1alpha3.KafkaServerConfigSpec{
-			Service: otterizev1alpha3.Service{
+		Spec: otterizev2alpha1.KafkaServerConfigSpec{
+			Service: otterizev2alpha1.Workload{
 				Name: serverName,
 			},
 			Addr: serverAddress,
-			Topics: []otterizev1alpha3.TopicConfig{
+			Topics: []otterizev2alpha1.TopicConfig{
 				{
 					Topic:                  topicName,
-					Pattern:                otterizev1alpha3.ResourcePatternTypeLiteral,
+					Pattern:                otterizev2alpha1.ResourcePatternTypeLiteral,
 					ClientIdentityRequired: true,
 					IntentsRequired:        false,
 				},

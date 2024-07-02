@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/amit7itz/goset"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -48,7 +48,7 @@ func (r *PortNetworkPolicyReconciler) buildIngressRulesFromEffectivePolicy(ep ef
 	}
 
 	for _, clientCall := range ep.CalledBy {
-		if clientCall.IntendedCall.Type != "" && clientCall.IntendedCall.Type != otterizev1alpha3.IntentTypeHTTP && clientCall.IntendedCall.Type != otterizev1alpha3.IntentTypeKafka {
+		if clientCall.IntendedCall.IsTargetOutOfCluster() {
 			continue
 		}
 		if clientCall.IntendedCall.IsTargetTheKubernetesAPIServer(ep.Service.Namespace) {
@@ -67,12 +67,12 @@ func (r *PortNetworkPolicyReconciler) buildIngressRulesFromEffectivePolicy(ep ef
 					PodSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							fmt.Sprintf(
-								otterizev1alpha3.OtterizeSvcAccessLabelKey, ep.Service.GetFormattedOtterizeIdentityWithKind()): "true",
+								otterizev2alpha1.OtterizeSvcAccessLabelKey, ep.Service.GetFormattedOtterizeIdentityWithKind()): "true",
 						},
 					},
 					NamespaceSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: clientCall.Service.Namespace,
+							otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: clientCall.Service.Namespace,
 						},
 					},
 				},

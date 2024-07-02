@@ -69,7 +69,6 @@ type KafkaServerConfigStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:storageversion
 
 // KafkaServerConfig is the Schema for the kafkaserverconfigs API
 type KafkaServerConfig struct {
@@ -79,8 +78,6 @@ type KafkaServerConfig struct {
 	Spec   KafkaServerConfigSpec   `json:"spec,omitempty" yaml:"spec,omitempty"`
 	Status KafkaServerConfigStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
-
-func (ksc *KafkaServerConfig) Hub() {}
 
 //+kubebuilder:object:root=true
 

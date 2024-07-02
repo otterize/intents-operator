@@ -2,7 +2,7 @@ package external_traffic
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	otterizecloudmocks "github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -54,7 +54,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUploadNetworkPolicy() {
 			Name:      "external-access-to-client-A",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeNetworkPolicyExternalTraffic: "client-A",
+				v2alpha1.OtterizeNetworkPolicyExternalTraffic: "client-A",
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -62,7 +62,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestUploadNetworkPolicy() {
 			PodSelector: metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{
 					{
-						Key:      v1alpha3.OtterizeServiceLabelKey,
+						Key:      v2alpha1.OtterizeServiceLabelKey,
 						Operator: metav1.LabelSelectorOpExists,
 					},
 				},
@@ -130,7 +130,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNoUploadIfNoPods() {
 			Name:      "external-access-to-client-A",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				v1alpha3.OtterizeNetworkPolicyExternalTraffic: "client-A",
+				v2alpha1.OtterizeNetworkPolicyExternalTraffic: "client-A",
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -138,7 +138,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestNoUploadIfNoPods() {
 			PodSelector: metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{
 					{
-						Key:      v1alpha3.OtterizeServiceLabelKey,
+						Key:      v2alpha1.OtterizeServiceLabelKey,
 						Operator: metav1.LabelSelectorOpExists,
 					},
 				},

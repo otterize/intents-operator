@@ -3,7 +3,7 @@ package builders
 import (
 	"context"
 	"fmt"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/samber/lo"
@@ -56,20 +56,20 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestNetworkPolicyFinalizerAdded()
 		NamespacedName: namespacedName,
 	}
 
-	serverName := fmt.Sprintf("svc:test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverName,
+				Service: &otterizev2alpha1.ServiceTarget{Name: serverName},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = testNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	svcObject := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -138,7 +138,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 			Name:      policyName,
 			Namespace: targetNamespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeNetworkPolicy: formattedTargetServer,
+				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetServer,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -154,12 +154,12 @@ func (s *PortNetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									fmt.Sprintf(
-										otterizev1alpha3.OtterizeSvcAccessLabelKey, formattedTargetServer): "true",
+										otterizev2alpha1.OtterizeSvcAccessLabelKey, formattedTargetServer): "true",
 								},
 							},
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intentsObjNamespace,
+									otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: intentsObjNamespace,
 								},
 							},
 						},
@@ -242,21 +242,21 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestErrorWhenKubernetesServiceWit
 		NamespacedName: namespacedName,
 	}
 
-	serverName := "svc:test-server"
+	serverName := "test-server"
 	serverCall := fmt.Sprintf("%s.%s", serverName, serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverCall,
+				Service: &otterizev2alpha1.ServiceTarget{Name: serverCall},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = testNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
 	kubernetesSvcNamespacedName := types.NamespacedName{
@@ -303,21 +303,21 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestIgnoreKubernetesAPIServerServ
 		NamespacedName: namespacedName,
 	}
 
-	serverName := "svc:kubernetes"
+	serverName := "kubernetes"
 	serverCall := fmt.Sprintf("%s.%s", serverName, serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverCall,
+				Service: &otterizev2alpha1.ServiceTarget{Name: serverCall},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = testNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	s.ignoreRemoveOrphan()
 
@@ -342,19 +342,19 @@ func (s *PortNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForKuberne
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: fmt.Sprintf("svc:test-server.%s", serverNamespace),
+				Service: &otterizev2alpha1.ServiceTarget{Name: fmt.Sprintf("test-server.%s", serverNamespace)},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = testNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
 	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, ports, svcSelector)
@@ -409,20 +409,20 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForKuberne
 		NamespacedName: namespacedName,
 	}
 
-	serverName := fmt.Sprintf("svc:test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverName,
+				Service: &otterizev2alpha1.ServiceTarget{Name: serverName},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = testNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
 	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, []corev1.ServicePort{{TargetPort: intstr.IntOrString{IntVal: 80}}}, svcSelector)
@@ -476,18 +476,18 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernet
 		NamespacedName: namespacedName,
 	}
 
-	serverName := fmt.Sprintf("svc:test-server.%s", testNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	serverName := fmt.Sprintf("test-server.%s", testNamespace)
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverName,
+				Service: &otterizev2alpha1.ServiceTarget{Name: serverName},
 			},
 		},
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	clientIntentsObj := otterizev1alpha3.ClientIntents{
+	clientIntentsObj := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         testNamespace,
@@ -495,7 +495,7 @@ func (s *PortNetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKubernet
 		},
 		Spec: intentsSpec,
 	}
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntentsObj})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntentsObj})
 
 	// Remove network policy:
 	// 1. ep list is empty

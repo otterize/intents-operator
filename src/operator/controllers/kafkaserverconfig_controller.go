@@ -18,7 +18,7 @@ package controllers
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafka_server_config_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -73,7 +73,7 @@ func NewKafkaServerConfigReconciler(
 		groupName,
 		client,
 		scheme,
-		&otterizev1alpha3.KafkaServerConfig{},
+		&otterizev2alpha1.KafkaServerConfig{},
 		finalizerName,
 		nil,
 		kscReconciler,
@@ -98,9 +98,9 @@ func (r *KafkaServerConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		// Uncomment the following line adding a pointer to an instance of the controlled resource as an argument
-		For(&otterizev1alpha3.KafkaServerConfig{}).
+		For(&otterizev2alpha1.KafkaServerConfig{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
-		Watches(&otterizev1alpha3.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToKafkaServerConfig)).
+		Watches(&otterizev2alpha1.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToKafkaServerConfig)).
 		Complete(r)
 	if err != nil {
 		return errors.Wrap(err)
@@ -114,20 +114,20 @@ func (r *KafkaServerConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *KafkaServerConfigReconciler) InitKafkaServerConfigIndices(mgr ctrl.Manager) error {
 	return mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha3.KafkaServerConfig{},
-		otterizev1alpha3.OtterizeKafkaServerConfigServiceNameField,
+		&otterizev2alpha1.KafkaServerConfig{},
+		otterizev2alpha1.OtterizeKafkaServerConfigServiceNameField,
 		func(object client.Object) []string {
-			ksc := object.(*otterizev1alpha3.KafkaServerConfig)
+			ksc := object.(*otterizev2alpha1.KafkaServerConfig)
 			return []string{ksc.Spec.Service.Name}
 		})
 }
 
 func (r *KafkaServerConfigReconciler) mapProtectedServiceToKafkaServerConfig(ctx context.Context, obj client.Object) []reconcile.Request {
-	protectedService := obj.(*otterizev1alpha3.ProtectedService)
+	protectedService := obj.(*otterizev2alpha1.ProtectedService)
 	logrus.Debugf("Enqueueing KafkaServerConfigs for protected service %s", protectedService.Name)
 
 	kscsToReconcile := r.getKSCsForProtectedService(ctx, protectedService)
-	return lo.Map(kscsToReconcile, func(ksc otterizev1alpha3.KafkaServerConfig, _ int) reconcile.Request {
+	return lo.Map(kscsToReconcile, func(ksc otterizev2alpha1.KafkaServerConfig, _ int) reconcile.Request {
 		return reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name:      ksc.Name,
@@ -137,12 +137,12 @@ func (r *KafkaServerConfigReconciler) mapProtectedServiceToKafkaServerConfig(ctx
 	})
 }
 
-func (r *KafkaServerConfigReconciler) getKSCsForProtectedService(ctx context.Context, protectedService *otterizev1alpha3.ProtectedService) []otterizev1alpha3.KafkaServerConfig {
-	kscsToReconcile := make([]otterizev1alpha3.KafkaServerConfig, 0)
-	var kafkaServerConfigs otterizev1alpha3.KafkaServerConfigList
+func (r *KafkaServerConfigReconciler) getKSCsForProtectedService(ctx context.Context, protectedService *otterizev2alpha1.ProtectedService) []otterizev2alpha1.KafkaServerConfig {
+	kscsToReconcile := make([]otterizev2alpha1.KafkaServerConfig, 0)
+	var kafkaServerConfigs otterizev2alpha1.KafkaServerConfigList
 	err := r.Client.List(ctx,
 		&kafkaServerConfigs,
-		&client.MatchingFields{otterizev1alpha3.OtterizeKafkaServerConfigServiceNameField: protectedService.Spec.Name},
+		&client.MatchingFields{otterizev2alpha1.OtterizeKafkaServerConfigServiceNameField: protectedService.Spec.Name},
 		&client.ListOptions{Namespace: protectedService.Namespace},
 	)
 	if err != nil {

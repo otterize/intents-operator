@@ -2,7 +2,7 @@ package builders
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
@@ -22,7 +22,7 @@ func NewDNSEgressNetworkPolicyBuilder() *DNSEgressNetworkPolicyBuilder {
 
 // a function that creates []NetworkPolicyEgressRule from ep
 func (r *DNSEgressNetworkPolicyBuilder) buildNetworkPolicyEgressRules(ep effectivepolicy.ServiceEffectivePolicy) []v1.NetworkPolicyEgressRule {
-	if lo.NoneBy(ep.Calls, func(call otterizev1alpha3.Intent) bool {
+	if lo.NoneBy(ep.Calls, func(call otterizev2alpha1.Target) bool {
 		return call.IsTargetInCluster()
 	}) {
 		return make([]v1.NetworkPolicyEgressRule, 0)

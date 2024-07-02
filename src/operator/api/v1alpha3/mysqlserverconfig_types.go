@@ -18,7 +18,6 @@ type MySQLServerConfigStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:storageversion
 
 // MySQLServerConfig is the Schema for the mysqlserverconfig API
 type MySQLServerConfig struct {

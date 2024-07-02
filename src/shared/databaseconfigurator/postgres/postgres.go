@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/amit7itz/goset"
 	"github.com/jackc/pgx/v5"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/sqlutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -35,7 +35,7 @@ const (
 	PGDefaultDatabase                                              = "postgres"
 )
 
-func databaseConfigInputToSQLTableIdentifier(resource otterizev1alpha3.DatabaseResource) sqlutils.SQLTableIdentifier {
+func databaseConfigInputToSQLTableIdentifier(resource otterizev2alpha1.SQLPrivileges) sqlutils.SQLTableIdentifier {
 	tableIdentifier := strings.Split(resource.Table, ".")
 	if len(tableIdentifier) == 2 {
 		return sqlutils.SQLTableIdentifier{TableSchema: tableIdentifier[0], TableName: tableIdentifier[1]}
@@ -71,9 +71,9 @@ func NewPostgresConfigurator(ctx context.Context, databaseInfo PostgresDatabaseI
 	return p, nil
 }
 
-func (p *PostgresConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev1alpha3.DatabaseResource) error {
+func (p *PostgresConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToSQLPermissionss map[string][]otterizev2alpha1.SQLPrivileges) error {
 	// apply new intents
-	for dbname, dbResources := range dbnameToDatabaseResources {
+	for dbname, dbResources := range dbnameToSQLPermissionss {
 		if err := p.setConnection(ctx, dbname); err != nil {
 			return errors.Wrap(err)
 		}
@@ -95,7 +95,7 @@ func (p *PostgresConfigurator) ApplyDatabasePermissionsForUser(ctx context.Conte
 	}
 
 	// revoke excess permissions to databases not specified in the applied intents
-	databasesToRevoke, err := p.getAllowedDatabasesDiffForUser(ctx, username, lo.Keys(dbnameToDatabaseResources))
+	databasesToRevoke, err := p.getAllowedDatabasesDiffForUser(ctx, username, lo.Keys(dbnameToSQLPermissionss))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -109,7 +109,7 @@ func (p *PostgresConfigurator) ApplyDatabasePermissionsForUser(ctx context.Conte
 	return nil
 }
 
-func (p *PostgresConfigurator) getAllowedTablesDiffForUser(allowedTablesForUser []sqlutils.SQLTableIdentifier, intentsDBResources []otterizev1alpha3.DatabaseResource) []sqlutils.SQLTableIdentifier {
+func (p *PostgresConfigurator) getAllowedTablesDiffForUser(allowedTablesForUser []sqlutils.SQLTableIdentifier, intentsDBResources []otterizev2alpha1.SQLPrivileges) []sqlutils.SQLTableIdentifier {
 	hasWildcardTable := false
 	intentsDBSchemaToTables := make(map[string]*goset.Set[string])
 	for _, resource := range intentsDBResources {
@@ -159,7 +159,7 @@ func (p *PostgresConfigurator) RevokeAllDatabasePermissionsForUser(ctx context.C
 	return nil
 }
 
-func (p *PostgresConfigurator) applyDatabasePermissions(ctx context.Context, username string, dbname string, dbResources []otterizev1alpha3.DatabaseResource) error {
+func (p *PostgresConfigurator) applyDatabasePermissions(ctx context.Context, username string, dbname string, dbResources []otterizev2alpha1.SQLPrivileges) error {
 	statementsBatch, err := p.sqlBatchFromDBResources(ctx, username, dbResources)
 	if err != nil {
 		return errors.Wrap(err)
@@ -241,7 +241,7 @@ func (p *PostgresConfigurator) setConnection(ctx context.Context, databaseName s
 	return nil
 }
 
-func (p *PostgresConfigurator) sqlBatchFromDBResources(ctx context.Context, username string, dbResources []otterizev1alpha3.DatabaseResource) (pgx.Batch, error) {
+func (p *PostgresConfigurator) sqlBatchFromDBResources(ctx context.Context, username string, dbResources []otterizev2alpha1.SQLPrivileges) (pgx.Batch, error) {
 	batch := pgx.Batch{}
 
 	for _, resource := range dbResources {
@@ -260,7 +260,7 @@ func (p *PostgresConfigurator) sqlBatchFromDBResources(ctx context.Context, user
 	return batch, nil
 }
 
-func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.Context, batch *pgx.Batch, resource otterizev1alpha3.DatabaseResource, username string) error {
+func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.Context, batch *pgx.Batch, resource otterizev2alpha1.SQLPrivileges, username string) error {
 	postgresTableIdentifier := databaseConfigInputToSQLTableIdentifier(resource)
 	rows, err := p.conn.Query(ctx, PGSSelectTableSequencesPrivilegesQuery, postgresTableIdentifier.TableSchema, postgresTableIdentifier.TableName)
 	if err != nil {
@@ -273,7 +273,7 @@ func (p *PostgresConfigurator) queueAddPermissionsToTableStatements(ctx context.
 		if err := rows.Scan(&sequenceName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGGrantStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, pgx.Identifier{postgresTableIdentifier.TableSchema, sequenceName}, pgx.Identifier{username})
+		stmt, err := PGGrantStatement.PrepareSanitized([]otterizev2alpha1.DatabaseOperation{otterizev2alpha1.DatabaseOperationAll}, pgx.Identifier{postgresTableIdentifier.TableSchema, sequenceName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -373,7 +373,7 @@ func (p *PostgresConfigurator) queueRevokeAllOnTableAndSequencesStatements(ctx c
 	return nil
 }
 
-func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx context.Context, batch *pgx.Batch, resource otterizev1alpha3.DatabaseResource, username string) error {
+func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx context.Context, batch *pgx.Batch, resource otterizev2alpha1.SQLPrivileges, username string) error {
 	// Get all schemas in current database
 	rows, err := p.conn.Query(ctx, PGSSelectSchemaNamesQuery)
 	if err != nil {
@@ -387,7 +387,7 @@ func (p *PostgresConfigurator) queueAddPermissionsByDatabaseNameStatements(ctx c
 		if err := rows.Scan(&schemaName); err != nil {
 			return errors.Wrap(err)
 		}
-		stmt, err := PGGrantOnAllSequencesInSchemaStatement.PrepareSanitized([]otterizev1alpha3.DatabaseOperation{otterizev1alpha3.DatabaseOperationAll}, pgx.Identifier{schemaName}, pgx.Identifier{username})
+		stmt, err := PGGrantOnAllSequencesInSchemaStatement.PrepareSanitized([]otterizev2alpha1.DatabaseOperation{otterizev2alpha1.DatabaseOperationAll}, pgx.Identifier{schemaName}, pgx.Identifier{username})
 		if err != nil {
 			return errors.Wrap(err)
 		}
