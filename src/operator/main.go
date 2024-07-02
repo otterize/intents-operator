@@ -366,7 +366,7 @@ func main() {
 			logrus.WithError(err).Panic("failed writing certs to file system")
 		}
 
-		err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace)
+		err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace, certBundle.CertPem)
 		if err != nil {
 			logrus.WithError(err).Panic("unable to ensure otterize CRDs")
 		}
