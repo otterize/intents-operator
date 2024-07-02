@@ -2,8 +2,10 @@ package telemetrysender
 
 import (
 	"context"
+	"fmt"
 	"github.com/Khan/genqlient/graphql"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/otterize/intents-operator/src/shared/telemetries/basicbatch"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
@@ -23,10 +25,11 @@ type TelemetrySender struct {
 }
 
 func newGqlClient() graphql.Client {
-	apiAddress := viper.GetString(telemetriesconfig.TelemetryAPIAddressKey)
+	apiAddress := viper.GetString(otterizecloudclient.OtterizeAPIAddressKey)
+	graphqlUrl := fmt.Sprintf("%s/telemetry/query", apiAddress)
 	clientTimeout := viper.GetDuration(telemetriesconfig.TimeoutKey)
 	clientWithTimeout := &http.Client{Timeout: clientTimeout}
-	return graphql.NewClient(apiAddress, clientWithTimeout)
+	return graphql.NewClient(graphqlUrl, clientWithTimeout)
 }
 
 func batchSendTelemetries(ctx context.Context, telemetriesClient graphql.Client, telemetries []telemetriesgql.TelemetryInput) error {
