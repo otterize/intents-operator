@@ -192,7 +192,7 @@ func (p *PostgresConfigurator) revokeDatabasePermissions(ctx context.Context, us
 	if err != nil {
 		pgErr, ok := TranslatePostgresConnectionError(err)
 		if ok {
-			return errors.Wrap(fmt.Errorf(pgErr))
+			return errors.Errorf(pgErr)
 		}
 		return errors.Wrap(err)
 	}
@@ -502,6 +502,9 @@ func (p *PostgresConfigurator) AlterUserPassword(ctx context.Context, username s
 	batch.Queue(stmt)
 	if err := p.sendBatch(ctx, &batch); err != nil {
 		return errors.Wrap(err)
+	}
+	if errors.Is(err, ErrUndefinedObject) {
+		logrus.WithField("username", username).Debug("User does not exist, skipping password update")
 	}
 	return nil
 }

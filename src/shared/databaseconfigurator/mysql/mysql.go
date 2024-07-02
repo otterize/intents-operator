@@ -20,7 +20,7 @@ import (
 
 const (
 	SQLCreateUserStatement        SQLSprintfStatement = "CREATE USER %s IDENTIFIED BY %s"
-	SQLAlterUserPasswordStatement SQLSprintfStatement = "ALTER USER %s IDENTIFIED BY %s"
+	SQLAlterUserPasswordStatement SQLSprintfStatement = "ALTER USER IF EXISTS %s IDENTIFIED BY %s"
 	SQLDropUserQuery              SQLSprintfStatement = "DROP USER %s"
 
 	SQLGrantPrivilegesOnDatabaseStatement    SQLSprintfStatement = "GRANT %s ON %s.* TO '%s'"

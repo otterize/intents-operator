@@ -6,8 +6,6 @@ import (
 )
 
 const (
-	TelemetryAPIAddressKey         = "telemetry-address"
-	TelemetryAPIAddressDefault     = "https://app.otterize.com/api/telemetry/query"
 	TimeoutKey                     = "telemetry-client-timeout"
 	CloudClientTimeoutDefault      = "30s"
 	TelemetryEnabledKey            = "telemetry-enabled"
@@ -26,13 +24,10 @@ const (
 	TelemetryErrorEnabledDefault   = true
 	TelemetryErrorsStageKey        = "telemetry-errors-stage"
 	TelemetryErrorsStageDefault    = "production"
-	TelemetryErrorsAddressKey      = "telemetry-errors-address"
-	TelemetryErrorsAddressDefault  = "https://app.otterize.com/api/errors"
 	EnvPrefix                      = "OTTERIZE"
 )
 
 func init() {
-	viper.SetDefault(TelemetryAPIAddressKey, TelemetryAPIAddressDefault)
 	viper.SetDefault(TimeoutKey, CloudClientTimeoutDefault)
 	viper.SetDefault(TelemetryIntervalKey, TelemetryIntervalDefault)
 	viper.SetDefault(TelemetryMaxBatchSizeKey, TelemetryMaxBatchSizeDefault)
@@ -42,7 +37,6 @@ func init() {
 	viper.SetDefault(TelemetryActiveIntervalKey, TelemetryActiveIntervalDefault)
 	viper.SetDefault(TelemetryErrorsEnabledKey, TelemetryErrorEnabledDefault)
 	viper.SetDefault(TelemetryErrorsStageKey, TelemetryErrorsStageDefault)
-	viper.SetDefault(TelemetryErrorsAddressKey, TelemetryErrorsAddressDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
