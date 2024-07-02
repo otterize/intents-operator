@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha3
+package v1
 
 import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
@@ -37,6 +37,7 @@ type ProtectedServiceStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:storageversion
 
 // ProtectedService is the Schema for the protectedservice API
 type ProtectedService struct {

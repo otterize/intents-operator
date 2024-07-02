@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha3
+package v1
 
 import (
 	"encoding/json"
@@ -323,6 +323,7 @@ type IntentsStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:storageversion
 
 // ClientIntents is the Schema for the intents API
 type ClientIntents struct {

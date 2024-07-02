@@ -3,6 +3,7 @@ package pod_reconcilers
 import (
 	"context"
 	"fmt"
+	otterizev1 "github.com/otterize/intents-operator/src/operator/api/v1"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
@@ -45,6 +46,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) SetupSuite() {
 	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev2alpha1.AddToScheme(s.TestEnv.Scheme))
 
 	s.RestConfig, err = s.TestEnv.Start()
