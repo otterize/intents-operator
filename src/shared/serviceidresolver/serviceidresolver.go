@@ -2,7 +2,6 @@ package serviceidresolver
 
 import (
 	"context"
-	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/podownerresolver"
@@ -10,20 +9,12 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
-	"time"
-)
-
-const (
-	cacheSize = 2000
-	cacheTTL  = time.Second * 5
 )
 
 var (
-	ErrPodNotFound      = errors.NewSentinelError("pod not found")
-	podToServiceIDCache = expirable.NewLRU[types.NamespacedName, serviceidentity.ServiceIdentity](cacheSize, nil, cacheTTL)
+	ErrPodNotFound = errors.NewSentinelError("pod not found")
 )
 
 //+kubebuilder:rbac:groups="apps",resources=deployments;replicasets;daemonsets;statefulsets,verbs=get;list;watch
@@ -106,4 +97,8 @@ func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v2alpha1
 		return corev1.Pod{}, ErrPodNotFound
 	}
 	return pods[0], nil
+}
+
+func (r *Resolver) GetOwnerObject(ctx context.Context, pod *corev1.Pod) (client.Object, error) {
+	return podownerresolver.GetOwnerObject(ctx, r.client, pod)
 }
