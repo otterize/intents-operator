@@ -158,6 +158,10 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	for i, call := range in.Spec.Calls {
 		if call.IsTargetInCluster() && call.Type != IntentTypeKafka {
 			kubernetesTarget := v2alpha1.KubernetesTarget{Name: call.GetServerFullyQualifiedName(in.Namespace), Kind: call.GetTargetServerKind()}
+			if kubernetesTarget.Kind == serviceidentity.KindOtterizeLegacy {
+				// This is an internal kind the user doesn't need to see it
+				kubernetesTarget.Kind = ""
+			}
 			if call.Type == IntentTypeHTTP && len(call.HTTPResources) > 0 {
 				httpTargets := make([]v2alpha1.HTTPTarget, len(call.HTTPResources))
 				for j, http := range call.HTTPResources {
