@@ -122,9 +122,6 @@ func main() {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	ingressControllers := operatorconfig.GetIngressControllerServiceIdentities()
-	println(ingressControllers)
-
 	signalHandlerCtx := ctrl.SetupSignalHandler()
 
 	clusterUID := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
