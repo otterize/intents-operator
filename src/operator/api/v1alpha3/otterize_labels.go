@@ -28,6 +28,15 @@ func IsMissingOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]
 	return false
 }
 
+func IsMissingOtterizeExternalAccessLabels(pod *v1.Pod) bool {
+	if pod.Labels == nil {
+		return true
+	}
+
+	_, found := pod.Labels[OtterizeExternalAccessLabelKey]
+	return !found
+}
+
 // UpdateOtterizeAccessLabels updates a pod's labels with Otterize labels representing their intents
 // The pod is also labeled with "otterize-client=<hashed-client-name>" to mark it as having intents or being the client-side of an egress netpol
 func UpdateOtterizeAccessLabels(pod *v1.Pod, serviceIdentity serviceidentity.ServiceIdentity, otterizeAccessLabels map[string]string) *v1.Pod {

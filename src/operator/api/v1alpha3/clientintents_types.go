@@ -38,6 +38,7 @@ const (
 	OtterizeAccessLabelPrefix                  = "intents.otterize.com/access"
 	OtterizeServiceAccessLabelPrefix           = "intents.otterize.com/svc-access"
 	OtterizeAccessLabelKey                     = "intents.otterize.com/access-%s"
+	OtterizeExternalAccessLabelKey             = "intents.otterize.com/external-access-%s"
 	OtterizeSvcAccessLabelKey                  = "intents.otterize.com/svc-access-%s"
 	OtterizeClientLabelKey                     = "intents.otterize.com/client"
 	OtterizeServiceLabelKey                    = "intents.otterize.com/service"

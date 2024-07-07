@@ -119,10 +119,28 @@ const (
 	HTTPMethodAll     HTTPMethod = "ALL"
 )
 
+type IngressControllerConfigInput struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Kind      string `json:"kind"`
+}
+
+// GetName returns IngressControllerConfigInput.Name, and is useful for accessing the field via an interface.
+func (v *IngressControllerConfigInput) GetName() string { return v.Name }
+
+// GetNamespace returns IngressControllerConfigInput.Namespace, and is useful for accessing the field via an interface.
+func (v *IngressControllerConfigInput) GetNamespace() string { return v.Namespace }
+
+// GetKind returns IngressControllerConfigInput.Kind, and is useful for accessing the field via an interface.
+func (v *IngressControllerConfigInput) GetKind() string { return v.Kind }
+
 type IntentInput struct {
 	Namespace           *string                   `json:"namespace"`
 	ClientName          *string                   `json:"clientName"`
+	ClientWorkloadKind  *string                   `json:"clientWorkloadKind"`
 	ServerName          *string                   `json:"serverName"`
+	ServerWorkloadKind  *string                   `json:"serverWorkloadKind"`
+	ServerAlias         *ServerAliasInput         `json:"serverAlias"`
 	ServerNamespace     *string                   `json:"serverNamespace"`
 	Type                *IntentType               `json:"type"`
 	Topics              []*KafkaConfigInput       `json:"topics"`
@@ -142,8 +160,17 @@ func (v *IntentInput) GetNamespace() *string { return v.Namespace }
 // GetClientName returns IntentInput.ClientName, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetClientName() *string { return v.ClientName }
 
+// GetClientWorkloadKind returns IntentInput.ClientWorkloadKind, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetClientWorkloadKind() *string { return v.ClientWorkloadKind }
+
 // GetServerName returns IntentInput.ServerName, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetServerName() *string { return v.ServerName }
+
+// GetServerWorkloadKind returns IntentInput.ServerWorkloadKind, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetServerWorkloadKind() *string { return v.ServerWorkloadKind }
+
+// GetServerAlias returns IntentInput.ServerAlias, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetServerAlias() *ServerAliasInput { return v.ServerAlias }
 
 // GetServerNamespace returns IntentInput.ServerNamespace, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetServerNamespace() *string { return v.ServerNamespace }
@@ -201,17 +228,18 @@ const (
 )
 
 type IntentsOperatorConfigurationInput struct {
-	GlobalEnforcementEnabled              bool     `json:"globalEnforcementEnabled"`
-	NetworkPolicyEnforcementEnabled       bool     `json:"networkPolicyEnforcementEnabled"`
-	KafkaACLEnforcementEnabled            bool     `json:"kafkaACLEnforcementEnabled"`
-	IstioPolicyEnforcementEnabled         bool     `json:"istioPolicyEnforcementEnabled"`
-	ProtectedServicesEnabled              bool     `json:"protectedServicesEnabled"`
-	EgressNetworkPolicyEnforcementEnabled bool     `json:"egressNetworkPolicyEnforcementEnabled"`
-	AwsIAMPolicyEnforcementEnabled        bool     `json:"awsIAMPolicyEnforcementEnabled"`
-	GcpIAMPolicyEnforcementEnabled        bool     `json:"gcpIAMPolicyEnforcementEnabled"`
-	AzureIAMPolicyEnforcementEnabled      bool     `json:"azureIAMPolicyEnforcementEnabled"`
-	DatabaseEnforcementEnabled            bool     `json:"databaseEnforcementEnabled"`
-	EnforcedNamespaces                    []string `json:"enforcedNamespaces"`
+	GlobalEnforcementEnabled              bool                           `json:"globalEnforcementEnabled"`
+	NetworkPolicyEnforcementEnabled       bool                           `json:"networkPolicyEnforcementEnabled"`
+	KafkaACLEnforcementEnabled            bool                           `json:"kafkaACLEnforcementEnabled"`
+	IstioPolicyEnforcementEnabled         bool                           `json:"istioPolicyEnforcementEnabled"`
+	ProtectedServicesEnabled              bool                           `json:"protectedServicesEnabled"`
+	EgressNetworkPolicyEnforcementEnabled bool                           `json:"egressNetworkPolicyEnforcementEnabled"`
+	AwsIAMPolicyEnforcementEnabled        bool                           `json:"awsIAMPolicyEnforcementEnabled"`
+	GcpIAMPolicyEnforcementEnabled        bool                           `json:"gcpIAMPolicyEnforcementEnabled"`
+	AzureIAMPolicyEnforcementEnabled      bool                           `json:"azureIAMPolicyEnforcementEnabled"`
+	DatabaseEnforcementEnabled            bool                           `json:"databaseEnforcementEnabled"`
+	EnforcedNamespaces                    []string                       `json:"enforcedNamespaces"`
+	IngressControllerConfig               []IngressControllerConfigInput `json:"ingressControllerConfig"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -267,6 +295,11 @@ func (v *IntentsOperatorConfigurationInput) GetDatabaseEnforcementEnabled() bool
 // GetEnforcedNamespaces returns IntentsOperatorConfigurationInput.EnforcedNamespaces, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetEnforcedNamespaces() []string {
 	return v.EnforcedNamespaces
+}
+
+// GetIngressControllerConfig returns IntentsOperatorConfigurationInput.IngressControllerConfig, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetIngressControllerConfig() []IngressControllerConfigInput {
+	return v.IngressControllerConfig
 }
 
 type InternetConfigInput struct {
@@ -522,6 +555,17 @@ type ReportProtectedServicesSnapshotResponse struct {
 func (v *ReportProtectedServicesSnapshotResponse) GetReportProtectedServicesSnapshot() bool {
 	return v.ReportProtectedServicesSnapshot
 }
+
+type ServerAliasInput struct {
+	Name *string `json:"name"`
+	Kind *string `json:"kind"`
+}
+
+// GetName returns ServerAliasInput.Name, and is useful for accessing the field via an interface.
+func (v *ServerAliasInput) GetName() *string { return v.Name }
+
+// GetKind returns ServerAliasInput.Kind, and is useful for accessing the field via an interface.
+func (v *ServerAliasInput) GetKind() *string { return v.Kind }
 
 type UserErrorType string
 

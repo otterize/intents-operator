@@ -382,11 +382,14 @@ input DatabaseConfigInput {
 
 type DatabaseInfo {
 	databaseType: DatabaseType!
+	address: String!
+	username: String!
 	visibility: DatabaseVisibilitySettings
 }
 
 input DatabaseInfoInput {
 	databaseType: DatabaseType!
+	address: String!
 	visibility: DatabaseVisibilitySettingsInput
 }
 
@@ -400,6 +403,7 @@ enum DatabaseOperation {
 
 enum DatabaseType {
 	POSTGRESQL
+	MYSQL
 }
 
 type DatabaseVisibilitySettings {
@@ -716,6 +720,12 @@ input IncomingTrafficIntentInput {
 	source: IncomingInternetSourceInput!
 }
 
+input IngressControllerConfigInput {
+	name: String!
+	namespace: String!
+	kind: String!
+}
+
 input InputAccessGraphFilter {
 	clusterIds: InputIDFilterValue
 	serviceIds: InputIDFilterValue
@@ -737,10 +747,13 @@ input InputIDFilterValue {
 
 input InputIntegrationAccessGraphFilter {
 	environmentIds: [ID!]
+	environmentFilterType: IDFilterOperators
 	clusterIds: [ID!]
+	clusterFilterType: IDFilterOperators
+	namespaceIds: [ID!]
+	namespaceFilterType: IDFilterOperators
 	serviceIds: [ID!]
 	serviceFilterType: IDFilterOperators
-	namespaceIds: [ID!]
 }
 
 input InputTimeFilterValue {
@@ -778,8 +791,11 @@ type Integration {
 
 type IntegrationAccessGraphFilter {
 	environmentIds: [ID!]
+	environmentFilterType: IDFilterOperators
 	clusterIds: [ID!]
+	clusterFilterType: IDFilterOperators
 	namespaceIds: [ID!]
+	namespaceFilterType: IDFilterOperators
 	serviceIds: [ID!]
 	serviceFilterType: IDFilterOperators
 	lastSeenAfter: Time
@@ -830,6 +846,7 @@ enum IntegrationType {
 type Intent {
 	id: ID!
 	server: Service!
+	serverAlias: ServerAlias
 	client: Service!
 	type: IntentType
 	kafkaTopics: [KafkaConfig!]
@@ -846,7 +863,10 @@ type Intent {
 input IntentInput {
 	namespace: String!
 	clientName: String!
+	clientWorkloadKind: String
 	serverName: String!
+	serverWorkloadKind: String
+	serverAlias: ServerAliasInput
 	serverNamespace: String
 	type: IntentType
 	topics: [KafkaConfigInput!]
@@ -915,6 +935,7 @@ input IntentsOperatorConfigurationInput {
 	azureIAMPolicyEnforcementEnabled: Boolean
 	databaseEnforcementEnabled: Boolean
 	enforcedNamespaces: [String!]
+	ingressControllerConfig: [IngressControllerConfigInput!]
 }
 
 type InternetConfig {
@@ -1749,6 +1770,16 @@ input SelectorKeyValueInput {
 	value: String
 }
 
+type ServerAlias {
+	name: String!
+	kind: String
+}
+
+input ServerAliasInput {
+	name: String!
+	kind: String
+}
+
 type ServerBlockingStatus {
 	verdict: ServerBlockingStatusVerdict!
 	reason: ServerBlockingStatusReason!
@@ -1810,6 +1841,8 @@ type Service {
 	id: ID!
 	name: String!
 	tags: [String!]
+	workloadKind: String
+	aliases: [ServerAlias!]
 	namespace: Namespace
 	environment: Environment!
 """If service is Kafka, its KafkaServerConfig."""
