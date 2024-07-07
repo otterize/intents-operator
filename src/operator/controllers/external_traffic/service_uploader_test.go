@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+const testNamespace = "test-namespace"
+
 type ServiceUploaderTestSuite struct {
 	testbase.MocksSuiteBase
 	serviceUploader ServiceUploader
