@@ -466,7 +466,7 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "ProtectedServices")
 	}
 
-	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, intentsReconciler)
+	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, intentsReconciler, epGroupReconciler)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
 	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler, enforcementConfig.EnableNetworkPolicy, extNetpolHandler)
 

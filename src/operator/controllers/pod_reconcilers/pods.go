@@ -45,9 +45,14 @@ type PodWatcher struct {
 	istioPolicyAdmin  istiopolicy.PolicyManager
 	injectablerecorder.InjectableRecorder
 	intentsReconciler reconcile.Reconciler
+	epReconciler      GroupReconciler
 }
 
-func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string], intentsReconciler reconcile.Reconciler) *PodWatcher {
+type GroupReconciler interface {
+	Reconcile(ctx context.Context) error
+}
+
+func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string], intentsReconciler reconcile.Reconciler, serviceEffectivePolicyReconciler GroupReconciler) *PodWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
 	creator := istiopolicy.NewPolicyManager(c, &recorder, watchedNamespaces, enforcementDefaultState, istioEnforcementEnabled, activeNamespaces)
 	return &PodWatcher{
@@ -56,6 +61,7 @@ func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedN
 		istioPolicyAdmin:   creator,
 		InjectableRecorder: recorder,
 		intentsReconciler:  intentsReconciler,
+		epReconciler:       serviceEffectivePolicyReconciler,
 	}
 }
 
@@ -102,11 +108,34 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	err = p.runServiceEffectivePolicy(ctx, pod, serviceID)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
 	if res.Requeue {
 		return res, nil
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (p *PodWatcher) runServiceEffectivePolicy(ctx context.Context, pod v1.Pod, serviceID serviceidentity.ServiceIdentity) error {
+	// Run even if the pod is being deleted to remove intents if needed
+	_, ok, err := access_annotation.ParseAccessAnnotations(&pod)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	if !ok {
+		return nil
+	}
+
+	err = p.epReconciler.Reconcile(ctx)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
 }
 
 func (p *PodWatcher) handleIstioPolicy(ctx context.Context, pod v1.Pod, serviceID serviceidentity.ServiceIdentity) error {

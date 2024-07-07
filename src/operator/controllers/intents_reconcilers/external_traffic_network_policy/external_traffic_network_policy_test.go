@@ -13,6 +13,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy/builders"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
+	podreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
@@ -21,6 +22,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
 	v1 "k8s.io/api/networking/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -91,7 +93,9 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.IngressReconciler.InjectRecorder(recorder)
 	s.Require().NoError(err)
 
-	s.podWatcher = pod_reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, defaultActive, true, goset.NewSet[string](), &mocks.MockIntentsReconcilerForTestEnv{})
+	controller := gomock.NewController(s.T())
+	serviceEffectivePolicyReconciler := podreconcilersmocks.NewMockGroupReconciler(controller)
+	s.podWatcher = pod_reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, defaultActive, true, goset.NewSet[string](), &mocks.MockIntentsReconcilerForTestEnv{}, serviceEffectivePolicyReconciler)
 	err = s.podWatcher.InitIntentsClientIndices(s.Mgr)
 	s.Require().NoError(err)
 
