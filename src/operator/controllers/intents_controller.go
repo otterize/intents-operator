@@ -204,6 +204,7 @@ func (r *IntentsReconciler) mapPodWithAccessAnnotationToClientIntents(ctx contex
 
 	clients, ok, err := access_annotation.ParseAccessAnnotations(pod)
 	if err != nil {
+		// If parsing fails an error will be recorded by the pods reconciler so here we just log it
 		logrus.WithError(err).Errorf("Failed to parse access annotations for pod %s", pod.Name)
 		return nil
 	}

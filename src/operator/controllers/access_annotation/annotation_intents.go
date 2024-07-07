@@ -11,13 +11,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Intent struct {
+type AnnotationIntent struct {
 	Client        serviceidentity.ServiceIdentity
 	Server        serviceidentity.ServiceIdentity
 	EventRecorder *injectablerecorder.ObjectEventRecorder
 }
 
-type IntentsByService map[serviceidentity.ServiceIdentity][]Intent
+type IntentsByService map[serviceidentity.ServiceIdentity][]AnnotationIntent
 
 type AnnotationIntents struct {
 	IntentsByServer IntentsByService
@@ -61,7 +61,7 @@ func GetIntentsInCluster(
 			return AnnotationIntents{}, errors.Wrap(err)
 		}
 		for _, clientIdentity := range clients {
-			intent := Intent{
+			intent := AnnotationIntent{
 				Client:        clientIdentity,
 				Server:        serverIdentity,
 				EventRecorder: injectablerecorder.NewObjectEventRecorder(recorder, lo.ToPtr(pod)),
@@ -85,11 +85,11 @@ func getAllAnnotationIntentsServers(ctx context.Context, k8sClient client.Client
 	return podList, nil
 }
 
-func (a *AnnotationIntents) addIntent(intent Intent) {
+func (a *AnnotationIntents) addIntent(intent AnnotationIntent) {
 	serverIdentity := intent.Server
 	existing, ok := a.IntentsByServer[serverIdentity]
 	if !ok {
-		existing = make([]Intent, 0)
+		existing = make([]AnnotationIntent, 0)
 	}
 	existing = append(existing, intent)
 	a.IntentsByServer[serverIdentity] = existing
@@ -97,7 +97,7 @@ func (a *AnnotationIntents) addIntent(intent Intent) {
 	clientIdentity := intent.Client
 	existing, ok = a.IntentsByClient[clientIdentity]
 	if !ok {
-		existing = make([]Intent, 0)
+		existing = make([]AnnotationIntent, 0)
 	}
 	existing = append(existing, intent)
 	a.IntentsByClient[clientIdentity] = existing

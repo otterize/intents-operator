@@ -187,7 +187,7 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(
 	return ep, nil
 }
 
-func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []access_annotation.Intent, serversFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []Call {
+func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []access_annotation.AnnotationIntent, serversFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []Call {
 	calls := make([]Call, 0)
 	for _, annotationIntent := range annotationsIntents {
 		if serversFoundInClientIntents.Contains(annotationIntent.Server) {
@@ -204,14 +204,14 @@ func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []acce
 	return calls
 }
 
-func asIntent(annotationIntent access_annotation.Intent) v1alpha3.Intent {
+func asIntent(annotationIntent access_annotation.AnnotationIntent) v1alpha3.Intent {
 	return v1alpha3.Intent{
 		Name: annotationIntent.Server.GetNameAsServer(),
 		Kind: annotationIntent.Server.Kind,
 	}
 }
 
-func (g *GroupReconciler) getAnnotationIntentsAsServer(service serviceidentity.ServiceIdentity, annotationsIntents []access_annotation.Intent, clientsFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []ClientCall {
+func (g *GroupReconciler) getAnnotationIntentsAsServer(service serviceidentity.ServiceIdentity, annotationsIntents []access_annotation.AnnotationIntent, clientsFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []ClientCall {
 	calledBy := make([]ClientCall, 0)
 	for _, annotationIntent := range annotationsIntents {
 		if clientsFoundInClientIntents.Contains(annotationIntent.Client) {
