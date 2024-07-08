@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	"github.com/otterize/intents-operator/src/operator/controllers/access_annotation"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
@@ -186,6 +187,7 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&otterizev1alpha3.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
 		Watches(&corev1.Endpoints{}, handler.EnqueueRequestsFromMapFunc(r.watchApiServerEndpoint)).
 		Watches(&otterizev1alpha3.PostgreSQLServerConfig{}, handler.EnqueueRequestsFromMapFunc(r.mapPostgresInstanceNameToDatabaseIntents)).
+		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.mapPodWithAccessAnnotationToClientIntents)).
 		Complete(r)
 	if err != nil {
 		return errors.Wrap(err)
@@ -194,6 +196,30 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.group.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
 
 	return nil
+}
+
+func (r *IntentsReconciler) mapPodWithAccessAnnotationToClientIntents(ctx context.Context, obj client.Object) []reconcile.Request {
+	pod := obj.(*corev1.Pod)
+	logrus.Debugf("Enqueueing client intents for pod %s", pod.Name)
+
+	clients, ok, err := access_annotation.ParseAccessAnnotations(pod)
+	if err != nil {
+		// If parsing fails an error will be recorded by the pods reconciler so here we just log it
+		logrus.WithError(err).Errorf("Failed to parse access annotations for pod %s", pod.Name)
+		return nil
+	}
+	if !ok {
+		return nil
+	}
+
+	requests := make([]reconcile.Request, 0)
+	for _, clientService := range clients {
+		intentsToReconcile := r.getIntentsToService(ctx, clientService.Name, clientService.Namespace)
+		serviceRequests := r.mapIntentsToRequests(intentsToReconcile)
+
+		requests = append(requests, serviceRequests...)
+	}
+	return requests
 }
 
 func (r *IntentsReconciler) watchApiServerEndpoint(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -228,7 +254,7 @@ func (r *IntentsReconciler) mapProtectedServiceToClientIntents(ctx context.Conte
 	protectedService := obj.(*otterizev1alpha3.ProtectedService)
 	logrus.Debugf("Enqueueing client intents for protected services %s", protectedService.Name)
 
-	intentsToReconcile := r.getIntentsToProtectedService(ctx, protectedService)
+	intentsToReconcile := r.getIntentsToService(ctx, protectedService.Spec.Name, protectedService.Namespace)
 	return r.mapIntentsToRequests(intentsToReconcile)
 }
 
@@ -278,9 +304,9 @@ func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev1
 	return requests
 }
 
-func (r *IntentsReconciler) getIntentsToProtectedService(ctx context.Context, protectedService *otterizev1alpha3.ProtectedService) []otterizev1alpha3.ClientIntents {
+func (r *IntentsReconciler) getIntentsToService(ctx context.Context, serviceName string, namespace string) []otterizev1alpha3.ClientIntents {
 	intentsToReconcile := make([]otterizev1alpha3.ClientIntents, 0)
-	fullServerName := fmt.Sprintf("%s.%s", protectedService.Spec.Name, protectedService.Namespace)
+	fullServerName := fmt.Sprintf("%s.%s", serviceName, namespace)
 	var intentsToServer otterizev1alpha3.ClientIntentsList
 	err := r.client.List(ctx,
 		&intentsToServer,
