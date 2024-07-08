@@ -6,7 +6,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
@@ -43,21 +42,23 @@ type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	allowExternalTraffic allowexternaltraffic.Enum
+	allowExternalTraffic        allowexternaltraffic.Enum
+	ingressControllerIdentities []serviceidentity.ServiceIdentity
 }
 
 func NewNetworkPolicyHandler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	allowExternalTraffic allowexternaltraffic.Enum,
+	ingressControllerIdentities []serviceidentity.ServiceIdentity,
 ) *NetworkPolicyHandler {
-	return &NetworkPolicyHandler{client: client, scheme: scheme, allowExternalTraffic: allowExternalTraffic}
+	return &NetworkPolicyHandler{client: client, scheme: scheme, allowExternalTraffic: allowExternalTraffic, ingressControllerIdentities: ingressControllerIdentities}
 }
 
 func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 	ctx context.Context, endpoints *corev1.Endpoints, owner *corev1.Service, otterizeServiceName string, selector metav1.LabelSelector, ingressList *v1.IngressList, successMsg string) error {
 	policyName := r.formatPolicyName(endpoints.Name)
-	newPolicy := buildNetworkPolicyObjectForEndpoints(endpoints, owner, otterizeServiceName, selector, ingressList, policyName)
+	newPolicy := r.buildNetworkPolicyObjectForEndpoints(endpoints, owner, otterizeServiceName, selector, ingressList, policyName)
 	err := controllerutil.SetOwnerReference(owner, newPolicy, r.scheme)
 	if err != nil {
 		return errors.Wrap(err)
@@ -113,7 +114,7 @@ func (r *NetworkPolicyHandler) arePoliciesEqual(existingPolicy *v1.NetworkPolicy
 		reflect.DeepEqual(existingPolicy.OwnerReferences, newPolicy.OwnerReferences)
 }
 
-func buildNetworkPolicyObjectForEndpoints(
+func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 	endpoints *corev1.Endpoints, svc *corev1.Service, otterizeServiceName string, selector metav1.LabelSelector, ingressList *v1.IngressList, policyName string) *v1.NetworkPolicy {
 
 	annotations := map[string]string{
@@ -127,10 +128,9 @@ func buildNetworkPolicyObjectForEndpoints(
 	}
 
 	rule := v1.NetworkPolicyIngressRule{}
-	ingressControllers := operatorconfig.GetIngressControllerServiceIdentities()
 	// Only limit netpol if there is an ingress controller restriction configured AND the service is not directly exposed.
-	if len(ingressControllers) != 0 && svc.Spec.Type == corev1.ServiceTypeClusterIP {
-		for _, ingressController := range ingressControllers {
+	if len(r.ingressControllerIdentities) != 0 && svc.Spec.Type == corev1.ServiceTypeClusterIP {
+		for _, ingressController := range r.ingressControllerIdentities {
 			rule.From = append(rule.From, v1.NetworkPolicyPeer{
 				PodSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
