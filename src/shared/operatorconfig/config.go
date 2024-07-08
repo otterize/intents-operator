@@ -3,6 +3,7 @@ package operatorconfig
 import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
@@ -78,6 +79,7 @@ const (
 	TelemetryErrorsAPIKeyKey                    = "telemetry-errors-api-key"
 	TelemetryErrorsAPIKeyDefault                = "60a78208a2b4fe714ef9fb3d3fdc0714"
 	AWSAccountsKey                              = "aws"
+	IngressControllerConfigKey                  = "ingressControllers"
 )
 
 func init() {
@@ -135,6 +137,30 @@ func GetRolesAnywhereAWSAccounts() []AWSAccount {
 		logrus.WithError(err).Panic("Failed to unmarshal AWS accounts")
 	}
 	return accts
+}
+
+type IngressControllerConfig struct {
+	Name      string
+	Namespace string
+	Kind      string
+}
+
+func GetIngressControllerServiceIdentities() []serviceidentity.ServiceIdentity {
+	controllers := make([]IngressControllerConfig, 0)
+	err := viper.UnmarshalKey(IngressControllerConfigKey, &controllers)
+	if err != nil {
+		logrus.WithError(err).Panic("Failed to unmarshal ingress controller config")
+	}
+
+	identities := make([]serviceidentity.ServiceIdentity, 0)
+	for _, controller := range controllers {
+		identities = append(identities, serviceidentity.ServiceIdentity{
+			Name:      controller.Name,
+			Namespace: controller.Namespace,
+			Kind:      controller.Kind,
+		})
+	}
+	return identities
 }
 
 func InitCLIFlags() {

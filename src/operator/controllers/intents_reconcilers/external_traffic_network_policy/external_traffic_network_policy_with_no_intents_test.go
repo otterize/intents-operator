@@ -16,6 +16,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -67,7 +68,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Always)
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Always, make([]serviceidentity.ServiceIdentity, 0))
 	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, goset.NewSet[string](), true, true, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder()}, nil)
 	serviceIdResolver := serviceidresolver.NewResolver(s.Mgr.GetClient())
 	groupReconciler := effectivepolicy.NewGroupReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, serviceIdResolver, netpolReconciler)
@@ -228,7 +229,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestEndpointsRec
 
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
 
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Off)
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Off, make([]serviceidentity.ServiceIdentity, 0))
 	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	recorder := record.NewFakeRecorder(10)
 	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)
