@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	fakeRecorderBufferSize = 100
+	FakeRecorderBufferSize = 100
 )
 
 type MocksSuiteBase struct {
@@ -23,19 +23,23 @@ type MocksSuiteBase struct {
 func (s *MocksSuiteBase) SetupTest() {
 	s.Controller = gomock.NewController(s.T())
 	s.Client = mocks.NewMockClient(s.Controller)
-	s.Recorder = record.NewFakeRecorder(fakeRecorderBufferSize)
+	s.Recorder = record.NewFakeRecorder(FakeRecorderBufferSize)
 }
 
 func (s *MocksSuiteBase) TearDownTest() {
-	s.ExpectNoEvent()
+	s.ExpectNoEvent(s.Recorder)
 	s.Recorder = nil
 	s.Client = nil
 	s.Controller.Finish()
 }
 
 func (s *MocksSuiteBase) ExpectEvent(expectedEventReason string) {
+	s.ExpectEventsForRecorder(s.Recorder, expectedEventReason)
+}
+
+func (s *MocksSuiteBase) ExpectEventsForRecorder(recorder *record.FakeRecorder, expectedEventReason string) {
 	select {
-	case event := <-s.Recorder.Events:
+	case event := <-recorder.Events:
 		s.Require().Contains(event, expectedEventReason)
 	default:
 		s.Failf("Expected event not found", "Event '%v'", expectedEventReason)
@@ -60,9 +64,9 @@ func (s *MocksSuiteBase) ExpectEventsOrderAndCountDontMatter(expectedEventReason
 	}
 }
 
-func (s *MocksSuiteBase) ExpectNoEvent() {
+func (s *MocksSuiteBase) ExpectNoEvent(eventRecorder *record.FakeRecorder) {
 	select {
-	case event := <-s.Recorder.Events:
+	case event := <-eventRecorder.Events:
 		s.Fail("Unexpected event found", event)
 	default:
 		// Amazing, no events left behind!
