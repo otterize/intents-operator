@@ -1,0 +1,7 @@
+apiVersion: v1
+metadata:
+  name: otterize-webhook-configmap
+data:
+  serviceName: "intents-operator-webhook-service"
+  serviceNamespace: "'{{ .Release.Namespace }}'"
+kind: ConfigMap

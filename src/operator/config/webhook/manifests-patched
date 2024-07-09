@@ -1,3 +1,14 @@
+apiVersion: v1
+data:
+  serviceName: intents-operator-webhook-service
+  serviceNamespace: {{ .Release.Namespace }}
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: intents-operator
+    app.kubernetes.io/part-of: otterize
+  name: otterize-webhook-configmap
+---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -136,8 +147,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v2alpha1-mysqlserverconfig
   failurePolicy: Fail
   matchPolicy: Exact
@@ -157,8 +168,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig
   failurePolicy: Fail
   matchPolicy: Exact
@@ -178,8 +189,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1-postgresqlserverconfig
   failurePolicy: Fail
   matchPolicy: Exact
@@ -199,8 +210,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v2alpha1-postgresqlserverconfig
   failurePolicy: Fail
   matchPolicy: Exact
@@ -220,8 +231,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha2-protectedservice
   failurePolicy: Fail
   matchPolicy: Exact
@@ -241,8 +252,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1-protectedservice
   failurePolicy: Fail
   matchPolicy: Exact
@@ -262,8 +273,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha3-protectedservice
   failurePolicy: Fail
   matchPolicy: Exact
@@ -283,8 +294,8 @@ webhooks:
   - v1
   clientConfig:
     service:
-      name: webhook-service
-      namespace: system
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v2alpha1-protectedservice
   failurePolicy: Fail
   matchPolicy: Exact

@@ -1,5 +1,6 @@
 resources:
 - manifests.yaml
+- configmap.yaml
 
 configurations:
 - kustomizeconfig.yaml
@@ -8,46 +9,30 @@ commonLabels:
   app.kubernetes.io/part-of: otterize
   app.kubernetes.io/component: intents-operator
 
+replacements:
+  - source:
+        kind: ConfigMap
+        name: otterize-webhook-configmap
+        fieldPath: data.serviceName
+    targets:
+        - select:
+            kind: ValidatingWebhookConfiguration
+          fieldPaths:
+            - webhooks.*.clientConfig.service.name
+  - source:
+        kind: ConfigMap
+        name: otterize-webhook-configmap
+        fieldPath: data.serviceNamespace
+    targets:
+        - select:
+            kind: ValidatingWebhookConfiguration
+          fieldPaths:
+            - webhooks.*.clientConfig.service.namespace
+
 patches:
     - patch: |-
           - op: replace
             path: /metadata/name
             value: 'otterize-validating-webhook-configuration'
-          - op: replace
-            path: /webhooks/0/clientConfig/service/namespace
-            value: '{{ .Release.Namespace }}'
-          - op: replace
-            path: /webhooks/0/clientConfig/service/name
-            value: intents-operator-webhook-service
-          - op: replace
-            path: /webhooks/1/clientConfig/service/namespace
-            value: '{{ .Release.Namespace }}'
-          - op: replace
-            path: /webhooks/1/clientConfig/service/name
-            value: intents-operator-webhook-service
-          - op: replace
-            path: /webhooks/2/clientConfig/service/namespace
-            value: '{{ .Release.Namespace }}'
-          - op: replace
-            path: /webhooks/2/clientConfig/service/name
-            value: intents-operator-webhook-service
-          - op: replace
-            path: /webhooks/3/clientConfig/service/namespace
-            value: '{{ .Release.Namespace }}'
-          - op: replace
-            path: /webhooks/3/clientConfig/service/name
-            value: intents-operator-webhook-service
-          - op: replace
-            path: /webhooks/4/clientConfig/service/namespace
-            value: '{{ .Release.Namespace }}'
-          - op: replace
-            path: /webhooks/4/clientConfig/service/name
-            value: intents-operator-webhook-service
-          - op: replace
-            path: /webhooks/5/clientConfig/service/namespace
-            value: '{{ .Release.Namespace }}'
-          - op: replace
-            path: /webhooks/5/clientConfig/service/name
-            value: intents-operator-webhook-service
       target:
           kind: ValidatingWebhookConfiguration
