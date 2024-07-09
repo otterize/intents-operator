@@ -134,13 +134,13 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 			rule.From = append(rule.From, v1.NetworkPolicyPeer{
 				PodSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						v1alpha3.OtterizeServiceLabelKey:   ingressController.GetFormattedOtterizeIdentityWithoutKind(),
-						v1alpha3.OtterizeOwnerKindLabelKey: ingressController.Kind,
+						v2alpha1.OtterizeServiceLabelKey:   ingressController.GetFormattedOtterizeIdentityWithoutKind(),
+						v2alpha1.OtterizeOwnerKindLabelKey: ingressController.Kind,
 					},
 				},
 				NamespaceSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						v1alpha3.KubernetesStandardNamespaceNameLabelKey: ingressController.Namespace,
+						v2alpha1.KubernetesStandardNamespaceNameLabelKey: ingressController.Namespace,
 					},
 				},
 			})

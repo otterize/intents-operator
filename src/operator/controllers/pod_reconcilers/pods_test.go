@@ -8,6 +8,8 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
+	podreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
@@ -224,7 +226,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestAnnotationIntentsRunServiceEffe
 
 	_, err := s.AddIntents("test-intents", deploymentName, "Deployment", []otterizev2alpha1.Target{{
 		Kubernetes: &otterizev2alpha1.KubernetesTarget{
-			Type: otterizev1alpha3.IntentTypeHTTP, Name: intentTargetServerName,
+			Name: intentTargetServerName,
 		},
 	},
 	})

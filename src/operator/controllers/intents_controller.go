@@ -304,9 +304,9 @@ func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev2
 	return requests
 }
 
-func (r *IntentsReconciler) getIntentsToProtectedService(ctx context.Context, protectedService *otterizev2alpha1.ProtectedService) []otterizev2alpha1.ClientIntents {
+func (r *IntentsReconciler) getIntentsToService(ctx context.Context, serviceName string, namespace string) []otterizev2alpha1.ClientIntents {
 	intentsToReconcile := make([]otterizev2alpha1.ClientIntents, 0)
-	fullServerName := fmt.Sprintf("%s.%s", protectedService.Spec.Name, protectedService.Namespace)
+	fullServerName := fmt.Sprintf("%s.%s", serviceName, namespace)
 	var intentsToServer otterizev2alpha1.ClientIntentsList
 	err := r.client.List(ctx,
 		&intentsToServer,

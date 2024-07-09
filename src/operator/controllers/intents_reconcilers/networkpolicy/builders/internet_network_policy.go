@@ -29,7 +29,7 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 
 	// Get all intents to the internet
 	intents := lo.Filter(ep.Calls, func(intent effectivepolicy.Call, _ int) bool {
-		return intent.Intent.Internet != nil
+		return intent.Internet != nil
 	})
 
 	if len(intents) == 0 {
@@ -37,7 +37,7 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 	}
 
 	for _, intent := range intents {
-		peers, ports, foundResolvedDNSNames, err := r.buildRuleForIntent(intent.Intent, ep)
+		peers, ports, foundResolvedDNSNames, err := r.buildRuleForIntent(intent.Target, ep)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}

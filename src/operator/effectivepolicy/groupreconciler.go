@@ -134,7 +134,7 @@ func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(inten
 func (g *GroupReconciler) buildServiceEffectivePolicy(
 	ctx context.Context,
 	service serviceidentity.ServiceIdentity,
-	serviceToIntent map[serviceidentity.ServiceIdentity]v1alpha3.ClientIntents,
+	serviceToIntent map[serviceidentity.ServiceIdentity]v2alpha1.ClientIntents,
 	intentsFromAnnotation access_annotation.AnnotationIntents,
 ) (ServiceEffectivePolicy, error) {
 	relevantClientIntents, err := g.getClientIntentsAsAServer(ctx, service)
@@ -169,9 +169,9 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(
 	clientIntents, ok := serviceToIntent[service]
 	if ok && clientIntents.DeletionTimestamp.IsZero() && clientIntents.Spec != nil {
 		recorder := injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntents))
-		calls := lo.Map(clientIntents.GetCallsList(), func(intent v1alpha3.Intent, _ int) Call {
+		calls := lo.Map(clientIntents.GetTargetList(), func(intent v2alpha1.Target, _ int) Call {
 			serversFoundInClientIntents.Add(intent.ToServiceIdentity(clientIntents.Namespace))
-			return Call{Intent: intent, EventRecorder: recorder}
+			return Call{Target: intent, EventRecorder: recorder}
 		})
 		ep.Calls = append(ep.Calls, calls...)
 		ep.ClientIntentsEventRecorder = recorder
@@ -196,7 +196,7 @@ func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []acce
 		}
 
 		call := Call{
-			Intent:        asIntent(annotationIntent),
+			Target:        asIntentTarget(annotationIntent),
 			EventRecorder: annotationIntent.EventRecorder,
 		}
 		calls = append(calls, call)
@@ -204,10 +204,12 @@ func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []acce
 	return calls
 }
 
-func asIntent(annotationIntent access_annotation.AnnotationIntent) v1alpha3.Intent {
-	return v1alpha3.Intent{
-		Name: annotationIntent.Server.GetNameAsServer(),
-		Kind: annotationIntent.Server.Kind,
+func asIntentTarget(annotationIntent access_annotation.AnnotationIntent) v2alpha1.Target {
+	return v2alpha1.Target{
+		Kubernetes: &v2alpha1.KubernetesTarget{
+			Name: annotationIntent.Server.GetNameAsServer(),
+			Kind: annotationIntent.Server.Kind,
+		},
 	}
 }
 
@@ -221,7 +223,7 @@ func (g *GroupReconciler) getAnnotationIntentsAsServer(service serviceidentity.S
 
 		call := ClientCall{
 			Service:             annotationIntent.Client,
-			IntendedCall:        asIntent(annotationIntent),
+			IntendedCall:        asIntentTarget(annotationIntent),
 			ObjectEventRecorder: annotationIntent.EventRecorder,
 		}
 		calledBy = append(calledBy, call)
