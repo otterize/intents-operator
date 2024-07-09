@@ -23,6 +23,14 @@ func (in *MySQLServerConfig) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Address = in.Spec.Address
 	dst.Spec.Credentials.Username = in.Spec.Credentials.Username
 	dst.Spec.Credentials.Password = in.Spec.Credentials.Password
+	if in.Spec.Credentials.SecretRef != nil {
+		dst.Spec.Credentials.SecretRef = &v2alpha1.DatabaseCredentialsSecretRef{
+			Name:        in.Spec.Credentials.SecretRef.Name,
+			Namespace:   in.Spec.Credentials.SecretRef.Namespace,
+			UsernameKey: in.Spec.Credentials.SecretRef.UsernameKey,
+			PasswordKey: in.Spec.Credentials.SecretRef.PasswordKey,
+		}
+	}
 	return nil
 }
 
@@ -32,6 +40,14 @@ func (in *MySQLServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
 	in.Spec.Address = src.Spec.Address
 	in.Spec.Credentials.Username = src.Spec.Credentials.Username
 	in.Spec.Credentials.Password = src.Spec.Credentials.Password
+	if src.Spec.Credentials.SecretRef != nil {
+		in.Spec.Credentials.SecretRef = &DatabaseCredentialsSecretRef{
+			Name:        src.Spec.Credentials.SecretRef.Name,
+			Namespace:   src.Spec.Credentials.SecretRef.Namespace,
+			UsernameKey: src.Spec.Credentials.SecretRef.UsernameKey,
+			PasswordKey: src.Spec.Credentials.SecretRef.PasswordKey,
+		}
+	}
 	return nil
 }
 
@@ -49,6 +65,15 @@ func (in *PostgreSQLServerConfig) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Address = in.Spec.Address
 	dst.Spec.Credentials.Username = in.Spec.Credentials.Username
 	dst.Spec.Credentials.Password = in.Spec.Credentials.Password
+	if in.Spec.Credentials.SecretRef != nil {
+		dst.Spec.Credentials.SecretRef = &v2alpha1.DatabaseCredentialsSecretRef{
+			Name:        in.Spec.Credentials.SecretRef.Name,
+			Namespace:   in.Spec.Credentials.SecretRef.Namespace,
+			UsernameKey: in.Spec.Credentials.SecretRef.UsernameKey,
+			PasswordKey: in.Spec.Credentials.SecretRef.PasswordKey,
+		}
+
+	}
 	return nil
 }
 
@@ -58,6 +83,14 @@ func (in *PostgreSQLServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
 	in.Spec.Address = src.Spec.Address
 	in.Spec.Credentials.Username = src.Spec.Credentials.Username
 	in.Spec.Credentials.Password = src.Spec.Credentials.Password
+	if src.Spec.Credentials.SecretRef != nil {
+		in.Spec.Credentials.SecretRef = &DatabaseCredentialsSecretRef{
+			Name:        src.Spec.Credentials.SecretRef.Name,
+			Namespace:   src.Spec.Credentials.SecretRef.Namespace,
+			UsernameKey: src.Spec.Credentials.SecretRef.UsernameKey,
+			PasswordKey: src.Spec.Credentials.SecretRef.PasswordKey,
+		}
+	}
 	return nil
 }
 
