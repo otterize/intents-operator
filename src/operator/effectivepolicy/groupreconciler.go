@@ -5,8 +5,10 @@ import (
 	goerrors "errors"
 	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	"github.com/otterize/intents-operator/src/operator/controllers/access_annotation"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -22,16 +24,18 @@ type reconciler interface {
 
 type GroupReconciler struct {
 	client.Client
-	Scheme      *runtime.Scheme
-	reconcilers []reconciler
+	Scheme            *runtime.Scheme
+	reconcilers       []reconciler
+	serviceIdResolver *serviceidresolver.Resolver
 	injectablerecorder.InjectableRecorder
 }
 
-func NewGroupReconciler(k8sClient client.Client, scheme *runtime.Scheme, reconcilers ...reconciler) *GroupReconciler {
+func NewGroupReconciler(k8sClient client.Client, scheme *runtime.Scheme, serviceIdResolver *serviceidresolver.Resolver, reconcilers ...reconciler) *GroupReconciler {
 	return &GroupReconciler{
-		Client:      k8sClient,
-		Scheme:      scheme,
-		reconcilers: reconcilers,
+		Client:            k8sClient,
+		Scheme:            scheme,
+		serviceIdResolver: serviceIdResolver,
+		reconcilers:       reconcilers,
 	}
 }
 
@@ -69,7 +73,7 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 
 	err := g.Client.List(ctx, &intentsList)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 
 	serviceToIntent := make(map[serviceidentity.ServiceIdentity]v2alpha1.ClientIntents)
@@ -90,19 +94,25 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		}
 	}
 
+	annotationIntents, err := access_annotation.GetIntentsInCluster(ctx, g.Client, g.serviceIdResolver, &g.InjectableRecorder)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	serversFromAnnotation := lo.Keys(annotationIntents.IntentsByServer)
+	clientsFromAnnotation := lo.Keys(annotationIntents.IntentsByClient)
+
+	services.Add(serversFromAnnotation...)
+	services.Add(clientsFromAnnotation...)
+
 	// buildNetworkPolicy SEP for every service
 	epSlice := make([]ServiceEffectivePolicy, 0)
 	for _, service := range services.Items() {
-		ep, err := g.buildServiceEffectivePolicy(ctx, service)
+		ep, err := g.buildServiceEffectivePolicy(ctx, service, serviceToIntent, annotationIntents)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err)
 		}
-		// Ignore intents in deletion process
-		if clientIntents, ok := serviceToIntent[service]; ok && clientIntents.DeletionTimestamp.IsZero() && clientIntents.Spec != nil {
-			ep.Calls = append(ep.Calls, clientIntents.GetTargetList()...)
-			ep.ClientIntentsEventRecorder = injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntents))
-			ep.ClientIntentsStatus = clientIntents.Status
-		}
+
 		epSlice = append(epSlice, ep)
 	}
 
@@ -121,11 +131,18 @@ func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(inten
 	return true
 }
 
-func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, service serviceidentity.ServiceIdentity) (ServiceEffectivePolicy, error) {
-	relevantClientIntents, err := g.getClientIntentsByServer(ctx, service)
+func (g *GroupReconciler) buildServiceEffectivePolicy(
+	ctx context.Context,
+	service serviceidentity.ServiceIdentity,
+	serviceToIntent map[serviceidentity.ServiceIdentity]v1alpha3.ClientIntents,
+	intentsFromAnnotation access_annotation.AnnotationIntents,
+) (ServiceEffectivePolicy, error) {
+	relevantClientIntents, err := g.getClientIntentsAsAServer(ctx, service)
 	if err != nil {
 		return ServiceEffectivePolicy{}, errors.Wrap(err)
 	}
+
+	clientsFoundInClientIntents := goset.NewSet[serviceidentity.ServiceIdentity]()
 	ep := ServiceEffectivePolicy{Service: service}
 	for _, clientIntent := range relevantClientIntents {
 		if !clientIntent.DeletionTimestamp.IsZero() || clientIntent.Spec == nil {
@@ -137,9 +154,79 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(ctx context.Context, servi
 			}
 			return !intent.IsTargetServerKubernetesService() && intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
 		})
+		clientsFoundInClientIntents.Add(clientIntent.ToServiceIdentity())
 		ep.CalledBy = append(ep.CalledBy, clientCalls...)
 	}
+
+	annotationsAsServer, ok := intentsFromAnnotation.IntentsByServer[service]
+	if ok {
+		calledBy := g.getAnnotationIntentsAsServer(service, annotationsAsServer, clientsFoundInClientIntents)
+		ep.CalledBy = append(ep.CalledBy, calledBy...)
+	}
+
+	serversFoundInClientIntents := goset.NewSet[serviceidentity.ServiceIdentity]()
+	// Ignore intents in deletion process
+	clientIntents, ok := serviceToIntent[service]
+	if ok && clientIntents.DeletionTimestamp.IsZero() && clientIntents.Spec != nil {
+		recorder := injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntents))
+		calls := lo.Map(clientIntents.GetCallsList(), func(intent v1alpha3.Intent, _ int) Call {
+			serversFoundInClientIntents.Add(intent.ToServiceIdentity(clientIntents.Namespace))
+			return Call{Intent: intent, EventRecorder: recorder}
+		})
+		ep.Calls = append(ep.Calls, calls...)
+		ep.ClientIntentsEventRecorder = recorder
+		ep.ClientIntentsStatus = clientIntents.Status
+	}
+
+	annotationsAsClient, ok := intentsFromAnnotation.IntentsByClient[service]
+	if ok {
+		calls := g.getAnnotationIntentsAsClient(annotationsAsClient, serversFoundInClientIntents)
+		ep.Calls = append(ep.Calls, calls...)
+	}
+
 	return ep, nil
+}
+
+func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []access_annotation.AnnotationIntent, serversFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []Call {
+	calls := make([]Call, 0)
+	for _, annotationIntent := range annotationsIntents {
+		if serversFoundInClientIntents.Contains(annotationIntent.Server) {
+			// Ignoring annotation in case intent already exists in client intents
+			continue
+		}
+
+		call := Call{
+			Intent:        asIntent(annotationIntent),
+			EventRecorder: annotationIntent.EventRecorder,
+		}
+		calls = append(calls, call)
+	}
+	return calls
+}
+
+func asIntent(annotationIntent access_annotation.AnnotationIntent) v1alpha3.Intent {
+	return v1alpha3.Intent{
+		Name: annotationIntent.Server.GetNameAsServer(),
+		Kind: annotationIntent.Server.Kind,
+	}
+}
+
+func (g *GroupReconciler) getAnnotationIntentsAsServer(service serviceidentity.ServiceIdentity, annotationsIntents []access_annotation.AnnotationIntent, clientsFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []ClientCall {
+	calledBy := make([]ClientCall, 0)
+	for _, annotationIntent := range annotationsIntents {
+		if clientsFoundInClientIntents.Contains(annotationIntent.Client) {
+			// Ignoring annotation in case this client has client intents to this server already
+			continue
+		}
+
+		call := ClientCall{
+			Service:             annotationIntent.Client,
+			IntendedCall:        asIntent(annotationIntent),
+			ObjectEventRecorder: annotationIntent.EventRecorder,
+		}
+		calledBy = append(calledBy, call)
+	}
+	return calledBy
 }
 
 func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientIntent v2alpha1.ClientIntents, filter func(intent v2alpha1.Target) bool) []ClientCall {
@@ -155,7 +242,7 @@ func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientI
 	return clientCalls
 }
 
-func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v2alpha1.ClientIntents, error) {
+func (g *GroupReconciler) getClientIntentsAsAServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v2alpha1.ClientIntents, error) {
 	var intentsList v2alpha1.ClientIntentsList
 	matchFields := client.MatchingFields{v2alpha1.OtterizeFormattedTargetServerIndexField: server.GetFormattedOtterizeIdentityWithKind()}
 	err := g.Client.List(
@@ -164,7 +251,7 @@ func (g *GroupReconciler) getClientIntentsByServer(ctx context.Context, server s
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err)
 	}
 	return intentsList.Items, nil
 }

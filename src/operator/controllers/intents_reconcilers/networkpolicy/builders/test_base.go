@@ -7,6 +7,7 @@ import (
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -56,8 +57,9 @@ func (s *RulesBuilderTestSuiteBase) SetupTest() {
 		nil)
 	s.Reconciler.Recorder = s.Recorder
 
+	serviceIdResolver := serviceidresolver.NewResolver(s.Client)
 	epReconciler := effectivepolicy.NewGroupReconciler(s.Client,
-		s.scheme, s.Reconciler)
+		s.scheme, serviceIdResolver, s.Reconciler)
 	s.EPIntentsReconciler = intents_reconcilers.NewServiceEffectiveIntentsReconciler(s.Client,
 		s.scheme, epReconciler)
 
@@ -127,6 +129,12 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 		intents.Items = append(intents.Items, clientIntents...)
 		return nil
 	})
+
+	var podList corev1.PodList
+	s.Client.EXPECT().List(gomock.Any(), &podList, client.MatchingFields{otterizev1alpha3.OtterizeServerHasAnyCalledByAnnotationIndexField: otterizev1alpha3.OtterizeServerHasAnyCalledByAnnotationValue}).DoAndReturn(
+		func(_ context.Context, pods *corev1.PodList, _ ...any) error {
+			return nil
+		})
 
 	// create service to ClientIntents pointing to it
 	services := make(map[string][]otterizev2alpha1.ClientIntents)

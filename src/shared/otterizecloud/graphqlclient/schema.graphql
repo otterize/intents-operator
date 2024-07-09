@@ -720,6 +720,12 @@ input IncomingTrafficIntentInput {
 	source: IncomingInternetSourceInput!
 }
 
+input IngressControllerConfigInput {
+	name: String!
+	namespace: String!
+	kind: String!
+}
+
 input InputAccessGraphFilter {
 	clusterIds: InputIDFilterValue
 	serviceIds: InputIDFilterValue
@@ -741,10 +747,13 @@ input InputIDFilterValue {
 
 input InputIntegrationAccessGraphFilter {
 	environmentIds: [ID!]
+	environmentFilterType: IDFilterOperators
 	clusterIds: [ID!]
+	clusterFilterType: IDFilterOperators
+	namespaceIds: [ID!]
+	namespaceFilterType: IDFilterOperators
 	serviceIds: [ID!]
 	serviceFilterType: IDFilterOperators
-	namespaceIds: [ID!]
 }
 
 input InputTimeFilterValue {
@@ -782,8 +791,11 @@ type Integration {
 
 type IntegrationAccessGraphFilter {
 	environmentIds: [ID!]
+	environmentFilterType: IDFilterOperators
 	clusterIds: [ID!]
+	clusterFilterType: IDFilterOperators
 	namespaceIds: [ID!]
+	namespaceFilterType: IDFilterOperators
 	serviceIds: [ID!]
 	serviceFilterType: IDFilterOperators
 	lastSeenAfter: Time
@@ -923,6 +935,7 @@ input IntentsOperatorConfigurationInput {
 	azureIAMPolicyEnforcementEnabled: Boolean
 	databaseEnforcementEnabled: Boolean
 	enforcedNamespaces: [String!]
+	ingressControllerConfig: [IngressControllerConfigInput!]
 }
 
 type InternetConfig {

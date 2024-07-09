@@ -4,6 +4,7 @@ import (
 	"context"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -21,7 +22,7 @@ type NetworkPolicyHandlerTestSuite struct {
 
 func (s *NetworkPolicyHandlerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, allowexternaltraffic.IfBlockedByOtterize)
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, allowexternaltraffic.IfBlockedByOtterize, make([]serviceidentity.ServiceIdentity, 0))
 }
 
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleBeforeAccessPolicyRemoval_createWhenNoIntentsEnabled_doNothing() {

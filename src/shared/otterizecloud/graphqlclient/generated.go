@@ -119,6 +119,21 @@ const (
 	HTTPMethodAll     HTTPMethod = "ALL"
 )
 
+type IngressControllerConfigInput struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Kind      string `json:"kind"`
+}
+
+// GetName returns IngressControllerConfigInput.Name, and is useful for accessing the field via an interface.
+func (v *IngressControllerConfigInput) GetName() string { return v.Name }
+
+// GetNamespace returns IngressControllerConfigInput.Namespace, and is useful for accessing the field via an interface.
+func (v *IngressControllerConfigInput) GetNamespace() string { return v.Namespace }
+
+// GetKind returns IngressControllerConfigInput.Kind, and is useful for accessing the field via an interface.
+func (v *IngressControllerConfigInput) GetKind() string { return v.Kind }
+
 type IntentInput struct {
 	Namespace           *string                   `json:"namespace"`
 	ClientName          *string                   `json:"clientName"`
@@ -213,17 +228,18 @@ const (
 )
 
 type IntentsOperatorConfigurationInput struct {
-	GlobalEnforcementEnabled              bool     `json:"globalEnforcementEnabled"`
-	NetworkPolicyEnforcementEnabled       bool     `json:"networkPolicyEnforcementEnabled"`
-	KafkaACLEnforcementEnabled            bool     `json:"kafkaACLEnforcementEnabled"`
-	IstioPolicyEnforcementEnabled         bool     `json:"istioPolicyEnforcementEnabled"`
-	ProtectedServicesEnabled              bool     `json:"protectedServicesEnabled"`
-	EgressNetworkPolicyEnforcementEnabled bool     `json:"egressNetworkPolicyEnforcementEnabled"`
-	AwsIAMPolicyEnforcementEnabled        bool     `json:"awsIAMPolicyEnforcementEnabled"`
-	GcpIAMPolicyEnforcementEnabled        bool     `json:"gcpIAMPolicyEnforcementEnabled"`
-	AzureIAMPolicyEnforcementEnabled      bool     `json:"azureIAMPolicyEnforcementEnabled"`
-	DatabaseEnforcementEnabled            bool     `json:"databaseEnforcementEnabled"`
-	EnforcedNamespaces                    []string `json:"enforcedNamespaces"`
+	GlobalEnforcementEnabled              bool                           `json:"globalEnforcementEnabled"`
+	NetworkPolicyEnforcementEnabled       bool                           `json:"networkPolicyEnforcementEnabled"`
+	KafkaACLEnforcementEnabled            bool                           `json:"kafkaACLEnforcementEnabled"`
+	IstioPolicyEnforcementEnabled         bool                           `json:"istioPolicyEnforcementEnabled"`
+	ProtectedServicesEnabled              bool                           `json:"protectedServicesEnabled"`
+	EgressNetworkPolicyEnforcementEnabled bool                           `json:"egressNetworkPolicyEnforcementEnabled"`
+	AwsIAMPolicyEnforcementEnabled        bool                           `json:"awsIAMPolicyEnforcementEnabled"`
+	GcpIAMPolicyEnforcementEnabled        bool                           `json:"gcpIAMPolicyEnforcementEnabled"`
+	AzureIAMPolicyEnforcementEnabled      bool                           `json:"azureIAMPolicyEnforcementEnabled"`
+	DatabaseEnforcementEnabled            bool                           `json:"databaseEnforcementEnabled"`
+	EnforcedNamespaces                    []string                       `json:"enforcedNamespaces"`
+	IngressControllerConfig               []IngressControllerConfigInput `json:"ingressControllerConfig"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -279,6 +295,11 @@ func (v *IntentsOperatorConfigurationInput) GetDatabaseEnforcementEnabled() bool
 // GetEnforcedNamespaces returns IntentsOperatorConfigurationInput.EnforcedNamespaces, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetEnforcedNamespaces() []string {
 	return v.EnforcedNamespaces
+}
+
+// GetIngressControllerConfig returns IntentsOperatorConfigurationInput.IngressControllerConfig, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetIngressControllerConfig() []IngressControllerConfigInput {
+	return v.IngressControllerConfig
 }
 
 type InternetConfigInput struct {

@@ -53,6 +53,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
@@ -127,10 +128,7 @@ func main() {
 
 	signalHandlerCtx := ctrl.SetupSignalHandler()
 
-	clusterUID, err := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
-	if err != nil {
-		logrus.WithError(err).Panic("Failed obtaining cluster ID")
-	}
+	clusterUID := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
 	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
 
 	errorreporter.Init(telemetriesgql.TelemetryComponentTypeIntentsOperator, version.Version())
@@ -211,16 +209,18 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
-	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic)
+	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic, operatorconfig.GetIngressControllerServiceIdentities())
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
+
+	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
 
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
 	svcNetworkPolicyBuilder := builders.NewPortNetworkPolicyReconciler(mgr.GetClient())
 	dnsServerNetpolBuilder := builders.NewIngressDNSServerAutoAllowNetpolBuilder()
 	epNetpolReconciler := networkpolicy.NewReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnforcedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState,
 		[]networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder, dnsServerNetpolBuilder}, make([]networkpolicy.EgressRuleBuilder, 0))
-	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, epNetpolReconciler)
+	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, serviceIdResolver, epNetpolReconciler)
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
 		egressNetworkPolicyHandler := builders.NewEgressNetworkPolicyBuilder()
 		epNetpolReconciler.AddEgressRuleBuilder(egressNetworkPolicyHandler)
@@ -238,8 +238,6 @@ func main() {
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 
 	var iamAgents []iampolicyagents.IAMPolicyAgent
-
-	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
 
 	if enforcementConfig.EnableAWSPolicy {
 		awsOptions := make([]awsagent.Option, 0)
@@ -326,15 +324,10 @@ func main() {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
-		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig)
+		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig, operatorconfig.GetIngressControllerServiceIdentities())
 		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
-		netpolUploader := external_traffic.NewNetworkPolicyUploaderReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
 		serviceUploadReconciler := external_traffic.NewServiceUploadReconciler(mgr.GetClient(), otterizeCloudClient)
 		ingressUploadReconciler := external_traffic.NewIngressUploadReconciler(mgr.GetClient(), otterizeCloudClient)
-
-		if err = netpolUploader.SetupWithManager(mgr); err != nil {
-			logrus.WithError(err).Panic("unable to initialize NetworkPolicy reconciler")
-		}
 
 		if err = serviceUploadReconciler.SetupWithManager(mgr); err != nil {
 			logrus.WithError(err).Panic("unable to create controller", "controller", "Endpoints")
@@ -470,7 +463,7 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "ProtectedServices")
 	}
 
-	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, intentsReconciler)
+	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, intentsReconciler, epGroupReconciler)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
 	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler, enforcementConfig.EnableNetworkPolicy, extNetpolHandler)
 
@@ -519,11 +512,11 @@ func main() {
 	}
 }
 
-func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud_client.CloudClient, config controllers.EnforcementConfig) {
+func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud_client.CloudClient, config controllers.EnforcementConfig, ingressConfigIdentities []serviceidentity.ServiceIdentity) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
 
-	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, graphqlclient.IntentsOperatorConfigurationInput{
+	configInput := graphqlclient.IntentsOperatorConfigurationInput{
 		GlobalEnforcementEnabled:              config.EnforcementDefaultState,
 		NetworkPolicyEnforcementEnabled:       config.EnableNetworkPolicy,
 		EgressNetworkPolicyEnforcementEnabled: config.EnableEgressNetworkPolicyReconcilers,
@@ -535,7 +528,21 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud
 		IstioPolicyEnforcementEnabled:         config.EnableIstioPolicy,
 		ProtectedServicesEnabled:              config.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 		EnforcedNamespaces:                    config.EnforcedNamespaces.Items(),
-	})
+	}
+
+	if len(ingressConfigIdentities) != 0 {
+		ingressControllerConfigInput := make([]graphqlclient.IngressControllerConfigInput, 0)
+		for _, identity := range ingressConfigIdentities {
+			ingressControllerConfigInput = append(ingressControllerConfigInput, graphqlclient.IngressControllerConfigInput{
+				Name:      identity.Name,
+				Namespace: identity.Namespace,
+				Kind:      identity.Kind,
+			})
+		}
+		configInput.IngressControllerConfig = ingressControllerConfigInput
+	}
+
+	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, configInput)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to report configuration to the cloud")
 	}

@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+var ServiceHasNoSelector = errors.NewSentinelError("service has no selector")
+
 // IsMissingOtterizeAccessLabels checks if a pod's labels need updating
 func IsMissingOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]string) bool {
 	podOtterizeAccessLabels := GetOtterizeLabelsFromPod(pod)
@@ -26,6 +28,15 @@ func IsMissingOtterizeAccessLabels(pod *v1.Pod, otterizeAccessLabels map[string]
 		}
 	}
 	return false
+}
+
+func IsMissingOtterizeExternalAccessLabels(pod *v1.Pod) bool {
+	if pod.Labels == nil {
+		return true
+	}
+
+	_, found := pod.Labels[OtterizeExternalAccessLabelKey]
+	return !found
 }
 
 // UpdateOtterizeAccessLabels updates a pod's labels with Otterize labels representing their intents
@@ -101,7 +112,7 @@ func ServiceIdentityToLabelsForWorkloadSelection(ctx context.Context, k8sClient 
 			return nil, false, errors.Wrap(err)
 		}
 		if svc.Spec.Selector == nil {
-			return nil, false, errors.Errorf("service %s/%s has no selector", svc.Namespace, svc.Name)
+			return nil, false, errors.Errorf("%w %s/%s", ServiceHasNoSelector, svc.Namespace, svc.Name)
 		}
 		return maps.Clone(svc.Spec.Selector), true, nil
 	}

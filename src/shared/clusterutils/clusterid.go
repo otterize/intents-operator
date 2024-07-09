@@ -73,7 +73,7 @@ func SetClusterUID(ctx context.Context) (string, error) {
 	return clusterUID, nil
 }
 
-func GetOrCreateClusterUID(ctx context.Context) (string, error) {
+func getOrCreateClusterUID(ctx context.Context) (string, error) {
 	clusterUID, err := GetClusterUID(ctx)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -86,4 +86,13 @@ func GetOrCreateClusterUID(ctx context.Context) (string, error) {
 		return "", errors.Wrap(err)
 	}
 	return clusterUID, nil
+}
+
+func GetOrCreateClusterUID(ctx context.Context) string {
+	clusterUID, err := getOrCreateClusterUID(ctx)
+	if err != nil {
+		logrus.WithError(err).Error("failed to create cluster UID, falling back to randomized UID")
+		return uuid.NewString()
+	}
+	return clusterUID
 }
