@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/otterize/credentials-operator/src/controllers/metadata"
 	"github.com/otterize/credentials-operator/src/operatorconfig"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/mysql"
@@ -206,13 +206,13 @@ func (e *Reconciler) ensurePodUserAndPasswordSecret(ctx context.Context, pod *v1
 
 func (e *Reconciler) ensurePasswordInDatabases(ctx context.Context, pod v1.Pod, username string, password string) error {
 	databases := strings.Split(pod.Annotations[databaseconfigurator.DatabaseAccessAnnotation], ",")
-	pgServerConfigs := otterizev1alpha3.PostgreSQLServerConfigList{}
+	pgServerConfigs := otterizev2alpha1.PostgreSQLServerConfigList{}
 	err := e.client.List(ctx, &pgServerConfigs)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	mysqlServerConfigs := otterizev1alpha3.MySQLServerConfigList{}
+	mysqlServerConfigs := otterizev2alpha1.MySQLServerConfigList{}
 	err = e.client.List(ctx, &mysqlServerConfigs)
 	if err != nil {
 		return errors.Wrap(err)
@@ -300,13 +300,13 @@ func (e *Reconciler) rotateSecret(ctx context.Context, secret v1.Secret) (v1.Sec
 }
 
 func (e *Reconciler) runAlterPasswordForSecrets(ctx context.Context, secrets []v1.Secret) error {
-	pgServerConfigs := otterizev1alpha3.PostgreSQLServerConfigList{}
+	pgServerConfigs := otterizev2alpha1.PostgreSQLServerConfigList{}
 	err := e.client.List(ctx, &pgServerConfigs)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	mysqlServerConfigs := otterizev1alpha3.MySQLServerConfigList{}
+	mysqlServerConfigs := otterizev2alpha1.MySQLServerConfigList{}
 	err = e.client.List(ctx, &mysqlServerConfigs)
 	if err != nil {
 		return errors.Wrap(err)
@@ -335,7 +335,7 @@ func (e *Reconciler) runAlterPasswordForSecrets(ctx context.Context, secrets []v
 	return nil
 }
 
-func (e *Reconciler) extractDBCredentials(ctx context.Context, namespace string, credentialsSpec otterizev1alpha3.DatabaseCredentials) (databaseconfigurator.DatabaseCredentials, error) {
+func (e *Reconciler) extractDBCredentials(ctx context.Context, namespace string, credentialsSpec otterizev2alpha1.DatabaseCredentials) (databaseconfigurator.DatabaseCredentials, error) {
 	creds := databaseconfigurator.DatabaseCredentials{}
 	if credentialsSpec.Username != "" {
 		creds.Username = credentialsSpec.Username
@@ -368,7 +368,7 @@ func (e *Reconciler) extractDBCredentials(ctx context.Context, namespace string,
 	return creds, nil
 }
 
-func (e *Reconciler) createPostgresDBConfigurator(ctx context.Context, pgServerConfig otterizev1alpha3.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+func (e *Reconciler) createPostgresDBConfigurator(ctx context.Context, pgServerConfig otterizev2alpha1.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
 	credentials, err := e.extractDBCredentials(ctx, pgServerConfig.Namespace, pgServerConfig.Spec.Credentials)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -386,7 +386,7 @@ func (e *Reconciler) createPostgresDBConfigurator(ctx context.Context, pgServerC
 	return dbconfigurator, nil
 }
 
-func (e *Reconciler) createMySQLDBConfigurator(ctx context.Context, mySQLServerConfig otterizev1alpha3.MySQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+func (e *Reconciler) createMySQLDBConfigurator(ctx context.Context, mySQLServerConfig otterizev2alpha1.MySQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
 	credentials, err := e.extractDBCredentials(ctx, mySQLServerConfig.Namespace, mySQLServerConfig.Spec.Credentials)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -407,10 +407,10 @@ func (e *Reconciler) createMySQLDBConfigurator(ctx context.Context, mySQLServerC
 func (e *Reconciler) createDBConfigurator(
 	ctx context.Context,
 	database string,
-	mysqlServerConfigs []otterizev1alpha3.MySQLServerConfig,
-	pgServerConfigs []otterizev1alpha3.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, bool, error) {
+	mysqlServerConfigs []otterizev2alpha1.MySQLServerConfig,
+	pgServerConfigs []otterizev2alpha1.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, bool, error) {
 
-	mysqlServerConf, found := lo.Find(mysqlServerConfigs, func(config otterizev1alpha3.MySQLServerConfig) bool {
+	mysqlServerConf, found := lo.Find(mysqlServerConfigs, func(config otterizev2alpha1.MySQLServerConfig) bool {
 		return config.Name == database
 	})
 	if found {
@@ -421,7 +421,7 @@ func (e *Reconciler) createDBConfigurator(
 		return dbconfigurator, true, nil
 	}
 
-	pgServerConf, found := lo.Find(pgServerConfigs, func(config otterizev1alpha3.PostgreSQLServerConfig) bool {
+	pgServerConf, found := lo.Find(pgServerConfigs, func(config otterizev2alpha1.PostgreSQLServerConfig) bool {
 		return config.Name == database
 	})
 	if found {
@@ -438,8 +438,8 @@ func (e *Reconciler) createDBConfigurator(
 func (e *Reconciler) ensurePasswordInDatabaseInstance(
 	ctx context.Context,
 	database string,
-	mysqlServerConfigs []otterizev1alpha3.MySQLServerConfig,
-	pgServerConfigs []otterizev1alpha3.PostgreSQLServerConfig,
+	mysqlServerConfigs []otterizev2alpha1.MySQLServerConfig,
+	pgServerConfigs []otterizev2alpha1.PostgreSQLServerConfig,
 	username string,
 	password string) (bool, error) {
 
@@ -465,7 +465,7 @@ func closeAllConnections(ctx context.Context, allConfigurators []databaseconfigu
 	}
 }
 
-func (e *Reconciler) GetAllDBConfigurators(ctx context.Context, mysqlServerConfigs []otterizev1alpha3.MySQLServerConfig, pgServerConfigs []otterizev1alpha3.PostgreSQLServerConfig) []databaseconfigurator.DatabaseConfigurator {
+func (e *Reconciler) GetAllDBConfigurators(ctx context.Context, mysqlServerConfigs []otterizev2alpha1.MySQLServerConfig, pgServerConfigs []otterizev2alpha1.PostgreSQLServerConfig) []databaseconfigurator.DatabaseConfigurator {
 	configurators := make([]databaseconfigurator.DatabaseConfigurator, 0)
 	for _, mysqlServerConfig := range mysqlServerConfigs {
 		dbconfigurator, err := e.createMySQLDBConfigurator(ctx, mysqlServerConfig)

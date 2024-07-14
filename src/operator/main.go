@@ -39,7 +39,9 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/svids"
 	"github.com/otterize/credentials-operator/src/controllers/tls_pod"
 	"github.com/otterize/credentials-operator/src/operatorconfig"
+	otterizev1 "github.com/otterize/intents-operator/src/operator/api/v1"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	mutatingwebhookconfiguration "github.com/otterize/intents-operator/src/operator/controllers/mutating_webhook_controller"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	operatorwebhooks "github.com/otterize/intents-operator/src/operator/webhooks"
@@ -98,6 +100,8 @@ func init() {
 	utilruntime.Must(gcpiamv1.AddToScheme(scheme))
 	utilruntime.Must(gcpk8sv1.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
+	utilruntime.Must(otterizev1.AddToScheme(scheme))
+	utilruntime.Must(otterizev2alpha1.AddToScheme(scheme))
 
 	// +kubebuilder:scaffold:scheme
 }
