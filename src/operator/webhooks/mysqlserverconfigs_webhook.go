@@ -48,7 +48,7 @@ func NewMySQLConfValidator(c client.Client) *MySQLConfValidator {
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-k8s-otterize-com-v1alpha3-mysqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=mysqlserverconfigs,verbs=create;update,versions=v1alpha3,name=mysqlserverconfig.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v1alpha3-mysqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=mysqlserverconfigs,verbs=create;update,versions=v1alpha3,name=mysqlserverconfig.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &MySQLConfValidator{}
 
@@ -63,7 +63,7 @@ func (v *MySQLConfValidator) ValidateCreate(ctx context.Context, obj runtime.Obj
 	mysqlServerConf := obj.(*otterizev1alpha3.MySQLServerConfig)
 	gvk := mysqlServerConf.GroupVersionKind()
 
-	if err := validateCredentialsNotEmpty(mysqlServerConf.Spec.Credentials); err != nil {
+	if err := validateCredentialsNotEmptyV1alpha3(mysqlServerConf.Spec.Credentials); err != nil {
 		allErrs = append(allErrs, err)
 	}
 
@@ -89,7 +89,7 @@ func (v *MySQLConfValidator) ValidateUpdate(ctx context.Context, oldObj, newObj 
 	mysqlServerConf := newObj.(*otterizev1alpha3.MySQLServerConfig)
 	gvk := mysqlServerConf.GroupVersionKind()
 
-	if err := validateCredentialsNotEmpty(mysqlServerConf.Spec.Credentials); err != nil {
+	if err := validateCredentialsNotEmptyV1alpha3(mysqlServerConf.Spec.Credentials); err != nil {
 		allErrs = append(allErrs, err)
 	}
 

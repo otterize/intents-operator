@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"github.com/amit7itz/goset"
+	otterizev1 "github.com/otterize/intents-operator/src/operator/api/v1"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
@@ -14,10 +17,12 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	podreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
+	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -45,9 +50,21 @@ type ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite struct {
 }
 
 func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupSuite() {
-	s.TestEnv = &envtest.Environment{}
+	logrus.Info("Setting up test suite")
+	s.TestEnv = &envtest.Environment{Scheme: clientgoscheme.Scheme}
 	var err error
 	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "..", "config", "crd")}
+	s.TestEnv.WebhookInstallOptions = envtest.WebhookInstallOptions{
+		Paths:            []string{filepath.Join("..", "..", "..", "config", "webhook")},
+		LocalServingHost: "localhost",
+	}
+	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev2alpha1.AddToScheme(s.TestEnv.Scheme))
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
@@ -56,16 +73,16 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupSuite() {
 	s.K8sDirectClient, err = kubernetes.NewForConfig(s.RestConfig)
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
-
-	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 }
 
 func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
+	intentsValidator := webhooks.NewIntentsValidatorV1alpha2(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator))
+	intentsValidator13 := webhooks.NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator13))
+	intentsValidator2 := webhooks.NewIntentsValidatorV2alpha1(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev2alpha1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Always, make([]serviceidentity.ServiceIdentity, 0))
@@ -249,8 +266,8 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestEndpointsRec
 
 func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedDespiteLastIntentDeleted() {
 	serviceName := "test-server-load-balancer-test"
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev1alpha3.Intent{{
-		Name: serviceName,
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
+		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
 	},
 	})
 	s.Require().NoError(err)
@@ -266,7 +283,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestNetworkPolic
 
 	// make sure the network policy was created between the two services based on the intents
 	netpol := &v1.NetworkPolicy{}
-	intentNetworkPolicyName := fmt.Sprintf(otterizev1alpha3.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
+	intentNetworkPolicyName := fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, netpol)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(netpol)
@@ -305,7 +322,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestNetworkPolic
 	// Delete the intent and reconcile it
 	s.Require().NoError(s.Mgr.GetClient().Delete(context.Background(), intents))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		intentsDeleted := &otterizev1alpha3.ClientIntents{}
+		intentsDeleted := &otterizev2alpha1.ClientIntents{}
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intents.Name}, intentsDeleted)
 		assert.NoError(err)
 		assert.NotNil(intentsDeleted.DeletionTimestamp)

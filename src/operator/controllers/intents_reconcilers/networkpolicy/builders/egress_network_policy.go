@@ -2,7 +2,7 @@ package builders
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	v1 "k8s.io/api/networking/v1"
@@ -22,7 +22,7 @@ func NewEgressNetworkPolicyBuilder() *EgressNetworkPolicyBuilder {
 func (r *EgressNetworkPolicyBuilder) buildNetworkPolicyEgressRules(ep effectivepolicy.ServiceEffectivePolicy) []v1.NetworkPolicyEgressRule {
 	egressRules := make([]v1.NetworkPolicyEgressRule, 0)
 	for _, call := range ep.Calls {
-		if call.Type != "" && call.Type != otterizev1alpha3.IntentTypeHTTP && call.Type != otterizev1alpha3.IntentTypeKafka {
+		if call.IsTargetOutOfCluster() {
 			continue
 		}
 		if call.IsTargetServerKubernetesService() {
@@ -34,12 +34,12 @@ func (r *EgressNetworkPolicyBuilder) buildNetworkPolicyEgressRules(ep effectivep
 				{
 					PodSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							otterizev1alpha3.OtterizeServiceLabelKey: targetServiceIdentity.GetFormattedOtterizeIdentityWithoutKind(),
+							otterizev2alpha1.OtterizeServiceLabelKey: targetServiceIdentity.GetFormattedOtterizeIdentityWithoutKind(),
 						},
 					},
 					NamespaceSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: targetServiceIdentity.Namespace,
+							otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: targetServiceIdentity.Namespace,
 						},
 					},
 				},

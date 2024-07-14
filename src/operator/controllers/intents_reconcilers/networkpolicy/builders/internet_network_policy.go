@@ -3,7 +3,7 @@ package builders
 import (
 	"context"
 	"fmt"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -29,7 +29,7 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 
 	// Get all intents to the internet
 	intents := lo.Filter(ep.Calls, func(intent effectivepolicy.Call, _ int) bool {
-		return intent.Type == otterizev1alpha3.IntentTypeInternet
+		return intent.Internet != nil
 	})
 
 	if len(intents) == 0 {
@@ -37,7 +37,7 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 	}
 
 	for _, intent := range intents {
-		peers, ports, foundResolvedDNSNames, err := r.buildRuleForIntent(intent.Intent, ep)
+		peers, ports, foundResolvedDNSNames, err := r.buildRuleForIntent(intent.Target, ep)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
@@ -54,7 +54,7 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 	return rules, nil
 }
 
-func (r *InternetEgressRulesBuilder) buildRuleForIntent(intent otterizev1alpha3.Intent, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyPeer, []v1.NetworkPolicyPort, bool, error) {
+func (r *InternetEgressRulesBuilder) buildRuleForIntent(intent otterizev2alpha1.Target, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyPeer, []v1.NetworkPolicyPort, bool, error) {
 	ips := make([]string, 0)
 	ipsFromDns := r.getIpsForDNS(intent, ep)
 	ips = append(ips, ipsFromDns...)
@@ -72,11 +72,11 @@ func (r *InternetEgressRulesBuilder) buildRuleForIntent(intent otterizev1alpha3.
 	return peers, ports, true, nil
 }
 
-func (r *InternetEgressRulesBuilder) getIpsForDNS(intent otterizev1alpha3.Intent, ep effectivepolicy.ServiceEffectivePolicy) []string {
+func (r *InternetEgressRulesBuilder) getIpsForDNS(intent otterizev2alpha1.Target, ep effectivepolicy.ServiceEffectivePolicy) []string {
 	ipsFromDns := make([]string, 0)
 
 	for _, dns := range intent.Internet.Domains {
-		dnsResolvedIps, found := lo.Find(ep.ClientIntentsStatus.ResolvedIPs, func(resolvedIPs otterizev1alpha3.ResolvedIPs) bool {
+		dnsResolvedIps, found := lo.Find(ep.ClientIntentsStatus.ResolvedIPs, func(resolvedIPs otterizev2alpha1.ResolvedIPs) bool {
 			return resolvedIPs.DNS == dns
 		})
 
@@ -111,7 +111,7 @@ func (r *InternetEgressRulesBuilder) parseIps(ips []string) ([]v1.NetworkPolicyP
 	return peers, nil
 }
 
-func (r *InternetEgressRulesBuilder) parsePorts(intent otterizev1alpha3.Intent) []v1.NetworkPolicyPort {
+func (r *InternetEgressRulesBuilder) parsePorts(intent otterizev2alpha1.Target) []v1.NetworkPolicyPort {
 	ports := make([]v1.NetworkPolicyPort, 0)
 	for _, port := range intent.Internet.Ports {
 		ports = append(ports, v1.NetworkPolicyPort{

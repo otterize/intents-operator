@@ -1,3 +1,14 @@
+apiVersion: v1
+data:
+  serviceName: intents-operator-webhook-service
+  serviceNamespace: {{ .Release.Namespace }}
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: intents-operator
+    app.kubernetes.io/part-of: otterize
+  name: otterize-webhook-configmap
+---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -14,6 +25,7 @@ webhooks:
       namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha2-clientintents
   failurePolicy: Fail
+  matchPolicy: Exact
   name: clientintents.kb.io
   rules:
   - apiGroups:
@@ -32,8 +44,30 @@ webhooks:
     service:
       name: intents-operator-webhook-service
       namespace: {{ .Release.Namespace }}
+      path: /validate-k8s-otterize-com-v1-clientintents
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: clientintentsv1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clientintents
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha3-clientintents
   failurePolicy: Fail
+  matchPolicy: Exact
   name: clientintentsv1alpha3.kb.io
   rules:
   - apiGroups:
@@ -52,8 +86,30 @@ webhooks:
     service:
       name: intents-operator-webhook-service
       namespace: {{ .Release.Namespace }}
+      path: /validate-k8s-otterize-com-v2alpha1-clientintents
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: clientintentsv2alpha1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clientintents
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha3-mysqlserverconfig
   failurePolicy: Fail
+  matchPolicy: Exact
   name: mysqlserverconfig.kb.io
   rules:
   - apiGroups:
@@ -72,8 +128,51 @@ webhooks:
     service:
       name: intents-operator-webhook-service
       namespace: {{ .Release.Namespace }}
+      path: /validate-k8s-otterize-com-v1-mysqlserverconfig
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: mysqlserverconfigv1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - mysqlserverconfigs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-k8s-otterize-com-v2alpha1-mysqlserverconfig
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: mysqlserverconfigv2alpha1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - mysqlserverconfigs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig
   failurePolicy: Fail
+  matchPolicy: Exact
   name: postgresqlserverconfig.kb.io
   rules:
   - apiGroups:
@@ -92,8 +191,51 @@ webhooks:
     service:
       name: intents-operator-webhook-service
       namespace: {{ .Release.Namespace }}
+      path: /validate-k8s-otterize-com-v1-postgresqlserverconfig
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: postgresqlserverconfigv1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - postgresqlserverconfigs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-k8s-otterize-com-v2alpha1-postgresqlserverconfig
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: postgresqlserverconfigv2alpha1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - postgresqlserverconfigs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha2-protectedservice
   failurePolicy: Fail
+  matchPolicy: Exact
   name: protectedservice.kb.io
   rules:
   - apiGroups:
@@ -112,14 +254,57 @@ webhooks:
     service:
       name: intents-operator-webhook-service
       namespace: {{ .Release.Namespace }}
+      path: /validate-k8s-otterize-com-v1-protectedservice
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: protectedservicev1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - protectedservice
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
       path: /validate-k8s-otterize-com-v1alpha3-protectedservice
   failurePolicy: Fail
+  matchPolicy: Exact
   name: protectedservicev1alpha3.kb.io
   rules:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
     - v1alpha3
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - protectedservice
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: intents-operator-webhook-service
+      namespace: {{ .Release.Namespace }}
+      path: /validate-k8s-otterize-com-v2alpha1-protectedservice
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: protectedservicev2alpha1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2alpha1
     operations:
     - CREATE
     - UPDATE

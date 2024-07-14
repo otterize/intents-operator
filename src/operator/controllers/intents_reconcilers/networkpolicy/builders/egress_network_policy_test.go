@@ -3,7 +3,7 @@ package builders
 import (
 	"context"
 	"fmt"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/stretchr/testify/suite"
@@ -129,16 +129,16 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverName,
+				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serverName},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = testClientNamespace
 	clientIntents.Name = clientIntentsName
 
@@ -167,7 +167,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	// Update NetworkPolicy
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(newPolicy), intents_reconcilers.MatchPatch(client.MergeFrom(existingBadPolicy))).Return(nil)
 	s.ignoreRemoveOrphan()
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -191,15 +191,15 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverName,
+				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serverName},
 			},
 		},
 	}
-	clientIntents := otterizev1alpha3.ClientIntents{
+	clientIntents := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testServerNamespace,
@@ -229,15 +229,15 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev1alpha3.OtterizeNetworkPolicy,
+			Key:      otterizev2alpha1.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 		{
-			Key:      otterizev1alpha3.OtterizeNetworkPolicyExternalTraffic,
+			Key:      otterizev2alpha1.OtterizeNetworkPolicyExternalTraffic,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 		{
-			Key:      otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny,
+			Key:      otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
@@ -259,7 +259,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), gomock.Eq(orphanPolicy))
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(orphanPolicy)).Return(nil)
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 	s.ignoreRemoveDeprecatedPolicies()
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -276,16 +276,16 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIn
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverName,
+				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serverName},
 			},
 		},
 	}
 
-	clientIntentsObj := otterizev1alpha3.ClientIntents{
+	clientIntentsObj := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         clientNamespace,
@@ -293,7 +293,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIn
 		},
 		Spec: intentsSpec,
 	}
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntentsObj})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntentsObj})
 
 	// Remove network policy:
 	// 1. get the network policy
@@ -325,7 +325,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	policyName string,
 	formattedTargetServer string,
 	defaultEnforcementState bool,
-	protectedServices []otterizev1alpha3.ProtectedService,
+	protectedServices []otterizev2alpha1.ProtectedService,
 ) {
 	s.Reconciler.EnforcementDefaultState = defaultEnforcementState
 	namespacedName := types.NamespacedName{
@@ -337,23 +337,23 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverName,
+				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serverName},
 			},
 		},
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
 
 	if defaultEnforcementState == false {
-		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev1alpha3.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, list *otterizev1alpha3.ProtectedServiceList, opts ...client.ListOption) error {
+		s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
 				list.Items = append(list.Items, protectedServices...)
 				return nil
 			})
@@ -382,7 +382,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 
 	s.ignoreRemoveOrphan()
 
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), gomock.Any(), gomock.Any())
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -401,14 +401,14 @@ func networkPolicyEgressTemplate(
 			Name:      policyName,
 			Namespace: intentsObjNamespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeNetworkPolicy: formattedTargetClient,
+				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServiceLabelKey: formattedTargetClient,
+					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
 			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
@@ -418,12 +418,12 @@ func networkPolicyEgressTemplate(
 						{
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha3.OtterizeServiceLabelKey: formattedTargetServer,
+									otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetServer,
 								},
 							},
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: targetNamespace,
+									otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: targetNamespace,
 								},
 							},
 						},
@@ -469,21 +469,21 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 	}
 
 	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverName,
+				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serverName},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
 
 	s.ignoreRemoveOrphan()
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)

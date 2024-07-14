@@ -2,8 +2,7 @@ package iam
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	mock_iampolicyagents "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents/mocks"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
@@ -24,7 +23,7 @@ import (
 const (
 	testNamespace = "test-namespace"
 
-	testIntentType = otterizev1alpha3.IntentTypeGCP
+	testIntentType = otterizev2alpha1.IntentTypeGCP
 )
 
 type IAMIntentsReconcilerTestSuite struct {
@@ -63,17 +62,18 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentNoPodLabelHasNoEffect
 	}
 	req := ctrl.Request{NamespacedName: namespacedName}
 
-	iamIntents := otterizev1alpha3.ClientIntents{
+	iamIntents := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
 		},
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{Name: serviceName},
-			Calls: []otterizev1alpha3.Intent{
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{Name: serviceName},
+			Targets: []otterizev2alpha1.Target{
 				{
-					Name: "projects/_/buckets/bucket-name",
-					Type: testIntentType,
+					GCP: &otterizev2alpha1.GCPTarget{
+						Resource: "projects/_/buckets/bucket-name",
+					},
 				},
 			},
 		},
@@ -96,7 +96,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentNoPodLabelHasNoEffect
 	}
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&iamIntents)).DoAndReturn(
-		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev1alpha3.ClientIntents, arg3 ...client.GetOption) error {
+		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev2alpha1.ClientIntents, arg3 ...client.GetOption) error {
 			iamIntents.DeepCopyInto(arg2)
 			return nil
 		},
@@ -122,29 +122,32 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheiamAgent() 
 	}
 	req := ctrl.Request{NamespacedName: namespacedName}
 
-	filteredIntents := []otterizev1alpha3.Intent{
+	filteredIntents := []otterizev2alpha1.Target{
 		{
-			Name: "projects/_/buckets/bucket-name",
-			Type: testIntentType,
+			GCP: &otterizev2alpha1.GCPTarget{
+				Resource: "projects/_/buckets/bucket-name",
+			},
 		},
 	}
 
-	allIntents := []otterizev1alpha3.Intent{
+	allIntents := []otterizev2alpha1.Target{
 		{
-			Name: "aws::s3::bucket::bucket-name",
-			Type: v1alpha3.IntentTypeAWS,
+			AWS: &otterizev2alpha1.AWSTarget{
+				ARN:     "aws::s3::bucket::bucket-name",
+				Actions: []string{"asdf"},
+			},
 		},
 	}
 	allIntents = append(allIntents, filteredIntents...)
 
-	iamIntents := otterizev1alpha3.ClientIntents{
+	iamIntents := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
 		},
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{Name: serviceName},
-			Calls:   allIntents,
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{Name: serviceName},
+			Targets:  allIntents,
 		},
 	}
 
@@ -164,7 +167,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheiamAgent() 
 	}
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&iamIntents)).DoAndReturn(
-		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev1alpha3.ClientIntents, arg3 ...client.GetOption) error {
+		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev2alpha1.ClientIntents, arg3 ...client.GetOption) error {
 			iamIntents.DeepCopyInto(arg2)
 			return nil
 		},
@@ -175,7 +178,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheiamAgent() 
 	s.iamAgent.EXPECT().IntentType().Return(testIntentType)
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		gomock.AssignableToTypeOf(&otterizev1alpha3.ClientIntentsList{}),
+		gomock.AssignableToTypeOf(&otterizev2alpha1.ClientIntentsList{}),
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
 	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, clientServiceAccount, serviceName, filteredIntents, clientPod).Return(nil)
@@ -203,21 +206,22 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 	}
 	req := ctrl.Request{NamespacedName: namespacedName}
 
-	awsIntents := []otterizev1alpha3.Intent{
+	awsIntents := []otterizev2alpha1.Target{
 		{
-			Name: "aws::s3::bucket::bucket-name",
-			Type: v1alpha3.IntentTypeAWS,
+			AWS: &otterizev2alpha1.AWSTarget{
+				ARN: "aws::s3::bucket::bucket-name",
+			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{
+	clientIntents := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
 		},
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{Name: serviceName},
-			Calls:   awsIntents,
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{Name: serviceName},
+			Targets:  awsIntents,
 		},
 	}
 
@@ -237,7 +241,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 	}
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&clientIntents)).DoAndReturn(
-		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev1alpha3.ClientIntents, arg3 ...client.GetOption) error {
+		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev2alpha1.ClientIntents, arg3 ...client.GetOption) error {
 			clientIntents.DeepCopyInto(arg2)
 			return nil
 		},
@@ -248,10 +252,10 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 	s.iamAgent.EXPECT().IntentType().Return(testIntentType)
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		gomock.AssignableToTypeOf(&otterizev1alpha3.ClientIntentsList{}),
+		gomock.AssignableToTypeOf(&otterizev2alpha1.ClientIntentsList{}),
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
-	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, clientServiceAccount, serviceName, []otterizev1alpha3.Intent{}, clientPod).Return(nil)
+	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, clientServiceAccount, serviceName, []otterizev2alpha1.Target{}, clientPod).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)

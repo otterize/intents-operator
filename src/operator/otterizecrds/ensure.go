@@ -26,37 +26,38 @@ var PostgreSQLServerConfigContents []byte
 //go:embed mysqlserverconfigs-customresourcedefinition.yaml
 var MySQLServerConfigContents []byte
 
-func Ensure(ctx context.Context, k8sClient client.Client, operatorNamespace string) error {
-	err := ensureCRD(ctx, k8sClient, operatorNamespace, clientIntentsCRDContents)
+func Ensure(ctx context.Context, k8sClient client.Client, operatorNamespace string, certPem []byte) error {
+	err := ensureCRD(ctx, k8sClient, operatorNamespace, clientIntentsCRDContents, certPem)
 	if err != nil {
 		return errors.Errorf("failed to ensure CLientIntents CRD: %w", err)
 	}
-	err = ensureCRD(ctx, k8sClient, operatorNamespace, protectedServiceCRDContents)
+	err = ensureCRD(ctx, k8sClient, operatorNamespace, protectedServiceCRDContents, certPem)
 	if err != nil {
 		return errors.Errorf("failed to ensure ProtectedService CRD: %w", err)
 	}
-	err = ensureCRD(ctx, k8sClient, operatorNamespace, KafkaServerConfigContents)
+	err = ensureCRD(ctx, k8sClient, operatorNamespace, KafkaServerConfigContents, certPem)
 	if err != nil {
 		return errors.Errorf("failed to ensure KafkaServerConfig CRD: %w", err)
 	}
-	err = ensureCRD(ctx, k8sClient, operatorNamespace, PostgreSQLServerConfigContents)
+	err = ensureCRD(ctx, k8sClient, operatorNamespace, PostgreSQLServerConfigContents, certPem)
 	if err != nil {
 		return errors.Errorf("failed to ensure PostgreSQLServerConfig CRD: %w", err)
 	}
-	err = ensureCRD(ctx, k8sClient, operatorNamespace, MySQLServerConfigContents)
+	err = ensureCRD(ctx, k8sClient, operatorNamespace, MySQLServerConfigContents, certPem)
 	if err != nil {
 		return errors.Errorf("failed to ensure MySQLServerConfig CRD: %w", err)
 	}
 	return nil
 }
 
-func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace string, crdContent []byte) error {
+func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace string, crdContent []byte, certPem []byte) error {
 	crdToCreate := apiextensionsv1.CustomResourceDefinition{}
 	err := yaml.Unmarshal(crdContent, &crdToCreate)
 	if err != nil {
 		return errors.Errorf("failed to unmarshal ClientIntents CRD: %w", err)
 	}
 	crdToCreate.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = operatorNamespace
+	crdToCreate.Spec.Conversion.Webhook.ClientConfig.CABundle = certPem
 	crd := apiextensionsv1.CustomResourceDefinition{}
 	err = k8sClient.Get(ctx, types.NamespacedName{Name: crdToCreate.Name}, &crd)
 	if err != nil && !k8serrors.IsNotFound(err) {

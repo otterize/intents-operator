@@ -3,7 +3,7 @@ package protected_service_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
@@ -46,7 +46,7 @@ func (r *DefaultDenyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 func (r *DefaultDenyReconciler) handleDefaultDenyInNamespace(ctx context.Context, req ctrl.Request) error {
-	var protectedServices otterizev1alpha3.ProtectedServiceList
+	var protectedServices otterizev2alpha1.ProtectedServiceList
 
 	err := r.List(ctx, &protectedServices, client.InNamespace(req.Namespace))
 	if err != nil {
@@ -61,7 +61,7 @@ func (r *DefaultDenyReconciler) handleDefaultDenyInNamespace(ctx context.Context
 	return r.extNetpolHandler.HandleAllPods(ctx)
 }
 
-func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, protectedServices otterizev1alpha3.ProtectedServiceList, namespace string) error {
+func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, protectedServices otterizev2alpha1.ProtectedServiceList, namespace string) error {
 	serversToProtect := map[string]v1.NetworkPolicy{}
 	for _, protectedService := range protectedServices.Items {
 		if protectedService.DeletionTimestamp != nil {
@@ -84,14 +84,14 @@ func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, prote
 
 	var networkPolicies v1.NetworkPolicyList
 	err := r.List(ctx, &networkPolicies, client.InNamespace(namespace), client.MatchingLabels{
-		otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	})
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
 	for _, existingPolicy := range networkPolicies.Items {
-		existingPolicyServerName := existingPolicy.Labels[otterizev1alpha3.OtterizeNetworkPolicy]
+		existingPolicyServerName := existingPolicy.Labels[otterizev2alpha1.OtterizeNetworkPolicy]
 		_, found := serversToProtect[existingPolicyServerName]
 		if found {
 			desiredPolicy := serversToProtect[existingPolicyServerName]
@@ -142,7 +142,7 @@ func (r *DefaultDenyReconciler) updateIfNeeded(
 
 func (r *DefaultDenyReconciler) buildNetworkPolicyObjectForIntent(ctx context.Context, serviceId serviceidentity.ServiceIdentity) (v1.NetworkPolicy, bool, error) {
 	policyName := fmt.Sprintf("default-deny-%s", serviceId.GetNameWithKind())
-	podSelectorLabels, ok, err := otterizev1alpha3.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.Client, serviceId)
+	podSelectorLabels, ok, err := otterizev2alpha1.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.Client, serviceId)
 	if err != nil {
 		return v1.NetworkPolicy{}, false, errors.Wrap(err)
 	}
@@ -154,8 +154,8 @@ func (r *DefaultDenyReconciler) buildNetworkPolicyObjectForIntent(ctx context.Co
 			Name:      policyName,
 			Namespace: serviceId.Namespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev1alpha3.OtterizeNetworkPolicy:                   serviceId.GetFormattedOtterizeIdentityWithoutKind(),
+				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2alpha1.OtterizeNetworkPolicy:                   serviceId.GetFormattedOtterizeIdentityWithoutKind(),
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -173,7 +173,7 @@ func (r *DefaultDenyReconciler) buildNetworkPolicyObjectForIntent(ctx context.Co
 func (r *DefaultDenyReconciler) DeleteAllDefaultDeny(ctx context.Context, namespace string) (ctrl.Result, error) {
 	var networkPolicies v1.NetworkPolicyList
 	err := r.List(ctx, &networkPolicies, client.InNamespace(namespace), client.MatchingLabels{
-		otterizev1alpha3.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	})
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)

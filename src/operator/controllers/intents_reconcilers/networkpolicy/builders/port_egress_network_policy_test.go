@@ -3,7 +3,7 @@ package builders
 import (
 	"context"
 	"fmt"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/samber/lo"
@@ -51,14 +51,14 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 			Name:      policyName,
 			Namespace: targetNamespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeNetworkPolicy: formattedClient,
+				otterizev2alpha1.OtterizeNetworkPolicy: formattedClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServiceLabelKey: formattedClient,
+					otterizev2alpha1.OtterizeServiceLabelKey: formattedClient,
 				},
 			},
 			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
@@ -71,7 +71,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 							},
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
-									otterizev1alpha3.KubernetesStandardNamespaceNameLabelKey: intentsObjNamespace,
+									otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: intentsObjNamespace,
 								},
 							},
 						},
@@ -96,21 +96,21 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestErrorWhenKubernetesServ
 		NamespacedName: namespacedName,
 	}
 
-	serverName := "svc:test-server"
+	serverName := "test-server"
 	serverCall := fmt.Sprintf("%s.%s", serverName, serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverCall,
+				Service: &otterizev2alpha1.ServiceTarget{Name: serverCall},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
 	kubernetesSvcNamespacedName := types.NamespacedName{
@@ -208,7 +208,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 	clientIntentsName := "client-intents"
 	policyName := "test-client-access"
 	serviceName := "test-client"
-	serverName := "svc:kubernetes"
+	serverName := "kubernetes"
 	serverNamespace := "default"
 	formattedClient := "test-client-test-client-namespac-edb3a2"
 
@@ -220,19 +220,19 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: fmt.Sprintf("%s.%s", serverName, serverNamespace),
+				Service: &otterizev2alpha1.ServiceTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace)},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
 	kubernetesSvcNamespacedName := types.NamespacedName{
@@ -312,14 +312,14 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 			Name:      policyName,
 			Namespace: testClientNamespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeNetworkPolicy: formattedClient,
+				otterizev2alpha1.OtterizeNetworkPolicy: formattedClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServiceLabelKey: formattedClient,
+					otterizev2alpha1.OtterizeServiceLabelKey: formattedClient,
 				},
 			},
 			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
@@ -357,7 +357,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 	clientIntentsName := "client-intents"
 	policyName := "test-client-access"
 	serviceName := "test-client"
-	serverName := "svc:kubernetes"
+	serverName := "kubernetes"
 	serverNamespace := "default"
 	formattedClient := "test-client-test-client-namespac-edb3a2"
 
@@ -369,19 +369,19 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: fmt.Sprintf("%s.%s", serverName, serverNamespace),
+				Service: &otterizev2alpha1.ServiceTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace)},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
 	kubernetesSvcNamespacedName := types.NamespacedName{
@@ -462,14 +462,14 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 			Name:      policyName,
 			Namespace: testClientNamespace,
 			Labels: map[string]string{
-				otterizev1alpha3.OtterizeNetworkPolicy: formattedClient,
+				otterizev2alpha1.OtterizeNetworkPolicy: formattedClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev1alpha3.OtterizeServiceLabelKey: formattedClient,
+					otterizev2alpha1.OtterizeServiceLabelKey: formattedClient,
 				},
 			},
 			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
@@ -523,19 +523,19 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForK
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: fmt.Sprintf("svc:test-server.%s", serverNamespace),
+				Service: &otterizev2alpha1.ServiceTarget{Name: fmt.Sprintf("test-server.%s", serverNamespace)},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
 	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, ports, svcSelector)
@@ -590,20 +590,20 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForK
 		NamespacedName: namespacedName,
 	}
 
-	serverName := fmt.Sprintf("svc:test-server.%s", serverNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	serverName := fmt.Sprintf("test-server.%s", serverNamespace)
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverName,
+				Service: &otterizev2alpha1.ServiceTarget{Name: serverName},
 			},
 		},
 	}
 
-	clientIntents := otterizev1alpha3.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
 	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, []corev1.ServicePort{{TargetPort: intstr.IntOrString{IntVal: 80}}}, svcSelector)
@@ -658,17 +658,17 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKu
 		NamespacedName: namespacedName,
 	}
 
-	serverName := fmt.Sprintf("svc:test-server.%s", testNamespace)
-	intentsSpec := &otterizev1alpha3.IntentsSpec{
-		Service: otterizev1alpha3.Service{Name: serviceName},
-		Calls: []otterizev1alpha3.Intent{
+	serverName := fmt.Sprintf("test-server.%s", testNamespace)
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
 			{
-				Name: serverName,
+				Service: &otterizev2alpha1.ServiceTarget{Name: serverName},
 			},
 		},
 	}
 
-	clientIntentsObj := otterizev1alpha3.ClientIntents{
+	clientIntentsObj := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         testNamespace,
@@ -676,7 +676,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKu
 		},
 		Spec: intentsSpec,
 	}
-	s.expectGetAllEffectivePolicies([]otterizev1alpha3.ClientIntents{clientIntentsObj})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntentsObj})
 
 	selector := map[string]string{"test": "selector"}
 	svcObject := corev1.Service{
