@@ -39,7 +39,7 @@ webhooks:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
-    - v1
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
@@ -123,7 +123,7 @@ webhooks:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
-    - v1
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
@@ -186,7 +186,7 @@ webhooks:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
-    - v1
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
@@ -249,7 +249,7 @@ webhooks:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
-    - v1
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
