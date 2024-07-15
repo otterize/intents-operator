@@ -29,13 +29,6 @@ jobs:
         run: go vet ./...
         working-directory: src
 
-      - name: staticcheck
-        uses: dominikh/staticcheck-action@v1.3.1
-        with:
-          version: latest
-          install-go: false
-          working-directory: src
-
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
