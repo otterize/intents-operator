@@ -7,7 +7,7 @@
 A Helm chart for deploying spire-server and spire-agent.
 
 > :warning: Please note this chart requires Projected Service Account Tokens which has to be enabled on your k8s api server.
-
+<!-- markdownlint-disable-next-line MD028 -->
 > :warning: Minimum Spire version is `v1.0.2`.
 
 To enable Projected Service Account Tokens on Docker for Mac/Windows run the following
@@ -36,7 +36,7 @@ spec:
 
 | Name | Email | Url |
 | ---- | ------ | --- |
-| marcofranssen | marco.franssen@philips.com | https://marcofranssen.nl |
+| marcofranssen | <marco.franssen@philips.com> | <https://marcofranssen.nl> |
 
 ## Source Code
 
