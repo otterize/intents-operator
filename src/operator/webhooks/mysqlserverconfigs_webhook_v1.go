@@ -19,7 +19,7 @@ package webhooks
 import (
 	"context"
 	goerrors "errors"
-	otterizev1 "github.com/otterize/intents-operator/src/operator/api/v1"
+	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,7 +37,7 @@ type MySQLConfValidatorV1 struct {
 
 func (v *MySQLConfValidatorV1) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&otterizev1.MySQLServerConfig{}).
+		For(&otterizev1beta1.MySQLServerConfig{}).
 		WithValidator(v).
 		Complete()
 }
@@ -60,7 +60,7 @@ func (v *MySQLConfValidatorV1) ValidateDelete(ctx context.Context, obj runtime.O
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *MySQLConfValidatorV1) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
-	mysqlServerConf := obj.(*otterizev1.MySQLServerConfig)
+	mysqlServerConf := obj.(*otterizev1beta1.MySQLServerConfig)
 	gvk := mysqlServerConf.GroupVersionKind()
 
 	if err := validateCredentialsNotEmptyV1(mysqlServerConf.Spec.Credentials); err != nil {
@@ -86,7 +86,7 @@ func (v *MySQLConfValidatorV1) ValidateCreate(ctx context.Context, obj runtime.O
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *MySQLConfValidatorV1) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
-	mysqlServerConf := newObj.(*otterizev1.MySQLServerConfig)
+	mysqlServerConf := newObj.(*otterizev1beta1.MySQLServerConfig)
 	gvk := mysqlServerConf.GroupVersionKind()
 
 	if err := validateCredentialsNotEmptyV1(mysqlServerConf.Spec.Credentials); err != nil {

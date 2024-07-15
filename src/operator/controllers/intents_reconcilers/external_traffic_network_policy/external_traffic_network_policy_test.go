@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/amit7itz/goset"
 	"github.com/google/uuid"
-	otterizev1 "github.com/otterize/intents-operator/src/operator/api/v1"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
@@ -67,7 +67,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupSuite() {
 	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev1.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1beta1.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev2alpha1.AddToScheme(s.TestEnv.Scheme))
 
 	s.RestConfig, err = s.TestEnv.Start()

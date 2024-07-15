@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/asaskevich/govalidator"
-	otterizev1 "github.com/otterize/intents-operator/src/operator/api/v1"
+	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -39,7 +39,7 @@ type ProtectedServiceValidatorV1 struct {
 
 func (v *ProtectedServiceValidatorV1) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&otterizev1.ProtectedService{}).
+		For(&otterizev1beta1.ProtectedService{}).
 		WithValidator(v).
 		Complete()
 }
@@ -57,9 +57,9 @@ var _ webhook.CustomValidator = &ProtectedServiceValidatorV1{}
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *ProtectedServiceValidatorV1) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	var allErrs field.ErrorList
-	protectedService := obj.(*otterizev1.ProtectedService)
+	protectedService := obj.(*otterizev1beta1.ProtectedService)
 
-	protectedServicesList := &otterizev1.ProtectedServiceList{}
+	protectedServicesList := &otterizev1beta1.ProtectedServiceList{}
 	if err := v.List(ctx, protectedServicesList, &client.ListOptions{Namespace: protectedService.Namespace}); err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -85,9 +85,9 @@ func (v *ProtectedServiceValidatorV1) ValidateCreate(ctx context.Context, obj ru
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *ProtectedServiceValidatorV1) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	var allErrs field.ErrorList
-	protectedService := newObj.(*otterizev1.ProtectedService)
+	protectedService := newObj.(*otterizev1beta1.ProtectedService)
 
-	protectedServicesList := &otterizev1.ProtectedServiceList{}
+	protectedServicesList := &otterizev1beta1.ProtectedServiceList{}
 	if err := v.List(ctx, protectedServicesList, &client.ListOptions{Namespace: protectedService.Namespace}); err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -116,7 +116,7 @@ func (v *ProtectedServiceValidatorV1) ValidateDelete(ctx context.Context, obj ru
 }
 
 func (v *ProtectedServiceValidatorV1) validateNoDuplicateClients(
-	protectedService *otterizev1.ProtectedService, protectedServicesList *otterizev1.ProtectedServiceList) *field.Error {
+	protectedService *otterizev1beta1.ProtectedService, protectedServicesList *otterizev1beta1.ProtectedServiceList) *field.Error {
 
 	protectedServiceName := protectedService.Spec.Name
 	for _, protectedServiceFromList := range protectedServicesList.Items {
@@ -135,7 +135,7 @@ func (v *ProtectedServiceValidatorV1) validateNoDuplicateClients(
 }
 
 // validateSpec
-func (v *ProtectedServiceValidatorV1) validateSpec(protectedService *otterizev1.ProtectedService) *field.Error {
+func (v *ProtectedServiceValidatorV1) validateSpec(protectedService *otterizev1beta1.ProtectedService) *field.Error {
 	serviceName := strings.ReplaceAll(protectedService.Spec.Name, "-", "")
 	serviceName = strings.ReplaceAll(serviceName, "_", "")
 	// Validate Service Name contains only lowercase alphanumeric characters
