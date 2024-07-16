@@ -38,7 +38,7 @@ const (
 	OtterizeAccessLabelPrefix                        = "intents.otterize.com/access"
 	OtterizeServiceAccessLabelPrefix                 = "intents.otterize.com/svc-access"
 	OtterizeAccessLabelKey                           = "intents.otterize.com/access-%s"
-	OtterizeExternalAccessLabelKey             = "intents.otterize.com/external-access-%s"
+	OtterizeExternalAccessLabelKey                   = "intents.otterize.com/external-access-%s"
 	OtterizeSvcAccessLabelKey                        = "intents.otterize.com/svc-access-%s"
 	OtterizeClientLabelKey                           = "intents.otterize.com/client"
 	OtterizeServiceLabelKey                          = "intents.otterize.com/service"
@@ -327,6 +327,7 @@ type IntentsStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:storageversion
 
 // ClientIntents is the Schema for the intents API
 type ClientIntents struct {
