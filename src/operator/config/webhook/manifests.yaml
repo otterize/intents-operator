@@ -31,15 +31,15 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-k8s-otterize-com-v1-clientintents
+      path: /validate-k8s-otterize-com-v1alpha3-clientintents
   failurePolicy: Fail
   matchPolicy: Exact
-  name: clientintentsv1.kb.io
+  name: clientintentsv1alpha3.kb.io
   rules:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
-    - v1beta1
+    - v1alpha3
     operations:
     - CREATE
     - UPDATE
@@ -52,15 +52,15 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-k8s-otterize-com-v1alpha3-clientintents
+      path: /validate-k8s-otterize-com-v1beta1-clientintents
   failurePolicy: Fail
   matchPolicy: Exact
-  name: clientintentsv1alpha3.kb.io
+  name: clientintentsv1beta1.kb.io
   rules:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
-    - v1alpha3
+    - v1beta1
     operations:
     - CREATE
     - UPDATE
