@@ -1,4 +1,4 @@
-package v1
+package v1beta1
 
 import "github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 

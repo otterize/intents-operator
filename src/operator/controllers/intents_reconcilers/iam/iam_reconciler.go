@@ -141,6 +141,9 @@ func (r *IAMIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.C
 	countUsesOfServiceAccountName := 0
 	for _, intent := range intentsWithSameTypeInSameNamespace {
 		pod, err := r.serviceIdResolver.ResolveClientIntentToPod(ctx, intent)
+		if errors.Is(err, serviceidresolver.ErrPodNotFound) {
+			continue
+		}
 		if err != nil {
 			return false, errors.Wrap(err)
 		}

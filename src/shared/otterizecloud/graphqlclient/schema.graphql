@@ -64,6 +64,10 @@ directive @validate(
 	customConstraint: CustomConstraint
 ) on INPUT_FIELD_DEFINITION | ARGUMENT_DEFINITION
 
+type AWSCustomer {
+	awsAccountId: String!
+}
+
 type AWSGeneralResource {
 	resource: String!
 	isWildcard: Boolean!
@@ -2033,6 +2037,7 @@ type User {
 	authProviderUserId: String!
 	tutorials: [UserTutorial!]
 	activeTutorial: UserTutorial!
+	awsCustomer: AWSCustomer
 }
 
 enum UserErrorType {

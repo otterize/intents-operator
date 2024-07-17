@@ -3,8 +3,8 @@ package webhooks
 import (
 	"context"
 	"fmt"
-	otterizev1 "github.com/otterize/intents-operator/src/operator/api/v1"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -136,7 +136,7 @@ func validateCredentialsNotEmptyV1alpha3(credentials otterizev1alpha3.DatabaseCr
 	return nil
 }
 
-func validateCredentialsNotEmptyV1(credentials otterizev1.DatabaseCredentials) *field.Error {
+func validateCredentialsNotEmptyV1(credentials otterizev1beta1.DatabaseCredentials) *field.Error {
 	if (credentials.Username == "" || credentials.Password == "") && credentials.SecretRef == nil {
 		return &field.Error{
 			Type:     field.ErrorTypeRequired,

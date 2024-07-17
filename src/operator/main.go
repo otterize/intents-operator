@@ -20,8 +20,8 @@ import (
 	"context"
 	"github.com/amit7itz/goset"
 	"github.com/bombsimon/logrusr/v3"
-	otterizev1 "github.com/otterize/intents-operator/src/operator/api/v1"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
@@ -98,7 +98,7 @@ func init() {
 	utilruntime.Must(istiosecurityscheme.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha2.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
-	utilruntime.Must(otterizev1.AddToScheme(scheme))
+	utilruntime.Must(otterizev1beta1.AddToScheme(scheme))
 	utilruntime.Must(otterizev2alpha1.AddToScheme(scheme))
 
 	// Config Connector CRDs
@@ -559,7 +559,7 @@ func initWebhookValidators(mgr manager.Manager) {
 	}
 
 	intentsValidatorV1 := webhooks.NewIntentsValidatorV1(mgr.GetClient())
-	if err := (&otterizev1.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidatorV1); err != nil {
+	if err := (&otterizev1beta1.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidatorV1); err != nil {
 		logrus.WithError(err).Panic(err, "unable to create webhook v1", "webhook", "ClientIntents")
 	}
 
@@ -579,7 +579,7 @@ func initWebhookValidators(mgr manager.Manager) {
 	}
 
 	protectedServiceValidatorV1 := webhooks.NewProtectedServiceValidatorV1(mgr.GetClient())
-	if err := (&otterizev1.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV1); err != nil {
+	if err := (&otterizev1beta1.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV1); err != nil {
 		logrus.WithError(err).Panic("unable to create webhook v1", "webhook", "ProtectedService")
 	}
 
@@ -596,7 +596,7 @@ func initWebhookValidators(mgr manager.Manager) {
 		logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "KafkaServerConfig")
 	}
 
-	if err := (&otterizev1.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
+	if err := (&otterizev1beta1.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create webhook v1", "webhook", "KafkaServerConfig")
 	}
 
@@ -610,7 +610,7 @@ func initWebhookValidators(mgr manager.Manager) {
 	}
 
 	pgServerConfValidatorV1 := webhooks.NewPostgresConfValidatorV1(mgr.GetClient())
-	if err := (&otterizev1.PostgreSQLServerConfig{}).SetupWebhookWithManager(mgr, pgServerConfValidatorV1); err != nil {
+	if err := (&otterizev1beta1.PostgreSQLServerConfig{}).SetupWebhookWithManager(mgr, pgServerConfValidatorV1); err != nil {
 		logrus.WithError(err).Panic("unable to create webhook v1", "webhook", "PostgreSQLServerConfig")
 	}
 
@@ -625,7 +625,7 @@ func initWebhookValidators(mgr manager.Manager) {
 	}
 
 	mysqlServerConfValidatorV1 := webhooks.NewMySQLConfValidatorV1(mgr.GetClient())
-	if err := (&otterizev1.MySQLServerConfig{}).SetupWebhookWithManager(mgr, mysqlServerConfValidatorV1); err != nil {
+	if err := (&otterizev1beta1.MySQLServerConfig{}).SetupWebhookWithManager(mgr, mysqlServerConfValidatorV1); err != nil {
 		logrus.WithError(err).Panic("unable to create webhook v1", "webhook", "MySQLServerConfig")
 	}
 
