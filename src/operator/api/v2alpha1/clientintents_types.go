@@ -459,16 +459,7 @@ func (in *ClientIntents) GetDatabaseIntents() []Target {
 // GetTargetServerNamespace returns target namespace for intent if exists
 // or the entire resource's namespace if the specific intent has no target namespace, as it's optional
 func (in *Target) GetTargetServerNamespace(intentsObjNamespace string) string {
-	var name string
-
-	if in.Kubernetes != nil {
-		name = in.Kubernetes.Name
-	}
-	if in.Service != nil {
-		name = in.Service.Name
-	}
-
-	nameWithNamespace := strings.Split(name, ".")
+	nameWithNamespace := strings.Split(in.GetTargetServerNameAsWritten(), ".")
 	if len(nameWithNamespace) == 1 {
 		return intentsObjNamespace
 	}
@@ -526,7 +517,15 @@ func (in *Target) IsTargetOutOfCluster() bool {
 
 // GetTargetServerName returns server's service name, without namespace, or the Kubernetes service without the `svc:` prefix
 func (in *Target) GetTargetServerName() string {
+	name := in.GetTargetServerNameAsWritten()
+	if in.IsTargetOutOfCluster() {
+		return name
+	}
+	nameWithNamespace := strings.Split(name, ".")
+	return nameWithNamespace[0]
+}
 
+func (in *Target) GetTargetServerNameAsWritten() string {
 	if in.Internet != nil {
 		return OtterizeInternetTargetName
 	}
@@ -547,22 +546,19 @@ func (in *Target) GetTargetServerName() string {
 		return in.SQL.Name
 	}
 
-	var name string
-
 	if in.Kafka != nil {
-		name = in.Kafka.Name
+		return in.Kafka.Name
 	}
 
 	if in.Service != nil {
-		name = in.Service.Name
+		return in.Service.Name
 	}
 
 	if in.Kubernetes != nil {
-		name = in.Kubernetes.Name
+		return in.Kubernetes.Name
 	}
 
-	nameWithNamespace := strings.Split(name, ".")
-	return nameWithNamespace[0]
+	panic("target server name not found")
 }
 
 func (in *Target) GetTargetServerKind() string {
@@ -782,7 +778,7 @@ func (in *Target) ConvertToCloudFormat(ctx context.Context, k8sClient client.Cli
 	if in.IsTargetServerKubernetesService() {
 		// alias should be the kubernetes service
 		alias = &graphqlclient.ServerAliasInput{
-			Name: lo.ToPtr(serverServiceIdentity.Name),
+			Name: lo.ToPtr(serverServiceIdentity.GetNameAsServer()),
 			Kind: lo.ToPtr(serverServiceIdentity.Kind),
 		}
 		labelSelector, ok, err := ServiceIdentityToLabelsForWorkloadSelection(ctx, k8sClient, serverServiceIdentity)
@@ -810,7 +806,8 @@ func (in *Target) ConvertToCloudFormat(ctx context.Context, k8sClient client.Cli
 	intentInput := graphqlclient.IntentInput{
 		ClientName:         lo.ToPtr(clientServiceIdentity.Name),
 		ClientWorkloadKind: lo.Ternary(clientServiceIdentity.Kind != serviceidentity.KindOtterizeLegacy, lo.ToPtr(clientServiceIdentity.Kind), nil),
-		ServerName:         lo.ToPtr(in.GetTargetServerName()),
+		ServerName:         lo.ToPtr(serverServiceIdentity.Name),
+		ServerWorkloadKind: lo.Ternary(serverServiceIdentity.Kind != serviceidentity.KindOtterizeLegacy, lo.ToPtr(clientServiceIdentity.Kind), nil),
 		Namespace:          lo.ToPtr(clientServiceIdentity.Namespace),
 		ServerNamespace:    toPtrOrNil(in.GetTargetServerNamespace(clientServiceIdentity.Namespace)),
 		ServerAlias:        alias,
