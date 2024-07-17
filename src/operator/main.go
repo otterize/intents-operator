@@ -39,8 +39,8 @@ import (
 	"github.com/otterize/credentials-operator/src/controllers/spireclient/svids"
 	"github.com/otterize/credentials-operator/src/controllers/tls_pod"
 	"github.com/otterize/credentials-operator/src/operatorconfig"
-	otterizev1 "github.com/otterize/intents-operator/src/operator/api/v1"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	mutatingwebhookconfiguration "github.com/otterize/intents-operator/src/operator/controllers/mutating_webhook_controller"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
@@ -100,7 +100,7 @@ func init() {
 	utilruntime.Must(gcpiamv1.AddToScheme(scheme))
 	utilruntime.Must(gcpk8sv1.AddToScheme(scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
-	utilruntime.Must(otterizev1.AddToScheme(scheme))
+	utilruntime.Must(otterizev1beta1.AddToScheme(scheme))
 	utilruntime.Must(otterizev2alpha1.AddToScheme(scheme))
 
 	// +kubebuilder:scaffold:scheme
@@ -134,10 +134,8 @@ func main() {
 
 	signalHandlerCtx := ctrl.SetupSignalHandler()
 
-	clusterUID, err := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
-	if err != nil {
-		logrus.WithError(err).Panic("Failed obtaining cluster ID")
-	}
+	clusterUID := clusterutils.GetOrCreateClusterUID(signalHandlerCtx)
+
 	componentinfo.SetGlobalContextId(telemetrysender.Anonymize(clusterUID))
 
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
@@ -172,7 +170,7 @@ func main() {
 
 	// Required for cases where the intents operator starts after the credentials operator, and the credentials
 	// operator requires ClientIntents to be deployed.
-	err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace)
+	err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace, []byte{})
 	if err != nil {
 		logrus.WithError(err).Panic("unable to ensure otterize CRDs")
 	}
