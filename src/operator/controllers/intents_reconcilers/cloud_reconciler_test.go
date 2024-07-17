@@ -770,6 +770,21 @@ func (s *CloudReconcilerTestSuite) TestNamespaceParseSuccess() {
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), "other-namespace")
 }
 
+// TestIntents With Kafka Target
+func (s *CloudReconcilerTestSuite) TestKafkaTarget() {
+	serverName := "server.other-namespace"
+	intent := &otterizev2alpha1.Target{Kafka: &otterizev2alpha1.KafkaTarget{Name: serverName, Topics: []otterizev2alpha1.KafkaTopic{{Name: "test", Operations: []otterizev2alpha1.KafkaOperation{otterizev2alpha1.KafkaOperationConsume}}}}}
+	cloudIntent, err := intent.ConvertToCloudFormat(context.Background(), s.client, serviceidentity.ServiceIdentity{Name: clientName, Namespace: testNamespace})
+	s.Require().NoError(err)
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerName), "server")
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), "other-namespace")
+	s.Require().Len(cloudIntent.Topics, 1)
+	s.Require().Equal(lo.FromPtr(cloudIntent.Topics[0].Name), "test")
+	s.Require().Len(cloudIntent.Topics[0].Operations, 1)
+	s.Require().Equal(lo.FromPtr(cloudIntent.Topics[0].Operations[0]), graphqlclient.KafkaOperationConsume)
+
+}
+
 func (s *CloudReconcilerTestSuite) TestTargetNamespaceAsSourceNamespace() {
 	serverName := "server"
 	intent := &otterizev2alpha1.Target{Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serverName}}
