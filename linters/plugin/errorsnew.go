@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/otterize/intents-operator/linters"
+	"github.com/otterize/intents-operator/linters/errorsnew"
 	"golang.org/x/tools/go/analysis"
 )
 
 func New(_ any) ([]*analysis.Analyzer, error) {
-	return []*analysis.Analyzer{linters.ErrorsNewAnalyzer}, nil
+	return []*analysis.Analyzer{errorsnew.Analyzer}, nil
 }

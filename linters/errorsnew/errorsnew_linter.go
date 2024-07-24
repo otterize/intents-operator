@@ -1,4 +1,4 @@
-package linters
+package errorsnew
 
 import (
 	"go/ast"
@@ -6,7 +6,7 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-var ErrorsNewAnalyzer = &analysis.Analyzer{
+var Analyzer = &analysis.Analyzer{
 	Name: "errorsnewlinter",
 	Doc:  "checks that there are no calls to errors.New outside of a function (we should use sentinel errors for that)",
 	Run:  run,
