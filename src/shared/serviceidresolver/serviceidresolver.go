@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	ErrPodNotFound = errors.Errorf("pod not found")
+	ErrPodNotFound = errors.NewSentinelError("pod not found")
 )
 
 //+kubebuilder:rbac:groups="apps",resources=deployments;replicasets;daemonsets;statefulsets,verbs=get;list;watch
