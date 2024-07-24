@@ -259,10 +259,11 @@ func main() {
 	if err = podUserAndPasswordReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithField("controller", "podUserAndPassword").WithError(err).Panic("unable to create controller")
 	}
-	go podUserAndPasswordReconciler.RotateSecretsLoop(signalHandlerCtx)
+	if viper.GetBool(operatorconfig.EnableSecretRotationKey) {
+		go podUserAndPasswordReconciler.RotateSecretsLoop(signalHandlerCtx)
+	}
 
 	// +kubebuilder:scaffold:builder
-
 	if err := mgr.AddHealthzCheck("health", healthz.Ping); err != nil {
 		logrus.WithError(err).Panic("unable to set up health check")
 	}
