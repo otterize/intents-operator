@@ -11,6 +11,7 @@ linters:
     - unused
     - nilnil
     - nilerr
+    - errorsNew
 linters-settings:
   custom:
     errorsNew:
