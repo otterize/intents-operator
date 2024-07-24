@@ -11,9 +11,9 @@ linters:
     - unused
     - nilnil
     - nilerr
-    - errorsNew
+    - errorsnew
 linters-settings:
   custom:
-    errorsNew:
-      path: "./errorsNew.so"
+    errorsnew:
+      path: "./errorsnew.so"
       original-url: github.com/otterize/intents-operator/linters
