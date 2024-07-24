@@ -29,6 +29,10 @@ jobs:
         run: go vet ./...
         working-directory: src
 
+      - name: go build errorsNew linter
+        run: go build -buildmode=plugin -o errorsNew.so ./src/linters/plugin/errorsnew.go
+        working-directory: .
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
