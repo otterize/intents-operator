@@ -7,7 +7,7 @@ import (
 )
 
 var Analyzer = &analysis.Analyzer{
-	Name: "errorsnewlinter",
+	Name: "errorsnew",
 	Doc:  "checks that there are no calls to errors.New outside of a function (we should use sentinel errors for that)",
 	Run:  run,
 }
@@ -24,7 +24,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 								if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
 									if pkg, ok := sel.X.(*ast.Ident); ok {
 										if pkg.Name == "errors" && (sel.Sel.Name == "New" || sel.Sel.Name == "Errorf") {
-											pass.Reportf(node.Pos(), "found errors.New outside a function - replace with errors.NewSentinelError: %s", pass.Fset.Position(call.Pos()))
+											pass.Reportf(node.Pos(), "Found \"errors.New\" in the global scope. Replace it with \"errors.NewSentinelError\"")
 										}
 									}
 								}
