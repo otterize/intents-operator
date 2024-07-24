@@ -24,7 +24,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 								if sel, ok := call.Fun.(*ast.SelectorExpr); ok {
 									if pkg, ok := sel.X.(*ast.Ident); ok {
 										if pkg.Name == "errors" && sel.Sel.Name == "New" {
-											pass.Reportf(call.Pos(), "found errors.New outside a function - replace with errors.NewSentinelError")
+											pass.Reportf(call.Pos(), "found errors.New outside a function - replace with errors.NewSentinelError: %s", pass.Fset.Position(call.Pos()))
 										}
 									}
 								}
