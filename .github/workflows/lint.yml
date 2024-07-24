@@ -30,7 +30,7 @@ jobs:
         working-directory: src
 
       - name: go build errorsNew linter
-        run: go build -buildmode=plugin -o errorsNew.so ./src/linters/plugin/errorsnew.go
+        run: go build -buildmode=plugin -o errorsNew.so ./linters/plugin/errorsnew.go
         working-directory: .
 
       - name: golangci-lint
