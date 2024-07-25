@@ -8,7 +8,7 @@ import (
 	"net"
 )
 
-var ErrUndefinedObject = errors.New("undefined object")
+var ErrUndefinedObject = errors.NewSentinelError("undefined object")
 
 func TranslatePostgresConnectionError(err error) (string, bool) {
 	if opErr := &(net.OpError{}); errors.As(err, &opErr) || errors.Is(err, context.DeadlineExceeded) {
