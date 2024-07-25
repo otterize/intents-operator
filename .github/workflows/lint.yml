@@ -13,6 +13,7 @@ permissions:
   # pull-requests: read
 
 jobs:
+  # run vet in a separate job to avoid conflicts with golangci-lint pkg-cache
   vet:
     name: vet
     runs-on: ubuntu-latest
