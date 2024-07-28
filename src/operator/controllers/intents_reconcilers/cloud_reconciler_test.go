@@ -12,7 +12,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -791,6 +793,35 @@ func (s *CloudReconcilerTestSuite) TestTargetNamespaceAsSourceNamespace() {
 	cloudIntent, err := intent.ConvertToCloudFormat(context.Background(), s.client, serviceidentity.ServiceIdentity{Name: clientName, Namespace: testNamespace})
 	s.Require().NoError(err)
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), testNamespace)
+}
+
+// TestReportKindAndAlias
+func (s *CloudReconcilerTestSuite) TestReportKindAndAlias() {
+	serverName := "server"
+	intent := &otterizev2alpha1.Target{Service: &otterizev2alpha1.ServiceTarget{Name: serverName}}
+	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(types.NamespacedName{Name: serverName, Namespace: testNamespace}), gomock.AssignableToTypeOf(&v1.Service{})).DoAndReturn(func(ctx context.Context, _ any, obj *v1.Service, _ ...any) error {
+		obj.Name = serverName
+		obj.Namespace = testNamespace
+		obj.Spec.Selector = map[string]string{"app": "test"}
+		return nil
+	})
+	s.client.EXPECT().List(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, list *v1.PodList, _ ...any) error {
+		list.Items = []v1.Pod{{ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: testNamespace, OwnerReferences: []metav1.OwnerReference{{Name: serverName, Kind: "Deployment"}}}}}
+		return nil
+	})
+
+	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(types.NamespacedName{Name: serverName, Namespace: testNamespace}), gomock.AssignableToTypeOf(&unstructured.Unstructured{})).DoAndReturn(func(ctx context.Context, _ any, obj *unstructured.Unstructured, _ ...any) error {
+		obj.SetName(serverName)
+		obj.SetNamespace(testNamespace)
+		obj.SetKind("Deployment")
+		return nil
+	})
+
+	cloudIntent, err := intent.ConvertToCloudFormat(context.Background(), s.client, serviceidentity.ServiceIdentity{Name: clientName, Namespace: testNamespace, Kind: "StatefulSet"})
+	s.Require().NoError(err)
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerWorkloadKind), "Deployment")
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerAlias), graphqlclient.ServerAliasInput{Name: lo.ToPtr(serverName + "." + testNamespace), Kind: lo.ToPtr("Service")})
+	s.Require().Equal(lo.FromPtr(cloudIntent.ClientWorkloadKind), "StatefulSet")
 }
 
 func (s *CloudReconcilerTestSuite) expectNoEvent() {
