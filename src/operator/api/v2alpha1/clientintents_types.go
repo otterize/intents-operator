@@ -807,7 +807,7 @@ func (in *Target) ConvertToCloudFormat(ctx context.Context, k8sClient client.Cli
 		ClientName:         lo.ToPtr(clientServiceIdentity.Name),
 		ClientWorkloadKind: lo.Ternary(clientServiceIdentity.Kind != serviceidentity.KindOtterizeLegacy, lo.ToPtr(clientServiceIdentity.Kind), nil),
 		ServerName:         lo.ToPtr(serverServiceIdentity.Name),
-		ServerWorkloadKind: lo.Ternary(serverServiceIdentity.Kind != serviceidentity.KindOtterizeLegacy, lo.ToPtr(clientServiceIdentity.Kind), nil),
+		ServerWorkloadKind: lo.Ternary(serverServiceIdentity.Kind != serviceidentity.KindOtterizeLegacy, lo.ToPtr(serverServiceIdentity.Kind), nil),
 		Namespace:          lo.ToPtr(clientServiceIdentity.Namespace),
 		ServerNamespace:    toPtrOrNil(in.GetTargetServerNamespace(clientServiceIdentity.Namespace)),
 		ServerAlias:        alias,
