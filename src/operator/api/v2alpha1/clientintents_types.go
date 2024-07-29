@@ -775,7 +775,12 @@ func (in *Target) GetHTTPResources() []HTTPTarget {
 func (in *Target) ConvertToCloudFormat(ctx context.Context, k8sClient client.Client, clientServiceIdentity serviceidentity.ServiceIdentity) (graphqlclient.IntentInput, error) {
 	serverServiceIdentity := in.ToServiceIdentity(clientServiceIdentity.Namespace)
 	var alias *graphqlclient.ServerAliasInput
-	if in.IsTargetServerKubernetesService() {
+	if in.IsTargetTheKubernetesAPIServer(clientServiceIdentity.Namespace) {
+		alias = &graphqlclient.ServerAliasInput{
+			Name: lo.ToPtr(serverServiceIdentity.GetNameAsServer()),
+			Kind: lo.ToPtr(serviceidentity.KindService),
+		}
+	} else if in.IsTargetServerKubernetesService() {
 		// alias should be the kubernetes service
 		alias = &graphqlclient.ServerAliasInput{
 			Name: lo.ToPtr(serverServiceIdentity.GetNameAsServer()),
@@ -800,7 +805,6 @@ func (in *Target) ConvertToCloudFormat(ctx context.Context, k8sClient client.Cli
 				serverServiceIdentity = si
 			}
 		}
-
 	}
 
 	intentInput := graphqlclient.IntentInput{
