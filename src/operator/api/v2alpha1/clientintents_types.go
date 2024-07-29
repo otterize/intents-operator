@@ -780,8 +780,7 @@ func (in *Target) ConvertToCloudFormat(ctx context.Context, k8sClient client.Cli
 			Name: lo.ToPtr(serverServiceIdentity.GetNameAsServer()),
 			Kind: lo.ToPtr(serviceidentity.KindService),
 		}
-	}
-	if in.IsTargetServerKubernetesService() && !in.IsTargetTheKubernetesAPIServer(clientServiceIdentity.Namespace) {
+	} else if in.IsTargetServerKubernetesService() {
 		// alias should be the kubernetes service
 		alias = &graphqlclient.ServerAliasInput{
 			Name: lo.ToPtr(serverServiceIdentity.GetNameAsServer()),
@@ -806,7 +805,6 @@ func (in *Target) ConvertToCloudFormat(ctx context.Context, k8sClient client.Cli
 				serverServiceIdentity = si
 			}
 		}
-
 	}
 
 	intentInput := graphqlclient.IntentInput{
