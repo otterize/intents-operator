@@ -192,7 +192,13 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Targets = make([]v2alpha1.Target, len(in.Spec.Calls))
 	for i, call := range in.Spec.Calls {
 		if call.IsTargetInCluster() && call.Type != IntentTypeKafka {
-			kubernetesTarget := v2alpha1.KubernetesTarget{Name: call.GetServerFullyQualifiedName(in.Namespace), Kind: call.GetTargetServerKind()}
+			var name string
+			if call.Name == call.GetTargetServerName() {
+				name = call.Name
+			} else {
+				name = call.GetServerFullyQualifiedName(in.Namespace)
+			}
+			kubernetesTarget := v2alpha1.KubernetesTarget{Name: name, Kind: call.GetTargetServerKind()}
 			if kubernetesTarget.Kind == serviceidentity.KindOtterizeLegacy {
 				// This is an internal kind the user doesn't need to see it
 				kubernetesTarget.Kind = ""
@@ -267,6 +273,12 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	in.Spec.Service.Kind = src.Spec.Workload.Kind
 	in.Spec.Calls = make([]Intent, len(src.Spec.Targets))
 	for i, target := range src.Spec.Targets {
+		if target.IsTargetTheKubernetesAPIServer(src.Namespace) {
+			// Using "svc:kubernetes.default" was a common use case in v1alpha3 -
+			// therefore we prefer to convert to this form.
+			in.Spec.Calls[i] = Intent{Name: "svc:" + target.Kubernetes.Name}
+			continue
+		}
 		if target.Kubernetes != nil {
 			in.Spec.Calls[i] = Intent{Name: target.Kubernetes.Name, Kind: target.Kubernetes.Kind}
 			if target.Kubernetes.HTTP != nil {
