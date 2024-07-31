@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/amit7itz/goset"
 	"github.com/bombsimon/logrusr/v3"
+	"github.com/cenkalti/backoff"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
@@ -538,10 +539,19 @@ func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud
 		configInput.IngressControllerConfig = ingressControllerConfigInput
 	}
 
-	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, configInput)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to report configuration to the cloud")
-	}
+	go func() {
+		defer errorreporter.AutoNotify()
+		expBackoff := backoff.NewExponentialBackOff()
+		for {
+			err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, configInput)
+			if err != nil {
+				logrus.WithError(err).Error("Failed to report configuration to the cloud")
+				time.Sleep(expBackoff.NextBackOff())
+				continue
+			}
+			break
+		}
+	}()
 }
 
 func initWebhookValidators(mgr manager.Manager) {
