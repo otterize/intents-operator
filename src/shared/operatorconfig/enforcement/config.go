@@ -42,7 +42,18 @@ const (
 )
 
 func init() {
-	pflag.Bool(EnforcementDefaultStateKey, EnforcementDefaultStateDefault, "Sets the default state of the  If true, always enforces. If false, can be overridden using ProtectedService.")
+	viper.SetDefault(EnforcementDefaultStateKey, EnforcementDefaultStateDefault)
+	viper.SetDefault(EnableNetworkPolicyKey, EnableNetworkPolicyDefault)
+	viper.SetDefault(EnableKafkaACLKey, EnableKafkaACLDefault)
+	viper.SetDefault(ActiveEnforcementNamespacesKey, nil)
+	viper.SetDefault(EnableIstioPolicyKey, EnableIstioPolicyDefault)
+	viper.SetDefault(EnableDatabasePolicy, EnableDatabasePolicyDefault)
+	viper.SetDefault(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault)
+	viper.SetDefault(EnableAWSPolicyKey, EnableAWSPolicyDefault)
+}
+
+func InitCLIFlags() {
+	pflag.Bool(EnforcementDefaultStateKey, EnforcementDefaultStateDefault, "Sets the default state of the enforcement. If true, always enforces. If false, can be overridden using ProtectedService.")
 	pflag.Bool(EnableNetworkPolicyKey, EnableNetworkPolicyDefault, "Whether to enable Intents network policy creation")
 	pflag.Bool(EnableKafkaACLKey, EnableKafkaACLDefault, "Whether to disable Intents Kafka ACL creation")
 	pflag.StringSlice(ActiveEnforcementNamespacesKey, nil, "While using the shadow enforcement mode, namespaces in this list will be treated as if the enforcement were active.")

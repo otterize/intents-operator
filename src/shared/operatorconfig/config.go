@@ -69,17 +69,9 @@ func init() {
 	viper.SetDefault(ProbeAddrKey, ProbeAddrDefault)
 	viper.SetDefault(EnableLeaderElectionKey, EnableLeaderElectionDefault)
 	viper.SetDefault(SelfSignedCertKey, SelfSignedCertDefault)
-	viper.SetDefault(enforcement.EnforcementDefaultStateKey, enforcement.EnforcementDefaultStateDefault)
 	viper.SetDefault(AllowExternalTrafficKey, AllowExternalTrafficDefault)
-	viper.SetDefault(enforcement.EnableNetworkPolicyKey, enforcement.EnableNetworkPolicyDefault)
-	viper.SetDefault(enforcement.EnableKafkaACLKey, enforcement.EnableKafkaACLDefault)
-	viper.SetDefault(enforcement.EnableIstioPolicyKey, enforcement.EnableIstioPolicyDefault)
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
-	viper.SetDefault(enforcement.EnableEgressNetworkPolicyReconcilersKey, enforcement.EnableEgressNetworkPolicyReconcilersDefault)
-	viper.SetDefault(enforcement.EnableAWSPolicyKey, enforcement.EnableAWSPolicyDefault)
 	viper.SetDefault(EnableAWSRolesAnywhereKey, EnableAWSRolesAnywhereDefault)
-	viper.SetDefault(enforcement.EnableGCPPolicyKey, enforcement.EnableGCPPolicyDefault)
-	viper.SetDefault(enforcement.EnableAzurePolicyKey, enforcement.EnableAzurePolicyDefault)
 	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
 	viper.SetDefault(AWSRolesAnywhereCertDirKey, AWSRolesAnywhereCertDirDefault)
 	viper.SetDefault(AWSRolesAnywherePrivKeyFilenameKey, AWSRolesAnywherePrivKeyFilenameDefault)
@@ -89,8 +81,6 @@ func init() {
 	viper.SetDefault(KafkaServerTLSCAKey, "")
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetDefault(WatchedNamespacesKey, nil)
-	viper.SetDefault(enforcement.ActiveEnforcementNamespacesKey, nil)
-	viper.SetDefault(enforcement.EnableDatabasePolicy, enforcement.EnableDatabasePolicyDefault)
 	viper.SetDefault(RetryDelayTimeKey, RetryDelayTimeDefault)
 	viper.SetDefault(DebugLogKey, DebugLogDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
@@ -146,6 +136,7 @@ func GetIngressControllerServiceIdentities() []serviceidentity.ServiceIdentity {
 }
 
 func InitCLIFlags() {
+	enforcement.InitCLIFlags()
 	// Backwards compatibility, new flags should be added to as ENV variables using viper
 	pflag.String(KafkaServerTLSCertKey, "", "name of tls certificate file")
 	pflag.String(KafkaServerTLSKeyKey, "", "name of tls private key file")
