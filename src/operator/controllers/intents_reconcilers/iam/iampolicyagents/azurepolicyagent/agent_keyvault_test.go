@@ -7,7 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/google/uuid"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	mock_azureagent "github.com/otterize/intents-operator/src/shared/azureagent/mocks"
 	"github.com/samber/lo"
@@ -121,7 +121,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) expectUpdateKeyVaultAccessPolicyWrites
 
 type AzureKeyVaultPolicyTestCase struct {
 	Name                string
-	IntentPolicy        *otterizev1alpha3.AzureKeyVaultPolicy
+	IntentPolicy        *otterizev2alpha1.AzureKeyVaultPolicy
 	ExisingAccessPolicy []*armkeyvault.AccessPolicyEntry
 	UpdateExpected      bool
 	UpdateKind          armkeyvault.AccessPolicyUpdateKind
@@ -130,11 +130,11 @@ type AzureKeyVaultPolicyTestCase struct {
 var azureKeyVaultPolicyTestCases = []AzureKeyVaultPolicyTestCase{
 	{
 		Name: "AddsNewPolicy",
-		IntentPolicy: &otterizev1alpha3.AzureKeyVaultPolicy{
-			CertificatePermissions: []otterizev1alpha3.AzureKeyVaultCertificatePermission{otterizev1alpha3.AzureKeyVaultCertificatePermissionAll},
-			KeyPermissions:         []otterizev1alpha3.AzureKeyVaultKeyPermission{otterizev1alpha3.AzureKeyVaultKeyPermissionAll},
-			SecretPermissions:      []otterizev1alpha3.AzureKeyVaultSecretPermission{otterizev1alpha3.AzureKeyVaultSecretPermissionAll},
-			StoragePermissions:     []otterizev1alpha3.AzureKeyVaultStoragePermission{otterizev1alpha3.AzureKeyVaultStoragePermissionAll},
+		IntentPolicy: &otterizev2alpha1.AzureKeyVaultPolicy{
+			CertificatePermissions: []otterizev2alpha1.AzureKeyVaultCertificatePermission{otterizev2alpha1.AzureKeyVaultCertificatePermissionAll},
+			KeyPermissions:         []otterizev2alpha1.AzureKeyVaultKeyPermission{otterizev2alpha1.AzureKeyVaultKeyPermissionAll},
+			SecretPermissions:      []otterizev2alpha1.AzureKeyVaultSecretPermission{otterizev2alpha1.AzureKeyVaultSecretPermissionAll},
+			StoragePermissions:     []otterizev2alpha1.AzureKeyVaultStoragePermission{otterizev2alpha1.AzureKeyVaultStoragePermissionAll},
 		},
 		ExisingAccessPolicy: []*armkeyvault.AccessPolicyEntry{},
 		UpdateExpected:      true,
@@ -142,11 +142,11 @@ var azureKeyVaultPolicyTestCases = []AzureKeyVaultPolicyTestCase{
 	},
 	{
 		Name: "UpdatesExistingPolicy",
-		IntentPolicy: &otterizev1alpha3.AzureKeyVaultPolicy{
-			CertificatePermissions: []otterizev1alpha3.AzureKeyVaultCertificatePermission{otterizev1alpha3.AzureKeyVaultCertificatePermissionAll},
-			KeyPermissions:         []otterizev1alpha3.AzureKeyVaultKeyPermission{otterizev1alpha3.AzureKeyVaultKeyPermissionAll},
-			SecretPermissions:      []otterizev1alpha3.AzureKeyVaultSecretPermission{otterizev1alpha3.AzureKeyVaultSecretPermissionAll},
-			StoragePermissions:     []otterizev1alpha3.AzureKeyVaultStoragePermission{otterizev1alpha3.AzureKeyVaultStoragePermissionAll},
+		IntentPolicy: &otterizev2alpha1.AzureKeyVaultPolicy{
+			CertificatePermissions: []otterizev2alpha1.AzureKeyVaultCertificatePermission{otterizev2alpha1.AzureKeyVaultCertificatePermissionAll},
+			KeyPermissions:         []otterizev2alpha1.AzureKeyVaultKeyPermission{otterizev2alpha1.AzureKeyVaultKeyPermissionAll},
+			SecretPermissions:      []otterizev2alpha1.AzureKeyVaultSecretPermission{otterizev2alpha1.AzureKeyVaultSecretPermissionAll},
+			StoragePermissions:     []otterizev2alpha1.AzureKeyVaultStoragePermission{otterizev2alpha1.AzureKeyVaultStoragePermissionAll},
 		},
 		ExisingAccessPolicy: []*armkeyvault.AccessPolicyEntry{
 			{
@@ -165,11 +165,11 @@ var azureKeyVaultPolicyTestCases = []AzureKeyVaultPolicyTestCase{
 	},
 	{
 		Name: "IgnoreMatchingExistingPolicy",
-		IntentPolicy: &otterizev1alpha3.AzureKeyVaultPolicy{
-			CertificatePermissions: []otterizev1alpha3.AzureKeyVaultCertificatePermission{otterizev1alpha3.AzureKeyVaultCertificatePermissionAll},
-			KeyPermissions:         []otterizev1alpha3.AzureKeyVaultKeyPermission{otterizev1alpha3.AzureKeyVaultKeyPermissionAll},
-			SecretPermissions:      []otterizev1alpha3.AzureKeyVaultSecretPermission{otterizev1alpha3.AzureKeyVaultSecretPermissionAll},
-			StoragePermissions:     []otterizev1alpha3.AzureKeyVaultStoragePermission{otterizev1alpha3.AzureKeyVaultStoragePermissionAll},
+		IntentPolicy: &otterizev2alpha1.AzureKeyVaultPolicy{
+			CertificatePermissions: []otterizev2alpha1.AzureKeyVaultCertificatePermission{otterizev2alpha1.AzureKeyVaultCertificatePermissionAll},
+			KeyPermissions:         []otterizev2alpha1.AzureKeyVaultKeyPermission{otterizev2alpha1.AzureKeyVaultKeyPermissionAll},
+			SecretPermissions:      []otterizev2alpha1.AzureKeyVaultSecretPermission{otterizev2alpha1.AzureKeyVaultSecretPermissionAll},
+			StoragePermissions:     []otterizev2alpha1.AzureKeyVaultStoragePermission{otterizev2alpha1.AzureKeyVaultStoragePermissionAll},
 		},
 		ExisingAccessPolicy: []*armkeyvault.AccessPolicyEntry{
 			{
@@ -208,10 +208,12 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestAddRolePolicyFromIntents_AzureKeyV
 	for _, testCase := range azureKeyVaultPolicyTestCases {
 		s.Run(testCase.Name, func() {
 			scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.KeyVault/vaults/%s", testSubscriptionID, testResourceGroup, testKeyVaultName)
-			intents := []otterizev1alpha3.Intent{
+			intents := []otterizev2alpha1.Target{
 				{
-					Name:                scope,
-					AzureKeyVaultPolicy: testCase.IntentPolicy,
+					Azure: &otterizev2alpha1.AzureTarget{
+						Scope:          scope,
+						KeyVaultPolicy: testCase.IntentPolicy,
+					},
 				},
 			}
 
@@ -258,9 +260,11 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestAddRolePolicyFromIntents_AzureKeyV
 
 func (s *AzureAgentPoliciesKeyVaultSuite) TestDeleteRolePolicyFromIntents_ClearsKeyVaults() {
 	// Arrange
-	intents := []otterizev1alpha3.Intent{
+	intents := []otterizev2alpha1.Target{
 		{
-			Name: "/subscriptions/test-subscriptionid/resourceGroups/test-resourcegroup/providers/Microsoft.KeyVault/vaults/test-keyvaultname",
+			Azure: &otterizev2alpha1.AzureTarget{
+				Scope: "/subscriptions/test-subscriptionid/resourceGroups/test-resourcegroup/providers/Microsoft.KeyVault/vaults/test-keyvaultname",
+			},
 		},
 	}
 
@@ -285,14 +289,14 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestDeleteRolePolicyFromIntents_Clears
 	s.expectUpdateKeyVaultAccessPolicyWritesPolicy(testKeyVaultName, armkeyvault.AccessPolicyUpdateKindRemove, &updatedPolicy)
 
 	// Act
-	clientIntents := otterizev1alpha3.ClientIntents{
+	clientIntents := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testAccountName,
 			Namespace: testNamespace,
 		},
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{Name: testIntentsServiceName},
-			Calls:   intents,
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName},
+			Targets:  intents,
 		},
 	}
 	err := s.agent.DeleteRolePolicyFromIntents(context.Background(), clientIntents)

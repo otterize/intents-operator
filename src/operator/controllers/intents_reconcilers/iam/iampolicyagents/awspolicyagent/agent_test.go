@@ -1,7 +1,7 @@
 package awspolicyagent
 
 import (
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/stretchr/testify/suite"
 	"testing"
@@ -34,10 +34,12 @@ func (a *AWSAgentPolicySuite) Test_createPolicyFromIntents_TemplateResourceName(
 			AccountID: "test-accountid",
 		},
 	}
-	intents := []otterizev1alpha3.Intent{
+	intents := []otterizev2alpha1.Target{
 		{
-			Name:       "arn:aws:sqs:$(AWS_REGION):$(AWS_ACCOUNT_ID):queue1",
-			AWSActions: []string{"sqs:SendMessage"},
+			AWS: &otterizev2alpha1.AWSTarget{
+				ARN:     "arn:aws:sqs:$(AWS_REGION):$(AWS_ACCOUNT_ID):queue1",
+				Actions: []string{"sqs:SendMessage"},
+			},
 		},
 	}
 	// When

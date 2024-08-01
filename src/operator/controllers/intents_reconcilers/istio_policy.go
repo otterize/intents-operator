@@ -3,9 +3,9 @@ package intents_reconcilers
 import (
 	"context"
 	"github.com/amit7itz/goset"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
-	istiopolicy "github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
+	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -61,7 +61,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	intents := &otterizev1alpha3.ClientIntents{}
+	intents := &otterizev2alpha1.ClientIntents{}
 	err = r.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -75,7 +75,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 
 	logrus.Debugf("Reconciling Istio authorization policies for service %s in namespace %s",
-		intents.Spec.Service.Name, req.Namespace)
+		intents.Spec.Workload.Name, req.Namespace)
 
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.policyManager.DeleteAll(ctx, intents)
@@ -99,7 +99,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 				intents,
 				consts.ReasonPodsNotFound,
 				"Could not find non-terminating pods for service %s in namespace %s. Intents could not be reconciled now, but will be reconciled if pods appear later.",
-				intents.Spec.Service.Name,
+				intents.Spec.Workload.Name,
 				intents.Namespace)
 			return ctrl.Result{}, nil
 		}
@@ -135,15 +135,15 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	err = r.policyManager.RemoveDeprecatedPoliciesForClient(ctx, intents)
 	if err != nil {
-		logrus.WithError(err).Debugf("Failed to remove deprecated policies for client %s", intents.Spec.Service.Name)
+		logrus.WithError(err).Debugf("Failed to remove deprecated policies for client %s", intents.Spec.Workload.Name)
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev1alpha3.ClientIntents) error {
-	for _, intent := range intents.Spec.Calls {
+func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev2alpha1.ClientIntents) error {
+	for _, intent := range intents.Spec.Targets {
 		serviceId := intent.ToServiceIdentity(intents.Namespace)
 		pods, ok, err := r.serviceIdResolver.ResolveServiceIdentityToPodSlice(ctx, serviceId)
 		if err != nil {

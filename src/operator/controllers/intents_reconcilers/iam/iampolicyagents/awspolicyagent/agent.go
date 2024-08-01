@@ -2,7 +2,7 @@ package awspolicyagent
 
 import (
 	"context"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	corev1 "k8s.io/api/core/v1"
 	"regexp"
@@ -25,8 +25,8 @@ func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
 	return a.agent.AppliesOnPod(pod)
 }
 
-func (a *Agent) IntentType() otterizev1alpha3.IntentType {
-	return otterizev1alpha3.IntentTypeAWS
+func (a *Agent) IntentType() otterizev2alpha1.IntentType {
+	return otterizev2alpha1.IntentTypeAWS
 }
 
 func (a *Agent) templateResourceName(resource string) string {
@@ -36,14 +36,14 @@ func (a *Agent) templateResourceName(resource string) string {
 	return resource
 }
 
-func (a *Agent) createPolicyFromIntents(intents []otterizev1alpha3.Intent) awsagent.PolicyDocument {
+func (a *Agent) createPolicyFromIntents(intents []otterizev2alpha1.Target) awsagent.PolicyDocument {
 	policy := awsagent.PolicyDocument{
 		Version: "2012-10-17",
 	}
 
 	for _, intent := range intents {
-		awsResource := a.templateResourceName(intent.Name)
-		actions := intent.AWSActions
+		awsResource := a.templateResourceName(intent.AWS.ARN)
+		actions := intent.AWS.Actions
 
 		policy.Statement = append(policy.Statement, awsagent.StatementEntry{
 			Effect:   "Allow",
@@ -55,11 +55,11 @@ func (a *Agent) createPolicyFromIntents(intents []otterizev1alpha3.Intent) awsag
 	return policy
 }
 
-func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev1alpha3.Intent, _ corev1.Pod) error {
+func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev2alpha1.Target, pod corev1.Pod) error {
 	policyDoc := a.createPolicyFromIntents(intents)
 	return a.agent.AddRolePolicy(ctx, namespace, accountName, intentsServiceName, policyDoc.Statement)
 }
 
-func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev1alpha3.ClientIntents) error {
-	return a.agent.DeleteRolePolicyByNamespacedName(ctx, intents.Namespace, intents.Spec.Service.Name)
+func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+	return a.agent.DeleteRolePolicyByNamespacedName(ctx, intents.Namespace, intents.Spec.Workload.Name)
 }

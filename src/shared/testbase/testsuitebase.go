@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -420,7 +420,7 @@ func (s *ControllerManagerTestSuiteBase) AddKafkaServerConfig(kafkaServerConfig 
 }
 
 func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string) {
-	kafkaServerConfig := &otterizev1alpha3.KafkaServerConfig{}
+	kafkaServerConfig := &otterizev2alpha1.KafkaServerConfig{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, kafkaServerConfig)
 	s.Require().NoError(err)
 
@@ -434,7 +434,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntents(
 	objName,
 	clientName,
 	clientKind string,
-	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
+	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
 	return s.AddIntentsInNamespace(objName, clientName, clientKind, s.TestNamespace, callList)
 }
 
@@ -443,9 +443,9 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	clientName string,
 	clientKind string,
 	namespace string,
-	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
+	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
 
-	intents := &otterizev1alpha3.ClientIntents{
+	intents := &otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      objName,
 			Namespace: namespace,
@@ -454,9 +454,9 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 				"dummy-finalizer",
 			},
 		},
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{Name: clientName, Kind: clientKind},
-			Calls:   callList,
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{Name: clientName, Kind: clientKind},
+			Targets:  callList,
 		},
 	}
 	err := s.Mgr.GetClient().Create(context.Background(), intents)
@@ -471,14 +471,14 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 func (s *ControllerManagerTestSuiteBase) AddProtectedService(
 	objName,
 	serverName string,
-	namespace string) (*otterizev1alpha3.ProtectedService, error) {
+	namespace string) (*otterizev2alpha1.ProtectedService, error) {
 
-	protectedService := &otterizev1alpha3.ProtectedService{
+	protectedService := &otterizev2alpha1.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      objName,
 			Namespace: namespace,
 		},
-		Spec: otterizev1alpha3.ProtectedServiceSpec{
+		Spec: otterizev2alpha1.ProtectedServiceSpec{
 			Name: serverName,
 		},
 	}
@@ -499,11 +499,11 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsV1alpha2(
 	return s.AddIntentsInNamespaceV1alpha2(objName, clientName, s.TestNamespace, callList)
 }
 
-func (s *ControllerManagerTestSuiteBase) AddIntentsV1alpha3(
+func (s *ControllerManagerTestSuiteBase) AddIntentsv2alpha1(
 	objName,
 	clientName string,
-	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
-	return s.AddIntentsInNamespaceV1alpha3(objName, clientName, s.TestNamespace, callList)
+	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
+	return s.AddIntentsInNamespacev2alpha1(objName, clientName, s.TestNamespace, callList)
 }
 
 func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha2(
@@ -534,13 +534,13 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha2(
 
 	return intents, nil
 }
-func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha3(
+func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespacev2alpha1(
 	objName,
 	clientName string,
 	namespace string,
-	callList []otterizev1alpha3.Intent) (*otterizev1alpha3.ClientIntents, error) {
+	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
 
-	intents := &otterizev1alpha3.ClientIntents{
+	intents := &otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      objName,
 			Namespace: namespace,
@@ -549,9 +549,9 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha3(
 				"dummy-finalizer",
 			},
 		},
-		Spec: &otterizev1alpha3.IntentsSpec{
-			Service: otterizev1alpha3.Service{Name: clientName},
-			Calls:   callList,
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{Name: clientName},
+			Targets:  callList,
 		},
 	}
 	err := s.Mgr.GetClient().Create(context.Background(), intents)
@@ -565,13 +565,13 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha3(
 
 func (s *ControllerManagerTestSuiteBase) UpdateIntents(
 	objName string,
-	callList []otterizev1alpha3.Intent) error {
+	callList []otterizev2alpha1.Target) error {
 
-	intents := &otterizev1alpha3.ClientIntents{}
+	intents := &otterizev2alpha1.ClientIntents{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
 	s.Require().NoError(err)
 
-	intents.Spec.Calls = callList
+	intents.Spec.Targets = callList
 
 	return s.Mgr.GetClient().Update(context.Background(), intents)
 }
@@ -589,15 +589,15 @@ func (s *ControllerManagerTestSuiteBase) UpdateIntentsV1alpha2(
 	return s.Mgr.GetClient().Update(context.Background(), intents)
 }
 
-func (s *ControllerManagerTestSuiteBase) UpdateIntentsV1alpha3(
+func (s *ControllerManagerTestSuiteBase) UpdateIntentsv2alpha1(
 	objName string,
-	callList []otterizev1alpha3.Intent) error {
+	callList []otterizev2alpha1.Target) error {
 
-	intents := &otterizev1alpha3.ClientIntents{}
+	intents := &otterizev2alpha1.ClientIntents{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
 	s.Require().NoError(err)
 
-	intents.Spec.Calls = callList
+	intents.Spec.Targets = callList
 
 	return s.Mgr.GetClient().Update(context.Background(), intents)
 }

@@ -3,7 +3,7 @@ package protected_services
 import (
 	"context"
 	"github.com/amit7itz/goset"
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/sirupsen/logrus"
@@ -26,9 +26,9 @@ func IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx context.Context
 	}
 
 	logrus.Debugf("checking if server is in protected list")
-	var protectedServicesResources otterizev1alpha3.ProtectedServiceList
+	var protectedServicesResources otterizev2alpha1.ProtectedServiceList
 	err := kube.List(ctx, &protectedServicesResources,
-		client.MatchingFields{otterizev1alpha3.OtterizeProtectedServiceNameIndexField: serverServiceId.Name},
+		client.MatchingFields{otterizev2alpha1.OtterizeProtectedServiceNameIndexField: serverServiceId.Name},
 		client.InNamespace(serverServiceId.Namespace))
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -55,10 +55,10 @@ func IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx context.Context
 func InitProtectedServiceIndexField(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev1alpha3.ProtectedService{},
-		otterizev1alpha3.OtterizeProtectedServiceNameIndexField,
+		&otterizev2alpha1.ProtectedService{},
+		otterizev2alpha1.OtterizeProtectedServiceNameIndexField,
 		func(object client.Object) []string {
-			protectedService := object.(*otterizev1alpha3.ProtectedService)
+			protectedService := object.(*otterizev2alpha1.ProtectedService)
 			if protectedService.Spec.Name == "" {
 				return nil
 			}

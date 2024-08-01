@@ -1,7 +1,7 @@
 package azurepolicyagent
 
 import (
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/stretchr/testify/suite"
 	"testing"
@@ -66,8 +66,10 @@ func (s *AzureAgentPoliciesSuite) TestGetIntentScope_HappyFlows() {
 	for _, testCase := range getIntentScopeTestCases {
 		s.Run(testCase.Name, func() {
 			// Arrange
-			intent := otterizev1alpha3.Intent{
-				Name: testCase.IntentName,
+			intent := otterizev2alpha1.Target{
+				Azure: &otterizev2alpha1.AzureTarget{
+					Scope: testCase.IntentName,
+				},
 			}
 
 			// Act
@@ -82,8 +84,11 @@ func (s *AzureAgentPoliciesSuite) TestGetIntentScope_HappyFlows() {
 
 func (s *AzureAgentPoliciesSuite) TestGetIntentScopeError() {
 	// Arrange
-	intent := otterizev1alpha3.Intent{
-		Name: "invalid-scope",
+	intent := otterizev2alpha1.Target{
+		Azure: &otterizev2alpha1.AzureTarget{
+			// Invalid scope
+			Scope: "invalid-scope",
+		},
 	}
 
 	// Act

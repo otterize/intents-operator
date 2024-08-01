@@ -3,11 +3,16 @@ package pod_reconcilers
 import (
 	"context"
 	"fmt"
+	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	podreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -31,9 +36,21 @@ type WatcherPodLabelReconcilerTestSuite struct {
 }
 
 func (s *WatcherPodLabelReconcilerTestSuite) SetupSuite() {
-	s.TestEnv = &envtest.Environment{}
+	logrus.Info("Setting up test suite")
+	s.TestEnv = &envtest.Environment{Scheme: clientgoscheme.Scheme}
 	var err error
 	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd")}
+	s.TestEnv.WebhookInstallOptions = envtest.WebhookInstallOptions{
+		Paths:            []string{filepath.Join("..", "..", "config", "webhook")},
+		LocalServingHost: "localhost",
+	}
+	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev1beta1.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev2alpha1.AddToScheme(s.TestEnv.Scheme))
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
@@ -42,16 +59,16 @@ func (s *WatcherPodLabelReconcilerTestSuite) SetupSuite() {
 	s.K8sDirectClient, err = kubernetes.NewForConfig(s.RestConfig)
 	s.Require().NoError(err)
 	s.Require().NotNil(s.K8sDirectClient)
-
-	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(clientgoscheme.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(istiosecurityscheme.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 }
 
 func (s *WatcherPodLabelReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
+	intentsValidator := webhooks.NewIntentsValidatorV1alpha2(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator))
+	intentsValidator13 := webhooks.NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator13))
+	intentsValidator2 := webhooks.NewIntentsValidatorV2alpha1(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev2alpha1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	controller := gomock.NewController(s.T())
@@ -80,8 +97,8 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels()
 
 	thisPodIdentity := (&serviceidentity.ServiceIdentity{Name: serviceID.Name, Namespace: s.TestNamespace}).GetFormattedOtterizeIdentityWithoutKind()
 
-	_, err = s.AddIntents("test-intents", serviceID.Name, "", []otterizev1alpha3.Intent{{
-		Type: otterizev1alpha3.IntentTypeHTTP, Name: intentTargetServerName,
+	_, err = s.AddIntents("test-intents", serviceID.Name, "", []otterizev2alpha1.Target{{
+		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: intentTargetServerName},
 	},
 	})
 	s.Require().NoError(err)
@@ -101,8 +118,8 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels()
 			Namespace: s.TestNamespace, Name: podName}, &pod)
 		assert.NoError(err)
 		assert.NotEmpty(pod)
-		assert.Contains(pod.Labels, otterizev1alpha3.OtterizeServiceLabelKey)
-		assert.Equal(thisPodIdentity, pod.Labels[otterizev1alpha3.OtterizeServiceLabelKey])
+		assert.Contains(pod.Labels, otterizev2alpha1.OtterizeServiceLabelKey)
+		assert.Equal(thisPodIdentity, pod.Labels[otterizev2alpha1.OtterizeServiceLabelKey])
 
 	})
 
@@ -117,7 +134,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestServerLabelAddedWithNilLabels()
 	s.Require().Empty(res)
 
 	targetServerIdentity := (&serviceidentity.ServiceIdentity{Name: intentTargetServerName, Namespace: s.TestNamespace}).GetFormattedOtterizeIdentityWithoutKind()
-	accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity)
+	accessLabel := fmt.Sprintf(otterizev2alpha1.OtterizeAccessLabelKey, targetServerIdentity)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
 			Namespace: s.TestNamespace, Name: podName}, &pod)
@@ -137,8 +154,8 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 		map[string]string{"someLabel": "cake"},
 		map[string]string{})
 
-	_, err := s.AddIntents("test-intents", deploymentName, "Deployment", []otterizev1alpha3.Intent{{
-		Type: otterizev1alpha3.IntentTypeHTTP, Name: intentTargetServerName,
+	_, err := s.AddIntents("test-intents", deploymentName, "Deployment", []otterizev2alpha1.Target{{
+		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: intentTargetServerName},
 	},
 	})
 	s.Require().NoError(err)
@@ -170,8 +187,8 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 			Namespace: s.TestNamespace, Name: podName}, &pod)
 		assert.NoError(err)
 		assert.NotEmpty(pod)
-		assert.Contains(pod.Labels, otterizev1alpha3.OtterizeServiceLabelKey)
-		assert.Equal(thisPodIdentity, pod.Labels[otterizev1alpha3.OtterizeServiceLabelKey])
+		assert.Contains(pod.Labels, otterizev2alpha1.OtterizeServiceLabelKey)
+		assert.Equal(thisPodIdentity, pod.Labels[otterizev2alpha1.OtterizeServiceLabelKey])
 
 	})
 
@@ -185,7 +202,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 
 	targetServerIdentity := (&serviceidentity.ServiceIdentity{Name: intentTargetServerName, Namespace: s.TestNamespace}).GetFormattedOtterizeIdentityWithoutKind()
 
-	accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity)
+	accessLabel := fmt.Sprintf(otterizev2alpha1.OtterizeAccessLabelKey, targetServerIdentity)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
 			Namespace: s.TestNamespace, Name: podName}, &pod)
@@ -207,8 +224,10 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestAnnotationIntentsRunServiceEffe
 		map[string]string{"someLabel": "cake"},
 		map[string]string{"intents.otterize.com/called-by": "[{\"name\":\"test-client.client-namespace\",\"kind\":\"Deployment\"}]"})
 
-	_, err := s.AddIntents("test-intents", deploymentName, "Deployment", []otterizev1alpha3.Intent{{
-		Type: otterizev1alpha3.IntentTypeHTTP, Name: intentTargetServerName,
+	_, err := s.AddIntents("test-intents", deploymentName, "Deployment", []otterizev2alpha1.Target{{
+		Kubernetes: &otterizev2alpha1.KubernetesTarget{
+			Name: intentTargetServerName,
+		},
 	},
 	})
 	s.Require().NoError(err)
@@ -240,8 +259,8 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestAnnotationIntentsRunServiceEffe
 			Namespace: s.TestNamespace, Name: podName}, &pod)
 		assert.NoError(err)
 		assert.NotEmpty(pod)
-		assert.Contains(pod.Labels, otterizev1alpha3.OtterizeServiceLabelKey)
-		assert.Equal(thisPodIdentity, pod.Labels[otterizev1alpha3.OtterizeServiceLabelKey])
+		assert.Contains(pod.Labels, otterizev2alpha1.OtterizeServiceLabelKey)
+		assert.Equal(thisPodIdentity, pod.Labels[otterizev2alpha1.OtterizeServiceLabelKey])
 
 	})
 
@@ -255,7 +274,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) TestAnnotationIntentsRunServiceEffe
 
 	targetServerIdentity := (&serviceidentity.ServiceIdentity{Name: intentTargetServerName, Namespace: s.TestNamespace}).GetFormattedOtterizeIdentityWithoutKind()
 
-	accessLabel := fmt.Sprintf(otterizev1alpha3.OtterizeAccessLabelKey, targetServerIdentity)
+	accessLabel := fmt.Sprintf(otterizev2alpha1.OtterizeAccessLabelKey, targetServerIdentity)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{
 			Namespace: s.TestNamespace, Name: podName}, &pod)
