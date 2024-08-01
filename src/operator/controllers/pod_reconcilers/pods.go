@@ -109,7 +109,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	err = p.runServiceEffectivePolicy(ctx, pod, serviceID)
+	err = p.runServiceEffectivePolicy(ctx, pod)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
@@ -121,7 +121,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	return ctrl.Result{}, nil
 }
 
-func (p *PodWatcher) runServiceEffectivePolicy(ctx context.Context, pod v1.Pod, serviceID serviceidentity.ServiceIdentity) error {
+func (p *PodWatcher) runServiceEffectivePolicy(ctx context.Context, pod v1.Pod) error {
 	// Run even if the pod is being deleted to remove intents if needed
 	_, ok, err := access_annotation.ParseAccessAnnotations(&pod)
 	if err != nil {
@@ -352,7 +352,7 @@ func (p *PodWatcher) getServersFromAnnotationsCalledByTheService(ctx context.Con
 }
 
 func appendCalls(client serviceidentity.ServiceIdentity, intentsFromCRD []otterizev2alpha1.ClientIntents, intentsFromAnnotation []otterizev2alpha1.Target) []otterizev2alpha1.ClientIntents {
-	if len(intentsFromCRD) == 0 {
+	if len(intentsFromCRD) == 0 && len(intentsFromAnnotation) > 0 {
 		clientIntent := otterizev2alpha1.ClientIntents{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      client.Name,
