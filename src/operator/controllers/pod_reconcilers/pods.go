@@ -11,7 +11,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
@@ -205,7 +205,7 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 }
 
 func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request, serviceID serviceidentity.ServiceIdentity, pod v1.Pod) error {
-	if !viper.GetBool(operatorconfig.EnableNetworkPolicyKey) && !viper.GetBool(operatorconfig.EnableIstioPolicyKey) {
+	if !viper.GetBool(enforcement.EnableNetworkPolicyKey) && !viper.GetBool(enforcement.EnableIstioPolicyKey) {
 		logrus.Debug("Not labeling new pod since network policy creation and Istio policy creation is disabled")
 		return nil
 	}
@@ -372,7 +372,7 @@ func appendCalls(client serviceidentity.ServiceIdentity, intentsFromCRD []otteri
 }
 
 func (p *PodWatcher) istioEnforcementEnabled() bool {
-	return viper.GetBool(operatorconfig.EnableIstioPolicyKey)
+	return viper.GetBool(enforcement.EnableIstioPolicyKey)
 }
 
 func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev1alpha3.ClientIntents, pod v1.Pod) error {

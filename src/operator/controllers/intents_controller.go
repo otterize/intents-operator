@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/amit7itz/goset"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/access_annotation"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
@@ -28,6 +27,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
@@ -54,19 +54,6 @@ var intentsLegacyFinalizers = []string{
 	"intents.otterize.com/pods-finalizer",
 }
 
-type EnforcementConfig struct {
-	EnforcementDefaultState              bool
-	EnableNetworkPolicy                  bool
-	EnableKafkaACL                       bool
-	EnableIstioPolicy                    bool
-	EnableDatabasePolicy                 bool
-	EnableEgressNetworkPolicyReconcilers bool
-	EnableAWSPolicy                      bool
-	EnableGCPPolicy                      bool
-	EnableAzurePolicy                    bool
-	EnforcedNamespaces                   *goset.Set[string]
-}
-
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
 	group  *reconcilergroup.Group
@@ -78,7 +65,7 @@ func NewIntentsReconciler(
 	scheme *runtime.Scheme,
 	kafkaServerStore kafkaacls.ServersStore,
 	restrictToNamespaces []string,
-	enforcementConfig EnforcementConfig,
+	enforcementConfig enforcement.Config,
 	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string,
