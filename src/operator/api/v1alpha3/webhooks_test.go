@@ -149,6 +149,7 @@ func (t *WebhooksTestSuite) TestProtectedServiceConversion() {
 func (t *WebhooksTestSuite) TestClientIntentsKubernetes() {
 	// Create a ClientIntents with random data
 	original := &ClientIntents{
+		Status: IntentsStatus{ObservedGeneration: 1, UpToDate: true, ResolvedIPs: []ResolvedIPs{{DNS: "a.test", IPs: []string{"1.3.3.7"}}}},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "test",
