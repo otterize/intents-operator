@@ -56,7 +56,7 @@ func NewValidatingWebhookConfigsReconciler(
 }
 
 func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Debugf("Reconciling due to ValidatingWebhookConfiguration change: %s", req.Name)
+	logrus.Infof("Reconciling due to ValidatingWebhookConfiguration change: %s", req.Name)
 
 	// Fetch the validating webhook configuration object
 	webhookConfig := &admissionregistrationv1.ValidatingWebhookConfiguration{}
@@ -68,6 +68,7 @@ func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req 
 	if lo.EveryBy(webhookConfig.Webhooks, func(item admissionregistrationv1.ValidatingWebhook) bool {
 		return bytes.Equal(item.ClientConfig.CABundle, r.certPEM)
 	}) {
+		logrus.Info("All ValidatingWebhookConfiguration certs match, skipping reconciliation. %s", req.Name)
 		return ctrl.Result{}, nil
 	}
 
