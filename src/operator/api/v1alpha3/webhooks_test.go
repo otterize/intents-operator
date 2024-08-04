@@ -186,6 +186,7 @@ func (t *WebhooksTestSuite) TestClientIntentsKubernetes() {
 	t.Require().NoError(err)
 
 	t.Require().Equal(original.Spec, converted.Spec)
+	t.Require().Equal(original.Status, converted.Status)
 }
 
 func TestWebhooksTestSuite(t *testing.T) {
