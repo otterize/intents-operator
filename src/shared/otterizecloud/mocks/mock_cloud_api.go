@@ -76,11 +76,9 @@ func (mr *MockCloudClientMockRecorder) ReportExternallyAccessibleServices(ctx, n
 }
 
 // ReportIntentsOperatorConfiguration mocks base method.
-func (m *MockCloudClient) ReportIntentsOperatorConfiguration(ctx context.Context, config graphqlclient.IntentsOperatorConfigurationInput) error {
+func (m *MockCloudClient) ReportIntentsOperatorConfiguration(ctx context.Context, config graphqlclient.IntentsOperatorConfigurationInput) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportIntentsOperatorConfiguration", ctx, config)
-	ret0, _ := ret[0].(error)
-	return ret0
+	m.ctrl.Call(m, "ReportIntentsOperatorConfiguration", ctx, config)
 }
 
 // ReportIntentsOperatorConfiguration indicates an expected call of ReportIntentsOperatorConfiguration.

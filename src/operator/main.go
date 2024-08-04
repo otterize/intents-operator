@@ -17,8 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
-	"github.com/amit7itz/goset"
 	"github.com/bombsimon/logrusr/v3"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
@@ -49,11 +47,9 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
-	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
-	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
@@ -141,18 +137,7 @@ func main() {
 	selfSignedCert := viper.GetBool(operatorconfig.SelfSignedCertKey)
 	allowExternalTraffic := allowexternaltraffic.Enum(viper.GetString(operatorconfig.AllowExternalTrafficKey))
 	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
-	enforcementConfig := controllers.EnforcementConfig{
-		EnforcementDefaultState:              viper.GetBool(operatorconfig.EnforcementDefaultStateKey),
-		EnableNetworkPolicy:                  viper.GetBool(operatorconfig.EnableNetworkPolicyKey),
-		EnableKafkaACL:                       viper.GetBool(operatorconfig.EnableKafkaACLKey),
-		EnableIstioPolicy:                    viper.GetBool(operatorconfig.EnableIstioPolicyKey),
-		EnableDatabasePolicy:                 viper.GetBool(operatorconfig.EnableDatabasePolicy),
-		EnableEgressNetworkPolicyReconcilers: viper.GetBool(operatorconfig.EnableEgressNetworkPolicyReconcilersKey),
-		EnableAWSPolicy:                      viper.GetBool(operatorconfig.EnableAWSPolicyKey),
-		EnableGCPPolicy:                      viper.GetBool(operatorconfig.EnableGCPPolicyKey),
-		EnableAzurePolicy:                    viper.GetBool(operatorconfig.EnableAzurePolicyKey),
-		EnforcedNamespaces:                   goset.FromSlice(viper.GetStringSlice(operatorconfig.ActiveEnforcementNamespacesKey)),
-	}
+	enforcementConfig := enforcement.GetConfig()
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev2alpha1.TLSSource{
 		CertFile:   viper.GetString(operatorconfig.KafkaServerTLSCertKey),
@@ -324,7 +309,6 @@ func main() {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
-		uploadConfiguration(signalHandlerCtx, otterizeCloudClient, enforcementConfig, operatorconfig.GetIngressControllerServiceIdentities())
 		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
 		serviceUploadReconciler := external_traffic.NewServiceUploadReconciler(mgr.GetClient(), otterizeCloudClient)
 		ingressUploadReconciler := external_traffic.NewIngressUploadReconciler(mgr.GetClient(), otterizeCloudClient)
@@ -509,42 +493,6 @@ func main() {
 
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Panic("problem running manager")
-	}
-}
-
-func uploadConfiguration(ctx context.Context, otterizeCloudClient operator_cloud_client.CloudClient, config controllers.EnforcementConfig, ingressConfigIdentities []serviceidentity.ServiceIdentity) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
-	defer cancel()
-
-	configInput := graphqlclient.IntentsOperatorConfigurationInput{
-		GlobalEnforcementEnabled:              config.EnforcementDefaultState,
-		NetworkPolicyEnforcementEnabled:       config.EnableNetworkPolicy,
-		EgressNetworkPolicyEnforcementEnabled: config.EnableEgressNetworkPolicyReconcilers,
-		KafkaACLEnforcementEnabled:            config.EnableKafkaACL,
-		AwsIAMPolicyEnforcementEnabled:        config.EnableAWSPolicy,
-		GcpIAMPolicyEnforcementEnabled:        config.EnableGCPPolicy,
-		AzureIAMPolicyEnforcementEnabled:      config.EnableAzurePolicy,
-		DatabaseEnforcementEnabled:            config.EnableDatabasePolicy,
-		IstioPolicyEnforcementEnabled:         config.EnableIstioPolicy,
-		ProtectedServicesEnabled:              config.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
-		EnforcedNamespaces:                    config.EnforcedNamespaces.Items(),
-	}
-
-	if len(ingressConfigIdentities) != 0 {
-		ingressControllerConfigInput := make([]graphqlclient.IngressControllerConfigInput, 0)
-		for _, identity := range ingressConfigIdentities {
-			ingressControllerConfigInput = append(ingressControllerConfigInput, graphqlclient.IngressControllerConfigInput{
-				Name:      identity.Name,
-				Namespace: identity.Namespace,
-				Kind:      identity.Kind,
-			})
-		}
-		configInput.IngressControllerConfig = ingressControllerConfigInput
-	}
-
-	err := otterizeCloudClient.ReportIntentsOperatorConfiguration(timeoutCtx, configInput)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to report configuration to the cloud")
 	}
 }
 

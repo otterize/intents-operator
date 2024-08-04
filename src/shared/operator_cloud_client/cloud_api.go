@@ -13,7 +13,7 @@ import (
 type CloudClient interface {
 	ReportKafkaServerConfig(ctx context.Context, namespace string, servers []graphqlclient.KafkaServerConfigInput) error
 	ReportAppliedIntents(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error
-	ReportIntentsOperatorConfiguration(ctx context.Context, config graphqlclient.IntentsOperatorConfigurationInput) error
+	ReportIntentsOperatorConfiguration(ctx context.Context, config graphqlclient.IntentsOperatorConfigurationInput)
 	ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType)
 	ReportNetworkPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error
 	ReportExternallyAccessibleServices(ctx context.Context, namespace string, services []graphqlclient.ExternallyAccessibleServiceInput) error
@@ -67,13 +67,14 @@ func (c *CloudClientImpl) ReportAppliedIntents(
 
 func (c *CloudClientImpl) ReportIntentsOperatorConfiguration(
 	ctx context.Context,
-	config graphqlclient.IntentsOperatorConfigurationInput) error {
+	config graphqlclient.IntentsOperatorConfigurationInput) {
 	_, err := graphqlclient.ReportIntentsOperatorConfiguration(ctx, c.client, config)
 	if err != nil {
-		return errors.Wrap(err)
+		logrus.WithError(err).Error("failed to reported component status Otterize cloud")
+		return
 	}
 	logrus.Info("Intents operator configuration reported to cloud successfully")
-	return nil
+	return
 }
 
 func (c *CloudClientImpl) ReportComponentStatus(ctx context.Context, component graphqlclient.ComponentType) {

@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -27,7 +28,7 @@ func (s *IntentsControllerTestSuite) SetupTest() {
 		scheme.Scheme,
 		nil,
 		nil,
-		EnforcementConfig{},
+		enforcement.Config{},
 		nil,
 		"",
 		"",
