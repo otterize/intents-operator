@@ -4,6 +4,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -187,6 +188,12 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	if dst.Spec == nil {
 		dst.Spec = &v2alpha1.IntentsSpec{}
 	}
+	dst.Status.UpToDate = in.Status.UpToDate
+	dst.Status.ObservedGeneration = in.Status.ObservedGeneration
+	dst.Status.ResolvedIPs = lo.Map(in.Status.ResolvedIPs, func(resolvedIPs ResolvedIPs, _ int) v2alpha1.ResolvedIPs {
+		return v2alpha1.ResolvedIPs{DNS: resolvedIPs.DNS, IPs: slices.Clone(resolvedIPs.IPs)}
+	})
+
 	dst.Spec.Workload.Name = in.Spec.Service.Name
 	dst.Spec.Workload.Kind = in.Spec.Service.Kind
 	dst.Spec.Targets = make([]v2alpha1.Target, len(in.Spec.Calls))
@@ -268,6 +275,11 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v2alpha1.ClientIntents)
 	in.ObjectMeta = src.ObjectMeta
+	in.Status.UpToDate = src.Status.UpToDate
+	in.Status.ObservedGeneration = src.Status.ObservedGeneration
+	in.Status.ResolvedIPs = lo.Map(src.Status.ResolvedIPs, func(resolvedIPs v2alpha1.ResolvedIPs, _ int) ResolvedIPs {
+		return ResolvedIPs{DNS: resolvedIPs.DNS, IPs: slices.Clone(resolvedIPs.IPs)}
+	})
 	in.Spec = &IntentsSpec{}
 	in.Spec.Service.Name = src.Spec.Workload.Name
 	in.Spec.Service.Kind = src.Spec.Workload.Kind
