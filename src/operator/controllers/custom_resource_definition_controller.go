@@ -84,7 +84,8 @@ func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req
 	resourceCopy.Spec.Conversion.Webhook.ClientConfig.CABundle = r.certPem
 	resourceCopy.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = r.namespace
 
-	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(crd)); err != nil {
+	// Use optimistic locking to avoid using "mergeFrom" with an outdated resource
+	if err := r.Patch(ctx, resourceCopy, client.MergeFromWithOptions(crd, client.MergeFromWithOptimisticLock{})); err != nil {
 		if k8serrors.IsConflict(err) {
 			logrus.Debugf("Conflict while updating CustomResourceDefinition: %s", resourceCopy.Name)
 			return ctrl.Result{Requeue: true}, nil

@@ -77,7 +77,8 @@ func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req 
 		resourceCopy.Webhooks[i].ClientConfig.CABundle = r.certPEM
 	}
 
-	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(webhookConfig)); err != nil {
+	// Use optimistic locking to avoid using "mergeFrom" with an outdated resource
+	if err := r.Patch(ctx, resourceCopy, client.MergeFromWithOptions(webhookConfig, client.MergeFromWithOptimisticLock{})); err != nil {
 		return ctrl.Result{}, errors.Errorf("Failed to patch ValidatingWebhookConfiguration: %w", err)
 	}
 
