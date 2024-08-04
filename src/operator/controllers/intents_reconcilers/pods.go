@@ -79,7 +79,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if otterizev2alpha1.IsMissingOtterizeAccessLabels(&pod, intentLabels) {
 			logrus.Debugf("Updating %s pod labels with new intents", serviceIdentity.Name)
 			updatedPod := otterizev2alpha1.UpdateOtterizeAccessLabels(pod.DeepCopy(), serviceIdentity, intentLabels)
-			err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
+			err := r.Patch(ctx, updatedPod, client.StrategicMergeFrom(&pod))
 			if err != nil {
 				r.RecordWarningEventf(intents, ReasonUpdatePodFailed, "could not update pod: %s", err.Error())
 				return ctrl.Result{}, errors.Wrap(err)
