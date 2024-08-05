@@ -53,20 +53,24 @@ func (s *CustomResourceDefinitionsTestSuite) TestAssigningCABundle() {
 	crd, err := otterizecrds.GetCRDDefinitionByName(TestCRD)
 	s.Require().NoError(err)
 
+	copyCRD := crd.DeepCopy()
+	copyCRD.ResourceVersion = "1"
+
 	updatedCRD, err := otterizecrds.GetCRDDefinitionByName(TestCRD)
 	s.Require().NoError(err)
 
 	updatedCRD.Spec.Conversion.Webhook.ClientConfig.CABundle = s.Cert
 	updatedCRD.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = TestControllerNamespace
+	updatedCRD.ResourceVersion = "1"
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(crd)).DoAndReturn(
 		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *apiextensionsv1.CustomResourceDefinition, arg3 ...client.GetOption) error {
-			*arg2 = *crd
+			*arg2 = *copyCRD
 			return nil
 		},
 	)
 
-	matcher := intents_reconcilers.MatchPatch(client.MergeFrom(crd))
+	matcher := intents_reconcilers.MatchPatch(client.MergeFromWithOptions(copyCRD, client.MergeFromWithOptimisticLock{}))
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(updatedCRD), matcher).Return(nil)
 
 	// Call the reconcile function
