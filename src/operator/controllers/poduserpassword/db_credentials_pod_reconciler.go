@@ -292,7 +292,7 @@ func (e *Reconciler) rotateSecret(ctx context.Context, secret v1.Secret) (v1.Sec
 	} else {
 		updatedSecret.Annotations[metadata.SecretLastUpdatedTimestampAnnotation] = time.Now().Format(time.RFC3339)
 	}
-	if err := e.client.Patch(ctx, updatedSecret, client.MergeFrom(&secret)); err != nil {
+	if err := e.client.Patch(ctx, updatedSecret, client.StrategicMergeFrom(&secret)); err != nil {
 		return v1.Secret{}, errors.Wrap(err)
 	}
 

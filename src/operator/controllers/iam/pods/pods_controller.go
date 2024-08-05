@@ -86,7 +86,7 @@ func (r *PodReconciler) handlePodUpdate(ctx context.Context, pod corev1.Pod) (ct
 	}
 	if updated {
 		controllerutil.AddFinalizer(updatedPod, r.agent.FinalizerName())
-		err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
+		err := r.Patch(ctx, updatedPod, client.StrategicMergeFrom(&pod))
 		if err != nil {
 			if apierrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
@@ -95,7 +95,7 @@ func (r *PodReconciler) handlePodUpdate(ctx context.Context, pod corev1.Pod) (ct
 		}
 
 		apiutils.AddLabel(updatedServiceAccount, r.agent.ServiceAccountLabel(), metadata.OtterizeServiceAccountHasPodsValue)
-		err = r.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
+		err = r.Patch(ctx, updatedServiceAccount, client.StrategicMergeFrom(&serviceAccount))
 		if err != nil {
 			if apierrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
@@ -125,7 +125,7 @@ func (r *PodReconciler) handlePodCleanup(ctx context.Context, pod corev1.Pod) (c
 
 	updatedPod := pod.DeepCopy()
 	if controllerutil.RemoveFinalizer(updatedPod, r.agent.FinalizerName()) || controllerutil.RemoveFinalizer(updatedPod, metadata.DeprecatedIAMRoleFinalizer) {
-		err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
+		err := r.Patch(ctx, updatedPod, client.StrategicMergeFrom(&pod))
 		if err != nil {
 			if apierrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
@@ -169,7 +169,7 @@ func (r *PodReconciler) handleLastPodWithThisSA(ctx context.Context, pod corev1.
 	// Normally we would call the other reconciler, but because this is blocking the removal of a pod finalizer,
 	// we instead update the ServiceAccount and let it do the hard work, so we can remove the pod finalizer ASAP.
 	apiutils.AddLabel(updatedServiceAccount, r.agent.ServiceAccountLabel(), metadata.OtterizeServiceAccountHasNoPodsValue)
-	err = r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
+	err = r.Client.Patch(ctx, updatedServiceAccount, client.StrategicMergeFrom(&serviceAccount))
 	if err != nil {
 		if apierrors.IsConflict(err) {
 			return true, nil

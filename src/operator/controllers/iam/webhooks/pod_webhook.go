@@ -69,7 +69,7 @@ func (w *ServiceAccountAnnotatingPodWebhook) handleOnce(ctx context.Context, pod
 
 	if !dryRun {
 		apiutils.AddLabel(updatedServiceAccount, w.agent.ServiceAccountLabel(), metadata.OtterizeServiceAccountHasPodsValue)
-		err = w.client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
+		err = w.client.Patch(ctx, updatedServiceAccount, client.StrategicMergeFrom(&serviceAccount))
 		if err != nil {
 			return corev1.Pod{}, false, "", errors.Errorf("could not patch service account: %w", err)
 		}

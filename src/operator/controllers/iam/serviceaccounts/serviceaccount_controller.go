@@ -74,7 +74,7 @@ func (r *ServiceAccountReconciler) handleServiceAccountUpdate(ctx context.Contex
 	}
 	if updated {
 		controllerutil.AddFinalizer(updatedServiceAccount, r.agent.FinalizerName())
-		err := r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
+		err := r.Client.Patch(ctx, updatedServiceAccount, client.StrategicMergeFrom(&serviceAccount))
 		if err != nil {
 			if apierrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
@@ -101,7 +101,7 @@ func (r *ServiceAccountReconciler) handleServiceAccountCleanup(ctx context.Conte
 	if serviceAccount.DeletionTimestamp != nil {
 		updatedServiceAccount := serviceAccount.DeepCopy()
 		if controllerutil.RemoveFinalizer(updatedServiceAccount, r.agent.FinalizerName()) || controllerutil.RemoveFinalizer(updatedServiceAccount, metadata.DeprecatedIAMRoleFinalizer) {
-			err := r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
+			err := r.Client.Patch(ctx, updatedServiceAccount, client.StrategicMergeFrom(&serviceAccount))
 			if err != nil {
 				if apierrors.IsConflict(err) {
 					return ctrl.Result{Requeue: true}, nil
