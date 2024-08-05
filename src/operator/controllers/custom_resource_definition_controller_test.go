@@ -66,7 +66,7 @@ func (s *CustomResourceDefinitionsTestSuite) TestAssigningCABundle() {
 		},
 	)
 
-	matcher := intents_reconcilers.MatchPatch(client.MergeFrom(crd))
+	matcher := intents_reconcilers.MatchPatch(client.MergeFromWithOptions(crd, client.MergeFromWithOptimisticLock{}))
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(updatedCRD), matcher).Return(nil)
 
 	// Call the reconcile function

@@ -83,7 +83,7 @@ func (s *ValidatingWebhookControllerTestSuite) TestAssigningCABundle() {
 		},
 	)
 
-	matcher := intents_reconcilers.MatchPatch(client.MergeFrom(&webhookConfig))
+	matcher := intents_reconcilers.MatchPatch(client.MergeFromWithOptions(&webhookConfig, client.MergeFromWithOptimisticLock{}))
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedWebhookConfig), matcher).Return(nil)
 
 	// Call the reconcile function
