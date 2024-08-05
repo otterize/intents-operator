@@ -7,16 +7,17 @@ import (
 
 type ClientPatch struct {
 	client.Patch
+	modified client.Object
 }
 
 func (p ClientPatch) Matches(x interface{}) bool {
 	patch := x.(client.Patch)
-	actualData, err := patch.Data(nil)
+	actualData, err := patch.Data(p.modified)
 	if err != nil {
 		return false
 	}
 
-	expectedData, err := p.Data(nil)
+	expectedData, err := p.Data(p.modified)
 	if err != nil {
 		return false
 	}
@@ -33,5 +34,9 @@ func (p ClientPatch) String() string {
 }
 
 func MatchPatch(patch client.Patch) gomock.Matcher {
-	return ClientPatch{patch}
+	return ClientPatch{patch, nil}
+}
+
+func MatchMergeFromPatch(patch client.Patch, modified client.Object) gomock.Matcher {
+	return ClientPatch{patch, modified}
 }
