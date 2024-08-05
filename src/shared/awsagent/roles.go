@@ -44,6 +44,8 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 				return false, nil, errors.Wrap(err)
 			}
 		}
+
+		return false, nil, errors.Wrap(err)
 	}
 
 	return true, role.Role, nil
