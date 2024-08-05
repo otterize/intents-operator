@@ -58,7 +58,7 @@ func NewCustomResourceDefinitionsReconciler(
 }
 
 func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Debugf("Reconciling due to CustomResourceDefinition change: %s", req.Name)
+	logrus.Infof("Reconciling due to CustomResourceDefinition change: %s", req.Name)
 
 	// Fetch the validating webhook configuration object
 	crd := &apiextensionsv1.CustomResourceDefinition{}
@@ -77,14 +77,15 @@ func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req
 		return ctrl.Result{}, errors.Errorf("CRD does not contain a proper conversion webhook definition")
 	}
 	if bytes.Equal(crd.Spec.Conversion.Webhook.ClientConfig.CABundle, r.certPem) && crd.Spec.Conversion.Webhook.ClientConfig.Service.Namespace == r.namespace {
-		logrus.Debugf("CustomResourceDefinition %s already has the correct CA bundle and namespace", resourceCopy.Name)
+		logrus.Infof("CustomResourceDefinition %s already has the correct CA bundle and namespace", resourceCopy.Name)
 		return ctrl.Result{}, nil
 
 	}
 	resourceCopy.Spec.Conversion.Webhook.ClientConfig.CABundle = r.certPem
 	resourceCopy.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = r.namespace
 
-	if err := r.Patch(ctx, resourceCopy, client.MergeFrom(crd)); err != nil {
+	// Use optimistic locking to avoid using "mergeFrom" with an outdated resource
+	if err := r.Patch(ctx, resourceCopy, client.MergeFromWithOptions(crd, client.MergeFromWithOptimisticLock{})); err != nil {
 		if k8serrors.IsConflict(err) {
 			logrus.Debugf("Conflict while updating CustomResourceDefinition: %s", resourceCopy.Name)
 			return ctrl.Result{Requeue: true}, nil
