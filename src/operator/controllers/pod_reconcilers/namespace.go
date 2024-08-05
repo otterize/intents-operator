@@ -48,7 +48,7 @@ func (ns *NamespaceWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		updatedNS.Labels = make(map[string]string)
 	}
 	updatedNS.Labels[otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey] = req.Name
-	err = ns.Patch(ctx, updatedNS, client.MergeFrom(namespace))
+	err = ns.Patch(ctx, updatedNS, client.StrategicMergeFrom(namespace))
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
