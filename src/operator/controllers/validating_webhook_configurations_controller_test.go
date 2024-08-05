@@ -61,6 +61,7 @@ func (s *ValidatingWebhookControllerTestSuite) TestAssigningCABundle() {
 			},
 		},
 	}
+	webhookConfig.ResourceVersion = "1"
 
 	updatedWebhookConfig := admissionregistrationv1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -75,6 +76,7 @@ func (s *ValidatingWebhookControllerTestSuite) TestAssigningCABundle() {
 			},
 		},
 	}
+	updatedWebhookConfig.ResourceVersion = "1"
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&webhookConfig)).DoAndReturn(
 		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *admissionregistrationv1.ValidatingWebhookConfiguration, arg3 ...client.GetOption) error {
