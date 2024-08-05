@@ -120,7 +120,7 @@ func (r *PodLabelReconciler) removeLabelsFromPods(
 		}
 
 		prometheus.IncrementPodsUnlabeledForNetworkPolicies(1)
-		err := r.Patch(ctx, updatedPod, client.StrategicMergeFrom(&pod))
+		err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
 			return errors.Wrap(err)
 		}

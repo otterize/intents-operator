@@ -51,7 +51,7 @@ func (s *NamespaceWatcherTestSuite) TestAddLabelToNewNamespace() {
 		"kubernetes.io/metadata.name": nsName,
 	}
 
-	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(nsWithLabel), intents_reconcilers.MatchMergeFromPatch(client.StrategicMergeFrom(&namespaceWithoutLabels), nsWithLabel)).Return(nil)
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(nsWithLabel), intents_reconcilers.MatchPatch(client.MergeFrom(&namespaceWithoutLabels))).Return(nil)
 
 	res, err := s.reconciler.Reconcile(context.Background(), req)
 	s.Require().NoError(err)
@@ -117,7 +117,7 @@ func (s *NamespaceWatcherTestSuite) TestOtherLabelsExists() {
 		"kubernetes.io/metadata.name": nsName,
 	}
 
-	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(nsWithLabel), intents_reconcilers.MatchMergeFromPatch(client.StrategicMergeFrom(&namespaceWithOtherLabels), nsWithLabel)).Return(nil)
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(nsWithLabel), intents_reconcilers.MatchPatch(client.MergeFrom(&namespaceWithOtherLabels))).Return(nil)
 
 	res, err := s.reconciler.Reconcile(context.Background(), req)
 	s.Require().NoError(err)

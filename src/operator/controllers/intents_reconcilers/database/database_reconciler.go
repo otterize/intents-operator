@@ -358,7 +358,7 @@ func (r *DatabaseReconciler) handleDatabaseAnnotationOnPod(ctx context.Context, 
 		updatedPod.Annotations[databaseconfigurator.DatabaseAccessAnnotation] = strings.Join(getAllowedDatabasesSlice(pod, dbInstance), ",")
 	}
 
-	if err := r.client.Patch(ctx, updatedPod, client.StrategicMergeFrom(&pod)); err != nil {
+	if err := r.client.Patch(ctx, updatedPod, client.MergeFrom(&pod)); err != nil {
 		return errors.Wrap(err)
 	}
 	return nil

@@ -264,7 +264,7 @@ func (s *PodLabelReconcilerTestSuite) testClientAccessLabelRemovedWithParams(pod
 		Spec: v1.PodSpec{},
 	}
 
-	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), MatchMergeFromPatch(client.StrategicMergeFrom(&pod), &updatedPod)).Return(nil)
+	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedPod), MatchPatch(client.MergeFrom(&pod))).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
