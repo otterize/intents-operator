@@ -47,7 +47,7 @@ func (a *Agent) AnnotateGKENamespace(ctx context.Context, namespaceName string) 
 	updatedNamespace.Annotations[gcpk8s.ProjectIdAnnotation] = a.projectID
 
 	logger.Debugf("annotating namespace %s with gcp workload identity tag", namespaceName)
-	err = a.client.Patch(ctx, updatedNamespace, client.MergeFrom(&namespace))
+	err = a.client.Patch(ctx, updatedNamespace, client.StrategicMergeFrom(&namespace))
 	if err != nil {
 		if apierrors.IsConflict(err) {
 			return true, nil
