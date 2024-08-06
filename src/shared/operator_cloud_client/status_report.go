@@ -28,6 +28,7 @@ func runPeriodicReportConnection(statusInterval int, configReportInterval int, c
 
 	logrus.Info("Starting cloud connection ticker")
 	reportStatus(ctx, client)
+	uploadConfiguration(ctx, client)
 
 	for {
 		select {
