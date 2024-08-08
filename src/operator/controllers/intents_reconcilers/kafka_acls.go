@@ -182,7 +182,7 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	if clientIsOperator {
-		logger.Info("Skipping ACLs creation for the intents operator")
+		logger.Debug("Skipping ACLs creation for the intents operator")
 		return ctrl.Result{}, nil
 	}
 
