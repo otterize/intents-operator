@@ -270,7 +270,7 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 	}
 
 	if hasUpdates {
-		err = p.Patch(ctx, updatedPod, client.MergeFrom(&pod))
+		err = p.Patch(ctx, updatedPod, client.StrategicMergeFrom(&pod))
 		if client.IgnoreNotFound(err) != nil {
 			return errors.Errorf("failed updating Otterize labels for pod %s in namespace %s: %w", pod.Name, pod.Namespace, err)
 		}
