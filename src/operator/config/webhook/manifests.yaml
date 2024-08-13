@@ -115,7 +115,7 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-k8s-otterize-com-v1-mysqlserverconfig
+      path: /validate-k8s-otterize-com-v1beta1-mysqlserverconfig
   failurePolicy: Fail
   matchPolicy: Exact
   name: mysqlserverconfigv1.kb.io
@@ -178,7 +178,7 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-k8s-otterize-com-v1-postgresqlserverconfig
+      path: /validate-k8s-otterize-com-v1beta1-postgresqlserverconfig
   failurePolicy: Fail
   matchPolicy: Exact
   name: postgresqlserverconfigv1.kb.io
@@ -241,7 +241,7 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-k8s-otterize-com-v1-protectedservice
+      path: /validate-k8s-otterize-com-v1beta1-protectedservice
   failurePolicy: Fail
   matchPolicy: Exact
   name: protectedservicev1.kb.io
