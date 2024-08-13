@@ -288,7 +288,7 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 		if target.IsTargetTheKubernetesAPIServer(src.Namespace) {
 			// Using "svc:kubernetes.default" was a common use case in v1alpha3 -
 			// therefore we prefer to convert to this form.
-			in.Spec.Calls[i] = Intent{Name: "svc:" + target.Kubernetes.Name}
+			in.Spec.Calls[i] = Intent{Name: "svc:" + target.GetTargetServerNameAsWritten()}
 			continue
 		}
 		if target.Kubernetes != nil {

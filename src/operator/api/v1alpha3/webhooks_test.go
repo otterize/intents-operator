@@ -189,6 +189,27 @@ func (t *WebhooksTestSuite) TestClientIntentsKubernetes() {
 	t.Require().Equal(original.Status, converted.Status)
 }
 
+func (t *WebhooksTestSuite) TestClientIntentsFromV2_serviceKubernetesDefault() {
+	// Create a v2alpha1.ClientIntents with random data
+	original := &v2alpha1.ClientIntents{
+		Spec: &v2alpha1.IntentsSpec{
+			Targets: []v2alpha1.Target{
+				{
+					Service: &v2alpha1.ServiceTarget{
+						Name: "kubernetes.default",
+					},
+				},
+			},
+		},
+	}
+
+	// ConvertFrom
+	converted := &ClientIntents{}
+	err := converted.ConvertFrom(original)
+	t.Require().NoError(err)
+	t.Require().Equal("svc:kubernetes.default", converted.Spec.Calls[0].Name)
+}
+
 func TestWebhooksTestSuite(t *testing.T) {
 	suite.Run(t, new(WebhooksTestSuite))
 }
