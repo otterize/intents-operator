@@ -210,6 +210,37 @@ func (t *WebhooksTestSuite) TestClientIntentsFromV2_serviceKubernetesDefault() {
 	t.Require().Equal("svc:kubernetes.default", converted.Spec.Calls[0].Name)
 }
 
+func (t *WebhooksTestSuite) TestClientIntentsFromV2_EmptySliceHTTPShouldNotBeTypeHTTP() {
+	// Create a v2alpha1.ClientIntents with random data
+	original := &v2alpha1.ClientIntents{
+		Spec: &v2alpha1.IntentsSpec{
+			Targets: []v2alpha1.Target{
+				{
+					Service: &v2alpha1.ServiceTarget{
+						Name: "test",
+						HTTP: []v2alpha1.HTTPTarget{},
+					},
+				},
+				{
+					Kubernetes: &v2alpha1.KubernetesTarget{
+						Name: "test2",
+						HTTP: []v2alpha1.HTTPTarget{},
+					},
+				},
+			},
+		},
+	}
+
+	// ConvertFrom
+	converted := &ClientIntents{}
+	err := converted.ConvertFrom(original)
+	t.Require().NoError(err)
+	t.Require().Equal("test", converted.Spec.Calls[0].Name)
+	t.Require().Equal("", string(converted.Spec.Calls[0].Type))
+	t.Require().Equal("test2", converted.Spec.Calls[1].Name)
+	t.Require().Equal("", string(converted.Spec.Calls[1].Type))
+}
+
 func TestWebhooksTestSuite(t *testing.T) {
 	suite.Run(t, new(WebhooksTestSuite))
 }

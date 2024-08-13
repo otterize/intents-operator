@@ -292,7 +292,7 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 		}
 		if target.Kubernetes != nil {
 			in.Spec.Calls[i] = Intent{Name: target.Kubernetes.Name, Kind: target.Kubernetes.Kind}
-			if target.Kubernetes.HTTP != nil {
+			if len(target.Kubernetes.HTTP) > 0 {
 				in.Spec.Calls[i].HTTPResources = lo.Map(target.Kubernetes.HTTP, func(http v2alpha1.HTTPTarget, _ int) HTTPResource {
 					return HTTPResource{Path: http.Path, Methods: lo.Map(http.Methods, func(method v2alpha1.HTTPMethod, _ int) HTTPMethod { return HTTPMethod(method) })}
 				})
@@ -302,7 +302,7 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 		}
 		if target.Service != nil {
 			in.Spec.Calls[i] = Intent{Name: target.Service.Name, Kind: serviceidentity.KindService}
-			if target.Service.HTTP != nil {
+			if len(target.Service.HTTP) > 0 {
 				in.Spec.Calls[i].HTTPResources = lo.Map(target.Service.HTTP, func(http v2alpha1.HTTPTarget, _ int) HTTPResource {
 					return HTTPResource{Path: http.Path, Methods: lo.Map(http.Methods, func(method v2alpha1.HTTPMethod, _ int) HTTPMethod { return HTTPMethod(method) })}
 				})
