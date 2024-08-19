@@ -19,10 +19,11 @@ package v1alpha3
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"strconv"
 	"strings"
+
+	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/samber/lo"
@@ -62,6 +63,8 @@ const (
 	OtterizeMissingSidecarAnnotation                 = "intents.otterize.com/service-missing-sidecar"
 	OtterizeServersWithoutSidecarAnnotation          = "intents.otterize.com/servers-without-sidecar"
 	OtterizePodCalledByAnnotationKey                 = "intents.otterize.com/called-by"
+	OtterizeLinkerdMeshTLSAnnotationKey              = "intents.otterize.com/linkerd-authenticates"
+	OtterizeLinkerdServerAnnotationKey               = "intents.otterize.com/linkerd-server"
 	OtterizeTargetServerIndexField                   = "spec.service.calls.server"
 	OtterizeKafkaServerConfigServiceNameField        = "spec.service.name"
 	OtterizeProtectedServiceNameIndexField           = "spec.name"
