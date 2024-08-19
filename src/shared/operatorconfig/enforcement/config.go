@@ -16,6 +16,7 @@ type Config struct {
 	EnableAWSPolicy                      bool
 	EnableGCPPolicy                      bool
 	EnableAzurePolicy                    bool
+	EnableLinkerdPolicies                bool
 	EnforcedNamespaces                   *goset.Set[string]
 }
 
