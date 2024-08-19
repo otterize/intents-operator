@@ -17,6 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"path"
+	"time"
+
 	"github.com/bombsimon/logrusr/v3"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
@@ -58,14 +61,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"path"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -73,6 +74,9 @@ import (
 
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
+
+	linkerdauthscheme "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
+	linkerdserverscheme "github.com/linkerd/linkerd2/controller/gen/apis/server/v1beta1"
 
 	gcpiamv1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/iam/v1beta1"
 	gcpk8sv1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
@@ -96,6 +100,8 @@ func init() {
 	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
 	utilruntime.Must(otterizev1beta1.AddToScheme(scheme))
 	utilruntime.Must(otterizev2alpha1.AddToScheme(scheme))
+	utilruntime.Must(linkerdauthscheme.AddToScheme(scheme))
+	utilruntime.Must(linkerdserverscheme.AddToScheme(scheme))
 
 	// Config Connector CRDs
 	utilruntime.Must(gcpiamv1.AddToScheme(scheme))
@@ -447,7 +453,7 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "ProtectedServices")
 	}
 
-	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, intentsReconciler, epGroupReconciler)
+	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnableLinkerdPolicies, enforcementConfig.EnforcedNamespaces, intentsReconciler, epGroupReconciler)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
 	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler, enforcementConfig.EnableNetworkPolicy, extNetpolHandler)
 
