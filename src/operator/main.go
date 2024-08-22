@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"github.com/bombsimon/logrusr/v3"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
@@ -42,6 +43,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -58,6 +60,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"net/http"
 	"path"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -478,6 +481,15 @@ func main() {
 		healthChecker = mgr.GetWebhookServer().StartedChecker()
 		readyChecker = mgr.GetWebhookServer().StartedChecker()
 	}
+	cacheHealthChecker := func(_ *http.Request) error {
+		timeoutCtx, cancel := context.WithTimeout(signalHandlerCtx, 1*time.Second)
+		defer cancel()
+		ok := mgr.GetCache().WaitForCacheSync(timeoutCtx)
+		if !ok {
+			return errors.New("Failed waiting for caches to sync")
+		}
+		return nil
+	}
 
 	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthChecker); err != nil {
@@ -485,6 +497,9 @@ func main() {
 	}
 	if err := mgr.AddReadyzCheck("readyz", readyChecker); err != nil {
 		logrus.WithError(err).Panic("unable to set up ready check")
+	}
+	if err := mgr.AddHealthzCheck("cache", cacheHealthChecker); err != nil {
+		logrus.WithError(err).Panic("unable to set up cache health check")
 	}
 
 	logrus.Info("starting manager")
