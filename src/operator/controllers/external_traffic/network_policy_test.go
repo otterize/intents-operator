@@ -22,7 +22,7 @@ type NetworkPolicyHandlerTestSuite struct {
 
 func (s *NetworkPolicyHandlerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, allowexternaltraffic.IfBlockedByOtterize, make([]serviceidentity.ServiceIdentity, 0))
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, allowexternaltraffic.IfBlockedByOtterize, make([]serviceidentity.ServiceIdentity, 0), false)
 }
 
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleBeforeAccessPolicyRemoval_createWhenNoIntentsEnabled_doNothing() {

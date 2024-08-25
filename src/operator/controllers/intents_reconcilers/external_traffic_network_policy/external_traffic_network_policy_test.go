@@ -92,7 +92,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	testName := s.T().Name()
 	isShadowMode := strings.Contains(testName, "ShadowMode")
 	defaultActive := !isShadowMode
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.IfBlockedByOtterize, make([]serviceidentity.ServiceIdentity, 0))
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.IfBlockedByOtterize, make([]serviceidentity.ServiceIdentity, 0), false)
 	s.defaultDenyReconciler = protected_service_reconcilers.NewDefaultDenyReconciler(s.Mgr.GetClient(), netpolHandler, true)
 	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, goset.NewSet[string](), true, defaultActive, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder(), builders.NewPortNetworkPolicyReconciler(s.Mgr.GetClient())}, nil)
 	serviceIdResolver := serviceidresolver.NewResolver(s.Mgr.GetClient())
@@ -817,7 +817,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerNetwor
 
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
 
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Off, make([]serviceidentity.ServiceIdentity, 0))
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Off, make([]serviceidentity.ServiceIdentity, 0), false)
 	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	recorder := record.NewFakeRecorder(10)
 	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)

@@ -227,18 +227,21 @@ func (s *ServiceUploaderTestSuite) TestUploadNamespaceServices() {
 		{
 			Namespace:         testNamespace,
 			ServerName:        podForServiceWithIngressName,
+			ServiceName:       serviceWithIngressName,
 			ReferredByIngress: true,
 			ServiceType:       graphqlclient.KubernetesServiceTypeClusterIp,
 		},
 		{
 			Namespace:         testNamespace,
 			ServerName:        podForServiceWithNodePortName,
+			ServiceName:       serviceWithNodePortName,
 			ReferredByIngress: false,
 			ServiceType:       graphqlclient.KubernetesServiceTypeNodePort,
 		},
 		{
 			Namespace:         testNamespace,
 			ServerName:        podForServiceWithLoadBalancerName,
+			ServiceName:       serviceWithLoadBalancerName,
 			ReferredByIngress: false,
 			ServiceType:       graphqlclient.KubernetesServiceTypeLoadBalancer,
 		},
