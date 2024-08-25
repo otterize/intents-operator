@@ -15,6 +15,7 @@ import (
 	v1beta1security "istio.io/api/security/v1beta1"
 	v1beta1type "istio.io/api/type/v1beta1"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -401,6 +402,9 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 
 		err = c.client.Create(ctx, newPolicy)
 		if err != nil {
+			if k8serrors.IsConflict(err) {
+				continue
+			}
 			c.recorder.RecordWarningEventf(clientIntents, ReasonCreatingIstioPolicyFailed, "Failed to create Istio policy: %s", err.Error())
 			return nil, errors.Wrap(err)
 		}
