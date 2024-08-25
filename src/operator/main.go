@@ -197,7 +197,7 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
-	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic, operatorconfig.GetIngressControllerServiceIdentities())
+	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic, operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 

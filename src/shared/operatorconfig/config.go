@@ -61,6 +61,8 @@ const (
 	TelemetryErrorsAPIKeyKey               = "telemetry-errors-api-key"
 	TelemetryErrorsAPIKeyDefault           = "60a78208a2b4fe714ef9fb3d3fdc0714"
 	AWSAccountsKey                         = "aws"
+	IngressControllerALBExemptKey          = "ingress-controllers-exempt-alb"
+	IngressControllerALBExemptDefault      = false
 	IngressControllerConfigKey             = "ingressControllers"
 )
 
@@ -76,6 +78,7 @@ func init() {
 	viper.SetDefault(AWSRolesAnywhereCertDirKey, AWSRolesAnywhereCertDirDefault)
 	viper.SetDefault(AWSRolesAnywherePrivKeyFilenameKey, AWSRolesAnywherePrivKeyFilenameDefault)
 	viper.SetDefault(AWSRolesAnywhereCertFilenameKey, AWSRolesAnywhereCertFilenameDefault)
+	viper.SetDefault(IngressControllerALBExemptKey, IngressControllerALBExemptDefault)
 	viper.SetDefault(KafkaServerTLSCertKey, "")
 	viper.SetDefault(KafkaServerTLSKeyKey, "")
 	viper.SetDefault(KafkaServerTLSCAKey, "")

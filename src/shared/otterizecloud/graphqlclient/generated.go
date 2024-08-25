@@ -74,10 +74,12 @@ const (
 )
 
 type ExternallyAccessibleServiceInput struct {
-	Namespace         string                `json:"namespace"`
-	ServerName        string                `json:"serverName"`
-	ReferredByIngress bool                  `json:"referredByIngress"`
-	ServiceType       KubernetesServiceType `json:"serviceType"`
+	Namespace                      string                `json:"namespace"`
+	ServerName                     string                `json:"serverName"`
+	ServiceName                    string                `json:"serviceName"`
+	ReferredByIngress              bool                  `json:"referredByIngress"`
+	HasInternetFacingAWSALBIngress bool                  `json:"hasInternetFacingAWSALBIngress"`
+	ServiceType                    KubernetesServiceType `json:"serviceType"`
 }
 
 // GetNamespace returns ExternallyAccessibleServiceInput.Namespace, and is useful for accessing the field via an interface.
@@ -86,8 +88,16 @@ func (v *ExternallyAccessibleServiceInput) GetNamespace() string { return v.Name
 // GetServerName returns ExternallyAccessibleServiceInput.ServerName, and is useful for accessing the field via an interface.
 func (v *ExternallyAccessibleServiceInput) GetServerName() string { return v.ServerName }
 
+// GetServiceName returns ExternallyAccessibleServiceInput.ServiceName, and is useful for accessing the field via an interface.
+func (v *ExternallyAccessibleServiceInput) GetServiceName() string { return v.ServiceName }
+
 // GetReferredByIngress returns ExternallyAccessibleServiceInput.ReferredByIngress, and is useful for accessing the field via an interface.
 func (v *ExternallyAccessibleServiceInput) GetReferredByIngress() bool { return v.ReferredByIngress }
+
+// GetHasInternetFacingAWSALBIngress returns ExternallyAccessibleServiceInput.HasInternetFacingAWSALBIngress, and is useful for accessing the field via an interface.
+func (v *ExternallyAccessibleServiceInput) GetHasInternetFacingAWSALBIngress() bool {
+	return v.HasInternetFacingAWSALBIngress
+}
 
 // GetServiceType returns ExternallyAccessibleServiceInput.ServiceType, and is useful for accessing the field via an interface.
 func (v *ExternallyAccessibleServiceInput) GetServiceType() KubernetesServiceType {

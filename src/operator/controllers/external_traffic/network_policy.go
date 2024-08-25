@@ -42,8 +42,9 @@ type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	allowExternalTraffic        allowexternaltraffic.Enum
-	ingressControllerIdentities []serviceidentity.ServiceIdentity
+	allowExternalTraffic         allowexternaltraffic.Enum
+	ingressControllerIdentities  []serviceidentity.ServiceIdentity
+	ingressControllerALBAllowAll bool
 }
 
 func NewNetworkPolicyHandler(
@@ -51,8 +52,9 @@ func NewNetworkPolicyHandler(
 	scheme *runtime.Scheme,
 	allowExternalTraffic allowexternaltraffic.Enum,
 	ingressControllerIdentities []serviceidentity.ServiceIdentity,
+	ingressControllerALBAllowAll bool,
 ) *NetworkPolicyHandler {
-	return &NetworkPolicyHandler{client: client, scheme: scheme, allowExternalTraffic: allowExternalTraffic, ingressControllerIdentities: ingressControllerIdentities}
+	return &NetworkPolicyHandler{client: client, scheme: scheme, allowExternalTraffic: allowExternalTraffic, ingressControllerIdentities: ingressControllerIdentities, ingressControllerALBAllowAll: ingressControllerALBAllowAll}
 }
 
 func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
@@ -129,7 +131,7 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 
 	rule := v1.NetworkPolicyIngressRule{}
 	// Only limit netpol if there is an ingress controller restriction configured AND the service is not directly exposed.
-	if len(r.ingressControllerIdentities) != 0 && svc.Spec.Type == corev1.ServiceTypeClusterIP {
+	if len(r.ingressControllerIdentities) != 0 && svc.Spec.Type == corev1.ServiceTypeClusterIP && !(r.ingressControllerALBAllowAll && isIngressListHasInternetFacingAWSALB(ingressList.Items)) {
 		for _, ingressController := range r.ingressControllerIdentities {
 			rule.From = append(rule.From, v1.NetworkPolicyPeer{
 				PodSelector: &metav1.LabelSelector{
