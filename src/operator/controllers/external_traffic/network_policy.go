@@ -57,6 +57,10 @@ func NewNetworkPolicyHandler(
 	return &NetworkPolicyHandler{client: client, scheme: scheme, allowExternalTraffic: allowExternalTraffic, ingressControllerIdentities: ingressControllerIdentities, ingressControllerALBAllowAll: ingressControllerALBAllowAll}
 }
 
+func (r *NetworkPolicyHandler) SetIngressControllerALBAllowAll(ingressControllerALBAllowAll bool) {
+	r.ingressControllerALBAllowAll = ingressControllerALBAllowAll
+}
+
 func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 	ctx context.Context, endpoints *corev1.Endpoints, owner *corev1.Service, otterizeServiceName string, selector metav1.LabelSelector, ingressList *v1.IngressList, successMsg string) error {
 	policyName := r.formatPolicyName(endpoints.Name)
