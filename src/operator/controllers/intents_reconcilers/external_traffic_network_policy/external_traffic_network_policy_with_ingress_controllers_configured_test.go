@@ -58,6 +58,7 @@ type ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite st
 	EffectivePolicyIntentsReconciler *intents_reconcilers.ServiceEffectivePolicyIntentsReconciler
 	podWatcher                       *pod_reconcilers.PodWatcher
 	defaultDenyReconciler            *protected_service_reconcilers.DefaultDenyReconciler
+	netpolHandler                    *external_traffic.NetworkPolicyHandler
 }
 
 func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) SetupSuite() {
@@ -105,7 +106,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 			Namespace: ingressControllerNamespace,
 			Name:      ingressControllerName,
 		},
-	})
+	}, false)
 	s.defaultDenyReconciler = protected_service_reconcilers.NewDefaultDenyReconciler(s.Mgr.GetClient(), netpolHandler, true)
 	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, goset.NewSet[string](), true, defaultActive, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder(), builders.NewPortNetworkPolicyReconciler(s.Mgr.GetClient())}, nil)
 	serviceIdResolver := serviceidresolver.NewResolver(s.Mgr.GetClient())
@@ -122,6 +123,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.IngressReconciler = external_traffic.NewIngressReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.IngressReconciler.InjectRecorder(recorder)
 	s.Require().NoError(err)
+
+	s.netpolHandler = netpolHandler
 
 	controller := gomock.NewController(s.T())
 	serviceEffectivePolicyReconciler := podreconcilersmocks.NewMockGroupReconciler(controller)
@@ -899,7 +902,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 			Name:      ingressControllerName,
 			Kind:      "Deployment",
 		},
-	})
+	}, false)
 	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	recorder := record.NewFakeRecorder(10)
 	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)
@@ -923,6 +926,145 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	default:
 		s.Fail("event not raised")
 	}
+}
+
+func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyForAWSALBExemption_enabled() {
+	serviceName := "ingress-service"
+	ingressName := "test-ingress-alb"
+	ingressNamespace := s.TestNamespace
+	s.netpolHandler.SetIngressControllerALBAllowAll(true)
+
+	// Add Ingress with the annotation "alb.ingress.kubernetes.io/scheme": "internet-facing"
+	ingress := s.AddIngressWithAnnotation(ingressName, ingressNamespace, serviceName, map[string]string{
+		"alb.ingress.kubernetes.io/scheme": "internet-facing",
+	})
+
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
+		Service: &otterizev2alpha1.ServiceTarget{Name: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name},
+	},
+	})
+	s.Require().NoError(err)
+
+	_, err = s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: intents.Namespace,
+			Name:      intents.Name,
+		},
+	})
+
+	s.Require().NoError(err)
+
+	// Reconcile the ingress
+	res, err := s.IngressReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ingressNamespace, Name: ingressName},
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	// Verify that the network policy allows all ingress traffic
+	np := &v1.NetworkPolicy{}
+	policyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: ingressNamespace, Name: policyName}, np)
+		assert.NoError(err)
+		assert.NotEmpty(np)
+		assert.Len(np.Spec.Ingress, 1)
+		if len(np.Spec.Ingress) == 1 {
+			assert.Len(np.Spec.Ingress[0].From, 0) // Allow all ingress traffic
+		}
+	})
+}
+
+func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyForAWSALBExemption_disabled() {
+	serviceName := "ingress-service"
+	ingressName := "test-ingress-alb"
+	ingressNamespace := s.TestNamespace
+	s.netpolHandler.SetIngressControllerALBAllowAll(false)
+
+	// Add Ingress with the annotation "alb.ingress.kubernetes.io/scheme": "internet-facing"
+	ingress := s.AddIngressWithAnnotation(ingressName, ingressNamespace, serviceName, map[string]string{
+		"alb.ingress.kubernetes.io/scheme": "internet-facing",
+	})
+
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
+		Service: &otterizev2alpha1.ServiceTarget{Name: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name},
+	},
+	})
+	s.Require().NoError(err)
+
+	_, err = s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: intents.Namespace,
+			Name:      intents.Name,
+		},
+	})
+
+	s.Require().NoError(err)
+
+	// Reconcile the ingress
+	res, err := s.IngressReconciler.Reconcile(context.Background(), ctrl.Request{
+		NamespacedName: types.NamespacedName{Namespace: ingressNamespace, Name: ingressName},
+	})
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+
+	// Verify that the network policy allows all ingress traffic
+	np := &v1.NetworkPolicy{}
+	policyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	s.WaitUntilCondition(func(assert *assert.Assertions) {
+		err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: ingressNamespace, Name: policyName}, np)
+		assert.NoError(err)
+		assert.NotEmpty(np)
+		assert.Len(np.Spec.Ingress, 1)
+		if len(np.Spec.Ingress) == 1 {
+			assert.Len(np.Spec.Ingress[0].From, 1) // Only allow traffic from the ingress controller
+		}
+	})
+}
+
+func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) AddIngressWithAnnotation(name, namespace, serviceName string, annotations map[string]string) *v1.Ingress {
+	ingress := &v1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: annotations,
+		},
+		Spec: v1.IngressSpec{
+			Rules: []v1.IngressRule{
+				{
+					Host: "example.com",
+					IngressRuleValue: v1.IngressRuleValue{
+						HTTP: &v1.HTTPIngressRuleValue{
+							Paths: []v1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: lo.ToPtr(v1.PathTypePrefix),
+									Backend: v1.IngressBackend{
+										Service: &v1.IngressServiceBackend{
+											Name: serviceName,
+											Port: v1.ServiceBackendPort{
+												Number: 80,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	s.Require().NoError(s.Mgr.GetClient().Create(context.Background(), ingress))
+	s.WaitForObjectToBeCreated(ingress)
+
+	s.AddDeploymentWithService(serviceName, []string{"3.3.3.3"}, map[string]string{"app": "test"}, nil)
+
+	// the ingress reconciler expect the pod watcher labels in order to work
+	_, err := s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
+	s.Require().NoError(err)
+
+	return ingress
 }
 
 func TestExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite(t *testing.T) {

@@ -146,10 +146,12 @@ func convertToCloudExternalService(svc corev1.Service, identity serviceidentity.
 
 	// Remember to update the cache key that determines whether an update is needed.
 	serviceInput := graphqlclient.ExternallyAccessibleServiceInput{
-		Namespace:         identity.Namespace,
-		ServerName:        identity.Name,
-		ReferredByIngress: ReferredByIngress,
-		ServiceType:       cloudServiceType,
+		Namespace:                      identity.Namespace,
+		ServerName:                     identity.Name,
+		ReferredByIngress:              ReferredByIngress,
+		ServiceType:                    cloudServiceType,
+		ServiceName:                    svc.Name,
+		HasInternetFacingAWSALBIngress: isIngressListHasInternetFacingAWSALB(referringIngressList.Items),
 	}
 	return serviceInput, true, nil
 }
