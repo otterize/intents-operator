@@ -250,6 +250,7 @@ type IntentsOperatorConfigurationInput struct {
 	DatabaseEnforcementEnabled            bool                           `json:"databaseEnforcementEnabled"`
 	EnforcedNamespaces                    []string                       `json:"enforcedNamespaces"`
 	IngressControllerConfig               []IngressControllerConfigInput `json:"ingressControllerConfig"`
+	AwsALBLoadBalancerExemptionEnabled    bool                           `json:"awsALBLoadBalancerExemptionEnabled"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -310,6 +311,11 @@ func (v *IntentsOperatorConfigurationInput) GetEnforcedNamespaces() []string {
 // GetIngressControllerConfig returns IntentsOperatorConfigurationInput.IngressControllerConfig, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetIngressControllerConfig() []IngressControllerConfigInput {
 	return v.IngressControllerConfig
+}
+
+// GetAwsALBLoadBalancerExemptionEnabled returns IntentsOperatorConfigurationInput.AwsALBLoadBalancerExemptionEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAwsALBLoadBalancerExemptionEnabled() bool {
+	return v.AwsALBLoadBalancerExemptionEnabled
 }
 
 type InternetConfigInput struct {

@@ -84,5 +84,7 @@ func uploadConfiguration(ctx context.Context, client CloudClient) {
 		configInput.IngressControllerConfig = ingressControllerConfigInput
 	}
 
+	configInput.AwsALBLoadBalancerExemptionEnabled = viper.GetBool(operatorconfig.IngressControllerALBExemptKey)
+
 	client.ReportIntentsOperatorConfiguration(timeoutCtx, configInput)
 }
