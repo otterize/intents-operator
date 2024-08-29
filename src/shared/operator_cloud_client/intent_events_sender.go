@@ -64,15 +64,12 @@ func (ies *IntentEventsPeriodicReporter) Start(ctx context.Context) {
 func (ies *IntentEventsPeriodicReporter) reportIntentEvents(ctx context.Context) {
 	events := v1.EventList{}
 	gqlEvents := make([]graphqlclient.ClientIntentEventInput, 0)
-	err := ies.k8sClient.List(ctx, &events)
+	err := ies.k8sClient.List(ctx, &events, client.MatchingFields{"involvedObject.kind": "ClientIntents"})
 	if err != nil {
 		logrus.Errorf("Failed to list events: %v", err)
 		return
 	}
 	for _, event := range events.Items {
-		if event.InvolvedObject.Kind != "ClientIntents" {
-			continue
-		}
 		key := eventKey(event.UID)
 		if cachedGeneration, ok := ies.eventCache.Get(key); ok && cachedGeneration == eventGeneration(event.Generation) {
 			continue
@@ -143,6 +140,11 @@ func (ies *IntentEventsPeriodicReporter) ReportIntentStatuses(ctx context.Contex
 			Timestamp:          intent.CreationTimestamp.Time,
 			ObservedGeneration: int(intent.Status.ObservedGeneration),
 			UpToDate:           intent.Status.UpToDate,
+		})
+		ies.statusCache.Add(intentStatusKey(intent.UID), intentStatusDetails{
+			Generation:         int(intent.Generation),
+			UpToDate:           intent.Status.UpToDate,
+			ObservedGeneration: int(intent.Status.ObservedGeneration),
 		})
 	}
 
