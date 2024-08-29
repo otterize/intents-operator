@@ -48,11 +48,14 @@ func (ies *IntentEventsPeriodicReporter) Start(ctx context.Context) {
 	go func() {
 		for {
 			ies.reportIntentEvents(ctx)
+			ies.ReportIntentStatuses(ctx)
 			select {
 			case <-ctx.Done():
 				return
 			case <-time.After(viper.GetDuration(otterizecloudclient.IntentEventsReportIntervalKey)):
 				ies.reportIntentEvents(ctx)
+			case <-time.After(viper.GetDuration(otterizecloudclient.IntentStatusReportIntervalKey)):
+				ies.ReportIntentStatuses(ctx)
 			}
 		}
 	}()
