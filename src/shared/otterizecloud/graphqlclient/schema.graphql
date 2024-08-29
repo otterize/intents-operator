@@ -159,9 +159,9 @@ type AccessGraphFilter {
 type AccessLog {
 	clusters: [Cluster!]!
 	namespaces: [Namespace!]!
-	serviceCount: Int!
 	entries: [AccessLogEdge!]!
 	timeRange: TimeRange!
+	totalCount: Int!
 }
 
 type AccessLogEdge {
@@ -292,6 +292,54 @@ input ChannelInfoInput {
 
 input ClientIPConfig {
 	timeoutSeconds: Int
+}
+
+type ClientIntentEvent {
+	firstTimestamp: Time!
+	lastTimestamp: Time!
+	reportingComponent: String
+	count: Int!
+	type: String!
+	reason: String!
+	message: String!
+}
+
+input ClientIntentEventInput {
+	clientName: String!
+	clientWorkloadKind: String
+	namespace: String!
+	name: String!
+	labels: [KeyValueInput!]
+	annotations: [KeyValueInput!]
+	count: Int!
+	clientIntentName: String!
+	firstTimestamp: Time!
+	lastTimestamp: Time!
+	reportingComponent: String
+	reportingInstance: String
+	sourceComponent: String
+	type: String!
+	reason: String!
+	message: String!
+}
+
+type ClientIntentStatus {
+	clientIntentName: String!
+	generation: Int!
+	timestamp: Time!
+	observedGeneration: Int!
+	upToDate: Boolean!
+}
+
+input ClientIntentStatusInput {
+	namespace: String!
+	clientName: String!
+	clientWorkloadKind: String
+	clientIntentName: String!
+	generation: Int!
+	timestamp: Time!
+	observedGeneration: Int!
+	upToDate: Boolean!
 }
 
 type ClientIntentsFileRepresentation {
@@ -818,13 +866,22 @@ input InputAccessGraphFilter {
 	featureFlags: InputFeatureFlags
 }
 
+""" Access log filter """
 input InputAccessLogFilter {
+""" Access log filter """
 	clusterIds: InputIDFilterValue
+""" Access log filter """
 	serviceIds: InputIDFilterValue
+""" Access log filter """
 	namespaceIds: InputIDFilterValue
+""" Access log filter """
 	environmentIds: InputIDFilterValue
+""" Access log filter """
 	timeRange: TimeRangeInput
+""" Access log filter """
 	featureFlags: InputFeatureFlags
+""" Access log filter """
+	pagination: PaginationInput
 }
 
 input InputFeatureFlags {
@@ -1329,6 +1386,11 @@ type KeyPair {
 	expiresAt: Int!
 }
 
+input KeyValueInput {
+	key: String!
+	value: String
+}
+
 enum KubernetesServiceType {
 	LOAD_BALANCER
 	NODE_PORT
@@ -1585,6 +1647,12 @@ type Mutation {
 		namespace: String!
 		services: [ExternallyAccessibleServiceInput!]!
 	): Boolean!
+	reportClientIntentStatus(
+		statuses: [ClientIntentStatusInput!]!
+	): Boolean!
+	reportClientIntentEvent(
+		events: [ClientIntentEventInput!]!
+	): Boolean!
 """Create user invite"""
 	createInvite(
 		email: String!
@@ -1749,6 +1817,11 @@ type OrganizationSettings {
 input OrganizationSettingsInput {
 	domains: [String!]
 	enforcedRegulations: [String]
+}
+
+input PaginationInput {
+	offset: Int
+	limit: Int
 }
 
 enum PathType {
@@ -1943,6 +2016,10 @@ enum RegulationCode {
 	PCI_4_0_1_3_6
 	ZERO_TRUST
 	ZERO_TRUST_SENSITIVE
+	ZERO_TRUST_DEFAULT_DENY
+	ZERO_TRUST_EGRESS_ACCESS_COVERED
+	ZERO_TRUST_EXTERNAL_INGRESS_TAGGED
+	ZERO_TRUST_ALL_INTRA_CLUSTER_ACCESS_COVERED
 }
 
 enum RegulationStandard {
@@ -2289,6 +2366,7 @@ enum WorkloadTag {
 	PII
 	HIPAA
 	Sensitive
+	External
 }
 
 

@@ -4,6 +4,7 @@ package graphqlclient
 
 import (
 	"context"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 )
@@ -28,6 +29,108 @@ func (v *AzureKeyVaultPolicyInput) GetSecretPermissions() []*string { return v.S
 
 // GetStoragePermissions returns AzureKeyVaultPolicyInput.StoragePermissions, and is useful for accessing the field via an interface.
 func (v *AzureKeyVaultPolicyInput) GetStoragePermissions() []*string { return v.StoragePermissions }
+
+type ClientIntentEventInput struct {
+	ClientName         string          `json:"clientName"`
+	ClientWorkloadKind string          `json:"clientWorkloadKind"`
+	Namespace          string          `json:"namespace"`
+	Name               string          `json:"name"`
+	Labels             []KeyValueInput `json:"labels"`
+	Annotations        []KeyValueInput `json:"annotations"`
+	Count              int             `json:"count"`
+	ClientIntentName   string          `json:"clientIntentName"`
+	FirstTimestamp     time.Time       `json:"firstTimestamp"`
+	LastTimestamp      time.Time       `json:"lastTimestamp"`
+	ReportingComponent string          `json:"reportingComponent"`
+	ReportingInstance  string          `json:"reportingInstance"`
+	SourceComponent    string          `json:"sourceComponent"`
+	Type               string          `json:"type"`
+	Reason             string          `json:"reason"`
+	Message            string          `json:"message"`
+}
+
+// GetClientName returns ClientIntentEventInput.ClientName, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetClientName() string { return v.ClientName }
+
+// GetClientWorkloadKind returns ClientIntentEventInput.ClientWorkloadKind, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetClientWorkloadKind() string { return v.ClientWorkloadKind }
+
+// GetNamespace returns ClientIntentEventInput.Namespace, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetNamespace() string { return v.Namespace }
+
+// GetName returns ClientIntentEventInput.Name, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetName() string { return v.Name }
+
+// GetLabels returns ClientIntentEventInput.Labels, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetLabels() []KeyValueInput { return v.Labels }
+
+// GetAnnotations returns ClientIntentEventInput.Annotations, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetAnnotations() []KeyValueInput { return v.Annotations }
+
+// GetCount returns ClientIntentEventInput.Count, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetCount() int { return v.Count }
+
+// GetClientIntentName returns ClientIntentEventInput.ClientIntentName, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetClientIntentName() string { return v.ClientIntentName }
+
+// GetFirstTimestamp returns ClientIntentEventInput.FirstTimestamp, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetFirstTimestamp() time.Time { return v.FirstTimestamp }
+
+// GetLastTimestamp returns ClientIntentEventInput.LastTimestamp, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetLastTimestamp() time.Time { return v.LastTimestamp }
+
+// GetReportingComponent returns ClientIntentEventInput.ReportingComponent, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetReportingComponent() string { return v.ReportingComponent }
+
+// GetReportingInstance returns ClientIntentEventInput.ReportingInstance, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetReportingInstance() string { return v.ReportingInstance }
+
+// GetSourceComponent returns ClientIntentEventInput.SourceComponent, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetSourceComponent() string { return v.SourceComponent }
+
+// GetType returns ClientIntentEventInput.Type, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetType() string { return v.Type }
+
+// GetReason returns ClientIntentEventInput.Reason, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetReason() string { return v.Reason }
+
+// GetMessage returns ClientIntentEventInput.Message, and is useful for accessing the field via an interface.
+func (v *ClientIntentEventInput) GetMessage() string { return v.Message }
+
+type ClientIntentStatusInput struct {
+	Namespace          string    `json:"namespace"`
+	ClientName         string    `json:"clientName"`
+	ClientWorkloadKind string    `json:"clientWorkloadKind"`
+	ClientIntentName   string    `json:"clientIntentName"`
+	Generation         int       `json:"generation"`
+	Timestamp          time.Time `json:"timestamp"`
+	ObservedGeneration int       `json:"observedGeneration"`
+	UpToDate           bool      `json:"upToDate"`
+}
+
+// GetNamespace returns ClientIntentStatusInput.Namespace, and is useful for accessing the field via an interface.
+func (v *ClientIntentStatusInput) GetNamespace() string { return v.Namespace }
+
+// GetClientName returns ClientIntentStatusInput.ClientName, and is useful for accessing the field via an interface.
+func (v *ClientIntentStatusInput) GetClientName() string { return v.ClientName }
+
+// GetClientWorkloadKind returns ClientIntentStatusInput.ClientWorkloadKind, and is useful for accessing the field via an interface.
+func (v *ClientIntentStatusInput) GetClientWorkloadKind() string { return v.ClientWorkloadKind }
+
+// GetClientIntentName returns ClientIntentStatusInput.ClientIntentName, and is useful for accessing the field via an interface.
+func (v *ClientIntentStatusInput) GetClientIntentName() string { return v.ClientIntentName }
+
+// GetGeneration returns ClientIntentStatusInput.Generation, and is useful for accessing the field via an interface.
+func (v *ClientIntentStatusInput) GetGeneration() int { return v.Generation }
+
+// GetTimestamp returns ClientIntentStatusInput.Timestamp, and is useful for accessing the field via an interface.
+func (v *ClientIntentStatusInput) GetTimestamp() time.Time { return v.Timestamp }
+
+// GetObservedGeneration returns ClientIntentStatusInput.ObservedGeneration, and is useful for accessing the field via an interface.
+func (v *ClientIntentStatusInput) GetObservedGeneration() int { return v.ObservedGeneration }
+
+// GetUpToDate returns ClientIntentStatusInput.UpToDate, and is useful for accessing the field via an interface.
+func (v *ClientIntentStatusInput) GetUpToDate() bool { return v.UpToDate }
 
 type ComponentType string
 
@@ -439,6 +542,17 @@ const (
 	KafkaTopicPatternPrefix  KafkaTopicPattern = "PREFIX"
 )
 
+type KeyValueInput struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// GetKey returns KeyValueInput.Key, and is useful for accessing the field via an interface.
+func (v *KeyValueInput) GetKey() string { return v.Key }
+
+// GetValue returns KeyValueInput.Value, and is useful for accessing the field via an interface.
+func (v *KeyValueInput) GetValue() string { return v.Value }
+
 type KubernetesServiceType string
 
 const (
@@ -509,6 +623,26 @@ type ReportAppliedKubernetesIntentsResponse struct {
 // GetReportAppliedKubernetesIntents returns ReportAppliedKubernetesIntentsResponse.ReportAppliedKubernetesIntents, and is useful for accessing the field via an interface.
 func (v *ReportAppliedKubernetesIntentsResponse) GetReportAppliedKubernetesIntents() *bool {
 	return v.ReportAppliedKubernetesIntents
+}
+
+// ReportClientIntentEventsResponse is returned by ReportClientIntentEvents on success.
+type ReportClientIntentEventsResponse struct {
+	ReportClientIntentEvent bool `json:"reportClientIntentEvent"`
+}
+
+// GetReportClientIntentEvent returns ReportClientIntentEventsResponse.ReportClientIntentEvent, and is useful for accessing the field via an interface.
+func (v *ReportClientIntentEventsResponse) GetReportClientIntentEvent() bool {
+	return v.ReportClientIntentEvent
+}
+
+// ReportClientIntentStatusesResponse is returned by ReportClientIntentStatuses on success.
+type ReportClientIntentStatusesResponse struct {
+	ReportClientIntentStatus bool `json:"reportClientIntentStatus"`
+}
+
+// GetReportClientIntentStatus returns ReportClientIntentStatusesResponse.ReportClientIntentStatus, and is useful for accessing the field via an interface.
+func (v *ReportClientIntentStatusesResponse) GetReportClientIntentStatus() bool {
+	return v.ReportClientIntentStatus
 }
 
 // ReportComponentStatusResponse is returned by ReportComponentStatus on success.
@@ -611,6 +745,24 @@ func (v *__ReportAppliedKubernetesIntentsInput) GetIntents() []*IntentInput { re
 
 // GetClusterId returns __ReportAppliedKubernetesIntentsInput.ClusterId, and is useful for accessing the field via an interface.
 func (v *__ReportAppliedKubernetesIntentsInput) GetClusterId() *string { return v.ClusterId }
+
+// __ReportClientIntentEventsInput is used internally by genqlient
+type __ReportClientIntentEventsInput struct {
+	Events []ClientIntentEventInput `json:"events"`
+}
+
+// GetEvents returns __ReportClientIntentEventsInput.Events, and is useful for accessing the field via an interface.
+func (v *__ReportClientIntentEventsInput) GetEvents() []ClientIntentEventInput { return v.Events }
+
+// __ReportClientIntentStatusesInput is used internally by genqlient
+type __ReportClientIntentStatusesInput struct {
+	Statuses []ClientIntentStatusInput `json:"statuses"`
+}
+
+// GetStatuses returns __ReportClientIntentStatusesInput.Statuses, and is useful for accessing the field via an interface.
+func (v *__ReportClientIntentStatusesInput) GetStatuses() []ClientIntentStatusInput {
+	return v.Statuses
+}
 
 // __ReportComponentStatusInput is used internally by genqlient
 type __ReportComponentStatusInput struct {
@@ -715,6 +867,66 @@ mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentI
 	var err error
 
 	var data ReportAppliedKubernetesIntentsResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func ReportClientIntentEvents(
+	ctx context.Context,
+	client graphql.Client,
+	events []ClientIntentEventInput,
+) (*ReportClientIntentEventsResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportClientIntentEvents",
+		Query: `
+mutation ReportClientIntentEvents ($events: [ClientIntentEventInput!]!) {
+	reportClientIntentEvent(events: $events)
+}
+`,
+		Variables: &__ReportClientIntentEventsInput{
+			Events: events,
+		},
+	}
+	var err error
+
+	var data ReportClientIntentEventsResponse
+	resp := &graphql.Response{Data: &data}
+
+	err = client.MakeRequest(
+		ctx,
+		req,
+		resp,
+	)
+
+	return &data, err
+}
+
+func ReportClientIntentStatuses(
+	ctx context.Context,
+	client graphql.Client,
+	statuses []ClientIntentStatusInput,
+) (*ReportClientIntentStatusesResponse, error) {
+	req := &graphql.Request{
+		OpName: "ReportClientIntentStatuses",
+		Query: `
+mutation ReportClientIntentStatuses ($statuses: [ClientIntentStatusInput!]!) {
+	reportClientIntentStatus(statuses: $statuses)
+}
+`,
+		Variables: &__ReportClientIntentStatusesInput{
+			Statuses: statuses,
+		},
+	}
+	var err error
+
+	var data ReportClientIntentStatusesResponse
 	resp := &graphql.Response{Data: &data}
 
 	err = client.MakeRequest(
