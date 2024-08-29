@@ -36,6 +36,6 @@ func isIngressListHasIPAWSALB(ingressList []v1.Ingress) bool {
 			return false
 		}
 
-		return scheme == "ip"
+		return targetType == "ip"
 	})
 }
