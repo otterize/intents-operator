@@ -9,11 +9,10 @@ import (
 	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
 
-func StartPeriodicCloudReports(ctx context.Context, client CloudClient, k8sClient client.Client) {
+func StartPeriodicCloudReports(ctx context.Context, client CloudClient) {
 	statusReportInterval := viper.GetInt(otterizecloudclient.ComponentReportIntervalKey)
 	configReportInterval := viper.GetInt(otterizecloudclient.OperatorConfigReportIntervalKey)
 
