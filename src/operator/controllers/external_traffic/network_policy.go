@@ -135,7 +135,7 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 
 	rule := v1.NetworkPolicyIngressRule{}
 	// Only limit netpol if there is an ingress controller restriction configured AND the service is not directly exposed.
-	if len(r.ingressControllerIdentities) != 0 && svc.Spec.Type == corev1.ServiceTypeClusterIP && !(r.ingressControllerALBAllowAll && isIngressListHasInternetFacingAWSALB(ingressList.Items)) {
+	if len(r.ingressControllerIdentities) != 0 && svc.Spec.Type == corev1.ServiceTypeClusterIP && !(r.ingressControllerALBAllowAll && isIngressListHasIPAWSALB(ingressList.Items)) {
 		for _, ingressController := range r.ingressControllerIdentities {
 			rule.From = append(rule.From, v1.NetworkPolicyPeer{
 				PodSelector: &metav1.LabelSelector{

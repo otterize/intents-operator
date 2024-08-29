@@ -25,17 +25,17 @@ func serviceNamesFromIngress(ingress *v1.Ingress) sets.Set[string] {
 	return serviceNames
 }
 
-func isIngressListHasInternetFacingAWSALB(ingressList []v1.Ingress) bool {
+func isIngressListHasIPAWSALB(ingressList []v1.Ingress) bool {
 	return lo.SomeBy(ingressList, func(ingress v1.Ingress) bool {
 		if ingress.Annotations == nil {
 			return false
 		}
 
-		scheme, ok := ingress.Annotations["alb.ingress.kubernetes.io/scheme"]
+		scheme, ok := ingress.Annotations["alb.ingress.kubernetes.io/target-type"]
 		if !ok {
 			return false
 		}
 
-		return scheme == "internet-facing"
+		return scheme == "ip"
 	})
 }
