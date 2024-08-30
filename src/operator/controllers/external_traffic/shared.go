@@ -31,11 +31,11 @@ func isIngressListHasIPAWSALB(ingressList []v1.Ingress) bool {
 			return false
 		}
 
-		scheme, ok := ingress.Annotations["alb.ingress.kubernetes.io/target-type"]
+		targetType, ok := ingress.Annotations["alb.ingress.kubernetes.io/target-type"]
 		if !ok {
 			return false
 		}
 
-		return scheme == "ip"
+		return targetType == "ip"
 	})
 }
