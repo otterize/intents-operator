@@ -11,9 +11,13 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"time"
+)
+
+const (
+	involvedObjectKindField = "involvedObject.kind"
 )
 
 type eventKey string
@@ -28,12 +32,12 @@ type intentStatusDetails struct {
 type IntentEventsPeriodicReporter struct {
 	cloudClient       CloudClient
 	k8sClient         client.Client
-	k8sClusterManager cluster.Cluster
+	k8sClusterManager ctrl.Manager
 	eventCache        *lru.Cache[eventKey, eventGeneration]
 	statusCache       *lru.Cache[intentStatusKey, intentStatusDetails]
 }
 
-func NewIntentEventsSender(cloudClient CloudClient, k8sClusterManager cluster.Cluster) (*IntentEventsPeriodicReporter, error) {
+func NewIntentEventsSender(cloudClient CloudClient, k8sClusterManager ctrl.Manager) (*IntentEventsPeriodicReporter, error) {
 	eventCache, err := lru.New[eventKey, eventGeneration](1000)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -52,7 +56,28 @@ func NewIntentEventsSender(cloudClient CloudClient, k8sClusterManager cluster.Cl
 	}, nil
 }
 
-func (ies *IntentEventsPeriodicReporter) Start(ctx context.Context) {
+func (ies *IntentEventsPeriodicReporter) initIndex() error {
+	err := ies.k8sClusterManager.GetCache().IndexField(
+		context.Background(),
+		&v1.Event{},
+		involvedObjectKindField,
+		func(object client.Object) []string {
+			event := object.(*v1.Event)
+			return []string{event.InvolvedObject.Kind}
+		})
+
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (ies *IntentEventsPeriodicReporter) Start(ctx context.Context) error {
+	err := ies.initIndex()
+	if err != nil {
+		return errors.Wrap(err)
+	}
 	go func() {
 		for {
 			ok := func() bool {
@@ -76,6 +101,7 @@ func (ies *IntentEventsPeriodicReporter) Start(ctx context.Context) {
 			}
 		}
 	}()
+	return nil
 }
 
 func (ies *IntentEventsPeriodicReporter) reportIntentEvents(ctx context.Context) {

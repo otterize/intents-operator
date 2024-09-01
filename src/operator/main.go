@@ -317,7 +317,10 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Panic("unable to create intent events sender")
 		}
-		intentsEventsSender.Start(signalHandlerCtx)
+		err = intentsEventsSender.Start(signalHandlerCtx)
+		if err != nil {
+			logrus.WithError(err).Panic("unable to start intent events sender")
+		}
 
 		serviceUploadReconciler := external_traffic.NewServiceUploadReconciler(mgr.GetClient(), otterizeCloudClient)
 		ingressUploadReconciler := external_traffic.NewIngressUploadReconciler(mgr.GetClient(), otterizeCloudClient)
