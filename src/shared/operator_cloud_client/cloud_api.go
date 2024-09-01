@@ -122,7 +122,7 @@ func (c *CloudClientImpl) ReportIntentEvents(ctx context.Context, events []graph
 		logrus.WithError(err).Error("failed to report intent events")
 		return
 	}
-	logrus.Debug("Intent events reported to cloud successfully")
+	logrus.Info("Intent events reported to cloud successfully")
 	return
 }
 
@@ -132,6 +132,6 @@ func (c *CloudClientImpl) ReportClientIntentStatuses(ctx context.Context, status
 		logrus.WithError(err).Error("failed to report intent statuses")
 		return
 	}
-	logrus.Debug("Intent statuses reported to cloud successfully")
+	logrus.Info("Intent statuses reported to cloud successfully")
 	return
 }

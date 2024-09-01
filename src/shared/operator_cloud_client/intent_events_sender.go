@@ -7,6 +7,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
+	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -79,6 +80,8 @@ func (ies *IntentEventsPeriodicReporter) Start(ctx context.Context) error {
 		return errors.Wrap(err)
 	}
 	go func() {
+		defer errorreporter.AutoNotify()
+		// Wait for caches to sync
 		for {
 			ok := func() bool {
 				timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -89,14 +92,23 @@ func (ies *IntentEventsPeriodicReporter) Start(ctx context.Context) error {
 				logrus.Errorf("Intents Event Sender - Failed waiting for caches to sync")
 				continue
 			}
-			ies.reportIntentEvents(ctx)
-			ies.ReportIntentStatuses(ctx)
+			break
+		}
+
+		// Report events and statuses before starting the ticker
+		ies.reportIntentEvents(ctx)
+		ies.ReportIntentStatuses(ctx)
+
+		eventReportTicker := time.NewTicker(time.Second * time.Duration(viper.GetInt(otterizecloudclient.IntentEventsReportIntervalKey)))
+		statusReportTicker := time.NewTicker(time.Second * time.Duration(viper.GetInt(otterizecloudclient.IntentStatusReportIntervalKey)))
+
+		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-time.After(viper.GetDuration(otterizecloudclient.IntentEventsReportIntervalKey)):
+			case <-eventReportTicker.C:
 				ies.reportIntentEvents(ctx)
-			case <-time.After(viper.GetDuration(otterizecloudclient.IntentStatusReportIntervalKey)):
+			case <-statusReportTicker.C:
 				ies.ReportIntentStatuses(ctx)
 			}
 		}
@@ -107,9 +119,13 @@ func (ies *IntentEventsPeriodicReporter) Start(ctx context.Context) error {
 func (ies *IntentEventsPeriodicReporter) reportIntentEvents(ctx context.Context) {
 	events := v1.EventList{}
 	gqlEvents := make([]graphqlclient.ClientIntentEventInput, 0)
-	err := ies.k8sClient.List(ctx, &events, client.MatchingFields{"involvedObject.kind": "ClientIntents"})
+	err := ies.k8sClient.List(ctx, &events, client.MatchingFields{involvedObjectKindField: "ClientIntents"})
 	if err != nil {
 		logrus.Errorf("Failed to list events: %v", err)
+		return
+	}
+	if len(events.Items) == 0 {
+		logrus.Debugf("No events in list")
 		return
 	}
 	for _, event := range events.Items {
@@ -148,7 +164,7 @@ func (ies *IntentEventsPeriodicReporter) reportIntentEvents(ctx context.Context)
 	}
 
 	if len(gqlEvents) == 0 {
-		logrus.Debugf("No new intent events to report")
+		logrus.Debugf("No new intent events to report; events in cache: %d", ies.eventCache.Len())
 		return
 	}
 
@@ -192,7 +208,7 @@ func (ies *IntentEventsPeriodicReporter) ReportIntentStatuses(ctx context.Contex
 	}
 
 	if len(statuses) == 0 {
-		logrus.Debugf("No new intent statuses to report")
+		logrus.Debugf("No new intent statuses to report; statuses in cache: %d", ies.statusCache.Len())
 		return
 	}
 

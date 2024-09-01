@@ -31,6 +31,7 @@ func init() {
 	viper.SetDefault(CloudClientTimeoutKey, CloudClientTimeoutDefault)
 	viper.SetDefault(OtterizeAPIExtraCAPEMPathsKey, []string{})
 	viper.SetDefault(IntentEventsReportIntervalKey, IntentEventsReportIntervalDefault)
+	viper.SetDefault(IntentStatusReportIntervalKey, IntentStatusReportIntervalDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
