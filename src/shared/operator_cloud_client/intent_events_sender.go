@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/cluster"
 	"time"
 )
 
@@ -25,28 +26,38 @@ type intentStatusDetails struct {
 }
 
 type IntentEventsPeriodicReporter struct {
-	cloudClient CloudClient
-	k8sClient   client.Client
-	eventCache  *lru.Cache[eventKey, eventGeneration]
-	statusCache *lru.Cache[intentStatusKey, intentStatusDetails]
+	cloudClient       CloudClient
+	k8sClient         client.Client
+	k8sClusterManager cluster.Cluster
+	eventCache        *lru.Cache[eventKey, eventGeneration]
+	statusCache       *lru.Cache[intentStatusKey, intentStatusDetails]
 }
 
-func NewIntentEventsSender(cloudClient CloudClient, k8sClient client.Client) (*IntentEventsPeriodicReporter, error) {
+func NewIntentEventsSender(cloudClient CloudClient, k8sClusterManager cluster.Cluster) (*IntentEventsPeriodicReporter, error) {
 	cache, err := lru.New[eventKey, eventGeneration](1000)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
 
 	return &IntentEventsPeriodicReporter{
-		cloudClient: cloudClient,
-		k8sClient:   k8sClient,
-		eventCache:  cache,
+		cloudClient:       cloudClient,
+		k8sClusterManager: k8sClusterManager,
+		eventCache:        cache,
 	}, nil
 }
 
 func (ies *IntentEventsPeriodicReporter) Start(ctx context.Context) {
 	go func() {
 		for {
+			ok := func() bool {
+				timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+				return ies.k8sClusterManager.GetCache().WaitForCacheSync(timeoutCtx)
+			}()
+			if !ok {
+				logrus.Errorf("Intents Event Sender - Failed waiting for caches to sync")
+				continue
+			}
 			ies.reportIntentEvents(ctx)
 			ies.ReportIntentStatuses(ctx)
 			select {
