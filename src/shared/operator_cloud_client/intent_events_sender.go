@@ -42,6 +42,7 @@ func NewIntentEventsSender(cloudClient CloudClient, k8sClusterManager cluster.Cl
 	return &IntentEventsPeriodicReporter{
 		cloudClient:       cloudClient,
 		k8sClusterManager: k8sClusterManager,
+		k8sClient:         k8sClusterManager.GetClient(),
 		eventCache:        cache,
 	}, nil
 }
