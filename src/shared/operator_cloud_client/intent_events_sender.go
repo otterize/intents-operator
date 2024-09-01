@@ -34,7 +34,11 @@ type IntentEventsPeriodicReporter struct {
 }
 
 func NewIntentEventsSender(cloudClient CloudClient, k8sClusterManager cluster.Cluster) (*IntentEventsPeriodicReporter, error) {
-	cache, err := lru.New[eventKey, eventGeneration](1000)
+	eventCache, err := lru.New[eventKey, eventGeneration](1000)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	statusCache, err := lru.New[intentStatusKey, intentStatusDetails](1000)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -43,7 +47,8 @@ func NewIntentEventsSender(cloudClient CloudClient, k8sClusterManager cluster.Cl
 		cloudClient:       cloudClient,
 		k8sClusterManager: k8sClusterManager,
 		k8sClient:         k8sClusterManager.GetClient(),
-		eventCache:        cache,
+		eventCache:        eventCache,
+		statusCache:       statusCache,
 	}, nil
 }
 
