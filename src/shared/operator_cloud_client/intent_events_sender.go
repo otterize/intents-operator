@@ -172,26 +172,7 @@ func (ies *IntentEventsPeriodicReporter) queryIntentEvents(ctx context.Context) 
 			logrus.Errorf("Failed to get intent %s/%s: %v", event.InvolvedObject.Namespace, event.InvolvedObject.Name, err)
 			continue
 		}
-		si := intent.ToServiceIdentity()
-
-		gqlEvents = append(gqlEvents, graphqlclient.ClientIntentEventInput{
-			ClientName:         si.Name,
-			ClientWorkloadKind: si.Kind,
-			Namespace:          si.Namespace,
-			Name:               event.Name,
-			Labels:             convertMapToKVInput(event.Labels),
-			Annotations:        convertMapToKVInput(event.Annotations),
-			Count:              int(event.Count),
-			ClientIntentName:   event.InvolvedObject.Name,
-			FirstTimestamp:     event.FirstTimestamp.Time,
-			LastTimestamp:      event.LastTimestamp.Time,
-			ReportingComponent: event.ReportingController,
-			ReportingInstance:  event.ReportingInstance,
-			SourceComponent:    event.Source.Component,
-			Type:               event.Type,
-			Reason:             event.Reason,
-			Message:            event.Message,
-		})
+		gqlEvents = append(gqlEvents, eventToGQLEvent(intent, event))
 		ies.eventCache.Add(key, eventGeneration(event.Generation))
 	}
 	return gqlEvents, nil
@@ -229,29 +210,57 @@ func (ies *IntentEventsPeriodicReporter) queryIntentStatuses(ctx context.Context
 		return nil, errors.Wrap(err)
 	}
 
-	statuses := make([]graphqlclient.ClientIntentStatusInput, 0)
+	gqlStatuses := make([]graphqlclient.ClientIntentStatusInput, 0)
 	for _, intent := range clientIntents.Items {
 		if cachedDetails, ok := ies.statusCache.Get(intentStatusKey(intent.UID)); ok && cachedDetails.Generation == int(intent.Generation) && cachedDetails.UpToDate == intent.Status.UpToDate && cachedDetails.ObservedGeneration == int(intent.Status.ObservedGeneration) {
 			continue
 		}
-		si := intent.ToServiceIdentity()
-		statuses = append(statuses, graphqlclient.ClientIntentStatusInput{
-			Namespace:          si.Namespace,
-			ClientName:         si.Name,
-			ClientWorkloadKind: si.Kind,
-			ClientIntentName:   intent.Name,
-			Generation:         int(intent.Generation),
-			Timestamp:          intent.CreationTimestamp.Time,
-			ObservedGeneration: int(intent.Status.ObservedGeneration),
-			UpToDate:           intent.Status.UpToDate,
-		})
+		gqlStatuses = append(gqlStatuses, statusToGQLStatus(intent))
 		ies.statusCache.Add(intentStatusKey(intent.UID), intentStatusDetails{
 			Generation:         int(intent.Generation),
 			UpToDate:           intent.Status.UpToDate,
 			ObservedGeneration: int(intent.Status.ObservedGeneration),
 		})
 	}
-	return statuses, nil
+	return gqlStatuses, nil
+}
+
+func statusToGQLStatus(intent v2alpha1.ClientIntents) graphqlclient.ClientIntentStatusInput {
+	si := intent.ToServiceIdentity()
+	gqlStatus := graphqlclient.ClientIntentStatusInput{
+		Namespace:          si.Namespace,
+		ClientName:         si.Name,
+		ClientWorkloadKind: si.Kind,
+		ClientIntentName:   intent.Name,
+		Generation:         int(intent.Generation),
+		Timestamp:          intent.CreationTimestamp.Time,
+		ObservedGeneration: int(intent.Status.ObservedGeneration),
+		UpToDate:           intent.Status.UpToDate,
+	}
+	return gqlStatus
+}
+
+func eventToGQLEvent(intent v2alpha1.ClientIntents, event v1.Event) graphqlclient.ClientIntentEventInput {
+	si := intent.ToServiceIdentity()
+	gqlEvent := graphqlclient.ClientIntentEventInput{
+		ClientName:         si.Name,
+		ClientWorkloadKind: si.Kind,
+		Namespace:          si.Namespace,
+		Name:               event.Name,
+		Labels:             convertMapToKVInput(event.Labels),
+		Annotations:        convertMapToKVInput(event.Annotations),
+		Count:              int(event.Count),
+		ClientIntentName:   event.InvolvedObject.Name,
+		FirstTimestamp:     event.FirstTimestamp.Time,
+		LastTimestamp:      event.LastTimestamp.Time,
+		ReportingComponent: event.ReportingController,
+		ReportingInstance:  event.ReportingInstance,
+		SourceComponent:    event.Source.Component,
+		Type:               event.Type,
+		Reason:             event.Reason,
+		Message:            event.Message,
+	}
+	return gqlEvent
 }
 
 func convertMapToKVInput(labels map[string]string) []graphqlclient.KeyValueInput {
