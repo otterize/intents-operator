@@ -27,6 +27,14 @@ mutation ReportExternallyAccessibleServices($namespace: String!, $services: [Ext
     reportExternallyAccessibleServices(namespace: $namespace, services: $services)
 }
 
+mutation ReportClientIntentEvents($events: [ClientIntentEventInput!]!) {
+    reportClientIntentEvent(events: $events)
+}
+
+mutation ReportClientIntentStatuses($statuses: [ClientIntentStatusInput!]!) {
+    reportClientIntentStatus(statuses: $statuses)
+}
+
 query dummy {
     dummyError
 }

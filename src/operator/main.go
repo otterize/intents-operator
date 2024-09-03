@@ -312,7 +312,16 @@ func main() {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
-		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
+		operator_cloud_client.StartPeriodicCloudReports(signalHandlerCtx, otterizeCloudClient)
+		intentsEventsSender, err := operator_cloud_client.NewIntentEventsSender(otterizeCloudClient, mgr)
+		if err != nil {
+			logrus.WithError(err).Panic("unable to create intent events sender")
+		}
+		err = intentsEventsSender.Start(signalHandlerCtx)
+		if err != nil {
+			logrus.WithError(err).Panic("unable to start intent events sender")
+		}
+
 		serviceUploadReconciler := external_traffic.NewServiceUploadReconciler(mgr.GetClient(), otterizeCloudClient)
 		ingressUploadReconciler := external_traffic.NewIngressUploadReconciler(mgr.GetClient(), otterizeCloudClient)
 

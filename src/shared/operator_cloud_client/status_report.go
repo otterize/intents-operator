@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func StartPeriodicallyReportConnectionToCloud(client CloudClient, ctx context.Context) {
+func StartPeriodicCloudReports(ctx context.Context, client CloudClient) {
 	statusReportInterval := viper.GetInt(otterizecloudclient.ComponentReportIntervalKey)
 	configReportInterval := viper.GetInt(otterizecloudclient.OperatorConfigReportIntervalKey)
 
