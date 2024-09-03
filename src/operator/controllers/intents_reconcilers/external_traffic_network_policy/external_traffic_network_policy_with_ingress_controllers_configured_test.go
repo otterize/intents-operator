@@ -936,7 +936,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// Add Ingress with the annotation "alb.ingress.kubernetes.io/scheme": "internet-facing"
 	ingress := s.AddIngressWithAnnotation(ingressName, ingressNamespace, serviceName, map[string]string{
-		"alb.ingress.kubernetes.io/scheme": "internet-facing",
+		"alb.ingress.kubernetes.io/target-type": "ip",
 	})
 
 	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{

@@ -151,7 +151,7 @@ func convertToCloudExternalService(svc corev1.Service, identity serviceidentity.
 		ReferredByIngress:              ReferredByIngress,
 		ServiceType:                    cloudServiceType,
 		ServiceName:                    svc.Name,
-		HasInternetFacingAWSALBIngress: isIngressListHasInternetFacingAWSALB(referringIngressList.Items),
+		HasInternetFacingAWSALBIngress: isIngressListHasIPAWSALB(referringIngressList.Items),
 	}
 	return serviceInput, true, nil
 }
