@@ -82,51 +82,83 @@ func (ies *IntentEventsPeriodicReporter) Start(ctx context.Context) error {
 	go func() {
 		defer errorreporter.AutoNotify()
 		// Wait for caches to sync
-		for {
-			ok := func() bool {
-				timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-				defer cancel()
-				return ies.k8sClusterManager.GetCache().WaitForCacheSync(timeoutCtx)
-			}()
-			if !ok {
-				logrus.Errorf("Intents Event Sender - Failed waiting for caches to sync")
-				continue
-			}
-			break
-		}
+		ies.waitForCacheSync(ctx)
 
-		// Report events and statuses before starting the ticker
-		ies.reportIntentEvents(ctx)
-		ies.ReportIntentStatuses(ctx)
-
-		eventReportTicker := time.NewTicker(time.Second * time.Duration(viper.GetInt(otterizecloudclient.IntentEventsReportIntervalKey)))
-		statusReportTicker := time.NewTicker(time.Second * time.Duration(viper.GetInt(otterizecloudclient.IntentStatusReportIntervalKey)))
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-eventReportTicker.C:
-				ies.reportIntentEvents(ctx)
-			case <-statusReportTicker.C:
-				ies.ReportIntentStatuses(ctx)
-			}
-		}
+		ies.startReportLoop(ctx)
 	}()
 	return nil
 }
 
+func (ies *IntentEventsPeriodicReporter) startReportLoop(ctx context.Context) {
+	// Report events and statuses before starting the ticker
+	ies.reportIntentEvents(ctx)
+	ies.reportIntentStatuses(ctx)
+
+	eventReportTicker := time.NewTicker(time.Second * time.Duration(viper.GetInt(otterizecloudclient.IntentEventsReportIntervalKey)))
+	statusReportTicker := time.NewTicker(time.Second * time.Duration(viper.GetInt(otterizecloudclient.IntentStatusReportIntervalKey)))
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-eventReportTicker.C:
+			ies.reportIntentEvents(ctx)
+		case <-statusReportTicker.C:
+			ies.reportIntentStatuses(ctx)
+		}
+	}
+}
+
+func (ies *IntentEventsPeriodicReporter) waitForCacheSync(ctx context.Context) {
+	for {
+		ok := func() bool {
+			timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+			return ies.k8sClusterManager.GetCache().WaitForCacheSync(timeoutCtx)
+		}()
+		if !ok {
+			logrus.Error("Intents Event Sender - Failed waiting for caches to sync")
+			continue
+		}
+		break
+	}
+}
+
 func (ies *IntentEventsPeriodicReporter) reportIntentEvents(ctx context.Context) {
+	gqlEvents, err := ies.queryIntentEvents(ctx)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to query intent events")
+		return
+	}
+
+	if len(gqlEvents) == 0 {
+		logrus.WithField("events_in_cache", ies.eventCache.Len()).Debug("No new intent events to report")
+		return
+	}
+
+	ies.doReportEvents(ctx, gqlEvents)
+
+}
+
+func (ies *IntentEventsPeriodicReporter) doReportEvents(ctx context.Context, gqlEvents []graphqlclient.ClientIntentEventInput) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
+	defer cancel()
+	eventChunks := lo.Chunk(gqlEvents, 100)
+	for _, chunk := range eventChunks {
+		ies.cloudClient.ReportIntentEvents(timeoutCtx, chunk)
+	}
+}
+
+func (ies *IntentEventsPeriodicReporter) queryIntentEvents(ctx context.Context) ([]graphqlclient.ClientIntentEventInput, error) {
 	events := v1.EventList{}
 	gqlEvents := make([]graphqlclient.ClientIntentEventInput, 0)
 	err := ies.k8sClient.List(ctx, &events, client.MatchingFields{involvedObjectKindField: "ClientIntents"})
 	if err != nil {
-		logrus.Errorf("Failed to list events: %v", err)
-		return
+		return nil, errors.Wrap(err)
 	}
 	if len(events.Items) == 0 {
 		logrus.Debugf("No events in list")
-		return
+		return gqlEvents, nil
 	}
 	for _, event := range events.Items {
 		key := eventKey(event.UID)
@@ -162,28 +194,41 @@ func (ies *IntentEventsPeriodicReporter) reportIntentEvents(ctx context.Context)
 		})
 		ies.eventCache.Add(key, eventGeneration(event.Generation))
 	}
+	return gqlEvents, nil
+}
 
-	if len(gqlEvents) == 0 {
-		logrus.Debugf("No new intent events to report; events in cache: %d", ies.eventCache.Len())
+func (ies *IntentEventsPeriodicReporter) reportIntentStatuses(ctx context.Context) {
+	statuses, err := ies.queryIntentStatuses(ctx)
+
+	if err != nil {
+		logrus.WithError(err).Error("Failed to query intent statuses")
 		return
 	}
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
-	defer cancel()
-	eventChunks := lo.Chunk(gqlEvents, 100)
-	for _, chunk := range eventChunks {
-		ies.cloudClient.ReportIntentEvents(timeoutCtx, chunk)
+	if len(statuses) == 0 {
+		logrus.WithField("statuses_in_cache", ies.statusCache.Len()).Debug("No new intent statuses to report")
+		return
 	}
 
+	ies.doReportStatuses(ctx, statuses)
 }
 
-func (ies *IntentEventsPeriodicReporter) ReportIntentStatuses(ctx context.Context) {
+func (ies *IntentEventsPeriodicReporter) doReportStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
+	defer cancel()
+	statusChunks := lo.Chunk(statuses, 100)
+	for _, chunk := range statusChunks {
+		ies.cloudClient.ReportClientIntentStatuses(timeoutCtx, chunk)
+	}
+}
+
+func (ies *IntentEventsPeriodicReporter) queryIntentStatuses(ctx context.Context) ([]graphqlclient.ClientIntentStatusInput, error) {
 	clientIntents := v2alpha1.ClientIntentsList{}
 	err := ies.k8sClient.List(ctx, &clientIntents)
 	if err != nil {
-		logrus.Errorf("Failed to list client intents: %v", err)
-		return
+		return nil, errors.Wrap(err)
 	}
+
 	statuses := make([]graphqlclient.ClientIntentStatusInput, 0)
 	for _, intent := range clientIntents.Items {
 		if cachedDetails, ok := ies.statusCache.Get(intentStatusKey(intent.UID)); ok && cachedDetails.Generation == int(intent.Generation) && cachedDetails.UpToDate == intent.Status.UpToDate && cachedDetails.ObservedGeneration == int(intent.Status.ObservedGeneration) {
@@ -206,18 +251,7 @@ func (ies *IntentEventsPeriodicReporter) ReportIntentStatuses(ctx context.Contex
 			ObservedGeneration: int(intent.Status.ObservedGeneration),
 		})
 	}
-
-	if len(statuses) == 0 {
-		logrus.Debugf("No new intent statuses to report; statuses in cache: %d", ies.statusCache.Len())
-		return
-	}
-
-	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
-	defer cancel()
-	statusChunks := lo.Chunk(statuses, 100)
-	for _, chunk := range statusChunks {
-		ies.cloudClient.ReportClientIntentStatuses(timeoutCtx, chunk)
-	}
+	return statuses, nil
 }
 
 func convertMapToKVInput(labels map[string]string) []graphqlclient.KeyValueInput {
