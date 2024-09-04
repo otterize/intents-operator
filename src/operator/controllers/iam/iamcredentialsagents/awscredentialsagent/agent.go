@@ -98,16 +98,48 @@ func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAcco
 			},
 		})
 
-		for i := range pod.Spec.Containers {
-			pod.Spec.Containers[i].VolumeMounts = append(pod.Spec.Containers[i].VolumeMounts, corev1.VolumeMount{
+		extraVolumeMounts := []corev1.VolumeMount{
+			{
 				Name:      "spiffe",
 				MountPath: "/aws-config",
 				ReadOnly:  true,
-			})
-			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, corev1.EnvVar{
+			},
+		}
+
+		extraEnv := []corev1.EnvVar{
+			{
 				Name:  "AWS_SHARED_CREDENTIALS_FILE",
 				Value: "/aws-config/credentials",
-			})
+			},
+			{
+				Name:  "AWS_ROLES_ANYWHERE_ENABLED",
+				Value: "true",
+			},
+			{
+				Name:  "AWS_ROLES_ANYWHERE_ROLE_ARN",
+				Value: *role.Arn,
+			},
+			{
+				Name:  "AWS_ROLES_ANYWHERE_PROFILE_ARN",
+				Value: *profile.ProfileArn,
+			},
+			{
+				Name:  "AWS_ROLES_ANYWHERE_TRUST_ANCHOR_ARN",
+				Value: a.agent.TrustAnchorArn,
+			},
+			{
+				Name:  "AWS_ROLES_ANYWHERE_PRIVATE_KEY_PATH",
+				Value: "/aws-config/tls.key",
+			},
+			{
+				Name:  "AWS_ROLES_ANYWHERE_CERT_PATH",
+				Value: "/aws-config/tls.crt",
+			},
+		}
+
+		for i := range pod.Spec.Containers {
+			pod.Spec.Containers[i].VolumeMounts = append(pod.Spec.Containers[i].VolumeMounts, extraVolumeMounts...)
+			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, extraEnv...)
 		}
 
 	}
