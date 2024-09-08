@@ -41,6 +41,15 @@ func (a *Agent) createPolicyFromIntents(intents []otterizev2alpha1.Target) awsag
 		Version: "2012-10-17",
 	}
 
+	if len(intents) == 0 {
+		// This is the equivalent of a "null" policy (allowing nothing) for AWS IAM
+		policy.Statement = append(policy.Statement, awsagent.StatementEntry{
+			Effect:   "Allow",
+			Resource: "*",
+			Action:   []string{"none:null"},
+		})
+	}
+
 	for _, intent := range intents {
 		awsResource := a.templateResourceName(intent.AWS.ARN)
 		actions := intent.AWS.Actions
