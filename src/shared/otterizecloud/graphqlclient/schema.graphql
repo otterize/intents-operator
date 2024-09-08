@@ -1137,6 +1137,7 @@ input IntentsOperatorConfigurationInput {
 	enforcedNamespaces: [String!]
 	ingressControllerConfig: [IngressControllerConfigInput!]
 	awsALBLoadBalancerExemptionEnabled: Boolean
+	allowExternalTrafficPolicy: allowExternalTrafficPolicy
 }
 
 type IntentsOperatorState {
@@ -1921,6 +1922,12 @@ type Query {
 	testDatabaseVisibilityConnection(
 		databaseInfo: DatabaseInfoInput!
 	): TestDatabaseConnectionResponse!
+	clientIntentEventsForWorkload(
+		id: ID!
+	): [ClientIntentEvent!]
+	clientIntentStatusForWorkload(
+		id: ID!
+	): ClientIntentStatus
 """List user invites"""
 	invites(
 		email: String
@@ -2130,6 +2137,7 @@ type Service {
 	azureResource: AzureResource
 	discoveredByIntegration: Integration
 	awsVisibility: AWSVisibility
+	databaseIntegration: Integration
 	tlsKeyPair: KeyPair!
 }
 
@@ -2159,6 +2167,8 @@ input ServiceBackendPortInput {
 type ServiceClientIntents {
 	asClient: ClientIntentsFiles
 	asServer: ClientIntentsFiles
+	appliedIntentStatus: ClientIntentStatus
+	appliedIntentEvents: [ClientIntentEvent!]
 }
 
 enum ServiceExternalTrafficPolicy {
@@ -2213,6 +2223,14 @@ type SlackChannelInfo {
 	channelName: String!
 }
 
+type SlackChannelIntegrationAlerts {
+	channelInfo: SlackChannelInfo!
+}
+
+input SlackChannelIntegrationAlertsInput {
+	channelInfo: ChannelInfoInput!
+}
+
 type SlackFilterPair {
 	filter: IntegrationAccessGraphFilter!
 	channelInfo: SlackChannelInfo!
@@ -2226,11 +2244,13 @@ input SlackFilterPairInput {
 type SlackSettings {
 	isActive: Boolean!
 	channelFilterPairs: [SlackFilterPair!]!
+	channelIntegrationAlerts: [SlackChannelIntegrationAlerts!]
 }
 
 input SlackSettingsInput {
 	isActive: Boolean!
 	channelFilterPairs: [SlackFilterPairInput!]!
+	channelIntegrationAlerts: [SlackChannelIntegrationAlertsInput!]
 }
 
 input StackFrame {
@@ -2367,6 +2387,12 @@ enum WorkloadTag {
 	HIPAA
 	Sensitive
 	External
+}
+
+enum allowExternalTrafficPolicy {
+	OFF
+	ALWAYS
+	IF_BLOCKED_BY_OTTERIZE
 }
 
 
