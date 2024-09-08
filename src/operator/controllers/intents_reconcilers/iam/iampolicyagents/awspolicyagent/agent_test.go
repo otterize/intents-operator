@@ -26,7 +26,7 @@ func (s *AWSAgentPolicySuite) Test_templateResourceName() {
 	s.Equal("arn:aws:sqs:test-region:test-accountid:queue1", resourceName)
 }
 
-func (a *AWSAgentPolicySuite) Test_createPolicyFromIntents_TemplateResourceName() {
+func (s *AWSAgentPolicySuite) Test_createPolicyFromIntents_TemplateResourceName() {
 	// Given
 	agent := &Agent{
 		agent: &awsagent.Agent{
@@ -45,8 +45,25 @@ func (a *AWSAgentPolicySuite) Test_createPolicyFromIntents_TemplateResourceName(
 	// When
 	policyDoc := agent.createPolicyFromIntents(intents)
 	// Then
-	a.Equal("arn:aws:sqs:test-region:test-accountid:queue1", policyDoc.Statement[0].Resource)
+	s.Equal("arn:aws:sqs:test-region:test-accountid:queue1", policyDoc.Statement[0].Resource)
 
+}
+
+func (s *AWSAgentPolicySuite) TestCreatePolicyFromIntents_NoStatements() {
+	// Given
+	agent := &Agent{
+		agent: &awsagent.Agent{
+			Region:    "test-region",
+			AccountID: "test-accountid",
+		},
+	}
+	var intents []otterizev2alpha1.Target
+	// When
+	policyDoc := agent.createPolicyFromIntents(intents)
+	// Then
+	s.Len(policyDoc.Statement, 1)
+	s.Equal("*", policyDoc.Statement[0].Resource)
+	s.Equal([]string{"none:null"}, policyDoc.Statement[0].Action)
 }
 
 func TestRunAWSAgentPolicySuite(t *testing.T) {
