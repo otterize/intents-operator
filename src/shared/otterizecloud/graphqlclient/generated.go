@@ -9,6 +9,14 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+type AllowExternalTrafficPolicy string
+
+const (
+	AllowExternalTrafficPolicyOff                 AllowExternalTrafficPolicy = "OFF"
+	AllowExternalTrafficPolicyAlways              AllowExternalTrafficPolicy = "ALWAYS"
+	AllowExternalTrafficPolicyIfBlockedByOtterize AllowExternalTrafficPolicy = "IF_BLOCKED_BY_OTTERIZE"
+)
+
 type AzureKeyVaultPolicyInput struct {
 	CertificatePermissions []*string `json:"certificatePermissions"`
 	KeyPermissions         []*string `json:"keyPermissions"`
@@ -354,6 +362,7 @@ type IntentsOperatorConfigurationInput struct {
 	EnforcedNamespaces                    []string                       `json:"enforcedNamespaces"`
 	IngressControllerConfig               []IngressControllerConfigInput `json:"ingressControllerConfig"`
 	AwsALBLoadBalancerExemptionEnabled    bool                           `json:"awsALBLoadBalancerExemptionEnabled"`
+	AllowExternalTrafficPolicy            AllowExternalTrafficPolicy     `json:"allowExternalTrafficPolicy"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -419,6 +428,11 @@ func (v *IntentsOperatorConfigurationInput) GetIngressControllerConfig() []Ingre
 // GetAwsALBLoadBalancerExemptionEnabled returns IntentsOperatorConfigurationInput.AwsALBLoadBalancerExemptionEnabled, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetAwsALBLoadBalancerExemptionEnabled() bool {
 	return v.AwsALBLoadBalancerExemptionEnabled
+}
+
+// GetAllowExternalTrafficPolicy returns IntentsOperatorConfigurationInput.AllowExternalTrafficPolicy, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAllowExternalTrafficPolicy() AllowExternalTrafficPolicy {
+	return v.AllowExternalTrafficPolicy
 }
 
 type InternetConfigInput struct {
