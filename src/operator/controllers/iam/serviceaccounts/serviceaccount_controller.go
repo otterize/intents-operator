@@ -103,7 +103,9 @@ func (r *ServiceAccountReconciler) handleServiceAccountCleanup(ctx context.Conte
 		if controllerutil.RemoveFinalizer(updatedServiceAccount, r.agent.FinalizerName()) || controllerutil.RemoveFinalizer(updatedServiceAccount, metadata.DeprecatedIAMRoleFinalizer) {
 			err := r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
 			if err != nil {
-				if apierrors.IsConflict(err) {
+				if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
+					// These are all errors that can happen because the service account is already being deleted, requeuing
+					// should solve them all in a classy way
 					return ctrl.Result{Requeue: true}, nil
 				}
 				return ctrl.Result{}, errors.Wrap(err)

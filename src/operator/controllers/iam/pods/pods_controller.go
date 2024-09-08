@@ -127,7 +127,9 @@ func (r *PodReconciler) handlePodCleanup(ctx context.Context, pod corev1.Pod) (c
 	if controllerutil.RemoveFinalizer(updatedPod, r.agent.FinalizerName()) || controllerutil.RemoveFinalizer(updatedPod, metadata.DeprecatedIAMRoleFinalizer) {
 		err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
-			if apierrors.IsConflict(err) {
+			if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
+				// These are all errors that can happen because the pod is already being deleted, requeuing
+				// should solve them all in a classy way
 				return ctrl.Result{Requeue: true}, nil
 			}
 			return ctrl.Result{}, errors.Wrap(err)
