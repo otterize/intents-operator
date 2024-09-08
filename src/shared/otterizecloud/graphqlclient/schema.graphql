@@ -175,6 +175,12 @@ type AccessLogEdge {
 	accessStatuses: EdgeAccessStatuses!
 }
 
+enum AllowExternalTrafficPolicy {
+	OFF
+	ALWAYS
+	IF_BLOCKED_BY_OTTERIZE
+}
+
 enum ApiFieldAction {
 """Do nothing, expose models to the REST API as id-only structs (Default behaviour)"""
 	COLLAPSE_MODEL
@@ -1137,7 +1143,7 @@ input IntentsOperatorConfigurationInput {
 	enforcedNamespaces: [String!]
 	ingressControllerConfig: [IngressControllerConfigInput!]
 	awsALBLoadBalancerExemptionEnabled: Boolean
-	allowExternalTrafficPolicy: allowExternalTrafficPolicy
+	allowExternalTrafficPolicy: AllowExternalTrafficPolicy
 }
 
 type IntentsOperatorState {
@@ -2387,12 +2393,6 @@ enum WorkloadTag {
 	HIPAA
 	Sensitive
 	External
-}
-
-enum allowExternalTrafficPolicy {
-	OFF
-	ALWAYS
-	IF_BLOCKED_BY_OTTERIZE
 }
 
 
