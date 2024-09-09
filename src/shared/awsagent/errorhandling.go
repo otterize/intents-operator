@@ -25,3 +25,23 @@ func isNoSuchEntityException(err error) bool {
 		return false
 	}
 }
+
+func isEntityAlreadyExistsException(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	var apiError smithy.APIError
+
+	if errors.As(err, &apiError) {
+		var entityAlreadyExistsException *types.EntityAlreadyExistsException
+		switch {
+		case errors.As(apiError, &entityAlreadyExistsException):
+			return true
+		default:
+			return false
+		}
+	} else {
+		return false
+	}
+}

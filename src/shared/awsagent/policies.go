@@ -38,7 +38,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 				// nothing to do
 				return nil
 			}
-			_, err := a.createPolicy(ctx, role, namespace, intentsServiceName, statements, softDeletionStrategyEnabled)
+			err = a.createPolicy(ctx, role, namespace, intentsServiceName, statements, softDeletionStrategyEnabled)
 			return errors.Wrap(err)
 		}
 
@@ -197,12 +197,12 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 	return nil
 }
 
-func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace string, intentsServiceName string, statements []StatementEntry, useSoftDeleteStrategy bool) (*types.Policy, error) {
+func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace string, intentsServiceName string, statements []StatementEntry, useSoftDeleteStrategy bool) error {
 	fullPolicyName := a.generatePolicyName(namespace, intentsServiceName)
 	policyDoc, policyHash, err := generatePolicyDocument(statements)
 
 	if err != nil {
-		return nil, errors.Wrap(err)
+		return errors.Wrap(err)
 	}
 
 	tags := []types.Tag{
@@ -230,16 +230,19 @@ func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace st
 	})
 
 	if err != nil {
-		return nil, errors.Wrap(err)
+		if isEntityAlreadyExistsException(err) {
+			return nil
+		}
+		return errors.Wrap(err)
 	}
 
 	err = a.attachPolicy(ctx, role, policy.Policy)
 
 	if err != nil {
-		return nil, errors.Wrap(err)
+		return errors.Wrap(err)
 	}
 
-	return policy.Policy, nil
+	return nil
 }
 
 func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statements []StatementEntry, useSoftDeleteStrategy bool) error {
