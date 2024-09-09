@@ -272,7 +272,7 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	}
 
 	if HasSoftDeleteStrategyTagSet(role.Tags) {
-		logger.Debug("role has softDeleteStrategy tag, tagging as unused")
+		logger.Info("role has softDeleteStrategy tag, tagging as unused")
 		return a.SoftDeleteOtterizeIAMRole(ctx, role)
 	}
 
@@ -282,6 +282,7 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 		return errors.Wrap(err)
 	}
 
+	logger.WithField("role", *role.RoleName).Info("deleting IAM role")
 	_, err = a.iamClient.DeleteRole(ctx, &iam.DeleteRoleInput{
 		RoleName: role.RoleName,
 	})

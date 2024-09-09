@@ -68,6 +68,7 @@ func (a *Agent) DeleteRolePolicyByNamespacedName(ctx context.Context, namespace 
 }
 
 func (a *Agent) DeleteRolePolicy(ctx context.Context, policyName string) error {
+	logrus.WithField("policy", policyName).Info("deleting IAM role policy")
 	output, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
 		PolicyArn: aws.String(a.generatePolicyArn(policyName)),
 	})
