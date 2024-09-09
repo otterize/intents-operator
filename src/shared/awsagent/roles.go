@@ -108,6 +108,8 @@ func (a *Agent) GetOtterizeProfile(ctx context.Context, namespaceName, serviceAc
 }
 
 func (a *Agent) DeleteRolesAnywhereProfileForServiceAccount(ctx context.Context, namespace string, serviceAccountName string) (bool, error) {
+	logger := logrus.WithField("namespace", namespace).WithField("serviceAccount", serviceAccountName)
+
 	found, profile, err := a.GetOtterizeProfile(ctx, namespace, serviceAccountName)
 	if err != nil {
 		return false, errors.Wrap(err)
@@ -116,6 +118,8 @@ func (a *Agent) DeleteRolesAnywhereProfileForServiceAccount(ctx context.Context,
 	if !found {
 		return false, nil
 	}
+
+	logger.WithField("profile", *profile.Name).Info("deleting rolesanywhere profile")
 
 	_, err = a.rolesAnywhereClient.DeleteProfile(ctx, &rolesanywhere.DeleteProfileInput{ProfileId: profile.ProfileId})
 	if err != nil {
