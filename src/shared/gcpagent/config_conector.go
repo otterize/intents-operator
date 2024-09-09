@@ -232,6 +232,7 @@ func (a *Agent) deleteIAMServiceAccount(ctx context.Context, namespaceName strin
 		return errors.Wrap(err)
 	}
 
+	logger.WithField("name", gsaName).Info("Deleting IAMServiceAccount")
 	err = a.client.Delete(ctx, iamServiceAccount.DeepCopy())
 	if err != nil {
 		logger.WithError(err).Errorf("failed to delete IAMServiceAccount %s", gsaName)
@@ -255,6 +256,8 @@ func (a *Agent) deleteGSAToKSAPolicy(ctx context.Context, namespaceName string, 
 		}
 		return errors.Wrap(err)
 	}
+
+	logger.WithField("name", policyName).Info("Deleting IAMPolicyMember")
 
 	err = a.client.Delete(ctx, iamPolicyMember.DeepCopy())
 	if err != nil {
