@@ -175,6 +175,12 @@ type AccessLogEdge {
 	accessStatuses: EdgeAccessStatuses!
 }
 
+enum AllowExternalTrafficPolicy {
+	OFF
+	ALWAYS
+	IF_BLOCKED_BY_OTTERIZE
+}
+
 enum ApiFieldAction {
 """Do nothing, expose models to the REST API as id-only structs (Default behaviour)"""
 	COLLAPSE_MODEL
@@ -1137,6 +1143,7 @@ input IntentsOperatorConfigurationInput {
 	enforcedNamespaces: [String!]
 	ingressControllerConfig: [IngressControllerConfigInput!]
 	awsALBLoadBalancerExemptionEnabled: Boolean
+	allowExternalTrafficPolicy: AllowExternalTrafficPolicy
 }
 
 type IntentsOperatorState {
@@ -1921,6 +1928,12 @@ type Query {
 	testDatabaseVisibilityConnection(
 		databaseInfo: DatabaseInfoInput!
 	): TestDatabaseConnectionResponse!
+	clientIntentEventsForWorkload(
+		id: ID!
+	): [ClientIntentEvent!]
+	clientIntentStatusForWorkload(
+		id: ID!
+	): ClientIntentStatus
 """List user invites"""
 	invites(
 		email: String
@@ -2130,6 +2143,7 @@ type Service {
 	azureResource: AzureResource
 	discoveredByIntegration: Integration
 	awsVisibility: AWSVisibility
+	databaseIntegration: Integration
 	tlsKeyPair: KeyPair!
 }
 
@@ -2159,6 +2173,8 @@ input ServiceBackendPortInput {
 type ServiceClientIntents {
 	asClient: ClientIntentsFiles
 	asServer: ClientIntentsFiles
+	appliedIntentStatus: ClientIntentStatus
+	appliedIntentEvents: [ClientIntentEvent!]
 }
 
 enum ServiceExternalTrafficPolicy {
@@ -2213,6 +2229,14 @@ type SlackChannelInfo {
 	channelName: String!
 }
 
+type SlackChannelIntegrationAlerts {
+	channelInfo: SlackChannelInfo!
+}
+
+input SlackChannelIntegrationAlertsInput {
+	channelInfo: ChannelInfoInput!
+}
+
 type SlackFilterPair {
 	filter: IntegrationAccessGraphFilter!
 	channelInfo: SlackChannelInfo!
@@ -2226,11 +2250,13 @@ input SlackFilterPairInput {
 type SlackSettings {
 	isActive: Boolean!
 	channelFilterPairs: [SlackFilterPair!]!
+	channelIntegrationAlerts: [SlackChannelIntegrationAlerts!]
 }
 
 input SlackSettingsInput {
 	isActive: Boolean!
 	channelFilterPairs: [SlackFilterPairInput!]!
+	channelIntegrationAlerts: [SlackChannelIntegrationAlertsInput!]
 }
 
 input StackFrame {

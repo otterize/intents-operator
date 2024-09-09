@@ -3,6 +3,7 @@ package operator_cloud_client
 import (
 	"context"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -52,6 +53,19 @@ func reportStatus(ctx context.Context, client CloudClient) {
 	client.ReportComponentStatus(timeoutCtx, graphqlclient.ComponentTypeIntentsOperator)
 }
 
+func getAllowExternalConfig() graphqlclient.AllowExternalTrafficPolicy {
+	switch allowexternaltraffic.Enum(viper.GetString(operatorconfig.AllowExternalTrafficKey)) {
+	case allowexternaltraffic.Always:
+		return graphqlclient.AllowExternalTrafficPolicyAlways
+	case allowexternaltraffic.Off:
+		return graphqlclient.AllowExternalTrafficPolicyOff
+	case allowexternaltraffic.IfBlockedByOtterize:
+		return graphqlclient.AllowExternalTrafficPolicyIfBlockedByOtterize
+	default:
+		return ""
+	}
+}
+
 func uploadConfiguration(ctx context.Context, client CloudClient) {
 	ingressConfigIdentities := operatorconfig.GetIngressControllerServiceIdentities()
 	enforcementConfig := enforcement.GetConfig()
@@ -70,6 +84,7 @@ func uploadConfiguration(ctx context.Context, client CloudClient) {
 		IstioPolicyEnforcementEnabled:         enforcementConfig.EnableIstioPolicy,
 		ProtectedServicesEnabled:              enforcementConfig.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 		EnforcedNamespaces:                    enforcementConfig.EnforcedNamespaces.Items(),
+		AllowExternalTrafficPolicy:            getAllowExternalConfig(),
 	}
 
 	if len(ingressConfigIdentities) != 0 {
