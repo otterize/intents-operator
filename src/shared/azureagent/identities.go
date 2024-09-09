@@ -99,13 +99,13 @@ func (a *Agent) DeleteUserAssignedIdentity(ctx context.Context, namespace string
 	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)
 	federatedIdentityCredentialsName := a.generateFederatedIdentityCredentialsName(namespace, accountName)
 
-	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Debug("deleting federated identity credentials")
+	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Info("deleting federated identity credentials")
 	_, err := a.federatedIdentityCredentialsClient.Delete(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, federatedIdentityCredentialsName, nil)
 	if err != nil && !azureerrors.IsNotFoundErr(err) && !IsParentResourceNotFoundErr(err) {
 		return errors.Wrap(err)
 	}
 
-	logger.WithField("identity", userAssignedIdentityName).Debug("deleting user assigned identity")
+	logger.WithField("identity", userAssignedIdentityName).Info("deleting user assigned identity")
 	_, err = a.userAssignedIdentitiesClient.Delete(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, nil)
 	if err != nil && !azureerrors.IsNotFoundErr(err) {
 		return errors.Wrap(err)
