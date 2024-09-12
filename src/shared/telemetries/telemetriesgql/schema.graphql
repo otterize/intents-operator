@@ -175,6 +175,12 @@ type AccessLogEdge {
 	accessStatuses: EdgeAccessStatuses!
 }
 
+enum AllowExternalTrafficPolicy {
+	OFF
+	ALWAYS
+	IF_BLOCKED_BY_OTTERIZE
+}
+
 enum ApiFieldAction {
 """Do nothing, expose models to the REST API as id-only structs (Default behaviour)"""
 	COLLAPSE_MODEL
@@ -292,6 +298,54 @@ input ChannelInfoInput {
 
 input ClientIPConfig {
 	timeoutSeconds: Int
+}
+
+type ClientIntentEvent {
+	firstTimestamp: Time!
+	lastTimestamp: Time!
+	reportingComponent: String
+	count: Int!
+	type: String!
+	reason: String!
+	message: String!
+}
+
+input ClientIntentEventInput {
+	clientName: String!
+	clientWorkloadKind: String
+	namespace: String!
+	name: String!
+	labels: [KeyValueInput!]
+	annotations: [KeyValueInput!]
+	count: Int!
+	clientIntentName: String!
+	firstTimestamp: Time!
+	lastTimestamp: Time!
+	reportingComponent: String
+	reportingInstance: String
+	sourceComponent: String
+	type: String!
+	reason: String!
+	message: String!
+}
+
+type ClientIntentStatus {
+	clientIntentName: String!
+	generation: Int!
+	timestamp: Time!
+	observedGeneration: Int!
+	upToDate: Boolean!
+}
+
+input ClientIntentStatusInput {
+	namespace: String!
+	clientName: String!
+	clientWorkloadKind: String
+	clientIntentName: String!
+	generation: Int!
+	timestamp: Time!
+	observedGeneration: Int!
+	upToDate: Boolean!
 }
 
 type ClientIntentsFileRepresentation {
@@ -1089,6 +1143,7 @@ input IntentsOperatorConfigurationInput {
 	enforcedNamespaces: [String!]
 	ingressControllerConfig: [IngressControllerConfigInput!]
 	awsALBLoadBalancerExemptionEnabled: Boolean
+	allowExternalTrafficPolicy: AllowExternalTrafficPolicy
 }
 
 type IntentsOperatorState {
@@ -1336,6 +1391,11 @@ type KeyPair {
 	certPEM: String!
 	rootCAPEM: String!
 	expiresAt: Int!
+}
+
+input KeyValueInput {
+	key: String!
+	value: String
 }
 
 enum KubernetesServiceType {
@@ -1593,6 +1653,12 @@ type Mutation {
 	reportExternallyAccessibleServices(
 		namespace: String!
 		services: [ExternallyAccessibleServiceInput!]!
+	): Boolean!
+	reportClientIntentStatus(
+		statuses: [ClientIntentStatusInput!]!
+	): Boolean!
+	reportClientIntentEvent(
+		events: [ClientIntentEventInput!]!
 	): Boolean!
 """Create user invite"""
 	createInvite(
@@ -1862,6 +1928,12 @@ type Query {
 	testDatabaseVisibilityConnection(
 		databaseInfo: DatabaseInfoInput!
 	): TestDatabaseConnectionResponse!
+	clientIntentEventsForWorkload(
+		id: ID!
+	): [ClientIntentEvent!]
+	clientIntentStatusForWorkload(
+		id: ID!
+	): ClientIntentStatus
 """List user invites"""
 	invites(
 		email: String
@@ -2071,6 +2143,7 @@ type Service {
 	azureResource: AzureResource
 	discoveredByIntegration: Integration
 	awsVisibility: AWSVisibility
+	databaseIntegration: Integration
 	tlsKeyPair: KeyPair!
 }
 
@@ -2100,6 +2173,8 @@ input ServiceBackendPortInput {
 type ServiceClientIntents {
 	asClient: ClientIntentsFiles
 	asServer: ClientIntentsFiles
+	appliedIntentStatus: ClientIntentStatus
+	appliedIntentEvents: [ClientIntentEvent!]
 }
 
 enum ServiceExternalTrafficPolicy {
@@ -2154,6 +2229,14 @@ type SlackChannelInfo {
 	channelName: String!
 }
 
+type SlackChannelIntegrationAlerts {
+	channelInfo: SlackChannelInfo!
+}
+
+input SlackChannelIntegrationAlertsInput {
+	channelInfo: ChannelInfoInput!
+}
+
 type SlackFilterPair {
 	filter: IntegrationAccessGraphFilter!
 	channelInfo: SlackChannelInfo!
@@ -2167,11 +2250,13 @@ input SlackFilterPairInput {
 type SlackSettings {
 	isActive: Boolean!
 	channelFilterPairs: [SlackFilterPair!]!
+	channelIntegrationAlerts: [SlackChannelIntegrationAlerts!]
 }
 
 input SlackSettingsInput {
 	isActive: Boolean!
 	channelFilterPairs: [SlackFilterPairInput!]!
+	channelIntegrationAlerts: [SlackChannelIntegrationAlertsInput!]
 }
 
 input StackFrame {

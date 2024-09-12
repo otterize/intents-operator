@@ -18,8 +18,8 @@ type CloudClient interface {
 	ReportNetworkPolicies(ctx context.Context, namespace string, policies []graphqlclient.NetworkPolicyInput) error
 	ReportExternallyAccessibleServices(ctx context.Context, namespace string, services []graphqlclient.ExternallyAccessibleServiceInput) error
 	ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error
-	ReportIntentEvents(ctx context.Context, events []graphqlclient.ClientIntentEventInput)
-	ReportClientIntentStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput)
+	ReportIntentEvents(ctx context.Context, events []graphqlclient.ClientIntentEventInput) error
+	ReportClientIntentStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) error
 }
 
 type CloudClientImpl struct {
@@ -116,22 +116,12 @@ func (c *CloudClientImpl) ReportProtectedServices(ctx context.Context, namespace
 	return errors.Wrap(err)
 }
 
-func (c *CloudClientImpl) ReportIntentEvents(ctx context.Context, events []graphqlclient.ClientIntentEventInput) {
+func (c *CloudClientImpl) ReportIntentEvents(ctx context.Context, events []graphqlclient.ClientIntentEventInput) error {
 	_, err := graphqlclient.ReportClientIntentEvents(ctx, c.client, events)
-	if err != nil {
-		logrus.WithError(err).Error("failed to report intent events")
-		return
-	}
-	logrus.Info("Intent events reported to cloud successfully")
-	return
+	return errors.Wrap(err)
 }
 
-func (c *CloudClientImpl) ReportClientIntentStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) {
+func (c *CloudClientImpl) ReportClientIntentStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) error {
 	_, err := graphqlclient.ReportClientIntentStatuses(ctx, c.client, statuses)
-	if err != nil {
-		logrus.WithError(err).Error("failed to report intent statuses")
-		return
-	}
-	logrus.Info("Intent statuses reported to cloud successfully")
-	return
+	return errors.Wrap(err)
 }

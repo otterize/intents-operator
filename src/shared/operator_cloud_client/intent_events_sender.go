@@ -2,7 +2,7 @@ package operator_cloud_client
 
 import (
 	"context"
-	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
@@ -30,23 +30,22 @@ type intentStatusDetails struct {
 	ObservedGeneration int
 }
 
+type IntentEvent struct {
+	Event  v1.Event
+	Intent v2alpha1.ClientIntents
+}
+
 type IntentEventsPeriodicReporter struct {
 	cloudClient       CloudClient
 	k8sClient         client.Client
 	k8sClusterManager ctrl.Manager
-	eventCache        *lru.Cache[eventKey, eventGeneration]
-	statusCache       *lru.Cache[intentStatusKey, intentStatusDetails]
+	eventCache        *expirable.LRU[eventKey, eventGeneration]
+	statusCache       *expirable.LRU[intentStatusKey, intentStatusDetails]
 }
 
 func NewIntentEventsSender(cloudClient CloudClient, k8sClusterManager ctrl.Manager) (*IntentEventsPeriodicReporter, error) {
-	eventCache, err := lru.New[eventKey, eventGeneration](1000)
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-	statusCache, err := lru.New[intentStatusKey, intentStatusDetails](1000)
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
+	eventCache := expirable.NewLRU[eventKey, eventGeneration](1000, nil, time.Hour)
+	statusCache := expirable.NewLRU[intentStatusKey, intentStatusDetails](1000, nil, time.Hour)
 
 	return &IntentEventsPeriodicReporter{
 		cloudClient:       cloudClient,
@@ -125,62 +124,81 @@ func (ies *IntentEventsPeriodicReporter) waitForCacheSync(ctx context.Context) {
 }
 
 func (ies *IntentEventsPeriodicReporter) reportIntentEvents(ctx context.Context) {
-	gqlEvents, err := ies.queryIntentEvents(ctx)
+	intentEvents, err := ies.queryIntentEvents(ctx)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to query intent events")
 		return
 	}
 
-	if len(gqlEvents) == 0 {
+	if len(intentEvents) == 0 {
 		logrus.WithField("events_in_cache", ies.eventCache.Len()).Debug("No new intent events to report")
 		return
 	}
 
-	ies.doReportEvents(ctx, gqlEvents)
+	logrus.WithField("events", len(intentEvents)).Info("Reporting intent events")
 
+	err = ies.doReportEvents(ctx, intentEvents)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to report intent events")
+		return
+	}
+
+	ies.cacheReportedEvents(intentEvents)
 }
 
-func (ies *IntentEventsPeriodicReporter) doReportEvents(ctx context.Context, gqlEvents []graphqlclient.ClientIntentEventInput) {
+func (ies *IntentEventsPeriodicReporter) doReportEvents(ctx context.Context, intentEvents []IntentEvent) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
+
+	gqlEvents := lo.Map(intentEvents, func(intentEvent IntentEvent, _ int) graphqlclient.ClientIntentEventInput {
+		return eventToGQLEvent(intentEvent.Intent, intentEvent.Event)
+	})
+
 	eventChunks := lo.Chunk(gqlEvents, 100)
 	for _, chunk := range eventChunks {
-		ies.cloudClient.ReportIntentEvents(timeoutCtx, chunk)
+		err := ies.cloudClient.ReportIntentEvents(timeoutCtx, chunk)
+		if err != nil {
+			return errors.Wrap(err)
+		}
 	}
+	return nil
 }
 
-func (ies *IntentEventsPeriodicReporter) queryIntentEvents(ctx context.Context) ([]graphqlclient.ClientIntentEventInput, error) {
+func (ies *IntentEventsPeriodicReporter) queryIntentEvents(ctx context.Context) ([]IntentEvent, error) {
 	events := v1.EventList{}
-	gqlEvents := make([]graphqlclient.ClientIntentEventInput, 0)
 	err := ies.k8sClient.List(ctx, &events, client.MatchingFields{involvedObjectKindField: "ClientIntents"})
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
-	if len(events.Items) == 0 {
-		logrus.Debugf("No events in list")
-		return gqlEvents, nil
-	}
-	for _, event := range events.Items {
-		key := eventKey(event.UID)
-		if cachedGeneration, ok := ies.eventCache.Get(key); ok && cachedGeneration == eventGeneration(event.Generation) {
-			continue
 
-		}
+	filteredEvents := lo.Filter(events.Items, func(event v1.Event, _ int) bool {
+		key := eventKey(event.UID)
+		cachedGeneration, ok := ies.eventCache.Get(key)
+		return !ok || cachedGeneration != eventGeneration(event.Generation)
+	})
+
+	intentEvents := lo.FilterMap(filteredEvents, func(event v1.Event, _ int) (IntentEvent, bool) {
 		intent := v2alpha1.ClientIntents{}
 		err := ies.k8sClient.Get(ctx, client.ObjectKey{Namespace: event.InvolvedObject.Namespace, Name: event.InvolvedObject.Name}, &intent)
 		if err != nil {
 			logrus.Errorf("Failed to get intent %s/%s: %v", event.InvolvedObject.Namespace, event.InvolvedObject.Name, err)
-			continue
+			return IntentEvent{}, false
 		}
-		gqlEvents = append(gqlEvents, eventToGQLEvent(intent, event))
-		ies.eventCache.Add(key, eventGeneration(event.Generation))
+
+		return IntentEvent{Event: event, Intent: intent}, true
+	})
+
+	return intentEvents, nil
+}
+
+func (ies *IntentEventsPeriodicReporter) cacheReportedEvents(intentEvents []IntentEvent) {
+	for _, intentEvent := range intentEvents {
+		ies.eventCache.Add(eventKey(intentEvent.Event.UID), eventGeneration(intentEvent.Event.Generation))
 	}
-	return gqlEvents, nil
 }
 
 func (ies *IntentEventsPeriodicReporter) reportIntentStatuses(ctx context.Context) {
 	statuses, err := ies.queryIntentStatuses(ctx)
-
 	if err != nil {
 		logrus.WithError(err).Error("Failed to query intent statuses")
 		return
@@ -191,38 +209,65 @@ func (ies *IntentEventsPeriodicReporter) reportIntentStatuses(ctx context.Contex
 		return
 	}
 
-	ies.doReportStatuses(ctx, statuses)
+	logrus.WithField("statuses", len(statuses)).Info("Reporting intent statuses")
+
+	err = ies.doReportStatuses(ctx, statuses)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to report intent statuses")
+		return
+	}
+
+	ies.cacheReportedIntentStatuses(statuses)
 }
 
-func (ies *IntentEventsPeriodicReporter) doReportStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) {
+func (ies *IntentEventsPeriodicReporter) doReportStatuses(ctx context.Context, intents []v2alpha1.ClientIntents) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
-	statusChunks := lo.Chunk(statuses, 100)
+
+	gqlStatuses := lo.Map(intents, func(intent v2alpha1.ClientIntents, _ int) graphqlclient.ClientIntentStatusInput {
+		return statusToGQLStatus(intent)
+	})
+
+	statusChunks := lo.Chunk(gqlStatuses, 100)
 	for _, chunk := range statusChunks {
-		ies.cloudClient.ReportClientIntentStatuses(timeoutCtx, chunk)
+		err := ies.cloudClient.ReportClientIntentStatuses(timeoutCtx, chunk)
+		if err != nil {
+			return errors.Wrap(err)
+		}
 	}
+
+	return nil
 }
 
-func (ies *IntentEventsPeriodicReporter) queryIntentStatuses(ctx context.Context) ([]graphqlclient.ClientIntentStatusInput, error) {
+func (ies *IntentEventsPeriodicReporter) queryIntentStatuses(ctx context.Context) ([]v2alpha1.ClientIntents, error) {
 	clientIntents := v2alpha1.ClientIntentsList{}
 	err := ies.k8sClient.List(ctx, &clientIntents)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
 
-	gqlStatuses := make([]graphqlclient.ClientIntentStatusInput, 0)
-	for _, intent := range clientIntents.Items {
-		if cachedDetails, ok := ies.statusCache.Get(intentStatusKey(intent.UID)); ok && cachedDetails.Generation == int(intent.Generation) && cachedDetails.UpToDate == intent.Status.UpToDate && cachedDetails.ObservedGeneration == int(intent.Status.ObservedGeneration) {
-			continue
-		}
-		gqlStatuses = append(gqlStatuses, statusToGQLStatus(intent))
-		ies.statusCache.Add(intentStatusKey(intent.UID), intentStatusDetails{
-			Generation:         int(intent.Generation),
-			UpToDate:           intent.Status.UpToDate,
-			ObservedGeneration: int(intent.Status.ObservedGeneration),
-		})
+	filteredIntents := lo.Filter(clientIntents.Items, func(intent v2alpha1.ClientIntents, _ int) bool {
+		cachedDetails, ok := ies.statusCache.Get(intentStatusKey(intent.UID))
+		return !ok ||
+			cachedDetails.Generation != int(intent.Generation) ||
+			cachedDetails.UpToDate != intent.Status.UpToDate ||
+			cachedDetails.ObservedGeneration != int(intent.Status.ObservedGeneration)
+	})
+
+	return filteredIntents, nil
+}
+
+func (ies *IntentEventsPeriodicReporter) cacheReportedIntentStatuses(intents []v2alpha1.ClientIntents) {
+	for _, intent := range intents {
+		ies.statusCache.Add(
+			intentStatusKey(intent.UID),
+			intentStatusDetails{
+				Generation:         int(intent.Generation),
+				UpToDate:           intent.Status.UpToDate,
+				ObservedGeneration: int(intent.Status.ObservedGeneration),
+			},
+		)
 	}
-	return gqlStatuses, nil
 }
 
 func statusToGQLStatus(intent v2alpha1.ClientIntents) graphqlclient.ClientIntentStatusInput {
