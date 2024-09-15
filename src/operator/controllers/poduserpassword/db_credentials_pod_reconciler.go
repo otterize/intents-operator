@@ -185,6 +185,9 @@ func (e *Reconciler) ensurePodUserAndPasswordSecret(ctx context.Context, pod *v1
 		secret := buildUserAndPasswordCredentialsSecret(secretName, pod.Namespace, username, password)
 		log.WithField("secret", secretName).Debug("Creating new secret with user-password credentials")
 		if err := e.client.Create(ctx, secret); err != nil {
+			if apierrors.IsAlreadyExists(err) {
+				return ctrl.Result{Requeue: true}, false, "", nil
+			}
 			return ctrl.Result{}, false, "", errors.Wrap(err)
 		}
 		return ctrl.Result{}, true, password, nil
