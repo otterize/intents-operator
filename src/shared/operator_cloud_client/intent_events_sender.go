@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	v1 "k8s.io/api/core/v1"
+	k8errors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
@@ -181,7 +182,9 @@ func (ies *IntentEventsPeriodicReporter) queryIntentEvents(ctx context.Context) 
 		intent := v2alpha1.ClientIntents{}
 		err := ies.k8sClient.Get(ctx, client.ObjectKey{Namespace: event.InvolvedObject.Namespace, Name: event.InvolvedObject.Name}, &intent)
 		if err != nil {
-			logrus.Errorf("Failed to get intent %s/%s: %v", event.InvolvedObject.Namespace, event.InvolvedObject.Name, err)
+			if !k8errors.IsNotFound(err) {
+				logrus.Errorf("Failed to get intent %s/%s: %v", event.InvolvedObject.Namespace, event.InvolvedObject.Name, err)
+			}
 			return IntentEvent{}, false
 		}
 
