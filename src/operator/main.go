@@ -346,6 +346,8 @@ func setupIAMAgents(ctx context.Context, mgr ctrl.Manager, client controllerrunt
 	azureIAMEnabled := viper.GetBool(operatorconfig.EnableAzureServiceAccountManagementKey)
 	gcpIAMEnabled := viper.GetBool(operatorconfig.EnableGCPServiceAccountManagementKey)
 
+	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
+
 	if !awsIAMEnabled && !azureIAMEnabled && !gcpIAMEnabled {
 		return
 	}
@@ -356,8 +358,10 @@ func setupIAMAgents(ctx context.Context, mgr ctrl.Manager, client controllerrunt
 		awsCredentialsAgent := initAWSCredentialsAgent(ctx)
 		iamAgents = append(iamAgents, awsCredentialsAgent)
 
-		awsWebhookHandler := sa_pod_webhook_generic.NewServiceAccountAnnotatingPodWebhook(mgr, awsCredentialsAgent)
-		mgr.GetWebhookServer().Register("/mutate-aws-v1-pod", &webhook.Admission{Handler: awsWebhookHandler})
+		if !disableWebhookServer {
+			awsWebhookHandler := sa_pod_webhook_generic.NewServiceAccountAnnotatingPodWebhook(mgr, awsCredentialsAgent)
+			mgr.GetWebhookServer().Register("/mutate-aws-v1-pod", &webhook.Admission{Handler: awsWebhookHandler})
+		}
 	}
 
 	if gcpIAMEnabled {
@@ -369,8 +373,10 @@ func setupIAMAgents(ctx context.Context, mgr ctrl.Manager, client controllerrunt
 		azureCredentialsAgent := initAzureCredentialsAgent(ctx)
 		iamAgents = append(iamAgents, azureCredentialsAgent)
 
-		azureWebhookHandler := sa_pod_webhook_generic.NewServiceAccountAnnotatingPodWebhook(mgr, azureCredentialsAgent)
-		mgr.GetWebhookServer().Register("/mutate-azure-v1-pod", &webhook.Admission{Handler: azureWebhookHandler})
+		if !disableWebhookServer {
+			azureWebhookHandler := sa_pod_webhook_generic.NewServiceAccountAnnotatingPodWebhook(mgr, azureCredentialsAgent)
+			mgr.GetWebhookServer().Register("/mutate-azure-v1-pod", &webhook.Admission{Handler: azureWebhookHandler})
+		}
 	}
 
 	// setup service account reconciler

@@ -73,7 +73,6 @@ func (r *ServiceAccountReconciler) handleServiceAccountUpdate(ctx context.Contex
 		return ctrl.Result{Requeue: true}, nil
 	}
 	if updated {
-		controllerutil.AddFinalizer(updatedServiceAccount, r.agent.FinalizerName())
 		err := r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
 		if err != nil {
 			if apierrors.IsConflict(err) {

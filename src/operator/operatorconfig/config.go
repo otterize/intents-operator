@@ -40,6 +40,8 @@ const (
 	CertManagerIssuerDefault                   = "ca-issuer"
 	SelfSignedCertKey                          = "self-signed-cert"
 	SelfSignedCertDefault                      = true
+	DisableWebhookServerKey                    = "disable-webhook-server" // Disable webhook validator server
+	DisableWebhookServerDefault                = false
 	CertManagerUseClustierIssuerKey            = "cert-manager-use-cluster-issuer"
 	CertManagerUseClusterIssuerDefault         = false
 	UseCertManagerApproverKey                  = "cert-manager-approve-requests"
@@ -76,6 +78,7 @@ func init() {
 	viper.SetDefault(SpireServerAddrKey, SpireServerAddrDefault)
 	viper.SetDefault(CertProviderKey, CertProviderDefault)
 	viper.SetDefault(SelfSignedCertKey, SelfSignedCertDefault)
+	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
 	viper.SetDefault(EnableLeaderElectionKey, EnableLeaderElectionDefault)
 	viper.SetDefault(CertManagerIssuerKey, CertManagerIssuerDefault)
 	viper.SetDefault(CertManagerUseClustierIssuerKey, CertManagerUseClusterIssuerDefault)
