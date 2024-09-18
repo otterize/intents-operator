@@ -2,6 +2,7 @@ package enforcement
 
 import (
 	"github.com/amit7itz/goset"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -17,6 +18,20 @@ type Config struct {
 	EnableGCPPolicy                      bool
 	EnableAzurePolicy                    bool
 	EnforcedNamespaces                   *goset.Set[string]
+	AllowExternalTraffic                 allowexternaltraffic.Enum
+}
+
+func (c Config) GetActualExternalTrafficPolicy() allowexternaltraffic.Enum {
+	if c.AllowExternalTraffic == allowexternaltraffic.Off {
+		return allowexternaltraffic.Off
+	} else if !c.EnforcementDefaultState && c.AllowExternalTraffic == allowexternaltraffic.Always {
+		// We don't want to create network policies for external traffic when enforcement is disabled.
+		// However, if one uses shadow mode we can still block external traffic to his protected services
+		// therefore we should return allowexternaltraffic.IfBlockedByOtterize
+		return allowexternaltraffic.IfBlockedByOtterize
+	} else {
+		return c.AllowExternalTraffic
+	}
 }
 
 const (
@@ -50,6 +65,9 @@ func init() {
 	viper.SetDefault(EnableDatabasePolicy, EnableDatabasePolicyDefault)
 	viper.SetDefault(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault)
 	viper.SetDefault(EnableAWSPolicyKey, EnableAWSPolicyDefault)
+	viper.SetDefault(EnableGCPPolicyKey, EnableGCPPolicyDefault)
+	viper.SetDefault(EnableAzurePolicyKey, EnableAzurePolicyDefault)
+	viper.SetDefault(AllowExternalTrafficKey, AllowExternalTrafficDefault)
 }
 
 func InitCLIFlags() {
@@ -61,6 +79,8 @@ func InitCLIFlags() {
 	pflag.Bool(EnableDatabasePolicy, EnableDatabasePolicyDefault, "Enable the database reconciler")
 	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
 	pflag.Bool(EnableAWSPolicyKey, EnableAWSPolicyDefault, "Enable the AWS IAM reconciler")
+	allowExternalTrafficDefault := AllowExternalTrafficDefault
+	pflag.Var(&allowExternalTrafficDefault, AllowExternalTrafficKey, "Whether to automatically create network policies for external traffic")
 }
 
 func GetConfig() Config {
@@ -75,5 +95,10 @@ func GetConfig() Config {
 		EnableGCPPolicy:                      viper.GetBool(EnableGCPPolicyKey),
 		EnableAzurePolicy:                    viper.GetBool(EnableAzurePolicyKey),
 		EnforcedNamespaces:                   goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
+		AllowExternalTraffic:                 allowexternaltraffic.Enum(viper.GetString(AllowExternalTrafficKey)),
 	}
 }
+
+const AllowExternalTrafficKey = "allow-external-traffic" // Whether to automatically create network policies for external traffic
+
+const AllowExternalTrafficDefault = allowexternaltraffic.IfBlockedByOtterize

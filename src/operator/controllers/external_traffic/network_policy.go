@@ -7,6 +7,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
@@ -45,6 +46,7 @@ type NetworkPolicyHandler struct {
 	allowExternalTraffic         allowexternaltraffic.Enum
 	ingressControllerIdentities  []serviceidentity.ServiceIdentity
 	ingressControllerALBAllowAll bool
+	enforcementConfig            enforcement.Config
 }
 
 func NewNetworkPolicyHandler(
@@ -54,7 +56,14 @@ func NewNetworkPolicyHandler(
 	ingressControllerIdentities []serviceidentity.ServiceIdentity,
 	ingressControllerALBAllowAll bool,
 ) *NetworkPolicyHandler {
-	return &NetworkPolicyHandler{client: client, scheme: scheme, allowExternalTraffic: allowExternalTraffic, ingressControllerIdentities: ingressControllerIdentities, ingressControllerALBAllowAll: ingressControllerALBAllowAll}
+	return &NetworkPolicyHandler{
+		client:                       client,
+		scheme:                       scheme,
+		allowExternalTraffic:         allowExternalTraffic,
+		ingressControllerIdentities:  ingressControllerIdentities,
+		ingressControllerALBAllowAll: ingressControllerALBAllowAll,
+		enforcementConfig:            enforcement.GetConfig(),
+	}
 }
 
 func (r *NetworkPolicyHandler) SetIngressControllerALBAllowAll(ingressControllerALBAllowAll bool) {
@@ -411,6 +420,12 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 				if err != nil {
 					return errors.Wrap(err)
 				}
+			} else {
+				policyName := r.formatPolicyName(endpoints.Name)
+				err := r.handlePolicyDelete(ctx, policyName, endpoints.Namespace)
+				if err != nil {
+					return errors.Wrap(err)
+				}
 			}
 			continue
 		}
@@ -529,16 +544,6 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeServiceWithoutIntents(ctx
 	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
 	if err != nil {
 		return errors.Wrap(err)
-	}
-
-	// delete policy if disabled
-	if r.allowExternalTraffic == allowexternaltraffic.Off {
-		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
-		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
-		if err != nil {
-			return errors.Wrap(err)
-		}
-		return nil
 	}
 
 	err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, metav1.LabelSelector{MatchLabels: svc.Spec.Selector}, ingressList, fmt.Sprintf("created external traffic network policy for service '%s'", endpoints.GetName()))
