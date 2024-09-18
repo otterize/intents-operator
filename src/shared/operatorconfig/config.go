@@ -2,7 +2,6 @@ package operatorconfig
 
 import (
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
@@ -16,24 +15,23 @@ import (
 )
 
 const (
-	MetricsAddrKey                         = "metrics-bind-address" // The address the metric endpoint binds to
-	MetricsAddrDefault                     = ":2112"
-	ProbeAddrKey                           = "health-probe-bind-address" // The address the probe endpoint binds to
-	ProbeAddrDefault                       = ":8181"
-	PprofBindAddressKey                    = "pprof-bind-address"
-	PprofAddrDefault                       = "127.0.0.1:9001"
-	EnableLeaderElectionKey                = "leader-elect" // Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager
-	EnableLeaderElectionDefault            = false
-	WatchedNamespacesKey                   = "watched-namespaces"    // Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas
-	KafkaServerTLSCertKey                  = "kafka-server-tls-cert" // name of tls certificate file
-	KafkaServerTLSKeyKey                   = "kafka-server-tls-key"  // name of tls private key file
-	KafkaServerTLSCAKey                    = "kafka-server-tls-ca"   // name of tls ca file
-	SelfSignedCertKey                      = "self-signed-cert"      // Whether to generate and use a self signed cert as the CA for webhooks
-	SelfSignedCertDefault                  = true
-	DisableWebhookServerKey                = "disable-webhook-server" // Disable webhook validator server
-	DisableWebhookServerDefault            = false
-	AllowExternalTrafficKey                = "allow-external-traffic" // Whether to automatically create network policies for external traffic
-	AllowExternalTrafficDefault            = allowexternaltraffic.IfBlockedByOtterize
+	MetricsAddrKey              = "metrics-bind-address" // The address the metric endpoint binds to
+	MetricsAddrDefault          = ":2112"
+	ProbeAddrKey                = "health-probe-bind-address" // The address the probe endpoint binds to
+	ProbeAddrDefault            = ":8181"
+	PprofBindAddressKey         = "pprof-bind-address"
+	PprofAddrDefault            = "127.0.0.1:9001"
+	EnableLeaderElectionKey     = "leader-elect" // Enable leader election for controller manager. Enabling this will ensure there is only one active controller manager
+	EnableLeaderElectionDefault = false
+	WatchedNamespacesKey        = "watched-namespaces"    // Namespaces that will be watched by the operator. Specify multiple values by specifying multiple times or separate with commas
+	KafkaServerTLSCertKey       = "kafka-server-tls-cert" // name of tls certificate file
+	KafkaServerTLSKeyKey        = "kafka-server-tls-key"  // name of tls private key file
+	KafkaServerTLSCAKey         = "kafka-server-tls-ca"   // name of tls ca file
+	SelfSignedCertKey           = "self-signed-cert"      // Whether to generate and use a self signed cert as the CA for webhooks
+	SelfSignedCertDefault       = true
+	DisableWebhookServerKey     = "disable-webhook-server" // Disable webhook validator server
+	DisableWebhookServerDefault = false
+
 	IntentsOperatorPodNameKey              = "pod-name"
 	IntentsOperatorPodNamespaceKey         = "pod-namespace"
 	EnvPrefix                              = "OTTERIZE"
@@ -71,7 +69,6 @@ func init() {
 	viper.SetDefault(ProbeAddrKey, ProbeAddrDefault)
 	viper.SetDefault(EnableLeaderElectionKey, EnableLeaderElectionDefault)
 	viper.SetDefault(SelfSignedCertKey, SelfSignedCertDefault)
-	viper.SetDefault(AllowExternalTrafficKey, AllowExternalTrafficDefault)
 	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
 	viper.SetDefault(EnableAWSRolesAnywhereKey, EnableAWSRolesAnywhereDefault)
 	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
@@ -157,9 +154,6 @@ func InitCLIFlags() {
 	pflag.Bool(EnableEgressAutoallowDNSTrafficKey, EnableEgressAutoallowDNSTrafficDefault, "Whether to automatically allow DNS traffic in egress network policies")
 	pflag.Duration(RetryDelayTimeKey, RetryDelayTimeDefault, "Default retry delay time for retrying failed requests")
 	pflag.Bool(DebugLogKey, DebugLogDefault, "Enable debug logging")
-
-	allowExternalTrafficDefault := AllowExternalTrafficDefault
-	pflag.Var(&allowExternalTrafficDefault, AllowExternalTrafficKey, "Whether to automatically create network policies for external traffic")
 	runtime.Must(viper.BindPFlags(pflag.CommandLine))
 
 	pflag.Parse()

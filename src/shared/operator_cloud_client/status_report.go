@@ -54,7 +54,7 @@ func reportStatus(ctx context.Context, client CloudClient) {
 }
 
 func getAllowExternalConfig() graphqlclient.AllowExternalTrafficPolicy {
-	switch allowexternaltraffic.Enum(viper.GetString(operatorconfig.AllowExternalTrafficKey)) {
+	switch enforcement.GetConfig().AllowExternalTraffic {
 	case allowexternaltraffic.Always:
 		return graphqlclient.AllowExternalTrafficPolicyAlways
 	case allowexternaltraffic.Off:

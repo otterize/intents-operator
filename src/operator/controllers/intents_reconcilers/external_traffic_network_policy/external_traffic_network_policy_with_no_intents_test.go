@@ -19,6 +19,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -246,7 +247,12 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestEndpointsRec
 
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
 
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Off, make([]serviceidentity.ServiceIdentity, 0), false)
+	enforcementConfig := enforcement.Config{
+		AllowExternalTraffic:    allowexternaltraffic.Always,
+		EnforcementDefaultState: false,
+	}
+	s.Require().Equal(allowexternaltraffic.IfBlockedByOtterize, enforcementConfig.GetActualExternalTrafficPolicy())
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, enforcementConfig.GetActualExternalTrafficPolicy(), make([]serviceidentity.ServiceIdentity, 0), false)
 	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	recorder := record.NewFakeRecorder(10)
 	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)
@@ -260,6 +266,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestEndpointsRec
 
 	s.Require().NoError(err)
 	s.Require().Empty(res)
+	s.Mgr.GetCache().WaitForCacheSync(context.Background())
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 	s.Require().True(errors.IsNotFound(err))
 }
