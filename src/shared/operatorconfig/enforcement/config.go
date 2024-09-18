@@ -22,21 +22,28 @@ type Config struct {
 }
 
 func (c Config) GetActualExternalTrafficPolicy() allowexternaltraffic.Enum {
-	if c.AllowExternalTraffic == allowexternaltraffic.Off {
+	// rewrite the above code to use a switch statement
+	switch c.AllowExternalTraffic {
+	case allowexternaltraffic.Off:
 		return allowexternaltraffic.Off
-	} else if !c.EnforcementDefaultState && c.AllowExternalTraffic == allowexternaltraffic.Always {
-		// We don't want to create network policies for external traffic when enforcement is disabled.
-		// However, if one uses shadow mode we can still block external traffic to his protected services
-		// therefore we should return allowexternaltraffic.IfBlockedByOtterize
+	case allowexternaltraffic.Always:
+		if !c.EnforcementDefaultState {
+			// We don't want to create network policies for external traffic when enforcement is disabled.
+			// However, if one uses shadow mode we can still block external traffic to his protected services
+			// therefore we should return allowexternaltraffic.IfBlockedByOtterize
+			return allowexternaltraffic.IfBlockedByOtterize
+		}
+		return allowexternaltraffic.Always
+	default:
 		return allowexternaltraffic.IfBlockedByOtterize
-	} else {
-		return c.AllowExternalTraffic
 	}
 }
 
 const (
 	ActiveEnforcementNamespacesKey              = "active-enforcement-namespaces" // When using the "shadow enforcement" mode, namespaces in this list will be treated as if the enforcement were active
-	EnforcementDefaultStateKey                  = "enforcement-default-state"     // Sets the default state of the  If true, always enforces. If false, can be overridden using ProtectedService.
+	AllowExternalTrafficKey                     = "allow-external-traffic"        // Whether to automatically create network policies for external traffic
+	AllowExternalTrafficDefault                 = allowexternaltraffic.IfBlockedByOtterize
+	EnforcementDefaultStateKey                  = "enforcement-default-state" // Sets the default state of the  If true, always enforces. If false, can be overridden using ProtectedService.
 	EnforcementDefaultStateDefault              = true
 	EnableNetworkPolicyKey                      = "enable-network-policy-creation" // Whether to enable Intents network policy creation
 	EnableNetworkPolicyDefault                  = true
@@ -98,7 +105,3 @@ func GetConfig() Config {
 		AllowExternalTraffic:                 allowexternaltraffic.Enum(viper.GetString(AllowExternalTrafficKey)),
 	}
 }
-
-const AllowExternalTrafficKey = "allow-external-traffic" // Whether to automatically create network policies for external traffic
-
-const AllowExternalTrafficDefault = allowexternaltraffic.IfBlockedByOtterize

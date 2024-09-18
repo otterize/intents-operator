@@ -7,7 +7,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
@@ -46,7 +45,6 @@ type NetworkPolicyHandler struct {
 	allowExternalTraffic         allowexternaltraffic.Enum
 	ingressControllerIdentities  []serviceidentity.ServiceIdentity
 	ingressControllerALBAllowAll bool
-	enforcementConfig            enforcement.Config
 }
 
 func NewNetworkPolicyHandler(
@@ -62,7 +60,6 @@ func NewNetworkPolicyHandler(
 		allowExternalTraffic:         allowExternalTraffic,
 		ingressControllerIdentities:  ingressControllerIdentities,
 		ingressControllerALBAllowAll: ingressControllerALBAllowAll,
-		enforcementConfig:            enforcement.GetConfig(),
 	}
 }
 
