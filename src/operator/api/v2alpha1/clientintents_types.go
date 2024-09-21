@@ -70,6 +70,7 @@ const (
 	OtterizeKafkaServerConfigServiceNameField  = "spec.service.name"
 	OtterizeProtectedServiceNameIndexField     = "spec.name"
 	OtterizeFormattedTargetServerIndexField    = "formattedTargetServer"
+	EndpointsOtterizeServiceIdIndexField       = "endpointsOtterizeServiceId"
 	OtterizePodByOwnerKindAndNameIndexField    = "podByOwnerKindAndName"
 	EndpointsPodNamesIndexField                = "endpointsPodNames"
 	IngressServiceNamesIndexField              = "ingressServiceNames"

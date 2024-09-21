@@ -5,6 +5,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
+	v1 "k8s.io/api/core/v1"
 )
 
 type ClientCall struct {
@@ -15,7 +16,8 @@ type ClientCall struct {
 
 type Call struct {
 	v2alpha1.Target
-	EventRecorder *injectablerecorder.ObjectEventRecorder
+	ReferencingKubernetesServices []v1.Service
+	EventRecorder                 *injectablerecorder.ObjectEventRecorder
 }
 
 type ServiceEffectivePolicy struct {

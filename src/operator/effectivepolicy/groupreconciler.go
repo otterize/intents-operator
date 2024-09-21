@@ -12,6 +12,8 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -169,10 +171,45 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(
 	clientIntents, ok := serviceToIntent[service]
 	if ok && clientIntents.DeletionTimestamp.IsZero() && clientIntents.Spec != nil {
 		recorder := injectablerecorder.NewObjectEventRecorder(&g.InjectableRecorder, lo.ToPtr(clientIntents))
-		calls := lo.Map(clientIntents.GetTargetList(), func(intent v2alpha1.Target, _ int) Call {
+		// Build Calls and populate ReferencingKubernetesServices to the calls
+		calls := make([]Call, 0)
+		for _, intent := range clientIntents.GetTargetList() {
 			serversFoundInClientIntents.Add(intent.ToServiceIdentity(clientIntents.Namespace))
-			return Call{Target: intent, EventRecorder: recorder}
-		})
+			call := Call{Target: intent, EventRecorder: recorder}
+
+			// Populate ReferencingKubernetesServices
+			var podList v1.PodList
+			if call.GetTargetServerKind() == serviceidentity.KindOtterizeLegacy {
+				err = g.Client.List(ctx, &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: intent.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind()})
+				if err != nil {
+					return ServiceEffectivePolicy{}, errors.Wrap(err)
+				}
+			} else {
+				err = g.Client.List(ctx, &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: intent.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind(),
+					v2alpha1.OtterizeOwnerKindLabelKey: intent.GetTargetServerKind()})
+				if err != nil {
+					return ServiceEffectivePolicy{}, errors.Wrap(err)
+				}
+
+			}
+
+			for _, pod := range podList.Items {
+				var serviceList v1.ServiceList
+				err = g.Client.List(ctx, &serviceList, client.InNamespace(pod.Namespace))
+				if err != nil {
+					return ServiceEffectivePolicy{}, errors.Wrap(err)
+				}
+
+				for _, svc := range serviceList.Items {
+					if svc.Spec.Selector != nil && labels.Set(svc.Spec.Selector).AsSelector().Matches(labels.Set(pod.Labels)) {
+						call.ReferencingKubernetesServices = append(call.ReferencingKubernetesServices, svc)
+					}
+				}
+			}
+
+			calls = append(calls, call)
+
+		}
 		ep.Calls = append(ep.Calls, calls...)
 		ep.ClientIntentsEventRecorder = recorder
 		ep.ClientIntentsStatus = clientIntents.Status
@@ -185,6 +222,37 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(
 	}
 
 	return ep, nil
+}
+
+func (g *GroupReconciler) populateReferencedKubernetesServices(call Call) error {
+	var podList v1.PodList
+	if call.GetTargetServerKind() == serviceidentity.KindOtterizeLegacy {
+		err := g.Client.List(context.Background(), &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: call.Target.ToServiceIdentity(call.EventRecorder.GetNamespace()).GetFormattedOtterizeIdentityWithoutKind()})
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	} else {
+		err := g.Client.List(context.Background(), &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: call.Target.ToServiceIdentity(call.EventRecorder.GetNamespace()).GetFormattedOtterizeIdentityWithoutKind(),
+			v2alpha1.OtterizeOwnerKindLabelKey: call.GetTargetServerKind()})
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	for _, pod := range podList.Items {
+		var serviceList v1.ServiceList
+		err := g.Client.List(context.Background(), &serviceList, client.InNamespace(pod.Namespace))
+		if err != nil {
+			return errors.Wrap(err)
+		}
+
+		for _, svc := range serviceList.Items {
+			if svc.Spec.Selector != nil && labels.Set(svc.Spec.Selector).AsSelector().Matches(labels.Set(pod.Labels)) {
+				call.ReferencingKubernetesServices = append(call.ReferencingKubernetesServices, svc)
+			}
+		}
+	}
+	return nil
 }
 
 func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []access_annotation.AnnotationIntent, serversFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []Call {

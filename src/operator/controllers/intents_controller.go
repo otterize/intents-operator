@@ -366,6 +366,25 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	if err != nil {
 		return errors.Wrap(err)
 	}
+	// Index endpoints by Otterize service identity.
+	err = mgr.GetCache().IndexField(
+		context.Background(),
+		&corev1.Endpoints{},
+		otterizev2alpha1.EndpointsOtterizeServiceIdIndexField,
+		func(object client.Object) []string {
+			var res []string
+			endpoints := object.(*corev1.Endpoints)
+			for _, subset := range endpoints.Subsets {
+				for _, address := range subset.Addresses {
+					if address.TargetRef == nil || address.TargetRef.Kind != "Pod" {
+						continue
+					}
+					res = append(res, address.TargetRef.Name)
+				}
+			}
+			return res
+
+		})
 
 	return nil
 }
