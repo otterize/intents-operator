@@ -177,36 +177,10 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(
 			serversFoundInClientIntents.Add(intent.ToServiceIdentity(clientIntents.Namespace))
 			call := Call{Target: intent, EventRecorder: recorder}
 
-			// Populate ReferencingKubernetesServices
-			var podList v1.PodList
-			if call.GetTargetServerKind() == serviceidentity.KindOtterizeLegacy {
-				err = g.Client.List(ctx, &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: intent.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind()})
-				if err != nil {
-					return ServiceEffectivePolicy{}, errors.Wrap(err)
-				}
-			} else {
-				err = g.Client.List(ctx, &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: intent.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind(),
-					v2alpha1.OtterizeOwnerKindLabelKey: intent.GetTargetServerKind()})
-				if err != nil {
-					return ServiceEffectivePolicy{}, errors.Wrap(err)
-				}
-
+			call, err = g.populateReferencedKubernetesServices(ctx, call, clientIntents, intent)
+			if err != nil {
+				return ServiceEffectivePolicy{}, errors.Wrap(err)
 			}
-
-			for _, pod := range podList.Items {
-				var serviceList v1.ServiceList
-				err = g.Client.List(ctx, &serviceList, client.InNamespace(pod.Namespace))
-				if err != nil {
-					return ServiceEffectivePolicy{}, errors.Wrap(err)
-				}
-
-				for _, svc := range serviceList.Items {
-					if svc.Spec.Selector != nil && labels.Set(svc.Spec.Selector).AsSelector().Matches(labels.Set(pod.Labels)) {
-						call.ReferencingKubernetesServices = append(call.ReferencingKubernetesServices, svc)
-					}
-				}
-			}
-
 			calls = append(calls, call)
 
 		}
@@ -224,35 +198,40 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(
 	return ep, nil
 }
 
-func (g *GroupReconciler) populateReferencedKubernetesServices(call Call) error {
+func (g *GroupReconciler) populateReferencedKubernetesServices(ctx context.Context, call Call, clientIntents v2alpha1.ClientIntents, intent v2alpha1.Target) (Call, error) {
 	var podList v1.PodList
 	if call.GetTargetServerKind() == serviceidentity.KindOtterizeLegacy {
-		err := g.Client.List(context.Background(), &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: call.Target.ToServiceIdentity(call.EventRecorder.GetNamespace()).GetFormattedOtterizeIdentityWithoutKind()})
+		err := g.Client.List(ctx, &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: intent.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind()})
 		if err != nil {
-			return errors.Wrap(err)
+			return Call{}, errors.Wrap(err)
 		}
 	} else {
-		err := g.Client.List(context.Background(), &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: call.Target.ToServiceIdentity(call.EventRecorder.GetNamespace()).GetFormattedOtterizeIdentityWithoutKind(),
-			v2alpha1.OtterizeOwnerKindLabelKey: call.GetTargetServerKind()})
+		err := g.Client.List(ctx, &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: intent.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind(),
+			v2alpha1.OtterizeOwnerKindLabelKey: intent.GetTargetServerKind()})
 		if err != nil {
-			return errors.Wrap(err)
-		}
-	}
-
-	for _, pod := range podList.Items {
-		var serviceList v1.ServiceList
-		err := g.Client.List(context.Background(), &serviceList, client.InNamespace(pod.Namespace))
-		if err != nil {
-			return errors.Wrap(err)
+			return Call{}, errors.Wrap(err)
 		}
 
-		for _, svc := range serviceList.Items {
-			if svc.Spec.Selector != nil && labels.Set(svc.Spec.Selector).AsSelector().Matches(labels.Set(pod.Labels)) {
-				call.ReferencingKubernetesServices = append(call.ReferencingKubernetesServices, svc)
-			}
+	}
+
+	if len(podList.Items) == 0 {
+		return call, nil
+	}
+
+	pod := podList.Items[0]
+
+	var serviceList v1.ServiceList
+	err := g.Client.List(ctx, &serviceList, client.InNamespace(pod.Namespace))
+	if err != nil {
+		return Call{}, errors.Wrap(err)
+	}
+
+	for _, svc := range serviceList.Items {
+		if svc.Spec.Selector != nil && labels.Set(svc.Spec.Selector).AsSelector().Matches(labels.Set(pod.Labels)) {
+			call.ReferencingKubernetesServices = append(call.ReferencingKubernetesServices, svc)
 		}
 	}
-	return nil
+	return call, nil
 }
 
 func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []access_annotation.AnnotationIntent, serversFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []Call {

@@ -103,6 +103,11 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedServer}},
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		}}},
+		{To: []v1.NetworkPolicyPeer{{
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{testServerServiceLabelKey: testServerServiceLabelValue}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+		},
+		}},
 		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, To: []v1.NetworkPolicyPeer{{
 			PodSelector:       &metav1.LabelSelector{MatchLabels: serviceSelector},
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
@@ -253,6 +258,11 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedServerWithoutKind}},
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		}}},
+		{To: []v1.NetworkPolicyPeer{{
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{testServerServiceLabelKey: testServerServiceLabelValue}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+		},
+		}},
 		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, To: []v1.NetworkPolicyPeer{{
 			PodSelector:       &metav1.LabelSelector{MatchLabels: serviceSelector},
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
