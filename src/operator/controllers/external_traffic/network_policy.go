@@ -226,6 +226,9 @@ func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Conte
 	for _, externalPolicy := range externalPolicyList.Items {
 		err := r.client.Delete(ctx, externalPolicy.DeepCopy())
 		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
 			return errors.Wrap(err)
 		}
 	}
