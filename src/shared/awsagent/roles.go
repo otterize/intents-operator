@@ -78,7 +78,7 @@ func (a *Agent) initProfileCache(ctx context.Context) (err error) {
 		}
 
 		for nextToken != nil {
-			nextToken, err = a.loadNextProfileCachePage(ctx, nil)
+			nextToken, err = a.loadNextProfileCachePage(ctx, nextToken)
 			if err != nil {
 				return
 			}
