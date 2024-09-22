@@ -75,7 +75,7 @@ func (r *ServiceAccountReconciler) handleServiceAccountUpdate(ctx context.Contex
 	if updated {
 		err := r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
 		if err != nil {
-			if apierrors.IsConflict(err) {
+			if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
 			return ctrl.Result{}, errors.Wrap(err)

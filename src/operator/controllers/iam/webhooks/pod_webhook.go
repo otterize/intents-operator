@@ -86,7 +86,7 @@ func (w *ServiceAccountAnnotatingPodWebhook) handleWithRetriesOnConflictOrNotFou
 		logger.Debugf("Handling pod (attempt %d out of %d)", attempt+1, maxRetries)
 		outputPod, patched, successMsg, err = w.handleOnce(ctx, *pod.DeepCopy(), dryRun)
 		if err != nil {
-			if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) {
+			if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) {
 				logger.WithError(err).Errorf("failed to handle pod due to conflict, retrying in 1 second (attempt %d out of %d)", attempt+1, 3)
 				time.Sleep(1 * time.Second)
 				continue

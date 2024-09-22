@@ -101,7 +101,7 @@ func (r *PodReconciler) updatePodLabel(ctx context.Context, pod *corev1.Pod, lab
 	pod.Labels[labelKey] = labelValue
 
 	if err := r.Update(ctx, pod); err != nil {
-		if apierrors.IsConflict(err) {
+		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 			// The Pod has been updated since we read it.
 			// Requeue the Pod to try to reconciliate again.
 			return ctrl.Result{Requeue: true}, nil

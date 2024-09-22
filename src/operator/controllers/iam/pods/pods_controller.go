@@ -88,7 +88,7 @@ func (r *PodReconciler) handlePodUpdate(ctx context.Context, pod corev1.Pod) (ct
 		controllerutil.AddFinalizer(updatedPod, r.agent.FinalizerName())
 		err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
-			if apierrors.IsConflict(err) {
+			if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
 			return ctrl.Result{}, errors.Wrap(err)
@@ -97,7 +97,7 @@ func (r *PodReconciler) handlePodUpdate(ctx context.Context, pod corev1.Pod) (ct
 		apiutils.AddLabel(updatedServiceAccount, r.agent.ServiceAccountLabel(), metadata.OtterizeServiceAccountHasPodsValue)
 		err = r.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
 		if err != nil {
-			if apierrors.IsConflict(err) {
+			if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
 			return ctrl.Result{}, errors.Wrap(err)
@@ -173,12 +173,8 @@ func (r *PodReconciler) handleLastPodWithThisSA(ctx context.Context, pod corev1.
 	apiutils.AddLabel(updatedServiceAccount, r.agent.ServiceAccountLabel(), metadata.OtterizeServiceAccountHasNoPodsValue)
 	err = r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
 	if err != nil {
-		if apierrors.IsConflict(err) {
+		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 			return true, nil
-		}
-		// service account can be deleted before the pods go down, in which case cleanup has already occurred, so just let the pod terminate.
-		if apierrors.IsNotFound(err) {
-			return false, nil
 		}
 		return false, errors.Wrap(err)
 	}
