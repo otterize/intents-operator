@@ -86,7 +86,7 @@ func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req
 
 	// Use optimistic locking to avoid using "mergeFrom" with an outdated resource
 	if err := r.Patch(ctx, resourceCopy, client.MergeFromWithOptions(crd, client.MergeFromWithOptimisticLock{})); err != nil {
-		if k8serrors.IsConflict(err) {
+		if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) {
 			logrus.Debugf("Conflict while updating CustomResourceDefinition: %s", resourceCopy.Name)
 			return ctrl.Result{Requeue: true}, nil
 		}
