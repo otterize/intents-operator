@@ -49,7 +49,7 @@ func (a *Agent) AnnotateGKENamespace(ctx context.Context, namespaceName string) 
 	logger.Debugf("annotating namespace %s with gcp workload identity tag", namespaceName)
 	err = a.client.Patch(ctx, updatedNamespace, client.MergeFrom(&namespace))
 	if err != nil {
-		if apierrors.IsConflict(err) {
+		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 			return true, nil
 		}
 		return false, errors.Wrap(err)
