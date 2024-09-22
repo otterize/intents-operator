@@ -112,7 +112,7 @@ func (ies *IntentEventsPeriodicReporter) startReportLoop(ctx context.Context) {
 func (ies *IntentEventsPeriodicReporter) waitForCacheSync(ctx context.Context) {
 	for {
 		ok := func() bool {
-			timeoutCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			timeoutCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 			defer cancel()
 			return ies.k8sClusterManager.GetCache().WaitForCacheSync(timeoutCtx)
 		}()
