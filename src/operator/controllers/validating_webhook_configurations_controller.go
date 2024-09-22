@@ -23,6 +23,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -80,6 +81,9 @@ func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req 
 
 	// Use optimistic locking to avoid using "mergeFrom" with an outdated resource
 	if err := r.Patch(ctx, resourceCopy, client.MergeFromWithOptions(webhookConfig, client.MergeFromWithOptimisticLock{})); err != nil {
+		if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) {
+			return ctrl.Result{Requeue: true}, nil
+		}
 		return ctrl.Result{}, errors.Errorf("Failed to patch ValidatingWebhookConfiguration: %w", err)
 	}
 
