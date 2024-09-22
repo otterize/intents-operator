@@ -51,6 +51,18 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 	return true, role.Role, nil
 }
 
+func (a *Agent) loadNextProfileCachePage(ctx context.Context, nextToken *string) (*string, error) {
+	output, err := a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
+	if err != nil {
+		return nil, errors.Errorf("failed to list profiles: %w", err)
+	}
+
+	for _, profile := range output.Profiles {
+		a.profileNameToId[*profile.Name] = *profile.ProfileId
+	}
+	return output.NextToken, nil
+}
+
 func (a *Agent) initProfileCache(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
@@ -59,25 +71,15 @@ func (a *Agent) initProfileCache(ctx context.Context) (err error) {
 		}
 	}()
 	a.profileCacheOnce.Do(func() {
-		var nextToken *string = nil
-		output, listProfileErr := a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
-		if listProfileErr != nil {
-			err = errors.Errorf("failed to list profiles: %w", listProfileErr)
+		var nextToken *string
+		nextToken, err = a.loadNextProfileCachePage(ctx, nil)
+		if err != nil {
 			return
 		}
 
-		for _, profile := range output.Profiles {
-			a.profileNameToId[*profile.Name] = *profile.ProfileId
-		}
-
-		for output.NextToken != nil {
-			nextToken = output.NextToken
-			for _, profile := range output.Profiles {
-				a.profileNameToId[*profile.Name] = *profile.ProfileId
-			}
-			output, listProfileErr = a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
-			if listProfileErr != nil {
-				err = errors.Errorf("failed to list profiles: %w", listProfileErr)
+		for nextToken != nil {
+			nextToken, err = a.loadNextProfileCachePage(ctx, nil)
+			if err != nil {
 				return
 			}
 		}
