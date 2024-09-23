@@ -70,7 +70,7 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 
 	err = g.ensureFinalizer(ctx, resourceObject)
 	if err != nil {
-		if k8serrors.IsConflict(err) {
+		if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
 		return ctrl.Result{}, errors.Wrap(err)
@@ -78,7 +78,7 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 
 	err = g.removeLegacyFinalizers(ctx, resourceObject)
 	if err != nil {
-		if k8serrors.IsConflict(err) {
+		if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
 		return ctrl.Result{}, errors.Wrap(err)
@@ -90,7 +90,7 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 	if objectBeingDeleted && finalErr == nil && finalRes.IsZero() {
 		err = g.removeFinalizer(ctx, resourceObject)
 		if err != nil {
-			if k8serrors.IsConflict(err) {
+			if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
 			return ctrl.Result{}, errors.Wrap(err)
