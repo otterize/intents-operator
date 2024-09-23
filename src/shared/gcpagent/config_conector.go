@@ -49,7 +49,7 @@ func (a *Agent) AnnotateGKENamespace(ctx context.Context, namespaceName string) 
 	logger.Debugf("annotating namespace %s with gcp workload identity tag", namespaceName)
 	err = a.client.Patch(ctx, updatedNamespace, client.MergeFrom(&namespace))
 	if err != nil {
-		if apierrors.IsConflict(err) {
+		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 			return true, nil
 		}
 		return false, errors.Wrap(err)
@@ -232,6 +232,7 @@ func (a *Agent) deleteIAMServiceAccount(ctx context.Context, namespaceName strin
 		return errors.Wrap(err)
 	}
 
+	logger.WithField("name", gsaName).Info("Deleting IAMServiceAccount")
 	err = a.client.Delete(ctx, iamServiceAccount.DeepCopy())
 	if err != nil {
 		logger.WithError(err).Errorf("failed to delete IAMServiceAccount %s", gsaName)
@@ -255,6 +256,8 @@ func (a *Agent) deleteGSAToKSAPolicy(ctx context.Context, namespaceName string, 
 		}
 		return errors.Wrap(err)
 	}
+
+	logger.WithField("name", policyName).Info("Deleting IAMPolicyMember")
 
 	err = a.client.Delete(ctx, iamPolicyMember.DeepCopy())
 	if err != nil {

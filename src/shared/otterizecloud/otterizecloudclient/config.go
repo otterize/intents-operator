@@ -17,6 +17,10 @@ const (
 	ComponentReportIntervalDefault      = 60
 	OperatorConfigReportIntervalKey     = "operator-config-report-interval"
 	OperatorConfigReportIntervalDefault = 600
+	IntentEventsReportIntervalKey       = "intent-events-report-interval"
+	IntentEventsReportIntervalDefault   = 60
+	IntentStatusReportIntervalKey       = "intent-status-report-interval"
+	IntentStatusReportIntervalDefault   = 60
 	EnvPrefix                           = "OTTERIZE"
 )
 
@@ -26,6 +30,8 @@ func init() {
 	viper.SetDefault(OperatorConfigReportIntervalKey, OperatorConfigReportIntervalDefault)
 	viper.SetDefault(CloudClientTimeoutKey, CloudClientTimeoutDefault)
 	viper.SetDefault(OtterizeAPIExtraCAPEMPathsKey, []string{})
+	viper.SetDefault(IntentEventsReportIntervalKey, IntentEventsReportIntervalDefault)
+	viper.SetDefault(IntentStatusReportIntervalKey, IntentStatusReportIntervalDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()

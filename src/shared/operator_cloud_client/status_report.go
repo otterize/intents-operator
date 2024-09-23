@@ -3,6 +3,7 @@ package operator_cloud_client
 import (
 	"context"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -12,7 +13,7 @@ import (
 	"time"
 )
 
-func StartPeriodicallyReportConnectionToCloud(client CloudClient, ctx context.Context) {
+func StartPeriodicCloudReports(ctx context.Context, client CloudClient) {
 	statusReportInterval := viper.GetInt(otterizecloudclient.ComponentReportIntervalKey)
 	configReportInterval := viper.GetInt(otterizecloudclient.OperatorConfigReportIntervalKey)
 
@@ -52,6 +53,19 @@ func reportStatus(ctx context.Context, client CloudClient) {
 	client.ReportComponentStatus(timeoutCtx, graphqlclient.ComponentTypeIntentsOperator)
 }
 
+func getAllowExternalConfig() graphqlclient.AllowExternalTrafficPolicy {
+	switch enforcement.GetConfig().AllowExternalTraffic {
+	case allowexternaltraffic.Always:
+		return graphqlclient.AllowExternalTrafficPolicyAlways
+	case allowexternaltraffic.Off:
+		return graphqlclient.AllowExternalTrafficPolicyOff
+	case allowexternaltraffic.IfBlockedByOtterize:
+		return graphqlclient.AllowExternalTrafficPolicyIfBlockedByOtterize
+	default:
+		return ""
+	}
+}
+
 func uploadConfiguration(ctx context.Context, client CloudClient) {
 	ingressConfigIdentities := operatorconfig.GetIngressControllerServiceIdentities()
 	enforcementConfig := enforcement.GetConfig()
@@ -70,6 +84,7 @@ func uploadConfiguration(ctx context.Context, client CloudClient) {
 		IstioPolicyEnforcementEnabled:         enforcementConfig.EnableIstioPolicy,
 		ProtectedServicesEnabled:              enforcementConfig.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 		EnforcedNamespaces:                    enforcementConfig.EnforcedNamespaces.Items(),
+		AllowExternalTrafficPolicy:            getAllowExternalConfig(),
 	}
 
 	if len(ingressConfigIdentities) != 0 {
@@ -83,6 +98,8 @@ func uploadConfiguration(ctx context.Context, client CloudClient) {
 		}
 		configInput.IngressControllerConfig = ingressControllerConfigInput
 	}
+
+	configInput.AwsALBLoadBalancerExemptionEnabled = viper.GetBool(operatorconfig.IngressControllerALBExemptKey)
 
 	client.ReportIntentsOperatorConfiguration(timeoutCtx, configInput)
 }

@@ -51,6 +51,18 @@ func (a *Agent) GetOtterizeRole(ctx context.Context, namespaceName, accountName 
 	return true, role.Role, nil
 }
 
+func (a *Agent) loadNextProfileCachePage(ctx context.Context, nextToken *string) (*string, error) {
+	output, err := a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
+	if err != nil {
+		return nil, errors.Errorf("failed to list profiles: %w", err)
+	}
+
+	for _, profile := range output.Profiles {
+		a.profileNameToId[*profile.Name] = *profile.ProfileId
+	}
+	return output.NextToken, nil
+}
+
 func (a *Agent) initProfileCache(ctx context.Context) (err error) {
 	defer func() {
 		if err != nil {
@@ -59,25 +71,15 @@ func (a *Agent) initProfileCache(ctx context.Context) (err error) {
 		}
 	}()
 	a.profileCacheOnce.Do(func() {
-		var nextToken *string = nil
-		output, listProfileErr := a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
-		if listProfileErr != nil {
-			err = errors.Errorf("failed to list profiles: %w", listProfileErr)
+		var nextToken *string
+		nextToken, err = a.loadNextProfileCachePage(ctx, nil)
+		if err != nil {
 			return
 		}
 
-		for _, profile := range output.Profiles {
-			a.profileNameToId[*profile.Name] = *profile.ProfileId
-		}
-
-		for output.NextToken != nil {
-			nextToken = output.NextToken
-			for _, profile := range output.Profiles {
-				a.profileNameToId[*profile.Name] = *profile.ProfileId
-			}
-			output, listProfileErr = a.rolesAnywhereClient.ListProfiles(ctx, &rolesanywhere.ListProfilesInput{NextToken: nextToken})
-			if listProfileErr != nil {
-				err = errors.Errorf("failed to list profiles: %w", listProfileErr)
+		for nextToken != nil {
+			nextToken, err = a.loadNextProfileCachePage(ctx, nextToken)
+			if err != nil {
 				return
 			}
 		}
@@ -108,6 +110,8 @@ func (a *Agent) GetOtterizeProfile(ctx context.Context, namespaceName, serviceAc
 }
 
 func (a *Agent) DeleteRolesAnywhereProfileForServiceAccount(ctx context.Context, namespace string, serviceAccountName string) (bool, error) {
+	logger := logrus.WithField("namespace", namespace).WithField("serviceAccount", serviceAccountName)
+
 	found, profile, err := a.GetOtterizeProfile(ctx, namespace, serviceAccountName)
 	if err != nil {
 		return false, errors.Wrap(err)
@@ -116,6 +120,8 @@ func (a *Agent) DeleteRolesAnywhereProfileForServiceAccount(ctx context.Context,
 	if !found {
 		return false, nil
 	}
+
+	logger.WithField("profile", *profile.Name).Info("deleting rolesanywhere profile")
 
 	_, err = a.rolesAnywhereClient.DeleteProfile(ctx, &rolesanywhere.DeleteProfileInput{ProfileId: profile.ProfileId})
 	if err != nil {
@@ -272,7 +278,7 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 	}
 
 	if HasSoftDeleteStrategyTagSet(role.Tags) {
-		logger.Debug("role has softDeleteStrategy tag, tagging as unused")
+		logger.Info("role has softDeleteStrategy tag, tagging as unused")
 		return a.SoftDeleteOtterizeIAMRole(ctx, role)
 	}
 
@@ -282,6 +288,7 @@ func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accoun
 		return errors.Wrap(err)
 	}
 
+	logger.WithField("role", *role.RoleName).Info("deleting IAM role")
 	_, err = a.iamClient.DeleteRole(ctx, &iam.DeleteRoleInput{
 		RoleName: role.RoleName,
 	})

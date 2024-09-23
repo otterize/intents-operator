@@ -5,4 +5,7 @@ schema:
   - ./dummyForErrors.graphql
 operations:
   - genqlient.graphql
+bindings:
+  Time:
+    type: time.Time
 generated: generated.go

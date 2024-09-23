@@ -42,8 +42,9 @@ type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	allowExternalTraffic        allowexternaltraffic.Enum
-	ingressControllerIdentities []serviceidentity.ServiceIdentity
+	allowExternalTraffic         allowexternaltraffic.Enum
+	ingressControllerIdentities  []serviceidentity.ServiceIdentity
+	ingressControllerALBAllowAll bool
 }
 
 func NewNetworkPolicyHandler(
@@ -51,8 +52,19 @@ func NewNetworkPolicyHandler(
 	scheme *runtime.Scheme,
 	allowExternalTraffic allowexternaltraffic.Enum,
 	ingressControllerIdentities []serviceidentity.ServiceIdentity,
+	ingressControllerALBAllowAll bool,
 ) *NetworkPolicyHandler {
-	return &NetworkPolicyHandler{client: client, scheme: scheme, allowExternalTraffic: allowExternalTraffic, ingressControllerIdentities: ingressControllerIdentities}
+	return &NetworkPolicyHandler{
+		client:                       client,
+		scheme:                       scheme,
+		allowExternalTraffic:         allowExternalTraffic,
+		ingressControllerIdentities:  ingressControllerIdentities,
+		ingressControllerALBAllowAll: ingressControllerALBAllowAll,
+	}
+}
+
+func (r *NetworkPolicyHandler) SetIngressControllerALBAllowAll(ingressControllerALBAllowAll bool) {
+	r.ingressControllerALBAllowAll = ingressControllerALBAllowAll
 }
 
 func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
@@ -129,7 +141,7 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 
 	rule := v1.NetworkPolicyIngressRule{}
 	// Only limit netpol if there is an ingress controller restriction configured AND the service is not directly exposed.
-	if len(r.ingressControllerIdentities) != 0 && svc.Spec.Type == corev1.ServiceTypeClusterIP {
+	if len(r.ingressControllerIdentities) != 0 && svc.Spec.Type == corev1.ServiceTypeClusterIP && !(r.ingressControllerALBAllowAll && isIngressListHasIPAWSALB(ingressList.Items)) {
 		for _, ingressController := range r.ingressControllerIdentities {
 			rule.From = append(rule.From, v1.NetworkPolicyPeer{
 				PodSelector: &metav1.LabelSelector{
@@ -214,6 +226,9 @@ func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Conte
 	for _, externalPolicy := range externalPolicyList.Items {
 		err := r.client.Delete(ctx, externalPolicy.DeepCopy())
 		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
 			return errors.Wrap(err)
 		}
 	}
@@ -405,6 +420,12 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 				if err != nil {
 					return errors.Wrap(err)
 				}
+			} else {
+				policyName := r.formatPolicyName(endpoints.Name)
+				err := r.handlePolicyDelete(ctx, policyName, endpoints.Namespace)
+				if err != nil {
+					return errors.Wrap(err)
+				}
 			}
 			continue
 		}
@@ -523,16 +544,6 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeServiceWithoutIntents(ctx
 	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
 	if err != nil {
 		return errors.Wrap(err)
-	}
-
-	// delete policy if disabled
-	if r.allowExternalTraffic == allowexternaltraffic.Off {
-		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
-		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
-		if err != nil {
-			return errors.Wrap(err)
-		}
-		return nil
 	}
 
 	err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, metav1.LabelSelector{MatchLabels: svc.Spec.Selector}, ingressList, fmt.Sprintf("created external traffic network policy for service '%s'", endpoints.GetName()))

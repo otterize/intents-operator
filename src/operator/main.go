@@ -20,6 +20,7 @@ import (
 	"path"
 	"time"
 
+	"context"
 	"github.com/bombsimon/logrusr/v3"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
@@ -45,11 +46,11 @@ import (
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -61,6 +62,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -141,7 +143,6 @@ func main() {
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
 	enableLeaderElection := viper.GetBool(operatorconfig.EnableLeaderElectionKey)
 	selfSignedCert := viper.GetBool(operatorconfig.SelfSignedCertKey)
-	allowExternalTraffic := allowexternaltraffic.Enum(viper.GetString(operatorconfig.AllowExternalTrafficKey))
 	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
 	enforcementConfig := enforcement.GetConfig()
 	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
@@ -200,7 +201,7 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
-	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowExternalTraffic, operatorconfig.GetIngressControllerServiceIdentities())
+	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 
@@ -315,7 +316,16 @@ func main() {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
-		operator_cloud_client.StartPeriodicallyReportConnectionToCloud(otterizeCloudClient, signalHandlerCtx)
+		operator_cloud_client.StartPeriodicCloudReports(signalHandlerCtx, otterizeCloudClient)
+		intentsEventsSender, err := operator_cloud_client.NewIntentEventsSender(otterizeCloudClient, mgr)
+		if err != nil {
+			logrus.WithError(err).Panic("unable to create intent events sender")
+		}
+		err = intentsEventsSender.Start(signalHandlerCtx)
+		if err != nil {
+			logrus.WithError(err).Panic("unable to start intent events sender")
+		}
+
 		serviceUploadReconciler := external_traffic.NewServiceUploadReconciler(mgr.GetClient(), otterizeCloudClient)
 		ingressUploadReconciler := external_traffic.NewIngressUploadReconciler(mgr.GetClient(), otterizeCloudClient)
 
@@ -484,6 +494,15 @@ func main() {
 		healthChecker = mgr.GetWebhookServer().StartedChecker()
 		readyChecker = mgr.GetWebhookServer().StartedChecker()
 	}
+	cacheHealthChecker := func(_ *http.Request) error {
+		timeoutCtx, cancel := context.WithTimeout(signalHandlerCtx, 1*time.Second)
+		defer cancel()
+		ok := mgr.GetCache().WaitForCacheSync(timeoutCtx)
+		if !ok {
+			return errors.New("Failed waiting for caches to sync")
+		}
+		return nil
+	}
 
 	//+kubebuilder:scaffold:builder
 	if err := mgr.AddHealthzCheck("healthz", healthChecker); err != nil {
@@ -491,6 +510,9 @@ func main() {
 	}
 	if err := mgr.AddReadyzCheck("readyz", readyChecker); err != nil {
 		logrus.WithError(err).Panic("unable to set up ready check")
+	}
+	if err := mgr.AddHealthzCheck("cache", cacheHealthChecker); err != nil {
+		logrus.WithError(err).Panic("unable to set up cache health check")
 	}
 
 	logrus.Info("starting manager")

@@ -1,6 +1,7 @@
 package external_traffic
 
 import (
+	"github.com/samber/lo"
 	"k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -22,4 +23,19 @@ func serviceNamesFromIngress(ingress *v1.Ingress) sets.Set[string] {
 	}
 
 	return serviceNames
+}
+
+func isIngressListHasIPAWSALB(ingressList []v1.Ingress) bool {
+	return lo.SomeBy(ingressList, func(ingress v1.Ingress) bool {
+		if ingress.Annotations == nil {
+			return false
+		}
+
+		targetType, ok := ingress.Annotations["alb.ingress.kubernetes.io/target-type"]
+		if !ok {
+			return false
+		}
+
+		return targetType == "ip"
+	})
 }

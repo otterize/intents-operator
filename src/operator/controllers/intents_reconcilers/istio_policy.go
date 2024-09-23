@@ -80,9 +80,6 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.policyManager.DeleteAll(ctx, intents)
 		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err)
-		}
-		if err != nil {
 			if k8serrors.IsConflict(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
