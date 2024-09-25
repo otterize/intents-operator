@@ -43,6 +43,7 @@ type IngressRuleBuilder interface {
 type ExternalNetpolHandler interface {
 	HandlePodsByLabelSelector(ctx context.Context, namespace string, labelSelector labels.Selector) error
 	HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error
+	HandleAllPods(ctx context.Context) error
 }
 
 type Reconciler struct {
@@ -127,6 +128,13 @@ func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effec
 	if currentPolicies.Len() != 0 {
 		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, currentPolicies.Len())
 	}
+
+	// We do it to make sure any excess external allow policies are removed
+	err = r.extNetpolHandler.HandleAllPods(ctx)
+	if err != nil {
+		return currentPolicies.Len(), []error{errors.Wrap(err)}
+	}
+
 	return currentPolicies.Len(), nil
 }
 

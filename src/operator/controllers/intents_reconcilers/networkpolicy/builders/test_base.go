@@ -66,6 +66,7 @@ func (s *RulesBuilderTestSuiteBase) SetupTest() {
 
 	epReconciler.InjectableRecorder.Recorder = s.Recorder
 	s.EPIntentsReconciler.Recorder = s.Recorder
+	s.externalNetpolHandler.EXPECT().HandleAllPods(gomock.Any()).AnyTimes()
 }
 
 func (s *RulesBuilderTestSuiteBase) TearDownTest() {
