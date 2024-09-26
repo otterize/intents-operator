@@ -9,6 +9,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"net"
@@ -55,25 +56,46 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 }
 
 func (r *InternetEgressRulesBuilder) buildRuleForIntent(intent otterizev2alpha1.Target, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyPeer, []v1.NetworkPolicyPort, bool, error) {
-	ips := make([]string, 0)
-	ipsFromDns := r.getIpsForDNS(intent, ep)
-	ips = append(ips, ipsFromDns...)
-	ips = append(ips, intent.Internet.Ips...)
+	ips := r.getIpsForDNS(intent, ep)
+	for _, existingIp := range intent.Internet.Ips {
+		ips[existingIp] = struct{}{}
+	}
 
 	if len(ips) == 0 {
 		return nil, nil, false, nil
 	}
 
-	peers, err := r.parseIps(ips)
-	if err != nil {
-		return nil, nil, false, errors.Wrap(err)
+	peers := make([]v1.NetworkPolicyPeer, 0)
+	for ip := range ips {
+		cidr, err := getCIDR(ip)
+		if err != nil {
+			return nil, nil, false, errors.Wrap(err)
+		}
+		peers = append(peers, v1.NetworkPolicyPeer{
+			IPBlock: &v1.IPBlock{
+				CIDR: cidr,
+			},
+		})
 	}
-	ports := r.parsePorts(intent)
+
+	slices.SortFunc(peers, func(a, b v1.NetworkPolicyPeer) bool {
+		return a.IPBlock.CIDR < b.IPBlock.CIDR
+	})
+
+	ports := make([]v1.NetworkPolicyPort, 0)
+	for _, port := range intent.Internet.Ports {
+		ports = append(ports, v1.NetworkPolicyPort{
+			Port: &intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: int32(port),
+			},
+		})
+	}
 	return peers, ports, true, nil
 }
 
-func (r *InternetEgressRulesBuilder) getIpsForDNS(intent otterizev2alpha1.Target, ep effectivepolicy.ServiceEffectivePolicy) []string {
-	ipsFromDns := make([]string, 0)
+func (r *InternetEgressRulesBuilder) getIpsForDNS(intent otterizev2alpha1.Target, ep effectivepolicy.ServiceEffectivePolicy) map[string]struct{} {
+	ipsFromDns := make(map[string]struct{})
 
 	for _, dns := range intent.Internet.Domains {
 		dnsResolvedIps, found := lo.Find(ep.ClientIntentsStatus.ResolvedIPs, func(resolvedIPs otterizev2alpha1.ResolvedIPs) bool {
@@ -84,44 +106,12 @@ func (r *InternetEgressRulesBuilder) getIpsForDNS(intent otterizev2alpha1.Target
 			continue
 		}
 
-		ipsFromDns = append(ipsFromDns, dnsResolvedIps.IPs...)
+		for _, ip := range dnsResolvedIps.IPs {
+			ipsFromDns[ip] = struct{}{}
+		}
 	}
 
 	return ipsFromDns
-}
-func (r *InternetEgressRulesBuilder) parseIps(ips []string) ([]v1.NetworkPolicyPeer, error) {
-	var cidrs []string
-	for _, ipStr := range ips {
-		cidr, err := getCIDR(ipStr)
-		if err != nil {
-			return nil, errors.Wrap(err)
-		}
-
-		cidrs = append(cidrs, cidr)
-	}
-
-	peers := make([]v1.NetworkPolicyPeer, 0)
-	for _, cidr := range cidrs {
-		peers = append(peers, v1.NetworkPolicyPeer{
-			IPBlock: &v1.IPBlock{
-				CIDR: cidr,
-			},
-		})
-	}
-	return peers, nil
-}
-
-func (r *InternetEgressRulesBuilder) parsePorts(intent otterizev2alpha1.Target) []v1.NetworkPolicyPort {
-	ports := make([]v1.NetworkPolicyPort, 0)
-	for _, port := range intent.Internet.Ports {
-		ports = append(ports, v1.NetworkPolicyPort{
-			Port: &intstr.IntOrString{
-				Type:   intstr.Int,
-				IntVal: int32(port),
-			},
-		})
-	}
-	return ports
 }
 
 func (r *InternetEgressRulesBuilder) Build(_ context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyEgressRule, error) {

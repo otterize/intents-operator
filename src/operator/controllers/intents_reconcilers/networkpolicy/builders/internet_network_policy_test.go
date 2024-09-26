@@ -112,12 +112,12 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 						},
 						{
 							IPBlock: &v1.IPBlock{
-								CIDR: ips[2] + "/128",
+								CIDR: ips[3], // 3 is before 2 due to sorting
 							},
 						},
 						{
 							IPBlock: &v1.IPBlock{
-								CIDR: ips[3],
+								CIDR: ips[2] + "/128",
 							},
 						},
 					},

@@ -429,6 +429,22 @@ func networkPolicyEgressTemplate(
 						},
 					},
 				},
+				{
+					To: []v1.NetworkPolicyPeer{
+						{
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									testServerServiceLabelKey: testServerServiceLabelValue,
+								},
+							},
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: targetNamespace,
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}

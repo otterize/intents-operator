@@ -82,7 +82,7 @@ func (ies *IntentEventsPeriodicReporter) Start(ctx context.Context) error {
 	go func() {
 		defer errorreporter.AutoNotify()
 		// Wait for caches to sync
-		ies.waitForCacheSync(ctx)
+		ies.k8sClusterManager.GetCache().WaitForCacheSync(ctx)
 
 		ies.startReportLoop(ctx)
 	}()
@@ -106,21 +106,6 @@ func (ies *IntentEventsPeriodicReporter) startReportLoop(ctx context.Context) {
 		case <-statusReportTicker.C:
 			ies.reportIntentStatuses(ctx)
 		}
-	}
-}
-
-func (ies *IntentEventsPeriodicReporter) waitForCacheSync(ctx context.Context) {
-	for {
-		ok := func() bool {
-			timeoutCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
-			defer cancel()
-			return ies.k8sClusterManager.GetCache().WaitForCacheSync(timeoutCtx)
-		}()
-		if !ok {
-			logrus.Error("Intents Event Sender - Failed waiting for caches to sync")
-			continue
-		}
-		break
 	}
 }
 

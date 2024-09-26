@@ -21,11 +21,6 @@ func NewDNSEgressNetworkPolicyBuilder() *DNSEgressNetworkPolicyBuilder {
 
 // a function that creates []NetworkPolicyEgressRule from ep
 func (r *DNSEgressNetworkPolicyBuilder) buildNetworkPolicyEgressRules(ep effectivepolicy.ServiceEffectivePolicy) []v1.NetworkPolicyEgressRule {
-	if lo.NoneBy(ep.Calls, func(call effectivepolicy.Call) bool {
-		return call.IsTargetInCluster()
-	}) {
-		return make([]v1.NetworkPolicyEgressRule, 0)
-	}
 	egressRules := make([]v1.NetworkPolicyEgressRule, 0)
 
 	// DNS
