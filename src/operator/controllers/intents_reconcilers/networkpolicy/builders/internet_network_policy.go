@@ -9,6 +9,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
+	"golang.org/x/exp/slices"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"net"
@@ -76,6 +77,10 @@ func (r *InternetEgressRulesBuilder) buildRuleForIntent(intent otterizev2alpha1.
 			},
 		})
 	}
+
+	slices.SortFunc(peers, func(a, b v1.NetworkPolicyPeer) bool {
+		return a.IPBlock.CIDR < b.IPBlock.CIDR
+	})
 
 	ports := make([]v1.NetworkPolicyPort, 0)
 	for _, port := range intent.Internet.Ports {
