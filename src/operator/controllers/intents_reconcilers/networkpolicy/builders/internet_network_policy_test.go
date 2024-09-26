@@ -3,7 +3,6 @@ package builders
 import (
 	"context"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -662,7 +661,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 		})
 
 	// Update NetworkPolicy
-	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(newPolicy), intents_reconcilers.MatchPatch(client.MergeFrom(existingBadPolicy))).Return(nil)
+	s.Client.EXPECT().Update(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.Require().NoError(err)
