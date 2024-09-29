@@ -110,7 +110,7 @@ func (c *CloudClientImpl) ReportExternallyAccessibleServices(ctx context.Context
 func (c *CloudClientImpl) ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error {
 	logrus.WithField("namespace", namespace).
 		WithField("count", len(protectedServices)).
-		Infof("Reporting network policies")
+		Info("Reporting protected services")
 
 	_, err := graphqlclient.ReportProtectedServicesSnapshot(ctx, c.client, namespace, protectedServices)
 	return errors.Wrap(err)
