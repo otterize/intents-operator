@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	linkerdserver "github.com/linkerd/linkerd2/controller/gen/apis/server/v1beta1"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 

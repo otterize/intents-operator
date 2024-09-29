@@ -7,6 +7,7 @@ import (
 
 	authpolicy "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
 	linkerdserver "github.com/linkerd/linkerd2/controller/gen/apis/server/v1beta1"
+
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -22,11 +23,11 @@ import (
 )
 
 type policyWrapper struct {
-	*authpolicy.AuthorizationPolicy
+	authpolicy.AuthorizationPolicy
 }
 
 type routeWrapper struct {
-	*authpolicy.HTTPRoute
+	authpolicy.HTTPRoute
 }
 
 func (rw routeWrapper) String() string {

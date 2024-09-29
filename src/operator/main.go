@@ -77,9 +77,6 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
 
-	linkerdauthscheme "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
-	linkerdserverscheme "github.com/linkerd/linkerd2/controller/gen/apis/server/v1beta1"
-
 	gcpiamv1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/iam/v1beta1"
 	gcpk8sv1 "github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
 

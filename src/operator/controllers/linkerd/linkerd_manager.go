@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/amit7itz/goset"
-	authpolicy "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
-	linkerdserver "github.com/linkerd/linkerd2/controller/gen/apis/server/v1beta1"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"

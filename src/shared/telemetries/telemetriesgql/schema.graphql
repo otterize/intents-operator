@@ -106,13 +106,17 @@ type AWSS3Resource {
 
 type AWSVisibility {
 	arn: String!
-	resourceType: String!
+	resourceType: AWSVisibilityResourceType!
 	name: String!
 	lbArn: String
 	domain: String
 	ips: [String!]!
 	eksIngressName: String
 	region: String!
+}
+
+enum AWSVisibilityResourceType {
+	EKS
 }
 
 type AWSVisibilitySettings {
@@ -172,7 +176,6 @@ type AccessLogEdge {
 	originIntent: Intent!
 	dns: String!
 	accessStatus: EdgeAccessStatus!
-	accessStatuses: EdgeAccessStatuses!
 }
 
 enum AllowExternalTrafficPolicy {
@@ -301,8 +304,8 @@ input ClientIPConfig {
 }
 
 type ClientIntentEvent {
-	firstTimestamp: Time!
-	lastTimestamp: Time!
+	firstTimestamp: Time
+	lastTimestamp: Time
 	reportingComponent: String
 	count: Int!
 	type: String!
@@ -319,8 +322,8 @@ input ClientIntentEventInput {
 	annotations: [KeyValueInput!]
 	count: Int!
 	clientIntentName: String!
-	firstTimestamp: Time!
-	lastTimestamp: Time!
+	firstTimestamp: Time
+	lastTimestamp: Time
 	reportingComponent: String
 	reportingInstance: String
 	sourceComponent: String
@@ -419,6 +422,7 @@ type ClusterViolation {
 	cluster: Cluster!
 	reason: String!
 	intentsOperatorState: IntentsOperatorState
+	relatedServices: [Service!]
 }
 
 input Component {
@@ -832,8 +836,8 @@ enum IDFilterOperators {
 }
 
 type IDFilterValue {
-	value: [ID!]!
-	operator: IDFilterOperators!
+	include: [ID!]
+	exclude: [ID!]
 }
 
 enum IPFamily {
@@ -888,6 +892,10 @@ input InputAccessLogFilter {
 	featureFlags: InputFeatureFlags
 """ Access log filter """
 	pagination: PaginationInput
+""" Access log filter """
+	accessVerdicts: InputIDFilterValue
+""" Access log filter """
+	accessStatusReasons: InputIDFilterValue
 }
 
 input InputFeatureFlags {
@@ -912,8 +920,8 @@ input InputFindingFilter {
 }
 
 input InputIDFilterValue {
-	value: [ID!]!
-	operator: IDFilterOperators!
+	include: [ID!]
+	exclude: [ID!]
 }
 
 input InputIntegrationAccessGraphFilter {
@@ -2021,12 +2029,16 @@ type Regulation {
 enum RegulationCode {
 	PCI_4_0
 	PCI_4_0_1_1
+	PCI_4_0_1_1_2
 	PCI_4_0_1_1_4
 	PCI_4_0_1_2
 	PCI_4_0_1_2_1
 	PCI_4_0_1_3
 	PCI_4_0_1_3_4
 	PCI_4_0_1_3_6
+	PCI_4_0_7_1
+	PCI_4_0_7_2
+	PCI_4_0_8_7
 	ZERO_TRUST
 	ZERO_TRUST_SENSITIVE
 	ZERO_TRUST_DEFAULT_DENY
