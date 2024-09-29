@@ -336,6 +336,7 @@ func main() {
 
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
 	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler)
+	netpolReconciler := external_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), extNetpolHandler)
 
 	if !enforcementConfig.EnforcementDefaultState {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
@@ -422,6 +423,10 @@ func main() {
 
 	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Ingress")
+	}
+
+	if err = netpolReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "NetworkPolicy")
 	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(
