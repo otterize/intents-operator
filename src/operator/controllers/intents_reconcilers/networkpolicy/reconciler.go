@@ -335,6 +335,10 @@ func (r *Reconciler) buildNetworkPolicy(ctx context.Context, ep effectivepolicy.
 func (r *Reconciler) createNetworkPolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy) error {
 	err := r.Create(ctx, netpol)
 	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			// This is a quick fix for
+			return r.handleExistingPolicyRetry(ctx, ep, netpol)
+		}
 		return errors.Wrap(err)
 	}
 	prometheus.IncrementNetpolCreated(1)
@@ -472,6 +476,23 @@ func (r *Reconciler) reconcileEndpointsForPolicy(ctx context.Context, newPolicy 
 	}
 	// Use the external netpolHandler to check if pods got affected and if so, if they need external allow policies
 	return r.extNetpolHandler.HandlePodsByLabelSelector(ctx, newPolicy.Namespace, selector)
+}
+
+func (r *Reconciler) handleExistingPolicyRetry(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy) error {
+	existingPolicy := &v1.NetworkPolicy{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      netpol.Name,
+		Namespace: ep.Service.Namespace},
+		existingPolicy)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
+		return errors.Wrap(err)
+	}
+	if k8serrors.IsNotFound(err) {
+		return errors.Wrap(fmt.Errorf("failed creating network policy with AlreadyExists err, but failed getting netpol from k8s api server"))
+	}
+
+	return r.updateExistingPolicy(ctx, ep, existingPolicy, netpol)
 }
 
 func matchAccessNetworkPolicy() (labels.Selector, error) {
