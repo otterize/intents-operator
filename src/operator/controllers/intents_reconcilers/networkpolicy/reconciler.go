@@ -336,7 +336,8 @@ func (r *Reconciler) createNetworkPolicy(ctx context.Context, ep effectivepolicy
 	err := r.Create(ctx, netpol)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
-			// This is a quick fix for
+			// This is a quick fix for AlreadyExists errors for .Create(), ideally we would return {Requeue: true}
+			// but it is not possible without a mini-refactor
 			return r.handleExistingPolicyRetry(ctx, ep, netpol)
 		}
 		return errors.Wrap(err)
