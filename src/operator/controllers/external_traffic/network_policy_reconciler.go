@@ -43,7 +43,7 @@ func (r *NetworkPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // Reconcile handles network policy creation, update and delete. In all of these cases, it calls the NetworkPolicyHandler
 // to handle the pods in the namespace of the network policy.
 func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logrus.Info("Handling external for NetworkPolicy for namespace: ", req.Namespace)
+	logrus.Debugf("Handling external for NetworkPolicy for namespace: %s", req.Namespace)
 	err := r.extNetpolHandler.HandlePodsByNamespace(ctx, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
