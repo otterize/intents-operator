@@ -28,6 +28,7 @@ import (
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strings"
 )
 
 type EgressRuleBuilder interface {
@@ -335,12 +336,7 @@ func (r *Reconciler) buildNetworkPolicy(ctx context.Context, ep effectivepolicy.
 func (r *Reconciler) createNetworkPolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy) error {
 	err := r.Create(ctx, netpol)
 	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
-			// This is a quick fix for AlreadyExists errors for .Create(), ideally we would return {Requeue: true}
-			// but it is not possible without a mini-refactor
-			return r.handleExistingPolicyRetry(ctx, ep, netpol)
-		}
-		return errors.Wrap(err)
+		return r.handleCreationErrors(ctx, ep, netpol, err)
 	}
 	prometheus.IncrementNetpolCreated(1)
 	if len(netpol.Spec.Ingress) > 0 {
@@ -494,6 +490,28 @@ func (r *Reconciler) handleExistingPolicyRetry(ctx context.Context, ep effective
 	}
 
 	return r.updateExistingPolicy(ctx, ep, existingPolicy, netpol)
+}
+
+func (r *Reconciler) handleCreationErrors(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy, err error) error {
+	errStr := err.Error()
+	if k8serrors.IsAlreadyExists(err) {
+		// Ideally we would just return {Requeue: true} but it is not possible without a mini-refactor
+		return r.handleExistingPolicyRetry(ctx, ep, netpol)
+	}
+
+	if k8serrors.IsForbidden(err) && strings.Contains(errStr, "is being terminated") {
+		// Namespace is being deleted, nothing to do further
+		logrus.Debugf("Namespace %s is being terminated, ignoring api server error", netpol.Namespace)
+		return nil
+	}
+
+	if strings.Contains(errStr, netpol.Namespace) && strings.Contains(errStr, "not found") {
+		// Namespace was deleted since we started .Create() logic, nothing to do further
+		logrus.Debugf("Namespace %s was deleted, ignoring api server error", netpol.Namespace)
+		return nil
+	}
+
+	return errors.Wrap(err)
 }
 
 func matchAccessNetworkPolicy() (labels.Selector, error) {
