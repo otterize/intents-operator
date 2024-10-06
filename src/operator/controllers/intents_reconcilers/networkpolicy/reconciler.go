@@ -28,6 +28,7 @@ import (
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strings"
 )
 
 type EgressRuleBuilder interface {
@@ -335,7 +336,7 @@ func (r *Reconciler) buildNetworkPolicy(ctx context.Context, ep effectivepolicy.
 func (r *Reconciler) createNetworkPolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy) error {
 	err := r.Create(ctx, netpol)
 	if err != nil {
-		return errors.Wrap(err)
+		return r.handleCreationErrors(ctx, ep, netpol, err)
 	}
 	prometheus.IncrementNetpolCreated(1)
 	if len(netpol.Spec.Ingress) > 0 {
@@ -472,6 +473,45 @@ func (r *Reconciler) reconcileEndpointsForPolicy(ctx context.Context, newPolicy 
 	}
 	// Use the external netpolHandler to check if pods got affected and if so, if they need external allow policies
 	return r.extNetpolHandler.HandlePodsByLabelSelector(ctx, newPolicy.Namespace, selector)
+}
+
+func (r *Reconciler) handleExistingPolicyRetry(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy) error {
+	existingPolicy := &v1.NetworkPolicy{}
+	err := r.Get(ctx, types.NamespacedName{
+		Name:      netpol.Name,
+		Namespace: ep.Service.Namespace},
+		existingPolicy)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
+		return errors.Wrap(err)
+	}
+	if k8serrors.IsNotFound(err) {
+		return errors.Errorf("failed creating network policy with AlreadyExists err, but failed fetching network policy  from k8s api server")
+	}
+
+	return r.updateExistingPolicy(ctx, ep, existingPolicy, netpol)
+}
+
+func (r *Reconciler) handleCreationErrors(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy, err error) error {
+	errStr := err.Error()
+	if k8serrors.IsAlreadyExists(err) {
+		// Ideally we would just return {Requeue: true} but it is not possible without a mini-refactor
+		return r.handleExistingPolicyRetry(ctx, ep, netpol)
+	}
+
+	if k8serrors.IsForbidden(err) && strings.Contains(errStr, "is being terminated") {
+		// Namespace is being deleted, nothing to do further
+		logrus.Debugf("Namespace %s is being terminated, ignoring api server error", netpol.Namespace)
+		return nil
+	}
+
+	if k8serrors.IsNotFound(err) && strings.Contains(errStr, netpol.Namespace) {
+		// Namespace was deleted since we started .Create() logic, nothing to do further
+		logrus.Debugf("Namespace %s was deleted, ignoring api server error", netpol.Namespace)
+		return nil
+	}
+
+	return errors.Wrap(err)
 }
 
 func matchAccessNetworkPolicy() (labels.Selector, error) {
