@@ -486,7 +486,7 @@ func (r *Reconciler) handleExistingPolicyRetry(ctx context.Context, ep effective
 		return errors.Wrap(err)
 	}
 	if k8serrors.IsNotFound(err) {
-		return errors.Wrap(fmt.Errorf("failed creating network policy with AlreadyExists err, but failed getting netpol from k8s api server"))
+		return errors.Errorf("failed creating network policy with AlreadyExists err, but failed fetching network policy  from k8s api server")
 	}
 
 	return r.updateExistingPolicy(ctx, ep, existingPolicy, netpol)
@@ -505,7 +505,7 @@ func (r *Reconciler) handleCreationErrors(ctx context.Context, ep effectivepolic
 		return nil
 	}
 
-	if strings.Contains(errStr, netpol.Namespace) && strings.Contains(errStr, "not found") {
+	if k8serrors.IsNotFound(err) && strings.Contains(errStr, netpol.Namespace) {
 		// Namespace was deleted since we started .Create() logic, nothing to do further
 		logrus.Debugf("Namespace %s was deleted, ignoring api server error", netpol.Namespace)
 		return nil
