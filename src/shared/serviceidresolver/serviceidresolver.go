@@ -24,6 +24,7 @@ type ServiceResolver interface {
 	ResolveClientIntentToPod(ctx context.Context, intent v2alpha1.ClientIntents) (corev1.Pod, error)
 	ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error)
 	ResolveServiceIdentityToPodSlice(ctx context.Context, identity serviceidentity.ServiceIdentity) ([]corev1.Pod, bool, error)
+	ResolveIntentTargetToPod(ctx context.Context, target v2alpha1.Target, intentsObjNamespace string) (corev1.Pod, error)
 }
 
 type Resolver struct {
@@ -89,6 +90,18 @@ func (r *Resolver) ResolveServiceIdentityToPodSlice(ctx context.Context, identit
 
 func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v2alpha1.ClientIntents) (corev1.Pod, error) {
 	serviceID := intent.ToServiceIdentity()
+	pods, ok, err := r.ResolveServiceIdentityToPodSlice(ctx, serviceID)
+	if err != nil {
+		return corev1.Pod{}, errors.Wrap(err)
+	}
+	if !ok {
+		return corev1.Pod{}, ErrPodNotFound
+	}
+	return pods[0], nil
+}
+
+func (r *Resolver) ResolveIntentTargetToPod(ctx context.Context, target v2alpha1.Target, intentsObjNamespace string) (corev1.Pod, error) {
+	serviceID := target.ToServiceIdentity(intentsObjNamespace)
 	pods, ok, err := r.ResolveServiceIdentityToPodSlice(ctx, serviceID)
 	if err != nil {
 		return corev1.Pod{}, errors.Wrap(err)

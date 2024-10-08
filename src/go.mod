@@ -1,6 +1,6 @@
 module github.com/otterize/intents-operator/src
 
-go 1.22.1
+go 1.23.1
 
 require (
 	cloud.google.com/go/compute/metadata v0.3.0
@@ -18,7 +18,7 @@ require (
 	github.com/Shopify/sarama v1.34.1
 	github.com/aidarkhanov/nanoid v1.0.8
 	github.com/amit7itz/goset v1.2.1
-	github.com/asaskevich/govalidator v0.0.0-20190424111038-f61b66f89f4a
+	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535
 	github.com/aws/aws-sdk-go v1.51.21
 	github.com/aws/aws-sdk-go-v2 v1.26.0
 	github.com/aws/aws-sdk-go-v2/config v1.27.9
@@ -39,7 +39,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jackc/pgx/v5 v5.5.5
-	github.com/linkerd/linkerd2 v0.5.1-0.20230822190015-a4bec904cc19
+	github.com/linkerd/linkerd2 v0.5.1-0.20240220173600-1ea6b271718f
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
 	github.com/otterize/nilable v0.0.0-20240410132629-f242bb6f056f
 	github.com/prometheus/client_golang v1.19.1
@@ -60,12 +60,12 @@ require (
 	golang.org/x/oauth2 v0.21.0
 	istio.io/api v0.0.0-20230310175855-3be9c0870417
 	istio.io/client-go v1.17.1
-	k8s.io/api v0.30.3
-	k8s.io/apiextensions-apiserver v0.30.3
+	k8s.io/api v0.31.0
+	k8s.io/apiextensions-apiserver v0.31.0
 	k8s.io/apimachinery v0.31.1
-	k8s.io/client-go v0.30.3
-	sigs.k8s.io/controller-runtime v0.18.0
-	sigs.k8s.io/gateway-api v1.1.0
+	k8s.io/client-go v0.31.0
+	sigs.k8s.io/controller-runtime v0.19.0
+	sigs.k8s.io/gateway-api v0.7.1
 )
 
 require (
