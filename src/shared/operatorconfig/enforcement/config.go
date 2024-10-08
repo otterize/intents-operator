@@ -53,7 +53,7 @@ const (
 	EnableKafkaACLDefault                       = true
 	EnableDatabasePolicy                        = "enable-database-policy-creation" // Whether to enable the new database reconciler
 	EnableDatabasePolicyDefault                 = true
-	EnableEgressNetworkPolicyReconcilersKey     = "exp-enable-egress-network-policies" // Experimental - enable the generation of egress network policies alongside ingress network policies
+	EnableEgressNetworkPolicyReconcilersKey     = "enable-egress-network-policies" // Enable the generation of egress network policies alongside ingress network policies
 	EnableEgressNetworkPolicyReconcilersDefault = false
 	EnableAWSPolicyKey                          = "enable-aws-iam-policy"
 	EnableAWSPolicyDefault                      = false

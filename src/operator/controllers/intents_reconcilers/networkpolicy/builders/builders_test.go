@@ -186,6 +186,157 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 	s.Empty(res)
 }
 
+func (s *AllBuildersTestSuite) TestCreateEveryRuleKindShouldCreateSeparatePolicies() {
+	s.Reconciler.ShouldCreateSeparatePolicies = true
+	serviceName := "test-client"
+	serverName := "test-server"
+	serverNamespace := testServerNamespace
+	formattedServer := (&serviceidentity.ServiceIdentity{Name: serverName, Namespace: serverNamespace}).GetFormattedOtterizeIdentityWithoutKind()
+	formattedServerService := (&serviceidentity.ServiceIdentity{Name: serverName, Namespace: serverNamespace, Kind: serviceidentity.KindService}).GetFormattedOtterizeIdentityWithKind()
+	formattedClient := (&serviceidentity.ServiceIdentity{Name: serviceName, Namespace: testNamespace}).GetFormattedOtterizeIdentityWithoutKind()
+	namespacedName := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      "client-intents",
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
+			{
+				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace)},
+			},
+			{
+				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace), Kind: serviceidentity.KindService},
+			},
+			{
+				Internet: &otterizev2alpha1.Internet{Ips: []string{"8.8.8.8/32"}},
+			},
+		},
+	}
+
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
+
+	// Search for existing NetworkPolicy
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	networkPolicyNamespacedNameClient := types.NamespacedName{
+		Namespace: testNamespace,
+		Name:      "test-client-egress",
+	}
+	networkPolicyNamespacedNameServer := types.NamespacedName{
+		Namespace: serverNamespace,
+		Name:      "test-server-ingress",
+	}
+	networkPolicyNamespacedNameServerService := types.NamespacedName{
+		Namespace: serverNamespace,
+		Name:      "test-server-service-ingress",
+	}
+
+	// Expect GET for the client/server policy names - both return NotFound
+	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedNameClient, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
+		})
+
+	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedNameServer, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
+		})
+
+	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedNameServerService, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
+		})
+
+	serviceSelector := map[string]string{"app": "test-server"}
+	svc := s.addExpectedKubernetesServiceCall("test-server", serverNamespace, []corev1.ServicePort{{TargetPort: intstr.IntOrString{IntVal: 80}}}, serviceSelector)
+
+	egressRules := []v1.NetworkPolicyEgressRule{
+		{To: []v1.NetworkPolicyPeer{{
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedServer}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+		}}},
+		{To: []v1.NetworkPolicyPeer{{
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{testServerServiceLabelKey: testServerServiceLabelValue}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+		},
+		}},
+		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, To: []v1.NetworkPolicyPeer{{
+			PodSelector:       &metav1.LabelSelector{MatchLabels: serviceSelector},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+		}}},
+		{To: []v1.NetworkPolicyPeer{{IPBlock: &v1.IPBlock{CIDR: "8.8.8.8/32"}}}, Ports: make([]v1.NetworkPolicyPort, 0)}}
+
+	egressNetpol := v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      networkPolicyNamespacedNameClient.Name,
+			Namespace: networkPolicyNamespacedNameClient.Namespace,
+			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedClient},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedClient}},
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
+			Egress:      egressRules,
+		},
+	}
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(&egressNetpol))
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), egressNetpol.Namespace, gomock.Any())
+
+	ingressRulesNotSVC := []v1.NetworkPolicyIngressRule{
+		{From: []v1.NetworkPolicyPeer{{
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2alpha1.OtterizeAccessLabelKey, formattedServer): "true"}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
+		}}}}
+
+	netpolNotSVC := v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      networkPolicyNamespacedNameServer.Name,
+			Namespace: networkPolicyNamespacedNameServer.Namespace,
+			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedServer},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedServer}},
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
+			Ingress:     ingressRulesNotSVC,
+		},
+	}
+
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(&netpolNotSVC))
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), netpolNotSVC.Namespace, gomock.Any())
+
+	ingressRulesToSVC := []v1.NetworkPolicyIngressRule{
+		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, From: []v1.NetworkPolicyPeer{{
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2alpha1.OtterizeSvcAccessLabelKey, formattedServerService): "true"}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
+		}}}}
+
+	netpolToSVC := v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      networkPolicyNamespacedNameServerService.Name,
+			Namespace: networkPolicyNamespacedNameServerService.Namespace,
+			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedServerService},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{MatchLabels: serviceSelector},
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
+			Ingress:     ingressRulesToSVC,
+		},
+	}
+
+	err := controllerutil.SetOwnerReference(svc, &netpolToSVC, s.scheme)
+	s.Require().NoError(err)
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(&netpolToSVC))
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), netpolToSVC.Namespace, gomock.Any())
+
+	s.ignoreRemoveOrphan()
+
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
+	s.ExpectEventsOrderAndCountDontMatter(consts.ReasonCreatedEgressNetworkPolicies, consts.ReasonCreatedNetworkPolicies)
+	s.NoError(err)
+	s.Empty(res)
+}
+
 func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 	serviceName := "test-client"
 	serverName := "test-server"
