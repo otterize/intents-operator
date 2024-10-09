@@ -57,6 +57,7 @@ func (s *RulesBuilderTestSuiteBase) SetupTest() {
 		nil,
 		true,
 		true,
+		false,
 		nil,
 		nil)
 	s.Reconciler.Recorder = s.Recorder
