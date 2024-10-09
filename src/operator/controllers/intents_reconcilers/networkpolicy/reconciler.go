@@ -49,12 +49,12 @@ type ExternalNetpolHandler interface {
 
 type Reconciler struct {
 	client.Client
-	Scheme                       *runtime.Scheme
-	RestrictToNamespaces         []string
-	EnforcedNamespaces           *goset.Set[string]
-	EnableNetworkPolicyCreation  bool
-	EnforcementDefaultState      bool
-	ShouldCreateSeparatePolicies bool
+	Scheme                              *runtime.Scheme
+	RestrictToNamespaces                []string
+	EnforcedNamespaces                  *goset.Set[string]
+	EnableNetworkPolicyCreation         bool
+	EnforcementDefaultState             bool
+	CreateSeparateEgressIngressPolicies bool
 	injectablerecorder.InjectableRecorder
 	egressRuleBuilders  []EgressRuleBuilder
 	ingressRuleBuilders []IngressRuleBuilder
@@ -69,21 +69,21 @@ func NewReconciler(
 	enforcedNamespaces *goset.Set[string],
 	enableNetworkPolicyCreation bool,
 	enforcementDefaultState bool,
-	shouldCreateSeparatePolicies bool,
+	createSeparateEgressIngressPolicies bool,
 	ingressBuilders []IngressRuleBuilder,
 	egressBuilders []EgressRuleBuilder) *Reconciler {
 
 	return &Reconciler{
-		Client:                       c,
-		Scheme:                       s,
-		RestrictToNamespaces:         restrictToNamespaces,
-		EnforcedNamespaces:           enforcedNamespaces,
-		EnableNetworkPolicyCreation:  enableNetworkPolicyCreation,
-		EnforcementDefaultState:      enforcementDefaultState,
-		ShouldCreateSeparatePolicies: shouldCreateSeparatePolicies,
-		egressRuleBuilders:           egressBuilders,
-		ingressRuleBuilders:          ingressBuilders,
-		extNetpolHandler:             externalNetpolHandler,
+		Client:                              c,
+		Scheme:                              s,
+		RestrictToNamespaces:                restrictToNamespaces,
+		EnforcedNamespaces:                  enforcedNamespaces,
+		EnableNetworkPolicyCreation:         enableNetworkPolicyCreation,
+		EnforcementDefaultState:             enforcementDefaultState,
+		CreateSeparateEgressIngressPolicies: createSeparateEgressIngressPolicies,
+		egressRuleBuilders:                  egressBuilders,
+		ingressRuleBuilders:                 ingressBuilders,
+		extNetpolHandler:                    externalNetpolHandler,
 	}
 }
 
@@ -110,13 +110,13 @@ func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effec
 	currentPolicies := goset.NewSet[types.NamespacedName]()
 	errorList := make([]error, 0)
 	for _, ep := range eps {
-		netpolSlice, created, err := r.applyServiceEffectivePolicy(ctx, ep)
+		netpols, created, err := r.applyServiceEffectivePolicy(ctx, ep)
 		if err != nil {
 			errorList = append(errorList, errors.Wrap(err))
 			continue
 		}
 		if created {
-			currentPolicies.Add(netpolSlice...)
+			currentPolicies.Add(netpols...)
 		}
 	}
 	if len(errorList) > 0 {
@@ -153,7 +153,7 @@ func (r *Reconciler) applyServiceEffectivePolicy(ctx context.Context, ep effecti
 		}
 		return nil, false, nil
 	}
-	netpolSlice, shouldCreate, err := r.buildNetworkPolicies(ctx, ep)
+	netpols, shouldCreate, err := r.buildNetworkPolicies(ctx, ep)
 	if err != nil {
 		r.recordCreateFailedError(ep, err)
 		return nil, false, errors.Wrap(err)
@@ -163,7 +163,7 @@ func (r *Reconciler) applyServiceEffectivePolicy(ctx context.Context, ep effecti
 	}
 
 	netpolNames := make([]types.NamespacedName, 0)
-	for _, netpol := range netpolSlice {
+	for _, netpol := range netpols {
 		err := r.applyNetpol(ctx, ep, netpol)
 		if err != nil {
 			return nil, false, errors.Wrap(err)
@@ -297,21 +297,14 @@ func (r *Reconciler) setNetworkPolicyOwnerReferenceIfNeeded(ctx context.Context,
 
 func (r *Reconciler) buildNetworkPolicies(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicy, bool, error) {
 	networkPolicies := make([]v1.NetworkPolicy, 0)
-	policyTypes := make([]v1.PolicyType, 0)
 	egressRules, shouldCreateEgress, err := r.buildEgressRules(ctx, ep)
 	if err != nil {
 		return nil, false, errors.Wrap(err)
-	}
-	if shouldCreateEgress {
-		policyTypes = append(policyTypes, v1.PolicyTypeEgress)
 	}
 
 	ingressRules, shouldCreateIngress, err := r.buildIngressRules(ctx, ep)
 	if err != nil {
 		return nil, false, errors.Wrap(err)
-	}
-	if shouldCreateIngress {
-		policyTypes = append(policyTypes, v1.PolicyTypeIngress)
 	}
 
 	if !shouldCreateIngress && !shouldCreateEgress {
@@ -326,58 +319,10 @@ func (r *Reconciler) buildNetworkPolicies(ctx context.Context, ep effectivepolic
 		return nil, false, nil
 	}
 
-	if r.ShouldCreateSeparatePolicies {
-		if shouldCreateIngress {
-			ingressPolicy := v1.NetworkPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyIngressNameTemplate, ep.Service.GetNameWithKind()),
-					Namespace: ep.Service.Namespace,
-					Labels: map[string]string{
-						otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
-					},
-				},
-				Spec: v1.NetworkPolicySpec{
-					PodSelector: podSelector,
-					PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
-					Ingress:     ingressRules,
-				},
-			}
-			networkPolicies = append(networkPolicies, ingressPolicy)
-		}
-		if shouldCreateEgress {
-			egressPolicy := v1.NetworkPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyEgressNameTemplate, ep.Service.GetNameWithKind()),
-					Namespace: ep.Service.Namespace,
-					Labels: map[string]string{
-						otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
-					},
-				},
-				Spec: v1.NetworkPolicySpec{
-					PodSelector: podSelector,
-					PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
-					Egress:      egressRules,
-				},
-			}
-			networkPolicies = append(networkPolicies, egressPolicy)
-		}
+	if r.CreateSeparateEgressIngressPolicies {
+		networkPolicies = r.buildSeparatePolicies(ep, podSelector, shouldCreateIngress, ingressRules, shouldCreateEgress, egressRules)
 	} else {
-		policy := v1.NetworkPolicy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, ep.Service.GetNameWithKind()),
-				Namespace: ep.Service.Namespace,
-				Labels: map[string]string{
-					otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
-				},
-			},
-			Spec: v1.NetworkPolicySpec{
-				PodSelector: podSelector,
-				PolicyTypes: policyTypes,
-				Egress:      egressRules,
-				Ingress:     ingressRules,
-			},
-		}
-		networkPolicies = append(networkPolicies, policy)
+		networkPolicies = append(networkPolicies, r.buildSinglePolicy(ep, podSelector, shouldCreateIngress, ingressRules, shouldCreateEgress, egressRules))
 	}
 
 	for i := range networkPolicies {
@@ -388,6 +333,70 @@ func (r *Reconciler) buildNetworkPolicies(ctx context.Context, ep effectivepolic
 	}
 
 	return networkPolicies, true, nil
+}
+
+func (r *Reconciler) buildSinglePolicy(ep effectivepolicy.ServiceEffectivePolicy, podSelector metav1.LabelSelector, shouldCreateIngress bool, ingressRules []v1.NetworkPolicyIngressRule, shouldCreateEgress bool, egressRules []v1.NetworkPolicyEgressRule) v1.NetworkPolicy {
+	policyTypes := make([]v1.PolicyType, 0)
+	if shouldCreateIngress {
+		policyTypes = append(policyTypes, v1.PolicyTypeIngress)
+	}
+	if shouldCreateEgress {
+		policyTypes = append(policyTypes, v1.PolicyTypeEgress)
+	}
+	return v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, ep.Service.GetNameWithKind()),
+			Namespace: ep.Service.Namespace,
+			Labels: map[string]string{
+				otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
+			},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PodSelector: podSelector,
+			PolicyTypes: policyTypes,
+			Egress:      egressRules,
+			Ingress:     ingressRules,
+		},
+	}
+}
+
+func (r *Reconciler) buildSeparatePolicies(ep effectivepolicy.ServiceEffectivePolicy, podSelector metav1.LabelSelector, shouldCreateIngress bool, ingressRules []v1.NetworkPolicyIngressRule, shouldCreateEgress bool, egressRules []v1.NetworkPolicyEgressRule) []v1.NetworkPolicy {
+	res := make([]v1.NetworkPolicy, 0)
+	if shouldCreateIngress {
+		ingressPolicy := v1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyIngressNameTemplate, ep.Service.GetNameWithKind()),
+				Namespace: ep.Service.Namespace,
+				Labels: map[string]string{
+					otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
+				},
+			},
+			Spec: v1.NetworkPolicySpec{
+				PodSelector: podSelector,
+				PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
+				Ingress:     ingressRules,
+			},
+		}
+		res = append(res, ingressPolicy)
+	}
+	if shouldCreateEgress {
+		egressPolicy := v1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyEgressNameTemplate, ep.Service.GetNameWithKind()),
+				Namespace: ep.Service.Namespace,
+				Labels: map[string]string{
+					otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
+				},
+			},
+			Spec: v1.NetworkPolicySpec{
+				PodSelector: podSelector,
+				PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
+				Egress:      egressRules,
+			},
+		}
+		res = append(res, egressPolicy)
+	}
+	return res
 }
 
 func (r *Reconciler) createNetworkPolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy) error {

@@ -187,7 +187,7 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 }
 
 func (s *AllBuildersTestSuite) TestCreateEveryRuleKindShouldCreateSeparatePolicies() {
-	s.Reconciler.ShouldCreateSeparatePolicies = true
+	s.Reconciler.CreateSeparateEgressIngressPolicies = true
 	serviceName := "test-client"
 	serverName := "test-server"
 	serverNamespace := testServerNamespace
