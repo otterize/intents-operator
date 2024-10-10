@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	linkerdmanager "github.com/otterize/intents-operator/src/operator/controllers/linkerd"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -55,7 +55,7 @@ func (r *LinkerdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	intents := &otterizev1alpha3.ClientIntents{}
+	intents := &otterizev2alpha1.ClientIntents{}
 
 	err = r.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
@@ -71,7 +71,7 @@ func (r *LinkerdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	logrus.Infof("Reconciling Linkerd policies for service %s in namespace %s",
-		intents.Spec.Service.Name, req.Namespace)
+		intents.GetWorkloadName(), req.Namespace)
 
 	if !intents.DeletionTimestamp.IsZero() {
 		logrus.Info("initiate delete")
@@ -94,7 +94,7 @@ func (r *LinkerdReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				intents,
 				consts.ReasonPodsNotFound,
 				"Could not find non-terminating pods for service %s in namespace %s. Intents could not be reconciled now, but will be reconciled if pods appear later.",
-				intents.Spec.Service.Name,
+				intents.GetWorkloadName(),
 				intents.Namespace)
 			return ctrl.Result{}, nil
 		}
