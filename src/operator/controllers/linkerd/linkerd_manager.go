@@ -3,12 +3,13 @@ package linkerdmanager
 import (
 	"context"
 	"fmt"
+	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/shared/errors"
 
 	authpolicy "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
 	linkerdserver "github.com/linkerd/linkerd2/controller/gen/apis/server/v1beta1"
 
 	"github.com/amit7itz/goset"
-	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -91,6 +92,7 @@ func (ldm *LinkerdManager) Create(
 	clientIntents *otterizev2alpha1.ClientIntents,
 	clientServiceAccount string,
 ) error {
+
 	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(clientIntents.GetWorkloadName(), clientIntents.Namespace)
 
 	var (
@@ -367,7 +369,7 @@ func (ldm *LinkerdManager) createResources(
 
 			if shouldCreateServer {
 				podSelector := ldm.BuildPodLabelSelectorFromIntent(target, clientIntents.Namespace)
-				s = ldm.generateLinkerdServer(ctx, *clientIntents, target, podSelector, port)
+				s, err = ldm.generateLinkerdServer(ctx, *clientIntents, target, podSelector, port)
 				err = ldm.Client.Create(ctx, s)
 				if err != nil {
 					ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd server: %s", err.Error())
@@ -392,9 +394,12 @@ func (ldm *LinkerdManager) createResources(
 					}
 
 					if shouldCreateRoute {
-						probePathRoute = ldm.generateHTTPRoute(*clientIntents, s.Name, probePath,
+						probePathRoute, err = ldm.generateHTTPRoute(ctx, *clientIntents, s.Name, probePath,
 							httpRouteName,
 							clientIntents.Namespace)
+						if err != nil {
+							return nil, err
+						}
 						err = ldm.Client.Create(ctx, probePathRoute)
 						if err != nil {
 							return nil, err
@@ -412,18 +417,20 @@ func (ldm *LinkerdManager) createResources(
 					}
 
 					if shouldCreatePolicy {
-						policy = ldm.generateAuthorizationPolicy(*clientIntents, target,
+						policy, err = ldm.generateAuthorizationPolicy(ctx, *clientIntents, target,
 							port,
 							httpRouteName,
 							LinkerdHTTPRouteKindName,
 							LinkerdNetAuthKindName)
-
+						if err != nil {
+							return nil, errors.Wrap(err)
+						}
 						err = ldm.Client.Create(ctx, policy)
 						if err != nil {
 							return nil, err
 						}
-
 					}
+
 					currentResources.AuthorizationPolicies.Add(policy.UID)
 				}
 
@@ -436,9 +443,12 @@ func (ldm *LinkerdManager) createResources(
 					}
 
 					if shouldCreateRoute {
-						route = ldm.generateHTTPRoute(*clientIntents, s.Name, httpResource.Path,
+						route, err = ldm.generateHTTPRoute(ctx, *clientIntents, s.Name, httpResource.Path,
 							httpRouteName,
 							clientIntents.Namespace)
+						if err != nil {
+							return nil, err
+						}
 						err = ldm.Client.Create(ctx, route)
 						if err != nil {
 							return nil, err
@@ -455,11 +465,14 @@ func (ldm *LinkerdManager) createResources(
 					}
 
 					if shouldCreatePolicy {
-						policy = ldm.generateAuthorizationPolicy(*clientIntents, target,
+						policy, err = ldm.generateAuthorizationPolicy(ctx, *clientIntents, target,
 							port,
 							httpRouteName,
 							LinkerdHTTPRouteKindName,
 							LinkerdMeshTLSAuthenticationKindName)
+						if err != nil {
+							return nil, err
+						}
 						err = ldm.Client.Create(ctx, policy)
 						if err != nil {
 							ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
@@ -479,11 +492,14 @@ func (ldm *LinkerdManager) createResources(
 				}
 
 				if shouldCreatePolicy {
-					policy = ldm.generateAuthorizationPolicy(*clientIntents, target,
+					policy, err = ldm.generateAuthorizationPolicy(ctx, *clientIntents, target,
 						port,
 						s.Name,
 						LinkerdServerKindName,
 						LinkerdMeshTLSAuthenticationKindName)
+					if err != nil {
+						return nil, err
+					}
 					err = ldm.Client.Create(ctx, policy)
 					if err != nil {
 						ldm.recorder.RecordWarningEventf(clientIntents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
@@ -521,8 +537,11 @@ func (ldm *LinkerdManager) createIntentPrimaryResources(ctx context.Context,
 	}
 
 	if shouldCreateNetAuth {
-		netAuth := ldm.generateNetworkAuthentication(intents)
-		err := ldm.Client.Create(ctx, netAuth)
+		netAuth, err := ldm.generateNetworkAuthentication(ctx, intents)
+		if err != nil {
+			return err
+		}
+		err = ldm.Client.Create(ctx, netAuth)
 		if err != nil {
 			return err
 		}
@@ -535,7 +554,10 @@ func (ldm *LinkerdManager) createIntentPrimaryResources(ctx context.Context,
 	fullServiceAccountName := fmt.Sprintf(FullServiceAccountName, clientServiceAccount, intents.Namespace)
 
 	if shouldCreateMeshTLS {
-		mtls := ldm.generateMeshTLS(intents, []string{fullServiceAccountName})
+		mtls, err := ldm.generateMeshTLS(ctx, intents, []string{fullServiceAccountName})
+		if err != nil {
+			return err
+		}
 		err = ldm.Client.Create(ctx, mtls)
 		if err != nil {
 			ldm.recorder.RecordWarningEventf(&intents, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd meshTLS: %s", err.Error())
@@ -669,7 +691,7 @@ func (ldm *LinkerdManager) shouldCreateNetAuth(ctx context.Context, intents otte
 
 func (ldm *LinkerdManager) DeleteResourceIfNotReferencedByOtherPolicy(ctx context.Context, object client.Object, policies map[string]authpolicy.AuthorizationPolicy, isTargetRef bool) error {
 	// go through all policies, if another policy has this route as a target ref, update the server annotation
-	// of that route to be equal to that of the policy and dont delete the route
+	// of that route to be equal to that of the policy and don't delete the route
 	for _, policy := range policies {
 		logrus.Info("Name of policy: ", policy.Spec.TargetRef.Name, " ", "Name of object", object.GetName())
 		if isTargetRef {
@@ -710,17 +732,13 @@ func (ldm *LinkerdManager) DeleteResourceIfNotReferencedByOtherPolicy(ctx contex
 	return nil
 }
 
-func (ldm *LinkerdManager) generateLinkerdServer(ctx context.Context, intents otterizev2alpha1.ClientIntents, target otterizev2alpha1.Target, podSelector metav1.LabelSelector, port int32, ) *linkerdserver.Server {
-	name := ldm.getServerName(target, int32(port))
+func (ldm *LinkerdManager) generateLinkerdServer(ctx context.Context, intents otterizev2alpha1.ClientIntents, target otterizev2alpha1.Target, podSelector metav1.LabelSelector, port int32) (*linkerdserver.Server, error) {
+	name := ldm.getServerName(target, port)
 	serverNamespace := target.GetTargetServerNamespace(intents.Namespace)
 
-	pod, err := ldm.serviceIdResolver.ResolveClientIntentToPod(ctx, intents)
+	identity, err := ldm.getFormattedOtterizeIdentityFromIntents(ctx, intents)
 	if err != nil {
-		panic(err)
-	}
-	svcIdentity, err := ldm.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
-	if err != nil {
-		panic(err)
+		return nil, errors.Wrap(err)
 	}
 
 	s := linkerdserver.Server{
@@ -732,7 +750,7 @@ func (ldm *LinkerdManager) generateLinkerdServer(ctx context.Context, intents ot
 			Name:      name,
 			Namespace: serverNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: svcIdentity.GetFormattedOtterizeIdentityWithoutKind(),
+				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: identity,
 			},
 		},
 		Spec: linkerdserver.ServerSpec{
@@ -740,17 +758,18 @@ func (ldm *LinkerdManager) generateLinkerdServer(ctx context.Context, intents ot
 			Port:        intstr.FromInt32(port),
 		},
 	}
-	return &s
+	return &s, nil
 }
 
 func (ldm *LinkerdManager) generateAuthorizationPolicy(
+	ctx context.Context,
 	clientIntents otterizev2alpha1.ClientIntents,
 	target otterizev2alpha1.Target,
 	port int32,
 	serverTargetName,
 	targetRefType,
 	requiredAuthRefType string,
-) *authpolicy.AuthorizationPolicy {
+) (*authpolicy.AuthorizationPolicy, error) {
 	var (
 		targetRefName v1beta1.ObjectName
 		policyName    = fmt.Sprintf(OtterizeLinkerdAuthPolicyNameTemplate, target.GetTargetServerName(), port, clientIntents.GetWorkloadName(), generateRandomString(8))
@@ -762,7 +781,10 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 		targetRefName = v1beta1.ObjectName(fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, clientIntents.GetWorkloadName()))
 	}
 
-	linkerdServerServiceFormattedIdentity := otterizev2alpha1.GetFormattedOtterizeIdentity(clientIntents.GetServiceName(), clientIntents.Namespace)
+	identity, err := ldm.getFormattedOtterizeIdentityFromIntents(ctx, clientIntents)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
 
 	return &authpolicy.AuthorizationPolicy{
 		TypeMeta: metav1.TypeMeta{
@@ -773,7 +795,7 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 			Name:      policyName,
 			Namespace: clientIntents.Namespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
+				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: identity,
 			},
 		},
 		Spec: authpolicy.AuthorizationPolicySpec{
@@ -790,16 +812,20 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func StringPtr(s string) *string {
 	return &s
 }
 
-func (ldm *LinkerdManager) generateHTTPRoute(intents otterizev2alpha1.ClientIntents,
-	serverName, path, name, namespace string) *authpolicy.HTTPRoute {
-	linkerdServerServiceFormattedIdentity := otterizev2alpha1.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
+func (ldm *LinkerdManager) generateHTTPRoute(ctx context.Context, intents otterizev2alpha1.ClientIntents,
+	serverName, path, name, namespace string) (*authpolicy.HTTPRoute, error) {
+	identity, err := ldm.getFormattedOtterizeIdentityFromIntents(ctx, intents)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
 	return &authpolicy.HTTPRoute{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy.linkerd.io/v1beta3",
@@ -809,7 +835,7 @@ func (ldm *LinkerdManager) generateHTTPRoute(intents otterizev2alpha1.ClientInte
 			Name:      name,
 			Namespace: namespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
+				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: identity,
 			},
 		},
 		Spec: authpolicy.HTTPRouteSpec{
@@ -837,35 +863,44 @@ func (ldm *LinkerdManager) generateHTTPRoute(intents otterizev2alpha1.ClientInte
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func (ldm *LinkerdManager) generateMeshTLS(
+	ctx context.Context,
 	intents otterizev2alpha1.ClientIntents,
 	targets []string,
-) *authpolicy.MeshTLSAuthentication {
-	linkerdServerServiceFormattedIdentity := otterizev2alpha1.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
+) (*authpolicy.MeshTLSAuthentication, error) {
+	ot, err := ldm.getFormattedOtterizeIdentityFromIntents(ctx, intents)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
 	mtls := authpolicy.MeshTLSAuthentication{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy.linkerd.io/v1alpha1",
 			Kind:       "MeshTLSAuthentication",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, intents.Spec.Service.Name),
+			Name:      fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, intents.GetWorkloadName()),
 			Namespace: intents.Namespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
+				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: ot,
 			},
 		},
 		Spec: authpolicy.MeshTLSAuthenticationSpec{
 			Identities: targets,
 		},
 	}
-	return &mtls
+	return &mtls, nil
 }
 
-func (ldm *LinkerdManager) generateNetworkAuthentication(intents otterizev2alpha1.ClientIntents) *authpolicy.NetworkAuthentication {
-	linkerdServerServiceFormattedIdentity := otterizev2alpha1.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
+func (ldm *LinkerdManager) generateNetworkAuthentication(ctx context.Context, intents otterizev2alpha1.ClientIntents) (*authpolicy.NetworkAuthentication, error) {
+	identity, err := ldm.getFormattedOtterizeIdentityFromIntents(ctx, intents)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
 	return &authpolicy.NetworkAuthentication{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy.linkerd.io/v1alpha1",
@@ -875,7 +910,7 @@ func (ldm *LinkerdManager) generateNetworkAuthentication(intents otterizev2alpha
 			Name:      NetworkAuthenticationNameTemplate,
 			Namespace: intents.Namespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: linkerdServerServiceFormattedIdentity,
+				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: identity,
 			},
 		},
 		Spec: authpolicy.NetworkAuthenticationSpec{
@@ -888,5 +923,17 @@ func (ldm *LinkerdManager) generateNetworkAuthentication(intents otterizev2alpha
 				},
 			},
 		},
+	}, nil
+}
+
+func (ldm *LinkerdManager) getFormattedOtterizeIdentityFromIntents(ctx context.Context, clientIntents otterizev2alpha1.ClientIntents) (string, error) {
+	pod, err := ldm.serviceIdResolver.ResolveClientIntentToPod(ctx, clientIntents)
+	if err != nil {
+		return "", errors.Wrap(err)
 	}
+	svcIdentity, err := ldm.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
+	if err != nil {
+		return "", errors.Wrap(err)
+	}
+	return svcIdentity.GetFormattedOtterizeIdentityWithoutKind(), nil
 }
