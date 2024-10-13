@@ -70,7 +70,7 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 
 	err = g.ensureFinalizer(ctx, resourceObject)
 	if err != nil {
-		if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) || k8serrors.IsAlreadyExists(err) {
+		if isKubernetesRaceRelatedError(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
 		return ctrl.Result{}, errors.Wrap(err)
@@ -78,7 +78,7 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 
 	err = g.removeLegacyFinalizers(ctx, resourceObject)
 	if err != nil {
-		if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) {
+		if isKubernetesRaceRelatedError(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
 		return ctrl.Result{}, errors.Wrap(err)
@@ -90,7 +90,7 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 	if objectBeingDeleted && finalErr == nil && finalRes.IsZero() {
 		err = g.removeFinalizer(ctx, resourceObject)
 		if err != nil {
-			if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) {
+			if isKubernetesRaceRelatedError(err) {
 				return ctrl.Result{Requeue: true}, nil
 			}
 			return ctrl.Result{}, errors.Wrap(err)
@@ -162,6 +162,11 @@ func (g *Group) InjectRecorder(recorder record.EventRecorder) {
 	for _, reconciler := range g.reconcilers {
 		reconciler.InjectRecorder(recorder)
 	}
+}
+
+func isKubernetesRaceRelatedError(err error) bool {
+	errUnwrap := errors.Unwrap(err)
+	return k8serrors.IsConflict(errUnwrap) || k8serrors.IsNotFound(errUnwrap) || k8serrors.IsForbidden(errUnwrap) || k8serrors.IsAlreadyExists(errUnwrap)
 }
 
 func shortestRequeue(a, b reconcile.Result) reconcile.Result {

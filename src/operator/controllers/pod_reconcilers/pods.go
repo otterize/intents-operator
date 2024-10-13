@@ -97,7 +97,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 	err = p.handleIstioPolicy(ctx, pod, serviceID)
 	if err != nil {
-		if k8serrors.IsAlreadyExists(err) {
+		if k8serrors.IsAlreadyExists(errors.Unwrap(err)) {
 			// Can happen if the Istio policy is created in parallel by another controller
 			return ctrl.Result{Requeue: true}, nil
 		}
