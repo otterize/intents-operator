@@ -25,12 +25,7 @@ type LinkerdReconciler struct {
 	injectablerecorder.InjectableRecorder
 }
 
-func NewLinkerdReconciler(c client.Client,
-	s *runtime.Scheme,
-	namespaces []string,
-	enforcementDefaultState,
-	enableLinkerdPolicyCreation bool,
-) *LinkerdReconciler {
+func NewLinkerdReconciler(c client.Client, s *runtime.Scheme, namespaces []string, enforcementDefaultState bool) *LinkerdReconciler {
 	linkerdreconciler := &LinkerdReconciler{
 		Client:                 c,
 		Scheme:                 s,
@@ -38,7 +33,7 @@ func NewLinkerdReconciler(c client.Client,
 		serviceIdResolver:      serviceidresolver.NewResolver(c),
 	}
 
-	linkerdreconciler.linkerdManager = linkerdmanager.NewLinkerdManager(c, namespaces, &linkerdreconciler.InjectableRecorder, enforcementDefaultState, enableLinkerdPolicyCreation)
+	linkerdreconciler.linkerdManager = linkerdmanager.NewLinkerdManager(c, namespaces, &linkerdreconciler.InjectableRecorder, enforcementDefaultState)
 	return linkerdreconciler
 }
 

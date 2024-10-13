@@ -22,6 +22,8 @@ import (
 
 	"context"
 	"github.com/bombsimon/logrusr/v3"
+	linkerdauthscheme "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
+	linkerdserverscheme "github.com/linkerd/linkerd2/controller/gen/apis/server/v1beta1"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
@@ -460,7 +462,17 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "ProtectedServices")
 	}
 
-	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnableLinkerdPolicies, enforcementConfig.EnforcedNamespaces, intentsReconciler, epGroupReconciler)
+	podWatcher := pod_reconcilers.NewPodWatcher(
+		mgr.GetClient(),
+		mgr.GetEventRecorderFor("intents-operator"),
+		watchedNamespaces,
+		enforcementConfig.EnforcementDefaultState,
+		enforcementConfig.EnableIstioPolicy,
+		enforcementConfig.EnableLinkerdPolicies,
+		enforcementConfig.EnforcedNamespaces,
+		intentsReconciler,
+		epGroupReconciler,
+	)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
 	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler, enforcementConfig.EnableNetworkPolicy, extNetpolHandler)
 

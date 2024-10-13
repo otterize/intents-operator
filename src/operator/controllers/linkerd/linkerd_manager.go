@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/otterize/intents-operator/src/operator/api/v1alpha2"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/shared/errors"
 
 	authpolicy "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
@@ -35,7 +36,6 @@ const (
 	OtterizeLinkerdAuthPolicyForHTTPRouteNameTemplate = "authorization-policy-to-%s-port-%d-from-client-%s-path-%s"
 	ReasonDeleteLinkerdPolicyFailed                   = "DeleteLinkerdPolicyFailed"
 	ReasonNamespaceNotAllowed                         = "NamespaceNotAllowed"
-	ReasonLinkerdPolicy                               = "LinkerdPolicy"
 	ReasonMissingSidecar                              = "MissingSideCar"
 	ReasonCreatingLinkerdPolicyFailed                 = "CreatingLinkerdPolicyFailed"
 	ReasonUpdatingLinkerdPolicyFailed                 = "UpdatingLinkerdPolicyFailed"
@@ -65,25 +65,22 @@ type LinkerdResourceMapping struct {
 
 type LinkerdManager struct {
 	client.Client
-	serviceIdResolver           serviceidresolver.ServiceResolver
-	recorder                    *injectablerecorder.InjectableRecorder
-	restrictedToNamespaces      []string
-	enforcementDefaultState     bool
-	enableLinkerdPolicyCreation bool
+	serviceIdResolver       serviceidresolver.ServiceResolver
+	recorder                *injectablerecorder.InjectableRecorder
+	restrictedToNamespaces  []string
+	enforcementDefaultState bool
 }
 
 func NewLinkerdManager(c client.Client,
 	namespaces []string,
 	r *injectablerecorder.InjectableRecorder,
-	enforcementDefaultState,
-	enableLinkerdPolicyCreation bool) *LinkerdManager {
+	enforcementDefaultState bool) *LinkerdManager {
 	return &LinkerdManager{
-		Client:                      c,
-		serviceIdResolver:           serviceidresolver.NewResolver(c),
-		restrictedToNamespaces:      namespaces,
-		recorder:                    r,
-		enforcementDefaultState:     enforcementDefaultState,
-		enableLinkerdPolicyCreation: enableLinkerdPolicyCreation,
+		Client:                  c,
+		serviceIdResolver:       serviceidresolver.NewResolver(c),
+		restrictedToNamespaces:  namespaces,
+		recorder:                r,
+		enforcementDefaultState: enforcementDefaultState,
 	}
 }
 
@@ -308,25 +305,29 @@ func (ldm *LinkerdManager) createResources(
 	}
 
 	for _, target := range clientIntents.GetTargetList() {
-		if !target.IsTargetInCluster() { // this will skip non http ones, db for example, skip port doesnt exist as well
+		if !target.IsTargetInCluster() { // this will skip non http ones, db for example, skip port doesn't exist as well
 			continue
 		}
 
-		//shouldCreateLinkerdResources, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
-		//	ctx, ldm.Client, intent.GetS, intent.GetTargetServerNamespace(clientIntents.Namespace), ldm.enforcementDefaultState)
-		//if err != nil {
-		//	return nil, err
-		//}
+		pod, err := ldm.serviceIdResolver.ResolveIntentTargetToPod(ctx, target, clientIntents.Namespace)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+		svcIdentity, err := ldm.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
 
-		if !true {
+		shouldCreateLinkerdResources, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
+			ctx, ldm.Client, svcIdentity, ldm.enforcementDefaultState, goset.FromSlice(ldm.restrictedToNamespaces))
+		if err != nil {
+			return nil, err
+		}
+
+		if !shouldCreateLinkerdResources {
 			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping linkerd policy creation for server %s in namespace %s", target.GetTargetServerName(), target.GetTargetServerNamespace(clientIntents.Namespace))
 			ldm.recorder.RecordNormalEventf(clientIntents, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, linkerd policy creation skipped", target.GetTargetServerName())
 			continue
-		}
-
-		if !ldm.enableLinkerdPolicyCreation {
-			ldm.recorder.RecordNormalEvent(clientIntents, consts.ReasonIstioPolicyCreationDisabled, "Linkerd policy creation is disabled, creation skipped")
-			return nil, nil
 		}
 
 		targetNamespace := target.GetTargetServerNamespace(clientIntents.Namespace)
@@ -340,7 +341,7 @@ func (ldm *LinkerdManager) createResources(
 			continue
 		}
 
-		pod, err := ldm.serviceIdResolver.ResolveIntentTargetToPod(ctx, target, clientIntents.Namespace)
+		pod, err = ldm.serviceIdResolver.ResolveIntentTargetToPod(ctx, target, clientIntents.Namespace)
 		if err != nil {
 			return nil, err
 		}
@@ -531,21 +532,21 @@ func (ldm *LinkerdManager) getServerName(intent otterizev2alpha1.Target, port in
 func (ldm *LinkerdManager) createIntentPrimaryResources(ctx context.Context,
 	intents otterizev2alpha1.ClientIntents,
 	clientServiceAccount string) error {
-	shouldCreateNetAuth, err := ldm.shouldCreateNetAuth(ctx, intents)
-	if err != nil {
-		return err
-	}
-
-	if shouldCreateNetAuth {
-		netAuth, err := ldm.generateNetworkAuthentication(ctx, intents)
-		if err != nil {
-			return err
-		}
-		err = ldm.Client.Create(ctx, netAuth)
-		if err != nil {
-			return err
-		}
-	}
+	//shouldCreateNetAuth, err := ldm.shouldCreateNetAuth(ctx, intents)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//if shouldCreateNetAuth {
+	//	netAuth, err := ldm.generateNetworkAuthentication(ctx, intents)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	err = ldm.Client.Create(ctx, netAuth)
+	//	if err != nil {
+	//		return err
+	//	}
+	//}
 
 	shouldCreateMeshTLS, err := ldm.shouldCreateMeshTLS(ctx, intents)
 	if err != nil {
@@ -602,7 +603,7 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, intents otter
 	// get servers in the namespace and if any of them has a label selector similar to the intents label return that server
 	for _, server := range servers.Items {
 		if server.Name == fmt.Sprintf(OtterizeLinkerdServerNameTemplate, target.GetTargetServerName(), port) {
-			// check if it has the annotation of this service if it doesnt add it
+			// check if it has the annotation of this service if it doesn't, add it
 			return &server, false, nil
 		}
 	}
@@ -742,10 +743,6 @@ func (ldm *LinkerdManager) generateLinkerdServer(ctx context.Context, intents ot
 	}
 
 	s := linkerdserver.Server{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "policy.linkerd.io/v1beta1",
-			Kind:       "Server",
-		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: serverNamespace,
@@ -787,10 +784,6 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 	}
 
 	return &authpolicy.AuthorizationPolicy{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "policy.linkerd.io/v1alpha1",
-			Kind:       "AuthorizationPolicy",
-		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntents.Namespace,
@@ -827,10 +820,6 @@ func (ldm *LinkerdManager) generateHTTPRoute(ctx context.Context, intents otteri
 	}
 
 	return &authpolicy.HTTPRoute{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "policy.linkerd.io/v1beta3",
-			Kind:       "HTTPRoute",
-		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -857,7 +846,7 @@ func (ldm *LinkerdManager) generateHTTPRoute(ctx context.Context, intents otteri
 								Type:  getPathMatchPointer(authpolicy.PathMatchPathPrefix),
 								Value: &path,
 							},
-							// Method: getHTTPMethodPointer(authpolicy.HTTPMethodGet), add support for that later
+							//Method: getHTTPMethodPointer(authpolicy.HTTPMethodGet), add support for that later
 						},
 					},
 				},
@@ -877,10 +866,6 @@ func (ldm *LinkerdManager) generateMeshTLS(
 	}
 
 	mtls := authpolicy.MeshTLSAuthentication{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "policy.linkerd.io/v1alpha1",
-			Kind:       "MeshTLSAuthentication",
-		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, intents.GetWorkloadName()),
 			Namespace: intents.Namespace,

@@ -33,7 +33,7 @@ func (s *LinkerdReconcilerTestSuite) SetupTest() {
 	s.serviceResolver = mocks.NewMockServiceResolver(s.Controller)
 	s.scheme = runtime.NewScheme()
 	s.scheme.AddKnownTypeWithName(schema.GroupVersionKind{Group: "policy.linkerd.io", Version: "v1beta1", Kind: "servers"}, &linkerdserver.Server{})
-	s.admin = NewLinkerdReconciler(s.Client, s.scheme, []string{}, true, true)
+	s.admin = NewLinkerdReconciler(s.Client, s.scheme, []string{}, true)
 	s.ldm = mocks.NewMockLinkerdPolicyManager(s.Controller)
 
 	s.admin.Recorder = s.Recorder

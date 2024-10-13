@@ -77,7 +77,7 @@ func NewIntentsReconciler(
 		intents_reconcilers.NewPodLabelReconciler(client, scheme),
 		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver, enforcementConfig.EnforcedNamespaces),
 		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnforcedNamespaces),
-		intents_reconcilers.NewLinkerdReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableLinkerdPolicies, enforcementConfig.EnforcementDefaultState),
+		intents_reconcilers.NewLinkerdReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableLinkerdPolicies),
 	}
 	reconcilers = append(reconcilers, additionalReconcilers...)
 	reconcilersGroup := reconcilergroup.NewGroup(
@@ -108,6 +108,11 @@ func NewIntentsReconciler(
 	if enforcementConfig.EnableDatabasePolicy {
 		databaseReconciler := database.NewDatabaseReconciler(client, scheme)
 		intentsReconciler.group.AddToGroup(databaseReconciler)
+	}
+
+	if enforcementConfig.EnableLinkerdPolicies {
+		rec := intents_reconcilers.NewLinkerdReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnforcementDefaultState)
+		reconcilers = append(reconcilers, rec)
 	}
 
 	return intentsReconciler
