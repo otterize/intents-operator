@@ -7,6 +7,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/networking/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -45,6 +46,9 @@ func (r *NetworkPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logrus.Debugf("Handling external for NetworkPolicy for namespace: %s", req.Namespace)
 	err := r.extNetpolHandler.HandlePodsByNamespace(ctx, req.Namespace)
+	if k8serrors.IsConflict(err) || k8serrors.IsNotFound(err) || k8serrors.IsForbidden(err) || k8serrors.IsAlreadyExists(err) {
+		return ctrl.Result{Requeue: true}, nil
+	}
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
