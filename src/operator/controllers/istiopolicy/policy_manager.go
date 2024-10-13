@@ -402,7 +402,7 @@ func (c *PolicyManagerImpl) createOrUpdatePolicies(
 
 		err = c.client.Create(ctx, newPolicy)
 		if err != nil {
-			if k8serrors.IsConflict(err) {
+			if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
 				continue
 			}
 			c.recorder.RecordWarningEventf(clientIntents, ReasonCreatingIstioPolicyFailed, "Failed to create Istio policy: %s", err.Error())
