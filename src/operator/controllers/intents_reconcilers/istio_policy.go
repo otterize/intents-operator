@@ -124,7 +124,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	err = r.policyManager.Create(ctx, intents, clientServiceAccountName)
 	if err != nil {
-		if k8serrors.IsConflict(err) {
+		if k8serrors.IsConflict(err) || k8serrors.IsAlreadyExists(err) {
 			return ctrl.Result{Requeue: true}, nil
 		}
 		return ctrl.Result{}, errors.Wrap(err)
