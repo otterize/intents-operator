@@ -110,11 +110,6 @@ func NewIntentsReconciler(
 		intentsReconciler.group.AddToGroup(databaseReconciler)
 	}
 
-	if enforcementConfig.EnableLinkerdPolicies {
-		rec := intents_reconcilers.NewLinkerdReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnforcementDefaultState)
-		reconcilers = append(reconcilers, rec)
-	}
-
 	return intentsReconciler
 }
 

@@ -126,7 +126,7 @@ package linkerdmanager
 //
 //	//formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.Spec.Calls[0].GetTargetServerName(), ns)
 //	//linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
-//	podSelector := s.admin.BuildPodLabelSelectorFromIntent(intents.Spec.Calls[0], intents.Namespace)
+//	podSelector := s.admin.BuildPodLabelSelectorFromTarget(intents.Spec.Calls[0], intents.Namespace)
 //
 //	pod := v1.Pod{
 //		TypeMeta: metav1.TypeMeta{
@@ -253,7 +253,7 @@ package linkerdmanager
 //	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), &client.ListOptions{Namespace: ns}).Return(nil)
 //	s.Client.EXPECT().Create(gomock.Any(), policyWrapper{*policy})
 //
-//	_, err := s.admin.createResources(context.Background(), &intents, "default")
+//	_, err := s.admin.CreateResources(context.Background(), &intents, "default")
 //	s.NoError(err)
 //}
 //
@@ -285,7 +285,7 @@ package linkerdmanager
 //
 //	//formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.Spec.Calls[0].GetTargetServerName(), ns)
 //	//linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
-//	podSelector := s.admin.BuildPodLabelSelectorFromIntent(intents.Spec.Calls[0], intents.Namespace)
+//	podSelector := s.admin.BuildPodLabelSelectorFromTarget(intents.Spec.Calls[0], intents.Namespace)
 //
 //	pod := v1.Pod{
 //		TypeMeta: metav1.TypeMeta{
@@ -451,7 +451,7 @@ package linkerdmanager
 //	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), &client.ListOptions{Namespace: ns}).Return(nil)
 //	s.Client.EXPECT().Create(gomock.Any(), policyWrapper{policy})
 //
-//	_, err := s.admin.createResources(context.Background(), &intents, "default")
+//	_, err := s.admin.CreateResources(context.Background(), &intents, "default")
 //	s.NoError(err)
 //}
 //
@@ -473,7 +473,7 @@ package linkerdmanager
 //		},
 //	}
 //	clientFormattedIdentity := v1alpha2.GetFormattedOtterizeIdentity(intents.Spec.Service.Name, intents.Namespace)
-//	podSelector := s.admin.BuildPodLabelSelectorFromIntent(intents.Spec.Calls[0], intents.Namespace)
+//	podSelector := s.admin.BuildPodLabelSelectorFromTarget(intents.Spec.Calls[0], intents.Namespace)
 //
 //	server := &linkerdserver.Server{
 //		TypeMeta: metav1.TypeMeta{
@@ -770,7 +770,7 @@ package linkerdmanager
 //		Spec: intentsSpec,
 //	}
 //
-//	podSelector := s.admin.BuildPodLabelSelectorFromIntent(intents.Spec.Calls[0], intents.Namespace)
+//	podSelector := s.admin.BuildPodLabelSelectorFromTarget(intents.Spec.Calls[0], intents.Namespace)
 //	serversList := &linkerdserver.ServerList{
 //		Items: []linkerdserver.Server{
 //			{
@@ -826,7 +826,7 @@ package linkerdmanager
 //
 //	formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.Spec.Calls[0].GetTargetServerName(), ns)
 //	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
-//	podSelector := s.admin.BuildPodLabelSelectorFromIntent(intents.Spec.Calls[0], intents.Namespace)
+//	podSelector := s.admin.BuildPodLabelSelectorFromTarget(intents.Spec.Calls[0], intents.Namespace)
 //
 //	pod := v1.Pod{
 //		TypeMeta: metav1.TypeMeta{
@@ -1084,7 +1084,7 @@ package linkerdmanager
 //	s.Client.EXPECT().List(gomock.Any(), gomock.Any(), &client.ListOptions{Namespace: ns}).Return(nil)
 //	s.Client.EXPECT().Create(gomock.Any(), policyWrapper{policy2})
 //
-//	_, err := s.admin.createResources(context.Background(), &intents, "default")
+//	_, err := s.admin.CreateResources(context.Background(), &intents, "default")
 //	s.NoError(err)
 //}
 //
@@ -1110,7 +1110,7 @@ package linkerdmanager
 //
 //	formattedTargetServer := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.Spec.Calls[0].GetTargetServerName(), ns)
 //	linkerdServerServiceFormattedIdentity := otterizev1alpha3.GetFormattedOtterizeIdentity(intents.GetServiceName(), intents.Namespace)
-//	podSelector := s.admin.BuildPodLabelSelectorFromIntent(intents.Spec.Calls[0], intents.Namespace)
+//	podSelector := s.admin.BuildPodLabelSelectorFromTarget(intents.Spec.Calls[0], intents.Namespace)
 //
 //	pod := v1.Pod{
 //		TypeMeta: metav1.TypeMeta{
