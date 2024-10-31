@@ -20,7 +20,7 @@ import (
 
 const (
 	cacheSize = 2000
-	cacheTTL  = time.Second * 5
+	cacheTTL  = time.Hour
 )
 
 var (
