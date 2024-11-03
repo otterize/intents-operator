@@ -12,7 +12,6 @@ import (
 
 	"github.com/amit7itz/goset"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/samber/lo"
@@ -50,10 +49,9 @@ const (
 )
 
 //+kubebuilder:rbac:groups="policy.linkerd.io",resources=*,verbs=get;update;patch;list;watch;delete;create;deletecollection
-//+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents,verbs=get;list;watch;create;update;patch;delete
 
 type LinkerdPolicyManager interface {
-	DeleteOutdatedResources(ctx context.Context, svcIdentity serviceidentity.ServiceIdentity, validResources *LinkerdResourceMapping) error
+	DeleteOutdatedResources(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy, validResources LinkerdResourceMapping) error
 	CreateResources(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, clientServiceAccount string) (*LinkerdResourceMapping, error)
 }
 
@@ -85,76 +83,79 @@ func NewLinkerdManager(c client.Client,
 	}
 }
 
-func (ldm *LinkerdManager) DeleteOutdatedResources(ctx context.Context, svcIdentity serviceidentity.ServiceIdentity, validResources *LinkerdResourceMapping) error {
-	clientFormattedIdentity := svcIdentity.GetFormattedOtterizeIdentityWithoutKind()
+func (ldm *LinkerdManager) DeleteOutdatedResources(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy, validResources LinkerdResourceMapping) error {
+	for _, ep := range eps {
+		clientFormattedIdentity := ep.Service.GetFormattedOtterizeIdentityWithoutKind()
 
-	var (
-		existingPolicies   authpolicy.AuthorizationPolicyList
-		existingServers    linkerdserver.ServerList
-		existingHttpRoutes authpolicy.HTTPRouteList
-		existingNetAuth    authpolicy.NetworkAuthenticationList
-		existingMTLS       authpolicy.MeshTLSAuthenticationList
-	)
+		var (
+			existingPolicies   authpolicy.AuthorizationPolicyList
+			existingServers    linkerdserver.ServerList
+			existingHttpRoutes authpolicy.HTTPRouteList
+			existingNetAuth    authpolicy.NetworkAuthenticationList
+			existingMTLS       authpolicy.MeshTLSAuthenticationList
+		)
 
-	err := ldm.Client.List(ctx, &existingPolicies, client.MatchingLabels{otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
-	if err != nil {
-		return errors.Wrap(err)
-	}
+		err := ldm.Client.List(ctx, &existingPolicies, client.MatchingLabels{otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
+		if err != nil {
+			return errors.Wrap(err)
+		}
 
-	err = ldm.Client.List(ctx,
-		&existingServers,
-		client.MatchingLabels{otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
-	if err != nil {
-		return errors.Wrap(err)
-	}
+		err = ldm.Client.List(ctx,
+			&existingServers,
+			client.MatchingLabels{otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
+		if err != nil {
+			return errors.Wrap(err)
+		}
 
-	err = ldm.Client.List(ctx,
-		&existingHttpRoutes,
-		client.MatchingLabels{otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
-	if err != nil {
-		return errors.Wrap(err)
-	}
+		err = ldm.Client.List(ctx,
+			&existingHttpRoutes,
+			client.MatchingLabels{otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
+		if err != nil {
+			return errors.Wrap(err)
+		}
 
-	err = ldm.Client.List(ctx,
-		&existingNetAuth,
-		client.MatchingLabels{otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
-	if err != nil {
-		return errors.Wrap(err)
-	}
+		err = ldm.Client.List(ctx,
+			&existingNetAuth,
+			client.MatchingLabels{otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
+		if err != nil {
+			return errors.Wrap(err)
+		}
 
-	err = ldm.Client.List(ctx,
-		&existingMTLS,
-		client.MatchingLabels{otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
-	if err != nil {
-		return errors.Wrap(err)
-	}
+		err = ldm.Client.List(ctx,
+			&existingMTLS,
+			client.MatchingLabels{otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
+		if err != nil {
+			return errors.Wrap(err)
+		}
 
-	for _, existingPolicy := range existingPolicies.Items {
-		if !validResources.AuthorizationPolicies.Contains(existingPolicy.UID) {
-			err := ldm.Client.Delete(ctx, &existingPolicy)
-			if err != nil {
-				return errors.Wrap(err)
+		for _, existingPolicy := range existingPolicies.Items {
+			if !validResources.AuthorizationPolicies.Contains(existingPolicy.UID) {
+				err := ldm.Client.Delete(ctx, &existingPolicy)
+				if err != nil {
+					return errors.Wrap(err)
+				}
+			}
+		}
+
+		for _, existingServer := range existingServers.Items {
+			if !validResources.Servers.Contains(existingServer.UID) {
+				err := ldm.Client.Delete(ctx, &existingServer)
+				if err != nil {
+					return errors.Wrap(err)
+				}
+			}
+		}
+
+		for _, existingRoute := range existingHttpRoutes.Items {
+			if !validResources.Routes.Contains(existingRoute.UID) {
+				err := ldm.Client.Delete(ctx, &existingRoute)
+				if err != nil {
+					return errors.Wrap(err)
+				}
 			}
 		}
 	}
 
-	for _, existingServer := range existingServers.Items {
-		if !validResources.Servers.Contains(existingServer.UID) {
-			err := ldm.Client.Delete(ctx, &existingServer)
-			if err != nil {
-				return errors.Wrap(err)
-			}
-		}
-	}
-
-	for _, existingRoute := range existingHttpRoutes.Items {
-		if !validResources.Routes.Contains(existingRoute.UID) {
-			err := ldm.Client.Delete(ctx, &existingRoute)
-			if err != nil {
-				return errors.Wrap(err)
-			}
-		}
-	}
 	return nil
 }
 
@@ -182,20 +183,17 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 		shouldCreateLinkerdResources, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
 			ctx, ldm.Client, svcIdentity, ldm.enforcementDefaultState, goset.FromSlice(ldm.restrictedToNamespaces))
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err)
 		}
 
 		if !shouldCreateLinkerdResources {
-			logrus.Infof("Enforcement is disabled globally and server is not explicitly protected, skipping linkerd policy creation for server %s in namespace %s", target.GetTargetServerName(), target.GetTargetServerNamespace(clientNamespace))
-			ldm.recorder.RecordNormalEventf(ep, consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally and called service '%s' is not explicitly protected using a ProtectedService resource, linkerd policy creation skipped", target.GetTargetServerName())
+			logrus.Warning("Enforcement is disabled globally and server is not explicitly protected, skipping linkerd policy creation for server %s in namespace %s", target.GetTargetServerName(), target.GetTargetServerNamespace(clientNamespace))
 			continue
 		}
 
 		targetNamespace := target.GetTargetServerNamespace(clientNamespace)
 		if len(ldm.restrictedToNamespaces) != 0 && !lo.Contains(ldm.restrictedToNamespaces, targetNamespace) {
-			ldm.recorder.RecordWarningEventf(
-				ep,
-				ReasonNamespaceNotAllowed,
+			logrus.Warning(
 				"Namespace %s was specified in intent, but is not allowed by configuration, Linkerd policy ignored",
 				targetNamespace,
 			)
@@ -204,12 +202,12 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 
 		pod, err = ldm.serviceIdResolver.ResolveIntentTargetToPod(ctx, target.Target, clientNamespace)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err)
 		}
 
 		err = ldm.createIntentPrimaryResources(ctx, ep.Service, clientServiceAccount)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err)
 		}
 
 		var ports []int32
@@ -223,150 +221,60 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 
 		for _, port := range ports {
 			logrus.Info("processing port: ", port)
-			s, shouldCreateServer, err := ldm.shouldCreateServer(ctx, ep.Service, target.Target, port)
+			server, shouldCreateServer, err := ldm.shouldCreateServer(ctx, ep.Service, target.Target, port)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrap(err)
 			}
 			logrus.Info("should create server result for port: ", port, shouldCreateServer)
 
 			if shouldCreateServer {
 				podSelector := ldm.BuildPodLabelSelectorFromTarget(target.Target, clientNamespace)
-				s, err = ldm.generateLinkerdServer(ep.Service, target.Target, podSelector, port)
-				err = ldm.Client.Create(ctx, s)
+				server, err = ldm.generateLinkerdServer(ep.Service, target.Target, podSelector, port)
+				err = ldm.Client.Create(ctx, server)
 				if err != nil {
-					ldm.recorder.RecordWarningEventf(ep, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd server: %s", err.Error())
-					return nil, err
+					logrus.Errorf("Failed to create Linkerd server: %s", err.Error())
+					return nil, errors.Wrap(err)
 				}
 			}
-			currentResources.Servers.Add(s.UID)
+			currentResources.Servers.Add(server.UID)
 
 			httpResources := target.GetHTTPResources()
 			if len(httpResources) > 0 {
 				probePath, err := ldm.getLivenessProbePath(pod) // should be get livenessprobepath for container with port
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err)
 				}
 
 				if probePath != "" {
-					httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, target.GetTargetServerName(), port, generateRandomString(8))
-					probePathRoute, shouldCreateRoute, err := ldm.shouldCreateHTTPRoute(ctx, ep.Service, probePath, s.Name)
-					if err != nil {
-						return nil, err
+					if err := ldm.handleLivenessProbResources(ctx, probePath, clientNamespace, server.Name, svcIdentity, target, port, currentResources); err != nil {
+						return nil, errors.Wrap(err)
 					}
-
-					if shouldCreateRoute {
-						probePathRoute, err = ldm.generateHTTPRoute(ctx, ep.Service, s.Name, probePath,
-							httpRouteName,
-							clientNamespace)
-						if err != nil {
-							return nil, err
-						}
-						err = ldm.Client.Create(ctx, probePathRoute)
-						if err != nil {
-							return nil, err
-						}
-					}
-					currentResources.Routes.Add(probePathRoute.UID)
-
-					policy, shouldCreatePolicy, err := ldm.shouldCreateAuthPolicy(ctx,
-						ep.Service, probePathRoute.Name,
-						LinkerdHTTPRouteKindName,
-						NetworkAuthenticationNameTemplate,
-						LinkerdNetAuthKindName)
-					if err != nil {
-						return nil, err
-					}
-
-					if shouldCreatePolicy {
-						policy, err = ldm.generateAuthorizationPolicy(
-							ep.Service,
-							target.Target,
-							port,
-							httpRouteName,
-							LinkerdHTTPRouteKindName,
-							LinkerdNetAuthKindName)
-						if err != nil {
-							return nil, errors.Wrap(err)
-						}
-						err = ldm.Client.Create(ctx, policy)
-						if err != nil {
-							return nil, err
-						}
-					}
-
-					currentResources.AuthorizationPolicies.Add(policy.UID)
 				}
 
 				for _, httpResource := range httpResources {
-					httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, target.GetTargetServerName(), port, generateRandomString(8))
-					route, shouldCreateRoute, err := ldm.shouldCreateHTTPRoute(ctx, ep.Service,
-						httpResource.Path, s.Name)
-					if err != nil {
-						return nil, err
+					if err := ldm.handleHTTPResource(ctx, clientNamespace, server.Name, target, svcIdentity, httpResource, port, currentResources); err != nil {
 					}
-
-					if shouldCreateRoute {
-						route, err = ldm.generateHTTPRoute(ctx, ep.Service, s.Name, httpResource.Path,
-							httpRouteName,
-							clientNamespace)
-						if err != nil {
-							return nil, err
-						}
-						err = ldm.Client.Create(ctx, route)
-						if err != nil {
-							return nil, err
-						}
-					}
-					currentResources.Routes.Add(route.UID)
-					policy, shouldCreatePolicy, err := ldm.shouldCreateAuthPolicy(ctx,
-						*ep, route.Name,
-						LinkerdHTTPRouteKindName,
-						"meshtls-for-client-"+ep.Service.GetName(),
-						LinkerdMeshTLSAuthenticationKindName)
-					if err != nil {
-						return nil, err
-					}
-
-					if shouldCreatePolicy {
-						policy, err = ldm.generateAuthorizationPolicy(ep.Service, target.Target,
-							port,
-							httpRouteName,
-							LinkerdHTTPRouteKindName,
-							LinkerdMeshTLSAuthenticationKindName)
-						if err != nil {
-							return nil, err
-						}
-						err = ldm.Client.Create(ctx, policy)
-						if err != nil {
-							ldm.recorder.RecordWarningEventf(ep, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
-							return nil, err
-						}
-					}
-					currentResources.AuthorizationPolicies.Add(policy.UID)
 				}
 			} else {
 				policy, shouldCreatePolicy, err := ldm.shouldCreateAuthPolicy(ctx, ep.Service,
-					s.Name,
+					server.Name,
 					LinkerdServerKindName,
 					"meshtls-for-client-"+ep.Service.GetName(),
 					LinkerdMeshTLSAuthenticationKindName)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err)
 				}
 
 				if shouldCreatePolicy {
-					policy, err = ldm.generateAuthorizationPolicy(ep.Service, target.Target,
+					policy = ldm.generateAuthorizationPolicy(ep.Service, target.Target,
 						port,
-						s.Name,
+						server.Name,
 						LinkerdServerKindName,
 						LinkerdMeshTLSAuthenticationKindName)
-					if err != nil {
-						return nil, err
-					}
 					err = ldm.Client.Create(ctx, policy)
 					if err != nil {
-						ldm.recorder.RecordWarningEventf(ep, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd policy: %s", err.Error())
-						return nil, err
+						logrus.Errorf("Failed to create Linkerd policy: %s", err.Error())
+						return nil, errors.Wrap(err)
 					}
 				}
 				currentResources.AuthorizationPolicies.Add(policy.UID)
@@ -417,12 +325,11 @@ func (ldm *LinkerdManager) createIntentPrimaryResources(ctx context.Context, svc
 	if shouldCreateMeshTLS {
 		mtls, err := ldm.generateMeshTLS(svcIdentity, []string{fullServiceAccountName})
 		if err != nil {
-			return err
+			return errors.Wrap(err)
 		}
 		err = ldm.Client.Create(ctx, mtls)
 		if err != nil {
-			ldm.recorder.RecordWarningEventf(&ep, ReasonCreatingLinkerdPolicyFailed, "Failed to create Linkerd meshTLS: %s", err.Error())
-			return err
+			return errors.Wrap(err)
 		}
 	}
 	return nil
@@ -451,7 +358,7 @@ func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, svcIdentity s
 	// list all servers in the namespace
 	err := ldm.Client.List(ctx, servers, &client.ListOptions{Namespace: svcIdentity.Namespace})
 	if err != nil {
-		return nil, false, err
+		return nil, false, errors.Wrap(err)
 	}
 
 	// no servers exist
@@ -476,7 +383,7 @@ func (ldm *LinkerdManager) shouldCreateHTTPRoute(ctx context.Context, svcIdentit
 	if err != nil {
 		return nil, false, err
 	}
-	// Dont create the route if it has the same parent server as the serve in question and defines the same rule
+	// Don't create the route if it has the same parent server as the serve in question and defines the same rule
 	for _, route := range routes.Items {
 		for _, parent := range route.Spec.ParentRefs {
 			if parent.Name == v1beta1.ObjectName(parentName) {
@@ -611,7 +518,7 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 	serverTargetName,
 	targetRefType,
 	requiredAuthRefType string,
-) (*authpolicy.AuthorizationPolicy, error) {
+) *authpolicy.AuthorizationPolicy {
 	var (
 		targetRefName v1beta1.ObjectName
 		policyName    = fmt.Sprintf(OtterizeLinkerdAuthPolicyNameTemplate, target.GetTargetServerName(), port, svcIdentity.GetName(), generateRandomString(8))
@@ -646,14 +553,14 @@ func (ldm *LinkerdManager) generateAuthorizationPolicy(
 				},
 			},
 		},
-	}, nil
+	}
 }
 
 func StringPtr(s string) *string {
 	return &s
 }
 
-func (ldm *LinkerdManager) generateHTTPRoute(ctx context.Context, svcIdentity serviceidentity.ServiceIdentity,
+func (ldm *LinkerdManager) generateHTTPRoute(svcIdentity serviceidentity.ServiceIdentity,
 	serverName, path, name, namespace string) (*authpolicy.HTTPRoute, error) {
 
 	return &authpolicy.HTTPRoute{
@@ -710,7 +617,7 @@ func (ldm *LinkerdManager) generateMeshTLS(svcIdentity serviceidentity.ServiceId
 	return &mtls, nil
 }
 
-func (ldm *LinkerdManager) generateNetworkAuthentication(ctx context.Context, svcIdentity serviceidentity.ServiceIdentity) (*authpolicy.NetworkAuthentication, error) {
+func (ldm *LinkerdManager) generateNetworkAuthentication(svcIdentity serviceidentity.ServiceIdentity) (*authpolicy.NetworkAuthentication, error) {
 	return &authpolicy.NetworkAuthentication{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy.linkerd.io/v1alpha1",
@@ -736,15 +643,115 @@ func (ldm *LinkerdManager) generateNetworkAuthentication(ctx context.Context, sv
 	}, nil
 }
 
-//func (ldm *LinkerdManager) getFormattedOtterizeIdentityFromIntents(ctx context.Context, clientIntents otterizev2alpha1.ClientIntents) (string, error) {
-//	pod, err := ldm.serviceIdResolver.ResolveClientIntentToPod(ctx, clientIntents)
-//	if err != nil {
-//		return "", errors.Wrap(err)
-//	}
-//	svcIdentity, err := ldm.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
-//	if err != nil {
-//		return "", errors.Wrap(err)
-//	}
-//	return svcIdentity.GetFormattedOtterizeIdentityWithoutKind(), nil
-//}
-//
+func (ldm *LinkerdManager) handleLivenessProbResources(
+	ctx context.Context,
+	probePath, clientNamespace, serverName string,
+	svcIdentity serviceidentity.ServiceIdentity,
+	target effectivepolicy.Call,
+	port int32,
+	currentResources *LinkerdResourceMapping,
+) error {
+	httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, target.GetTargetServerName(), port, generateRandomString(8))
+	probePathRoute, shouldCreateRoute, err := ldm.shouldCreateHTTPRoute(ctx, svcIdentity, probePath, serverName)
+	if err != nil {
+		errors.Wrap(err)
+	}
+
+	if shouldCreateRoute {
+		probePathRoute, err = ldm.generateHTTPRoute(svcIdentity, serverName, probePath,
+			httpRouteName,
+			clientNamespace)
+		if err != nil {
+			errors.Wrap(err)
+		}
+		err = ldm.Client.Create(ctx, probePathRoute)
+		if err != nil {
+			errors.Wrap(err)
+		}
+	}
+	currentResources.Routes.Add(probePathRoute.UID)
+
+	policy, shouldCreatePolicy, err := ldm.shouldCreateAuthPolicy(ctx,
+		svcIdentity, probePathRoute.Name,
+		LinkerdHTTPRouteKindName,
+		NetworkAuthenticationNameTemplate,
+		LinkerdNetAuthKindName)
+	if err != nil {
+		errors.Wrap(err)
+	}
+
+	if shouldCreatePolicy {
+		policy = ldm.generateAuthorizationPolicy(
+			svcIdentity,
+			target.Target,
+			port,
+			httpRouteName,
+			LinkerdHTTPRouteKindName,
+			LinkerdNetAuthKindName)
+
+		err = ldm.Client.Create(ctx, policy)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	currentResources.AuthorizationPolicies.Add(policy.UID)
+	return nil
+}
+
+func (ldm *LinkerdManager) handleHTTPResource(
+	ctx context.Context,
+	clientNamespace,
+	serverName string,
+	target effectivepolicy.Call,
+	svcIdentity serviceidentity.ServiceIdentity,
+	httpResource otterizev2alpha1.HTTPTarget,
+	port int32,
+	currentResources *LinkerdResourceMapping,
+) error {
+	httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, target.GetTargetServerName(), port, generateRandomString(8))
+	route, shouldCreateRoute, err := ldm.shouldCreateHTTPRoute(ctx, svcIdentity,
+		httpResource.Path, serverName)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	if shouldCreateRoute {
+		route, err = ldm.generateHTTPRoute(svcIdentity, serverName, httpResource.Path,
+			httpRouteName,
+			clientNamespace)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+		err = ldm.Client.Create(ctx, route)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+	currentResources.Routes.Add(route.UID)
+	policy, shouldCreatePolicy, err := ldm.shouldCreateAuthPolicy(ctx,
+		svcIdentity, route.Name,
+		LinkerdHTTPRouteKindName,
+		"meshtls-for-client-"+svcIdentity.GetName(),
+		LinkerdMeshTLSAuthenticationKindName)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	if shouldCreatePolicy {
+		policy = ldm.generateAuthorizationPolicy(svcIdentity, target.Target,
+			port,
+			httpRouteName,
+			LinkerdHTTPRouteKindName,
+			LinkerdMeshTLSAuthenticationKindName)
+
+		err = ldm.Client.Create(ctx, policy)
+		if err != nil {
+			logrus.Errorf("Failed to create Linkerd policy: %s", err.Error())
+			return errors.Wrap(err)
+		}
+	}
+
+	currentResources.AuthorizationPolicies.Add(policy.UID)
+	return nil
+}
