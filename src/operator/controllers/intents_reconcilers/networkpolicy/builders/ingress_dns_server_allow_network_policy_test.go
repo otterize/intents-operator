@@ -126,7 +126,6 @@ func ingressDNSnetworkPolicyIngressTemplate(
 				},
 			},
 			Ingress: ingressRules,
-			Egress:  make([]v1.NetworkPolicyEgressRule, 0),
 		},
 	}
 }

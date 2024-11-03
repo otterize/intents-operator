@@ -157,7 +157,6 @@ func networkPolicyDNSEgressTemplate(
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					Ports: []v1.NetworkPolicyPort{
