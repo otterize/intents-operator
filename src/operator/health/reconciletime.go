@@ -32,8 +32,8 @@ func ElapsedTimeSinceReconcileStartWithoutSuccessfulReconcile() time.Duration {
 }
 
 func Checker(*http.Request) error {
-	if ElapsedTimeSinceReconcileStartWithoutSuccessfulReconcile() > 30*time.Second {
-		err := errors.Errorf("last reconcile took more than 5 minutes - failing healthcheck")
+	if ElapsedTimeSinceReconcileStartWithoutSuccessfulReconcile() > 90*time.Second {
+		err := errors.Errorf("last reconcile took more than 90 seconds - failing healthcheck")
 		logrus.WithError(err).Error("Health check failed due to long reconcile time - may be normal if just enabled enforcement for the first time on a large cluster, if it recovers")
 		return err
 	}
