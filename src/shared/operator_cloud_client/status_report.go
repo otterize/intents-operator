@@ -7,7 +7,9 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"time"
@@ -68,6 +70,7 @@ func getAllowExternalConfig() graphqlclient.AllowExternalTrafficPolicy {
 
 func uploadConfiguration(ctx context.Context, client CloudClient) {
 	ingressConfigIdentities := operatorconfig.GetIngressControllerServiceIdentities()
+	externallyManagedPolicyWorkloadIdentities := operatorconfig.GetExternallyManagedPoliciesServiceIdentities()
 	enforcementConfig := enforcement.GetConfig()
 	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
@@ -87,17 +90,21 @@ func uploadConfiguration(ctx context.Context, client CloudClient) {
 		AllowExternalTrafficPolicy:            getAllowExternalConfig(),
 	}
 
-	if len(ingressConfigIdentities) != 0 {
-		ingressControllerConfigInput := make([]graphqlclient.IngressControllerConfigInput, 0)
-		for _, identity := range ingressConfigIdentities {
-			ingressControllerConfigInput = append(ingressControllerConfigInput, graphqlclient.IngressControllerConfigInput{
-				Name:      identity.Name,
-				Namespace: identity.Namespace,
-				Kind:      identity.Kind,
-			})
+	configInput.IngressControllerConfig = lo.Map(ingressConfigIdentities, func(identity serviceidentity.ServiceIdentity, _ int) graphqlclient.IngressControllerConfigInput {
+		return graphqlclient.IngressControllerConfigInput{
+			Name:      identity.Name,
+			Namespace: identity.Namespace,
+			Kind:      identity.Kind,
 		}
-		configInput.IngressControllerConfig = ingressControllerConfigInput
-	}
+	})
+
+	configInput.ExternallyManagedPolicyWorkloads = lo.Map(externallyManagedPolicyWorkloadIdentities, func(identity serviceidentity.ServiceIdentity, _ int) graphqlclient.ExternallyManagedPolicyWorkloadInput {
+		return graphqlclient.ExternallyManagedPolicyWorkloadInput{
+			Name:      identity.Name,
+			Namespace: identity.Namespace,
+			Kind:      identity.Kind,
+		}
+	})
 
 	configInput.AwsALBLoadBalancerExemptionEnabled = viper.GetBool(operatorconfig.IngressControllerALBExemptKey)
 

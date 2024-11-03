@@ -62,6 +62,7 @@ const (
 	IngressControllerConfigKey                = "ingressControllers"
 	SeparateNetpolsForIngressAndEgress        = "separate-netpols-for-ingress-and-egress"
 	SeparateNetpolsForIngressAndEgressDefault = false
+	ExternallyManagedPolicyWorkloadsKey       = "externallyManagedPolicyWorkloads"
 )
 
 func init() {
@@ -131,6 +132,30 @@ func GetIngressControllerServiceIdentities() []serviceidentity.ServiceIdentity {
 			Name:      controller.Name,
 			Namespace: controller.Namespace,
 			Kind:      controller.Kind,
+		})
+	}
+	return identities
+}
+
+type ExternallyManagedPolicyWorkload struct {
+	Name      string
+	Namespace string
+	Kind      string
+}
+
+func GetExternallyManagedPoliciesServiceIdentities() []serviceidentity.ServiceIdentity {
+	workloads := make([]ExternallyManagedPolicyWorkload, 0)
+	err := viper.UnmarshalKey(ExternallyManagedPolicyWorkloadsKey, &workloads)
+	if err != nil {
+		logrus.WithError(err).Panic("Failed to unmarshal externally managed policy workloads config")
+	}
+
+	identities := make([]serviceidentity.ServiceIdentity, 0)
+	for _, workload := range workloads {
+		identities = append(identities, serviceidentity.ServiceIdentity{
+			Name:      workload.Name,
+			Namespace: workload.Namespace,
+			Kind:      workload.Kind,
 		})
 	}
 	return identities

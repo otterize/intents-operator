@@ -106,13 +106,17 @@ type AWSS3Resource {
 
 type AWSVisibility {
 	arn: String!
-	resourceType: String!
+	resourceType: AWSVisibilityResourceType!
 	name: String!
 	lbArn: String
 	domain: String
 	ips: [String!]!
 	eksIngressName: String
 	region: String!
+}
+
+enum AWSVisibilityResourceType {
+	EKS
 }
 
 type AWSVisibilitySettings {
@@ -172,7 +176,6 @@ type AccessLogEdge {
 	originIntent: Intent!
 	dns: String!
 	accessStatus: EdgeAccessStatus!
-	accessStatuses: EdgeAccessStatuses!
 }
 
 enum AllowExternalTrafficPolicy {
@@ -301,8 +304,8 @@ input ClientIPConfig {
 }
 
 type ClientIntentEvent {
-	firstTimestamp: Time!
-	lastTimestamp: Time!
+	firstTimestamp: Time
+	lastTimestamp: Time
 	reportingComponent: String
 	count: Int!
 	type: String!
@@ -319,8 +322,8 @@ input ClientIntentEventInput {
 	annotations: [KeyValueInput!]
 	count: Int!
 	clientIntentName: String!
-	firstTimestamp: Time!
-	lastTimestamp: Time!
+	firstTimestamp: Time
+	lastTimestamp: Time
 	reportingComponent: String
 	reportingInstance: String
 	sourceComponent: String
@@ -419,6 +422,7 @@ type ClusterViolation {
 	cluster: Cluster!
 	reason: String!
 	intentsOperatorState: IntentsOperatorState
+	relatedServices: [Service!]
 }
 
 input Component {
@@ -537,6 +541,12 @@ enum DatabaseVisibilitySource {
 	GCP_PUBSUB
 }
 
+type DetectedCloudServer {
+	cloudProvider: String!
+	cloudService: String!
+	region: String!
+}
+
 input DiscoveredIntentInput {
 	discoveredAt: Time!
 	intent: IntentInput!
@@ -558,6 +568,7 @@ enum EdgeAccessStatusReason {
 	ALLOWED_BY_APPLIED_INTENTS_KAFKA_OVERLY_PERMISSIVE
 	ALLOWED_BY_APPLIED_INTENTS_DATABASE_OVERLY_PERMISSIVE
 	ALLOWED_BY_EXTERNAL_TRAFFIC_NETWORK_POLICY
+	WOULD_BE_ALLOWED_BY_EXTERNAL_TRAFFIC_NETWORK_POLICY
 	BLOCKED_BY_APPLIED_INTENTS_UNDER_PERMISSIVE
 	BLOCKED_BY_APPLIED_INTENTS_RESOURCE_MISMATCH
 	BLOCKED_BY_APPLIED_INTENTS_HTTP_UNDER_PERMISSIVE
@@ -583,6 +594,9 @@ enum EdgeAccessStatusReason {
 	NO_INTENTS_FOUND_OF_RELEVANT_TYPE
 	IGNORED_IN_CALCULATION
 	INTERNET_INTENTS_ENFORCEMENT_DISABLED
+	BLOCKED_BY_DEFAULT_DENY_MISSING_EXTERNAL_TRAFFIC_POLICY
+	BLOCKED_BY_APPLIED_INTENTS_MISSING_EXTERNAL_TRAFFIC_POLICY
+	ALLOWED_BY_EXTERNALLY_MANAGED_NETWORK_POLICY
 }
 
 enum EdgeAccessStatusVerdict {
@@ -669,6 +683,12 @@ input ExternallyAccessibleServiceInput {
 	referredByIngress: Boolean!
 	hasInternetFacingAWSALBIngress: Boolean
 	serviceType: KubernetesServiceType!
+}
+
+input ExternallyManagedPolicyWorkloadInput {
+	name: String!
+	namespace: String!
+	kind: String!
 }
 
 type FeatureFlags {
@@ -832,8 +852,8 @@ enum IDFilterOperators {
 }
 
 type IDFilterValue {
-	value: [ID!]!
-	operator: IDFilterOperators!
+	include: [ID!]
+	exclude: [ID!]
 }
 
 enum IPFamily {
@@ -888,6 +908,10 @@ input InputAccessLogFilter {
 	featureFlags: InputFeatureFlags
 """ Access log filter """
 	pagination: PaginationInput
+""" Access log filter """
+	accessVerdicts: InputIDFilterValue
+""" Access log filter """
+	accessStatusReasons: InputIDFilterValue
 }
 
 input InputFeatureFlags {
@@ -912,8 +936,8 @@ input InputFindingFilter {
 }
 
 input InputIDFilterValue {
-	value: [ID!]!
-	operator: IDFilterOperators!
+	include: [ID!]
+	exclude: [ID!]
 }
 
 input InputIntegrationAccessGraphFilter {
@@ -934,6 +958,8 @@ input InputResourceInventoryFilter {
 
 """ Service filter """
 input InputServiceFilter {
+""" Service filter """
+	search: String
 """ Service filter """
 	serviceType: InputIDFilterValue
 """ Service filter """
@@ -1144,6 +1170,7 @@ input IntentsOperatorConfigurationInput {
 	ingressControllerConfig: [IngressControllerConfigInput!]
 	awsALBLoadBalancerExemptionEnabled: Boolean
 	allowExternalTrafficPolicy: AllowExternalTrafficPolicy
+	externallyManagedPolicyWorkloads: [ExternallyManagedPolicyWorkloadInput!]
 }
 
 type IntentsOperatorState {
@@ -1716,6 +1743,10 @@ type Mutation {
 		id: ID!
 		tags: [String!]
 	): Service!
+"""update service metadata from operator"""
+	reportServiceMetadata(
+		serviceMeta: ReportServiceMetadataInput!
+	): Boolean!
 """Bulk Update services"""
 	addTagsToServices(
 		ids: [ID!]!
@@ -1831,6 +1862,11 @@ input PaginationInput {
 	limit: Int
 }
 
+""" Pagination types """
+type PaginationMeta {
+	total: Int
+}
+
 enum PathType {
 	IMPLEMENTATION_SPECIFIC
 	PREFIX
@@ -1861,6 +1897,7 @@ type Query {
 	serviceAccessGraph(
 		id: ID!
 	): ServiceAccessGraph!
+""" Get service ClientIntents """
 	serviceClientIntents(
 		id: ID!
 		asServiceId: ID
@@ -1991,12 +2028,21 @@ type Query {
 		name: String
 		filter: InputServiceFilter
 	): [Service!]!
+"""Paginate services"""
+	paginateServices(
+		filter: InputServiceFilter
+		pagination: PaginationInput
+	): ServicesResponse!
 """Get service by filters"""
 	oneService(
 		environmentId: ID
 		namespaceId: ID
 		name: String
 	): Service
+"""Get service by kubernetes identity"""
+	serviceByIdentity(
+		identity: ServiceIdentityInput!
+	): Service!
 """List users"""
 	users: [User!]!
 """Get user"""
@@ -2021,12 +2067,17 @@ type Regulation {
 enum RegulationCode {
 	PCI_4_0
 	PCI_4_0_1_1
+	PCI_4_0_1_1_2
 	PCI_4_0_1_1_4
+	PCI_4_0_1_1_6
 	PCI_4_0_1_2
 	PCI_4_0_1_2_1
 	PCI_4_0_1_3
 	PCI_4_0_1_3_4
 	PCI_4_0_1_3_6
+	PCI_4_0_7_1
+	PCI_4_0_7_2
+	PCI_4_0_8_7
 	ZERO_TRUST
 	ZERO_TRUST_SENSITIVE
 	ZERO_TRUST_DEFAULT_DENY
@@ -2040,6 +2091,11 @@ enum RegulationStandard {
 	PII
 	HIPAA
 	ZERO_TRUST
+}
+
+input ReportServiceMetadataInput {
+	identity: ServiceIdentityInput!
+	metadata: ServiceMetadataInput!
 }
 
 type Resource {
@@ -2142,6 +2198,7 @@ type Service {
 	gcpResource: GCPResource
 	azureResource: AzureResource
 	discoveredByIntegration: Integration
+	detectedCloudServer: DetectedCloudServer
 	awsVisibility: AWSVisibility
 	databaseIntegration: Integration
 	tlsKeyPair: KeyPair!
@@ -2182,9 +2239,19 @@ enum ServiceExternalTrafficPolicy {
 	LOCAL
 }
 
+input ServiceIdentityInput {
+	name: String!
+	namespace: String!
+	kind: String!
+}
+
 enum ServiceInternalTrafficPolicy {
 	CLUSTER
 	LOCAL
+}
+
+input ServiceMetadataInput {
+	tags: [String!]
 }
 
 enum ServiceType {
@@ -2200,12 +2267,18 @@ enum ServiceType {
 	DATABASE_USER
 	KUBERNETES_LOAD_BALANCER
 	AWS_VISIBILITY_EKS
+	DETECTED_CLOUD_SERVER
 }
 
 type ServiceViolation {
 	service: Service!
 	reason: String!
 	violatedCalls: [AccessGraphEdge!]
+}
+
+type ServicesResponse {
+	data: [Service!]!
+	meta: PaginationMeta
 }
 
 enum SessionAffinity {
