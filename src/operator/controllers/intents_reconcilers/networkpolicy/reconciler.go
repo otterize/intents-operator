@@ -354,8 +354,8 @@ func (r *Reconciler) buildSinglePolicy(ep effectivepolicy.ServiceEffectivePolicy
 		Spec: v1.NetworkPolicySpec{
 			PodSelector: podSelector,
 			PolicyTypes: policyTypes,
-			Egress:      egressRules,
-			Ingress:     ingressRules,
+			Egress:      lo.Ternary(len(egressRules) > 0, egressRules, nil),
+			Ingress:     lo.Ternary(len(ingressRules) > 0, ingressRules, nil),
 		},
 	}
 }
@@ -415,7 +415,13 @@ func (r *Reconciler) createNetworkPolicy(ctx context.Context, ep effectivepolicy
 }
 
 func (r *Reconciler) updateExistingPolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) error {
-	if reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) {
+	// PAY ATTENTION: deepEqual is sensitive the differance between nil and empty slice
+	// therefore, we marshal and unmarshal to nullify empty slices of the new policy
+	newPolicyForComparison, err := marshalUnmarshalNetpol(newPolicy)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	if reflect.DeepEqual(existingPolicy.Spec, newPolicyForComparison.Spec) {
 		return nil
 	}
 
@@ -424,7 +430,7 @@ func (r *Reconciler) updateExistingPolicy(ctx context.Context, ep effectivepolic
 	policyCopy.Annotations = newPolicy.Annotations
 	policyCopy.Spec = newPolicy.Spec
 
-	err := r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
+	err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -599,4 +605,17 @@ func matchAccessNetworkPolicy() (labels.Selector, error) {
 		isNotExternalTrafficPolicy,
 		isNotDefaultDenyPolicy,
 	}})
+}
+
+func marshalUnmarshalNetpol(netpol *v1.NetworkPolicy) (v1.NetworkPolicy, error) {
+	data, err := netpol.Marshal()
+	if err != nil {
+		return v1.NetworkPolicy{}, errors.Wrap(err)
+	}
+	newNetpol := v1.NetworkPolicy{}
+	err = newNetpol.Unmarshal(data)
+	if err != nil {
+		return v1.NetworkPolicy{}, errors.Wrap(err)
+	}
+	return newNetpol, nil
 }
