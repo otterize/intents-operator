@@ -5,6 +5,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -126,15 +127,13 @@ func GetIngressControllerServiceIdentities() []serviceidentity.ServiceIdentity {
 		logrus.WithError(err).Panic("Failed to unmarshal ingress controller config")
 	}
 
-	identities := make([]serviceidentity.ServiceIdentity, 0)
-	for _, controller := range controllers {
-		identities = append(identities, serviceidentity.ServiceIdentity{
+	return lo.Map(controllers, func(controller IngressControllerConfig, _ int) serviceidentity.ServiceIdentity {
+		return serviceidentity.ServiceIdentity{
 			Name:      controller.Name,
 			Namespace: controller.Namespace,
 			Kind:      controller.Kind,
-		})
-	}
-	return identities
+		}
+	})
 }
 
 type ExternallyManagedPolicyWorkload struct {
@@ -150,15 +149,13 @@ func GetExternallyManagedPoliciesServiceIdentities() []serviceidentity.ServiceId
 		logrus.WithError(err).Panic("Failed to unmarshal externally managed policy workloads config")
 	}
 
-	identities := make([]serviceidentity.ServiceIdentity, 0)
-	for _, workload := range workloads {
-		identities = append(identities, serviceidentity.ServiceIdentity{
+	return lo.Map(workloads, func(workload ExternallyManagedPolicyWorkload, _ int) serviceidentity.ServiceIdentity {
+		return serviceidentity.ServiceIdentity{
 			Name:      workload.Name,
 			Namespace: workload.Namespace,
 			Kind:      workload.Kind,
-		})
-	}
-	return identities
+		}
+	})
 }
 
 func InitCLIFlags() {
