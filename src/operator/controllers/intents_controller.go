@@ -43,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 )
 
 var intentsLegacyFinalizers = []string{
@@ -152,7 +153,10 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	health.UpdateLastReconcileStartTime()
 
-	result, err := r.group.Reconcile(ctx, req)
+	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 60*time.Second, errors.Errorf("timeout while reconciling client intents %s", req.NamespacedName))
+	defer cancel()
+
+	result, err := r.group.Reconcile(timeoutCtx, req)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}

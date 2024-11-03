@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
 
 type reconciler interface {
@@ -53,6 +54,9 @@ func (g *GroupReconciler) InjectRecorder(recorder record.EventRecorder) {
 }
 
 func (g *GroupReconciler) Reconcile(ctx context.Context) error {
+	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 45*time.Second, errors.Errorf("timeout while reconciling service effective policies"))
+	defer cancel()
+	ctx = timeoutCtx
 	eps, err := g.getAllServiceEffectivePolicies(ctx)
 	if err != nil {
 		return errors.Wrap(err)
@@ -71,6 +75,9 @@ func (g *GroupReconciler) Reconcile(ctx context.Context) error {
 }
 
 func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([]ServiceEffectivePolicy, error) {
+	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 10*time.Second, errors.Errorf("timeout while building list of service effective policies"))
+	defer cancel()
+	ctx = timeoutCtx
 	var intentsList v2alpha1.ClientIntentsList
 
 	err := g.Client.List(ctx, &intentsList)

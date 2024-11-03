@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
+	"time"
 )
 
 type EgressRuleBuilder interface {
@@ -107,6 +108,10 @@ func (r *Reconciler) InjectRecorder(recorder record.EventRecorder) {
 
 // ReconcileEffectivePolicies Gets current state of effective policies and returns number of network policies
 func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, []error) {
+	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 30*time.Second, errors.Errorf("timeout while reconciling already-built list of service effective policies"))
+	defer cancel()
+	ctx = timeoutCtx
+
 	currentPolicies := goset.NewSet[types.NamespacedName]()
 	errorList := make([]error, 0)
 	for _, ep := range eps {
@@ -134,7 +139,10 @@ func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effec
 	}
 
 	// We do it to make sure any excess external allow policies are removed
-	err = r.extNetpolHandler.HandleAllPods(ctx)
+	extTimeoutCtx, cancel := context.WithTimeoutCause(ctx, 30*time.Second, errors.Errorf("timeout while handling external traffic netpols"))
+	defer cancel()
+
+	err = r.extNetpolHandler.HandleAllPods(extTimeoutCtx)
 	if err != nil {
 		return currentPolicies.Len(), []error{errors.Wrap(err)}
 	}
@@ -143,6 +151,9 @@ func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effec
 }
 
 func (r *Reconciler) applyServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]types.NamespacedName, bool, error) {
+	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 5*time.Second, errors.Errorf("timeout while reconciling single service effective policy"))
+	defer cancel()
+	ctx = timeoutCtx
 	if !r.EnableNetworkPolicyCreation {
 		logrus.Debugf("Network policy creation is disabled, skipping network policy creation for service %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
 		if len(ep.Calls) > 0 && len(r.egressRuleBuilders) > 0 {
@@ -451,6 +462,9 @@ func (r *Reconciler) updateExistingPolicy(ctx context.Context, ep effectivepolic
 }
 
 func (r *Reconciler) removeNetworkPoliciesThatShouldNotExist(ctx context.Context, netpolNamesThatShouldExist *goset.Set[types.NamespacedName]) error {
+	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 5*time.Second, errors.Errorf("timeout while removing orphaned network policies"))
+	defer cancel()
+	ctx = timeoutCtx
 	logrus.Debug("Searching for orphaned network policies")
 	networkPolicyList := &v1.NetworkPolicyList{}
 	selector, err := matchAccessNetworkPolicy()
