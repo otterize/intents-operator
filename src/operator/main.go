@@ -209,12 +209,17 @@ func main() {
 	additionalIntentsReconcilers := make([]reconcilergroup.ReconcilerWithEvents, 0)
 	svcNetworkPolicyBuilder := builders.NewPortNetworkPolicyReconciler(mgr.GetClient())
 	dnsServerNetpolBuilder := builders.NewIngressDNSServerAutoAllowNetpolBuilder()
-	epNetpolReconciler := networkpolicy.NewReconciler(mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces, enforcementConfig.EnforcedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState,
-		[]networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder, dnsServerNetpolBuilder}, make([]networkpolicy.EgressRuleBuilder, 0))
+	epNetpolReconciler :=
+		networkpolicy.NewReconciler(
+			mgr.GetClient(), scheme, extNetpolHandler, watchedNamespaces,
+			enforcementConfig.EnforcedNamespaces, enforcementConfig.EnableNetworkPolicy, enforcementConfig.EnforcementDefaultState,
+			viper.GetBool(operatorconfig.SeparateNetpolsForIngressAndEgress),
+			[]networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder, dnsServerNetpolBuilder},
+			make([]networkpolicy.EgressRuleBuilder, 0))
+	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, serviceIdResolver, epNetpolReconciler)
 
-	effectivePolicyGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, serviceIdResolver, epNetpolReconciler)
 	if enforcementConfig.EnableLinkerdPolicies {
-		effectivePolicyGroupReconciler.AddReconciler(intents_reconcilers.NewLinkerdReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnforcementDefaultState))
+		epGroupReconciler.AddReconciler(intents_reconcilers.NewLinkerdReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnforcementDefaultState))
 	}
 
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
@@ -230,7 +235,7 @@ func main() {
 		}
 	}
 
-	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, effectivePolicyGroupReconciler)
+	epIntentsReconciler := intents_reconcilers.NewServiceEffectiveIntentsReconciler(mgr.GetClient(), scheme, epGroupReconciler)
 	additionalIntentsReconcilers = append(additionalIntentsReconcilers, epIntentsReconciler)
 
 	var iamAgents []iampolicyagents.IAMPolicyAgent
@@ -346,6 +351,7 @@ func main() {
 
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
 	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler)
+	netpolReconciler := external_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), extNetpolHandler)
 
 	if !enforcementConfig.EnforcementDefaultState {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
@@ -434,6 +440,10 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Ingress")
 	}
 
+	if err = netpolReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "NetworkPolicy")
+	}
+
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
@@ -459,7 +469,7 @@ func main() {
 		extNetpolHandler,
 		enforcementConfig.EnforcementDefaultState,
 		enforcementConfig.EnableNetworkPolicy,
-		effectivePolicyGroupReconciler,
+		epGroupReconciler,
 	)
 
 	err = protectedServicesReconciler.SetupWithManager(mgr)
@@ -467,19 +477,9 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "ProtectedServices")
 	}
 
-	podWatcher := pod_reconcilers.NewPodWatcher(
-		mgr.GetClient(),
-		mgr.GetEventRecorderFor("intents-operator"),
-		watchedNamespaces,
-		enforcementConfig.EnforcementDefaultState,
-		enforcementConfig.EnableIstioPolicy,
-		//enforcementConfig.EnableLinkerdPolicies,
-		enforcementConfig.EnforcedNamespaces,
-		intentsReconciler,
-		effectivePolicyGroupReconciler,
-	)
+	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, intentsReconciler, epGroupReconciler)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
-	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), effectivePolicyGroupReconciler, enforcementConfig.EnableNetworkPolicy, extNetpolHandler)
+	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler, enforcementConfig.EnableNetworkPolicy, extNetpolHandler)
 
 	err = svcWatcher.SetupWithManager(mgr)
 	if err != nil {

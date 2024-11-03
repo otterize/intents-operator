@@ -25,34 +25,34 @@ type ServiceIdentity struct {
 const KindService = "Service"
 const KindOtterizeLegacy = "OttrLegacy"
 
-func (si *ServiceIdentity) GetFormattedOtterizeIdentityWithoutKind() string {
+func (si ServiceIdentity) GetFormattedOtterizeIdentityWithoutKind() string {
 	return getFormattedOtterizeIdentity(si.Name, si.Namespace)
 }
 
-func (si *ServiceIdentity) GetFormattedOtterizeIdentityWithKind() string {
+func (si ServiceIdentity) GetFormattedOtterizeIdentityWithKind() string {
 	if si.Kind == "" || si.Kind == KindOtterizeLegacy {
 		return getFormattedOtterizeIdentity(si.Name, si.Namespace)
 	}
 	return getFormattedOtterizeIdentityWithKind(si.Name, si.Namespace, si.Kind)
 }
 
-func (si *ServiceIdentity) GetName() string {
+func (si ServiceIdentity) GetName() string {
 	return si.Name
 }
 
-func (si *ServiceIdentity) GetNameAsServer() string {
+func (si ServiceIdentity) GetNameAsServer() string {
 	return fmt.Sprintf("%s.%s", si.Name, si.Namespace)
 }
 
-func (si *ServiceIdentity) GetNameWithKind() string {
+func (si ServiceIdentity) GetNameWithKind() string {
 	return lo.Ternary(si.Kind == "" || si.Kind == KindOtterizeLegacy, si.Name, fmt.Sprintf("%s-%s", si.Name, strings.ToLower(si.Kind)))
 }
 
-func (si *ServiceIdentity) Equals(other ServiceIdentity) bool {
+func (si ServiceIdentity) Equals(other ServiceIdentity) bool {
 	return si.Name == other.Name && si.Namespace == other.Namespace && si.Kind == other.Kind
 }
 
-func (si *ServiceIdentity) String() string {
+func (si ServiceIdentity) String() string {
 	return fmt.Sprintf("%s/%s/%s", si.Kind, si.Namespace, si.Name)
 }
 

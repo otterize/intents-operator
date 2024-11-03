@@ -32,36 +32,36 @@ const (
 	DisableWebhookServerKey     = "disable-webhook-server" // Disable webhook validator server
 	DisableWebhookServerDefault = false
 
-	IntentsOperatorPodNameKey              = "pod-name"
-	IntentsOperatorPodNamespaceKey         = "pod-namespace"
-	EnvPrefix                              = "OTTERIZE"
-	RetryDelayTimeKey                      = "retry-delay-time" // Default retry delay time for retrying failed requests
-	RetryDelayTimeDefault                  = 5 * time.Second
-	DebugLogKey                            = "debug" // Whether to enable debug logging
-	DebugLogDefault                        = false
-	EnableEgressAutoallowDNSTrafficKey     = "enable-egress-autoallow-dns-traffic" // Whether to automatically allow DNS traffic in egress network policies
-	EnableEgressAutoallowDNSTrafficDefault = true
-	EnableAWSRolesAnywhereKey              = "enable-aws-iam-rolesanywhere"
-	EnableAWSRolesAnywhereDefault          = false
-	AzureSubscriptionIDKey                 = "azure-subscription-id"
-	AzureResourceGroupKey                  = "azure-resource-group"
-	AzureAKSClusterNameKey                 = "azure-aks-cluster-name"
-	EKSClusterNameOverrideKey              = "eks-cluster-name-override"
-	AWSRolesAnywhereTrustAnchorARNKey      = "rolesanywhere-trust-anchor-arn"
-	AWSRolesAnywhereSPIFFETrustDomainKey   = "rolesanywhere-spiffe-trust-domain"
-	AWSRolesAnywhereClusterNameKey         = "rolesanywhere-cluster-name"
-	AWSRolesAnywhereCertDirKey             = "rolesanywhere-cert-dir"
-	AWSRolesAnywhereCertDirDefault         = "/aws-config"
-	AWSRolesAnywherePrivKeyFilenameKey     = "rolesanywhere-priv-key-filename"
-	AWSRolesAnywhereCertFilenameKey        = "rolesanywhere-cert-filename"
-	AWSRolesAnywherePrivKeyFilenameDefault = "tls.key"
-	AWSRolesAnywhereCertFilenameDefault    = "tls.crt"
-	TelemetryErrorsAPIKeyKey               = "telemetry-errors-api-key"
-	TelemetryErrorsAPIKeyDefault           = "60a78208a2b4fe714ef9fb3d3fdc0714"
-	AWSAccountsKey                         = "aws"
-	IngressControllerALBExemptKey          = "ingress-controllers-exempt-alb"
-	IngressControllerALBExemptDefault      = false
-	IngressControllerConfigKey             = "ingressControllers"
+	IntentsOperatorPodNameKey                 = "pod-name"
+	IntentsOperatorPodNamespaceKey            = "pod-namespace"
+	EnvPrefix                                 = "OTTERIZE"
+	RetryDelayTimeKey                         = "retry-delay-time" // Default retry delay time for retrying failed requests
+	RetryDelayTimeDefault                     = 5 * time.Second
+	DebugLogKey                               = "debug" // Whether to enable debug logging
+	DebugLogDefault                           = false
+	EnableEgressAutoallowDNSTrafficKey        = "enable-egress-autoallow-dns-traffic" // Whether to automatically allow DNS traffic in egress network policies
+	EnableEgressAutoallowDNSTrafficDefault    = true
+	EnableAWSRolesAnywhereKey                 = "enable-aws-iam-rolesanywhere"
+	EnableAWSRolesAnywhereDefault             = false
+	AzureSubscriptionIDKey                    = "azure-subscription-id"
+	AzureResourceGroupKey                     = "azure-resource-group"
+	AzureAKSClusterNameKey                    = "azure-aks-cluster-name"
+	EKSClusterNameOverrideKey                 = "eks-cluster-name-override"
+	AWSRolesAnywhereClusterNameKey            = "rolesanywhere-cluster-name"
+	AWSRolesAnywhereCertDirKey                = "rolesanywhere-cert-dir"
+	AWSRolesAnywhereCertDirDefault            = "/aws-config"
+	AWSRolesAnywherePrivKeyFilenameKey        = "rolesanywhere-priv-key-filename"
+	AWSRolesAnywhereCertFilenameKey           = "rolesanywhere-cert-filename"
+	AWSRolesAnywherePrivKeyFilenameDefault    = "tls.key"
+	AWSRolesAnywhereCertFilenameDefault       = "tls.crt"
+	TelemetryErrorsAPIKeyKey                  = "telemetry-errors-api-key"
+	TelemetryErrorsAPIKeyDefault              = "60a78208a2b4fe714ef9fb3d3fdc0714"
+	AWSAccountsKey                            = "aws"
+	IngressControllerALBExemptKey             = "ingress-controllers-exempt-alb"
+	IngressControllerALBExemptDefault         = false
+	IngressControllerConfigKey                = "ingressControllers"
+	SeparateNetpolsForIngressAndEgress        = "separate-netpols-for-ingress-and-egress"
+	SeparateNetpolsForIngressAndEgressDefault = false
 )
 
 func init() {
@@ -83,6 +83,7 @@ func init() {
 	viper.SetDefault(WatchedNamespacesKey, nil)
 	viper.SetDefault(RetryDelayTimeKey, RetryDelayTimeDefault)
 	viper.SetDefault(DebugLogKey, DebugLogDefault)
+	viper.SetDefault(SeparateNetpolsForIngressAndEgress, SeparateNetpolsForIngressAndEgressDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 

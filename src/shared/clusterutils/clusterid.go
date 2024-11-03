@@ -76,7 +76,7 @@ func SetClusterUID(ctx context.Context) (string, error) {
 func getOrCreateClusterUID(ctx context.Context) (string, error) {
 	clusterUID, err := GetClusterUID(ctx)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
+		if k8serrors.IsNotFound(errors.Unwrap(err)) {
 			clusterUID, err = SetClusterUID(ctx)
 			if err != nil {
 				return "", errors.Wrap(err)

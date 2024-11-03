@@ -9,6 +9,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -25,9 +26,11 @@ import (
 )
 
 const (
-	testNamespace       = "test-namespace"
-	testServerNamespace = "test-server-namespace"
-	testClientNamespace = "test-client-namespace"
+	testNamespace               = "test-namespace"
+	testServerNamespace         = "test-server-namespace"
+	testClientNamespace         = "test-client-namespace"
+	testServerServiceLabelKey   = "app"
+	testServerServiceLabelValue = "server"
 )
 
 type RulesBuilderTestSuiteBase struct {
@@ -54,6 +57,7 @@ func (s *RulesBuilderTestSuiteBase) SetupTest() {
 		nil,
 		true,
 		true,
+		false,
 		nil,
 		nil)
 	s.Reconciler.Recorder = s.Recorder
@@ -66,6 +70,7 @@ func (s *RulesBuilderTestSuiteBase) SetupTest() {
 
 	epReconciler.InjectableRecorder.Recorder = s.Recorder
 	s.EPIntentsReconciler.Recorder = s.Recorder
+	s.externalNetpolHandler.EXPECT().HandleAllPods(gomock.Any()).AnyTimes()
 }
 
 func (s *RulesBuilderTestSuiteBase) TearDownTest() {
@@ -125,6 +130,9 @@ func (s *RulesBuilderTestSuiteBase) expectRemoveOrphanFindsPolicies(netpols []v1
 
 func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents []otterizev2alpha1.ClientIntents) {
 	var intentsList otterizev2alpha1.ClientIntentsList
+	for _, clientIntentsEntry := range clientIntents {
+		s.expectKubernetesServicesReferencingPodsIndirectly(clientIntentsEntry)
+	}
 
 	s.Client.EXPECT().List(gomock.Any(), &intentsList).DoAndReturn(func(_ context.Context, intents *otterizev2alpha1.ClientIntentsList, _ ...any) error {
 		intents.Items = append(intents.Items, clientIntents...)
@@ -146,11 +154,10 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 		}
 	}
 
-	matchFieldsPtr := &client.MatchingFields{}
 	s.Client.EXPECT().List(
 		gomock.Any(),
 		&otterizev2alpha1.ClientIntentsList{},
-		gomock.AssignableToTypeOf(matchFieldsPtr),
+		gomock.AssignableToTypeOf(&client.MatchingFields{}),
 	).DoAndReturn(func(_ context.Context, intents *otterizev2alpha1.ClientIntentsList, args ...any) error {
 		matchFields := args[0].(*client.MatchingFields)
 		intents.Items = services[(*matchFields)[otterizev2alpha1.OtterizeFormattedTargetServerIndexField]]
@@ -183,4 +190,63 @@ func (s *RulesBuilderTestSuiteBase) addExpectedKubernetesServiceCall(serviceName
 		}).AnyTimes()
 
 	return &svcObject
+}
+
+func (s *RulesBuilderTestSuiteBase) expectKubernetesServicesReferencingPodsIndirectly(clientIntents otterizev2alpha1.ClientIntents) {
+	podList := []corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-server",
+				Namespace: testClientNamespace,
+				Labels: map[string]string{
+					testServerServiceLabelKey: testServerServiceLabelValue,
+				},
+			},
+		},
+	}
+	for _, target := range clientIntents.Spec.Targets {
+		if target.GetTargetServerKind() == serviceidentity.KindOtterizeLegacy {
+			s.Client.EXPECT().List(
+				gomock.Any(),
+				&corev1.PodList{},
+				client.MatchingLabels{otterizev2alpha1.OtterizeServiceLabelKey: target.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind()},
+			).DoAndReturn(func(ctx context.Context, outPodList *corev1.PodList, _ client.ListOption) error {
+				outPodList.Items = podList
+				return nil
+			}).AnyTimes()
+		} else {
+			s.Client.EXPECT().List(
+				gomock.Any(),
+				&corev1.PodList{},
+				client.MatchingLabels{otterizev2alpha1.OtterizeServiceLabelKey: target.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind(),
+					otterizev2alpha1.OtterizeOwnerKindLabelKey: target.GetTargetServerKind()}).DoAndReturn(func(ctx context.Context, outPodList *corev1.PodList, _ client.ListOption) error {
+				outPodList.Items = podList
+				return nil
+			}).AnyTimes()
+		}
+
+		// Expect service list
+		serviceList := []corev1.Service{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-server",
+					Namespace: testClientNamespace,
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: map[string]string{
+						testServerServiceLabelKey: testServerServiceLabelValue,
+					},
+				},
+			},
+		}
+		var emptyServiceList corev1.ServiceList
+		s.Client.EXPECT().List(
+			gomock.Any(),
+			&emptyServiceList,
+			client.InNamespace(testClientNamespace),
+		).DoAndReturn(func(ctx context.Context, outServiceList *corev1.ServiceList, _ client.ListOption) error {
+			outServiceList.Items = serviceList
+			return nil
+		}).AnyTimes()
+	}
 }

@@ -36,6 +36,20 @@ func (m *MockExternalNetpolHandler) EXPECT() *MockExternalNetpolHandlerMockRecor
 	return m.recorder
 }
 
+// HandleAllPods mocks base method.
+func (m *MockExternalNetpolHandler) HandleAllPods(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleAllPods", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// HandleAllPods indicates an expected call of HandleAllPods.
+func (mr *MockExternalNetpolHandlerMockRecorder) HandleAllPods(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleAllPods", reflect.TypeOf((*MockExternalNetpolHandler)(nil).HandleAllPods), arg0)
+}
+
 // HandleBeforeAccessPolicyRemoval mocks base method.
 func (m *MockExternalNetpolHandler) HandleBeforeAccessPolicyRemoval(arg0 context.Context, arg1 *v1.NetworkPolicy) error {
 	m.ctrl.T.Helper()

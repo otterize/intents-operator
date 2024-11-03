@@ -225,7 +225,7 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
-			logrus.Info("should create server result for port: ", port, shouldCreateServer)
+			logrus.Infof("should create server result for port %d - %t", port, shouldCreateServer)
 
 			if shouldCreateServer {
 				podSelector := ldm.BuildPodLabelSelectorFromTarget(target.Target, clientNamespace)
