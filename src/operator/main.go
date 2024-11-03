@@ -525,8 +525,6 @@ func main() {
 		logrus.WithError(err).Panic("unable to set up health check")
 	}
 
-	health.Checker(nil)
-
 	logrus.Info("starting manager")
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 0)
 	telemetrysender.IntentsOperatorRunActiveReporter(signalHandlerCtx)
