@@ -141,7 +141,6 @@ func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effec
 	// We do it to make sure any excess external allow policies are removed
 	extTimeoutCtx, cancel := context.WithTimeoutCause(ctx, 30*time.Second, errors.Errorf("timeout while handling external traffic netpols"))
 	defer cancel()
-	ctx = timeoutCtx
 
 	err = r.extNetpolHandler.HandleAllPods(extTimeoutCtx)
 	if err != nil {
