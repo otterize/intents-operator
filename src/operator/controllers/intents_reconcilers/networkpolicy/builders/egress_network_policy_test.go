@@ -411,7 +411,6 @@ func networkPolicyEgressTemplate(
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{

@@ -148,6 +148,8 @@ func (g *Group) runGroup(ctx context.Context, req ctrl.Request, finalErr error, 
 		if err != nil {
 			if finalErr == nil {
 				finalErr = err
+			} else {
+				logrus.WithError(err).Errorf("Error during reconciliation cycle for %T", reconciler)
 			}
 		}
 		if !res.IsZero() {

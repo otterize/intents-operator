@@ -96,7 +96,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
@@ -207,7 +206,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
@@ -316,7 +314,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyFromDN
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
@@ -418,7 +415,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyMultip
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
@@ -531,7 +527,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNetworkPolicyDeletedClean
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
@@ -621,7 +616,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
@@ -732,7 +726,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
@@ -742,7 +735,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 							},
 						},
 					},
-					Ports: []v1.NetworkPolicyPort{},
 				},
 			},
 		},
@@ -765,7 +757,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 					otterizev2alpha1.OtterizeServiceLabelKey: nonExistingClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
@@ -775,7 +766,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 							},
 						},
 					},
-					Ports: []v1.NetworkPolicyPort{},
 				},
 			},
 		},
@@ -949,7 +939,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForOneDNSButFoun
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{

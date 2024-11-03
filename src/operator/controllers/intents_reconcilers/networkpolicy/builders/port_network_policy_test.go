@@ -146,7 +146,6 @@ func (s *PortNetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: svcObject.Spec.Selector,
 			},
-			Egress: make([]v1.NetworkPolicyEgressRule, 0),
 			Ingress: []v1.NetworkPolicyIngressRule{
 				{
 					From: []v1.NetworkPolicyPeer{
