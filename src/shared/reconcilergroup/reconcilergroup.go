@@ -39,18 +39,16 @@ func NewGroup(
 	resourceObject client.Object,
 	finalizer string,
 	legacyFinalizers []string,
-	monitorLastReconcileStartTime bool,
 	reconcilers ...ReconcilerWithEvents,
 ) *Group {
 	return &Group{
-		reconcilers:                   reconcilers,
-		name:                          name,
-		client:                        client,
-		scheme:                        scheme,
-		baseObject:                    resourceObject,
-		finalizer:                     finalizer,
-		legacyFinalizers:              legacyFinalizers,
-		monitorLastReconcileStartTime: monitorLastReconcileStartTime,
+		reconcilers:      reconcilers,
+		name:             name,
+		client:           client,
+		scheme:           scheme,
+		baseObject:       resourceObject,
+		finalizer:        finalizer,
+		legacyFinalizers: legacyFinalizers,
 	}
 }
 
@@ -111,7 +109,6 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 	}
 
 	if g.monitorLastReconcileStartTime {
-		health.UpdateLastReconcileEndTime()
 	}
 
 	return finalRes, finalErr

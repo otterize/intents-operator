@@ -1,13 +1,30 @@
 package networkpolicy
 
 import (
+	"github.com/otterize/intents-operator/src/shared/errors"
 	networkingv1 "k8s.io/api/networking/v1"
 	"reflect"
 	"sort"
 )
 
+// PAY ATTENTION: deepEqual is sensitive the differance between nil and empty slice
+// therefore, we marshal and unmarshal to nullify empty slices of the new policy
+func marshalUnmarshalNetpol(netpol *networkingv1.NetworkPolicy) (networkingv1.NetworkPolicy, error) {
+	data, err := netpol.Marshal()
+	if err != nil {
+		return networkingv1.NetworkPolicy{}, errors.Wrap(err)
+	}
+	newNetpol := networkingv1.NetworkPolicy{}
+	err = newNetpol.Unmarshal(data)
+	if err != nil {
+		return networkingv1.NetworkPolicy{}, errors.Wrap(err)
+	}
+	return newNetpol, nil
+}
+
 // isNetworkPolicySpecEqual compares two NetworkPolicySpec structs, ignoring the order of items in nested slices.
 func isNetworkPolicySpecEqual(spec1, spec2 networkingv1.NetworkPolicySpec) bool {
+
 	// Compare PodSelector
 	if !reflect.DeepEqual(spec1.PodSelector, spec2.PodSelector) {
 		return false

@@ -25,6 +25,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/operator/health"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
@@ -87,7 +88,6 @@ func NewIntentsReconciler(
 		&otterizev2alpha1.ClientIntents{},
 		otterizev2alpha1.ClientIntentsFinalizerName,
 		intentsLegacyFinalizers,
-		true,
 		reconcilers...,
 	)
 
@@ -151,6 +151,8 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
+	health.UpdateLastReconcileStartTime()
+
 	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 60*time.Second, errors.Errorf("timeout while reconciling client intents %s", req.NamespacedName))
 	defer cancel()
 
@@ -166,6 +168,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
+		health.UpdateLastReconcileEndTime()
 	}
 
 	return result, nil

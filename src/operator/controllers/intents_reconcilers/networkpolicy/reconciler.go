@@ -425,9 +425,12 @@ func (r *Reconciler) createNetworkPolicy(ctx context.Context, ep effectivepolicy
 }
 
 func (r *Reconciler) updateExistingPolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) error {
-	// PAY ATTENTION: deepEqual is sensitive the differance between nil and empty slice
-	// therefore, we marshal and unmarshal to nullify empty slices of the new policy
-	if isNetworkPolicySpecEqual(existingPolicy.Spec, newPolicy.Spec) {
+	unmarshalledNewPolicy, err := marshalUnmarshalNetpol(newPolicy)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	if isNetworkPolicySpecEqual(existingPolicy.Spec, unmarshalledNewPolicy.Spec) {
 		return nil
 	}
 
@@ -436,7 +439,7 @@ func (r *Reconciler) updateExistingPolicy(ctx context.Context, ep effectivepolic
 	policyCopy.Annotations = newPolicy.Annotations
 	policyCopy.Spec = newPolicy.Spec
 
-	err := r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
+	err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 	if err != nil {
 		return errors.Wrap(err)
 	}
