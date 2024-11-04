@@ -5,6 +5,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -62,6 +63,7 @@ const (
 	IngressControllerConfigKey                = "ingressControllers"
 	SeparateNetpolsForIngressAndEgress        = "separate-netpols-for-ingress-and-egress"
 	SeparateNetpolsForIngressAndEgressDefault = false
+	ExternallyManagedPolicyWorkloadsKey       = "externallyManagedPolicyWorkloads"
 )
 
 func init() {
@@ -125,15 +127,35 @@ func GetIngressControllerServiceIdentities() []serviceidentity.ServiceIdentity {
 		logrus.WithError(err).Panic("Failed to unmarshal ingress controller config")
 	}
 
-	identities := make([]serviceidentity.ServiceIdentity, 0)
-	for _, controller := range controllers {
-		identities = append(identities, serviceidentity.ServiceIdentity{
+	return lo.Map(controllers, func(controller IngressControllerConfig, _ int) serviceidentity.ServiceIdentity {
+		return serviceidentity.ServiceIdentity{
 			Name:      controller.Name,
 			Namespace: controller.Namespace,
 			Kind:      controller.Kind,
-		})
+		}
+	})
+}
+
+type ExternallyManagedPolicyWorkload struct {
+	Name      string
+	Namespace string
+	Kind      string
+}
+
+func GetExternallyManagedPoliciesServiceIdentities() []serviceidentity.ServiceIdentity {
+	workloads := make([]ExternallyManagedPolicyWorkload, 0)
+	err := viper.UnmarshalKey(ExternallyManagedPolicyWorkloadsKey, &workloads)
+	if err != nil {
+		logrus.WithError(err).Panic("Failed to unmarshal externally managed policy workloads config")
 	}
-	return identities
+
+	return lo.Map(workloads, func(workload ExternallyManagedPolicyWorkload, _ int) serviceidentity.ServiceIdentity {
+		return serviceidentity.ServiceIdentity{
+			Name:      workload.Name,
+			Namespace: workload.Namespace,
+			Kind:      workload.Kind,
+		}
+	})
 }
 
 func InitCLIFlags() {
