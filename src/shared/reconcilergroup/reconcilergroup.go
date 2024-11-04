@@ -2,6 +2,7 @@ package reconcilergroup
 
 import (
 	"context"
+	"github.com/otterize/intents-operator/src/operator/health"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -11,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 )
 
 type ReconcilerWithEvents interface {
@@ -19,14 +21,15 @@ type ReconcilerWithEvents interface {
 }
 
 type Group struct {
-	reconcilers      []ReconcilerWithEvents
-	name             string
-	client           client.Client
-	scheme           *runtime.Scheme
-	recorder         record.EventRecorder
-	baseObject       client.Object
-	finalizer        string
-	legacyFinalizers []string
+	reconcilers                   []ReconcilerWithEvents
+	name                          string
+	client                        client.Client
+	scheme                        *runtime.Scheme
+	recorder                      record.EventRecorder
+	baseObject                    client.Object
+	finalizer                     string
+	legacyFinalizers              []string
+	monitorLastReconcileStartTime bool
 }
 
 func NewGroup(
@@ -36,16 +39,18 @@ func NewGroup(
 	resourceObject client.Object,
 	finalizer string,
 	legacyFinalizers []string,
+	monitorLastReconcileStartTime bool,
 	reconcilers ...ReconcilerWithEvents,
 ) *Group {
 	return &Group{
-		reconcilers:      reconcilers,
-		name:             name,
-		client:           client,
-		scheme:           scheme,
-		baseObject:       resourceObject,
-		finalizer:        finalizer,
-		legacyFinalizers: legacyFinalizers,
+		reconcilers:                   reconcilers,
+		name:                          name,
+		client:                        client,
+		scheme:                        scheme,
+		baseObject:                    resourceObject,
+		finalizer:                     finalizer,
+		legacyFinalizers:              legacyFinalizers,
+		monitorLastReconcileStartTime: monitorLastReconcileStartTime,
 	}
 }
 
@@ -54,9 +59,17 @@ func (g *Group) AddToGroup(reconciler ReconcilerWithEvents) {
 }
 
 func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 70*time.Second, errors.Errorf("timeout while reconciling client intents %s", req.NamespacedName))
+	defer cancel()
+	ctx = timeoutCtx
+
 	var finalErr error
 	var finalRes ctrl.Result
-	logrus.Debugf("## Starting reconciliation group cycle for %s", g.name)
+	logrus.Debugf("## Starting reconciliation group cycle for %s, resource %s in namespace %s", g.name, req.Name, req.Namespace)
+
+	if g.monitorLastReconcileStartTime {
+		health.UpdateLastReconcileStartTime()
+	}
 
 	resourceObject := g.baseObject.DeepCopyObject().(client.Object)
 	err := g.client.Get(ctx, req.NamespacedName, resourceObject)
@@ -95,6 +108,10 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 			}
 			return ctrl.Result{}, errors.Wrap(err)
 		}
+	}
+
+	if g.monitorLastReconcileStartTime {
+		health.UpdateLastReconcileEndTime()
 	}
 
 	return finalRes, finalErr

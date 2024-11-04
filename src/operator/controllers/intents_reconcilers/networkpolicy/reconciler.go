@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
@@ -428,11 +427,7 @@ func (r *Reconciler) createNetworkPolicy(ctx context.Context, ep effectivepolicy
 func (r *Reconciler) updateExistingPolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) error {
 	// PAY ATTENTION: deepEqual is sensitive the differance between nil and empty slice
 	// therefore, we marshal and unmarshal to nullify empty slices of the new policy
-	newPolicyForComparison, err := marshalUnmarshalNetpol(newPolicy)
-	if err != nil {
-		return errors.Wrap(err)
-	}
-	if reflect.DeepEqual(existingPolicy.Spec, newPolicyForComparison.Spec) {
+	if isNetworkPolicySpecEqual(existingPolicy.Spec, newPolicy.Spec) {
 		return nil
 	}
 
@@ -441,7 +436,7 @@ func (r *Reconciler) updateExistingPolicy(ctx context.Context, ep effectivepolic
 	policyCopy.Annotations = newPolicy.Annotations
 	policyCopy.Spec = newPolicy.Spec
 
-	err = r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
+	err := r.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -619,17 +614,4 @@ func matchAccessNetworkPolicy() (labels.Selector, error) {
 		isNotExternalTrafficPolicy,
 		isNotDefaultDenyPolicy,
 	}})
-}
-
-func marshalUnmarshalNetpol(netpol *v1.NetworkPolicy) (v1.NetworkPolicy, error) {
-	data, err := netpol.Marshal()
-	if err != nil {
-		return v1.NetworkPolicy{}, errors.Wrap(err)
-	}
-	newNetpol := v1.NetworkPolicy{}
-	err = newNetpol.Unmarshal(data)
-	if err != nil {
-		return v1.NetworkPolicy{}, errors.Wrap(err)
-	}
-	return newNetpol, nil
 }

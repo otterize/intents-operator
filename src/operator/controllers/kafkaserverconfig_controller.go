@@ -76,6 +76,7 @@ func NewKafkaServerConfigReconciler(
 		&otterizev2alpha1.KafkaServerConfig{},
 		finalizerName,
 		nil,
+		false,
 		kscReconciler,
 	)
 

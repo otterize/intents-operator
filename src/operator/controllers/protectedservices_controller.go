@@ -67,6 +67,7 @@ func NewProtectedServiceReconciler(
 		&otterizev2alpha1.ProtectedService{},
 		otterizev2alpha1.ProtectedServicesFinalizerName,
 		protectedServiceLegacyFinalizers,
+		false,
 	)
 
 	if netpolEnforcementEnabled {
