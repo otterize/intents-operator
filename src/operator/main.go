@@ -54,6 +54,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/errorreporter"
+	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetrysender"
 	"github.com/otterize/intents-operator/src/shared/version"
@@ -398,7 +399,6 @@ func main() {
 		kafkaServersStore,
 		watchedNamespaces,
 		enforcementConfig,
-		otterizeCloudClient,
 		podName,
 		podNamespace,
 		additionalIntentsReconcilers...,
@@ -419,6 +419,21 @@ func main() {
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Intents")
 	}
+
+	if telemetriesconfig.IsUsageTelemetryEnabled() {
+		telemetryReconciler := intents_reconcilers.NewTelemetryReconciler(mgr.GetClient(), mgr.GetScheme())
+		if err = telemetryReconciler.SetupWithManager(mgr); err != nil {
+			logrus.WithError(err).Panic("unable to create controller", "controller", "Telemetry")
+		}
+	}
+
+	if otterizeCloudClient != nil {
+		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
+		if err = otterizeCloudReconciler.SetupWithManager(mgr); err != nil {
+			logrus.WithError(err).Panic("unable to create controller", "controller", "OtterizeCloud")
+		}
+	}
+
 	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Endpoints")
 	}
