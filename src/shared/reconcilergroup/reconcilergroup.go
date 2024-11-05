@@ -20,15 +20,14 @@ type ReconcilerWithEvents interface {
 }
 
 type Group struct {
-	reconcilers                   []ReconcilerWithEvents
-	name                          string
-	client                        client.Client
-	scheme                        *runtime.Scheme
-	recorder                      record.EventRecorder
-	baseObject                    client.Object
-	finalizer                     string
-	legacyFinalizers              []string
-	monitorLastReconcileStartTime bool
+	reconcilers      []ReconcilerWithEvents
+	name             string
+	client           client.Client
+	scheme           *runtime.Scheme
+	recorder         record.EventRecorder
+	baseObject       client.Object
+	finalizer        string
+	legacyFinalizers []string
 }
 
 func NewGroup(
