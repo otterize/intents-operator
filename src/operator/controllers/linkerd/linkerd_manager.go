@@ -27,25 +27,22 @@ import (
 )
 
 const (
-	ReasonGettingLinkerdPolicyFailed                  = "GettingLinkerdPolicyFailed"
-	OtterizeLinkerdServerNameTemplate                 = "server-for-%s-port-%d"
-	OtterizeLinkerdMeshTLSNameTemplate                = "meshtls-for-client-%s"
-	OtterizeLinkerdAuthPolicyNameTemplate             = "authpolicy-to-%s-port-%d-from-client-%s-%s"
-	OtterizeLinkerdAuthPolicyProbeRouteNameTemplate   = "authpolicy-to-%s-port-%d-for-probe-path"
-	OtterizeLinkerdAuthPolicyForHTTPRouteNameTemplate = "authorization-policy-to-%s-port-%d-from-client-%s-path-%s"
-	ReasonDeleteLinkerdPolicyFailed                   = "DeleteLinkerdPolicyFailed"
-	ReasonNamespaceNotAllowed                         = "NamespaceNotAllowed"
-	ReasonMissingSidecar                              = "MissingSideCar"
-	ReasonCreatingLinkerdPolicyFailed                 = "CreatingLinkerdPolicyFailed"
-	ReasonUpdatingLinkerdPolicyFailed                 = "UpdatingLinkerdPolicyFailed"
-	FullServiceAccountName                            = "%s.%s.serviceaccount.identity.linkerd.cluster.local"
-	NetworkAuthenticationNameTemplate                 = "network-auth-for-probe-routes"
-	HTTPRouteNameTemplate                             = "http-route-for-%s-port-%d-%s"
-	LinkerdMeshTLSAuthenticationKindName              = "MeshTLSAuthentication"
-	LinkerdServerKindName                             = "Server"
-	LinkerdHTTPRouteKindName                          = "HTTPRoute"
-	LinkerdNetAuthKindName                            = "NetworkAuthentication"
-	LinkerdContainer                                  = "linkerd-proxy"
+	OtterizeLinkerdServerNameTemplate     = "server-for-%s-port-%d"
+	OtterizeLinkerdMeshTLSNameTemplate    = "meshtls-for-client-%s"
+	OtterizeLinkerdAuthPolicyNameTemplate = "authpolicy-to-%s-port-%d-from-client-%s-%s"
+	ReasonCreatedLinkerdServer            = "CreatedLinkerdServer"
+	ReasonCreatedLinkerdAuthPolicy        = "CreatedLinkerdAuthorizationPolicy"
+	ReasonNamespaceNotAllowed             = "NamespaceNotAllowed"
+	ReasonShouldNotCreatePolicy           = "ShouldNotCreatePolicy"
+	ReasonNotPartOfLinkerdMesh            = "NotPartOfLinkerdMesh"
+	FullServiceAccountName                = "%s.%s.serviceaccount.identity.linkerd.cluster.local"
+	NetworkAuthenticationNameTemplate     = "network-auth-for-probe-routes"
+	HTTPRouteNameTemplate                 = "http-route-for-%s-port-%d-%s"
+	LinkerdMeshTLSAuthenticationKindName  = "MeshTLSAuthentication"
+	LinkerdServerKindName                 = "Server"
+	LinkerdHTTPRouteKindName              = "HTTPRoute"
+	LinkerdNetAuthKindName                = "NetworkAuthentication"
+	LinkerdContainer                      = "linkerd-proxy"
 )
 
 //+kubebuilder:rbac:groups="policy.linkerd.io",resources=*,verbs=get;update;patch;list;watch;delete;create;deletecollection
@@ -187,12 +184,18 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 		}
 
 		if !shouldCreateLinkerdResources {
+			ep.ClientIntentsEventRecorder.RecordWarningEvent(ReasonShouldNotCreatePolicy, "Enforcement is disabled globally and server is not explicitly protected, skipping linkerd policy creation for server %s in namespace %s")
 			logrus.Warning("Enforcement is disabled globally and server is not explicitly protected, skipping linkerd policy creation for server %s in namespace %s", target.GetTargetServerName(), target.GetTargetServerNamespace(clientNamespace))
 			continue
 		}
 
 		targetNamespace := target.GetTargetServerNamespace(clientNamespace)
 		if len(ldm.restrictedToNamespaces) != 0 && !lo.Contains(ldm.restrictedToNamespaces, targetNamespace) {
+			ep.ClientIntentsEventRecorder.RecordWarningEventf(
+				ReasonNamespaceNotAllowed,
+				"Namespace %s was specified in intent, but is not allowed by configuration, Linkerd policy ignored",
+				targetNamespace)
+
 			logrus.Warning(
 				"Namespace %s was specified in intent, but is not allowed by configuration, Linkerd policy ignored",
 				targetNamespace,
@@ -235,6 +238,7 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 					logrus.Errorf("Failed to create Linkerd server: %s", err.Error())
 					return nil, errors.Wrap(err)
 				}
+				ep.ClientIntentsEventRecorder.RecordNormalEventf(ReasonCreatedLinkerdServer, "Successfully created Linkerd server: %s", server.Name)
 			}
 			currentResources.Servers.Add(server.UID)
 
@@ -276,11 +280,13 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 						logrus.Errorf("Failed to create Linkerd policy: %s", err.Error())
 						return nil, errors.Wrap(err)
 					}
+					ep.ClientIntentsEventRecorder.RecordNormalEvent(ReasonCreatedLinkerdAuthPolicy, "Successfully created Linkerd AuthorizationPolicy")
 				}
 				currentResources.AuthorizationPolicies.Add(policy.UID)
 			}
 		}
 	}
+
 	return currentResources, nil
 }
 

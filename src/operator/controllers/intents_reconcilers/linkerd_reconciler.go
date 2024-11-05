@@ -3,16 +3,16 @@ package intents_reconcilers
 import (
 	"context"
 	"github.com/amit7itz/goset"
+	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
+	linkerdmanager "github.com/otterize/intents-operator/src/operator/controllers/linkerd"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
-
-	linkerdmanager "github.com/otterize/intents-operator/src/operator/controllers/linkerd"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -85,6 +85,11 @@ func (r *LinkerdReconciler) applyLinkerdServiceEffectivePolicy(
 ) (*linkerdmanager.LinkerdResourceMapping, error) {
 	pods, ok, err := r.serviceIdResolver.ResolveServiceIdentityToPodSlice(ctx, ep.Service)
 	if err != nil {
+		if errors.Is(err, serviceidresolver.ErrPodNotFound) {
+			ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonPodsNotFound,
+				"Could not find non-terminating pods for service %s in namespace %s. Intents could not be reconciled now, but will be reconciled if pods appear later.",
+				ep.Service.Name, ep.Service.Namespace)
+		}
 		return nil, errors.Wrap(err)
 	}
 
@@ -95,6 +100,9 @@ func (r *LinkerdReconciler) applyLinkerdServiceEffectivePolicy(
 
 	clientServiceAccountName := pod.Spec.ServiceAccountName
 	if !linkerdmanager.IsPodPartOfLinkerdMesh(pod) {
+		ep.ClientIntentsEventRecorder.RecordWarningEventf(linkerdmanager.ReasonNotPartOfLinkerdMesh,
+			"Pod %s in namespace %s is not part of the Linkerd mesh, skipped policy creation",
+			pod.Name, pod.Namespace)
 		logrus.Warningf("Pod %s.%s is not part of the Linkerd mesh, skipping policy creation", pod.Name, pod.Namespace)
 		return nil, ErrNotPartOfMesh
 	}
