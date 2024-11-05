@@ -3,6 +3,7 @@ package networkpolicy
 import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	networkingv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"sort"
 )
@@ -54,26 +55,130 @@ func isNetworkPolicySpecEqual(spec1, spec2 networkingv1.NetworkPolicySpec) bool 
 	return true
 }
 
-// Helper function to sort Ingress rules by all relevant fields deterministically
+// Sorts Ingress rules in a consistent order
 func sortIngressRules(rules []networkingv1.NetworkPolicyIngressRule) {
 	for i := range rules {
+		// Sort the Ports and From fields within each rule
 		sortNetworkPolicyPorts(rules[i].Ports)
 		sortNetworkPolicyPeers(rules[i].From)
 	}
+
+	// Sort the rules based on Ports and From fields in a consistent order
 	sort.SliceStable(rules, func(i, j int) bool {
-		return reflect.DeepEqual(rules[i], rules[j])
+		// Compare Ports
+		for k := 0; k < len(rules[i].Ports) && k < len(rules[j].Ports); k++ {
+			if !portsEqual(rules[i].Ports[k], rules[j].Ports[k]) {
+				return lessPorts(rules[i].Ports[k], rules[j].Ports[k])
+			}
+		}
+		if len(rules[i].Ports) != len(rules[j].Ports) {
+			return len(rules[i].Ports) < len(rules[j].Ports)
+		}
+
+		// Compare From peers
+		for k := 0; k < len(rules[i].From) && k < len(rules[j].From); k++ {
+			if !peersEqual(rules[i].From[k], rules[j].From[k]) {
+				return lessPeers(rules[i].From[k], rules[j].From[k])
+			}
+		}
+		return len(rules[i].From) < len(rules[j].From)
 	})
 }
 
-// Helper function to sort Egress rules by all relevant fields deterministically
+// Sorts Egress rules in a consistent order
 func sortEgressRules(rules []networkingv1.NetworkPolicyEgressRule) {
 	for i := range rules {
+		// Sort the Ports and To fields within each rule
 		sortNetworkPolicyPorts(rules[i].Ports)
 		sortNetworkPolicyPeers(rules[i].To)
 	}
+
+	// Sort the rules based on Ports and To fields in a consistent order
 	sort.SliceStable(rules, func(i, j int) bool {
-		return reflect.DeepEqual(rules[i], rules[j])
+		// Compare Ports
+		for k := 0; k < len(rules[i].Ports) && k < len(rules[j].Ports); k++ {
+			if !portsEqual(rules[i].Ports[k], rules[j].Ports[k]) {
+				return lessPorts(rules[i].Ports[k], rules[j].Ports[k])
+			}
+		}
+		if len(rules[i].Ports) != len(rules[j].Ports) {
+			return len(rules[i].Ports) < len(rules[j].Ports)
+		}
+
+		// Compare To peers
+		for k := 0; k < len(rules[i].To) && k < len(rules[j].To); k++ {
+			if !peersEqual(rules[i].To[k], rules[j].To[k]) {
+				return lessPeers(rules[i].To[k], rules[j].To[k])
+			}
+		}
+		return len(rules[i].To) < len(rules[j].To)
 	})
+}
+
+// Helper function to check if two NetworkPolicyPort objects are equal
+func portsEqual(port1, port2 networkingv1.NetworkPolicyPort) bool {
+	return reflect.DeepEqual(port1, port2)
+}
+
+// Helper function to determine consistent ordering between two NetworkPolicyPort objects
+func lessPorts(port1, port2 networkingv1.NetworkPolicyPort) bool {
+	if port1.Protocol != nil && port2.Protocol != nil {
+		if *port1.Protocol != *port2.Protocol {
+			return *port1.Protocol < *port2.Protocol
+		}
+	} else if port1.Protocol != port2.Protocol {
+		return port1.Protocol != nil
+	}
+
+	if port1.Port != nil && port2.Port != nil {
+		return port1.Port.IntVal < port2.Port.IntVal
+	}
+	return port1.Port != nil
+}
+
+// Helper function to check if two NetworkPolicyPeer objects are equal
+func peersEqual(peer1, peer2 networkingv1.NetworkPolicyPeer) bool {
+	return reflect.DeepEqual(peer1, peer2)
+}
+
+// Helper function to determine consistent ordering between two NetworkPolicyPeer objects
+func lessPeers(peer1, peer2 networkingv1.NetworkPolicyPeer) bool {
+	if peer1.PodSelector != nil && peer2.PodSelector != nil {
+		if !reflect.DeepEqual(peer1.PodSelector, peer2.PodSelector) {
+			return peer1.PodSelector.String() < peer2.PodSelector.String()
+		}
+	} else if peer1.PodSelector != peer2.PodSelector {
+		return peer1.PodSelector != nil
+	}
+
+	if peer1.NamespaceSelector != nil && peer2.NamespaceSelector != nil {
+		if !reflect.DeepEqual(peer1.NamespaceSelector, peer2.NamespaceSelector) {
+			return peer1.NamespaceSelector.String() < peer2.NamespaceSelector.String()
+		}
+	} else if peer1.NamespaceSelector != peer2.NamespaceSelector {
+		return peer1.NamespaceSelector != nil
+	}
+
+	if peer1.IPBlock != nil && peer2.IPBlock != nil {
+		if peer1.IPBlock.CIDR != peer2.IPBlock.CIDR {
+			return peer1.IPBlock.CIDR < peer2.IPBlock.CIDR
+		}
+		// Sort by Except list if CIDRs are equal
+		return lessExceptList(peer1.IPBlock.Except, peer2.IPBlock.Except)
+	}
+	return peer1.IPBlock != nil
+}
+
+// Helper function to determine consistent ordering between two lists of Except CIDRs
+func lessExceptList(except1, except2 []string) bool {
+	sort.Strings(except1)
+	sort.Strings(except2)
+	for i := 0; i < len(except1) && i < len(except2); i++ {
+		if except1[i] != except2[i] {
+			return except1[i] < except2[i]
+		}
+	}
+	return len(except1) < len(except2)
 }
 
 // Helper function to sort NetworkPolicyPorts by all fields deterministically
@@ -102,8 +207,49 @@ func sortNetworkPolicyPorts(ports []networkingv1.NetworkPolicyPort) {
 	})
 }
 
+// sortLabelSelector sorts the MatchLabels and MatchExpressions within a LabelSelector to ensure order independence.
+func sortLabelSelector(selector *metav1.LabelSelector) {
+	if selector == nil {
+		return
+	}
+
+	// Sort MatchLabels by key
+	if selector.MatchLabels != nil {
+		sortedLabels := make([]string, 0, len(selector.MatchLabels))
+		for key := range selector.MatchLabels {
+			sortedLabels = append(sortedLabels, key)
+		}
+		sort.Strings(sortedLabels)
+
+		sortedMap := make(map[string]string, len(selector.MatchLabels))
+		for _, key := range sortedLabels {
+			sortedMap[key] = selector.MatchLabels[key]
+		}
+		selector.MatchLabels = sortedMap
+	}
+
+	// Sort MatchExpressions by key and operator for consistent ordering
+	sort.SliceStable(selector.MatchExpressions, func(i, j int) bool {
+		if selector.MatchExpressions[i].Key != selector.MatchExpressions[j].Key {
+			return selector.MatchExpressions[i].Key < selector.MatchExpressions[j].Key
+		}
+		if selector.MatchExpressions[i].Operator != selector.MatchExpressions[j].Operator {
+			return selector.MatchExpressions[i].Operator < selector.MatchExpressions[j].Operator
+		}
+		// Sort Values within each MatchExpression for consistency
+		sort.Strings(selector.MatchExpressions[i].Values)
+		sort.Strings(selector.MatchExpressions[j].Values)
+		return false
+	})
+}
+
 // Helper function to sort NetworkPolicyPeers by a deterministic order
 func sortNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer) {
+	for _, peer := range peers {
+		sortLabelSelector(peer.PodSelector)
+		sortLabelSelector(peer.NamespaceSelector)
+	}
+
 	sort.SliceStable(peers, func(i, j int) bool {
 		if peers[i].PodSelector != nil && peers[j].PodSelector != nil {
 			if !reflect.DeepEqual(peers[i].PodSelector, peers[j].PodSelector) {
