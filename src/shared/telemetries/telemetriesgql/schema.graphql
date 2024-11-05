@@ -147,7 +147,7 @@ type AccessGraphEdge {
 	appliedIntents: [Intent!]!
 	accessStatus: EdgeAccessStatus!
 	accessStatuses: EdgeAccessStatuses!
-	violations: [CallViolation!]!
+	findings: [CallFinding!]!
 }
 
 """ Access graph filter """
@@ -271,7 +271,7 @@ input CLITelemetry {
 	command: CLICommand!
 }
 
-type CallViolation {
+type CallFinding {
 	standard: RegulationStandard!
 	code: RegulationCode!
 	reason: String!
@@ -408,6 +408,13 @@ input ClusterConfigurationInput {
 	clusterFormSettings: ClusterFormSettingsInput
 }
 
+type ClusterFinding {
+	cluster: Cluster!
+	reason: String!
+	intentsOperatorState: IntentsOperatorState
+	relatedServices: [Service!]
+}
+
 type ClusterFormSettings {
 	certificateProvider: CertificateProvider!
 	enforcement: Boolean!
@@ -416,13 +423,6 @@ type ClusterFormSettings {
 input ClusterFormSettingsInput {
 	certificateProvider: CertificateProvider!
 	enforcement: Boolean!
-}
-
-type ClusterViolation {
-	cluster: Cluster!
-	reason: String!
-	intentsOperatorState: IntentsOperatorState
-	relatedServices: [Service!]
 }
 
 input Component {
@@ -485,8 +485,17 @@ input DNSIPPairInput {
 }
 
 type Dashboard {
-	findings: [Finding!]!
-	summary: FindingsSummary!
+	findings: [FindingSummary!]!
+	summary: DashboardData!
+}
+
+type DashboardData {
+	findingsCount: Int!
+	nonCompliantClusters: Fraction!
+	nonCompliantWorkloads: Fraction!
+	overallCompliance: Fraction!
+	nonCompliantStandards: Fraction!
+	nonCompliantControls: Fraction!
 }
 
 type DatabaseConfig {
@@ -541,6 +550,12 @@ enum DatabaseVisibilitySource {
 	GCP_PUBSUB
 }
 
+type DetectedCloudServer {
+	cloudProvider: String!
+	cloudService: String!
+	region: String!
+}
+
 input DiscoveredIntentInput {
 	discoveredAt: Time!
 	intent: IntentInput!
@@ -562,6 +577,7 @@ enum EdgeAccessStatusReason {
 	ALLOWED_BY_APPLIED_INTENTS_KAFKA_OVERLY_PERMISSIVE
 	ALLOWED_BY_APPLIED_INTENTS_DATABASE_OVERLY_PERMISSIVE
 	ALLOWED_BY_EXTERNAL_TRAFFIC_NETWORK_POLICY
+	WOULD_BE_ALLOWED_BY_EXTERNAL_TRAFFIC_NETWORK_POLICY
 	BLOCKED_BY_APPLIED_INTENTS_UNDER_PERMISSIVE
 	BLOCKED_BY_APPLIED_INTENTS_RESOURCE_MISMATCH
 	BLOCKED_BY_APPLIED_INTENTS_HTTP_UNDER_PERMISSIVE
@@ -587,6 +603,9 @@ enum EdgeAccessStatusReason {
 	NO_INTENTS_FOUND_OF_RELEVANT_TYPE
 	IGNORED_IN_CALCULATION
 	INTERNET_INTENTS_ENFORCEMENT_DISABLED
+	BLOCKED_BY_DEFAULT_DENY_MISSING_EXTERNAL_TRAFFIC_POLICY
+	BLOCKED_BY_APPLIED_INTENTS_MISSING_EXTERNAL_TRAFFIC_POLICY
+	ALLOWED_BY_EXTERNALLY_MANAGED_NETWORK_POLICY
 }
 
 enum EdgeAccessStatusVerdict {
@@ -675,32 +694,29 @@ input ExternallyAccessibleServiceInput {
 	serviceType: KubernetesServiceType!
 }
 
+input ExternallyManagedPolicyWorkloadInput {
+	name: String!
+	namespace: String!
+	kind: String!
+}
+
 type FeatureFlags {
 	isCloudServicesDetectionEnabled: Boolean
 	isCloudSecurityEnabled: Boolean
 }
 
-type Finding {
+type FindingSummary {
 	standard: RegulationStandard!
 	codeLabel: String!
 	code: RegulationCode!
 	severity: Severity!
 	description: String!
 	validationDescription: String
-	clusterViolations: [ClusterViolation!]!
-	serviceViolations: [ServiceViolation!]!
+	clusterFindings: [ClusterFinding!]!
+	serviceFindings: [ServiceFinding!]!
 	clusterCount: Int!
 	serviceCount: Int!
-	requirements: [Finding!]
-}
-
-type FindingsSummary {
-	violations: Int!
-	nonCompliantClusters: Fraction!
-	nonCompliantWorkloads: Fraction!
-	overallCompliance: Fraction!
-	nonCompliantStandards: Fraction!
-	nonCompliantControls: Fraction!
+	requirements: [FindingSummary!]
 }
 
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
@@ -943,6 +959,8 @@ input InputResourceInventoryFilter {
 """ Service filter """
 input InputServiceFilter {
 """ Service filter """
+	search: String
+""" Service filter """
 	serviceType: InputIDFilterValue
 """ Service filter """
 	serviceIds: [ID!]
@@ -1152,6 +1170,7 @@ input IntentsOperatorConfigurationInput {
 	ingressControllerConfig: [IngressControllerConfigInput!]
 	awsALBLoadBalancerExemptionEnabled: Boolean
 	allowExternalTrafficPolicy: AllowExternalTrafficPolicy
+	externallyManagedPolicyWorkloads: [ExternallyManagedPolicyWorkloadInput!]
 }
 
 type IntentsOperatorState {
@@ -1724,6 +1743,10 @@ type Mutation {
 		id: ID!
 		tags: [String!]
 	): Service!
+"""update service metadata from operator"""
+	reportServiceMetadata(
+		serviceMeta: ReportServiceMetadataInput!
+	): Boolean!
 """Bulk Update services"""
 	addTagsToServices(
 		ids: [ID!]!
@@ -1839,6 +1862,11 @@ input PaginationInput {
 	limit: Int
 }
 
+""" Pagination types """
+type PaginationMeta {
+	total: Int
+}
+
 enum PathType {
 	IMPLEMENTATION_SPECIFIC
 	PREFIX
@@ -1869,6 +1897,7 @@ type Query {
 	serviceAccessGraph(
 		id: ID!
 	): ServiceAccessGraph!
+""" Get service ClientIntents """
 	serviceClientIntents(
 		id: ID!
 		asServiceId: ID
@@ -1909,7 +1938,7 @@ type Query {
 	findings(
 		filter: InputFindingFilter
 		tree: Boolean
-	): [Finding!]!
+	): [FindingSummary!]!
 	dashboard(
 		filter: InputFindingFilter
 		tree: Boolean
@@ -1999,12 +2028,21 @@ type Query {
 		name: String
 		filter: InputServiceFilter
 	): [Service!]!
+"""Paginate services"""
+	paginateServices(
+		filter: InputServiceFilter
+		pagination: PaginationInput
+	): ServicesResponse!
 """Get service by filters"""
 	oneService(
 		environmentId: ID
 		namespaceId: ID
 		name: String
 	): Service
+"""Get service by kubernetes identity"""
+	serviceByIdentity(
+		identity: ServiceIdentityInput!
+	): Service!
 """List users"""
 	users: [User!]!
 """Get user"""
@@ -2031,6 +2069,7 @@ enum RegulationCode {
 	PCI_4_0_1_1
 	PCI_4_0_1_1_2
 	PCI_4_0_1_1_4
+	PCI_4_0_1_1_6
 	PCI_4_0_1_2
 	PCI_4_0_1_2_1
 	PCI_4_0_1_3
@@ -2052,6 +2091,11 @@ enum RegulationStandard {
 	PII
 	HIPAA
 	ZERO_TRUST
+}
+
+input ReportServiceMetadataInput {
+	identity: ServiceIdentityInput!
+	metadata: ServiceMetadataInput!
 }
 
 type Resource {
@@ -2154,6 +2198,7 @@ type Service {
 	gcpResource: GCPResource
 	azureResource: AzureResource
 	discoveredByIntegration: Integration
+	detectedCloudServer: DetectedCloudServer
 	awsVisibility: AWSVisibility
 	databaseIntegration: Integration
 	tlsKeyPair: KeyPair!
@@ -2194,9 +2239,25 @@ enum ServiceExternalTrafficPolicy {
 	LOCAL
 }
 
+type ServiceFinding {
+	service: Service!
+	reason: String!
+	callsFindings: [AccessGraphEdge!]
+}
+
+input ServiceIdentityInput {
+	name: String!
+	namespace: String!
+	kind: String!
+}
+
 enum ServiceInternalTrafficPolicy {
 	CLUSTER
 	LOCAL
+}
+
+input ServiceMetadataInput {
+	tags: [String!]
 }
 
 enum ServiceType {
@@ -2212,12 +2273,12 @@ enum ServiceType {
 	DATABASE_USER
 	KUBERNETES_LOAD_BALANCER
 	AWS_VISIBILITY_EKS
+	DETECTED_CLOUD_SERVER
 }
 
-type ServiceViolation {
-	service: Service!
-	reason: String!
-	violatedCalls: [AccessGraphEdge!]
+type ServicesResponse {
+	data: [Service!]!
+	meta: PaginationMeta
 }
 
 enum SessionAffinity {

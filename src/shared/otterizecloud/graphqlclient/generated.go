@@ -215,6 +215,21 @@ func (v *ExternallyAccessibleServiceInput) GetServiceType() KubernetesServiceTyp
 	return v.ServiceType
 }
 
+type ExternallyManagedPolicyWorkloadInput struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Kind      string `json:"kind"`
+}
+
+// GetName returns ExternallyManagedPolicyWorkloadInput.Name, and is useful for accessing the field via an interface.
+func (v *ExternallyManagedPolicyWorkloadInput) GetName() string { return v.Name }
+
+// GetNamespace returns ExternallyManagedPolicyWorkloadInput.Namespace, and is useful for accessing the field via an interface.
+func (v *ExternallyManagedPolicyWorkloadInput) GetNamespace() string { return v.Namespace }
+
+// GetKind returns ExternallyManagedPolicyWorkloadInput.Kind, and is useful for accessing the field via an interface.
+func (v *ExternallyManagedPolicyWorkloadInput) GetKind() string { return v.Kind }
+
 type HTTPConfigInput struct {
 	Path    *string       `json:"path"`
 	Methods []*HTTPMethod `json:"methods"`
@@ -349,20 +364,21 @@ const (
 )
 
 type IntentsOperatorConfigurationInput struct {
-	GlobalEnforcementEnabled              bool                           `json:"globalEnforcementEnabled"`
-	NetworkPolicyEnforcementEnabled       bool                           `json:"networkPolicyEnforcementEnabled"`
-	KafkaACLEnforcementEnabled            bool                           `json:"kafkaACLEnforcementEnabled"`
-	IstioPolicyEnforcementEnabled         bool                           `json:"istioPolicyEnforcementEnabled"`
-	ProtectedServicesEnabled              bool                           `json:"protectedServicesEnabled"`
-	EgressNetworkPolicyEnforcementEnabled bool                           `json:"egressNetworkPolicyEnforcementEnabled"`
-	AwsIAMPolicyEnforcementEnabled        bool                           `json:"awsIAMPolicyEnforcementEnabled"`
-	GcpIAMPolicyEnforcementEnabled        bool                           `json:"gcpIAMPolicyEnforcementEnabled"`
-	AzureIAMPolicyEnforcementEnabled      bool                           `json:"azureIAMPolicyEnforcementEnabled"`
-	DatabaseEnforcementEnabled            bool                           `json:"databaseEnforcementEnabled"`
-	EnforcedNamespaces                    []string                       `json:"enforcedNamespaces"`
-	IngressControllerConfig               []IngressControllerConfigInput `json:"ingressControllerConfig"`
-	AwsALBLoadBalancerExemptionEnabled    bool                           `json:"awsALBLoadBalancerExemptionEnabled"`
-	AllowExternalTrafficPolicy            AllowExternalTrafficPolicy     `json:"allowExternalTrafficPolicy"`
+	GlobalEnforcementEnabled              bool                                   `json:"globalEnforcementEnabled"`
+	NetworkPolicyEnforcementEnabled       bool                                   `json:"networkPolicyEnforcementEnabled"`
+	KafkaACLEnforcementEnabled            bool                                   `json:"kafkaACLEnforcementEnabled"`
+	IstioPolicyEnforcementEnabled         bool                                   `json:"istioPolicyEnforcementEnabled"`
+	ProtectedServicesEnabled              bool                                   `json:"protectedServicesEnabled"`
+	EgressNetworkPolicyEnforcementEnabled bool                                   `json:"egressNetworkPolicyEnforcementEnabled"`
+	AwsIAMPolicyEnforcementEnabled        bool                                   `json:"awsIAMPolicyEnforcementEnabled"`
+	GcpIAMPolicyEnforcementEnabled        bool                                   `json:"gcpIAMPolicyEnforcementEnabled"`
+	AzureIAMPolicyEnforcementEnabled      bool                                   `json:"azureIAMPolicyEnforcementEnabled"`
+	DatabaseEnforcementEnabled            bool                                   `json:"databaseEnforcementEnabled"`
+	EnforcedNamespaces                    []string                               `json:"enforcedNamespaces"`
+	IngressControllerConfig               []IngressControllerConfigInput         `json:"ingressControllerConfig"`
+	AwsALBLoadBalancerExemptionEnabled    bool                                   `json:"awsALBLoadBalancerExemptionEnabled"`
+	AllowExternalTrafficPolicy            AllowExternalTrafficPolicy             `json:"allowExternalTrafficPolicy"`
+	ExternallyManagedPolicyWorkloads      []ExternallyManagedPolicyWorkloadInput `json:"externallyManagedPolicyWorkloads"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -433,6 +449,11 @@ func (v *IntentsOperatorConfigurationInput) GetAwsALBLoadBalancerExemptionEnable
 // GetAllowExternalTrafficPolicy returns IntentsOperatorConfigurationInput.AllowExternalTrafficPolicy, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetAllowExternalTrafficPolicy() AllowExternalTrafficPolicy {
 	return v.AllowExternalTrafficPolicy
+}
+
+// GetExternallyManagedPolicyWorkloads returns IntentsOperatorConfigurationInput.ExternallyManagedPolicyWorkloads, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetExternallyManagedPolicyWorkloads() []ExternallyManagedPolicyWorkloadInput {
+	return v.ExternallyManagedPolicyWorkloads
 }
 
 type InternetConfigInput struct {
