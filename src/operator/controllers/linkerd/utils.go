@@ -44,9 +44,9 @@ func IsLinkerdInstalled(ctx context.Context, client client.Client) (bool, error)
 func generateRandomString(length int, seed ...int64) string {
 	charset := "abcdefghijklmnopqrstuvwxyz0123456789"
 	if len(seed) > 0 {
-		rand.Seed(seed[0])
+		rand.New(rand.NewSource(seed[0]))
 	} else {
-		rand.Seed(time.Now().UnixNano())
+		rand.New(rand.NewSource(time.Now().UnixNano()))
 	}
 
 	b := make([]byte, length)

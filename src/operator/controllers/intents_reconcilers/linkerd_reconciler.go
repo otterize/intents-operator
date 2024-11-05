@@ -94,7 +94,7 @@ func (r *LinkerdReconciler) applyLinkerdServiceEffectivePolicy(
 	}
 
 	if !ok {
-		return nil, errors.Wrap(err)
+		return nil, errors.Wrap(serviceidresolver.ErrPodNotFound)
 	}
 	pod := pods[0]
 

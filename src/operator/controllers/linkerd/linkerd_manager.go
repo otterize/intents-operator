@@ -185,7 +185,7 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 
 		if !shouldCreateLinkerdResources {
 			ep.ClientIntentsEventRecorder.RecordWarningEvent(ReasonShouldNotCreatePolicy, "Enforcement is disabled globally and server is not explicitly protected, skipping linkerd policy creation for server %s in namespace %s")
-			logrus.Warning("Enforcement is disabled globally and server is not explicitly protected, skipping linkerd policy creation for server %s in namespace %s", target.GetTargetServerName(), target.GetTargetServerNamespace(clientNamespace))
+			logrus.Warningf("Enforcement is disabled globally and server is not explicitly protected, skipping linkerd policy creation for server %s in namespace %s", target.GetTargetServerName(), target.GetTargetServerNamespace(clientNamespace))
 			continue
 		}
 
@@ -196,7 +196,7 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 				"Namespace %s was specified in intent, but is not allowed by configuration, Linkerd policy ignored",
 				targetNamespace)
 
-			logrus.Warning(
+			logrus.Warningf(
 				"Namespace %s was specified in intent, but is not allowed by configuration, Linkerd policy ignored",
 				targetNamespace,
 			)
