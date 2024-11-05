@@ -137,3 +137,9 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 
 	return clientIntentsList, nil
 }
+
+func (r *OtterizeCloudReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&otterizev2alpha1.ClientIntents{}).
+		Complete(r)
+}

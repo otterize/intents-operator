@@ -84,3 +84,10 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 
 	return ctrl.Result{}, nil
 }
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *TelemetryReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&otterizev2alpha1.ClientIntents{}).
+		Complete(r)
+}
