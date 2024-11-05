@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 )
 
 type ReconcilerWithEvents interface {
@@ -54,9 +55,13 @@ func (g *Group) AddToGroup(reconciler ReconcilerWithEvents) {
 }
 
 func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 70*time.Second, errors.Errorf("timeout while reconciling client intents %s", req.NamespacedName))
+	defer cancel()
+	ctx = timeoutCtx
+
 	var finalErr error
 	var finalRes ctrl.Result
-	logrus.Debugf("## Starting reconciliation group cycle for %s", g.name)
+	logrus.Debugf("## Starting reconciliation group cycle for %s, resource %s in namespace %s", g.name, req.Name, req.Namespace)
 
 	resourceObject := g.baseObject.DeepCopyObject().(client.Object)
 	err := g.client.Get(ctx, req.NamespacedName, resourceObject)

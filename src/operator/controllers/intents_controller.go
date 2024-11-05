@@ -155,9 +155,12 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
-		health.UpdateLastReconcileEndTime()
 	}
 
+	// Only consider reconcile ended if no error and no requeue.
+	if result.IsZero() {
+		health.UpdateLastReconcileEndTime()
+	}
 	return result, nil
 }
 
