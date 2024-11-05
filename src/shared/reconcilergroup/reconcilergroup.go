@@ -2,7 +2,6 @@ package reconcilergroup
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/src/operator/health"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -65,10 +64,6 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 	var finalRes ctrl.Result
 	logrus.Debugf("## Starting reconciliation group cycle for %s, resource %s in namespace %s", g.name, req.Name, req.Namespace)
 
-	if g.monitorLastReconcileStartTime {
-		health.UpdateLastReconcileStartTime()
-	}
-
 	resourceObject := g.baseObject.DeepCopyObject().(client.Object)
 	err := g.client.Get(ctx, req.NamespacedName, resourceObject)
 	if client.IgnoreNotFound(err) != nil {
@@ -106,9 +101,6 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 			}
 			return ctrl.Result{}, errors.Wrap(err)
 		}
-	}
-
-	if g.monitorLastReconcileStartTime {
 	}
 
 	return finalRes, finalErr
