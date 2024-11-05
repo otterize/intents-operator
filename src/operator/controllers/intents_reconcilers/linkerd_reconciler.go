@@ -2,8 +2,11 @@ package intents_reconcilers
 
 import (
 	"context"
+	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 
 	linkerdmanager "github.com/otterize/intents-operator/src/operator/controllers/linkerd"
@@ -13,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var ErrPodNotFound = errors.New("pod not found")
 var ErrNotPartOfMesh = errors.New("not part of mesh")
 
 type LinkerdReconciler struct {
@@ -49,16 +51,21 @@ func (r *LinkerdReconciler) ReconcileEffectivePolicies(ctx context.Context, eps 
 	}
 
 	errorList := make([]error, 0)
-	validResources := linkerdmanager.LinkerdResourceMapping{}
+	validResources := linkerdmanager.LinkerdResourceMapping{
+		Servers:               goset.NewSet[types.UID](),
+		AuthorizationPolicies: goset.NewSet[types.UID](),
+		Routes:                goset.NewSet[types.UID](),
+	}
+
 	for _, ep := range eps {
 		result, err := r.applyLinkerdServiceEffectivePolicy(ctx, ep)
 		if err != nil {
 			r.handleApplyErrors(err, errorList)
 			continue
 		}
-		result.AuthorizationPolicies.Union(result.AuthorizationPolicies)
-		result.Servers.Union(result.Servers)
-		result.Routes.Union(result.Routes)
+		validResources.AuthorizationPolicies.Update(result.AuthorizationPolicies)
+		validResources.Servers.Update(result.Servers)
+		validResources.Routes.Update(result.Routes)
 	}
 
 	if len(errorList) > 0 {
@@ -88,6 +95,7 @@ func (r *LinkerdReconciler) applyLinkerdServiceEffectivePolicy(
 
 	clientServiceAccountName := pod.Spec.ServiceAccountName
 	if !linkerdmanager.IsPodPartOfLinkerdMesh(pod) {
+		logrus.Warningf("Pod %s.%s is not part of the Linkerd mesh, skipping policy creation", pod.Name, pod.Namespace)
 		return nil, ErrNotPartOfMesh
 	}
 
@@ -102,7 +110,7 @@ func (r *LinkerdReconciler) applyLinkerdServiceEffectivePolicy(
 func (r *LinkerdReconciler) handleApplyErrors(err error, errorList []error) []error {
 	// Handle "ok" errors here so we won't retry reconciliation forever
 	switch {
-	case errors.Is(err, ErrPodNotFound):
+	case errors.Is(err, serviceidresolver.ErrPodNotFound):
 	case errors.Is(err, ErrNotPartOfMesh):
 		return errorList
 	}

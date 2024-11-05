@@ -300,21 +300,21 @@ func (ldm *LinkerdManager) getServerName(intent otterizev2alpha1.Target, port in
 }
 
 func (ldm *LinkerdManager) createIntentPrimaryResources(ctx context.Context, svcIdentity serviceidentity.ServiceIdentity, clientServiceAccount string) error {
-	//shouldCreateNetAuth, err := ldm.shouldCreateNetAuth(ctx, intents)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//if shouldCreateNetAuth {
-	//	netAuth, err := ldm.generateNetworkAuthentication(ctx, intents)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	err = ldm.Client.Create(ctx, netAuth)
-	//	if err != nil {
-	//		return err
-	//	}
-	//}
+	shouldCreateNetAuth, err := ldm.shouldCreateNetAuth(ctx, svcIdentity)
+	if err != nil {
+		return err
+	}
+
+	if shouldCreateNetAuth {
+		netAuth, err := ldm.generateNetworkAuthentication(svcIdentity)
+		if err != nil {
+			return err
+		}
+		err = ldm.Client.Create(ctx, netAuth)
+		if err != nil {
+			return err
+		}
+	}
 
 	shouldCreateMeshTLS, err := ldm.shouldCreateMeshTLS(ctx, svcIdentity)
 	if err != nil {
@@ -352,9 +352,8 @@ func getPathMatchPointer(ap authpolicy.PathMatchType) *authpolicy.PathMatchType 
 }
 
 func (ldm *LinkerdManager) shouldCreateServer(ctx context.Context, svcIdentity serviceidentity.ServiceIdentity, target otterizev2alpha1.Target, port int32) (*linkerdserver.Server, bool, error) {
-	podSelector := ldm.BuildPodLabelSelectorFromTarget(target, svcIdentity.Namespace)
+	logrus.Infof("should create server ? %s, %d", target.ToServiceIdentity(svcIdentity.Namespace).GetFormattedOtterizeIdentityWithoutKind(), port)
 	servers := &linkerdserver.ServerList{}
-	logrus.Infof("should create server ? %s, %d", podSelector.String(), port)
 	// list all servers in the namespace
 	err := ldm.Client.List(ctx, servers, &client.ListOptions{Namespace: svcIdentity.Namespace})
 	if err != nil {
@@ -411,7 +410,7 @@ func (ldm *LinkerdManager) shouldCreateAuthPolicy(ctx context.Context, svcIdenti
 		if policy.Spec.TargetRef.Name == v1beta1.ObjectName(targetName) && policy.Spec.TargetRef.Kind == v1beta1.Kind(targetRefKind) {
 			for _, authRef := range policy.Spec.RequiredAuthenticationRefs {
 				if authRef.Kind == v1beta1.Kind(authRefKind) && authRef.Name == v1beta1.ObjectName(authRefName) {
-					logrus.Infof("not creating policy for policy with details, %s, %s", policy.Spec.TargetRef.Name, authRef.Name)
+					logrus.Debugf("not creating policy for policy with details, %s, %s", policy.Spec.TargetRef.Name, authRef.Name)
 					return &policy, false, nil
 				}
 			}
@@ -434,9 +433,9 @@ func (ldm *LinkerdManager) shouldCreateMeshTLS(ctx context.Context, svcIdentity 
 	return true, nil
 }
 
-func (ldm *LinkerdManager) shouldCreateNetAuth(ctx context.Context, intents otterizev2alpha1.ClientIntents) (bool, error) {
+func (ldm *LinkerdManager) shouldCreateNetAuth(ctx context.Context, svcIdentity serviceidentity.ServiceIdentity) (bool, error) {
 	netauths := &authpolicy.NetworkAuthenticationList{}
-	err := ldm.Client.List(ctx, netauths, &client.ListOptions{Namespace: intents.Namespace})
+	err := ldm.Client.List(ctx, netauths, &client.ListOptions{Namespace: svcIdentity.Namespace})
 	if err != nil {
 		return false, err
 	}
