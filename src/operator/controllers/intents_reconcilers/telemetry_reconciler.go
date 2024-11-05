@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -83,4 +84,12 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeIntentsAppliedInternet, internetCount)
 
 	return ctrl.Result{}, nil
+}
+
+// SetupWithManager sets up the controller with the Manager.
+func (r *TelemetryReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&otterizev2alpha1.ClientIntents{}).
+		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
+		Complete(r)
 }
