@@ -406,7 +406,7 @@ func TestNetworkPolicyRuleOrderIndependenceWithMultipleSelectors(t *testing.T) {
 	spec2.Ingress[0], spec2.Ingress[1] = spec2.Ingress[1], spec2.Ingress[0]
 
 	// Swap the order of From peers in the first Ingress rule
-	spec2.Ingress[1].From[0], spec2.Ingress[1].From[0] = spec2.Ingress[1].From[0], spec2.Ingress[1].From[0]
+	spec2.Ingress[1].From[1], spec2.Ingress[1].From[0] = spec2.Ingress[1].From[0], spec2.Ingress[1].From[1]
 
 	// Swap the order of Egress rules
 	spec2.Egress[0], spec2.Egress[1] = spec2.Egress[1], spec2.Egress[0]

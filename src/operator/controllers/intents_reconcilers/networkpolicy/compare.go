@@ -1,11 +1,13 @@
 package networkpolicy
 
 import (
+	"github.com/go-test/deep"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"sort"
+	"strings"
 )
 
 // PAY ATTENTION: deepEqual is sensitive the differance between nil and empty slice
@@ -34,7 +36,8 @@ func isNetworkPolicySpecEqual(spec1, spec2 networkingv1.NetworkPolicySpec) bool 
 	// Sort and compare Ingress rules
 	sortIngressRules(spec1.Ingress)
 	sortIngressRules(spec2.Ingress)
-	if !reflect.DeepEqual(spec1.Ingress, spec2.Ingress) {
+	if diffs := deep.Equal(spec1.Ingress, spec2.Ingress); len(diffs) != 0 {
+		println(diffs)
 		return false
 	}
 
@@ -207,77 +210,72 @@ func sortNetworkPolicyPorts(ports []networkingv1.NetworkPolicyPort) {
 	})
 }
 
-// sortLabelSelector sorts the MatchLabels and MatchExpressions within a LabelSelector to ensure order independence.
-func sortLabelSelector(selector *metav1.LabelSelector) {
-	if selector == nil {
-		return
-	}
-
-	// Sort MatchLabels by key
-	if selector.MatchLabels != nil {
-		sortedLabels := make([]string, 0, len(selector.MatchLabels))
-		for key := range selector.MatchLabels {
-			sortedLabels = append(sortedLabels, key)
-		}
-		sort.Strings(sortedLabels)
-
-		sortedMap := make(map[string]string, len(selector.MatchLabels))
-		for _, key := range sortedLabels {
-			sortedMap[key] = selector.MatchLabels[key]
-		}
-		selector.MatchLabels = sortedMap
-	}
-
-	// Sort MatchExpressions by key and operator for consistent ordering
-	sort.SliceStable(selector.MatchExpressions, func(i, j int) bool {
-		if selector.MatchExpressions[i].Key != selector.MatchExpressions[j].Key {
-			return selector.MatchExpressions[i].Key < selector.MatchExpressions[j].Key
-		}
-		if selector.MatchExpressions[i].Operator != selector.MatchExpressions[j].Operator {
-			return selector.MatchExpressions[i].Operator < selector.MatchExpressions[j].Operator
-		}
-		// Sort Values within each MatchExpression for consistency
-		sort.Strings(selector.MatchExpressions[i].Values)
-		sort.Strings(selector.MatchExpressions[j].Values)
-		return false
+func sortNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer) {
+	sort.SliceStable(peers, func(i, j int) bool {
+		return lessPeer(peers[i], peers[j])
 	})
 }
 
-// Helper function to sort NetworkPolicyPeers by a deterministic order
-func sortNetworkPolicyPeers(peers []networkingv1.NetworkPolicyPeer) {
-	for _, peer := range peers {
-		sortLabelSelector(peer.PodSelector)
-		sortLabelSelector(peer.NamespaceSelector)
+// Helper function to determine consistent ordering between two NetworkPolicyPeer objects
+func lessPeer(peer1, peer2 networkingv1.NetworkPolicyPeer) bool {
+	// Compare PodSelector
+	if peer1.PodSelector != nil && peer2.PodSelector != nil {
+		if !selectorsEqual(*peer1.PodSelector, *peer2.PodSelector) {
+			return selectorToString(*peer1.PodSelector) < selectorToString(*peer2.PodSelector)
+		}
+	} else if peer1.PodSelector != peer2.PodSelector {
+		return peer1.PodSelector != nil
 	}
 
-	sort.SliceStable(peers, func(i, j int) bool {
-		if peers[i].PodSelector != nil && peers[j].PodSelector != nil {
-			if !reflect.DeepEqual(peers[i].PodSelector, peers[j].PodSelector) {
-				return reflect.DeepEqual(peers[i].PodSelector, peers[j].PodSelector)
-			}
-		} else if peers[i].PodSelector != peers[j].PodSelector {
-			return peers[i].PodSelector != nil
+	// Compare NamespaceSelector
+	if peer1.NamespaceSelector != nil && peer2.NamespaceSelector != nil {
+		if !selectorsEqual(*peer1.NamespaceSelector, *peer2.NamespaceSelector) {
+			return selectorToString(*peer1.NamespaceSelector) < selectorToString(*peer2.NamespaceSelector)
 		}
+	} else if peer1.NamespaceSelector != peer2.NamespaceSelector {
+		return peer1.NamespaceSelector != nil
+	}
 
-		if peers[i].NamespaceSelector != nil && peers[j].NamespaceSelector != nil {
-			if !reflect.DeepEqual(peers[i].NamespaceSelector, peers[j].NamespaceSelector) {
-				return reflect.DeepEqual(peers[i].NamespaceSelector, peers[j].NamespaceSelector)
-			}
-		} else if peers[i].NamespaceSelector != peers[j].NamespaceSelector {
-			return peers[i].NamespaceSelector != nil
+	// Compare IPBlock
+	if peer1.IPBlock != nil && peer2.IPBlock != nil {
+		if peer1.IPBlock.CIDR != peer2.IPBlock.CIDR {
+			return peer1.IPBlock.CIDR < peer2.IPBlock.CIDR
 		}
+		// Sort by Except list if CIDRs are equal
+		return lessExceptList(peer1.IPBlock.Except, peer2.IPBlock.Except)
+	}
+	return peer1.IPBlock != nil
+}
 
-		if peers[i].IPBlock != nil && peers[j].IPBlock != nil {
-			if peers[i].IPBlock.CIDR != peers[j].IPBlock.CIDR {
-				return peers[i].IPBlock.CIDR < peers[j].IPBlock.CIDR
-			}
+// Helper function to check if two LabelSelectors are equal
+func selectorsEqual(sel1, sel2 metav1.LabelSelector) bool {
+	return selectorToString(sel1) == selectorToString(sel2)
+}
 
-			sort.Strings(peers[i].IPBlock.Except)
-			sort.Strings(peers[j].IPBlock.Except)
-			return reflect.DeepEqual(peers[i].IPBlock.Except, peers[j].IPBlock.Except)
+// Helper function to convert a LabelSelector to a string for consistent comparison
+func selectorToString(selector metav1.LabelSelector) string {
+	var sb strings.Builder
+	sb.WriteString("MatchLabels:")
+	if selector.MatchLabels != nil {
+		keys := make([]string, 0, len(selector.MatchLabels))
+		for k := range selector.MatchLabels {
+			keys = append(keys, k)
 		}
-		return peers[i].IPBlock != nil
-	})
+		sort.Strings(keys)
+		for _, k := range keys {
+			sb.WriteString(k + "=" + selector.MatchLabels[k] + ",")
+		}
+	}
+	sb.WriteString("MatchExpressions:")
+	for _, expr := range selector.MatchExpressions {
+		sb.WriteString(expr.Key + "=" + string(expr.Operator) + "[")
+		sort.Strings(expr.Values)
+		for _, v := range expr.Values {
+			sb.WriteString(v + ",")
+		}
+		sb.WriteString("],")
+	}
+	return sb.String()
 }
 
 // Helper function to sort PolicyTypes
