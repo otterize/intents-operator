@@ -61,7 +61,6 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) networkPolicyTemplate(
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
@@ -322,7 +321,6 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{
@@ -472,7 +470,6 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 					otterizev2alpha1.OtterizeServiceLabelKey: formattedClient,
 				},
 			},
-			Ingress: make([]v1.NetworkPolicyIngressRule, 0),
 			Egress: []v1.NetworkPolicyEgressRule{
 				{
 					To: []v1.NetworkPolicyPeer{

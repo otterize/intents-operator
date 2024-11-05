@@ -123,7 +123,6 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 		Spec: v1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedClient}},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
-			Ingress:     make([]v1.NetworkPolicyIngressRule, 0),
 			Egress:      egressRules,
 		},
 	}
@@ -146,7 +145,6 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedServer}},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			Ingress:     ingressRulesNotSVC,
-			Egress:      make([]v1.NetworkPolicyEgressRule, 0),
 		},
 	}
 
@@ -169,7 +167,6 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 			PodSelector: metav1.LabelSelector{MatchLabels: serviceSelector},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			Ingress:     ingressRulesToSVC,
-			Egress:      make([]v1.NetworkPolicyEgressRule, 0),
 		},
 	}
 
@@ -429,7 +426,6 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 		Spec: v1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedClientWithoutKind, otterizev2alpha1.OtterizeOwnerKindLabelKey: "Deployment"}},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
-			Ingress:     make([]v1.NetworkPolicyIngressRule, 0),
 			Egress:      egressRules,
 		},
 	}
@@ -457,7 +453,6 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 			},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			Ingress:     ingressRulesNotSVC,
-			Egress:      make([]v1.NetworkPolicyEgressRule, 0),
 		},
 	}
 
@@ -480,7 +475,6 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 			PodSelector: metav1.LabelSelector{MatchLabels: serviceSelector},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			Ingress:     ingressRulesToSVC,
-			Egress:      make([]v1.NetworkPolicyEgressRule, 0),
 		},
 	}
 

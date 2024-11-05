@@ -42,6 +42,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
+	"github.com/otterize/intents-operator/src/operator/health"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared"
@@ -508,6 +509,7 @@ func main() {
 		healthChecker = mgr.GetWebhookServer().StartedChecker()
 		readyChecker = mgr.GetWebhookServer().StartedChecker()
 	}
+
 	cacheHealthChecker := func(_ *http.Request) error {
 		timeoutCtx, cancel := context.WithTimeout(signalHandlerCtx, 1*time.Second)
 		defer cancel()
@@ -527,6 +529,10 @@ func main() {
 	}
 	if err := mgr.AddHealthzCheck("cache", cacheHealthChecker); err != nil {
 		logrus.WithError(err).Panic("unable to set up cache health check")
+	}
+
+	if err := mgr.AddHealthzCheck("intentsReconcile", health.Checker); err != nil {
+		logrus.WithError(err).Panic("unable to set up health check")
 	}
 
 	logrus.Info("starting manager")
