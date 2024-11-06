@@ -60,7 +60,7 @@ func (r *LinkerdReconciler) ReconcileEffectivePolicies(ctx context.Context, eps 
 	for _, ep := range eps {
 		result, err := r.applyLinkerdServiceEffectivePolicy(ctx, ep)
 		if err != nil {
-			r.handleApplyErrors(err, errorList)
+			errorList = r.handleApplyErrors(err, errorList)
 			continue
 		}
 		validResources.AuthorizationPolicies.Update(result.AuthorizationPolicies)

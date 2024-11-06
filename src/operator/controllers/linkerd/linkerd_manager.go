@@ -453,49 +453,6 @@ func (ldm *LinkerdManager) shouldCreateNetAuth(ctx context.Context, svcIdentity 
 	return true, nil
 }
 
-func (ldm *LinkerdManager) DeleteResourceIfNotReferencedByOtherPolicy(ctx context.Context, object client.Object, policies map[string]authpolicy.AuthorizationPolicy, isTargetRef bool) error {
-	// go through all policies, if another policy has this route as a target ref, update the server annotation
-	// of that route to be equal to that of the policy and don't delete the route
-	for _, policy := range policies {
-		logrus.Info("Name of policy: ", policy.Spec.TargetRef.Name, " ", "Name of object", object.GetName())
-		if isTargetRef {
-			if string(policy.Spec.TargetRef.Name) == object.GetName() {
-				object.GetLabels()[otterizev2alpha1.OtterizeLinkerdServerAnnotationKey] = policy.Labels[otterizev2alpha1.OtterizeLinkerdServerAnnotationKey]
-				logrus.Info("Updating object with name ", object.GetName(), "to be owned by ", policy.Labels[otterizev2alpha1.OtterizeLinkerdServerAnnotationKey])
-				err := ldm.Client.Update(ctx, object, &client.UpdateOptions{})
-				if err != nil {
-					return err
-				}
-				continue
-			}
-			logrus.Info("deleting object ", object.GetName(), "owned by", object.GetLabels()[otterizev2alpha1.OtterizeLinkerdServerAnnotationKey])
-			err := ldm.Client.Delete(ctx, object)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
-		for _, authRef := range policy.Spec.RequiredAuthenticationRefs {
-			if string(authRef.Name) == object.GetName() {
-				object.GetLabels()[otterizev2alpha1.OtterizeLinkerdServerAnnotationKey] = policy.Labels[otterizev2alpha1.OtterizeLinkerdServerAnnotationKey]
-				logrus.Info("Updating object with name ", object.GetName(), "to be owned by ", policy.Labels[otterizev2alpha1.OtterizeLinkerdServerAnnotationKey])
-				err := ldm.Client.Update(ctx, object, &client.UpdateOptions{})
-				if err != nil {
-					return err
-				}
-				continue
-			}
-			logrus.Info("deleting object ", object.GetName(), "owned by ", object.GetLabels()[otterizev2alpha1.OtterizeLinkerdServerAnnotationKey])
-			err := ldm.Client.Delete(ctx, object)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
-	}
-	return nil
-}
-
 func (ldm *LinkerdManager) generateLinkerdServer(svcIdentity serviceidentity.ServiceIdentity, target otterizev2alpha1.Target, podSelector metav1.LabelSelector, port int32) (*linkerdserver.Server, error) {
 	name := ldm.getServerName(target, port)
 	serverNamespace := target.GetTargetServerNamespace(svcIdentity.Namespace)
