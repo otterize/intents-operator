@@ -87,6 +87,12 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	if !lo.SomeBy(clientIntents.GetDatabaseIntents(), func(intent otterizev2alpha1.Target) bool {
+		return true
+	}) {
+		return ctrl.Result{}, nil
+	}
+
 	clusterID, err := r.getClusterID(ctx)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)

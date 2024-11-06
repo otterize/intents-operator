@@ -298,4 +298,126 @@ spec:
 	if !isNetworkPolicySpecEqual(netpolA.Spec, netpolB.Spec) {
 		t.Error("Expected NetworkPolicySpecs to be equal")
 	}
+
+	if !isNetworkPolicySpecEqual(netpolB.Spec, netpolA.Spec) {
+		t.Error("Expected NetworkPolicySpecs to be equal")
+	}
+}
+
+func TestNetworkPolicyRuleOrderIndependenceWithMultipleSelectors(t *testing.T) {
+	// Common fields for test initialization
+	tcp := v1.ProtocolTCP
+	udp := v1.ProtocolUDP
+	port80 := intstr.FromInt(80)
+	port443 := intstr.FromInt(443)
+
+	// Define two NetworkPolicySpecs with the same Ingress and Egress rules in different orders,
+	// each with multiple PodSelector and NamespaceSelector entries in different orders
+	spec1 := networkingv1.NetworkPolicySpec{
+		PodSelector: metav1.LabelSelector{
+			MatchLabels: map[string]string{"app": "test"},
+		},
+		Ingress: []networkingv1.NetworkPolicyIngressRule{
+			{
+				Ports: []networkingv1.NetworkPolicyPort{
+					{Protocol: &tcp, Port: &port80},
+				},
+				From: []networkingv1.NetworkPolicyPeer{
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"role": "frontend"},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"team": "backend"},
+						},
+					},
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"role": "database"},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"team": "frontend"},
+						},
+					},
+				},
+			},
+			{
+				Ports: []networkingv1.NetworkPolicyPort{
+					{Protocol: &udp, Port: &port443},
+				},
+				From: []networkingv1.NetworkPolicyPeer{
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"role": "cache"},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"team": "data"},
+						},
+					},
+				},
+			},
+		},
+		Egress: []networkingv1.NetworkPolicyEgressRule{
+			{
+				Ports: []networkingv1.NetworkPolicyPort{
+					{Protocol: &tcp, Port: &port443},
+				},
+				To: []networkingv1.NetworkPolicyPeer{
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"role": "app"},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"team": "frontend"},
+						},
+					},
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"role": "api"},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"team": "backend"},
+						},
+					},
+				},
+			},
+			{
+				Ports: []networkingv1.NetworkPolicyPort{
+					{Protocol: &udp, Port: &port80},
+				},
+				To: []networkingv1.NetworkPolicyPeer{
+					{
+						PodSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"role": "service"},
+						},
+						NamespaceSelector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"team": "dev"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Initialize spec2 by copying spec1 and swapping elements
+	spec2 := *spec1.DeepCopy()
+
+	// Swap the order of Ingress rules
+	spec2.Ingress[0], spec2.Ingress[1] = spec2.Ingress[1], spec2.Ingress[0]
+
+	// Swap the order of From peers in the first Ingress rule
+	spec2.Ingress[1].From[1], spec2.Ingress[1].From[0] = spec2.Ingress[1].From[0], spec2.Ingress[1].From[1]
+
+	// Swap the order of Egress rules
+	spec2.Egress[0], spec2.Egress[1] = spec2.Egress[1], spec2.Egress[0]
+
+	// Sort and compare
+	if !isNetworkPolicySpecEqual(spec1, spec2) {
+		t.Error("Expected NetworkPolicySpecs to be equal regardless of Ingress and Egress rule order and Peer selectors")
+	}
+
+	// And in reverse
+	if !isNetworkPolicySpecEqual(spec2, spec1) {
+		t.Error("Expected NetworkPolicySpecs to be equal regardless of Ingress and Egress rule order and Peer selectors")
+	}
 }
