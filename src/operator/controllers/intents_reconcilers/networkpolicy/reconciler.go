@@ -578,22 +578,23 @@ func (r *Reconciler) handleExistingPolicyRetry(ctx context.Context, ep effective
 
 func (r *Reconciler) handleCreationErrors(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy, err error) error {
 	errStr := err.Error()
-	errUnwrap := errors.Unwrap(err)
-	if k8serrors.IsAlreadyExists(errUnwrap) {
-		// Ideally we would just return {Requeue: true} but it is not possible without a mini-refactor
-		return r.handleExistingPolicyRetry(ctx, ep, netpol)
-	}
+	if k8sErr := &(k8serrors.StatusError{}); errors.As(err, &k8sErr) {
+		if k8serrors.IsAlreadyExists(k8sErr) {
+			// Ideally we would just return {Requeue: true} but it is not possible without a mini-refactor
+			return r.handleExistingPolicyRetry(ctx, ep, netpol)
+		}
 
-	if k8serrors.IsForbidden(errUnwrap) && strings.Contains(errStr, "is being terminated") {
-		// Namespace is being deleted, nothing to do further
-		logrus.Debugf("Namespace %s is being terminated, ignoring api server error", netpol.Namespace)
-		return nil
-	}
+		if k8serrors.IsForbidden(k8sErr) && strings.Contains(errStr, "is being terminated") {
+			// Namespace is being deleted, nothing to do further
+			logrus.Debugf("Namespace %s is being terminated, ignoring api server error", netpol.Namespace)
+			return nil
+		}
 
-	if k8serrors.IsNotFound(errUnwrap) && strings.Contains(errStr, netpol.Namespace) {
-		// Namespace was deleted since we started .Create() logic, nothing to do further
-		logrus.Debugf("Namespace %s was deleted, ignoring api server error", netpol.Namespace)
-		return nil
+		if k8serrors.IsNotFound(k8sErr) && strings.Contains(errStr, netpol.Namespace) {
+			// Namespace was deleted since we started .Create() logic, nothing to do further
+			logrus.Debugf("Namespace %s was deleted, ignoring api server error", netpol.Namespace)
+			return nil
+		}
 	}
 
 	return errors.Wrap(err)

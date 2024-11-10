@@ -369,8 +369,10 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 	foundOtterizeNetpolsAffectingPods := false
 	for _, address := range addresses {
 		pod, err := r.getAffectedPod(ctx, address)
-		if k8serrors.IsNotFound(errors.Unwrap(err)) {
-			continue
+		if k8sErr := &(k8serrors.StatusError{}); errors.As(err, &k8sErr) {
+			if k8serrors.IsNotFound(k8sErr) {
+				continue
+			}
 		}
 
 		if err != nil {

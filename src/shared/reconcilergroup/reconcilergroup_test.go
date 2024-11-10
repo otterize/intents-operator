@@ -329,6 +329,35 @@ func (s *ReconcilerGroupTestSuite) TestFinalizerUpdateFailedAfterDelete() {
 	s.Require().True(reconciler.Reconciled)
 }
 
+func (s *ReconcilerGroupTestSuite) TestFinalizerUpdateFailedAfterDelete_NotFound_Requeue() {
+	reconciler := &TestReconciler{Err: nil, Result: reconcile.Result{}}
+	s.group.AddToGroup(reconciler)
+
+	resourceName := types.NamespacedName{
+		Name:      "my-resource",
+		Namespace: "the-happy-place-we-live-in",
+	}
+
+	emptyIntents := &otterizev2alpha1.ClientIntents{}
+	intentsWithFinalizer := emptyIntents.DeepCopy()
+	controllerutil.AddFinalizer(intentsWithFinalizer, testFinalizer)
+	intentsWithFinalizer.DeletionTimestamp = &v1.Time{Time: time.Date(1992, 4, 25, 19, 30, 0, 0, time.UTC)}
+
+	s.client.EXPECT().Get(gomock.Any(), resourceName, gomock.Eq(emptyIntents)).DoAndReturn(
+		func(_ context.Context, _ types.NamespacedName, intents *otterizev2alpha1.ClientIntents, _ ...client.GetOption) error {
+			*intents = *intentsWithFinalizer
+			return nil
+		})
+
+	intentsWithoutFinalizer := intentsWithFinalizer.DeepCopy()
+	controllerutil.RemoveFinalizer(intentsWithoutFinalizer, testFinalizer)
+	s.client.EXPECT().Update(gomock.Any(), gomock.Eq(intentsWithoutFinalizer)).Return(k8serrors.NewNotFound(schema.GroupResource{}, resourceName.Name))
+
+	res, err := s.group.Reconcile(context.Background(), reconcile.Request{NamespacedName: resourceName})
+	s.Require().NoError(err)
+	s.Require().True(res.Requeue)
+}
+
 func (s *ReconcilerGroupTestSuite) TestFinalizerNotDeletedIfReconcilerFailed() {
 	reconciler := &TestReconciler{Err: errors.New("test error"), Result: reconcile.Result{}}
 	s.group.AddToGroup(reconciler)

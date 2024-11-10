@@ -172,8 +172,11 @@ func (g *Group) InjectRecorder(recorder record.EventRecorder) {
 }
 
 func isKubernetesRaceRelatedError(err error) bool {
-	errUnwrap := errors.Unwrap(err)
-	return k8serrors.IsConflict(errUnwrap) || k8serrors.IsNotFound(errUnwrap) || k8serrors.IsForbidden(errUnwrap) || k8serrors.IsAlreadyExists(errUnwrap)
+	if k8sErr := &(k8serrors.StatusError{}); errors.As(err, &k8sErr) {
+		return k8serrors.IsConflict(k8sErr) || k8serrors.IsNotFound(k8sErr) || k8serrors.IsForbidden(k8sErr) || k8serrors.IsAlreadyExists(k8sErr)
+	}
+
+	return false
 }
 
 func shortestRequeue(a, b reconcile.Result) reconcile.Result {
