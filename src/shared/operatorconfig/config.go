@@ -42,6 +42,8 @@ const (
 	DebugLogDefault                           = false
 	EnableEgressAutoallowDNSTrafficKey        = "enable-egress-autoallow-dns-traffic" // Whether to automatically allow DNS traffic in egress network policies
 	EnableEgressAutoallowDNSTrafficDefault    = true
+	EnableGroupInternetIPsByCIDRKey           = "enable-group-internet-ips-by-cidr"
+	EnableGroupInternetIPsByCIDRDefault       = false
 	EnableAWSRolesAnywhereKey                 = "enable-aws-iam-rolesanywhere"
 	EnableAWSRolesAnywhereDefault             = false
 	AzureSubscriptionIDKey                    = "azure-subscription-id"
@@ -86,6 +88,7 @@ func init() {
 	viper.SetDefault(RetryDelayTimeKey, RetryDelayTimeDefault)
 	viper.SetDefault(DebugLogKey, DebugLogDefault)
 	viper.SetDefault(SeparateNetpolsForIngressAndEgress, SeparateNetpolsForIngressAndEgressDefault)
+	viper.SetDefault(EnableGroupInternetIPsByCIDRKey, EnableGroupInternetIPsByCIDRDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 

@@ -9,7 +9,9 @@ import (
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/samber/lo"
+	"github.com/spf13/viper"
 	"golang.org/x/exp/slices"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -136,7 +138,11 @@ func getCIDR(ipStr string) (*net.IPNet, error) {
 		if isV6 {
 			cidr = fmt.Sprintf("%s/128", ip)
 		} else {
-			cidr = fmt.Sprintf("%s/16", ip)
+			if viper.GetBool(operatorconfig.EnableGroupInternetIPsByCIDRKey) {
+				cidr = fmt.Sprintf("%s/24", ip)
+			} else {
+				cidr = fmt.Sprintf("%s/32", ip)
+			}
 		}
 	}
 

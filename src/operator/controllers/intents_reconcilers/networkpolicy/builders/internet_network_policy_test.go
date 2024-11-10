@@ -101,7 +101,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 					To: []v1.NetworkPolicyPeer{
 						{
 							IPBlock: &v1.IPBlock{
-								CIDR: "10.1.0.0" + "/16",
+								CIDR: "10.1.2.0" + "/24",
 							},
 						},
 						{
@@ -143,8 +143,8 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestIPsToCIDRConsolidation() 
 	clientNamespace := testClientNamespace
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
 	dns := "wiki.otters.com"
-	ips := []string{"10.1.2.4", "10.1.2.5", "10.1.2.6", "10.1.10.10", "10.1.200.200"}
-	expectedCIDRs := []string{"10.1.0.0"}
+	ips := []string{"10.1.2.4", "10.1.2.5", "10.1.2.6", "10.1.200.200"}
+	expectedCIDRs := []string{"10.1.2.0", "10.1.200.0"}
 
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
@@ -212,7 +212,12 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestIPsToCIDRConsolidation() 
 					To: []v1.NetworkPolicyPeer{
 						{
 							IPBlock: &v1.IPBlock{
-								CIDR: expectedCIDRs[0] + "/16",
+								CIDR: expectedCIDRs[0] + "/24",
+							},
+						},
+						{
+							IPBlock: &v1.IPBlock{
+								CIDR: expectedCIDRs[1] + "/24",
 							},
 						},
 					},
