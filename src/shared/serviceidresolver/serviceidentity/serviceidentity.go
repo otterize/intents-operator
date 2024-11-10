@@ -48,6 +48,10 @@ func (si ServiceIdentity) GetNameWithKind() string {
 	return lo.Ternary(si.Kind == "" || si.Kind == KindOtterizeLegacy, si.Name, fmt.Sprintf("%s-%s", si.Name, strings.ToLower(si.Kind)))
 }
 
+func (si ServiceIdentity) GetRFC1123NameWithKind() string {
+	return strings.ReplaceAll(si.GetNameWithKind(), "_", "-")
+}
+
 func (si ServiceIdentity) Equals(other ServiceIdentity) bool {
 	return si.Name == other.Name && si.Namespace == other.Namespace && si.Kind == other.Kind
 }

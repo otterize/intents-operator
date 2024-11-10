@@ -187,10 +187,12 @@ func (r *Reconciler) applyServiceEffectivePolicy(ctx context.Context, ep effecti
 
 func (r *Reconciler) applyNetpol(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol v1.NetworkPolicy) error {
 	existingPolicy := &v1.NetworkPolicy{}
+
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      netpol.Name,
 		Namespace: ep.Service.Namespace},
 		existingPolicy)
+
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
 		return errors.Wrap(err)
@@ -353,9 +355,10 @@ func (r *Reconciler) buildSinglePolicy(ep effectivepolicy.ServiceEffectivePolicy
 	if shouldCreateEgress {
 		policyTypes = append(policyTypes, v1.PolicyTypeEgress)
 	}
+
 	return v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, ep.Service.GetNameWithKind()),
+			Name:      fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, ep.Service.GetRFC1123NameWithKind()),
 			Namespace: ep.Service.Namespace,
 			Labels: map[string]string{
 				otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
@@ -375,7 +378,7 @@ func (r *Reconciler) buildSeparatePolicies(ep effectivepolicy.ServiceEffectivePo
 	if shouldCreateIngress {
 		ingressPolicy := v1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyIngressNameTemplate, ep.Service.GetNameWithKind()),
+				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyIngressNameTemplate, ep.Service.GetRFC1123NameWithKind()),
 				Namespace: ep.Service.Namespace,
 				Labels: map[string]string{
 					otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
@@ -392,7 +395,7 @@ func (r *Reconciler) buildSeparatePolicies(ep effectivepolicy.ServiceEffectivePo
 	if shouldCreateEgress {
 		egressPolicy := v1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyEgressNameTemplate, ep.Service.GetNameWithKind()),
+				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyEgressNameTemplate, ep.Service.GetRFC1123NameWithKind()),
 				Namespace: ep.Service.Namespace,
 				Labels: map[string]string{
 					otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
