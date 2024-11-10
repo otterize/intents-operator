@@ -3,6 +3,7 @@ package builders
 import (
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
@@ -66,16 +67,21 @@ func (r *InternetEgressRulesBuilder) buildRuleForIntent(intent otterizev2alpha1.
 	}
 
 	peers := make([]v1.NetworkPolicyPeer, 0)
+	cidrList := goset.NewSet[string]()
 	for ip := range ips {
 		cidr, err := getCIDR(ip)
 		if err != nil {
 			return nil, nil, false, errors.Wrap(err)
 		}
-		peers = append(peers, v1.NetworkPolicyPeer{
-			IPBlock: &v1.IPBlock{
-				CIDR: cidr,
-			},
-		})
+		ipnet := cidr.String()
+		if !cidrList.Contains(ipnet) {
+			cidrList.Add(ipnet)
+			peers = append(peers, v1.NetworkPolicyPeer{
+				IPBlock: &v1.IPBlock{
+					CIDR: ipnet,
+				},
+			})
+		}
 	}
 
 	slices.SortFunc(peers, func(a, b v1.NetworkPolicyPeer) bool {
@@ -118,25 +124,25 @@ func (r *InternetEgressRulesBuilder) Build(_ context.Context, ep effectivepolicy
 	return r.buildEgressRules(ep)
 }
 
-func getCIDR(ipStr string) (string, error) {
+func getCIDR(ipStr string) (*net.IPNet, error) {
 	cidr := ipStr
 	if !strings.Contains(ipStr, "/") {
 		ip := net.ParseIP(ipStr)
 		if ip == nil {
-			return "", errors.New(fmt.Sprintf("invalid IP: %s", ipStr))
+			return nil, errors.New(fmt.Sprintf("invalid IP: %s", ipStr))
 		}
 		isV6 := ip.To4() == nil
 
 		if isV6 {
 			cidr = fmt.Sprintf("%s/128", ip)
 		} else {
-			cidr = fmt.Sprintf("%s/32", ip)
+			cidr = fmt.Sprintf("%s/16", ip)
 		}
 	}
 
-	_, _, err := net.ParseCIDR(cidr)
+	_, network, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return "", errors.Wrap(err)
+		return nil, errors.Wrap(err)
 	}
-	return cidr, nil
+	return network, nil
 }
