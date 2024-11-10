@@ -46,7 +46,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 	serviceName := "test-client"
 	clientNamespace := testClientNamespace
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
-	ips := []string{"10.1.2.2", "254.3.4.0/24", "2620:0:860:ed1a::1", "2607:f8b0:4001:c05::63/64"}
+	ips := []string{"10.1.2.2", "254.3.4.0/24", "2620:0:860:ed1a::1", "2607:f8b0:4001:c05::/64"}
 
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
