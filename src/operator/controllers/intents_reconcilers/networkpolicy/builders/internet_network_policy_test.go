@@ -44,7 +44,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 	serviceName := "test-client"
 	clientNamespace := testClientNamespace
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
-	ips := []string{"10.1.2.2", "254.3.4.0/24", "2620:0:860:ed1a::1", "2607:f8b0:4001:c05::/64"}
+	ips := []string{"10.1.2.2", "254.3.4.0/24", "2620:0:860:ed1a::1", "2607:f8b0:4001:c05::63/64"}
 
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
@@ -101,7 +101,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 					To: []v1.NetworkPolicyPeer{
 						{
 							IPBlock: &v1.IPBlock{
-								CIDR: "10.1.2.0" + "/24",
+								CIDR: ips[0] + "/32",
 							},
 						},
 						{
@@ -136,107 +136,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
-func (s *InternetNetworkPolicyReconcilerTestSuite) TestIPsToCIDRConsolidation() {
-	clientIntentsName := "client-intents"
-	policyName := "test-client-access"
-	serviceName := "test-client"
-	clientNamespace := testClientNamespace
-	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
-	dns := "wiki.otters.com"
-	ips := []string{"10.1.2.4", "10.1.2.5", "10.1.2.6", "10.1.200.200"}
-	expectedCIDRs := []string{"10.1.2.0", "10.1.200.0"}
-
-	namespacedName := types.NamespacedName{
-		Namespace: testClientNamespace,
-		Name:      clientIntentsName,
-	}
-	req := ctrl.Request{
-		NamespacedName: namespacedName,
-	}
-
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
-			{
-				Internet: &otterizev2alpha1.Internet{
-					Domains: []string{dns},
-				},
-			},
-		},
-	}
-
-	intentsStatus := otterizev2alpha1.IntentsStatus{
-		ResolvedIPs: []otterizev2alpha1.ResolvedIPs{
-			{
-				DNS: dns,
-				IPs: ips,
-			},
-		},
-	}
-	clientIntents := otterizev2alpha1.ClientIntents{
-		Spec:   intentsSpec,
-		Status: intentsStatus,
-	}
-	clientIntents.Namespace = clientNamespace
-	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
-
-	// Search for existing NetworkPolicy
-	emptyNetworkPolicy := &v1.NetworkPolicy{}
-	networkPolicyNamespacedName := types.NamespacedName{
-		Namespace: clientNamespace,
-		Name:      policyName,
-	}
-	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
-			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
-		})
-
-	newPolicy := &v1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      policyName,
-			Namespace: clientNamespace,
-			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
-			},
-		},
-		Spec: v1.NetworkPolicySpec{
-			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
-				},
-			},
-			Egress: []v1.NetworkPolicyEgressRule{
-				{
-					To: []v1.NetworkPolicyPeer{
-						{
-							IPBlock: &v1.IPBlock{
-								CIDR: expectedCIDRs[0] + "/24",
-							},
-						},
-						{
-							IPBlock: &v1.IPBlock{
-								CIDR: expectedCIDRs[1] + "/24",
-							},
-						},
-					},
-					Ports: []v1.NetworkPolicyPort{},
-				},
-			},
-		},
-	}
-	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy))
-	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), gomock.Any(), gomock.Any())
-
-	s.ignoreRemoveOrphan()
-
-	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
-}
-
 func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS() {
 	clientIntentsName := "client-intents"
 	policyName := "test-client-access"
@@ -245,7 +144,6 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
 	dns := "wiki.otters.com"
 	ips := []string{"10.1.2.2", "254.3.4.0", "2620:0:860:ed1a::1"}
-	expectedCIDRs := []string{"10.1.0.0", "254.3.0.0"}
 
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
@@ -313,12 +211,12 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS
 					To: []v1.NetworkPolicyPeer{
 						{
 							IPBlock: &v1.IPBlock{
-								CIDR: expectedCIDRs[0] + "/16",
+								CIDR: ips[0] + "/32",
 							},
 						},
 						{
 							IPBlock: &v1.IPBlock{
-								CIDR: expectedCIDRs[1] + "/16",
+								CIDR: ips[1] + "/32",
 							},
 						},
 						{
