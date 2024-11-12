@@ -141,7 +141,7 @@ func (r *DefaultDenyReconciler) updateIfNeeded(
 }
 
 func (r *DefaultDenyReconciler) buildNetworkPolicyObjectForIntent(ctx context.Context, serviceId serviceidentity.ServiceIdentity) (v1.NetworkPolicy, bool, error) {
-	policyName := fmt.Sprintf("default-deny-%s", serviceId.GetNameWithKind())
+	policyName := fmt.Sprintf("default-deny-%s", serviceId.GetRFC1123NameWithKind())
 	podSelectorLabels, ok, err := otterizev2alpha1.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.Client, serviceId)
 	if err != nil {
 		return v1.NetworkPolicy{}, false, errors.Wrap(err)
