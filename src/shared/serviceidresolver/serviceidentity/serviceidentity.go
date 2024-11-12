@@ -49,7 +49,7 @@ func (si ServiceIdentity) GetNameWithKind() string {
 }
 
 func (si ServiceIdentity) GetRFC1123NameWithKind() string {
-	return strings.ReplaceAll(si.GetNameWithKind(), "_", "-")
+	return strings.ReplaceAll(si.GetNameWithKind(), "_", ".")
 }
 
 func (si ServiceIdentity) Equals(other ServiceIdentity) bool {
