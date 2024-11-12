@@ -121,7 +121,6 @@ func (r *InternetEgressRulesBuilder) Build(_ context.Context, ep effectivepolicy
 }
 
 func getIPsAsPeers(ips map[string]struct{}, groupBySubnet bool) ([]v1.NetworkPolicyPeer, error) {
-	peers := make([]v1.NetworkPolicyPeer, 0)
 	cidrSet := goset.NewSet[string]()
 	for ip := range ips {
 		cidr, err := getCIDR(ip, groupBySubnet)
@@ -131,7 +130,7 @@ func getIPsAsPeers(ips map[string]struct{}, groupBySubnet bool) ([]v1.NetworkPol
 		cidrSet.Add(cidr.String())
 	}
 
-	peers = lo.Map(cidrSet.Items(), func(cidrStr string, _ int) v1.NetworkPolicyPeer {
+	peers := lo.Map(cidrSet.Items(), func(cidrStr string, _ int) v1.NetworkPolicyPeer {
 		return v1.NetworkPolicyPeer{
 			IPBlock: &v1.IPBlock{
 				CIDR: cidrStr,
