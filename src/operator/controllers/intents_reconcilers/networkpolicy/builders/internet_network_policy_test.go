@@ -1013,6 +1013,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForAnyDNS() {
 
 func (s *InternetNetworkPolicyReconcilerTestSuite) TestIPsToCIDRConsolidation() {
 	viper.Set(operatorconfig.EnableGroupInternetIPsByCIDRKey, true)
+	viper.Set(operatorconfig.EnableGroupInternetIPsByCIDRPeersLimitKey, 2) // just under len(ips)
 	clientIntentsName := "client-intents"
 	policyName := "test-client-access"
 	serviceName := "test-client"
