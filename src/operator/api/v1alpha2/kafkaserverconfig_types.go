@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	v2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -96,21 +96,21 @@ func init() {
 
 // ConvertTo converts this ProtectedService to the Hub version (v1alpha3).
 func (ksc *KafkaServerConfig) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v2alpha1.KafkaServerConfig)
+	dst := dstRaw.(*v2.KafkaServerConfig)
 	dst.ObjectMeta = ksc.ObjectMeta
-	dst.Spec = v2alpha1.KafkaServerConfigSpec{}
+	dst.Spec = v2.KafkaServerConfigSpec{}
 	dst.Spec.Addr = ksc.Spec.Addr
-	dst.Spec.Service = v2alpha1.Workload{Name: ksc.Spec.Service.Name}
+	dst.Spec.Service = v2.Workload{Name: ksc.Spec.Service.Name}
 	dst.Spec.NoAutoCreateIntentsForOperator = ksc.Spec.NoAutoCreateIntentsForOperator
-	dst.Spec.TLS = v2alpha1.TLSSource{
+	dst.Spec.TLS = v2.TLSSource{
 		CertFile:   ksc.Spec.TLS.CertFile,
 		KeyFile:    ksc.Spec.TLS.KeyFile,
 		RootCAFile: ksc.Spec.TLS.RootCAFile,
 	}
 	for _, topic := range ksc.Spec.Topics {
-		dst.Spec.Topics = append(dst.Spec.Topics, v2alpha1.TopicConfig{
+		dst.Spec.Topics = append(dst.Spec.Topics, v2.TopicConfig{
 			Topic:                  topic.Topic,
-			Pattern:                v2alpha1.ResourcePatternType(topic.Pattern), // this casting is fine as v1alpha2 == v1alpha3
+			Pattern:                v2.ResourcePatternType(topic.Pattern), // this casting is fine as v1alpha2 == v1alpha3
 			ClientIdentityRequired: topic.ClientIdentityRequired,
 			IntentsRequired:        topic.IntentsRequired,
 		})
@@ -120,7 +120,7 @@ func (ksc *KafkaServerConfig) ConvertTo(dstRaw conversion.Hub) error {
 
 // ConvertFrom converts the Hub version (v1alpha3) to this KafkaServerConfig.
 func (ksc *KafkaServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v2alpha1.KafkaServerConfig)
+	src := srcRaw.(*v2.KafkaServerConfig)
 	ksc.ObjectMeta = src.ObjectMeta
 	ksc.Spec = KafkaServerConfigSpec{}
 	ksc.Spec.Addr = src.Spec.Addr

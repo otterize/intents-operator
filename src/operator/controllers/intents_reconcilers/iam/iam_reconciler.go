@@ -2,7 +2,7 @@ package iam
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -43,7 +43,7 @@ func NewIAMIntentsReconciler(
 func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	logger := logrus.WithField("namespace", req.Namespace).WithField("name", req.Name)
 
-	intents := otterizev2alpha1.ClientIntents{}
+	intents := otterizev2.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, &intents)
 
 	if err != nil {
@@ -89,7 +89,7 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	return ctrl.Result{}, nil
 }
 
-func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod corev1.Pod, intents otterizev2alpha1.ClientIntents, agent iampolicyagents.IAMPolicyAgent) error {
+func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod corev1.Pod, intents otterizev2.ClientIntents, agent iampolicyagents.IAMPolicyAgent) error {
 	if !agent.AppliesOnPod(&pod) {
 		return nil
 	}
@@ -123,8 +123,8 @@ func (r *IAMIntentsReconciler) applyTypedIAMIntents(ctx context.Context, pod cor
 	return nil
 }
 
-func (r *IAMIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.Context, serviceAccountName string, namespace string, intentType otterizev2alpha1.IntentType) (bool, error) {
-	var intents otterizev2alpha1.ClientIntentsList
+func (r *IAMIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.Context, serviceAccountName string, namespace string, intentType otterizev2.IntentType) (bool, error) {
+	var intents otterizev2.ClientIntentsList
 	err := r.List(ctx, &intents, &client.ListOptions{Namespace: namespace})
 	if err != nil {
 		return false, errors.Wrap(err)
@@ -134,7 +134,7 @@ func (r *IAMIntentsReconciler) hasMultipleClientsForServiceAccount(ctx context.C
 		return false, nil
 	}
 
-	intentsWithSameTypeInSameNamespace := lo.Filter(intents.Items, func(intent otterizev2alpha1.ClientIntents, _ int) bool {
+	intentsWithSameTypeInSameNamespace := lo.Filter(intents.Items, func(intent otterizev2.ClientIntents, _ int) bool {
 		return len(intent.GetFilteredTargetList(intentType)) != 0
 	})
 

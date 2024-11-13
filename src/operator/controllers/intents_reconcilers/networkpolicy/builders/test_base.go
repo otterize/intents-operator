@@ -3,7 +3,7 @@ package builders
 import (
 	"context"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
@@ -81,7 +81,7 @@ func (s *RulesBuilderTestSuiteBase) TearDownTest() {
 }
 
 func (s *RulesBuilderTestSuiteBase) ignoreRemoveDeprecatedPolicies() {
-	deprecatedLabels := []string{otterizev2alpha1.OtterizeEgressNetworkPolicy, otterizev2alpha1.OtterizeSvcEgressNetworkPolicy, otterizev2alpha1.OtterizeInternetNetworkPolicy, otterizev2alpha1.OtterizeSvcNetworkPolicy}
+	deprecatedLabels := []string{otterizev2.OtterizeEgressNetworkPolicy, otterizev2.OtterizeSvcEgressNetworkPolicy, otterizev2.OtterizeInternetNetworkPolicy, otterizev2.OtterizeSvcNetworkPolicy}
 	for _, label := range deprecatedLabels {
 		selectorRequirement := metav1.LabelSelectorRequirement{
 			Key:      label,
@@ -103,15 +103,15 @@ func (s *RulesBuilderTestSuiteBase) ignoreRemoveOrphan() {
 func (s *RulesBuilderTestSuiteBase) expectRemoveOrphanFindsPolicies(netpols []v1.NetworkPolicy) {
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev2alpha1.OtterizeNetworkPolicy,
+			Key:      otterizev2.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 		{
-			Key:      otterizev2alpha1.OtterizeNetworkPolicyExternalTraffic,
+			Key:      otterizev2.OtterizeNetworkPolicyExternalTraffic,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 		{
-			Key:      otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny,
+			Key:      otterizev2.OtterizeNetworkPolicyServiceDefaultDeny,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}})
@@ -128,13 +128,13 @@ func (s *RulesBuilderTestSuiteBase) expectRemoveOrphanFindsPolicies(netpols []v1
 	s.ignoreRemoveDeprecatedPolicies()
 }
 
-func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents []otterizev2alpha1.ClientIntents) {
-	var intentsList otterizev2alpha1.ClientIntentsList
+func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents []otterizev2.ClientIntents) {
+	var intentsList otterizev2.ClientIntentsList
 	for _, clientIntentsEntry := range clientIntents {
 		s.expectKubernetesServicesReferencingPodsIndirectly(clientIntentsEntry)
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), &intentsList).DoAndReturn(func(_ context.Context, intents *otterizev2alpha1.ClientIntentsList, _ ...any) error {
+	s.Client.EXPECT().List(gomock.Any(), &intentsList).DoAndReturn(func(_ context.Context, intents *otterizev2.ClientIntentsList, _ ...any) error {
 		intents.Items = append(intents.Items, clientIntents...)
 		return nil
 	})
@@ -146,7 +146,7 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 		})
 
 	// create service to ClientIntents pointing to it
-	services := make(map[string][]otterizev2alpha1.ClientIntents)
+	services := make(map[string][]otterizev2.ClientIntents)
 	for _, clientIntent := range clientIntents {
 		for _, intentCall := range clientIntent.GetTargetList() {
 			serverService := intentCall.ToServiceIdentity(clientIntent.Namespace)
@@ -156,11 +156,11 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		&otterizev2alpha1.ClientIntentsList{},
+		&otterizev2.ClientIntentsList{},
 		gomock.AssignableToTypeOf(&client.MatchingFields{}),
-	).DoAndReturn(func(_ context.Context, intents *otterizev2alpha1.ClientIntentsList, args ...any) error {
+	).DoAndReturn(func(_ context.Context, intents *otterizev2.ClientIntentsList, args ...any) error {
 		matchFields := args[0].(*client.MatchingFields)
-		intents.Items = services[(*matchFields)[otterizev2alpha1.OtterizeFormattedTargetServerIndexField]]
+		intents.Items = services[(*matchFields)[otterizev2.OtterizeFormattedTargetServerIndexField]]
 		return nil
 	}).AnyTimes()
 }
@@ -192,7 +192,7 @@ func (s *RulesBuilderTestSuiteBase) addExpectedKubernetesServiceCall(serviceName
 	return &svcObject
 }
 
-func (s *RulesBuilderTestSuiteBase) expectKubernetesServicesReferencingPodsIndirectly(clientIntents otterizev2alpha1.ClientIntents) {
+func (s *RulesBuilderTestSuiteBase) expectKubernetesServicesReferencingPodsIndirectly(clientIntents otterizev2.ClientIntents) {
 	podList := []corev1.Pod{
 		{
 			ObjectMeta: metav1.ObjectMeta{
@@ -209,7 +209,7 @@ func (s *RulesBuilderTestSuiteBase) expectKubernetesServicesReferencingPodsIndir
 			s.Client.EXPECT().List(
 				gomock.Any(),
 				&corev1.PodList{},
-				client.MatchingLabels{otterizev2alpha1.OtterizeServiceLabelKey: target.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind()},
+				client.MatchingLabels{otterizev2.OtterizeServiceLabelKey: target.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind()},
 			).DoAndReturn(func(ctx context.Context, outPodList *corev1.PodList, _ client.ListOption) error {
 				outPodList.Items = podList
 				return nil
@@ -218,8 +218,8 @@ func (s *RulesBuilderTestSuiteBase) expectKubernetesServicesReferencingPodsIndir
 			s.Client.EXPECT().List(
 				gomock.Any(),
 				&corev1.PodList{},
-				client.MatchingLabels{otterizev2alpha1.OtterizeServiceLabelKey: target.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind(),
-					otterizev2alpha1.OtterizeOwnerKindLabelKey: target.GetTargetServerKind()}).DoAndReturn(func(ctx context.Context, outPodList *corev1.PodList, _ client.ListOption) error {
+				client.MatchingLabels{otterizev2.OtterizeServiceLabelKey: target.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind(),
+					otterizev2.OtterizeOwnerKindLabelKey: target.GetTargetServerKind()}).DoAndReturn(func(ctx context.Context, outPodList *corev1.PodList, _ client.ListOption) error {
 				outPodList.Items = podList
 				return nil
 			}).AnyTimes()

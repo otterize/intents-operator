@@ -3,7 +3,7 @@ package kafka_server_config_reconcilers
 import (
 	"context"
 	"fmt"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
@@ -29,7 +29,7 @@ func NewTelemetryReconciler(client client.Client) *TelemetryReconciler {
 }
 
 func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
-	kafkaServerConfig := &otterizev2alpha1.KafkaServerConfig{}
+	kafkaServerConfig := &otterizev2.KafkaServerConfig{}
 	err := r.Get(ctx, req.NamespacedName, kafkaServerConfig)
 	if k8serrors.IsNotFound(err) {
 		return ctrl.Result{}, nil

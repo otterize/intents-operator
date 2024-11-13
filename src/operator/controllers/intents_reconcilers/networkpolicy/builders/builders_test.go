@@ -3,7 +3,7 @@ package builders
 import (
 	"context"
 	"fmt"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/stretchr/testify/suite"
@@ -47,22 +47,22 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
 	}
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace)},
+				Kubernetes: &otterizev2.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace)},
 			},
 			{
-				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace), Kind: serviceidentity.KindService},
+				Kubernetes: &otterizev2.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace), Kind: serviceidentity.KindService},
 			},
 			{
-				Internet: &otterizev2alpha1.Internet{Ips: []string{"8.8.8.8/32"}},
+				Internet: &otterizev2.Internet{Ips: []string{"8.8.8.8/32"}},
 			},
 		},
 	}
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -100,17 +100,17 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 
 	egressRules := []v1.NetworkPolicyEgressRule{
 		{To: []v1.NetworkPolicyPeer{{
-			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedServer}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.OtterizeServiceLabelKey: formattedServer}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		}}},
 		{To: []v1.NetworkPolicyPeer{{
 			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{testServerServiceLabelKey: testServerServiceLabelValue}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		},
 		}},
 		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, To: []v1.NetworkPolicyPeer{{
 			PodSelector:       &metav1.LabelSelector{MatchLabels: serviceSelector},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		}}},
 		{To: []v1.NetworkPolicyPeer{{IPBlock: &v1.IPBlock{CIDR: "8.8.8.8/32"}}}, Ports: make([]v1.NetworkPolicyPort, 0)}}
 
@@ -118,10 +118,10 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkPolicyNamespacedNameClient.Name,
 			Namespace: networkPolicyNamespacedNameClient.Namespace,
-			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedClient},
+			Labels:    map[string]string{otterizev2.OtterizeNetworkPolicy: formattedClient},
 		},
 		Spec: v1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedClient}},
+			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.OtterizeServiceLabelKey: formattedClient}},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			Egress:      egressRules,
 		},
@@ -131,18 +131,18 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 
 	ingressRulesNotSVC := []v1.NetworkPolicyIngressRule{
 		{From: []v1.NetworkPolicyPeer{{
-			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2alpha1.OtterizeAccessLabelKey, formattedServer): "true"}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2.OtterizeAccessLabelKey, formattedServer): "true"}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
 		}}}}
 
 	netpolNotSVC := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkPolicyNamespacedNameServer.Name,
 			Namespace: networkPolicyNamespacedNameServer.Namespace,
-			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedServer},
+			Labels:    map[string]string{otterizev2.OtterizeNetworkPolicy: formattedServer},
 		},
 		Spec: v1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedServer}},
+			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.OtterizeServiceLabelKey: formattedServer}},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			Ingress:     ingressRulesNotSVC,
 		},
@@ -153,15 +153,15 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 
 	ingressRulesToSVC := []v1.NetworkPolicyIngressRule{
 		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, From: []v1.NetworkPolicyPeer{{
-			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2alpha1.OtterizeSvcAccessLabelKey, formattedServerService): "true"}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2.OtterizeSvcAccessLabelKey, formattedServerService): "true"}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
 		}}}}
 
 	netpolToSVC := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkPolicyNamespacedNameServerService.Name,
 			Namespace: networkPolicyNamespacedNameServerService.Namespace,
-			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedServerService},
+			Labels:    map[string]string{otterizev2.OtterizeNetworkPolicy: formattedServerService},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{MatchLabels: serviceSelector},
@@ -198,22 +198,22 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindShouldCreateSeparatePolici
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
 	}
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace)},
+				Kubernetes: &otterizev2.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace)},
 			},
 			{
-				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace), Kind: serviceidentity.KindService},
+				Kubernetes: &otterizev2.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace), Kind: serviceidentity.KindService},
 			},
 			{
-				Internet: &otterizev2alpha1.Internet{Ips: []string{"8.8.8.8/32"}},
+				Internet: &otterizev2.Internet{Ips: []string{"8.8.8.8/32"}},
 			},
 		},
 	}
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -251,17 +251,17 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindShouldCreateSeparatePolici
 
 	egressRules := []v1.NetworkPolicyEgressRule{
 		{To: []v1.NetworkPolicyPeer{{
-			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedServer}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.OtterizeServiceLabelKey: formattedServer}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		}}},
 		{To: []v1.NetworkPolicyPeer{{
 			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{testServerServiceLabelKey: testServerServiceLabelValue}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		},
 		}},
 		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, To: []v1.NetworkPolicyPeer{{
 			PodSelector:       &metav1.LabelSelector{MatchLabels: serviceSelector},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		}}},
 		{To: []v1.NetworkPolicyPeer{{IPBlock: &v1.IPBlock{CIDR: "8.8.8.8/32"}}}, Ports: make([]v1.NetworkPolicyPort, 0)}}
 
@@ -269,10 +269,10 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindShouldCreateSeparatePolici
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkPolicyNamespacedNameClient.Name,
 			Namespace: networkPolicyNamespacedNameClient.Namespace,
-			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedClient},
+			Labels:    map[string]string{otterizev2.OtterizeNetworkPolicy: formattedClient},
 		},
 		Spec: v1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedClient}},
+			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.OtterizeServiceLabelKey: formattedClient}},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			Egress:      egressRules,
 		},
@@ -282,18 +282,18 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindShouldCreateSeparatePolici
 
 	ingressRulesNotSVC := []v1.NetworkPolicyIngressRule{
 		{From: []v1.NetworkPolicyPeer{{
-			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2alpha1.OtterizeAccessLabelKey, formattedServer): "true"}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2.OtterizeAccessLabelKey, formattedServer): "true"}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
 		}}}}
 
 	netpolNotSVC := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkPolicyNamespacedNameServer.Name,
 			Namespace: networkPolicyNamespacedNameServer.Namespace,
-			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedServer},
+			Labels:    map[string]string{otterizev2.OtterizeNetworkPolicy: formattedServer},
 		},
 		Spec: v1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedServer}},
+			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.OtterizeServiceLabelKey: formattedServer}},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			Ingress:     ingressRulesNotSVC,
 		},
@@ -304,15 +304,15 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindShouldCreateSeparatePolici
 
 	ingressRulesToSVC := []v1.NetworkPolicyIngressRule{
 		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, From: []v1.NetworkPolicyPeer{{
-			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2alpha1.OtterizeSvcAccessLabelKey, formattedServerService): "true"}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2.OtterizeSvcAccessLabelKey, formattedServerService): "true"}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
 		}}}}
 
 	netpolToSVC := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkPolicyNamespacedNameServerService.Name,
 			Namespace: networkPolicyNamespacedNameServerService.Namespace,
-			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedServerService},
+			Labels:    map[string]string{otterizev2.OtterizeNetworkPolicy: formattedServerService},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{MatchLabels: serviceSelector},
@@ -350,22 +350,22 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
 	}
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName, Kind: "Deployment"},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName, Kind: "Deployment"},
+		Targets: []otterizev2.Target{
 			{
-				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace), Kind: "Deployment"},
+				Kubernetes: &otterizev2.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace), Kind: "Deployment"},
 			},
 			{
-				Service: &otterizev2alpha1.ServiceTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace)},
+				Service: &otterizev2.ServiceTarget{Name: fmt.Sprintf("%s.%s", serverName, serverNamespace)},
 			},
 			{
-				Internet: &otterizev2alpha1.Internet{Ips: []string{"8.8.8.8/32"}},
+				Internet: &otterizev2.Internet{Ips: []string{"8.8.8.8/32"}},
 			},
 		},
 	}
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -403,17 +403,17 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 
 	egressRules := []v1.NetworkPolicyEgressRule{
 		{To: []v1.NetworkPolicyPeer{{
-			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedServerWithoutKind}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.OtterizeServiceLabelKey: formattedServerWithoutKind}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		}}},
 		{To: []v1.NetworkPolicyPeer{{
 			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{testServerServiceLabelKey: testServerServiceLabelValue}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		},
 		}},
 		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, To: []v1.NetworkPolicyPeer{{
 			PodSelector:       &metav1.LabelSelector{MatchLabels: serviceSelector},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		}}},
 		{To: []v1.NetworkPolicyPeer{{IPBlock: &v1.IPBlock{CIDR: "8.8.8.8/32"}}}, Ports: make([]v1.NetworkPolicyPort, 0)}}
 
@@ -421,10 +421,10 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkPolicyNamespacedNameClient.Name,
 			Namespace: networkPolicyNamespacedNameClient.Namespace,
-			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedClientWithKind},
+			Labels:    map[string]string{otterizev2.OtterizeNetworkPolicy: formattedClientWithKind},
 		},
 		Spec: v1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.OtterizeServiceLabelKey: formattedClientWithoutKind, otterizev2alpha1.OtterizeOwnerKindLabelKey: "Deployment"}},
+			PodSelector: metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.OtterizeServiceLabelKey: formattedClientWithoutKind, otterizev2.OtterizeOwnerKindLabelKey: "Deployment"}},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			Egress:      egressRules,
 		},
@@ -434,21 +434,21 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 
 	ingressRulesNotSVC := []v1.NetworkPolicyIngressRule{
 		{From: []v1.NetworkPolicyPeer{{
-			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2alpha1.OtterizeAccessLabelKey, formattedServerWithKind): "true"}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2.OtterizeAccessLabelKey, formattedServerWithKind): "true"}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
 		}}}}
 
 	netpolNotSVC := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkPolicyNamespacedNameServer.Name,
 			Namespace: networkPolicyNamespacedNameServer.Namespace,
-			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedServerWithKind},
+			Labels:    map[string]string{otterizev2.OtterizeNetworkPolicy: formattedServerWithKind},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey:   formattedServerWithoutKind,
-					otterizev2alpha1.OtterizeOwnerKindLabelKey: "Deployment",
+					otterizev2.OtterizeServiceLabelKey:   formattedServerWithoutKind,
+					otterizev2.OtterizeOwnerKindLabelKey: "Deployment",
 				},
 			},
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
@@ -461,15 +461,15 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 
 	ingressRulesToSVC := []v1.NetworkPolicyIngressRule{
 		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, From: []v1.NetworkPolicyPeer{{
-			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2alpha1.OtterizeSvcAccessLabelKey, formattedServerService): "true"}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
+			PodSelector:       &metav1.LabelSelector{MatchLabels: map[string]string{fmt.Sprintf(otterizev2.OtterizeSvcAccessLabelKey, formattedServerService): "true"}},
+			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2.KubernetesStandardNamespaceNameLabelKey: testNamespace}},
 		}}}}
 
 	netpolToSVC := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      networkPolicyNamespacedNameServerService.Name,
 			Namespace: networkPolicyNamespacedNameServerService.Namespace,
-			Labels:    map[string]string{otterizev2alpha1.OtterizeNetworkPolicy: formattedServerService},
+			Labels:    map[string]string{otterizev2.OtterizeNetworkPolicy: formattedServerService},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{MatchLabels: serviceSelector},

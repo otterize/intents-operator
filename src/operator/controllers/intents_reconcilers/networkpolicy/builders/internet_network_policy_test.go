@@ -2,7 +2,7 @@ package builders
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/stretchr/testify/suite"
@@ -54,21 +54,21 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Internet: &otterizev2alpha1.Internet{
+				Internet: &otterizev2.Internet{
 					Ips: ips,
 				},
 			},
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -86,14 +86,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 			Name:      policyName,
 			Namespace: clientNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
+				otterizev2.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
+					otterizev2.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
 			Egress: []v1.NetworkPolicyEgressRule{
@@ -153,32 +153,32 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Internet: &otterizev2alpha1.Internet{
+				Internet: &otterizev2.Internet{
 					Domains: []string{dns},
 				},
 			},
 		},
 	}
 
-	intentsStatus := otterizev2alpha1.IntentsStatus{
-		ResolvedIPs: []otterizev2alpha1.ResolvedIPs{
+	intentsStatus := otterizev2.IntentsStatus{
+		ResolvedIPs: []otterizev2.ResolvedIPs{
 			{
 				DNS: dns,
 				IPs: ips,
 			},
 		},
 	}
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2.ClientIntents{
 		Spec:   intentsSpec,
 		Status: intentsStatus,
 	}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -196,14 +196,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS
 			Name:      policyName,
 			Namespace: clientNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
+				otterizev2.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
+					otterizev2.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
 			Egress: []v1.NetworkPolicyEgressRule{
@@ -260,11 +260,11 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyFromDN
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Internet: &otterizev2alpha1.Internet{
+				Internet: &otterizev2.Internet{
 					Domains: []string{dns},
 					Ips:     []string{declaredIP},
 				},
@@ -272,21 +272,21 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyFromDN
 		},
 	}
 
-	intentsStatus := otterizev2alpha1.IntentsStatus{
-		ResolvedIPs: []otterizev2alpha1.ResolvedIPs{
+	intentsStatus := otterizev2.IntentsStatus{
+		ResolvedIPs: []otterizev2.ResolvedIPs{
 			{
 				DNS: dns,
 				IPs: []string{resolvedIP},
 			},
 		},
 	}
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2.ClientIntents{
 		Spec:   intentsSpec,
 		Status: intentsStatus,
 	}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -304,14 +304,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyFromDN
 			Name:      policyName,
 			Namespace: clientNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
+				otterizev2.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
+					otterizev2.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
 			Egress: []v1.NetworkPolicyEgressRule{
@@ -366,17 +366,17 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyMultip
 	endpointBIp := "254.3.4.0/24"
 	endpointBPort := 443
 
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Internet: &otterizev2alpha1.Internet{
+				Internet: &otterizev2.Internet{
 					Ips:   []string{endpointAIp1, endpointAip2},
 					Ports: []int{endpointAPort},
 				},
 			},
 			{
-				Internet: &otterizev2alpha1.Internet{
+				Internet: &otterizev2.Internet{
 					Ips:   []string{endpointBIp},
 					Ports: []int{endpointBPort},
 				},
@@ -384,10 +384,10 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyMultip
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -405,14 +405,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyMultip
 			Name:      policyName,
 			Namespace: clientNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
+				otterizev2.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
+					otterizev2.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
 			Egress: []v1.NetworkPolicyEgressRule{
@@ -485,17 +485,17 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNetworkPolicyDeletedClean
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Internet: &otterizev2alpha1.Internet{
+				Internet: &otterizev2.Internet{
 					Ips: ips,
 				}},
 		},
 	}
 
-	clientIntentsObj := otterizev2alpha1.ClientIntents{
+	clientIntentsObj := otterizev2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         clientNamespace,
@@ -504,7 +504,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNetworkPolicyDeletedClean
 		Spec: intentsSpec,
 	}
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntentsObj})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{clientIntentsObj})
 
 	// Remove network policy:
 	// 1. get all effective policies - this intent will not create a policy cause it is being deleted
@@ -517,14 +517,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNetworkPolicyDeletedClean
 			Name:      policyName,
 			Namespace: clientNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
+				otterizev2.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
+					otterizev2.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
 			Egress: []v1.NetworkPolicyEgressRule{
@@ -576,21 +576,21 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Internet: &otterizev2alpha1.Internet{
+				Internet: &otterizev2.Internet{
 					Ips: ips,
 				},
 			},
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{clientIntents})
 
 	s.ignoreRemoveOrphan()
 
@@ -606,14 +606,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 			Name:      policyName,
 			Namespace: clientNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
+				otterizev2.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
+					otterizev2.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
 			Egress: []v1.NetworkPolicyEgressRule{
@@ -682,19 +682,19 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 		NamespacedName: namespacedName,
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: clientNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
+				otterizev2.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
-		Spec: &otterizev2alpha1.IntentsSpec{
-			Workload: otterizev2alpha1.Workload{Name: serviceName},
-			Targets: []otterizev2alpha1.Target{
+		Spec: &otterizev2.IntentsSpec{
+			Workload: otterizev2.Workload{Name: serviceName},
+			Targets: []otterizev2.Target{
 				{
-					Internet: &otterizev2alpha1.Internet{
+					Internet: &otterizev2.Internet{
 						Ips: ips,
 					},
 				},
@@ -702,7 +702,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 		},
 	}
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -716,14 +716,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 			Name:      policyName,
 			Namespace: clientNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
+				otterizev2.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
+					otterizev2.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
 			Egress: []v1.NetworkPolicyEgressRule{
@@ -747,14 +747,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 			Name:      policyName + "invalid",
 			Namespace: clientNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: nonExistingClient,
+				otterizev2.OtterizeNetworkPolicy: nonExistingClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: nonExistingClient,
+					otterizev2.OtterizeServiceLabelKey: nonExistingClient,
 				},
 			},
 			Egress: []v1.NetworkPolicyEgressRule{
@@ -773,15 +773,15 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 
 	labelSelector := metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 		{
-			Key:      otterizev2alpha1.OtterizeNetworkPolicy,
+			Key:      otterizev2.OtterizeNetworkPolicy,
 			Operator: metav1.LabelSelectorOpExists,
 		},
 		{
-			Key:      otterizev2alpha1.OtterizeNetworkPolicyExternalTraffic,
+			Key:      otterizev2.OtterizeNetworkPolicyExternalTraffic,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 		{
-			Key:      otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny,
+			Key:      otterizev2.OtterizeNetworkPolicyServiceDefaultDeny,
 			Operator: metav1.LabelSelectorOpDoesNotExist,
 		},
 	}}
@@ -844,21 +844,21 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Internet: &otterizev2alpha1.Internet{
+				Internet: &otterizev2.Internet{
 					Ips: []string{"1.1.1.1/32"},
 				},
 			},
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2.ClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = testServerNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{clientIntents})
 
 	s.ignoreRemoveOrphan()
 
@@ -886,32 +886,32 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForOneDNSButFoun
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Internet: &otterizev2alpha1.Internet{
+				Internet: &otterizev2.Internet{
 					Domains: []string{dns, "notexisting.otters.com"},
 				},
 			},
 		},
 	}
 
-	intentsStatus := otterizev2alpha1.IntentsStatus{
-		ResolvedIPs: []otterizev2alpha1.ResolvedIPs{
+	intentsStatus := otterizev2.IntentsStatus{
+		ResolvedIPs: []otterizev2.ResolvedIPs{
 			{
 				DNS: dns,
 				IPs: ips,
 			},
 		},
 	}
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2.ClientIntents{
 		Spec:   intentsSpec,
 		Status: intentsStatus,
 	}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -929,14 +929,14 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForOneDNSButFoun
 			Name:      policyName,
 			Namespace: clientNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
+				otterizev2.OtterizeNetworkPolicy: formattedTargetClient,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
+					otterizev2.OtterizeServiceLabelKey: formattedTargetClient,
 				},
 			},
 			Egress: []v1.NetworkPolicyEgressRule{
@@ -980,27 +980,27 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForAnyDNS() {
 		NamespacedName: namespacedName,
 	}
 
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Internet: &otterizev2alpha1.Internet{
+				Internet: &otterizev2.Internet{
 					Domains: []string{dns, "notexisting.otters.com"},
 				},
 			},
 		},
 	}
 
-	intentsStatus := otterizev2alpha1.IntentsStatus{
-		ResolvedIPs: []otterizev2alpha1.ResolvedIPs{},
+	intentsStatus := otterizev2.IntentsStatus{
+		ResolvedIPs: []otterizev2.ResolvedIPs{},
 	}
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2.ClientIntents{
 		Spec:   intentsSpec,
 		Status: intentsStatus,
 	}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{clientIntents})
 	s.ignoreRemoveOrphan()
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)

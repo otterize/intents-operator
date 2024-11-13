@@ -4,7 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/prometheus"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -24,7 +24,7 @@ type TelemetryReconciler struct {
 	Scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
 	intentsCounter      map[string]int
-	typedIntentsCounter map[string]map[otterizev2alpha1.IntentType]int
+	typedIntentsCounter map[string]map[otterizev2.IntentType]int
 }
 
 func NewTelemetryReconciler(client client.Client, scheme *runtime.Scheme) *TelemetryReconciler {
@@ -32,12 +32,12 @@ func NewTelemetryReconciler(client client.Client, scheme *runtime.Scheme) *Telem
 		Client:              client,
 		Scheme:              scheme,
 		intentsCounter:      make(map[string]int),
-		typedIntentsCounter: make(map[string]map[otterizev2alpha1.IntentType]int),
+		typedIntentsCounter: make(map[string]map[otterizev2.IntentType]int),
 	}
 }
 
 func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
-	intents := &otterizev2alpha1.ClientIntents{}
+	intents := &otterizev2.ClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
@@ -58,7 +58,7 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 	}
 
 	r.intentsCounter[hashedName] = len(intents.Spec.Targets)
-	r.typedIntentsCounter[hashedName] = make(map[otterizev2alpha1.IntentType]int)
+	r.typedIntentsCounter[hashedName] = make(map[otterizev2.IntentType]int)
 
 	for _, call := range intents.Spec.Targets {
 		r.typedIntentsCounter[hashedName][call.GetIntentType()]++
@@ -69,10 +69,10 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 	databaseCount := 0
 	internetCount := 0
 	for _, value := range r.typedIntentsCounter {
-		kafkaCount += value[otterizev2alpha1.IntentTypeKafka]
-		httpCount += value[otterizev2alpha1.IntentTypeHTTP]
-		databaseCount += value[otterizev2alpha1.IntentTypeDatabase]
-		internetCount += value[otterizev2alpha1.IntentTypeInternet]
+		kafkaCount += value[otterizev2.IntentTypeKafka]
+		httpCount += value[otterizev2.IntentTypeHTTP]
+		databaseCount += value[otterizev2.IntentTypeDatabase]
+		internetCount += value[otterizev2.IntentTypeInternet]
 	}
 
 	intentsCount := lo.Sum(lo.Values(r.intentsCounter))
@@ -89,7 +89,7 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 // SetupWithManager sets up the controller with the Manager.
 func (r *TelemetryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev2alpha1.ClientIntents{}).
+		For(&otterizev2.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 }

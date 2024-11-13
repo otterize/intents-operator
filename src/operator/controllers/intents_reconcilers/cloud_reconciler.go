@@ -2,7 +2,7 @@ package intents_reconcilers
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -45,12 +45,12 @@ func NewOtterizeCloudReconciler(
 
 func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	// Report Applied intents from namespace
-	clientIntentsList := &otterizev2alpha1.ClientIntentsList{}
+	clientIntentsList := &otterizev2.ClientIntentsList{}
 	if err := r.List(ctx, clientIntentsList, &client.ListOptions{Namespace: req.Namespace}); err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	clientIntentsList.Items = lo.Filter(clientIntentsList.Items, func(intents otterizev2alpha1.ClientIntents, _ int) bool {
+	clientIntentsList.Items = lo.Filter(clientIntentsList.Items, func(intents otterizev2.ClientIntents, _ int) bool {
 		return intents.DeletionTimestamp == nil
 	})
 
@@ -79,11 +79,11 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 	ctx context.Context,
-	clientIntentsList *otterizev2alpha1.ClientIntentsList) (*otterizev2alpha1.ClientIntentsList, error) {
+	clientIntentsList *otterizev2.ClientIntentsList) (*otterizev2.ClientIntentsList, error) {
 
 	// TODO: Remove when access graph supports Kubernetes services
 	for _, clientIntent := range clientIntentsList.Items {
-		callList := make([]otterizev2alpha1.Target, 0)
+		callList := make([]otterizev2.Target, 0)
 		for _, intent := range clientIntent.GetTargetList() {
 			if !intent.IsTargetServerKubernetesService() {
 				callList = append(callList, intent)
@@ -141,7 +141,7 @@ func (r *OtterizeCloudReconciler) convertK8sServicesToOtterizeIdentities(
 
 func (r *OtterizeCloudReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev2alpha1.ClientIntents{}).
+		For(&otterizev2.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 }

@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"github.com/Shopify/sarama"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/lox"
 	"github.com/samber/lo"
@@ -17,7 +17,7 @@ import (
 	"strings"
 )
 
-type IntentsAdminFactoryFunction func(serverConfig otterizev2alpha1.KafkaServerConfig, _ otterizev2alpha1.TLSSource, enableKafkaACLCreation bool, enforcementEnabledForServer bool) (KafkaIntentsAdmin, error)
+type IntentsAdminFactoryFunction func(serverConfig otterizev2.KafkaServerConfig, _ otterizev2.TLSSource, enableKafkaACLCreation bool, enforcementEnabledForServer bool) (KafkaIntentsAdmin, error)
 
 type TopicToACLList map[sarama.Resource][]sarama.Acl
 
@@ -33,15 +33,15 @@ var (
 )
 
 type KafkaIntentsAdmin interface {
-	ApplyServerTopicsConf(topicsConf []otterizev2alpha1.TopicConfig) error
-	ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev2alpha1.Target) error
+	ApplyServerTopicsConf(topicsConf []otterizev2.TopicConfig) error
+	ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev2.Target) error
 	RemoveClientIntents(clientName string, clientNamespace string) error
-	RemoveServerIntents(topicsConf []otterizev2alpha1.TopicConfig) error
+	RemoveServerIntents(topicsConf []otterizev2.TopicConfig) error
 	Close()
 }
 
 type KafkaIntentsAdminImpl struct {
-	kafkaServer                 otterizev2alpha1.KafkaServerConfig
+	kafkaServer                 otterizev2.KafkaServerConfig
 	kafkaAdminClient            sarama.ClusterAdmin
 	userNameMapping             string
 	enableKafkaACLCreation      bool
@@ -49,28 +49,28 @@ type KafkaIntentsAdminImpl struct {
 }
 
 var (
-	kafkaOperationToAclOperation = map[otterizev2alpha1.KafkaOperation]sarama.AclOperation{
-		otterizev2alpha1.KafkaOperationAll:             sarama.AclOperationAll,
-		otterizev2alpha1.KafkaOperationConsume:         sarama.AclOperationRead,
-		otterizev2alpha1.KafkaOperationProduce:         sarama.AclOperationWrite,
-		otterizev2alpha1.KafkaOperationCreate:          sarama.AclOperationCreate,
-		otterizev2alpha1.KafkaOperationDelete:          sarama.AclOperationDelete,
-		otterizev2alpha1.KafkaOperationAlter:           sarama.AclOperationAlter,
-		otterizev2alpha1.KafkaOperationDescribe:        sarama.AclOperationDescribe,
-		otterizev2alpha1.KafkaOperationClusterAction:   sarama.AclOperationClusterAction,
-		otterizev2alpha1.KafkaOperationDescribeConfigs: sarama.AclOperationDescribeConfigs,
-		otterizev2alpha1.KafkaOperationAlterConfigs:    sarama.AclOperationAlterConfigs,
-		otterizev2alpha1.KafkaOperationIdempotentWrite: sarama.AclOperationIdempotentWrite,
+	kafkaOperationToAclOperation = map[otterizev2.KafkaOperation]sarama.AclOperation{
+		otterizev2.KafkaOperationAll:             sarama.AclOperationAll,
+		otterizev2.KafkaOperationConsume:         sarama.AclOperationRead,
+		otterizev2.KafkaOperationProduce:         sarama.AclOperationWrite,
+		otterizev2.KafkaOperationCreate:          sarama.AclOperationCreate,
+		otterizev2.KafkaOperationDelete:          sarama.AclOperationDelete,
+		otterizev2.KafkaOperationAlter:           sarama.AclOperationAlter,
+		otterizev2.KafkaOperationDescribe:        sarama.AclOperationDescribe,
+		otterizev2.KafkaOperationClusterAction:   sarama.AclOperationClusterAction,
+		otterizev2.KafkaOperationDescribeConfigs: sarama.AclOperationDescribeConfigs,
+		otterizev2.KafkaOperationAlterConfigs:    sarama.AclOperationAlterConfigs,
+		otterizev2.KafkaOperationIdempotentWrite: sarama.AclOperationIdempotentWrite,
 	}
 	KafkaOperationToAclOperationBMap = bimap.NewBiMapFromMap(kafkaOperationToAclOperation)
 
-	kafkaPatternTypeToSaramaPatternType = map[otterizev2alpha1.ResourcePatternType]sarama.AclResourcePatternType{
-		otterizev2alpha1.ResourcePatternTypeLiteral: sarama.AclPatternLiteral,
-		otterizev2alpha1.ResourcePatternTypePrefix:  sarama.AclPatternPrefixed,
+	kafkaPatternTypeToSaramaPatternType = map[otterizev2.ResourcePatternType]sarama.AclResourcePatternType{
+		otterizev2.ResourcePatternTypeLiteral: sarama.AclPatternLiteral,
+		otterizev2.ResourcePatternTypePrefix:  sarama.AclPatternPrefixed,
 	}
 )
 
-func getTLSConfig(tlsSource otterizev2alpha1.TLSSource) (*tls.Config, error) {
+func getTLSConfig(tlsSource otterizev2.TLSSource) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(tlsSource.CertFile, tlsSource.KeyFile)
 	if err != nil {
 		return nil, errors.Errorf("failed loading x509 key pair: %w", err)
@@ -122,7 +122,7 @@ func getUserPrincipalMapping(tlsCert tls.Certificate) (string, error) {
 
 }
 
-func NewKafkaIntentsAdmin(kafkaServer otterizev2alpha1.KafkaServerConfig, defaultTls otterizev2alpha1.TLSSource, enableKafkaACLCreation bool, enforcementEnabledForServer bool) (KafkaIntentsAdmin, error) {
+func NewKafkaIntentsAdmin(kafkaServer otterizev2.KafkaServerConfig, defaultTls otterizev2.TLSSource, enableKafkaACLCreation bool, enforcementEnabledForServer bool) (KafkaIntentsAdmin, error) {
 	logger := logrus.WithField("addr", kafkaServer.Spec.Addr)
 	logger.Info("Connecting to kafka server")
 	addrs := []string{kafkaServer.Spec.Addr}
@@ -130,7 +130,7 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev2alpha1.KafkaServerConfig, defaul
 	config := sarama.NewConfig()
 	config.Version = sarama.V2_0_0_0
 
-	var tlsSource otterizev2alpha1.TLSSource
+	var tlsSource otterizev2.TLSSource
 	if lo.IsEmpty(kafkaServer.Spec.TLS) {
 		tlsSource = defaultTls
 		logger.Info("Using TLS configuration from default")
@@ -163,7 +163,7 @@ func NewKafkaIntentsAdmin(kafkaServer otterizev2alpha1.KafkaServerConfig, defaul
 	return NewKafkaIntentsAdminImpl(kafkaServer, saramaAdminClient, usernameMapping, enableKafkaACLCreation, enforcementEnabledForServer), nil
 }
 
-func NewKafkaIntentsAdminImpl(kafkaServer otterizev2alpha1.KafkaServerConfig, saramaAdminClient sarama.ClusterAdmin, usernameMapping string, enableKafkaACLCreation bool, enforcementEnabledForServer bool) KafkaIntentsAdmin {
+func NewKafkaIntentsAdminImpl(kafkaServer otterizev2.KafkaServerConfig, saramaAdminClient sarama.ClusterAdmin, usernameMapping string, enableKafkaACLCreation bool, enforcementEnabledForServer bool) KafkaIntentsAdmin {
 	return &KafkaIntentsAdminImpl{kafkaServer: kafkaServer, kafkaAdminClient: saramaAdminClient, userNameMapping: usernameMapping, enableKafkaACLCreation: enableKafkaACLCreation, enforcementEnabledForServer: enforcementEnabledForServer}
 }
 
@@ -180,7 +180,7 @@ func (a *KafkaIntentsAdminImpl) formatPrincipal(clientName string, clientNamespa
 	return fmt.Sprintf("User:%s", username)
 }
 
-func (a *KafkaIntentsAdminImpl) queryAppliedIntentKafkaTopics(principal string) ([]otterizev2alpha1.KafkaTopic, error) {
+func (a *KafkaIntentsAdminImpl) queryAppliedIntentKafkaTopics(principal string) ([]otterizev2.KafkaTopic, error) {
 	principalAcls, err := a.kafkaAdminClient.ListAcls(sarama.AclFilter{
 		ResourceType:              sarama.AclResourceTopic,
 		Principal:                 &principal,
@@ -192,16 +192,16 @@ func (a *KafkaIntentsAdminImpl) queryAppliedIntentKafkaTopics(principal string) 
 		return nil, errors.Errorf("failed listing ACLs on server: %w", err)
 	}
 
-	resourceAppliedKafkaTopics, err := lox.MapErr(principalAcls, func(acls sarama.ResourceAcls, _ int) (otterizev2alpha1.KafkaTopic, error) {
-		operations := make([]otterizev2alpha1.KafkaOperation, 0)
+	resourceAppliedKafkaTopics, err := lox.MapErr(principalAcls, func(acls sarama.ResourceAcls, _ int) (otterizev2.KafkaTopic, error) {
+		operations := make([]otterizev2.KafkaOperation, 0)
 		for _, acl := range acls.Acls {
 			operation, ok := KafkaOperationToAclOperationBMap.GetInverse(acl.Operation)
 			if !ok {
-				return otterizev2alpha1.KafkaTopic{}, errors.Errorf("unknown operation %v", acl.Operation)
+				return otterizev2.KafkaTopic{}, errors.Errorf("unknown operation %v", acl.Operation)
 			}
 			operations = append(operations, operation)
 		}
-		return otterizev2alpha1.KafkaTopic{Name: acls.ResourceName, Operations: operations}, nil
+		return otterizev2.KafkaTopic{Name: acls.ResourceName, Operations: operations}, nil
 	})
 
 	if err != nil {
@@ -211,7 +211,7 @@ func (a *KafkaIntentsAdminImpl) queryAppliedIntentKafkaTopics(principal string) 
 	return resourceAppliedKafkaTopics, nil
 }
 
-func (a *KafkaIntentsAdminImpl) collectTopicsToACLList(principal string, topics []otterizev2alpha1.KafkaTopic) (TopicToACLList, error) {
+func (a *KafkaIntentsAdminImpl) collectTopicsToACLList(principal string, topics []otterizev2.KafkaTopic) (TopicToACLList, error) {
 	topicToACLList := TopicToACLList{}
 
 	for _, topic := range topics {
@@ -222,7 +222,7 @@ func (a *KafkaIntentsAdminImpl) collectTopicsToACLList(principal string, topics 
 		}
 		acls := make([]sarama.Acl, 0)
 		for _, operation := range topic.Operations {
-			operation, ok := KafkaOperationToAclOperationBMap.Get(otterizev2alpha1.KafkaOperation(operation))
+			operation, ok := KafkaOperationToAclOperationBMap.Get(otterizev2.KafkaOperation(operation))
 			if !ok {
 				return nil, errors.Errorf("unknown operation '%v'", operation)
 			}
@@ -300,7 +300,7 @@ func (a *KafkaIntentsAdminImpl) logACLs() error {
 	return nil
 }
 
-func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev2alpha1.Target) error {
+func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientNamespace string, intents []otterizev2.Target) error {
 	principal := a.formatPrincipal(clientName, clientNamespace)
 	logger := logrus.WithFields(
 		logrus.Fields{
@@ -320,7 +320,7 @@ func (a *KafkaIntentsAdminImpl) ApplyClientIntents(clientName string, clientName
 	}
 
 	expectedIntentKafkaTopics := lo.Flatten(
-		lo.Map(intents, func(intent otterizev2alpha1.Target, _ int) []otterizev2alpha1.KafkaTopic {
+		lo.Map(intents, func(intent otterizev2.Target, _ int) []otterizev2.KafkaTopic {
 			return intent.Kafka.Topics
 		}),
 	)
@@ -381,7 +381,7 @@ func (a *KafkaIntentsAdminImpl) RemoveClientIntents(clientName string, clientNam
 	return nil
 }
 
-func (a *KafkaIntentsAdminImpl) RemoveServerIntents(topicsConf []otterizev2alpha1.TopicConfig) error {
+func (a *KafkaIntentsAdminImpl) RemoveServerIntents(topicsConf []otterizev2.TopicConfig) error {
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"serverName":      a.kafkaServer.Spec.Service,
@@ -405,7 +405,7 @@ func (a *KafkaIntentsAdminImpl) RemoveServerIntents(topicsConf []otterizev2alpha
 	return nil
 }
 
-func (a *KafkaIntentsAdminImpl) getServerACLs(topicsConf []otterizev2alpha1.TopicConfig) []*sarama.ResourceAcls {
+func (a *KafkaIntentsAdminImpl) getServerACLs(topicsConf []otterizev2.TopicConfig) []*sarama.ResourceAcls {
 	expectedACLs := a.getExpectedTopicsConfAcls(topicsConf)
 	var serverACLs []*sarama.ResourceAcls
 	for resource, acls := range expectedACLs {
@@ -420,10 +420,10 @@ func (a *KafkaIntentsAdminImpl) getServerACLs(topicsConf []otterizev2alpha1.Topi
 	return serverACLs
 }
 
-func (a *KafkaIntentsAdminImpl) getExpectedTopicsConfAcls(topicsConf []otterizev2alpha1.TopicConfig) map[sarama.Resource][]sarama.Acl {
+func (a *KafkaIntentsAdminImpl) getExpectedTopicsConfAcls(topicsConf []otterizev2.TopicConfig) map[sarama.Resource][]sarama.Acl {
 	if len(topicsConf) == 0 {
 		// default configuration
-		topicsConf = []otterizev2alpha1.TopicConfig{
+		topicsConf = []otterizev2.TopicConfig{
 			{Topic: "*", Pattern: "literal", ClientIdentityRequired: true, IntentsRequired: true},
 		}
 	}
@@ -556,7 +556,7 @@ func (a *KafkaIntentsAdminImpl) deleteResourceAcls(resourceAclsToDelete []*saram
 	return nil
 }
 
-func (a *KafkaIntentsAdminImpl) ApplyServerTopicsConf(topicsConf []otterizev2alpha1.TopicConfig) error {
+func (a *KafkaIntentsAdminImpl) ApplyServerTopicsConf(topicsConf []otterizev2.TopicConfig) error {
 	logger := logrus.WithFields(
 		logrus.Fields{
 			"serverName":      a.kafkaServer.Spec.Service,

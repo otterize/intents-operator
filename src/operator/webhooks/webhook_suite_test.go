@@ -22,7 +22,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/suite"
@@ -64,7 +64,7 @@ func (s *ValidationWebhookTestSuite) SetupSuite() {
 	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1beta1.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev2alpha1.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev2.AddToScheme(s.TestEnv.Scheme))
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
@@ -83,7 +83,7 @@ func (s *ValidationWebhookTestSuite) SetupTest() {
 	intentsValidator13 := NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
 	s.Require().NoError((&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator13))
 	intentsValidator2 := NewIntentsValidatorV2alpha1(s.Mgr.GetClient())
-	s.Require().NoError((&otterizev2alpha1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
+	s.Require().NoError((&otterizev2.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
 }
 
 func (s *ValidationWebhookTestSuite) BeforeTest(suiteName, testName string) {
@@ -102,15 +102,15 @@ func (s *ValidationWebhookTestSuite) BeforeTest(suiteName, testName string) {
 
 // Test Only one Target Type Can be used in a target
 func (s *ValidationWebhookTestSuite) TestOnlyOneTargetTypeAllowed() {
-	_, err := s.AddIntentsv2alpha1("intents", "someclient", []otterizev2alpha1.Target{
+	_, err := s.AddIntentsv2("intents", "someclient", []otterizev2.Target{
 		{
-			Kafka: &otterizev2alpha1.KafkaTarget{
-				Topics: []otterizev2alpha1.KafkaTopic{{
+			Kafka: &otterizev2.KafkaTarget{
+				Topics: []otterizev2.KafkaTopic{{
 					Name:       "sometopic",
-					Operations: []otterizev2alpha1.KafkaOperation{otterizev2alpha1.KafkaOperationConsume},
+					Operations: []otterizev2.KafkaOperation{otterizev2.KafkaOperationConsume},
 				}},
 			},
-			Internet: &otterizev2alpha1.Internet{
+			Internet: &otterizev2.Internet{
 				Ips:   []string{"8.8.8.8"},
 				Ports: []int{80},
 			},
@@ -118,28 +118,28 @@ func (s *ValidationWebhookTestSuite) TestOnlyOneTargetTypeAllowed() {
 	})
 	s.Require().ErrorContains(err, "each target must have exactly one field set")
 
-	_, err = s.AddIntentsv2alpha1("intents", "someclient", []otterizev2alpha1.Target{
+	_, err = s.AddIntentsv2("intents", "someclient", []otterizev2.Target{
 		{
-			AWS: &otterizev2alpha1.AWSTarget{
+			AWS: &otterizev2.AWSTarget{
 				Actions: []string{"s3:GetObject"},
 				ARN:     "arn:aws:s3:::mybucket/*",
 			},
-			Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: "omriservice", Kind: "Deployment"},
+			Kubernetes: &otterizev2.KubernetesTarget{Name: "omriservice", Kind: "Deployment"},
 		},
 	})
 	s.Require().ErrorContains(err, "each target must have exactly one field set")
 
-	_, err = s.AddIntentsv2alpha1("intents", "someclient", []otterizev2alpha1.Target{
+	_, err = s.AddIntentsv2("intents", "someclient", []otterizev2.Target{
 		{
-			Azure: &otterizev2alpha1.AzureTarget{
+			Azure: &otterizev2.AzureTarget{
 				Roles: []string{"Contributor"},
 				Scope: "subscriptions/1234-5678-9012-3456",
 			},
-			SQL: &otterizev2alpha1.SQLTarget{
-				Privileges: []otterizev2alpha1.SQLPrivileges{{
+			SQL: &otterizev2.SQLTarget{
+				Privileges: []otterizev2.SQLPrivileges{{
 					DatabaseName: "sadfsdf",
 					Table:        "sometable",
-					Operations:   []otterizev2alpha1.DatabaseOperation{otterizev2alpha1.DatabaseOperationSelect},
+					Operations:   []otterizev2.DatabaseOperation{otterizev2.DatabaseOperationSelect},
 				}},
 			},
 		},
@@ -148,10 +148,10 @@ func (s *ValidationWebhookTestSuite) TestOnlyOneTargetTypeAllowed() {
 }
 
 func (s *ValidationWebhookTestSuite) TestNoDuplicateClientsAllowed() {
-	_, err := s.AddIntentsv2alpha1("intents", "someclient", []otterizev2alpha1.Target{})
+	_, err := s.AddIntentsv2("intents", "someclient", []otterizev2.Target{})
 	s.Require().NoError(err)
 
-	_, err = s.AddIntentsv2alpha1("intents2", "someclient", []otterizev2alpha1.Target{})
+	_, err = s.AddIntentsv2("intents2", "someclient", []otterizev2.Target{})
 	s.Require().ErrorContains(err, "Intents for client someclient already exist in resource")
 }
 
@@ -199,12 +199,12 @@ func (s *ValidationWebhookTestSuite) TestNoTopicsForHTTPIntentsAfterUpdate() {
 
 func (s *ValidationWebhookTestSuite) TestNameRequiredForEveryTypeExceptInternet() {
 	missingNameFieldErr := "invalid intent format, field name is required"
-	_, err := s.AddIntentsv2alpha1("kafka-intents", "kafka-client", []otterizev2alpha1.Target{
+	_, err := s.AddIntentsv2("kafka-intents", "kafka-client", []otterizev2.Target{
 		{
-			Kafka: &otterizev2alpha1.KafkaTarget{
-				Topics: []otterizev2alpha1.KafkaTopic{{
+			Kafka: &otterizev2.KafkaTarget{
+				Topics: []otterizev2.KafkaTopic{{
 					Name:       "sometopic",
-					Operations: []otterizev2alpha1.KafkaOperation{otterizev2alpha1.KafkaOperationConsume},
+					Operations: []otterizev2.KafkaOperation{otterizev2.KafkaOperationConsume},
 				}},
 			},
 		},
@@ -212,12 +212,12 @@ func (s *ValidationWebhookTestSuite) TestNameRequiredForEveryTypeExceptInternet(
 	logrus.Infof("Error: %v", err)
 	s.Require().ErrorContains(err, missingNameFieldErr)
 
-	_, err = s.AddIntentsv2alpha1("http-intents", "http-client", []otterizev2alpha1.Target{
+	_, err = s.AddIntentsv2("http-intents", "http-client", []otterizev2.Target{
 		{
-			Kubernetes: &otterizev2alpha1.KubernetesTarget{
-				HTTP: []otterizev2alpha1.HTTPTarget{{
+			Kubernetes: &otterizev2.KubernetesTarget{
+				HTTP: []otterizev2.HTTPTarget{{
 					Path:    "/somepath",
-					Methods: []otterizev2alpha1.HTTPMethod{otterizev2alpha1.HTTPMethodGet},
+					Methods: []otterizev2.HTTPMethod{otterizev2.HTTPMethodGet},
 				}},
 			},
 		},
@@ -225,13 +225,13 @@ func (s *ValidationWebhookTestSuite) TestNameRequiredForEveryTypeExceptInternet(
 	logrus.Infof("Error: %v", err)
 	s.Require().ErrorContains(err, missingNameFieldErr)
 
-	_, err = s.AddIntentsv2alpha1("database-intents", "database-client", []otterizev2alpha1.Target{
+	_, err = s.AddIntentsv2("database-intents", "database-client", []otterizev2.Target{
 		{
-			SQL: &otterizev2alpha1.SQLTarget{
-				Privileges: []otterizev2alpha1.SQLPrivileges{{
+			SQL: &otterizev2.SQLTarget{
+				Privileges: []otterizev2.SQLPrivileges{{
 					DatabaseName: "sadfsdf",
 					Table:        "sometable",
-					Operations:   []otterizev2alpha1.DatabaseOperation{otterizev2alpha1.DatabaseOperationSelect},
+					Operations:   []otterizev2.DatabaseOperation{otterizev2.DatabaseOperationSelect},
 				}},
 			},
 		},
@@ -239,9 +239,9 @@ func (s *ValidationWebhookTestSuite) TestNameRequiredForEveryTypeExceptInternet(
 	logrus.Infof("Error: %v", err)
 	s.Require().ErrorContains(err, missingNameFieldErr)
 
-	_, err = s.AddIntentsv2alpha1("aws-intents", "aws-client", []otterizev2alpha1.Target{
+	_, err = s.AddIntentsv2("aws-intents", "aws-client", []otterizev2.Target{
 		{
-			AWS: &otterizev2alpha1.AWSTarget{
+			AWS: &otterizev2.AWSTarget{
 				Actions: []string{"s3:GetObject"},
 			},
 		},
@@ -249,9 +249,9 @@ func (s *ValidationWebhookTestSuite) TestNameRequiredForEveryTypeExceptInternet(
 	logrus.Infof("Error: %v", err)
 	s.Require().ErrorContains(err, strings.Replace(missingNameFieldErr, "name", "ARN", 1))
 
-	_, err = s.AddIntentsv2alpha1("azure-intents", "aws-client", []otterizev2alpha1.Target{
+	_, err = s.AddIntentsv2("azure-intents", "aws-client", []otterizev2.Target{
 		{
-			Azure: &otterizev2alpha1.AzureTarget{
+			Azure: &otterizev2.AzureTarget{
 				Roles: []string{"Contributor"},
 			},
 		},
@@ -259,9 +259,9 @@ func (s *ValidationWebhookTestSuite) TestNameRequiredForEveryTypeExceptInternet(
 	logrus.Infof("Error: %v", err)
 	s.Require().ErrorContains(err, strings.Replace(missingNameFieldErr, "name", "scope", 1))
 
-	_, err = s.AddIntentsv2alpha1("gcp-intents", "aws-client", []otterizev2alpha1.Target{
+	_, err = s.AddIntentsv2("gcp-intents", "aws-client", []otterizev2.Target{
 		{
-			GCP: &otterizev2alpha1.GCPTarget{
+			GCP: &otterizev2.GCPTarget{
 				Permissions: []string{"storage.objects.get"},
 			},
 		},
@@ -269,9 +269,9 @@ func (s *ValidationWebhookTestSuite) TestNameRequiredForEveryTypeExceptInternet(
 	logrus.Infof("Error: %v", err)
 	s.Require().ErrorContains(err, strings.Replace(missingNameFieldErr, "name", "resource", 1))
 
-	_, err = s.AddIntentsv2alpha1("internet-intents", "internet-client", []otterizev2alpha1.Target{
+	_, err = s.AddIntentsv2("internet-intents", "internet-client", []otterizev2.Target{
 		{
-			Internet: &otterizev2alpha1.Internet{
+			Internet: &otterizev2.Internet{
 				Ips:   []string{"1.1.1.1"},
 				Ports: []int{80},
 			},
@@ -379,7 +379,7 @@ type ConversionWebhookTestSuite struct {
 	suite.Suite
 }
 
-// Validate the conversion between v1alpha3 and v2alpha1 works properly
+// Validate the conversion between v1alpha3 and v2 works properly
 func (s *ConversionWebhookTestSuite) TestConversionWebhookRegularIntents() {
 	// Create a v1alpha3 object
 	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
@@ -397,14 +397,14 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookRegularIntents() {
 		},
 	}
 
-	// Convert the v1alpha3 object to a v2alpha1 object
-	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
-	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	// Convert the v1alpha3 object to a v2 object
+	v2Obj := &otterizev2.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2Obj)
 	s.Require().NoError(err)
 
-	// Convert the v2alpha1 object back to a v1alpha3 object
+	// Convert the v2 object back to a v1alpha3 object
 	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
-	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	err = anotherV1alpha3Intents.ConvertFrom(v2Obj)
 	s.Require().NoError(err)
 
 	// Check that the two v1alpha3 objects are equal
@@ -417,7 +417,7 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookRegularIntents() {
 	}
 }
 
-// Validate the conversion between v1alpha3 and v2alpha1 works properly - kafka intents
+// Validate the conversion between v1alpha3 and v2 works properly - kafka intents
 func (s *ConversionWebhookTestSuite) TestConversionWebhookKafkaIntents() {
 	// Create a v1alpha3 object
 	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
@@ -446,14 +446,14 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookKafkaIntents() {
 		},
 	}
 
-	// Convert the v1alpha3 object to a v2alpha1 object
-	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
-	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	// Convert the v1alpha3 object to a v2 object
+	v2Obj := &otterizev2.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2Obj)
 	s.Require().NoError(err)
 
-	// Convert the v2alpha1 object back to a v1alpha3 object
+	// Convert the v2 object back to a v1alpha3 object
 	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
-	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	err = anotherV1alpha3Intents.ConvertFrom(v2Obj)
 	s.Require().NoError(err)
 
 	// Check that the two v1alpha3 objects are equal
@@ -471,7 +471,7 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookKafkaIntents() {
 	}
 }
 
-// Validate the conversion between v1alpha3 and v2alpha1 works properly - http intents
+// Validate the conversion between v1alpha3 and v2 works properly - http intents
 func (s *ConversionWebhookTestSuite) TestConversionWebhookHTTPIntents() {
 	// Create a v1alpha3 object
 	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
@@ -500,14 +500,14 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookHTTPIntents() {
 		},
 	}
 
-	// Convert the v1alpha3 object to a v2alpha1 object
-	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
-	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	// Convert the v1alpha3 object to a v2 object
+	v2Obj := &otterizev2.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2Obj)
 	s.Require().NoError(err)
 
-	// Convert the v2alpha1 object back to a v1alpha3 object
+	// Convert the v2 object back to a v1alpha3 object
 	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
-	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	err = anotherV1alpha3Intents.ConvertFrom(v2Obj)
 	s.Require().NoError(err)
 
 	// Check that the two v1alpha3 objects are equal
@@ -526,7 +526,7 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookHTTPIntents() {
 	}
 }
 
-// Validate the conversion between v1alpha3 and v2alpha1 works properly - database intents
+// Validate the conversion between v1alpha3 and v2 works properly - database intents
 func (s *ConversionWebhookTestSuite) TestConversionWebhookDatabaseIntents() {
 	// Create a v1alpha3 object
 	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
@@ -557,14 +557,14 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookDatabaseIntents() {
 		},
 	}
 
-	// Convert the v1alpha3 object to a v2alpha1 object
-	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
-	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	// Convert the v1alpha3 object to a v2 object
+	v2Obj := &otterizev2.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2Obj)
 	s.Require().NoError(err)
 
-	// Convert the v2alpha1 object back to a v1alpha3 object
+	// Convert the v2 object back to a v1alpha3 object
 	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
-	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	err = anotherV1alpha3Intents.ConvertFrom(v2Obj)
 	s.Require().NoError(err)
 
 	// Check that the two v1alpha3 objects are equal
@@ -584,7 +584,7 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookDatabaseIntents() {
 	}
 }
 
-// Validate the conversion between v1alpha3 and v2alpha1 works properly - aws intents
+// Validate the conversion between v1alpha3 and v2 works properly - aws intents
 func (s *ConversionWebhookTestSuite) TestConversionWebhookAWSIntents() {
 	// Create a v1alpha3 object
 	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
@@ -607,14 +607,14 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookAWSIntents() {
 		},
 	}
 
-	// Convert the v1alpha3 object to a v2alpha1 object
-	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
-	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	// Convert the v1alpha3 object to a v2 object
+	v2Obj := &otterizev2.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2Obj)
 	s.Require().NoError(err)
 
-	// Convert the v2alpha1 object back to a v1alpha3 object
+	// Convert the v2 object back to a v1alpha3 object
 	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
-	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	err = anotherV1alpha3Intents.ConvertFrom(v2Obj)
 	s.Require().NoError(err)
 
 	// Check that the two v1alpha3 objects are equal
@@ -628,7 +628,7 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookAWSIntents() {
 	}
 }
 
-// Validate the conversion between v1alpha3 and v2alpha1 works properly - azure intents
+// Validate the conversion between v1alpha3 and v2 works properly - azure intents
 func (s *ConversionWebhookTestSuite) TestConversionWebhookAzureIntents() {
 	// Create a v1alpha3 object
 	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
@@ -651,14 +651,14 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookAzureIntents() {
 		},
 	}
 
-	// Convert the v1alpha3 object to a v2alpha1 object
-	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
-	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	// Convert the v1alpha3 object to a v2 object
+	v2Obj := &otterizev2.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2Obj)
 	s.Require().NoError(err)
 
-	// Convert the v2alpha1 object back to a v1alpha3 object
+	// Convert the v2 object back to a v1alpha3 object
 	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
-	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	err = anotherV1alpha3Intents.ConvertFrom(v2Obj)
 	s.Require().NoError(err)
 
 	// Check that the two v1alpha3 objects are equal
@@ -672,7 +672,7 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookAzureIntents() {
 	}
 }
 
-// Validate the conversion between v1alpha3 and v2alpha1 works properly - gcp intents
+// Validate the conversion between v1alpha3 and v2 works properly - gcp intents
 func (s *ConversionWebhookTestSuite) TestConversionWebhookGCPIntents() {
 	// Create a v1alpha3 object
 	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
@@ -695,14 +695,14 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookGCPIntents() {
 		},
 	}
 
-	// Convert the v1alpha3 object to a v2alpha1 object
-	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
-	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	// Convert the v1alpha3 object to a v2 object
+	v2Obj := &otterizev2.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2Obj)
 	s.Require().NoError(err)
 
-	// Convert the v2alpha1 object back to a v1alpha3 object
+	// Convert the v2 object back to a v1alpha3 object
 	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
-	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	err = anotherV1alpha3Intents.ConvertFrom(v2Obj)
 	s.Require().NoError(err)
 
 	// Check that the two v1alpha3 objects are equal
@@ -716,7 +716,7 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookGCPIntents() {
 	}
 }
 
-// Validate the conversion between v1alpha3 and v2alpha1 works properly - internet intents
+// Validate the conversion between v1alpha3 and v2 works properly - internet intents
 func (s *ConversionWebhookTestSuite) TestConversionWebhookInternetIntents() {
 	// Create a v1alpha3 object
 	v1alpha3Intents := &otterizev1alpha3.ClientIntents{
@@ -744,14 +744,14 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookInternetIntents() {
 		},
 	}
 
-	// Convert the v1alpha3 object to a v2alpha1 object
-	v2alpha1Obj := &otterizev2alpha1.ClientIntents{}
-	err := v1alpha3Intents.ConvertTo(v2alpha1Obj)
+	// Convert the v1alpha3 object to a v2 object
+	v2Obj := &otterizev2.ClientIntents{}
+	err := v1alpha3Intents.ConvertTo(v2Obj)
 	s.Require().NoError(err)
 
-	// Convert the v2alpha1 object back to a v1alpha3 object
+	// Convert the v2 object back to a v1alpha3 object
 	anotherV1alpha3Intents := &otterizev1alpha3.ClientIntents{}
-	err = anotherV1alpha3Intents.ConvertFrom(v2alpha1Obj)
+	err = anotherV1alpha3Intents.ConvertFrom(v2Obj)
 	s.Require().NoError(err)
 
 	// Check that the two v1alpha3 objects are equal

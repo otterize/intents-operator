@@ -170,7 +170,7 @@ spec:
     storage: true
     subresources:
       status: {}
-  - name: v2alpha1
+  - name: v2
     schema:
       openAPIV3Schema:
         description: PostgreSQLServerConfig is the Schema for the databaseserverconfig

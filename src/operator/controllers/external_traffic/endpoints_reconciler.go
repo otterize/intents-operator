@@ -2,7 +2,7 @@ package external_traffic
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	v2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
@@ -80,7 +80,7 @@ func (r *EndpointsReconcilerImpl) InitIngressReferencedServicesIndex(mgr ctrl.Ma
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&v1.Ingress{},
-		v2alpha1.IngressServiceNamesIndexField,
+		v2.IngressServiceNamesIndexField,
 		func(object client.Object) []string {
 			ingress := object.(*v1.Ingress)
 			services := serviceNamesFromIngress(ingress)

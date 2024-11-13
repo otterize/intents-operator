@@ -2,7 +2,7 @@ package protected_service_reconcilers
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	protectedservicesmock "github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
@@ -55,21 +55,21 @@ func (s *DefaultDenyReconcilerTestSuite) TearDownTest() {
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateGlobalNetpolDisabled() {
 	s.reconciler.netpolEnforcementEnabled = false
 
-	var protectedServicesResources otterizev2alpha1.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev2alpha1.ProtectedService{
+	var protectedServicesResources otterizev2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 				Name: protectedServiceName,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -85,7 +85,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateGlobalNetpol
 	// No network policies exist
 	var networkPolicies v1.NetworkPolicyList
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
-		otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	}).Return(nil).Times(1)
 
 	s.extNetpolHandler.EXPECT().HandleAllPods(gomock.Any())
@@ -95,21 +95,21 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateGlobalNetpol
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
-	var protectedServicesResources otterizev2alpha1.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev2alpha1.ProtectedService{
+	var protectedServicesResources otterizev2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 				Name: protectedServiceName,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -125,7 +125,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
 	// No network policies exist
 	var networkPolicies v1.NetworkPolicyList
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
-		otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	}).Return(nil).Times(1)
 
 	// Create network policy
@@ -135,15 +135,15 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
 			Name:      "default-deny-test-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   formattedServerName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   formattedServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedServerName,
+					otterizev2.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -158,14 +158,14 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate() {
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate_KindService() {
-	var protectedServicesResources otterizev2alpha1.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev2alpha1.ProtectedService{
+	var protectedServicesResources otterizev2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 				Name: protectedServiceName,
 				Kind: "Service",
 			},
@@ -188,8 +188,8 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate_KindService
 			return nil
 		})
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -205,7 +205,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate_KindService
 	// No network policies exist
 	var networkPolicies v1.NetworkPolicyList
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
-		otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	}).Return(nil).Times(1)
 
 	// Create network policy
@@ -215,8 +215,8 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate_KindService
 			Name:      "default-deny-test-service-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   formattedServerName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   formattedServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -236,14 +236,14 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate_KindService
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultipleLists() {
-	var protectedServicesResources otterizev2alpha1.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev2alpha1.ProtectedService{
+	var protectedServicesResources otterizev2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 				Name: protectedServiceName,
 			},
 		},
@@ -252,14 +252,14 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 				Name: anotherProtectedServiceName,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -275,7 +275,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 	// No network policies exist
 	var networkPolicies v1.NetworkPolicyList
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
-		otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	}).Return(nil).Times(1)
 
 	// Create two network policies
@@ -286,15 +286,15 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 			Name:      "default-deny-test-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   formattedServerName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   formattedServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedServerName,
+					otterizev2.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -305,15 +305,15 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 			Name:      "default-deny-other-test-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   formattedOtherServerName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   formattedOtherServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedOtherServerName,
+					otterizev2.OtterizeServiceLabelKey: formattedOtherServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -331,21 +331,21 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreateFromMultiple
 
 // TestDeleteProtectedServices tests the deletion of a protected service when the service is no longer in the list of protected services
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
-	var protectedServicesResources otterizev2alpha1.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev2alpha1.ProtectedService{
+	var protectedServicesResources otterizev2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 				Name: anotherProtectedServiceName,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -366,15 +366,15 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 			Name:      "default-deny-test-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   formattedServerName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   formattedServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedServerName,
+					otterizev2.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -383,7 +383,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 
 	var networkPolicies v1.NetworkPolicyList
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
-		otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	}).DoAndReturn(
 		func(ctx context.Context, list *v1.NetworkPolicyList, opts ...client.ListOption) error {
 			list.Items = append(list.Items, policy)
@@ -395,15 +395,15 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 			Name:      "default-deny-other-test-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   anotherProtectedServiceFormattedName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   anotherProtectedServiceFormattedName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: anotherProtectedServiceFormattedName,
+					otterizev2.OtterizeServiceLabelKey: anotherProtectedServiceFormattedName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -419,22 +419,22 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceNotInList() {
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDeleted() {
-	var protectedServicesResources otterizev2alpha1.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev2alpha1.ProtectedService{
+	var protectedServicesResources otterizev2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              protectedServicesResourceName,
 				Namespace:         testNamespace,
 				DeletionTimestamp: &metav1.Time{Time: time.Date(2020, 12, 1, 17, 14, 0, 0, time.UTC)},
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 				Name: protectedServiceName,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -454,15 +454,15 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDelete
 			Name:      "default-deny-test-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   formattedServerName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   formattedServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedServerName,
+					otterizev2.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -471,7 +471,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDelete
 
 	var networkPolicies v1.NetworkPolicyList
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
-		otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	}).DoAndReturn(
 		func(ctx context.Context, list *v1.NetworkPolicyList, opts ...client.ListOption) error {
 			list.Items = append(list.Items, policy)
@@ -487,7 +487,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceBeingDelete
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceAlreadyDeleted() {
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), client.InNamespace(testNamespace)).Return(nil)
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.ProtectedServiceList{}), client.InNamespace(testNamespace)).Return(nil)
 
 	request := ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -504,15 +504,15 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceAlreadyDele
 			Name:      "default-deny-test-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   formattedServerName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   formattedServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedServerName,
+					otterizev2.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -521,7 +521,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceAlreadyDele
 
 	var networkPolicies v1.NetworkPolicyList
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
-		otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	}).DoAndReturn(
 		func(ctx context.Context, list *v1.NetworkPolicyList, opts ...client.ListOption) error {
 			list.Items = append(list.Items, policy)
@@ -537,14 +537,14 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceResourceAlreadyDele
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
-	var protectedServicesResources otterizev2alpha1.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev2alpha1.ProtectedService{
+	var protectedServicesResources otterizev2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 				Name: protectedServiceName,
 			},
 		},
@@ -553,14 +553,14 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 				Name: anotherProtectedServiceName,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -578,15 +578,15 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 			Name:      "default-deny-test-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   formattedServerName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   formattedServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedServerName,
+					otterizev2.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -601,8 +601,8 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 			Name:      "default-deny-other-test-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   formattedOtherServerName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   formattedOtherServerName,
 			},
 			Annotations: map[string]string{
 				"my-annotation": "my-value",
@@ -612,7 +612,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedOtherServerName,
+					otterizev2.OtterizeServiceLabelKey: formattedOtherServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -621,7 +621,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 
 	var networkPolicies v1.NetworkPolicyList
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
-		otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	}).DoAndReturn(
 		func(ctx context.Context, list *v1.NetworkPolicyList, opts ...client.ListOption) error {
 			list.Items = append(list.Items, policy, policyWithAnnotation)
@@ -638,21 +638,21 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceAlreadyExists() {
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
-	var protectedServicesResources otterizev2alpha1.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev2alpha1.ProtectedService{
+	var protectedServicesResources otterizev2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 				Name: protectedServiceName,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -670,8 +670,8 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
 			Name:      "default-deny-test-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   formattedServerName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   formattedServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -690,15 +690,15 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
 			Name:      "default-deny-test-service",
 			Namespace: testNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
-				otterizev2alpha1.OtterizeNetworkPolicy:                   formattedServerName,
+				otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+				otterizev2.OtterizeNetworkPolicy:                   formattedServerName,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedServerName,
+					otterizev2.OtterizeServiceLabelKey: formattedServerName,
 				},
 			},
 			Ingress: []v1.NetworkPolicyIngressRule{},
@@ -706,7 +706,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServiceUpdate() {
 	}
 	var networkPolicies v1.NetworkPolicyList
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&networkPolicies), client.InNamespace(testNamespace), client.MatchingLabels{
-		otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny: "true",
+		otterizev2.OtterizeNetworkPolicyServiceDefaultDeny: "true",
 	}).DoAndReturn(
 		func(ctx context.Context, list *v1.NetworkPolicyList, opts ...client.ListOption) error {
 			list.Items = append(list.Items, oldPolicy)

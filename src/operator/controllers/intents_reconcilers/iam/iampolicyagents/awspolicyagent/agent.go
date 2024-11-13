@@ -2,7 +2,7 @@ package awspolicyagent
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	corev1 "k8s.io/api/core/v1"
 	"regexp"
@@ -25,8 +25,8 @@ func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
 	return a.agent.AppliesOnPod(pod)
 }
 
-func (a *Agent) IntentType() otterizev2alpha1.IntentType {
-	return otterizev2alpha1.IntentTypeAWS
+func (a *Agent) IntentType() otterizev2.IntentType {
+	return otterizev2.IntentTypeAWS
 }
 
 func (a *Agent) templateResourceName(resource string) string {
@@ -36,7 +36,7 @@ func (a *Agent) templateResourceName(resource string) string {
 	return resource
 }
 
-func (a *Agent) createPolicyFromIntents(intents []otterizev2alpha1.Target) awsagent.PolicyDocument {
+func (a *Agent) createPolicyFromIntents(intents []otterizev2.Target) awsagent.PolicyDocument {
 	policy := awsagent.PolicyDocument{
 		Version: "2012-10-17",
 	}
@@ -64,11 +64,11 @@ func (a *Agent) createPolicyFromIntents(intents []otterizev2alpha1.Target) awsag
 	return policy
 }
 
-func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev2alpha1.Target, pod corev1.Pod) error {
+func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev2.Target, pod corev1.Pod) error {
 	policyDoc := a.createPolicyFromIntents(intents)
 	return a.agent.AddRolePolicy(ctx, namespace, accountName, intentsServiceName, policyDoc.Statement)
 }
 
-func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2.ClientIntents) error {
 	return a.agent.DeleteRolePolicyByNamespacedName(ctx, intents.Namespace, intents.Spec.Workload.Name)
 }

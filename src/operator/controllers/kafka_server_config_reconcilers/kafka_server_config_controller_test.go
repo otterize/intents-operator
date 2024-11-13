@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
@@ -76,12 +76,12 @@ func (s *KafkaServerConfigReconcilerTestSuite) TearDownTest() {
 }
 
 func (s *KafkaServerConfigReconcilerTestSuite) setupServerStore(serviceName string) kafkaacls.ServersStore {
-	serverConfig := &otterizev2alpha1.KafkaServerConfig{
-		Spec: otterizev2alpha1.KafkaServerConfigSpec{
-			Service: otterizev2alpha1.Workload{
+	serverConfig := &otterizev2.KafkaServerConfig{
+		Spec: otterizev2.KafkaServerConfigSpec{
+			Service: otterizev2.Workload{
 				Name: serviceName,
 			},
-			Topics: []otterizev2alpha1.TopicConfig{{
+			Topics: []otterizev2.TopicConfig{{
 				Topic:                  "*",
 				Pattern:                otterizev1alpha2.ResourcePatternTypePrefix,
 				ClientIdentityRequired: false,
@@ -92,7 +92,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) setupServerStore(serviceName stri
 	}
 
 	serverConfig.SetNamespace(testNamespace)
-	emptyTls := otterizev2alpha1.TLSSource{}
+	emptyTls := otterizev2.TLSSource{}
 	factory := getMockIntentsAdminFactory(s.mockIntentsAdmin)
 	kafkaServersStore := kafkaacls.NewServersStore(emptyTls, false, factory, true)
 	kafkaServersStore.Add(serverConfig)
@@ -100,23 +100,23 @@ func (s *KafkaServerConfigReconcilerTestSuite) setupServerStore(serviceName stri
 }
 
 func getMockIntentsAdminFactory(mockIntentsAdmin *kafkaaclsmocks.MockKafkaIntentsAdmin) kafkaacls.IntentsAdminFactoryFunction {
-	return func(kafkaServer otterizev2alpha1.KafkaServerConfig, _ otterizev2alpha1.TLSSource, enableKafkaACLCreation bool, enforcementDefaultState bool) (kafkaacls.KafkaIntentsAdmin, error) {
+	return func(kafkaServer otterizev2.KafkaServerConfig, _ otterizev2.TLSSource, enableKafkaACLCreation bool, enforcementDefaultState bool) (kafkaacls.KafkaIntentsAdmin, error) {
 		return mockIntentsAdmin, nil
 	}
 }
 
-func (s *KafkaServerConfigReconcilerTestSuite) generateKafkaServerConfig() otterizev2alpha1.KafkaServerConfig {
-	return otterizev2alpha1.KafkaServerConfig{
+func (s *KafkaServerConfigReconcilerTestSuite) generateKafkaServerConfig() otterizev2.KafkaServerConfig {
+	return otterizev2.KafkaServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kafkaServiceName,
 			Namespace: testNamespace,
 		},
-		Spec: otterizev2alpha1.KafkaServerConfigSpec{
+		Spec: otterizev2.KafkaServerConfigSpec{
 			NoAutoCreateIntentsForOperator: true,
-			Service: otterizev2alpha1.Workload{
+			Service: otterizev2.Workload{
 				Name: kafkaServiceName,
 			},
-			Topics: []otterizev2alpha1.TopicConfig{
+			Topics: []otterizev2.TopicConfig{
 				{
 					Topic:                  kafkaTopicName,
 					Pattern:                otterizev1alpha2.ResourcePatternTypeLiteral,
@@ -134,13 +134,13 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {
 	kafkaServerConfig.SetNamespace(testNamespace)
 
 	// Get the resource
-	emptyKSC := otterizev2alpha1.KafkaServerConfig{}
+	emptyKSC := otterizev2.KafkaServerConfig{}
 	objectName := types.NamespacedName{
 		Name:      kafkaServiceName,
 		Namespace: testNamespace,
 	}
 	s.Client.EXPECT().Get(gomock.Any(), objectName, &emptyKSC).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev2alpha1.KafkaServerConfig, _ ...client.GetOption) error {
+		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev2.KafkaServerConfig, _ ...client.GetOption) error {
 			kafkaServerConfig.DeepCopyInto(actualKSC)
 			return nil
 		})
@@ -150,9 +150,9 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil)
 	s.mockIntentsAdmin.EXPECT().Close()
 
-	emptyList := &otterizev2alpha1.KafkaServerConfigList{}
+	emptyList := &otterizev2.KafkaServerConfigList{}
 	s.Client.EXPECT().List(gomock.Any(), emptyList, client.InNamespace(testNamespace), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.KafkaServerConfigList, _ ...client.ListOption) error {
+		func(ctx context.Context, list *otterizev2.KafkaServerConfigList, _ ...client.ListOption) error {
 			list.Items = append(list.Items, kafkaServerConfig)
 			return nil
 		})
@@ -171,7 +171,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigUpload() {
 	s.ExpectEvent(ReasonSuccessfullyAppliedKafkaServerConfig)
 }
 
-func (s *KafkaServerConfigReconcilerTestSuite) getExpectedKafkaServerConfigs(kafkaServerConfig otterizev2alpha1.KafkaServerConfig) []graphqlclient.KafkaServerConfigInput {
+func (s *KafkaServerConfigReconcilerTestSuite) getExpectedKafkaServerConfigs(kafkaServerConfig otterizev2.KafkaServerConfig) []graphqlclient.KafkaServerConfigInput {
 	ksc, err := kafkaServerConfigCRDToCloudModel(kafkaServerConfig)
 	s.Require().NoError(err)
 
@@ -184,13 +184,13 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestRequeueKafkaServerConfigOnFai
 	kafkaServerConfig.SetNamespace(testNamespace)
 
 	// Get the resource
-	emptyKSC := otterizev2alpha1.KafkaServerConfig{}
+	emptyKSC := otterizev2.KafkaServerConfig{}
 	objectName := types.NamespacedName{
 		Name:      kafkaServiceName,
 		Namespace: testNamespace,
 	}
 	s.Client.EXPECT().Get(gomock.Any(), objectName, &emptyKSC).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev2alpha1.KafkaServerConfig, _ ...client.GetOption) error {
+		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev2.KafkaServerConfig, _ ...client.GetOption) error {
 			kafkaServerConfig.DeepCopyInto(actualKSC)
 			return nil
 		})
@@ -200,9 +200,9 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestRequeueKafkaServerConfigOnFai
 	s.mockIntentsAdmin.EXPECT().ApplyServerTopicsConf(kafkaServerConfig.Spec.Topics).Return(nil)
 	s.mockIntentsAdmin.EXPECT().Close()
 
-	emptyList := &otterizev2alpha1.KafkaServerConfigList{}
+	emptyList := &otterizev2.KafkaServerConfigList{}
 	s.Client.EXPECT().List(gomock.Any(), emptyList, client.InNamespace(testNamespace), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.KafkaServerConfigList, _ ...client.ListOption) error {
+		func(ctx context.Context, list *otterizev2.KafkaServerConfigList, _ ...client.ListOption) error {
 			list.Items = append(list.Items, kafkaServerConfig)
 			return nil
 		})
@@ -228,21 +228,21 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestKafkaServerConfigDelete() {
 	deletedKSC.DeletionTimestamp = &metav1.Time{Time: time.Date(2022, 9, 16, 0, 55, 0, 0, time.UTC)}
 
 	// Get the resource
-	emptyKSC := otterizev2alpha1.KafkaServerConfig{}
+	emptyKSC := otterizev2.KafkaServerConfig{}
 	objectName := types.NamespacedName{
 		Name:      kafkaServiceName,
 		Namespace: testNamespace,
 	}
 	s.Client.EXPECT().Get(gomock.Any(), objectName, &emptyKSC).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev2alpha1.KafkaServerConfig, _ ...client.GetOption) error {
+		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev2.KafkaServerConfig, _ ...client.GetOption) error {
 			deletedKSC.DeepCopyInto(actualKSC)
 			return nil
 		})
 
 	// Return deleted kafka server config resource for the upload
-	emptyList := &otterizev2alpha1.KafkaServerConfigList{}
+	emptyList := &otterizev2.KafkaServerConfigList{}
 	s.Client.EXPECT().List(gomock.Any(), emptyList, client.InNamespace(testNamespace), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.KafkaServerConfigList, _ ...client.ListOption) error {
+		func(ctx context.Context, list *otterizev2.KafkaServerConfigList, _ ...client.ListOption) error {
 			list.Items = append(list.Items, deletedKSC)
 			return nil
 		})
@@ -277,24 +277,24 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestIntentsGeneratedForOperator()
 
 	// Handle operator intents for the new kafka server
 	operatorIntentsObjectName := fmt.Sprintf("operator-to-kafkaserverconfig-kafka-namespace-%s", testNamespace)
-	operatorIntents := otterizev2alpha1.ClientIntents{
+	operatorIntents := otterizev2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorIntentsObjectName,
 			Namespace: operatorPodNamespace,
 		},
-		Spec: &otterizev2alpha1.IntentsSpec{
-			Workload: otterizev2alpha1.Workload{
+		Spec: &otterizev2.IntentsSpec{
+			Workload: otterizev2.Workload{
 				Name: operatorServiceName,
 			},
-			Targets: []otterizev2alpha1.Target{
+			Targets: []otterizev2.Target{
 				{
-					Kafka: &otterizev2alpha1.KafkaTarget{
+					Kafka: &otterizev2.KafkaTarget{
 						Name: fmt.Sprintf("%s.%s", kafkaServiceName, testNamespace),
-						Topics: []otterizev2alpha1.KafkaTopic{{
+						Topics: []otterizev2.KafkaTopic{{
 							Name: "*",
-							Operations: []otterizev2alpha1.KafkaOperation{
-								otterizev2alpha1.KafkaOperationDescribe,
-								otterizev2alpha1.KafkaOperationAlter,
+							Operations: []otterizev2.KafkaOperation{
+								otterizev2.KafkaOperationDescribe,
+								otterizev2.KafkaOperationAlter,
 							},
 						}},
 					},
@@ -302,20 +302,20 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestIntentsGeneratedForOperator()
 			},
 		},
 	}
-	emptyIntents := otterizev2alpha1.ClientIntents{}
+	emptyIntents := otterizev2.ClientIntents{}
 	operatorIntentsRequest := types.NamespacedName{
 		Name:      operatorIntentsObjectName,
 		Namespace: operatorPodNamespace,
 	}
 	s.Client.EXPECT().Get(gomock.Any(), operatorIntentsRequest, &emptyIntents).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, _ ...client.GetOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2.ClientIntents, _ ...client.GetOption) error {
 			return k8serrors.NewNotFound(schema.GroupResource{}, "client intents")
 		})
 
 	s.Client.EXPECT().Create(gomock.Any(), &operatorIntents).Return(nil)
 
 	// Get the resource
-	emptyKSC := otterizev2alpha1.KafkaServerConfig{}
+	emptyKSC := otterizev2.KafkaServerConfig{}
 	objectName := types.NamespacedName{
 		Name:      kafkaServiceName,
 		Namespace: testNamespace,
@@ -339,7 +339,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestIntentsGeneratedForOperator()
 	s.mockServiceResolver.EXPECT().ResolvePodToServiceIdentity(gomock.Any(), &operatorPod).Return(serviceidentity.ServiceIdentity{Name: operatorServiceName, Namespace: operatorPodNamespace}, nil)
 
 	s.Client.EXPECT().Get(gomock.Any(), objectName, &emptyKSC).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev2alpha1.KafkaServerConfig, _ ...client.GetOption) error {
+		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev2.KafkaServerConfig, _ ...client.GetOption) error {
 			kafkaServerConfig.DeepCopyInto(actualKSC)
 			return nil
 		})
@@ -350,9 +350,9 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestIntentsGeneratedForOperator()
 	s.mockIntentsAdmin.EXPECT().Close()
 
 	// Expect uploading the resource to Cloud
-	emptyList := &otterizev2alpha1.KafkaServerConfigList{}
+	emptyList := &otterizev2.KafkaServerConfigList{}
 	s.Client.EXPECT().List(gomock.Any(), emptyList, client.InNamespace(testNamespace), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.KafkaServerConfigList, _ ...client.ListOption) error {
+		func(ctx context.Context, list *otterizev2.KafkaServerConfigList, _ ...client.ListOption) error {
 			list.Items = append(list.Items, kafkaServerConfig)
 			return nil
 		})
@@ -381,24 +381,24 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestUpdateIntentsGeneratedForOper
 
 	// Set operator intents for the updated kafka server
 	operatorIntentsObjectName := fmt.Sprintf("operator-to-kafkaserverconfig-kafka-namespace-%s", testNamespace)
-	existingOperatorIntents := otterizev2alpha1.ClientIntents{
+	existingOperatorIntents := otterizev2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      operatorIntentsObjectName,
 			Namespace: operatorPodNamespace,
 		},
-		Spec: &otterizev2alpha1.IntentsSpec{
-			Workload: otterizev2alpha1.Workload{
+		Spec: &otterizev2.IntentsSpec{
+			Workload: otterizev2.Workload{
 				Name: operatorServiceName,
 			},
-			Targets: []otterizev2alpha1.Target{
+			Targets: []otterizev2.Target{
 				{
-					Kafka: &otterizev2alpha1.KafkaTarget{
+					Kafka: &otterizev2.KafkaTarget{
 						Name: "old-kafka-server.another-namespace",
-						Topics: []otterizev2alpha1.KafkaTopic{{
+						Topics: []otterizev2.KafkaTopic{{
 							Name: "*",
-							Operations: []otterizev2alpha1.KafkaOperation{
-								otterizev2alpha1.KafkaOperationDescribe,
-								otterizev2alpha1.KafkaOperationAlter,
+							Operations: []otterizev2.KafkaOperation{
+								otterizev2.KafkaOperationDescribe,
+								otterizev2.KafkaOperationAlter,
 							},
 						}},
 					},
@@ -407,28 +407,28 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestUpdateIntentsGeneratedForOper
 		},
 	}
 
-	updatedOperatorIntents := otterizev2alpha1.ClientIntents{}
+	updatedOperatorIntents := otterizev2.ClientIntents{}
 	existingOperatorIntents.DeepCopyInto(&updatedOperatorIntents)
-	updatedOperatorIntents.Spec.Targets = []otterizev2alpha1.Target{{
-		Kafka: &otterizev2alpha1.KafkaTarget{
+	updatedOperatorIntents.Spec.Targets = []otterizev2.Target{{
+		Kafka: &otterizev2.KafkaTarget{
 			Name: fmt.Sprintf("%s.%s", kafkaServiceName, testNamespace),
-			Topics: []otterizev2alpha1.KafkaTopic{{
+			Topics: []otterizev2.KafkaTopic{{
 				Name: "*",
-				Operations: []otterizev2alpha1.KafkaOperation{
-					otterizev2alpha1.KafkaOperationDescribe,
-					otterizev2alpha1.KafkaOperationAlter,
+				Operations: []otterizev2.KafkaOperation{
+					otterizev2.KafkaOperationDescribe,
+					otterizev2.KafkaOperationAlter,
 				},
 			}},
 		},
 	}}
 
-	emptyIntents := otterizev2alpha1.ClientIntents{}
+	emptyIntents := otterizev2.ClientIntents{}
 	operatorIntentsRequest := types.NamespacedName{
 		Name:      operatorIntentsObjectName,
 		Namespace: operatorPodNamespace,
 	}
 	s.Client.EXPECT().Get(gomock.Any(), operatorIntentsRequest, &emptyIntents).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, _ ...client.GetOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2.ClientIntents, _ ...client.GetOption) error {
 			existingOperatorIntents.DeepCopyInto(intents)
 			return nil
 		})
@@ -436,7 +436,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestUpdateIntentsGeneratedForOper
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&updatedOperatorIntents), intents_reconcilers.MatchPatch(client.MergeFrom(&existingOperatorIntents))).Return(nil)
 
 	// Get the resource
-	emptyKSC := otterizev2alpha1.KafkaServerConfig{}
+	emptyKSC := otterizev2.KafkaServerConfig{}
 	objectName := types.NamespacedName{
 		Name:      kafkaServiceName,
 		Namespace: testNamespace,
@@ -460,7 +460,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestUpdateIntentsGeneratedForOper
 	s.mockServiceResolver.EXPECT().ResolvePodToServiceIdentity(gomock.Any(), &operatorPod).Return(serviceidentity.ServiceIdentity{Name: operatorServiceName, Namespace: operatorPodNamespace}, nil)
 
 	s.Client.EXPECT().Get(gomock.Any(), objectName, &emptyKSC).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev2alpha1.KafkaServerConfig, _ ...client.GetOption) error {
+		func(ctx context.Context, name types.NamespacedName, actualKSC *otterizev2.KafkaServerConfig, _ ...client.GetOption) error {
 			kafkaServerConfig.DeepCopyInto(actualKSC)
 			return nil
 		})
@@ -471,9 +471,9 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestUpdateIntentsGeneratedForOper
 	s.mockIntentsAdmin.EXPECT().Close()
 
 	// Expect uploading the resource to Cloud
-	emptyList := &otterizev2alpha1.KafkaServerConfigList{}
+	emptyList := &otterizev2.KafkaServerConfigList{}
 	s.Client.EXPECT().List(gomock.Any(), emptyList, client.InNamespace(testNamespace), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.KafkaServerConfigList, _ ...client.ListOption) error {
+		func(ctx context.Context, list *otterizev2.KafkaServerConfigList, _ ...client.ListOption) error {
 			list.Items = append(list.Items, kafkaServerConfig)
 			return nil
 		})

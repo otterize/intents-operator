@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/sqlutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -90,16 +90,16 @@ func NewMySQLConfigurator(ctx context.Context, databaseInfo MySQLDatabaseInfo) (
 	return m, nil
 }
 
-func (m *MySQLConfigurator) dbOperationsToPrivileges(dbOperations []otterizev2alpha1.DatabaseOperation) []PrivilegeType {
-	return lo.Map(dbOperations, func(op otterizev2alpha1.DatabaseOperation, _ int) PrivilegeType {
+func (m *MySQLConfigurator) dbOperationsToPrivileges(dbOperations []otterizev2.DatabaseOperation) []PrivilegeType {
+	return lo.Map(dbOperations, func(op otterizev2.DatabaseOperation, _ int) PrivilegeType {
 		switch op {
-		case otterizev2alpha1.DatabaseOperationSelect:
+		case otterizev2.DatabaseOperationSelect:
 			return SelectPriv
-		case otterizev2alpha1.DatabaseOperationInsert:
+		case otterizev2.DatabaseOperationInsert:
 			return InsertPriv
-		case otterizev2alpha1.DatabaseOperationUpdate:
+		case otterizev2.DatabaseOperationUpdate:
 			return UpdatePriv
-		case otterizev2alpha1.DatabaseOperationDelete:
+		case otterizev2.DatabaseOperationDelete:
 			return DeletePriv
 		default:
 			m.logger.WithField("operation", op).Error("Unexpected DB operation, will grant usage only privileges")
@@ -188,7 +188,7 @@ func (m *MySQLConfigurator) AlterUserPassword(ctx context.Context, username stri
 	return nil
 }
 
-func (m *MySQLConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToSQLPermissionss map[string][]otterizev2alpha1.SQLPrivileges) error {
+func (m *MySQLConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToSQLPermissionss map[string][]otterizev2.SQLPrivileges) error {
 	// apply new intents
 	for dbname, dbResources := range dbnameToSQLPermissionss {
 		if err := m.applyDatabasePermissions(ctx, username, dbname, dbResources); err != nil {
@@ -207,7 +207,7 @@ func (m *MySQLConfigurator) ApplyDatabasePermissionsForUser(ctx context.Context,
 	return nil
 }
 
-func (m *MySQLConfigurator) applyDatabasePermissions(ctx context.Context, username string, dbname string, dbResources []otterizev2alpha1.SQLPrivileges) error {
+func (m *MySQLConfigurator) applyDatabasePermissions(ctx context.Context, username string, dbname string, dbResources []otterizev2.SQLPrivileges) error {
 	for _, dbResource := range dbResources {
 		if err := m.applySQLPermissionsPermissions(ctx, username, dbname, dbResource); err != nil {
 			return errors.Wrap(err)
@@ -217,7 +217,7 @@ func (m *MySQLConfigurator) applyDatabasePermissions(ctx context.Context, userna
 	return nil
 }
 
-func (m *MySQLConfigurator) applySQLPermissionsPermissions(ctx context.Context, username string, dbname string, dbResource otterizev2alpha1.SQLPrivileges) error {
+func (m *MySQLConfigurator) applySQLPermissionsPermissions(ctx context.Context, username string, dbname string, dbResource otterizev2.SQLPrivileges) error {
 	operations := sqlutils.GetGrantOperations(dbResource.Operations)
 	containsAllOperation := sqlutils.ContainsAllOperations(operations)
 	applyOnAllTables := dbResource.Table == ""
@@ -298,14 +298,14 @@ func (m *MySQLConfigurator) queryUserDBPrivileges(ctx context.Context, username 
 	return userPrivileges, nil
 }
 
-func (m *MySQLConfigurator) getDBLevelPrivilegesToRevoke(userDBPrivileges DBUserPrivilege, dbnameToSQLPermissionss map[string][]otterizev2alpha1.SQLPrivileges) []PrivilegeType {
+func (m *MySQLConfigurator) getDBLevelPrivilegesToRevoke(userDBPrivileges DBUserPrivilege, dbnameToSQLPermissionss map[string][]otterizev2.SQLPrivileges) []PrivilegeType {
 	dbResources, ok := dbnameToSQLPermissionss[userDBPrivileges.Db]
 	if !ok {
 		// DB not specified in applied intents, should revoke all privileges
 		return []PrivilegeType{AllPriv}
 	}
 
-	applyOnAllTablesResources := lo.Filter(dbResources, func(dbResource otterizev2alpha1.SQLPrivileges, _ int) bool {
+	applyOnAllTablesResources := lo.Filter(dbResources, func(dbResource otterizev2.SQLPrivileges, _ int) bool {
 		return dbResource.Table == ""
 	})
 	if len(applyOnAllTablesResources) == 0 {
@@ -313,7 +313,7 @@ func (m *MySQLConfigurator) getDBLevelPrivilegesToRevoke(userDBPrivileges DBUser
 		return []PrivilegeType{AllPriv}
 	}
 
-	intentsAllowedOperations := lo.Flatten(lo.Map(applyOnAllTablesResources, func(dbResource otterizev2alpha1.SQLPrivileges, _ int) []otterizev2alpha1.DatabaseOperation {
+	intentsAllowedOperations := lo.Flatten(lo.Map(applyOnAllTablesResources, func(dbResource otterizev2.SQLPrivileges, _ int) []otterizev2.DatabaseOperation {
 		return sqlutils.GetGrantOperations(dbResource.Operations)
 	}))
 
@@ -326,7 +326,7 @@ func (m *MySQLConfigurator) getDBLevelPrivilegesToRevoke(userDBPrivileges DBUser
 	return lo.Without(userDBPrivileges.Privileges, intentsAllowedPrivileges...)
 }
 
-func (m *MySQLConfigurator) revokeExcessDBLevelPrivileges(ctx context.Context, username string, dbnameToSQLPermissionss map[string][]otterizev2alpha1.SQLPrivileges) error {
+func (m *MySQLConfigurator) revokeExcessDBLevelPrivileges(ctx context.Context, username string, dbnameToSQLPermissionss map[string][]otterizev2.SQLPrivileges) error {
 	userDBPrivileges, err := m.queryUserDBPrivileges(ctx, username)
 	if err != nil {
 		return errors.Wrap(err)
@@ -386,14 +386,14 @@ func (m *MySQLConfigurator) queryUserTablePrivileges(ctx context.Context, userna
 	return tablePrivileges, nil
 }
 
-func (m *MySQLConfigurator) getTableLevelPrivilegesToRevoke(userTablePrivileges TablePrivilege, dbnameToSQLPermissionss map[string][]otterizev2alpha1.SQLPrivileges) []PrivilegeType {
+func (m *MySQLConfigurator) getTableLevelPrivilegesToRevoke(userTablePrivileges TablePrivilege, dbnameToSQLPermissionss map[string][]otterizev2.SQLPrivileges) []PrivilegeType {
 	dbResources, ok := dbnameToSQLPermissionss[userTablePrivileges.Db]
 	if !ok {
 		// DB not specified in applied intents, should revoke all privileges
 		return []PrivilegeType{AllPriv}
 	}
 
-	tableResources := lo.Filter(dbResources, func(dbResource otterizev2alpha1.SQLPrivileges, _ int) bool {
+	tableResources := lo.Filter(dbResources, func(dbResource otterizev2.SQLPrivileges, _ int) bool {
 		return dbResource.Table == userTablePrivileges.TableName
 	})
 
@@ -402,7 +402,7 @@ func (m *MySQLConfigurator) getTableLevelPrivilegesToRevoke(userTablePrivileges 
 		return []PrivilegeType{AllPriv}
 	}
 
-	intentsAllowedOperations := lo.Flatten(lo.Map(tableResources, func(dbResource otterizev2alpha1.SQLPrivileges, _ int) []otterizev2alpha1.DatabaseOperation {
+	intentsAllowedOperations := lo.Flatten(lo.Map(tableResources, func(dbResource otterizev2.SQLPrivileges, _ int) []otterizev2.DatabaseOperation {
 		return sqlutils.GetGrantOperations(dbResource.Operations)
 	}))
 
@@ -415,7 +415,7 @@ func (m *MySQLConfigurator) getTableLevelPrivilegesToRevoke(userTablePrivileges 
 	return lo.Without(userTablePrivileges.Privileges, intentsAllowedPrivileges...)
 }
 
-func (m *MySQLConfigurator) revokeExcessTableLevelPrivileges(ctx context.Context, username string, dbnameToSQLPermissionss map[string][]otterizev2alpha1.SQLPrivileges) error {
+func (m *MySQLConfigurator) revokeExcessTableLevelPrivileges(ctx context.Context, username string, dbnameToSQLPermissionss map[string][]otterizev2.SQLPrivileges) error {
 	userTablePrivileges, err := m.queryUserTablePrivileges(ctx, username)
 	if err != nil {
 		return errors.Wrap(err)

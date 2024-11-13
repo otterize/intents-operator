@@ -2,7 +2,7 @@ package database
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator/mysql"
@@ -54,7 +54,7 @@ func NewDatabaseReconciler(
 }
 
 func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	clientIntents := &otterizev2alpha1.ClientIntents{}
+	clientIntents := &otterizev2.ClientIntents{}
 	logger := logrus.WithField("namespacedName", req.String())
 	err := r.client.Get(ctx, req.NamespacedName, clientIntents)
 	if err != nil {
@@ -71,7 +71,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, nil
 	}
 
-	pgServerConfigs := otterizev2alpha1.PostgreSQLServerConfigList{}
+	pgServerConfigs := otterizev2.PostgreSQLServerConfigList{}
 	err = r.client.List(ctx, &pgServerConfigs)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
@@ -79,7 +79,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	mySQLServerConfigs := otterizev2alpha1.MySQLServerConfigList{}
+	mySQLServerConfigs := otterizev2.MySQLServerConfigList{}
 	err = r.client.List(ctx, &mySQLServerConfigs)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingMySQLServerConfig,
@@ -87,7 +87,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	if !lo.SomeBy(clientIntents.GetDatabaseIntents(), func(intent otterizev2alpha1.Target) bool {
+	if !lo.SomeBy(clientIntents.GetDatabaseIntents(), func(intent otterizev2.Target) bool {
 		return true
 	}) {
 		return ctrl.Result{}, nil
@@ -101,14 +101,14 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	dbUsername := clusterutils.KubernetesToPostgresName(username)
 
 	dbIntents := clientIntents.GetDatabaseIntents()
-	dbInstanceToIntents := lo.GroupBy(dbIntents, func(intent otterizev2alpha1.Target) string {
+	dbInstanceToIntents := lo.GroupBy(dbIntents, func(intent otterizev2.Target) string {
 		return intent.GetTargetServerName() // "Name" is the db instance name in our case.
 	})
 
-	existingPGInstances := lo.Map(pgServerConfigs.Items, func(config otterizev2alpha1.PostgreSQLServerConfig, _ int) string {
+	existingPGInstances := lo.Map(pgServerConfigs.Items, func(config otterizev2.PostgreSQLServerConfig, _ int) string {
 		return config.Name
 	})
-	existingMySQLInstances := lo.Map(mySQLServerConfigs.Items, func(config otterizev2alpha1.MySQLServerConfig, _ int) string {
+	existingMySQLInstances := lo.Map(mySQLServerConfigs.Items, func(config otterizev2.MySQLServerConfig, _ int) string {
 		return config.Name
 	})
 
@@ -146,7 +146,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	return ctrl.Result{}, nil
 }
 
-func (r *DatabaseReconciler) extractDBCredentials(ctx context.Context, namespace string, credentialsSpec otterizev2alpha1.DatabaseCredentials) (databaseconfigurator.DatabaseCredentials, error) {
+func (r *DatabaseReconciler) extractDBCredentials(ctx context.Context, namespace string, credentialsSpec otterizev2.DatabaseCredentials) (databaseconfigurator.DatabaseCredentials, error) {
 	creds := databaseconfigurator.DatabaseCredentials{}
 	if credentialsSpec.Username != "" {
 		creds.Username = credentialsSpec.Username
@@ -179,7 +179,7 @@ func (r *DatabaseReconciler) extractDBCredentials(ctx context.Context, namespace
 	return creds, nil
 }
 
-func (r *DatabaseReconciler) createPostgresDBConfigurator(ctx context.Context, pgServerConfig otterizev2alpha1.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+func (r *DatabaseReconciler) createPostgresDBConfigurator(ctx context.Context, pgServerConfig otterizev2.PostgreSQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
 	credentials, err := r.extractDBCredentials(ctx, pgServerConfig.Namespace, pgServerConfig.Spec.Credentials)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -197,7 +197,7 @@ func (r *DatabaseReconciler) createPostgresDBConfigurator(ctx context.Context, p
 	return dbConfigurator, nil
 }
 
-func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, config otterizev2alpha1.PostgreSQLServerConfig, clientIntents *otterizev2alpha1.ClientIntents, dbUsername string, dbInstanceIntents []otterizev2alpha1.Target) error {
+func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, config otterizev2.PostgreSQLServerConfig, clientIntents *otterizev2.ClientIntents, dbUsername string, dbInstanceIntents []otterizev2.Target) error {
 	dbConfigurator, err := r.createPostgresDBConfigurator(ctx, config)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
@@ -210,7 +210,7 @@ func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, confi
 	return r.applyDBInstanceIntentsOnConfigurator(ctx, dbConfigurator, clientIntents, dbUsername, config.Name, dbInstanceIntents)
 }
 
-func (r *DatabaseReconciler) createMySQLDBConfigurator(ctx context.Context, mySqlServerConfig otterizev2alpha1.MySQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
+func (r *DatabaseReconciler) createMySQLDBConfigurator(ctx context.Context, mySqlServerConfig otterizev2.MySQLServerConfig) (databaseconfigurator.DatabaseConfigurator, error) {
 	credentials, err := r.extractDBCredentials(ctx, mySqlServerConfig.Namespace, mySqlServerConfig.Spec.Credentials)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -228,7 +228,7 @@ func (r *DatabaseReconciler) createMySQLDBConfigurator(ctx context.Context, mySq
 	return dbConfigurator, nil
 }
 
-func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev2alpha1.MySQLServerConfig, clientIntents *otterizev2alpha1.ClientIntents, dbUsername string, dbInstanceIntents []otterizev2alpha1.Target) error {
+func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev2.MySQLServerConfig, clientIntents *otterizev2.ClientIntents, dbUsername string, dbInstanceIntents []otterizev2.Target) error {
 	dbConfigurator, err := r.createMySQLDBConfigurator(ctx, config)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
@@ -244,10 +244,10 @@ func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, co
 func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 	ctx context.Context,
 	dbConfigurator databaseconfigurator.DatabaseConfigurator,
-	clientIntents *otterizev2alpha1.ClientIntents,
+	clientIntents *otterizev2.ClientIntents,
 	dbUsername string,
 	dbInstanceName string,
-	dbInstanceIntents []otterizev2alpha1.Target) error {
+	dbInstanceIntents []otterizev2.Target) error {
 
 	intentsDeleted := !clientIntents.DeletionTimestamp.IsZero()
 
@@ -332,7 +332,7 @@ func (r *DatabaseReconciler) getClusterID(ctx context.Context) (string, error) {
 	return clusterID, nil
 }
 
-func (r *DatabaseReconciler) handleDatabaseAnnotationOnPod(ctx context.Context, intents otterizev2alpha1.ClientIntents, dbInstance string) error {
+func (r *DatabaseReconciler) handleDatabaseAnnotationOnPod(ctx context.Context, intents otterizev2.ClientIntents, dbInstance string) error {
 	// We annotate a pod here to trigger the credentials operator flow
 	// It will create a user-password secret and modify the databases so those credentials could connect successfully
 	// We only annotate one pod since we just need to trigger the credentials operator once, to create the secret
@@ -383,12 +383,12 @@ func getAllowedDatabasesSlice(pod corev1.Pod, dbInstance string) []string {
 	}
 }
 
-func getDBNameToDatabaseResourcesFromIntents(intents []otterizev2alpha1.Target) map[string][]otterizev2alpha1.SQLPrivileges {
-	dbnameToResources := make(map[string][]otterizev2alpha1.SQLPrivileges)
+func getDBNameToDatabaseResourcesFromIntents(intents []otterizev2.Target) map[string][]otterizev2.SQLPrivileges {
+	dbnameToResources := make(map[string][]otterizev2.SQLPrivileges)
 	for _, intent := range intents {
 		for _, dbResource := range intent.SQL.Privileges {
 			if _, ok := dbnameToResources[dbResource.DatabaseName]; !ok {
-				dbnameToResources[dbResource.DatabaseName] = []otterizev2alpha1.SQLPrivileges{dbResource}
+				dbnameToResources[dbResource.DatabaseName] = []otterizev2.SQLPrivileges{dbResource}
 				continue
 			}
 			// TODO: Smart merge instead of just adding

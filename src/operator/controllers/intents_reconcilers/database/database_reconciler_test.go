@@ -3,7 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -54,26 +54,26 @@ func (s *DatabaseReconcilerTestSuite) SetupTest() {
 }
 
 func (s *DatabaseReconcilerTestSuite) TestPGServerConfNotMatching() {
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev2alpha1.IntentsSpec{
-			Workload: otterizev2alpha1.Workload{
+		Spec: &otterizev2.IntentsSpec{
+			Workload: otterizev2.Workload{
 				Name: clientName,
 			},
-			Targets: []otterizev2alpha1.Target{
+			Targets: []otterizev2.Target{
 				{
-					SQL: &otterizev2alpha1.SQLTarget{
+					SQL: &otterizev2.SQLTarget{
 						Name: databaseInstance,
-						Privileges: []otterizev2alpha1.SQLPrivileges{{
+						Privileges: []otterizev2.SQLPrivileges{{
 							DatabaseName: dbName,
 							Table:        tableName,
-							Operations: []otterizev2alpha1.DatabaseOperation{
-								otterizev2alpha1.DatabaseOperationSelect,
-								otterizev2alpha1.DatabaseOperationInsert,
+							Operations: []otterizev2.DatabaseOperation{
+								otterizev2.DatabaseOperationSelect,
+								otterizev2.DatabaseOperationInsert,
 							},
 						}},
 					},
@@ -82,21 +82,21 @@ func (s *DatabaseReconcilerTestSuite) TestPGServerConfNotMatching() {
 		},
 	}
 
-	pgServerConf := otterizev2alpha1.PostgreSQLServerConfig{
+	pgServerConf := otterizev2.PostgreSQLServerConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-other", databaseInstance),
 			Namespace: testNamespace,
 		},
-		Spec: otterizev2alpha1.PostgreSQLServerConfigSpec{
+		Spec: otterizev2.PostgreSQLServerConfigSpec{
 			Address: dbAddress,
-			Credentials: otterizev2alpha1.DatabaseCredentials{
+			Credentials: otterizev2.DatabaseCredentials{
 				Username: "shhhhh",
 				Password: "secret",
 			},
 		},
 	}
 
-	_, err := s.reconcileWithExpectedResources(clientIntents, []otterizev2alpha1.PostgreSQLServerConfig{pgServerConf})
+	_, err := s.reconcileWithExpectedResources(clientIntents, []otterizev2.PostgreSQLServerConfig{pgServerConf})
 	s.Require().Error(err, "Can't reach the server")
 	s.Require().Empty(ctrl.Result{})
 	s.ExpectEvent(ReasonMissingDBServerConfig)
@@ -105,26 +105,26 @@ func (s *DatabaseReconcilerTestSuite) TestPGServerConfNotMatching() {
 }
 
 func (s *DatabaseReconcilerTestSuite) TestNoPGServerConf() {
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 
-		Spec: &otterizev2alpha1.IntentsSpec{
-			Workload: otterizev2alpha1.Workload{
+		Spec: &otterizev2.IntentsSpec{
+			Workload: otterizev2.Workload{
 				Name: clientName,
 			},
-			Targets: []otterizev2alpha1.Target{
+			Targets: []otterizev2.Target{
 				{
-					SQL: &otterizev2alpha1.SQLTarget{
+					SQL: &otterizev2.SQLTarget{
 						Name: databaseInstance,
-						Privileges: []otterizev2alpha1.SQLPrivileges{{
+						Privileges: []otterizev2.SQLPrivileges{{
 							DatabaseName: dbName,
 							Table:        tableName,
-							Operations: []otterizev2alpha1.DatabaseOperation{
-								otterizev2alpha1.DatabaseOperationSelect,
-								otterizev2alpha1.DatabaseOperationInsert,
+							Operations: []otterizev2.DatabaseOperation{
+								otterizev2.DatabaseOperationSelect,
+								otterizev2.DatabaseOperationInsert,
 							},
 						}},
 					},
@@ -132,29 +132,29 @@ func (s *DatabaseReconcilerTestSuite) TestNoPGServerConf() {
 			},
 		}}
 
-	_, err := s.reconcileWithExpectedResources(clientIntents, []otterizev2alpha1.PostgreSQLServerConfig{})
+	_, err := s.reconcileWithExpectedResources(clientIntents, []otterizev2.PostgreSQLServerConfig{})
 	s.Require().NoError(err) // Although no PGServerConf, we don't return error - just record an event
 	s.Require().Empty(ctrl.Result{})
 	s.ExpectEvent(ReasonMissingDBServerConfig)
 	s.ExpectEvent(ReasonAppliedDatabaseIntents)
 }
 
-func (s *DatabaseReconcilerTestSuite) reconcileWithExpectedResources(clientIntents otterizev2alpha1.ClientIntents, pgServerConfigs []otterizev2alpha1.PostgreSQLServerConfig) (ctrl.Result, error) {
-	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&otterizev2alpha1.ClientIntents{})).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+func (s *DatabaseReconcilerTestSuite) reconcileWithExpectedResources(clientIntents otterizev2.ClientIntents, pgServerConfigs []otterizev2.PostgreSQLServerConfig) (ctrl.Result, error) {
+	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&otterizev2.ClientIntents{})).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2.ClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)
 			return nil
 		})
 
-	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.PostgreSQLServerConfigList{}), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, pgServerConfList *otterizev2alpha1.PostgreSQLServerConfigList, options ...client.ListOption) error {
+	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.PostgreSQLServerConfigList{}), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, pgServerConfList *otterizev2.PostgreSQLServerConfigList, options ...client.ListOption) error {
 			pgServerConfList.Items = pgServerConfigs
 			return nil
 		})
 
-	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.MySQLServerConfigList{}), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, mySQLServerConfList *otterizev2alpha1.MySQLServerConfigList, options ...client.ListOption) error {
-			mySQLServerConfList.Items = []otterizev2alpha1.MySQLServerConfig{}
+	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.MySQLServerConfigList{}), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, mySQLServerConfList *otterizev2.MySQLServerConfigList, options ...client.ListOption) error {
+			mySQLServerConfList.Items = []otterizev2.MySQLServerConfig{}
 			return nil
 		})
 

@@ -3,7 +3,7 @@ package serviceidresolver
 import (
 	"context"
 	"fmt"
-	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	v2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
@@ -61,8 +61,8 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodExists() {
 	namespace := "coolnamespace"
 	SAName := "backendservice"
 
-	intent := v2alpha1.ClientIntents{Spec: &v2alpha1.IntentsSpec{Workload: v2alpha1.Workload{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
-	ls, _, err := v2alpha1.ServiceIdentityToLabelsForWorkloadSelection(context.Background(), s.Client, intent.ToServiceIdentity())
+	intent := v2.ClientIntents{Spec: &v2.IntentsSpec{Workload: v2.Workload{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
+	ls, _, err := v2.ServiceIdentityToLabelsForWorkloadSelection(context.Background(), s.Client, intent.ToServiceIdentity())
 	s.Require().NoError(err)
 
 	pod := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace}, Spec: corev1.PodSpec{ServiceAccountName: SAName}}
@@ -86,8 +86,8 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodDoesntExist
 	serviceName := "coolservice"
 	namespace := "coolnamespace"
 
-	intent := v2alpha1.ClientIntents{Spec: &v2alpha1.IntentsSpec{Workload: v2alpha1.Workload{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
-	ls, _, err := v2alpha1.ServiceIdentityToLabelsForWorkloadSelection(context.Background(), s.Client, intent.ToServiceIdentity())
+	intent := v2.ClientIntents{Spec: &v2.IntentsSpec{Workload: v2.Workload{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
+	ls, _, err := v2.ServiceIdentityToLabelsForWorkloadSelection(context.Background(), s.Client, intent.ToServiceIdentity())
 	s.Require().NoError(err)
 
 	s.Client.EXPECT().List(
@@ -390,8 +390,8 @@ func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSe
 	service := serviceidentity.ServiceIdentity{Name: serviceName, Namespace: namespace, Kind: "Deployment"}
 
 	s.Client.EXPECT().List(gomock.Any(), gomock.AssignableToTypeOf(&corev1.PodList{}), gomock.Eq(&client.ListOptions{Namespace: namespace}), map[string]string{
-		v2alpha1.OtterizeServiceLabelKey:   service.GetFormattedOtterizeIdentityWithoutKind(),
-		v2alpha1.OtterizeOwnerKindLabelKey: "Deployment",
+		v2.OtterizeServiceLabelKey:   service.GetFormattedOtterizeIdentityWithoutKind(),
+		v2.OtterizeOwnerKindLabelKey: "Deployment",
 	}).Do(func(_ any, podList *corev1.PodList, _ ...any) {
 		podList.Items = append(podList.Items, corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "cool-pod", Namespace: namespace}})
 	})

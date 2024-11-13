@@ -73,15 +73,15 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-k8s-otterize-com-v2alpha1-clientintents
+      path: /validate-k8s-otterize-com-v2-clientintents
   failurePolicy: Fail
   matchPolicy: Exact
-  name: clientintentsv2alpha1.kb.io
+  name: clientintentsv2.kb.io
   rules:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
-    - v2alpha1
+    - v2
     operations:
     - CREATE
     - UPDATE
@@ -136,15 +136,15 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-k8s-otterize-com-v2alpha1-mysqlserverconfig
+      path: /validate-k8s-otterize-com-v2-mysqlserverconfig
   failurePolicy: Fail
   matchPolicy: Exact
-  name: mysqlserverconfigv2alpha1.kb.io
+  name: mysqlserverconfigv2.kb.io
   rules:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
-    - v2alpha1
+    - v2
     operations:
     - CREATE
     - UPDATE
@@ -199,15 +199,15 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-k8s-otterize-com-v2alpha1-postgresqlserverconfig
+      path: /validate-k8s-otterize-com-v2-postgresqlserverconfig
   failurePolicy: Fail
   matchPolicy: Exact
-  name: postgresqlserverconfigv2alpha1.kb.io
+  name: postgresqlserverconfigv2.kb.io
   rules:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
-    - v2alpha1
+    - v2
     operations:
     - CREATE
     - UPDATE
@@ -283,15 +283,15 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-k8s-otterize-com-v2alpha1-protectedservice
+      path: /validate-k8s-otterize-com-v2-protectedservice
   failurePolicy: Fail
   matchPolicy: Exact
-  name: protectedservicev2alpha1.kb.io
+  name: protectedservicev2.kb.io
   rules:
   - apiGroups:
     - k8s.otterize.com
     apiVersions:
-    - v2alpha1
+    - v2
     operations:
     - CREATE
     - UPDATE

@@ -2,7 +2,7 @@ package iam_pod_reconciler
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/iam_pod_reconciler/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -27,11 +27,11 @@ func (s *IAMPodReconcilerSuite) TestCallsIAMIntentsReconciler() {
 		Namespace: "test",
 	}
 
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: "service1"},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: "service1"},
+		Targets: []otterizev2.Target{
 			{
-				AWS: &otterizev2alpha1.AWSTarget{
+				AWS: &otterizev2.AWSTarget{
 					ARN: "arn:aws::s3:my-s3-bucket/*",
 					Actions: []string{
 						"s3:*",
@@ -40,7 +40,7 @@ func (s *IAMPodReconcilerSuite) TestCallsIAMIntentsReconciler() {
 			},
 		},
 	}
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "client-intents",
 			Namespace: "test",
@@ -66,12 +66,12 @@ func (s *IAMPodReconcilerSuite) TestCallsIAMIntentsReconciler() {
 	)
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		gomock.Eq(&otterizev2alpha1.ClientIntentsList{}),
+		gomock.Eq(&otterizev2.ClientIntentsList{}),
 		gomock.Any(), // FIXME client.MatchingFields{OtterizeClientNameIndexField: pod.Name},
 		gomock.Any(), // FIXME &client.ListOptions{Namespace: namespacedName.Namespace}
 	).DoAndReturn(
-		func(arg0 context.Context, arg1 *otterizev2alpha1.ClientIntentsList, arg2 ...client.ListOption) error {
-			clientIntentsList := otterizev2alpha1.ClientIntentsList{Items: []otterizev2alpha1.ClientIntents{clientIntents}}
+		func(arg0 context.Context, arg1 *otterizev2.ClientIntentsList, arg2 ...client.ListOption) error {
+			clientIntentsList := otterizev2.ClientIntentsList{Items: []otterizev2.ClientIntents{clientIntents}}
 
 			clientIntentsList.DeepCopyInto(arg1)
 			return nil

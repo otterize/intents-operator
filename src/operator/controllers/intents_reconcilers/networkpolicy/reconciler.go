@@ -5,7 +5,7 @@ import (
 	goerrors "errors"
 	"fmt"
 	"github.com/amit7itz/goset"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
@@ -282,7 +282,7 @@ func (r *Reconciler) buildIngressRules(ctx context.Context, ep effectivepolicy.S
 
 // A function that builds pod label selector from serviceEffectivePolicy
 func (r *Reconciler) buildPodLabelSelectorFromServiceEffectivePolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) (metav1.LabelSelector, bool, error) {
-	labelsMap, ok, err := otterizev2alpha1.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.Client, ep.Service)
+	labelsMap, ok, err := otterizev2.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.Client, ep.Service)
 	if err != nil {
 		return metav1.LabelSelector{}, false, errors.Wrap(err)
 	}
@@ -355,10 +355,10 @@ func (r *Reconciler) buildSinglePolicy(ep effectivepolicy.ServiceEffectivePolicy
 	}
 	return v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, ep.Service.GetNameWithKind()),
+			Name:      fmt.Sprintf(otterizev2.OtterizeSingleNetworkPolicyNameTemplate, ep.Service.GetNameWithKind()),
 			Namespace: ep.Service.Namespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
+				otterizev2.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -375,10 +375,10 @@ func (r *Reconciler) buildSeparatePolicies(ep effectivepolicy.ServiceEffectivePo
 	if shouldCreateIngress {
 		ingressPolicy := v1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyIngressNameTemplate, ep.Service.GetNameWithKind()),
+				Name:      fmt.Sprintf(otterizev2.OtterizeNetworkPolicyIngressNameTemplate, ep.Service.GetNameWithKind()),
 				Namespace: ep.Service.Namespace,
 				Labels: map[string]string{
-					otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
+					otterizev2.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
@@ -392,10 +392,10 @@ func (r *Reconciler) buildSeparatePolicies(ep effectivepolicy.ServiceEffectivePo
 	if shouldCreateEgress {
 		egressPolicy := v1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyEgressNameTemplate, ep.Service.GetNameWithKind()),
+				Name:      fmt.Sprintf(otterizev2.OtterizeNetworkPolicyEgressNameTemplate, ep.Service.GetNameWithKind()),
 				Namespace: ep.Service.Namespace,
 				Labels: map[string]string{
-					otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
+					otterizev2.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
 				},
 			},
 			Spec: v1.NetworkPolicySpec{
@@ -479,7 +479,7 @@ func (r *Reconciler) removeNetworkPoliciesThatShouldNotExist(ctx context.Context
 	for _, networkPolicy := range networkPolicyList.Items {
 		namespacedName := types.NamespacedName{Namespace: networkPolicy.Namespace, Name: networkPolicy.Name}
 		if !netpolNamesThatShouldExist.Contains(namespacedName) {
-			serverName := networkPolicy.Labels[otterizev2alpha1.OtterizeNetworkPolicy]
+			serverName := networkPolicy.Labels[otterizev2.OtterizeNetworkPolicy]
 			logrus.Debugf("Removing orphaned network policy: %s server %s ns %s", networkPolicy.Name, serverName, networkPolicy.Namespace)
 			err = r.removeNetworkPolicy(ctx, networkPolicy)
 			if err != nil {
@@ -513,7 +513,7 @@ func (r *Reconciler) removeNetworkPolicy(ctx context.Context, networkPolicy v1.N
 
 func (r *Reconciler) removeDeprecatedNetworkPolicies(ctx context.Context) error {
 	logrus.Debug("Searching for network policies with deprecated labels")
-	deprecatedLabels := []string{otterizev2alpha1.OtterizeEgressNetworkPolicy, otterizev2alpha1.OtterizeSvcEgressNetworkPolicy, otterizev2alpha1.OtterizeInternetNetworkPolicy, otterizev2alpha1.OtterizeSvcNetworkPolicy}
+	deprecatedLabels := []string{otterizev2.OtterizeEgressNetworkPolicy, otterizev2.OtterizeSvcEgressNetworkPolicy, otterizev2.OtterizeInternetNetworkPolicy, otterizev2.OtterizeSvcNetworkPolicy}
 	deletedCount := 0
 	for _, label := range deprecatedLabels {
 		networkPolicyList := &v1.NetworkPolicyList{}
@@ -602,15 +602,15 @@ func (r *Reconciler) handleCreationErrors(ctx context.Context, ep effectivepolic
 
 func matchAccessNetworkPolicy() (labels.Selector, error) {
 	isOtterizeNetworkPolicy := metav1.LabelSelectorRequirement{
-		Key:      otterizev2alpha1.OtterizeNetworkPolicy,
+		Key:      otterizev2.OtterizeNetworkPolicy,
 		Operator: metav1.LabelSelectorOpExists,
 	}
 	isNotExternalTrafficPolicy := metav1.LabelSelectorRequirement{
-		Key:      otterizev2alpha1.OtterizeNetworkPolicyExternalTraffic,
+		Key:      otterizev2.OtterizeNetworkPolicyExternalTraffic,
 		Operator: metav1.LabelSelectorOpDoesNotExist,
 	}
 	isNotDefaultDenyPolicy := metav1.LabelSelectorRequirement{
-		Key:      otterizev2alpha1.OtterizeNetworkPolicyServiceDefaultDeny,
+		Key:      otterizev2.OtterizeNetworkPolicyServiceDefaultDeny,
 		Operator: metav1.LabelSelectorOpDoesNotExist,
 	}
 	return metav1.LabelSelectorAsSelector(&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{

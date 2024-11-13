@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -420,7 +420,7 @@ func (s *ControllerManagerTestSuiteBase) AddKafkaServerConfig(kafkaServerConfig 
 }
 
 func (s *ControllerManagerTestSuiteBase) RemoveKafkaServerConfig(objName string) {
-	kafkaServerConfig := &otterizev2alpha1.KafkaServerConfig{}
+	kafkaServerConfig := &otterizev2.KafkaServerConfig{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, kafkaServerConfig)
 	s.Require().NoError(err)
 
@@ -434,7 +434,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntents(
 	objName,
 	clientName,
 	clientKind string,
-	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
+	callList []otterizev2.Target) (*otterizev2.ClientIntents, error) {
 	return s.AddIntentsInNamespace(objName, clientName, clientKind, s.TestNamespace, callList)
 }
 
@@ -443,9 +443,9 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	clientName string,
 	clientKind string,
 	namespace string,
-	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
+	callList []otterizev2.Target) (*otterizev2.ClientIntents, error) {
 
-	intents := &otterizev2alpha1.ClientIntents{
+	intents := &otterizev2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      objName,
 			Namespace: namespace,
@@ -454,8 +454,8 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 				"dummy-finalizer",
 			},
 		},
-		Spec: &otterizev2alpha1.IntentsSpec{
-			Workload: otterizev2alpha1.Workload{Name: clientName, Kind: clientKind},
+		Spec: &otterizev2.IntentsSpec{
+			Workload: otterizev2.Workload{Name: clientName, Kind: clientKind},
 			Targets:  callList,
 		},
 	}
@@ -471,14 +471,14 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 func (s *ControllerManagerTestSuiteBase) AddProtectedService(
 	objName,
 	serverName string,
-	namespace string) (*otterizev2alpha1.ProtectedService, error) {
+	namespace string) (*otterizev2.ProtectedService, error) {
 
-	protectedService := &otterizev2alpha1.ProtectedService{
+	protectedService := &otterizev2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      objName,
 			Namespace: namespace,
 		},
-		Spec: otterizev2alpha1.ProtectedServiceSpec{
+		Spec: otterizev2.ProtectedServiceSpec{
 			Name: serverName,
 		},
 	}
@@ -499,11 +499,11 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsV1alpha2(
 	return s.AddIntentsInNamespaceV1alpha2(objName, clientName, s.TestNamespace, callList)
 }
 
-func (s *ControllerManagerTestSuiteBase) AddIntentsv2alpha1(
+func (s *ControllerManagerTestSuiteBase) AddIntentsv2(
 	objName,
 	clientName string,
-	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
-	return s.AddIntentsInNamespacev2alpha1(objName, clientName, s.TestNamespace, callList)
+	callList []otterizev2.Target) (*otterizev2.ClientIntents, error) {
+	return s.AddIntentsInNamespacev2(objName, clientName, s.TestNamespace, callList)
 }
 
 func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha2(
@@ -534,13 +534,13 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha2(
 
 	return intents, nil
 }
-func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespacev2alpha1(
+func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespacev2(
 	objName,
 	clientName string,
 	namespace string,
-	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
+	callList []otterizev2.Target) (*otterizev2.ClientIntents, error) {
 
-	intents := &otterizev2alpha1.ClientIntents{
+	intents := &otterizev2.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      objName,
 			Namespace: namespace,
@@ -549,8 +549,8 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespacev2alpha1(
 				"dummy-finalizer",
 			},
 		},
-		Spec: &otterizev2alpha1.IntentsSpec{
-			Workload: otterizev2alpha1.Workload{Name: clientName},
+		Spec: &otterizev2.IntentsSpec{
+			Workload: otterizev2.Workload{Name: clientName},
 			Targets:  callList,
 		},
 	}
@@ -565,9 +565,9 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespacev2alpha1(
 
 func (s *ControllerManagerTestSuiteBase) UpdateIntents(
 	objName string,
-	callList []otterizev2alpha1.Target) error {
+	callList []otterizev2.Target) error {
 
-	intents := &otterizev2alpha1.ClientIntents{}
+	intents := &otterizev2.ClientIntents{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
 	s.Require().NoError(err)
 
@@ -589,11 +589,11 @@ func (s *ControllerManagerTestSuiteBase) UpdateIntentsV1alpha2(
 	return s.Mgr.GetClient().Update(context.Background(), intents)
 }
 
-func (s *ControllerManagerTestSuiteBase) UpdateIntentsv2alpha1(
+func (s *ControllerManagerTestSuiteBase) UpdateIntentsv2(
 	objName string,
-	callList []otterizev2alpha1.Target) error {
+	callList []otterizev2.Target) error {
 
-	intents := &otterizev2alpha1.ClientIntents{}
+	intents := &otterizev2.ClientIntents{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
 	s.Require().NoError(err)
 

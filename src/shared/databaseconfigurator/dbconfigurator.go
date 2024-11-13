@@ -2,7 +2,7 @@ package databaseconfigurator
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 )
 
 const (
@@ -20,7 +20,7 @@ type DatabaseConfigurator interface {
 	ValidateUserExists(ctx context.Context, username string) (bool, error)
 	DropUser(ctx context.Context, username string) error
 	AlterUserPassword(ctx context.Context, username string, password string) error
-	ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev2alpha1.SQLPrivileges) error
+	ApplyDatabasePermissionsForUser(ctx context.Context, username string, dbnameToDatabaseResources map[string][]otterizev2.SQLPrivileges) error
 	RevokeAllDatabasePermissionsForUser(ctx context.Context, username string) error
 	CloseConnection(ctx context.Context)
 }

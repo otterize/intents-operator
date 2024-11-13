@@ -8,7 +8,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
@@ -76,7 +76,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	utilruntime.Must(otterizev1alpha2.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1alpha3.AddToScheme(s.TestEnv.Scheme))
 	utilruntime.Must(otterizev1beta1.AddToScheme(s.TestEnv.Scheme))
-	utilruntime.Must(otterizev2alpha1.AddToScheme(s.TestEnv.Scheme))
+	utilruntime.Must(otterizev2.AddToScheme(s.TestEnv.Scheme))
 
 	s.RestConfig, err = s.TestEnv.Start()
 	s.Require().NoError(err)
@@ -94,7 +94,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	intentsValidator13 := webhooks.NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
 	s.Require().NoError((&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator13))
 	intentsValidator2 := webhooks.NewIntentsValidatorV2alpha1(s.Mgr.GetClient())
-	s.Require().NoError((&otterizev2alpha1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
+	s.Require().NoError((&otterizev2.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
 	testName := s.T().Name()
@@ -138,8 +138,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForIngress() {
 	serviceName := "test-server-ingress-test"
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Kubernetes: lo.ToPtr(otterizev2alpha1.KubernetesTarget{Name: serviceName}),
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2.Target{{
+		Kubernetes: lo.ToPtr(otterizev2.KubernetesTarget{Name: serviceName}),
 	},
 	})
 	s.Require().NoError(err)
@@ -155,7 +155,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(otterizev2.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 		assert.NoError(err)
@@ -208,8 +208,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForIngressWithIntentToSVC() {
 	serviceName := "test-server-ingress-test"
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Kubernetes: lo.ToPtr(otterizev2alpha1.KubernetesTarget{Name: serviceName, Kind: serviceidentity.KindService}),
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2.Target{{
+		Kubernetes: lo.ToPtr(otterizev2.KubernetesTarget{Name: serviceName, Kind: serviceidentity.KindService}),
 	},
 	})
 	s.Require().NoError(err)
@@ -230,7 +230,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, fmt.Sprintf("%s-service", serviceName))
+	policyName := fmt.Sprintf(otterizev2.OtterizeSingleNetworkPolicyNameTemplate, fmt.Sprintf("%s-service", serviceName))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 		assert.NoError(err)
@@ -277,8 +277,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForIngressWithIntentToDeployment() {
 	serviceName := "test-server-ingress-test"
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName, Kind: "Deployment"},
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2.Target{{
+		Kubernetes: &otterizev2.KubernetesTarget{Name: serviceName, Kind: "Deployment"},
 	},
 	})
 	s.Require().NoError(err)
@@ -299,7 +299,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, fmt.Sprintf("%s-deployment", serviceName))
+	policyName := fmt.Sprintf(otterizev2.OtterizeSingleNetworkPolicyNameTemplate, fmt.Sprintf("%s-deployment", serviceName))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 		assert.NoError(err)
@@ -355,7 +355,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NoError(err)
 	s.Require().NotNil(protectedService)
 
-	protectedService = &otterizev2alpha1.ProtectedService{}
+	protectedService = &otterizev2.ProtectedService{}
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: protectedServiceResourceName}, protectedService)
 		assert.NoError(err)
@@ -385,7 +385,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(otterizev2.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -430,7 +430,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NoError(err)
 	s.Require().NotNil(protectedService)
 
-	protectedService = &otterizev2alpha1.ProtectedService{}
+	protectedService = &otterizev2.ProtectedService{}
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: protectedServiceResourceName}, protectedService)
 		assert.NoError(err)
@@ -454,8 +454,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 		assert.NotEmpty(defaultDenyPolicy)
 	})
 
-	_, err = s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
+	_, err = s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2.Target{{
+		Kubernetes: &otterizev2.KubernetesTarget{Name: serviceName},
 	},
 	})
 	s.Require().NoError(err)
@@ -466,7 +466,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(otterizev2.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 		assert.NoError(err)
@@ -518,8 +518,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForLoadBalancer() {
 	serviceName := "test-server-load-balancer-test"
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2.Target{{
+		Kubernetes: &otterizev2.KubernetesTarget{Name: serviceName},
 	},
 	})
 	s.Require().NoError(err)
@@ -535,7 +535,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(otterizev2.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 		assert.NoError(err)
@@ -582,8 +582,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedAndDeletedWhenLastIntentDeleted() {
 	serviceName := "test-server-load-balancer-test"
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2.Target{{
+		Kubernetes: &otterizev2.KubernetesTarget{Name: serviceName},
 	},
 	})
 	s.Require().NoError(err)
@@ -599,7 +599,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the network policy was created between the two services based on the intents
 	netpol := &v1.NetworkPolicy{}
-	intentNetworkPolicyName := fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
+	intentNetworkPolicyName := fmt.Sprintf(otterizev2.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, netpol)
 		assert.NoError(err)
@@ -642,7 +642,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	// Delete the intent and reconcile it
 	s.Require().NoError(s.Mgr.GetClient().Delete(context.Background(), intents))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		intentsDeleted := &otterizev2alpha1.ClientIntents{}
+		intentsDeleted := &otterizev2.ClientIntents{}
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intents.Name}, intentsDeleted)
 		assert.NoError(err)
 		assert.NotNil(intentsDeleted.DeletionTimestamp)
@@ -677,16 +677,16 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedAndDoesNotGetDeletedEvenWhenIntentRemovedAsLongAsOneRemains() {
 	serviceName := "test-server-load-balancer-test"
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2.Target{{
+		Kubernetes: &otterizev2.KubernetesTarget{Name: serviceName},
 	},
 	})
 	s.Require().NoError(err)
 
 	secondaryNamespace := "ns-" + uuid.New().String() + "e"
 	s.CreateNamespace(secondaryNamespace)
-	secondIntents, err := s.AddIntentsInNamespace("test-intents-other-ns", "test-client-other-ns", "", secondaryNamespace, []otterizev2alpha1.Target{{
-		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serviceName, s.TestNamespace)},
+	secondIntents, err := s.AddIntentsInNamespace("test-intents-other-ns", "test-client-other-ns", "", secondaryNamespace, []otterizev2.Target{{
+		Kubernetes: &otterizev2.KubernetesTarget{Name: fmt.Sprintf("%s.%s", serviceName, s.TestNamespace)},
 	}})
 	s.Require().NoError(err)
 
@@ -710,7 +710,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	intentNetworkPolicyName := fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
+	intentNetworkPolicyName := fmt.Sprintf(otterizev2.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intentNetworkPolicyName}, np)
 		assert.NoError(err)
@@ -754,7 +754,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	// Delete the intent and reconcile it
 	s.Require().NoError(s.Mgr.GetClient().Delete(context.Background(), intents))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		intentsDeleted := &otterizev2alpha1.ClientIntents{}
+		intentsDeleted := &otterizev2.ClientIntents{}
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intents.Name}, intentsDeleted)
 		assert.NoError(err)
 		assert.NotNil(intentsDeleted.DeletionTimestamp)
@@ -790,8 +790,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForNodePort() {
 	serviceName := "test-server-node-port-test"
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2.Target{{
+		Kubernetes: &otterizev2.KubernetesTarget{Name: serviceName},
 	},
 	})
 	s.Require().NoError(err)
@@ -807,7 +807,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(otterizev2.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
@@ -854,8 +854,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestEndpointsReconcilerNetworkPoliciesDisabled() {
 	serviceName := "test-endpoints-reconciler-enforcement-disabled"
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2.Target{{
+		Kubernetes: &otterizev2.KubernetesTarget{Name: serviceName},
 	},
 	})
 	s.Require().NoError(err)
@@ -871,7 +871,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the network policy was created between the two services based on the intents
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(otterizev2.OtterizeSingleNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: policyName}, np)
 		assert.NoError(err)
@@ -939,8 +939,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 		"alb.ingress.kubernetes.io/target-type": "ip",
 	})
 
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Service: &otterizev2alpha1.ServiceTarget{Name: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name},
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2.Target{{
+		Service: &otterizev2.ServiceTarget{Name: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name},
 	},
 	})
 	s.Require().NoError(err)
@@ -986,8 +986,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 		"alb.ingress.kubernetes.io/scheme": "internet-facing",
 	})
 
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Service: &otterizev2alpha1.ServiceTarget{Name: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name},
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2.Target{{
+		Service: &otterizev2.ServiceTarget{Name: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name},
 	},
 	})
 	s.Require().NoError(err)

@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -41,29 +41,29 @@ func (s *IntentsControllerTestSuite) TearDownTest() {
 }
 
 func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
-	protectedService := otterizev2alpha1.ProtectedService{
+	protectedService := otterizev2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "protected-service",
 			Namespace: "test-namespace",
 		},
-		Spec: otterizev2alpha1.ProtectedServiceSpec{
+		Spec: otterizev2.ProtectedServiceSpec{
 			Name: "checkoutservice",
 		},
 	}
 
-	clientIntents := []otterizev2alpha1.ClientIntents{
+	clientIntents := []otterizev2.ClientIntents{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "client-intents",
 				Namespace: "test-namespace",
 			},
-			Spec: &otterizev2alpha1.IntentsSpec{
-				Workload: otterizev2alpha1.Workload{
+			Spec: &otterizev2.IntentsSpec{
+				Workload: otterizev2.Workload{
 					Name: "checkoutservice",
 				},
-				Targets: []otterizev2alpha1.Target{
+				Targets: []otterizev2.Target{
 					{
-						Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: "payments-service"},
+						Kubernetes: &otterizev2.KubernetesTarget{Name: "payments-service"},
 					},
 				},
 			},
@@ -73,13 +73,13 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
 				Name:      "other-client-intents",
 				Namespace: "test-namespace",
 			},
-			Spec: &otterizev2alpha1.IntentsSpec{
-				Workload: otterizev2alpha1.Workload{
+			Spec: &otterizev2.IntentsSpec{
+				Workload: otterizev2.Workload{
 					Name: "another-non-related-client",
 				},
-				Targets: []otterizev2alpha1.Target{
+				Targets: []otterizev2.Target{
 					{
-						Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: "totally-unrelated-server.another-namespace"},
+						Kubernetes: &otterizev2.KubernetesTarget{Name: "totally-unrelated-server.another-namespace"},
 					},
 				},
 			},
@@ -89,10 +89,10 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
 	fullServerName := "checkoutservice.test-namespace"
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		&otterizev2alpha1.ClientIntentsList{},
-		&client.MatchingFields{otterizev2alpha1.OtterizeTargetServerIndexField: fullServerName},
+		&otterizev2.ClientIntentsList{},
+		&client.MatchingFields{otterizev2.OtterizeTargetServerIndexField: fullServerName},
 	).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ClientIntentsList, opts ...client.ListOption) error {
+		func(ctx context.Context, list *otterizev2.ClientIntentsList, opts ...client.ListOption) error {
 			list.Items = clientIntents
 			return nil
 		})
@@ -116,12 +116,12 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
 }
 
 func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntentNoIntents() {
-	protectedService := otterizev2alpha1.ProtectedService{
+	protectedService := otterizev2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "protected-service",
 			Namespace: "test-namespace",
 		},
-		Spec: otterizev2alpha1.ProtectedServiceSpec{
+		Spec: otterizev2.ProtectedServiceSpec{
 			Name: "checkoutservice",
 		},
 	}
@@ -129,8 +129,8 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntentNoInten
 	fullServerName := "checkoutservice.test-namespace"
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		&otterizev2alpha1.ClientIntentsList{},
-		&client.MatchingFields{otterizev2alpha1.OtterizeTargetServerIndexField: fullServerName},
+		&otterizev2.ClientIntentsList{},
+		&client.MatchingFields{otterizev2.OtterizeTargetServerIndexField: fullServerName},
 	).Return(nil)
 
 	expected := make([]reconcile.Request, 0)

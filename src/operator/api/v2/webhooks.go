@@ -1,4 +1,4 @@
-package v2alpha1
+package v2
 
 import (
 	ctrl "sigs.k8s.io/controller-runtime"

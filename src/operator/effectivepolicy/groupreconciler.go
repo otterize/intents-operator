@@ -4,7 +4,7 @@ import (
 	"context"
 	goerrors "errors"
 	"github.com/amit7itz/goset"
-	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	v2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/access_annotation"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -78,14 +78,14 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 10*time.Second, errors.Errorf("timeout while building list of service effective policies"))
 	defer cancel()
 	ctx = timeoutCtx
-	var intentsList v2alpha1.ClientIntentsList
+	var intentsList v2.ClientIntentsList
 
 	err := g.Client.List(ctx, &intentsList)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
 
-	serviceToIntent := make(map[serviceidentity.ServiceIdentity]v2alpha1.ClientIntents)
+	serviceToIntent := make(map[serviceidentity.ServiceIdentity]v2.ClientIntents)
 	// Extract all services from intents
 	services := goset.NewSet[serviceidentity.ServiceIdentity]()
 	for _, clientIntent := range intentsList.Items {
@@ -129,7 +129,7 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 }
 
 // shouldCreateEffectivePolicyForIntentTargetServer that checks if we should create a SEP for a given intent target server
-func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(intent v2alpha1.Target, clinetIntentNamespace string) bool {
+func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(intent v2.Target, clinetIntentNamespace string) bool {
 	if intent.IsTargetOutOfCluster() {
 		return false
 	}
@@ -143,7 +143,7 @@ func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(inten
 func (g *GroupReconciler) buildServiceEffectivePolicy(
 	ctx context.Context,
 	service serviceidentity.ServiceIdentity,
-	serviceToIntent map[serviceidentity.ServiceIdentity]v2alpha1.ClientIntents,
+	serviceToIntent map[serviceidentity.ServiceIdentity]v2.ClientIntents,
 	intentsFromAnnotation access_annotation.AnnotationIntents,
 ) (ServiceEffectivePolicy, error) {
 	relevantClientIntents, err := g.getClientIntentsAsAServer(ctx, service)
@@ -157,7 +157,7 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(
 		if !clientIntent.DeletionTimestamp.IsZero() || clientIntent.Spec == nil {
 			continue
 		}
-		clientCalls := g.filterAndTransformClientIntentsIntoClientCalls(clientIntent, func(intent v2alpha1.Target) bool {
+		clientCalls := g.filterAndTransformClientIntentsIntoClientCalls(clientIntent, func(intent v2.Target) bool {
 			if service.Kind == serviceidentity.KindService {
 				return intent.IsTargetServerKubernetesService() && intent.GetTargetServerName() == service.Name && intent.GetTargetServerNamespace(clientIntent.Namespace) == service.Namespace
 			}
@@ -205,16 +205,16 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(
 	return ep, nil
 }
 
-func (g *GroupReconciler) populateReferencedKubernetesServices(ctx context.Context, call Call, clientIntents v2alpha1.ClientIntents, intent v2alpha1.Target) (Call, error) {
+func (g *GroupReconciler) populateReferencedKubernetesServices(ctx context.Context, call Call, clientIntents v2.ClientIntents, intent v2.Target) (Call, error) {
 	var podList v1.PodList
 	if call.GetTargetServerKind() == serviceidentity.KindOtterizeLegacy {
-		err := g.Client.List(ctx, &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: intent.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind()})
+		err := g.Client.List(ctx, &podList, client.MatchingLabels{v2.OtterizeServiceLabelKey: intent.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind()})
 		if err != nil {
 			return Call{}, errors.Wrap(err)
 		}
 	} else {
-		err := g.Client.List(ctx, &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: intent.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind(),
-			v2alpha1.OtterizeOwnerKindLabelKey: intent.GetTargetServerKind()})
+		err := g.Client.List(ctx, &podList, client.MatchingLabels{v2.OtterizeServiceLabelKey: intent.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind(),
+			v2.OtterizeOwnerKindLabelKey: intent.GetTargetServerKind()})
 		if err != nil {
 			return Call{}, errors.Wrap(err)
 		}
@@ -258,9 +258,9 @@ func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []acce
 	return calls
 }
 
-func asIntentTarget(annotationIntent access_annotation.AnnotationIntent) v2alpha1.Target {
-	return v2alpha1.Target{
-		Kubernetes: &v2alpha1.KubernetesTarget{
+func asIntentTarget(annotationIntent access_annotation.AnnotationIntent) v2.Target {
+	return v2.Target{
+		Kubernetes: &v2.KubernetesTarget{
 			Name: annotationIntent.Server.GetNameAsServer(),
 			Kind: annotationIntent.Server.Kind,
 		},
@@ -285,7 +285,7 @@ func (g *GroupReconciler) getAnnotationIntentsAsServer(service serviceidentity.S
 	return calledBy
 }
 
-func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientIntent v2alpha1.ClientIntents, filter func(intent v2alpha1.Target) bool) []ClientCall {
+func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientIntent v2.ClientIntents, filter func(intent v2.Target) bool) []ClientCall {
 	clientService := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Workload.Name, Namespace: clientIntent.Namespace}
 	clientCalls := make([]ClientCall, 0)
 	for _, intendedCall := range clientIntent.GetTargetList() {
@@ -298,9 +298,9 @@ func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientI
 	return clientCalls
 }
 
-func (g *GroupReconciler) getClientIntentsAsAServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v2alpha1.ClientIntents, error) {
-	var intentsList v2alpha1.ClientIntentsList
-	matchFields := client.MatchingFields{v2alpha1.OtterizeFormattedTargetServerIndexField: server.GetFormattedOtterizeIdentityWithKind()}
+func (g *GroupReconciler) getClientIntentsAsAServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v2.ClientIntents, error) {
+	var intentsList v2.ClientIntentsList
+	matchFields := client.MatchingFields{v2.OtterizeFormattedTargetServerIndexField: server.GetFormattedOtterizeIdentityWithKind()}
 	err := g.Client.List(
 		ctx, &intentsList,
 		&matchFields,

@@ -2,7 +2,7 @@ package protected_service_reconcilers
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	otterizecloudmocks "github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -38,22 +38,22 @@ func (s *CloudReconcilerTestSuite) TearDownTest() {
 }
 
 func (s *CloudReconcilerTestSuite) TestUploadSingleProtectedService() {
-	var protectedServicesResources otterizev2alpha1.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev2alpha1.ProtectedService{
+	var protectedServicesResources otterizev2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 
 				Name: protectedServiceName,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})
@@ -78,14 +78,14 @@ func (s *CloudReconcilerTestSuite) TestUploadSingleProtectedService() {
 }
 
 func (s *CloudReconcilerTestSuite) TestUploadMultipleProtectedServices() {
-	var protectedServicesResources otterizev2alpha1.ProtectedServiceList
-	protectedServicesResources.Items = []otterizev2alpha1.ProtectedService{
+	var protectedServicesResources otterizev2.ProtectedServiceList
+	protectedServicesResources.Items = []otterizev2.ProtectedService{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      protectedServicesResourceName,
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 
 				Name: protectedServiceName,
 			},
@@ -95,15 +95,15 @@ func (s *CloudReconcilerTestSuite) TestUploadMultipleProtectedServices() {
 				Name:      "redundant-protected-services-resource",
 				Namespace: testNamespace,
 			},
-			Spec: otterizev2alpha1.ProtectedServiceSpec{
+			Spec: otterizev2.ProtectedServiceSpec{
 
 				Name: anotherProtectedServiceName,
 			},
 		},
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2alpha1.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ProtectedServiceList, opts ...client.ListOption) error {
+	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&otterizev2.ProtectedServiceList{}), client.InNamespace(testNamespace)).DoAndReturn(
+		func(ctx context.Context, list *otterizev2.ProtectedServiceList, opts ...client.ListOption) error {
 			protectedServicesResources.DeepCopyInto(list)
 			return nil
 		})

@@ -19,7 +19,7 @@ package webhooks
 import (
 	"context"
 	goerrors "errors"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,7 +37,7 @@ type PostgresConfValidatorV2alpha1 struct {
 
 func (v *PostgresConfValidatorV2alpha1) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&otterizev2alpha1.PostgreSQLServerConfig{}).
+		For(&otterizev2.PostgreSQLServerConfig{}).
 		WithValidator(v).
 		Complete()
 }
@@ -48,7 +48,7 @@ func NewPostgresConfValidatorV2alpha1(c client.Client) *PostgresConfValidatorV2a
 	}
 }
 
-//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v2alpha1-postgresqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=postgresqlserverconfigs,verbs=create;update,versions=v2alpha1,name=postgresqlserverconfigv2alpha1.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v2-postgresqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=postgresqlserverconfigs,verbs=create;update,versions=v2,name=postgresqlserverconfigv2.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &PostgresConfValidatorV2alpha1{}
 
@@ -60,7 +60,7 @@ func (v *PostgresConfValidatorV2alpha1) ValidateDelete(ctx context.Context, obj 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *PostgresConfValidatorV2alpha1) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
-	pgServerConf := obj.(*otterizev2alpha1.PostgreSQLServerConfig)
+	pgServerConf := obj.(*otterizev2.PostgreSQLServerConfig)
 	gvk := pgServerConf.GroupVersionKind()
 
 	if err := validateCredentialsNotEmpty(pgServerConf.Spec.Credentials); err != nil {
@@ -86,7 +86,7 @@ func (v *PostgresConfValidatorV2alpha1) ValidateCreate(ctx context.Context, obj 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *PostgresConfValidatorV2alpha1) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
-	pgServerConf := newObj.(*otterizev2alpha1.PostgreSQLServerConfig)
+	pgServerConf := newObj.(*otterizev2.PostgreSQLServerConfig)
 	gvk := pgServerConf.GroupVersionKind()
 
 	if err := validateCredentialsNotEmpty(pgServerConf.Spec.Credentials); err != nil {

@@ -3,7 +3,7 @@ package external_traffic
 import (
 	"context"
 	"fmt"
-	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	v2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
@@ -130,11 +130,11 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 	endpoints *corev1.Endpoints, svc *corev1.Service, otterizeServiceName string, selector metav1.LabelSelector, ingressList *v1.IngressList, policyName string) *v1.NetworkPolicy {
 
 	annotations := map[string]string{
-		v2alpha1.OtterizeCreatedForServiceAnnotation: endpoints.GetName(),
+		v2.OtterizeCreatedForServiceAnnotation: endpoints.GetName(),
 	}
 
 	if len(ingressList.Items) != 0 {
-		annotations[v2alpha1.OtterizeCreatedForIngressAnnotation] = strings.Join(lo.Map(ingressList.Items, func(ingress v1.Ingress, _ int) string {
+		annotations[v2.OtterizeCreatedForIngressAnnotation] = strings.Join(lo.Map(ingressList.Items, func(ingress v1.Ingress, _ int) string {
 			return ingress.Name
 		}), ",")
 	}
@@ -146,13 +146,13 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 			rule.From = append(rule.From, v1.NetworkPolicyPeer{
 				PodSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						v2alpha1.OtterizeServiceLabelKey:   ingressController.GetFormattedOtterizeIdentityWithoutKind(),
-						v2alpha1.OtterizeOwnerKindLabelKey: ingressController.Kind,
+						v2.OtterizeServiceLabelKey:   ingressController.GetFormattedOtterizeIdentityWithoutKind(),
+						v2.OtterizeOwnerKindLabelKey: ingressController.Kind,
 					},
 				},
 				NamespaceSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						v2alpha1.KubernetesStandardNamespaceNameLabelKey: ingressController.Namespace,
+						v2.KubernetesStandardNamespaceNameLabelKey: ingressController.Namespace,
 					},
 				},
 			})
@@ -164,7 +164,7 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 			Name:      policyName,
 			Namespace: endpoints.Namespace,
 			Labels: map[string]string{
-				v2alpha1.OtterizeNetworkPolicyExternalTraffic: otterizeServiceName,
+				v2.OtterizeNetworkPolicyExternalTraffic: otterizeServiceName,
 			},
 			Annotations: annotations,
 		},
@@ -203,10 +203,10 @@ func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Conte
 	}
 
 	nonExternalPolicyList := &v1.NetworkPolicyList{}
-	serviceNameLabel := accessPolicy.Labels[v2alpha1.OtterizeNetworkPolicy]
+	serviceNameLabel := accessPolicy.Labels[v2.OtterizeNetworkPolicy]
 
 	// list policies the are not external policies (access + default deny)
-	err := r.client.List(ctx, nonExternalPolicyList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: serviceNameLabel},
+	err := r.client.List(ctx, nonExternalPolicyList, client.MatchingLabels{v2.OtterizeNetworkPolicy: serviceNameLabel},
 		&client.ListOptions{Namespace: accessPolicy.Namespace})
 	if err != nil {
 		return errors.Wrap(err)
@@ -217,7 +217,7 @@ func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Conte
 	}
 
 	externalPolicyList := &v1.NetworkPolicyList{}
-	err = r.client.List(ctx, externalPolicyList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
+	err = r.client.List(ctx, externalPolicyList, client.MatchingLabels{v2.OtterizeNetworkPolicyExternalTraffic: serviceNameLabel},
 		&client.ListOptions{Namespace: accessPolicy.Namespace})
 	if err != nil {
 		return errors.Wrap(err)
@@ -306,7 +306,7 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod) e
 	err := r.client.List(
 		ctx,
 		&endpointsList,
-		&client.MatchingFields{v2alpha1.EndpointsPodNamesIndexField: pod.Name},
+		&client.MatchingFields{v2.EndpointsPodNamesIndexField: pod.Name},
 		&client.ListOptions{Namespace: pod.Namespace},
 	)
 
@@ -380,7 +380,7 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		}
 
 		// only act on pods affected by Otterize
-		serverLabel, ok := pod.Labels[v2alpha1.OtterizeServiceLabelKey]
+		serverLabel, ok := pod.Labels[v2.OtterizeServiceLabelKey]
 		if !ok {
 			continue
 		}
@@ -392,20 +392,20 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		}
 		netpolList := &v1.NetworkPolicyList{}
 		// Get netpolSlice which was created by intents targeting this pod by its owner with "kind"
-		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithKind()})
+		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithKind()})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		netpolSlice = append(netpolSlice, netpolList.Items...)
 		// Get netpolSlice which was created by intents targeting this pod by its owner without "kind"
-		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithoutKind()})
+		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithoutKind()})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		netpolSlice = append(netpolSlice, netpolList.Items...)
 
 		// Get netpolSlice which was created by intents targeting this pod by its service
-		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: (&serviceidentity.ServiceIdentity{Name: endpoints.Name, Namespace: endpoints.Namespace, Kind: serviceidentity.KindService}).GetFormattedOtterizeIdentityWithKind()})
+		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2.OtterizeNetworkPolicy: (&serviceidentity.ServiceIdentity{Name: endpoints.Name, Namespace: endpoints.Namespace, Kind: serviceidentity.KindService}).GetFormattedOtterizeIdentityWithKind()})
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -563,7 +563,7 @@ func (r *NetworkPolicyHandler) otterizeServerLabeledPodsSelector() (labels.Selec
 	return metav1.LabelSelectorAsSelector(
 		&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      v2alpha1.OtterizeServiceLabelKey,
+				Key:      v2.OtterizeServiceLabelKey,
 				Operator: metav1.LabelSelectorOpExists,
 			},
 		},

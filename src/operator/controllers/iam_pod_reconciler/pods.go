@@ -2,7 +2,7 @@ package iam_pod_reconciler
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -64,7 +64,7 @@ func (p *IAMPodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	// If a new pod starts, check if we need to do something for it.
-	var intents otterizev2alpha1.ClientIntentsList
+	var intents otterizev2.ClientIntentsList
 	err = p.List(
 		ctx,
 		&intents,

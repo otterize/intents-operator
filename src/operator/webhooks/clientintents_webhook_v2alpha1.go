@@ -20,7 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"golang.org/x/net/idna"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,7 +41,7 @@ type IntentsValidatorV2alpha1 struct {
 
 func (v *IntentsValidatorV2alpha1) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&otterizev2alpha1.ClientIntents{}).
+		For(&otterizev2.ClientIntents{}).
 		WithValidator(v).
 		Complete()
 }
@@ -52,15 +52,15 @@ func NewIntentsValidatorV2alpha1(c client.Client) *IntentsValidatorV2alpha1 {
 	}
 }
 
-//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v2alpha1-clientintents,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=clientintents,verbs=create;update,versions=v2alpha1,name=clientintentsv2alpha1.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v2-clientintents,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=clientintents,verbs=create;update,versions=v2,name=clientintentsv2.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &IntentsValidatorV2alpha1{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *IntentsValidatorV2alpha1) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	var allErrs field.ErrorList
-	intentsObj := obj.(*otterizev2alpha1.ClientIntents)
-	intentsList := &otterizev2alpha1.ClientIntentsList{}
+	intentsObj := obj.(*otterizev2.ClientIntents)
+	intentsList := &otterizev2.ClientIntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -85,8 +85,8 @@ func (v *IntentsValidatorV2alpha1) ValidateCreate(ctx context.Context, obj runti
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *IntentsValidatorV2alpha1) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	var allErrs field.ErrorList
-	intentsObj := newObj.(*otterizev2alpha1.ClientIntents)
-	intentsList := &otterizev2alpha1.ClientIntentsList{}
+	intentsObj := newObj.(*otterizev2.ClientIntents)
+	intentsList := &otterizev2.ClientIntentsList{}
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -114,8 +114,8 @@ func (v *IntentsValidatorV2alpha1) ValidateDelete(ctx context.Context, obj runti
 }
 
 func (v *IntentsValidatorV2alpha1) validateNoDuplicateClients(
-	intentsObj *otterizev2alpha1.ClientIntents,
-	intentsList *otterizev2alpha1.ClientIntentsList) *field.Error {
+	intentsObj *otterizev2.ClientIntents,
+	intentsList *otterizev2.ClientIntentsList) *field.Error {
 
 	desiredClientName := intentsObj.GetWorkloadName()
 	for _, existingIntent := range intentsList.Items {
@@ -146,7 +146,7 @@ func (v *IntentsValidatorV2alpha1) validateKubernetesKind(kind string) *field.Er
 }
 
 // validateSpec
-func (v *IntentsValidatorV2alpha1) validateSpec(intents *otterizev2alpha1.ClientIntents) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateSpec(intents *otterizev2.ClientIntents) *field.Error {
 	// validate that if kind is specified, it starts with an uppercase letter
 	if err := v.validateKubernetesKind(intents.Spec.Workload.Kind); err != nil {
 		return err
@@ -169,7 +169,7 @@ func (v *IntentsValidatorV2alpha1) validateSpec(intents *otterizev2alpha1.Client
 }
 
 // Validate intent target
-func (v *IntentsValidatorV2alpha1) validateIntentTarget(intentTarget otterizev2alpha1.Target) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateIntentTarget(intentTarget otterizev2.Target) *field.Error {
 	err := v.validateOnlyOneTargetFieldSet(intentTarget)
 	if err != nil {
 		return err
@@ -209,7 +209,7 @@ func (v *IntentsValidatorV2alpha1) validateIntentTarget(intentTarget otterizev2a
 }
 
 // Validate that one and only one of the target's fields is set. We do it by marshal the target to json and check there's only one key
-func (v *IntentsValidatorV2alpha1) validateOnlyOneTargetFieldSet(target otterizev2alpha1.Target) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateOnlyOneTargetFieldSet(target otterizev2.Target) *field.Error {
 	// Marshal the target to json:
 	jsonString, err := json.Marshal(target)
 	if err != nil {
@@ -241,7 +241,7 @@ func (v *IntentsValidatorV2alpha1) validateOnlyOneTargetFieldSet(target otterize
 }
 
 // validate KubernetesTarget
-func (v *IntentsValidatorV2alpha1) validateKubernetesTarget(kubernetesTarget *otterizev2alpha1.KubernetesTarget) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateKubernetesTarget(kubernetesTarget *otterizev2.KubernetesTarget) *field.Error {
 	if kubernetesTarget == nil {
 		return nil
 	}
@@ -272,7 +272,7 @@ func (v *IntentsValidatorV2alpha1) validateKubernetesTarget(kubernetesTarget *ot
 }
 
 // validate ServiceTarget
-func (v *IntentsValidatorV2alpha1) validateServiceTarget(serviceTarget *otterizev2alpha1.ServiceTarget) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateServiceTarget(serviceTarget *otterizev2.ServiceTarget) *field.Error {
 	if serviceTarget == nil {
 		return nil
 	}
@@ -299,7 +299,7 @@ func (v *IntentsValidatorV2alpha1) validateServiceTarget(serviceTarget *otterize
 }
 
 // validate HTTPTarget
-func (v *IntentsValidatorV2alpha1) validateHTTP(httpTarget otterizev2alpha1.HTTPTarget) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateHTTP(httpTarget otterizev2.HTTPTarget) *field.Error {
 	if httpTarget.Path == "" {
 		return &field.Error{
 			Type:   field.ErrorTypeRequired,
@@ -311,7 +311,7 @@ func (v *IntentsValidatorV2alpha1) validateHTTP(httpTarget otterizev2alpha1.HTTP
 }
 
 // validate KafkaTarget
-func (v *IntentsValidatorV2alpha1) validateKafkaTarget(kafkaTarget *otterizev2alpha1.KafkaTarget) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateKafkaTarget(kafkaTarget *otterizev2.KafkaTarget) *field.Error {
 	if kafkaTarget == nil {
 		return nil
 	}
@@ -326,7 +326,7 @@ func (v *IntentsValidatorV2alpha1) validateKafkaTarget(kafkaTarget *otterizev2al
 }
 
 // validate SQLTarget
-func (v *IntentsValidatorV2alpha1) validateSQLTarget(sqlTarget *otterizev2alpha1.SQLTarget) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateSQLTarget(sqlTarget *otterizev2.SQLTarget) *field.Error {
 	if sqlTarget == nil {
 		return nil
 	}
@@ -342,7 +342,7 @@ func (v *IntentsValidatorV2alpha1) validateSQLTarget(sqlTarget *otterizev2alpha1
 }
 
 // validate AWSTarget
-func (v *IntentsValidatorV2alpha1) validateAWSTarget(awsTarget *otterizev2alpha1.AWSTarget) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateAWSTarget(awsTarget *otterizev2.AWSTarget) *field.Error {
 	if awsTarget == nil {
 		return nil
 	}
@@ -358,7 +358,7 @@ func (v *IntentsValidatorV2alpha1) validateAWSTarget(awsTarget *otterizev2alpha1
 }
 
 // validate GCPTarget
-func (v *IntentsValidatorV2alpha1) validateGCPTarget(gcpTarget *otterizev2alpha1.GCPTarget) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateGCPTarget(gcpTarget *otterizev2.GCPTarget) *field.Error {
 	if gcpTarget == nil {
 		return nil
 	}
@@ -374,7 +374,7 @@ func (v *IntentsValidatorV2alpha1) validateGCPTarget(gcpTarget *otterizev2alpha1
 }
 
 // validate AzureTarget
-func (v *IntentsValidatorV2alpha1) validateAzureTarget(azureTarget *otterizev2alpha1.AzureTarget) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateAzureTarget(azureTarget *otterizev2.AzureTarget) *field.Error {
 	if azureTarget == nil {
 		return nil
 	}
@@ -390,7 +390,7 @@ func (v *IntentsValidatorV2alpha1) validateAzureTarget(azureTarget *otterizev2al
 }
 
 // validate internet target
-func (v *IntentsValidatorV2alpha1) validateInternetTarget(internetTarget *otterizev2alpha1.Internet) *field.Error {
+func (v *IntentsValidatorV2alpha1) validateInternetTarget(internetTarget *otterizev2.Internet) *field.Error {
 	if internetTarget == nil {
 		return nil
 	}
@@ -400,7 +400,7 @@ func (v *IntentsValidatorV2alpha1) validateInternetTarget(internetTarget *otteri
 		return &field.Error{
 			Type:   field.ErrorTypeRequired,
 			Field:  "ips",
-			Detail: fmt.Sprintf("invalid target format. type %s must contain ips or domanin names", otterizev2alpha1.IntentTypeInternet),
+			Detail: fmt.Sprintf("invalid target format. type %s must contain ips or domanin names", otterizev2.IntentTypeInternet),
 		}
 	}
 	if len(internetTarget.Ips) == 0 && len(internetTarget.Domains) == 0 {
@@ -426,7 +426,7 @@ func (v *IntentsValidatorV2alpha1) validateInternetTarget(internetTarget *otteri
 			return &field.Error{
 				Type:   field.ErrorTypeRequired,
 				Field:  "ips",
-				Detail: fmt.Sprintf("invalid target format. type %s must contain ips", otterizev2alpha1.IntentTypeInternet),
+				Detail: fmt.Sprintf("invalid target format. type %s must contain ips", otterizev2.IntentTypeInternet),
 			}
 		}
 		var err error

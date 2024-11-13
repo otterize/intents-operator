@@ -3,7 +3,7 @@ package builders
 import (
 	"context"
 	"fmt"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -55,7 +55,7 @@ func (r *InternetEgressRulesBuilder) buildEgressRules(ep effectivepolicy.Service
 	return rules, nil
 }
 
-func (r *InternetEgressRulesBuilder) buildRuleForIntent(intent otterizev2alpha1.Target, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyPeer, []v1.NetworkPolicyPort, bool, error) {
+func (r *InternetEgressRulesBuilder) buildRuleForIntent(intent otterizev2.Target, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyPeer, []v1.NetworkPolicyPort, bool, error) {
 	ips := r.getIpsForDNS(intent, ep)
 	for _, existingIp := range intent.Internet.Ips {
 		ips[existingIp] = struct{}{}
@@ -94,11 +94,11 @@ func (r *InternetEgressRulesBuilder) buildRuleForIntent(intent otterizev2alpha1.
 	return peers, ports, true, nil
 }
 
-func (r *InternetEgressRulesBuilder) getIpsForDNS(intent otterizev2alpha1.Target, ep effectivepolicy.ServiceEffectivePolicy) map[string]struct{} {
+func (r *InternetEgressRulesBuilder) getIpsForDNS(intent otterizev2.Target, ep effectivepolicy.ServiceEffectivePolicy) map[string]struct{} {
 	ipsFromDns := make(map[string]struct{})
 
 	for _, dns := range intent.Internet.Domains {
-		dnsResolvedIps, found := lo.Find(ep.ClientIntentsStatus.ResolvedIPs, func(resolvedIPs otterizev2alpha1.ResolvedIPs) bool {
+		dnsResolvedIps, found := lo.Find(ep.ClientIntentsStatus.ResolvedIPs, func(resolvedIPs otterizev2.ResolvedIPs) bool {
 			return resolvedIPs.DNS == dns
 		})
 

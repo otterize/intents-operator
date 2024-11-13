@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	v2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -36,7 +36,7 @@ func (m *MockPolicyManager) EXPECT() *MockPolicyManagerMockRecorder {
 }
 
 // Create mocks base method.
-func (m *MockPolicyManager) Create(ctx context.Context, clientIntents *v2alpha1.ClientIntents, clientServiceAccount string) error {
+func (m *MockPolicyManager) Create(ctx context.Context, clientIntents *v2.ClientIntents, clientServiceAccount string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", ctx, clientIntents, clientServiceAccount)
 	ret0, _ := ret[0].(error)
@@ -50,7 +50,7 @@ func (mr *MockPolicyManagerMockRecorder) Create(ctx, clientIntents, clientServic
 }
 
 // DeleteAll mocks base method.
-func (m *MockPolicyManager) DeleteAll(ctx context.Context, clientIntents *v2alpha1.ClientIntents) error {
+func (m *MockPolicyManager) DeleteAll(ctx context.Context, clientIntents *v2.ClientIntents) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteAll", ctx, clientIntents)
 	ret0, _ := ret[0].(error)
@@ -64,7 +64,7 @@ func (mr *MockPolicyManagerMockRecorder) DeleteAll(ctx, clientIntents interface{
 }
 
 // RemoveDeprecatedPoliciesForClient mocks base method.
-func (m *MockPolicyManager) RemoveDeprecatedPoliciesForClient(ctx context.Context, clientIntents *v2alpha1.ClientIntents) error {
+func (m *MockPolicyManager) RemoveDeprecatedPoliciesForClient(ctx context.Context, clientIntents *v2.ClientIntents) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveDeprecatedPoliciesForClient", ctx, clientIntents)
 	ret0, _ := ret[0].(error)
@@ -78,7 +78,7 @@ func (mr *MockPolicyManagerMockRecorder) RemoveDeprecatedPoliciesForClient(ctx, 
 }
 
 // UpdateIntentsStatus mocks base method.
-func (m *MockPolicyManager) UpdateIntentsStatus(ctx context.Context, clientIntents *v2alpha1.ClientIntents, clientServiceAccount string, missingSideCar bool) error {
+func (m *MockPolicyManager) UpdateIntentsStatus(ctx context.Context, clientIntents *v2.ClientIntents, clientServiceAccount string, missingSideCar bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateIntentsStatus", ctx, clientIntents, clientServiceAccount, missingSideCar)
 	ret0, _ := ret[0].(error)
@@ -92,7 +92,7 @@ func (mr *MockPolicyManagerMockRecorder) UpdateIntentsStatus(ctx, clientIntents,
 }
 
 // UpdateServerSidecar mocks base method.
-func (m *MockPolicyManager) UpdateServerSidecar(ctx context.Context, clientIntents *v2alpha1.ClientIntents, serverName string, missingSideCar bool) error {
+func (m *MockPolicyManager) UpdateServerSidecar(ctx context.Context, clientIntents *v2.ClientIntents, serverName string, missingSideCar bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateServerSidecar", ctx, clientIntents, serverName, missingSideCar)
 	ret0, _ := ret[0].(error)

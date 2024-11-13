@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/iam/v1beta1"
 	"github.com/GoogleCloudPlatform/k8s-config-connector/pkg/clients/generated/apis/k8s/v1alpha1"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"strings"
@@ -43,7 +43,7 @@ func (a *Agent) GetGSAFullName(namespace string, accountName string) string {
 	return fmt.Sprintf("%s@%s.iam.gserviceaccount.com", gsaName, a.projectID)
 }
 
-func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName string, ksaName string, intents []otterizev2alpha1.Target) (*v1beta1.IAMPartialPolicy, error) {
+func (a *Agent) generateIAMPartialPolicy(namespace string, intentsServiceName string, ksaName string, intents []otterizev2.Target) (*v1beta1.IAMPartialPolicy, error) {
 	policyName := a.generateKSAPolicyName(namespace, intentsServiceName)
 	gsaFullName := a.GetGSAFullName(namespace, ksaName)
 	saMember := fmt.Sprintf("serviceAccount:%s", gsaFullName)

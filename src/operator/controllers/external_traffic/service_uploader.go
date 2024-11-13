@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	v2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -165,7 +165,7 @@ func getIngressRefersToService(ctx context.Context, k8sClient client.Client, svc
 	err := k8sClient.List(
 		ctx,
 		&ingressList,
-		&client.MatchingFields{v2alpha1.IngressServiceNamesIndexField: svc.Name},
+		&client.MatchingFields{v2.IngressServiceNamesIndexField: svc.Name},
 		&client.ListOptions{Namespace: svc.Namespace})
 	if err != nil {
 		return nil, errors.Wrap(err)

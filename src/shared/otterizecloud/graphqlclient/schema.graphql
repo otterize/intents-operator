@@ -147,7 +147,7 @@ type AccessGraphEdge {
 	appliedIntents: [Intent!]!
 	accessStatus: EdgeAccessStatus!
 	accessStatuses: EdgeAccessStatuses!
-	violations: [CallViolation!]!
+	findings: [CallFinding!]!
 }
 
 """ Access graph filter """
@@ -158,6 +158,7 @@ type AccessGraphFilter {
 	environmentIds: IDFilterValue
 	lastSeen: TimeFilterValue
 	featureFlags: FeatureFlags
+	includeOnlyClientsMatchingFilter: Boolean
 }
 
 type AccessLog {
@@ -271,7 +272,7 @@ input CLITelemetry {
 	command: CLICommand!
 }
 
-type CallViolation {
+type CallFinding {
 	standard: RegulationStandard!
 	code: RegulationCode!
 	reason: String!
@@ -408,6 +409,14 @@ input ClusterConfigurationInput {
 	clusterFormSettings: ClusterFormSettingsInput
 }
 
+type ClusterFinding {
+	cluster: Cluster!
+	reason: String!
+	reasonId: String!
+	intentsOperatorState: IntentsOperatorState
+	relatedServices: [Service!]
+}
+
 type ClusterFormSettings {
 	certificateProvider: CertificateProvider!
 	enforcement: Boolean!
@@ -416,13 +425,6 @@ type ClusterFormSettings {
 input ClusterFormSettingsInput {
 	certificateProvider: CertificateProvider!
 	enforcement: Boolean!
-}
-
-type ClusterViolation {
-	cluster: Cluster!
-	reason: String!
-	intentsOperatorState: IntentsOperatorState
-	relatedServices: [Service!]
 }
 
 input Component {
@@ -485,8 +487,17 @@ input DNSIPPairInput {
 }
 
 type Dashboard {
-	findings: [Finding!]!
-	summary: FindingsSummary!
+	findings: [FindingSummary!]!
+	summary: DashboardData!
+}
+
+type DashboardData {
+	findingsCount: Int!
+	nonCompliantClusters: Fraction!
+	nonCompliantWorkloads: Fraction!
+	overallCompliance: Fraction!
+	nonCompliantStandards: Fraction!
+	nonCompliantControls: Fraction!
 }
 
 type DatabaseConfig {
@@ -696,27 +707,18 @@ type FeatureFlags {
 	isCloudSecurityEnabled: Boolean
 }
 
-type Finding {
+type FindingSummary {
 	standard: RegulationStandard!
 	codeLabel: String!
 	code: RegulationCode!
 	severity: Severity!
 	description: String!
 	validationDescription: String
-	clusterViolations: [ClusterViolation!]!
-	serviceViolations: [ServiceViolation!]!
+	clusterFindings: [ClusterFinding!]!
+	serviceFindings: [ServiceFinding!]!
 	clusterCount: Int!
 	serviceCount: Int!
-	requirements: [Finding!]
-}
-
-type FindingsSummary {
-	violations: Int!
-	nonCompliantClusters: Fraction!
-	nonCompliantWorkloads: Fraction!
-	overallCompliance: Fraction!
-	nonCompliantStandards: Fraction!
-	nonCompliantControls: Fraction!
+	requirements: [FindingSummary!]
 }
 
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
@@ -890,6 +892,7 @@ input InputAccessGraphFilter {
 	environmentIds: InputIDFilterValue
 	lastSeen: InputTimeFilterValue
 	featureFlags: InputFeatureFlags
+	includeOnlyClientsMatchingFilter: Boolean
 }
 
 """ Access log filter """
@@ -1938,7 +1941,7 @@ type Query {
 	findings(
 		filter: InputFindingFilter
 		tree: Boolean
-	): [Finding!]!
+	): [FindingSummary!]!
 	dashboard(
 		filter: InputFindingFilter
 		tree: Boolean
@@ -2239,6 +2242,13 @@ enum ServiceExternalTrafficPolicy {
 	LOCAL
 }
 
+type ServiceFinding {
+	service: Service!
+	reason: String!
+	reasonId: String!
+	callsFindings: [AccessGraphEdge!]
+}
+
 input ServiceIdentityInput {
 	name: String!
 	namespace: String!
@@ -2268,12 +2278,6 @@ enum ServiceType {
 	KUBERNETES_LOAD_BALANCER
 	AWS_VISIBILITY_EKS
 	DETECTED_CLOUD_SERVER
-}
-
-type ServiceViolation {
-	service: Service!
-	reason: String!
-	violatedCalls: [AccessGraphEdge!]
 }
 
 type ServicesResponse {

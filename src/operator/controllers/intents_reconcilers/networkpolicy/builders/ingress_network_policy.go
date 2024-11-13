@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/amit7itz/goset"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	v1 "k8s.io/api/networking/v1"
@@ -42,12 +42,12 @@ func (r *IngressNetpolBuilder) buildIngressRulesFromServiceEffectivePolicy(ep ef
 					PodSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							fmt.Sprintf(
-								otterizev2alpha1.OtterizeAccessLabelKey, ep.Service.GetFormattedOtterizeIdentityWithKind()): "true",
+								otterizev2.OtterizeAccessLabelKey, ep.Service.GetFormattedOtterizeIdentityWithKind()): "true",
 						},
 					},
 					NamespaceSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: call.Service.Namespace,
+							otterizev2.KubernetesStandardNamespaceNameLabelKey: call.Service.Namespace,
 						},
 					},
 				},

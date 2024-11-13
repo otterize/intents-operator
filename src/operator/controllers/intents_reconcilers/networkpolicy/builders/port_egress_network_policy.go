@@ -3,7 +3,7 @@ package builders
 import (
 	"context"
 	"fmt"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
@@ -70,7 +70,7 @@ func getEgressRuleBasedOnServicePodSelector(svc *corev1.Service) v1.NetworkPolic
 				PodSelector: &svcPodSelector,
 				NamespaceSelector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
-						otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: svc.Namespace,
+						otterizev2.KubernetesStandardNamespaceNameLabelKey: svc.Namespace,
 					},
 				},
 			},

@@ -7,7 +7,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/amit7itz/goset"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -26,11 +26,11 @@ func NewAzurePolicyAgent(azureAgent *azureagent.Agent) *Agent {
 	return &Agent{azureAgent}
 }
 
-func (a *Agent) IntentType() otterizev2alpha1.IntentType {
-	return otterizev2alpha1.IntentTypeAzure
+func (a *Agent) IntentType() otterizev2.IntentType {
+	return otterizev2.IntentTypeAzure
 }
 
-func (a *Agent) getIntentScope(intent otterizev2alpha1.Target) (string, error) {
+func (a *Agent) getIntentScope(intent otterizev2.Target) (string, error) {
 	name := intent.GetTargetServerName()
 	if !strings.HasPrefix(name, "/") {
 		return "", errors.Errorf("expected intent name to start with /, got %s", name)
@@ -52,13 +52,13 @@ func (a *Agent) getIntentScope(intent otterizev2alpha1.Target) (string, error) {
 	return fullScope, nil
 }
 
-func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev2alpha1.Target, pod corev1.Pod) error {
+func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev2.Target, pod corev1.Pod) error {
 	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, namespace, intentsServiceName)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	azureRBACIntents := lo.Filter(intents, func(intent otterizev2alpha1.Target, _ int) bool {
+	azureRBACIntents := lo.Filter(intents, func(intent otterizev2.Target, _ int) bool {
 		return intent.Azure != nil && len(intent.Azure.Roles) > 0
 	})
 
@@ -66,7 +66,7 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 		return errors.Wrap(err)
 	}
 
-	azureKeyVaultIntents := lo.Filter(intents, func(intent otterizev2alpha1.Target, _ int) bool {
+	azureKeyVaultIntents := lo.Filter(intents, func(intent otterizev2.Target, _ int) bool {
 		return intent.Azure != nil && intent.Azure.KeyVaultPolicy != nil
 	})
 	if err := a.ensureKeyVaultPermissionsForIntents(ctx, userAssignedIdentity, azureKeyVaultIntents); err != nil {
@@ -76,7 +76,7 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 	return nil
 }
 
-func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev2alpha1.Target) error {
+func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev2.Target) error {
 	existingRoleAssignments, err := a.ListRoleAssignments(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
@@ -167,7 +167,7 @@ func (a *Agent) deleteRoleAssignmentsWithUnexpectedScopes(ctx context.Context, e
 	return nil
 }
 
-func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2.ClientIntents) error {
 	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, intents.Namespace, intents.Spec.Workload.Name)
 	if err != nil {
 		if errors.Is(err, azureagent.ErrUserIdentityNotFound) {
@@ -210,7 +210,7 @@ func extractKeyVaultName(scope string) (string, error) {
 	return match[1], nil
 }
 
-func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev2alpha1.Target) error {
+func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev2.Target) error {
 	existingKeyVaultsAccessPolicies, err := a.GetExistingKeyVaultAccessPolicies(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
@@ -243,7 +243,7 @@ func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAss
 	return nil
 }
 
-func (a *Agent) ensureKeyVaultPolicyForIntent(ctx context.Context, userAssignedIdentity armmsi.Identity, keyVaultName string, intent otterizev2alpha1.Target, existingKeyVaultsAccessPolicies map[string][]*armkeyvault.AccessPolicyEntry) error {
+func (a *Agent) ensureKeyVaultPolicyForIntent(ctx context.Context, userAssignedIdentity armmsi.Identity, keyVaultName string, intent otterizev2.Target, existingKeyVaultsAccessPolicies map[string][]*armkeyvault.AccessPolicyEntry) error {
 	existingAccessPolicies, ok := existingKeyVaultsAccessPolicies[keyVaultName]
 	if !ok {
 		return errors.Errorf("key vault %s not found", keyVaultName)
@@ -281,21 +281,21 @@ func (a *Agent) removeUnexpectedKeyVaultPolicies(ctx context.Context, userAssign
 	return nil
 }
 
-func (a *Agent) vaultAccessPolicyEntryFromIntent(userAssignedIdentity armmsi.Identity, policy otterizev2alpha1.AzureKeyVaultPolicy) armkeyvault.AccessPolicyEntry {
+func (a *Agent) vaultAccessPolicyEntryFromIntent(userAssignedIdentity armmsi.Identity, policy otterizev2.AzureKeyVaultPolicy) armkeyvault.AccessPolicyEntry {
 	return armkeyvault.AccessPolicyEntry{
 		ObjectID: userAssignedIdentity.Properties.ClientID,
 		TenantID: &a.Conf.TenantID,
 		Permissions: &armkeyvault.Permissions{
-			Certificates: lo.Map(policy.CertificatePermissions, func(p otterizev2alpha1.AzureKeyVaultCertificatePermission, _ int) *armkeyvault.CertificatePermissions {
+			Certificates: lo.Map(policy.CertificatePermissions, func(p otterizev2.AzureKeyVaultCertificatePermission, _ int) *armkeyvault.CertificatePermissions {
 				return lo.ToPtr(armkeyvault.CertificatePermissions(p))
 			}),
-			Keys: lo.Map(policy.KeyPermissions, func(p otterizev2alpha1.AzureKeyVaultKeyPermission, _ int) *armkeyvault.KeyPermissions {
+			Keys: lo.Map(policy.KeyPermissions, func(p otterizev2.AzureKeyVaultKeyPermission, _ int) *armkeyvault.KeyPermissions {
 				return lo.ToPtr(armkeyvault.KeyPermissions(p))
 			}),
-			Secrets: lo.Map(policy.SecretPermissions, func(p otterizev2alpha1.AzureKeyVaultSecretPermission, _ int) *armkeyvault.SecretPermissions {
+			Secrets: lo.Map(policy.SecretPermissions, func(p otterizev2.AzureKeyVaultSecretPermission, _ int) *armkeyvault.SecretPermissions {
 				return lo.ToPtr(armkeyvault.SecretPermissions(p))
 			}),
-			Storage: lo.Map(policy.StoragePermissions, func(p otterizev2alpha1.AzureKeyVaultStoragePermission, _ int) *armkeyvault.StoragePermissions {
+			Storage: lo.Map(policy.StoragePermissions, func(p otterizev2.AzureKeyVaultStoragePermission, _ int) *armkeyvault.StoragePermissions {
 				return lo.ToPtr(armkeyvault.StoragePermissions(p))
 			}),
 		},

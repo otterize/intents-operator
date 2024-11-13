@@ -3,7 +3,7 @@ package operator_cloud_client
 import (
 	"context"
 	"github.com/hashicorp/golang-lru/v2/expirable"
-	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	v2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -33,7 +33,7 @@ type intentStatusDetails struct {
 
 type IntentEvent struct {
 	Event  v1.Event
-	Intent v2alpha1.ClientIntents
+	Intent v2.ClientIntents
 }
 
 type IntentEventsPeriodicReporter struct {
@@ -164,7 +164,7 @@ func (ies *IntentEventsPeriodicReporter) queryIntentEvents(ctx context.Context) 
 	})
 
 	intentEvents := lo.FilterMap(filteredEvents, func(event v1.Event, _ int) (IntentEvent, bool) {
-		intent := v2alpha1.ClientIntents{}
+		intent := v2.ClientIntents{}
 		err := ies.k8sClient.Get(ctx, client.ObjectKey{Namespace: event.InvolvedObject.Namespace, Name: event.InvolvedObject.Name}, &intent)
 		if err != nil {
 			if !k8errors.IsNotFound(err) {
@@ -208,11 +208,11 @@ func (ies *IntentEventsPeriodicReporter) reportIntentStatuses(ctx context.Contex
 	ies.cacheReportedIntentStatuses(statuses)
 }
 
-func (ies *IntentEventsPeriodicReporter) doReportStatuses(ctx context.Context, intents []v2alpha1.ClientIntents) error {
+func (ies *IntentEventsPeriodicReporter) doReportStatuses(ctx context.Context, intents []v2.ClientIntents) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
 
-	gqlStatuses := lo.Map(intents, func(intent v2alpha1.ClientIntents, _ int) graphqlclient.ClientIntentStatusInput {
+	gqlStatuses := lo.Map(intents, func(intent v2.ClientIntents, _ int) graphqlclient.ClientIntentStatusInput {
 		return statusToGQLStatus(intent)
 	})
 
@@ -227,14 +227,14 @@ func (ies *IntentEventsPeriodicReporter) doReportStatuses(ctx context.Context, i
 	return nil
 }
 
-func (ies *IntentEventsPeriodicReporter) queryIntentStatuses(ctx context.Context) ([]v2alpha1.ClientIntents, error) {
-	clientIntents := v2alpha1.ClientIntentsList{}
+func (ies *IntentEventsPeriodicReporter) queryIntentStatuses(ctx context.Context) ([]v2.ClientIntents, error) {
+	clientIntents := v2.ClientIntentsList{}
 	err := ies.k8sClient.List(ctx, &clientIntents)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
 
-	filteredIntents := lo.Filter(clientIntents.Items, func(intent v2alpha1.ClientIntents, _ int) bool {
+	filteredIntents := lo.Filter(clientIntents.Items, func(intent v2.ClientIntents, _ int) bool {
 		cachedDetails, ok := ies.statusCache.Get(intentStatusKey(intent.UID))
 		return !ok ||
 			cachedDetails.Generation != int(intent.Generation) ||
@@ -245,7 +245,7 @@ func (ies *IntentEventsPeriodicReporter) queryIntentStatuses(ctx context.Context
 	return filteredIntents, nil
 }
 
-func (ies *IntentEventsPeriodicReporter) cacheReportedIntentStatuses(intents []v2alpha1.ClientIntents) {
+func (ies *IntentEventsPeriodicReporter) cacheReportedIntentStatuses(intents []v2.ClientIntents) {
 	for _, intent := range intents {
 		ies.statusCache.Add(
 			intentStatusKey(intent.UID),
@@ -258,7 +258,7 @@ func (ies *IntentEventsPeriodicReporter) cacheReportedIntentStatuses(intents []v
 	}
 }
 
-func statusToGQLStatus(intent v2alpha1.ClientIntents) graphqlclient.ClientIntentStatusInput {
+func statusToGQLStatus(intent v2.ClientIntents) graphqlclient.ClientIntentStatusInput {
 	si := intent.ToServiceIdentity()
 	gqlStatus := graphqlclient.ClientIntentStatusInput{
 		Namespace:          si.Namespace,
@@ -273,7 +273,7 @@ func statusToGQLStatus(intent v2alpha1.ClientIntents) graphqlclient.ClientIntent
 	return gqlStatus
 }
 
-func eventToGQLEvent(intent v2alpha1.ClientIntents, event v1.Event) graphqlclient.ClientIntentEventInput {
+func eventToGQLEvent(intent v2.ClientIntents, event v1.Event) graphqlclient.ClientIntentEventInput {
 	si := intent.ToServiceIdentity()
 	gqlEvent := graphqlclient.ClientIntentEventInput{
 		ClientName:         si.Name,

@@ -2,7 +2,7 @@ package protected_service_reconcilers
 
 import (
 	"context"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -39,12 +39,12 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 	server := "test-server"
 	anotherServer := "another-test-server"
 
-	protectedService := otterizev2alpha1.ProtectedService{
+	protectedService := otterizev2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      protectedServiceResourceName,
 			Namespace: testNamespace,
 		},
-		Spec: otterizev2alpha1.ProtectedServiceSpec{
+		Spec: otterizev2.ProtectedServiceSpec{
 			Name: server,
 		},
 	}
@@ -55,48 +55,48 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 	s.applyProtectedService(protectedService)
 	s.Require().Equal(1, s.Reconciler.protectedServicesCounter.Len())
 
-	anotherProtectedService := otterizev2alpha1.ProtectedService{
+	anotherProtectedService := otterizev2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      protectedServiceResourceName,
 			Namespace: testNamespace,
 		},
-		Spec: otterizev2alpha1.ProtectedServiceSpec{
+		Spec: otterizev2.ProtectedServiceSpec{
 			Name: anotherServer,
 		},
 	}
 	s.applyProtectedService(anotherProtectedService)
 	s.Require().Equal(2, s.Reconciler.protectedServicesCounter.Len())
 
-	protectedService = otterizev2alpha1.ProtectedService{
+	protectedService = otterizev2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      protectedServiceResourceName,
 			Namespace: testNamespace,
 		},
-		Spec: otterizev2alpha1.ProtectedServiceSpec{
+		Spec: otterizev2.ProtectedServiceSpec{
 			Name: server,
 		},
 	}
 	s.applyProtectedService(protectedService)
 	s.Require().Equal(2, s.Reconciler.protectedServicesCounter.Len())
 
-	protectedServiceInAnotherNamespace := otterizev2alpha1.ProtectedService{
+	protectedServiceInAnotherNamespace := otterizev2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      protectedServiceResourceName,
 			Namespace: anotherNamespace,
 		},
-		Spec: otterizev2alpha1.ProtectedServiceSpec{
+		Spec: otterizev2.ProtectedServiceSpec{
 			Name: server,
 		},
 	}
 	s.applyProtectedService(protectedServiceInAnotherNamespace)
 	s.Require().Equal(3, s.Reconciler.protectedServicesCounter.Len())
 
-	anotherProtectedServiceInAnotherNamespace := otterizev2alpha1.ProtectedService{
+	anotherProtectedServiceInAnotherNamespace := otterizev2.ProtectedService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      protectedServiceResourceName,
 			Namespace: anotherNamespace,
 		},
-		Spec: otterizev2alpha1.ProtectedServiceSpec{
+		Spec: otterizev2.ProtectedServiceSpec{
 			Name: anotherServer,
 		},
 	}
@@ -111,7 +111,7 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 	s.Require().Equal(2, s.Reconciler.protectedServicesCounter.Len())
 }
 
-func (s *CountReconcilerTestSuite) applyProtectedService(resource otterizev2alpha1.ProtectedService) {
+func (s *CountReconcilerTestSuite) applyProtectedService(resource otterizev2.ProtectedService) {
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: testNamespace,
@@ -119,9 +119,9 @@ func (s *CountReconcilerTestSuite) applyProtectedService(resource otterizev2alph
 		},
 	}
 
-	emptyProtectedServices := &otterizev2alpha1.ProtectedService{}
+	emptyProtectedServices := &otterizev2.ProtectedService{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyProtectedServices)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, protectedService *otterizev2alpha1.ProtectedService, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, protectedService *otterizev2.ProtectedService, options ...client.ListOption) error {
 			resource.DeepCopyInto(protectedService)
 			return nil
 		})
@@ -131,7 +131,7 @@ func (s *CountReconcilerTestSuite) applyProtectedService(resource otterizev2alph
 	s.Require().Equal(ctrl.Result{}, res)
 }
 
-func (s *CountReconcilerTestSuite) removeProtectedService(resource otterizev2alpha1.ProtectedService) {
+func (s *CountReconcilerTestSuite) removeProtectedService(resource otterizev2.ProtectedService) {
 	resource.DeletionTimestamp = &metav1.Time{Time: time.Date(2020, 12, 1, 17, 14, 0, 0, time.UTC)}
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -140,9 +140,9 @@ func (s *CountReconcilerTestSuite) removeProtectedService(resource otterizev2alp
 		},
 	}
 
-	emptyProtectedServices := &otterizev2alpha1.ProtectedService{}
+	emptyProtectedServices := &otterizev2.ProtectedService{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyProtectedServices)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, protectedService *otterizev2alpha1.ProtectedService, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, protectedService *otterizev2.ProtectedService, options ...client.ListOption) error {
 			resource.DeepCopyInto(protectedService)
 			return nil
 		})

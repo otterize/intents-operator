@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	v2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	v2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	gomock "go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 )
@@ -37,7 +37,7 @@ func (m *MockIAMPolicyAgent) EXPECT() *MockIAMPolicyAgentMockRecorder {
 }
 
 // AddRolePolicyFromIntents mocks base method.
-func (m *MockIAMPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace, accountName, intentsServiceName string, intents []v2alpha1.Target, pod v1.Pod) error {
+func (m *MockIAMPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace, accountName, intentsServiceName string, intents []v2.Target, pod v1.Pod) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddRolePolicyFromIntents", ctx, namespace, accountName, intentsServiceName, intents, pod)
 	ret0, _ := ret[0].(error)
@@ -65,7 +65,7 @@ func (mr *MockIAMPolicyAgentMockRecorder) AppliesOnPod(pod interface{}) *gomock.
 }
 
 // DeleteRolePolicyFromIntents mocks base method.
-func (m *MockIAMPolicyAgent) DeleteRolePolicyFromIntents(ctx context.Context, intents v2alpha1.ClientIntents) error {
+func (m *MockIAMPolicyAgent) DeleteRolePolicyFromIntents(ctx context.Context, intents v2.ClientIntents) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRolePolicyFromIntents", ctx, intents)
 	ret0, _ := ret[0].(error)
@@ -79,10 +79,10 @@ func (mr *MockIAMPolicyAgentMockRecorder) DeleteRolePolicyFromIntents(ctx, inten
 }
 
 // IntentType mocks base method.
-func (m *MockIAMPolicyAgent) IntentType() v2alpha1.IntentType {
+func (m *MockIAMPolicyAgent) IntentType() v2.IntentType {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "IntentType")
-	ret0, _ := ret[0].(v2alpha1.IntentType)
+	ret0, _ := ret[0].(v2.IntentType)
 	return ret0
 }
 

@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"github.com/amit7itz/goset"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -61,7 +61,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	intents := &otterizev2alpha1.ClientIntents{}
+	intents := &otterizev2.ClientIntents{}
 	err = r.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -141,7 +141,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev2alpha1.ClientIntents) error {
+func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev2.ClientIntents) error {
 	for _, intent := range intents.Spec.Targets {
 		serviceId := intent.ToServiceIdentity(intents.Namespace)
 		pods, ok, err := r.serviceIdResolver.ResolveServiceIdentityToPodSlice(ctx, serviceId)

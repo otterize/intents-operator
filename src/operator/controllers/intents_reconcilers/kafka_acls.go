@@ -3,7 +3,7 @@ package intents_reconcilers
 import (
 	"context"
 	"github.com/amit7itz/goset"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
@@ -72,8 +72,8 @@ func NewKafkaACLReconciler(
 	}
 }
 
-func getIntentsByServer(defaultNamespace string, intents []otterizev2alpha1.Target) map[types.NamespacedName][]otterizev2alpha1.Target {
-	intentsByServer := map[types.NamespacedName][]otterizev2alpha1.Target{}
+func getIntentsByServer(defaultNamespace string, intents []otterizev2.Target) map[types.NamespacedName][]otterizev2.Target {
+	intentsByServer := map[types.NamespacedName][]otterizev2.Target{}
 	for _, intent := range intents {
 		if intent.Kafka == nil {
 			continue
@@ -90,10 +90,10 @@ func getIntentsByServer(defaultNamespace string, intents []otterizev2alpha1.Targ
 	return intentsByServer
 }
 
-func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (serverCount int, err error) {
+func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev2.ClientIntents) (serverCount int, err error) {
 	intentsByServer := getIntentsByServer(intents.Namespace, intents.Spec.Targets)
 
-	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev2alpha1.KafkaServerConfig, tls otterizev2alpha1.TLSSource) error {
+	if err := r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev2.KafkaServerConfig, tls otterizev2.TLSSource) error {
 		intentsForServer := intentsByServer[serverName]
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serviceidentity.ServiceIdentity{Name: serverName.Name, Namespace: serverName.Namespace}, r.enforcementDefaultState, r.activeNamespaces)
 		if err != nil {
@@ -135,8 +135,8 @@ func (r *KafkaACLReconciler) applyACLs(ctx context.Context, intents *otterizev2a
 	return len(intentsByServer), nil
 }
 
-func (r *KafkaACLReconciler) RemoveACLs(ctx context.Context, intents *otterizev2alpha1.ClientIntents) error {
-	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev2alpha1.KafkaServerConfig, tls otterizev2alpha1.TLSSource) error {
+func (r *KafkaACLReconciler) RemoveACLs(ctx context.Context, intents *otterizev2.ClientIntents) error {
+	return r.KafkaServersStore.MapErr(func(serverName types.NamespacedName, config *otterizev2.KafkaServerConfig, tls otterizev2.TLSSource) error {
 		shouldCreatePolicy, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(ctx, r.client, serviceidentity.ServiceIdentity{Name: serverName.Name, Namespace: serverName.Namespace}, r.enforcementDefaultState, r.activeNamespaces)
 		if err != nil {
 			return errors.Wrap(err)
@@ -157,9 +157,9 @@ func (r *KafkaACLReconciler) RemoveACLs(ctx context.Context, intents *otterizev2
 }
 
 func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	intents := &otterizev2alpha1.ClientIntents{}
+	intents := &otterizev2.ClientIntents{}
 	logger := logrus.WithField("namespacedName", req.String())
-	err := r.client.Get(ctx, req.NamespacedName, intents, &client.GetOptions{Raw: &metav1.GetOptions{ResourceVersion: "v2alpha1"}})
+	err := r.client.Get(ctx, req.NamespacedName, intents, &client.GetOptions{Raw: &metav1.GetOptions{ResourceVersion: "v2"}})
 	if err != nil && k8serrors.IsNotFound(err) {
 		logger.Info("No intents found")
 		return ctrl.Result{}, nil
@@ -196,7 +196,7 @@ func (r *KafkaACLReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 
 }
 
-func (r *KafkaACLReconciler) isIntentsForTheIntentsOperator(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (bool, error) {
+func (r *KafkaACLReconciler) isIntentsForTheIntentsOperator(ctx context.Context, intents *otterizev2.ClientIntents) (bool, error) {
 	if r.operatorPodNamespace != intents.Namespace {
 		return false, nil
 	}
@@ -214,7 +214,7 @@ func (r *KafkaACLReconciler) isIntentsForTheIntentsOperator(ctx context.Context,
 	return annotatedServiceName.Name == intents.Spec.Workload.Name, nil
 }
 
-func (r *KafkaACLReconciler) applyAcls(ctx context.Context, logger *logrus.Entry, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+func (r *KafkaACLReconciler) applyAcls(ctx context.Context, logger *logrus.Entry, intents *otterizev2.ClientIntents) (ctrl.Result, error) {
 	logger.Debug("Applying new ACLs")
 	serverCount, err := r.applyACLs(ctx, intents)
 	if err != nil {
@@ -228,11 +228,11 @@ func (r *KafkaACLReconciler) applyAcls(ctx context.Context, logger *logrus.Entry
 	return ctrl.Result{}, nil
 }
 
-func (r *KafkaACLReconciler) intentsObjectUnderDeletion(intents *otterizev2alpha1.ClientIntents) bool {
+func (r *KafkaACLReconciler) intentsObjectUnderDeletion(intents *otterizev2.ClientIntents) bool {
 	return !intents.ObjectMeta.DeletionTimestamp.IsZero()
 }
 
-func (r *KafkaACLReconciler) handleIntentsDeletion(ctx context.Context, intents *otterizev2alpha1.ClientIntents, logger *logrus.Entry) (ctrl.Result, error) {
+func (r *KafkaACLReconciler) handleIntentsDeletion(ctx context.Context, intents *otterizev2.ClientIntents, logger *logrus.Entry) (ctrl.Result, error) {
 	logger.Debugf("Removing associated Acls")
 	if err := r.RemoveACLs(ctx, intents); err != nil {
 		r.RecordWarningEventf(intents, ReasonRemovingKafkaACLsFailed, "Could not remove Kafka ACLs: %s", err.Error())

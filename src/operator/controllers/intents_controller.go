@@ -19,7 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/access_annotation"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database"
@@ -82,8 +82,8 @@ func NewIntentsReconciler(
 		"intents-reconciler",
 		client,
 		scheme,
-		&otterizev2alpha1.ClientIntents{},
-		otterizev2alpha1.ClientIntentsFinalizerName,
+		&otterizev2.ClientIntents{},
+		otterizev2.ClientIntentsFinalizerName,
 		intentsLegacyFinalizers,
 		reconcilers...,
 	)
@@ -118,7 +118,7 @@ func NewIntentsReconciler(
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	intents := &otterizev2alpha1.ClientIntents{}
+	intents := &otterizev2.ClientIntents{}
 
 	err := r.client.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
@@ -167,11 +167,11 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev2alpha1.ClientIntents{}).
+		For(&otterizev2.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
-		Watches(&otterizev2alpha1.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
+		Watches(&otterizev2.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
 		Watches(&corev1.Endpoints{}, handler.EnqueueRequestsFromMapFunc(r.watchApiServerEndpoint)).
-		Watches(&otterizev2alpha1.PostgreSQLServerConfig{}, handler.EnqueueRequestsFromMapFunc(r.mapPostgresInstanceNameToDatabaseIntents)).
+		Watches(&otterizev2.PostgreSQLServerConfig{}, handler.EnqueueRequestsFromMapFunc(r.mapPostgresInstanceNameToDatabaseIntents)).
 		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.mapPodWithAccessAnnotationToClientIntents)).
 		Complete(r)
 	if err != nil {
@@ -208,7 +208,7 @@ func (r *IntentsReconciler) mapPodWithAccessAnnotationToClientIntents(ctx contex
 }
 
 func (r *IntentsReconciler) watchApiServerEndpoint(ctx context.Context, obj client.Object) []reconcile.Request {
-	if obj.GetNamespace() != otterizev2alpha1.KubernetesAPIServerNamespace || obj.GetName() != otterizev2alpha1.KubernetesAPIServerName {
+	if obj.GetNamespace() != otterizev2.KubernetesAPIServerNamespace || obj.GetName() != otterizev2.KubernetesAPIServerName {
 		return nil
 	}
 
@@ -216,14 +216,14 @@ func (r *IntentsReconciler) watchApiServerEndpoint(ctx context.Context, obj clie
 	return r.mapIntentsToRequests(intentsToReconcile)
 }
 
-func (r *IntentsReconciler) getIntentsToAPIServerService(ctx context.Context) []otterizev2alpha1.ClientIntents {
-	intentsToReconcile := make([]otterizev2alpha1.ClientIntents, 0)
-	fullServerName := fmt.Sprintf("svc:%s.%s", otterizev2alpha1.KubernetesAPIServerName, otterizev2alpha1.KubernetesAPIServerNamespace)
-	var intentsToServer otterizev2alpha1.ClientIntentsList
+func (r *IntentsReconciler) getIntentsToAPIServerService(ctx context.Context) []otterizev2.ClientIntents {
+	intentsToReconcile := make([]otterizev2.ClientIntents, 0)
+	fullServerName := fmt.Sprintf("svc:%s.%s", otterizev2.KubernetesAPIServerName, otterizev2.KubernetesAPIServerNamespace)
+	var intentsToServer otterizev2.ClientIntentsList
 	err := r.client.List(
 		ctx,
 		&intentsToServer,
-		&client.MatchingFields{otterizev2alpha1.OtterizeTargetServerIndexField: fullServerName},
+		&client.MatchingFields{otterizev2.OtterizeTargetServerIndexField: fullServerName},
 	)
 	if err != nil {
 		logrus.WithError(err).Errorf("Failed to list client intents for client %s", fullServerName)
@@ -236,7 +236,7 @@ func (r *IntentsReconciler) getIntentsToAPIServerService(ctx context.Context) []
 }
 
 func (r *IntentsReconciler) mapProtectedServiceToClientIntents(ctx context.Context, obj client.Object) []reconcile.Request {
-	protectedService := obj.(*otterizev2alpha1.ProtectedService)
+	protectedService := obj.(*otterizev2.ProtectedService)
 	logrus.Debugf("Enqueueing client intents for protected services %s", protectedService.Name)
 
 	intentsToReconcile := r.getIntentsToService(ctx, protectedService.Spec.Name, protectedService.Namespace)
@@ -244,7 +244,7 @@ func (r *IntentsReconciler) mapProtectedServiceToClientIntents(ctx context.Conte
 }
 
 func (r *IntentsReconciler) mapPostgresInstanceNameToDatabaseIntents(_ context.Context, obj client.Object) []reconcile.Request {
-	pgServerConf := obj.(*otterizev2alpha1.PostgreSQLServerConfig)
+	pgServerConf := obj.(*otterizev2.PostgreSQLServerConfig)
 	logrus.Infof("Enqueueing client intents for PostgreSQLServerConfig change %s", pgServerConf.Name)
 
 	intentsToReconcile := r.getIntentsToPostgresInstance(pgServerConf)
@@ -261,12 +261,12 @@ func (r *IntentsReconciler) mapPostgresInstanceNameToDatabaseIntents(_ context.C
 	return requests
 }
 
-func (r *IntentsReconciler) getIntentsToPostgresInstance(pgServerConf *otterizev2alpha1.PostgreSQLServerConfig) []otterizev2alpha1.ClientIntents {
-	intentsList := otterizev2alpha1.ClientIntentsList{}
+func (r *IntentsReconciler) getIntentsToPostgresInstance(pgServerConf *otterizev2.PostgreSQLServerConfig) []otterizev2.ClientIntents {
+	intentsList := otterizev2.ClientIntentsList{}
 	dbInstanceName := pgServerConf.Name
 	err := r.client.List(context.Background(),
 		&intentsList,
-		&client.MatchingFields{otterizev2alpha1.OtterizeTargetServerIndexField: dbInstanceName},
+		&client.MatchingFields{otterizev2.OtterizeTargetServerIndexField: dbInstanceName},
 	)
 	if err != nil {
 		logrus.Errorf("Failed to list client intents targeting %s: %v", dbInstanceName, err)
@@ -275,7 +275,7 @@ func (r *IntentsReconciler) getIntentsToPostgresInstance(pgServerConf *otterizev
 	return intentsList.Items
 }
 
-func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev2alpha1.ClientIntents) []reconcile.Request {
+func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev2.ClientIntents) []reconcile.Request {
 	requests := make([]reconcile.Request, 0)
 	for _, clientIntents := range intentsToReconcile {
 		request := reconcile.Request{
@@ -289,13 +289,13 @@ func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev2
 	return requests
 }
 
-func (r *IntentsReconciler) getIntentsToService(ctx context.Context, serviceName string, namespace string) []otterizev2alpha1.ClientIntents {
-	intentsToReconcile := make([]otterizev2alpha1.ClientIntents, 0)
+func (r *IntentsReconciler) getIntentsToService(ctx context.Context, serviceName string, namespace string) []otterizev2.ClientIntents {
+	intentsToReconcile := make([]otterizev2.ClientIntents, 0)
 	fullServerName := fmt.Sprintf("%s.%s", serviceName, namespace)
-	var intentsToServer otterizev2alpha1.ClientIntentsList
+	var intentsToServer otterizev2.ClientIntentsList
 	err := r.client.List(ctx,
 		&intentsToServer,
-		&client.MatchingFields{otterizev2alpha1.OtterizeTargetServerIndexField: fullServerName},
+		&client.MatchingFields{otterizev2.OtterizeTargetServerIndexField: fullServerName},
 	)
 	if err != nil {
 		logrus.Errorf("Failed to list client intents for client %s: %v", fullServerName, err)
@@ -311,11 +311,11 @@ func (r *IntentsReconciler) getIntentsToService(ctx context.Context, serviceName
 func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev2alpha1.ClientIntents{},
-		otterizev2alpha1.OtterizeTargetServerIndexField,
+		&otterizev2.ClientIntents{},
+		otterizev2.OtterizeTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
-			intents := object.(*otterizev2alpha1.ClientIntents)
+			intents := object.(*otterizev2.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}
@@ -341,18 +341,18 @@ func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 
 	err = mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev2alpha1.ClientIntents{},
-		otterizev2alpha1.OtterizeFormattedTargetServerIndexField,
+		&otterizev2.ClientIntents{},
+		otterizev2.OtterizeFormattedTargetServerIndexField,
 		func(object client.Object) []string {
 			var res []string
-			intents := object.(*otterizev2alpha1.ClientIntents)
+			intents := object.(*otterizev2.ClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}
 
 			for _, intent := range intents.GetTargetList() {
 				if intent.Internet != nil {
-					res = append(res, otterizev2alpha1.OtterizeInternetTargetName)
+					res = append(res, otterizev2.OtterizeInternetTargetName)
 					continue
 				}
 				service := intent.ToServiceIdentity(intents.Namespace)
@@ -378,7 +378,7 @@ func (r *IntentsReconciler) InitEndpointsPodNamesIndex(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
 		&corev1.Endpoints{},
-		otterizev2alpha1.EndpointsPodNamesIndexField,
+		otterizev2.EndpointsPodNamesIndexField,
 		func(object client.Object) []string {
 			var res []string
 			endpoints := object.(*corev1.Endpoints)

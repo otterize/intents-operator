@@ -1,7 +1,7 @@
 package effectivepolicy
 
 import (
-	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	v2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
@@ -10,12 +10,12 @@ import (
 
 type ClientCall struct {
 	Service             serviceidentity.ServiceIdentity
-	IntendedCall        v2alpha1.Target
+	IntendedCall        v2.Target
 	ObjectEventRecorder *injectablerecorder.ObjectEventRecorder
 }
 
 type Call struct {
-	v2alpha1.Target
+	v2.Target
 	ReferencingKubernetesServices []v1.Service
 	EventRecorder                 *injectablerecorder.ObjectEventRecorder
 }
@@ -24,7 +24,7 @@ type ServiceEffectivePolicy struct {
 	Service                    serviceidentity.ServiceIdentity
 	CalledBy                   []ClientCall
 	Calls                      []Call
-	ClientIntentsStatus        v2alpha1.IntentsStatus
+	ClientIntentsStatus        v2.IntentsStatus
 	ClientIntentsEventRecorder *injectablerecorder.ObjectEventRecorder
 }
 

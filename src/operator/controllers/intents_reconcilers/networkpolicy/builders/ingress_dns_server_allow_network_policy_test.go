@@ -3,7 +3,7 @@ package builders
 import (
 	"context"
 	"fmt"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
@@ -52,16 +52,16 @@ func (s *DNSServerBuilderNetworkPolicyReconcilerTestSuite) TestCreateNetworkPoli
 	req := ctrl.Request{
 		NamespacedName: namespacedName,
 	}
-	intentsSpec := &otterizev2alpha1.IntentsSpec{
-		Workload: otterizev2alpha1.Workload{Name: serviceName},
-		Targets: []otterizev2alpha1.Target{
+	intentsSpec := &otterizev2.IntentsSpec{
+		Workload: otterizev2.Workload{Name: serviceName},
+		Targets: []otterizev2.Target{
 			{
-				Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: fmt.Sprintf("coredns.%s", serverNamespace)},
+				Kubernetes: &otterizev2.KubernetesTarget{Name: fmt.Sprintf("coredns.%s", serverNamespace)},
 			},
 		},
 	}
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
+	s.expectGetAllEffectivePolicies([]otterizev2.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -84,7 +84,7 @@ func (s *DNSServerBuilderNetworkPolicyReconcilerTestSuite) TestCreateNetworkPoli
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
 	selector := labels.SelectorFromSet(labels.Set(map[string]string{
-		otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetServer,
+		otterizev2.OtterizeServiceLabelKey: formattedTargetServer,
 	}))
 
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), serverNamespace, selector)
@@ -115,14 +115,14 @@ func ingressDNSnetworkPolicyIngressTemplate(
 			Name:      policyName,
 			Namespace: targetNamespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetServer,
+				otterizev2.OtterizeNetworkPolicy: formattedTargetServer,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
 			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetServer,
+					otterizev2.OtterizeServiceLabelKey: formattedTargetServer,
 				},
 			},
 			Ingress: ingressRules,

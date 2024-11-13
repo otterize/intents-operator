@@ -19,7 +19,7 @@ package webhooks
 import (
 	"context"
 	goerrors "errors"
-	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2 "github.com/otterize/intents-operator/src/operator/api/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,7 +37,7 @@ type MySQLConfValidatorV2alpha1 struct {
 
 func (v *MySQLConfValidatorV2alpha1) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&otterizev2alpha1.MySQLServerConfig{}).
+		For(&otterizev2.MySQLServerConfig{}).
 		WithValidator(v).
 		Complete()
 }
@@ -48,7 +48,7 @@ func NewMySQLConfValidatorV2alpha1(c client.Client) *MySQLConfValidatorV2alpha1 
 	}
 }
 
-//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v2alpha1-mysqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=mysqlserverconfigs,verbs=create;update,versions=v2alpha1,name=mysqlserverconfigv2alpha1.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:matchPolicy=Exact,path=/validate-k8s-otterize-com-v2-mysqlserverconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=k8s.otterize.com,resources=mysqlserverconfigs,verbs=create;update,versions=v2,name=mysqlserverconfigv2.kb.io,admissionReviewVersions=v1
 
 var _ webhook.CustomValidator = &MySQLConfValidatorV2alpha1{}
 
@@ -60,7 +60,7 @@ func (v *MySQLConfValidatorV2alpha1) ValidateDelete(ctx context.Context, obj run
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (v *MySQLConfValidatorV2alpha1) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
-	mysqlServerConf := obj.(*otterizev2alpha1.MySQLServerConfig)
+	mysqlServerConf := obj.(*otterizev2.MySQLServerConfig)
 	gvk := mysqlServerConf.GroupVersionKind()
 
 	if err := validateCredentialsNotEmpty(mysqlServerConf.Spec.Credentials); err != nil {
@@ -86,7 +86,7 @@ func (v *MySQLConfValidatorV2alpha1) ValidateCreate(ctx context.Context, obj run
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (v *MySQLConfValidatorV2alpha1) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	allErrs := field.ErrorList{}
-	mysqlServerConf := newObj.(*otterizev2alpha1.MySQLServerConfig)
+	mysqlServerConf := newObj.(*otterizev2.MySQLServerConfig)
 	gvk := mysqlServerConf.GroupVersionKind()
 
 	if err := validateCredentialsNotEmpty(mysqlServerConf.Spec.Credentials); err != nil {
