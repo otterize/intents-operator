@@ -3,12 +3,15 @@ package builders
 import (
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/samber/lo"
+	"github.com/spf13/viper"
 	"golang.org/x/exp/slices"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -65,17 +68,16 @@ func (r *InternetEgressRulesBuilder) buildRuleForIntent(intent otterizev2alpha1.
 		return nil, nil, false, nil
 	}
 
-	peers := make([]v1.NetworkPolicyPeer, 0)
-	for ip := range ips {
-		cidr, err := getCIDR(ip)
+	peers, err := getIPsAsPeers(ips, false)
+	if err != nil {
+		return nil, nil, false, errors.Wrap(err)
+	}
+
+	if viper.GetBool(operatorconfig.EnableGroupInternetIPsByCIDRKey) && len(peers) > viper.GetInt(operatorconfig.EnableGroupInternetIPsByCIDRPeersLimitKey) {
+		peers, err = getIPsAsPeers(ips, true)
 		if err != nil {
 			return nil, nil, false, errors.Wrap(err)
 		}
-		peers = append(peers, v1.NetworkPolicyPeer{
-			IPBlock: &v1.IPBlock{
-				CIDR: cidr,
-			},
-		})
 	}
 
 	slices.SortFunc(peers, func(a, b v1.NetworkPolicyPeer) bool {
@@ -118,25 +120,51 @@ func (r *InternetEgressRulesBuilder) Build(_ context.Context, ep effectivepolicy
 	return r.buildEgressRules(ep)
 }
 
-func getCIDR(ipStr string) (string, error) {
+func getIPsAsPeers(ips map[string]struct{}, groupBySubnet bool) ([]v1.NetworkPolicyPeer, error) {
+	cidrSet := goset.NewSet[string]()
+	for ip := range ips {
+		cidr, err := getCIDR(ip, groupBySubnet)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+		cidrSet.Add(cidr.String())
+	}
+
+	peers := lo.Map(cidrSet.Items(), func(cidrStr string, _ int) v1.NetworkPolicyPeer {
+		return v1.NetworkPolicyPeer{
+			IPBlock: &v1.IPBlock{
+				CIDR: cidrStr,
+			},
+		}
+	})
+
+	return peers, nil
+}
+
+func getCIDR(ipStr string, groupBySubnet bool) (*net.IPNet, error) {
 	cidr := ipStr
 	if !strings.Contains(ipStr, "/") {
 		ip := net.ParseIP(ipStr)
 		if ip == nil {
-			return "", errors.New(fmt.Sprintf("invalid IP: %s", ipStr))
+			return nil, errors.New(fmt.Sprintf("invalid IP: %s", ipStr))
 		}
 		isV6 := ip.To4() == nil
 
 		if isV6 {
+			// groupBySubnet currently not supported for ipv6
 			cidr = fmt.Sprintf("%s/128", ip)
 		} else {
-			cidr = fmt.Sprintf("%s/32", ip)
+			if groupBySubnet {
+				cidr = fmt.Sprintf("%s/24", ip)
+			} else {
+				cidr = fmt.Sprintf("%s/32", ip)
+			}
 		}
 	}
 
-	_, _, err := net.ParseCIDR(cidr)
+	_, network, err := net.ParseCIDR(cidr)
 	if err != nil {
-		return "", errors.Wrap(err)
+		return nil, errors.Wrap(err)
 	}
-	return cidr, nil
+	return network, nil
 }
