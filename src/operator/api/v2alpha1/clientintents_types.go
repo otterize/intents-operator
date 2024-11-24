@@ -276,11 +276,20 @@ type GCPTarget struct {
 }
 
 type AzureTarget struct {
-	Scope string   `json:"scope,omitempty" yaml:"scope,omitempty"`
+	Scope string `json:"scope,omitempty" yaml:"scope,omitempty"`
+	//+optional
 	Roles []string `json:"roles,omitempty" yaml:"roles,omitempty"`
 	//+optional
 	KeyVaultPolicy *AzureKeyVaultPolicy `json:"keyVaultPolicy,omitempty" yaml:"keyVaultPolicy,omitempty"`
+	//+optional
+	Actions []AzureAction `json:"actions,omitempty" yaml:"actions,omitempty"`
+	//+optional
+	DataActions []AzureDataAction `json:"dataActions,omitempty" yaml:"dataActions,omitempty"`
 }
+
+type AzureAction string
+
+type AzureDataAction string
 
 type KubernetesTarget struct {
 	Name string       `json:"name" yaml:"name"`

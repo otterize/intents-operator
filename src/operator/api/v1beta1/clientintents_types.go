@@ -259,11 +259,20 @@ type Intent struct {
 	AzureRoles []string `json:"azureRoles,omitempty" yaml:"azureRoles,omitempty"`
 
 	//+optional
+	AzureDataActions []AzureDataAction `json:"azureDataActions,omitempty" yaml:"azureDataActions,omitempty"`
+
+	//+optional
+	AzureActions []AzureAction `json:"azureActions,omitempty" yaml:"azureActions,omitempty"`
+
+	//+optional
 	AzureKeyVaultPolicy *AzureKeyVaultPolicy `json:"azureKeyVaultPolicy,omitempty" yaml:"azureKeyVaultPolicy,omitempty"`
 
 	//+optional
 	Internet *Internet `json:"internet,omitempty" yaml:"internet,omitempty"`
 }
+
+type AzureDataAction string
+type AzureAction string
 
 type Internet struct {
 	//+optional

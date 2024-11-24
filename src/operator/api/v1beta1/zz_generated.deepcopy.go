@@ -236,6 +236,16 @@ func (in *Intent) DeepCopyInto(out *Intent) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.AzureDataActions != nil {
+		in, out := &in.AzureDataActions, &out.AzureDataActions
+		*out = make([]AzureDataAction, len(*in))
+		copy(*out, *in)
+	}
+	if in.AzureActions != nil {
+		in, out := &in.AzureActions, &out.AzureActions
+		*out = make([]AzureAction, len(*in))
+		copy(*out, *in)
+	}
 	if in.AzureKeyVaultPolicy != nil {
 		in, out := &in.AzureKeyVaultPolicy, &out.AzureKeyVaultPolicy
 		*out = new(AzureKeyVaultPolicy)
