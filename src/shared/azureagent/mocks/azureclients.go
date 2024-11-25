@@ -291,6 +291,21 @@ func (m *MockAzureARMAuthorizationRoleDefinitionsClient) EXPECT() *MockAzureARMA
 	return m.recorder
 }
 
+// CreateOrUpdate mocks base method.
+func (m *MockAzureARMAuthorizationRoleDefinitionsClient) CreateOrUpdate(ctx context.Context, scope, roleDefinitionID string, roleDefinition armauthorization.RoleDefinition, options *armauthorization.RoleDefinitionsClientCreateOrUpdateOptions) (armauthorization.RoleDefinitionsClientCreateOrUpdateResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateOrUpdate", ctx, scope, roleDefinitionID, roleDefinition, options)
+	ret0, _ := ret[0].(armauthorization.RoleDefinitionsClientCreateOrUpdateResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateOrUpdate indicates an expected call of CreateOrUpdate.
+func (mr *MockAzureARMAuthorizationRoleDefinitionsClientMockRecorder) CreateOrUpdate(ctx, scope, roleDefinitionID, roleDefinition, options interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateOrUpdate", reflect.TypeOf((*MockAzureARMAuthorizationRoleDefinitionsClient)(nil).CreateOrUpdate), ctx, scope, roleDefinitionID, roleDefinition, options)
+}
+
 // NewListPager mocks base method.
 func (m *MockAzureARMAuthorizationRoleDefinitionsClient) NewListPager(scope string, options *armauthorization.RoleDefinitionsClientListOptions) *runtime.Pager[armauthorization.RoleDefinitionsClientListResponse] {
 	m.ctrl.T.Helper()
