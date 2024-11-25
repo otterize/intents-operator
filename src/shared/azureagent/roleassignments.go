@@ -9,7 +9,15 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"strings"
 )
+
+// IsCustomRoleAssignment checks if the given role assignment is a custom role assignment
+// Custom role assignments start with: /subscriptions/<subscription-id>/providers/Microsoft.Authorization/
+// Built-in role assignments start with: /providers/Microsoft.Authorization/roleDefinitions
+func (a *Agent) IsCustomRoleAssignment(roleAssignment armauthorization.RoleAssignment) bool {
+	return !strings.HasPrefix(*roleAssignment.Properties.RoleDefinitionID, "/providers/Microsoft.Authorization/roleDefinitions")
+}
 
 func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition) error {
 	roleAssignmentName := uuid.NewString()

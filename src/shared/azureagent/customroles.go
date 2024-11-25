@@ -14,6 +14,9 @@ import (
 )
 
 const (
+	// OtrzCustomRolePrefix is the prefix used for custom roles created by the Otterize agent
+	OtrzCustomRolePrefix = "ocr"
+
 	// maxRoleNameLength rules: 3-512 characters
 	maxRoleNameLength = 200
 )
@@ -37,7 +40,7 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 		return to.Ptr(string(action))
 	})
 
-	id := uuid.NewString()
+	id := fmt.Sprintf("%s-%s", OtrzCustomRolePrefix, uuid.NewString())
 	name := a.GenerateCustomRoleName(uai, scope)
 	description := fmt.Sprintf("Otterize managed custom role for uai [%s] with permissions for scope [%s]", *uai.Name, scope)
 
