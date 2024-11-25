@@ -284,7 +284,7 @@ type AzureTarget struct {
 
 type KubernetesTarget struct {
 	Name string       `json:"name" yaml:"name"`
-	Kind string       `json:"kind" yaml:"kind"`
+	Kind string       `json:"kind,omitempty" yaml:"kind,omitempty"`
 	HTTP []HTTPTarget `json:"http,omitempty" yaml:"http,omitempty"`
 }
 
