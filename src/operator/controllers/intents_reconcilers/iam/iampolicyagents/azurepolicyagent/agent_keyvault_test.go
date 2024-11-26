@@ -119,7 +119,6 @@ func (s *AzureAgentPoliciesKeyVaultSuite) expectUpdateKeyVaultAccessPolicyWrites
 			*updatedPolicy = parameters
 			return armkeyvault.VaultsClientUpdateAccessPolicyResponse{}, nil
 		})
-
 }
 
 type AzureKeyVaultPolicyTestCase struct {

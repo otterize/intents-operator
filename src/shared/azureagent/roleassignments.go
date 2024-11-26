@@ -21,7 +21,7 @@ func (a *Agent) IsCustomRoleAssignment(roleAssignment armauthorization.RoleAssig
 
 func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition, desc *string) error {
 	roleAssignmentName := uuid.NewString()
-	roleAssignment, err := a.roleAssignmentsClient.Create(
+	_, err := a.roleAssignmentsClient.Create(
 		ctx,
 		scope,
 		roleAssignmentName,
@@ -37,10 +37,6 @@ func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssi
 	if err != nil {
 		return errors.Wrap(err)
 	}
-	logrus.WithField("scope", *roleAssignment.Properties.Scope).
-		WithField("role", *roleAssignment.Properties.RoleDefinitionID).
-		WithField("assignment", *roleAssignment.Name).
-		Debug("role assignment created")
 	return nil
 }
 
