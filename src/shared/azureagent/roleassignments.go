@@ -9,17 +9,13 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	"strings"
 )
 
-// IsCustomRoleAssignment checks if the given role assignment is a custom role assignment
-// Custom role assignments start with: /subscriptions/<subscription-id>/providers/Microsoft.Authorization/
-// Built-in role assignments start with: /providers/Microsoft.Authorization/roleDefinitions
 func (a *Agent) IsCustomRoleAssignment(roleAssignment armauthorization.RoleAssignment) bool {
-	return !strings.HasPrefix(*roleAssignment.Properties.RoleDefinitionID, "/providers/Microsoft.Authorization/roleDefinitions")
+	return *roleAssignment.Properties.Description == otterizeCustomRoleTag
 }
 
-func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition) error {
+func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition, desc *string) error {
 	roleAssignmentName := uuid.NewString()
 	roleAssignment, err := a.roleAssignmentsClient.Create(
 		ctx,
@@ -30,6 +26,7 @@ func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssi
 				PrincipalID:      userAssignedIdentity.Properties.PrincipalID,
 				PrincipalType:    lo.ToPtr(armauthorization.PrincipalTypeServicePrincipal),
 				RoleDefinitionID: roleDefinition.ID,
+				Description:      desc,
 			},
 		},
 		nil)
@@ -99,4 +96,31 @@ func (a *Agent) FindRoleDefinitionByName(ctx context.Context, scope string, role
 	}
 
 	return roleDefinitionsByName, nil
+}
+
+func (a *Agent) ListCustomRoleAssignments(ctx context.Context, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
+	roleAssignments, err := a.ListRoleAssignments(ctx, userAssignedIdentity)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	roleDefinitions, err := a.ListCustomRoleDefinitions(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	roleDefinitionsByName := map[string]armauthorization.RoleDefinition{}
+	for _, roleDef := range roleDefinitions {
+		roleDefinitionsByName[*roleDef.Properties.RoleName] = roleDef
+	}
+
+	var customRoleAssignments []armauthorization.RoleAssignment
+	for _, roleAssignment := range roleAssignments {
+		roleDef, exists := roleDefinitionsByName[*roleAssignment.Properties.RoleDefinitionID]
+		if exists && *roleDef.Properties.RoleType == "CustomRole" {
+			customRoleAssignments = append(customRoleAssignments, roleAssignment)
+		}
+	}
+
+	return customRoleAssignments, nil
 }

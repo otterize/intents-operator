@@ -55,26 +55,26 @@ func (a *Agent) getIntentScope(intent otterizev2alpha1.Target) (string, error) {
 
 func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, _ string, intentsServiceName string, intents []otterizev2alpha1.Target, _ corev1.Pod) error {
 	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, namespace, intentsServiceName)
-	if err != nil {
+	if err == nil {
 		return errors.Wrap(err)
 	}
 
-	//// Custom roles
-	//azureCustomRolesIntents := lo.Filter(intents, func(intent otterizev2alpha1.Target, _ int) bool {
-	//	hasCustomRoles := intent.Azure != nil && (len(intent.Azure.Actions) > 0 || len(intent.Azure.DataActions) > 0)
-	//	return hasCustomRoles && len(intent.Azure.Roles) == 0
-	//})
-	//if err := a.ensureCustomRolesForIntents(ctx, userAssignedIdentity, azureCustomRolesIntents); err != nil {
-	//	return errors.Wrap(err)
-	//}
-	//
-	//// Backwards compatibility for role assignments
-	//azureRBACIntents := lo.Filter(intents, func(intent otterizev2alpha1.Target, _ int) bool {
-	//	return intent.Azure != nil && len(intent.Azure.Roles) > 0
-	//})
-	//if err := a.ensureRoleAssignmentsForIntents(ctx, userAssignedIdentity, azureRBACIntents); err != nil {
-	//	return errors.Wrap(err)
-	//}
+	// Custom roles
+	azureCustomRolesIntents := lo.Filter(intents, func(intent otterizev2alpha1.Target, _ int) bool {
+		hasCustomRoles := intent.Azure != nil && (len(intent.Azure.Actions) > 0 || len(intent.Azure.DataActions) > 0)
+		return hasCustomRoles && len(intent.Azure.Roles) == 0
+	})
+	if err := a.ensureCustomRolesForIntents(ctx, userAssignedIdentity, azureCustomRolesIntents); err != nil {
+		return errors.Wrap(err)
+	}
+
+	// Backwards compatibility for role assignments
+	azureRBACIntents := lo.Filter(intents, func(intent otterizev2alpha1.Target, _ int) bool {
+		return intent.Azure != nil && len(intent.Azure.Roles) > 0
+	})
+	if err := a.ensureRoleAssignmentsForIntents(ctx, userAssignedIdentity, azureRBACIntents); err != nil {
+		return errors.Wrap(err)
+	}
 
 	// Key Vault permissions
 	azureKeyVaultIntents := lo.Filter(intents, func(intent otterizev2alpha1.Target, _ int) bool {
@@ -93,7 +93,7 @@ func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssigne
 		return errors.Wrap(err)
 	}
 
-	// Filter out assignments on custom roles
+	// Filter out assignments on built-in roles
 	existingRoleAssignments = lo.Filter(existingRoleAssignments, func(roleAssignment armauthorization.RoleAssignment, _ int) bool {
 		return !a.IsCustomRoleAssignment(roleAssignment)
 	})
@@ -139,7 +139,7 @@ func (a *Agent) ensureRoleAssignmentsForIntent(ctx context.Context, scope string
 		roleDefinition := roleDefinitionsByName[roleName]
 		roleDefinitionID := *roleDefinition.ID
 		if !existingRoleDefinitionIDs.Contains(roleDefinitionID) {
-			if err := a.CreateRoleAssignment(ctx, scope, userAssignedIdentity, roleDefinition); err != nil {
+			if err := a.CreateRoleAssignment(ctx, scope, userAssignedIdentity, roleDefinition, nil); err != nil {
 				return errors.Wrap(err)
 			}
 		}
@@ -174,11 +174,6 @@ func (a *Agent) deleteRoleAssignmentsWithUnexpectedScopes(ctx context.Context, e
 	for _, roleAssignment := range existingRoleAssignments {
 		scope := *roleAssignment.Properties.Scope
 		if !expectedScopesSet.Contains(scope) {
-			// Handle default role assignments
-			if strings.HasPrefix(scope, "/subscriptions/") {
-
-			}
-
 			if err := a.DeleteRoleAssignment(ctx, roleAssignment); err != nil {
 				return errors.Wrap(err)
 			}

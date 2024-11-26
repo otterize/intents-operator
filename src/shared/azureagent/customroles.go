@@ -14,11 +14,10 @@ import (
 )
 
 const (
-	// OtrzCustomRolePrefix is the prefix used for custom roles created by the Otterize agent
-	OtrzCustomRolePrefix = "ocr"
-
 	// maxRoleNameLength rules: 3-512 characters
 	maxRoleNameLength = 200
+
+	otterizeCustomRoleTag = "ocr"
 )
 
 func (a *Agent) getCustomRoleScope() string {
@@ -40,7 +39,7 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 		return to.Ptr(string(action))
 	})
 
-	id := fmt.Sprintf("%s-%s", OtrzCustomRolePrefix, uuid.NewString())
+	id := uuid.NewString()
 	name := a.GenerateCustomRoleName(uai, scope)
 	description := fmt.Sprintf("Otterize managed custom role for uai [%s] with permissions for scope [%s]", *uai.Name, scope)
 
@@ -65,7 +64,7 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 	}
 
 	// create a role assignment for the custom role
-	err = a.CreateRoleAssignment(ctx, scope, uai, resp.RoleDefinition)
+	err = a.CreateRoleAssignment(ctx, scope, uai, resp.RoleDefinition, to.Ptr(otterizeCustomRoleTag))
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -114,4 +113,37 @@ func (a *Agent) FindCustomRoleByName(ctx context.Context, name string) (*armauth
 	}
 
 	return nil, false
+}
+
+func (a *Agent) ListCustomRoleDefinitions(ctx context.Context) ([]armauthorization.RoleDefinition, error) {
+	scope := a.getCustomRoleScope()
+
+	var roles []armauthorization.RoleDefinition
+	pager := a.roleDefinitionsClient.NewListPager(scope, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+
+		for _, role := range page.Value {
+			if *role.Properties.RoleType == "CustomRole" {
+				roles = append(roles, *role)
+			}
+		}
+	}
+
+	return roles, nil
+}
+
+func (a *Agent) DeleteCustomRole(ctx context.Context, role *armauthorization.RoleDefinition) error {
+	scope := a.getCustomRoleScope()
+
+	_, err := a.roleDefinitionsClient.Delete(ctx, scope, *role.Name, nil)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
 }
