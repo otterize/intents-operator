@@ -11,20 +11,22 @@ import (
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
-	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 var KeyVaultNameRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.KeyVault/vaults/([^/]+)$`)
 
 type Agent struct {
 	*azureagent.Agent
+	roleMutex       sync.Mutex
+	assignmentMutex sync.Mutex
 }
 
 func NewAzurePolicyAgent(azureAgent *azureagent.Agent) *Agent {
-	return &Agent{azureAgent}
+	return &Agent{azureAgent, sync.Mutex{}, sync.Mutex{}}
 }
 
 func (a *Agent) IntentType() otterizev2alpha1.IntentType {
@@ -55,7 +57,7 @@ func (a *Agent) getIntentScope(intent otterizev2alpha1.Target) (string, error) {
 
 func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, _ string, intentsServiceName string, intents []otterizev2alpha1.Target, _ corev1.Pod) error {
 	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, namespace, intentsServiceName)
-	if err == nil {
+	if err != nil {
 		return errors.Wrap(err)
 	}
 
@@ -88,6 +90,10 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 }
 
 func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev2alpha1.Target) error {
+	// Lock the agent to ensure that no other goroutine is modifying the assignments
+	a.assignmentMutex.Lock()
+	defer a.assignmentMutex.Unlock()
+
 	existingRoleAssignments, err := a.ListRoleAssignments(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
@@ -319,6 +325,10 @@ func (a *Agent) vaultAccessPolicyEntryFromIntent(userAssignedIdentity armmsi.Ide
 }
 
 func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev2alpha1.Target) error {
+	// Lock the agent to ensure that no other goroutine is modifying the custom roles in parallel
+	a.roleMutex.Lock()
+	defer a.roleMutex.Unlock()
+
 	existingRoleAssignments, err := a.ListRoleAssignments(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
@@ -328,12 +338,6 @@ func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIde
 	existingRoleAssignments = lo.Filter(existingRoleAssignments, func(roleAssignment armauthorization.RoleAssignment, _ int) bool {
 		return a.IsCustomRoleAssignment(roleAssignment)
 	})
-
-	existingRoleAssignmentsByScope := lo.GroupBy(existingRoleAssignments, func(roleAssignment armauthorization.RoleAssignment) string {
-		return *roleAssignment.Properties.Scope
-	})
-
-	logrus.Debug("existingRoleAssignmentsByScope", existingRoleAssignmentsByScope)
 
 	var expectedScopes []string
 	for _, intent := range intents {

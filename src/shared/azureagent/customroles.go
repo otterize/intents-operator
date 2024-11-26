@@ -115,32 +115,10 @@ func (a *Agent) FindCustomRoleByName(ctx context.Context, name string) (*armauth
 	return nil, false
 }
 
-func (a *Agent) ListCustomRoleDefinitions(ctx context.Context) ([]armauthorization.RoleDefinition, error) {
+func (a *Agent) DeleteCustomRole(ctx context.Context, roleDefinitionID string) error {
 	scope := a.getCustomRoleScope()
 
-	var roles []armauthorization.RoleDefinition
-	pager := a.roleDefinitionsClient.NewListPager(scope, nil)
-
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err)
-		}
-
-		for _, role := range page.Value {
-			if *role.Properties.RoleType == "CustomRole" {
-				roles = append(roles, *role)
-			}
-		}
-	}
-
-	return roles, nil
-}
-
-func (a *Agent) DeleteCustomRole(ctx context.Context, role *armauthorization.RoleDefinition) error {
-	scope := a.getCustomRoleScope()
-
-	_, err := a.roleDefinitionsClient.Delete(ctx, scope, *role.Name, nil)
+	_, err := a.roleDefinitionsClient.Delete(ctx, scope, roleDefinitionID, nil)
 	if err != nil {
 		return errors.Wrap(err)
 	}

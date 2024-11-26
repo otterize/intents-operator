@@ -9,9 +9,13 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"strings"
 )
 
 func (a *Agent) IsCustomRoleAssignment(roleAssignment armauthorization.RoleAssignment) bool {
+	if roleAssignment.Properties.Description == nil {
+		return false
+	}
 	return *roleAssignment.Properties.Description == otterizeCustomRoleTag
 }
 
@@ -49,6 +53,18 @@ func (a *Agent) DeleteRoleAssignment(ctx context.Context, roleAssignment armauth
 	if err != nil {
 		return errors.Wrap(err)
 	}
+
+	// If the assignment is for a custom role, we also need to delete the role itself
+	if a.IsCustomRoleAssignment(roleAssignment) {
+		// The role id is the last hash of the assignments roleDefinitionID
+		fullID := *roleAssignment.Properties.RoleDefinitionID
+		roleDefinitionID := fullID[strings.LastIndex(fullID, "/")+1:]
+
+		if err := a.DeleteCustomRole(ctx, roleDefinitionID); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
 	return nil
 }
 
@@ -96,31 +112,4 @@ func (a *Agent) FindRoleDefinitionByName(ctx context.Context, scope string, role
 	}
 
 	return roleDefinitionsByName, nil
-}
-
-func (a *Agent) ListCustomRoleAssignments(ctx context.Context, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
-	roleAssignments, err := a.ListRoleAssignments(ctx, userAssignedIdentity)
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-
-	roleDefinitions, err := a.ListCustomRoleDefinitions(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-
-	roleDefinitionsByName := map[string]armauthorization.RoleDefinition{}
-	for _, roleDef := range roleDefinitions {
-		roleDefinitionsByName[*roleDef.Properties.RoleName] = roleDef
-	}
-
-	var customRoleAssignments []armauthorization.RoleAssignment
-	for _, roleAssignment := range roleAssignments {
-		roleDef, exists := roleDefinitionsByName[*roleAssignment.Properties.RoleDefinitionID]
-		if exists && *roleDef.Properties.RoleType == "CustomRole" {
-			customRoleAssignments = append(customRoleAssignments, roleAssignment)
-		}
-	}
-
-	return customRoleAssignments, nil
 }
