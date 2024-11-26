@@ -1737,6 +1737,11 @@ type Mutation {
 		id: ID!
 		userId: ID!
 	): ID!
+"""Ignore domain for organization"""
+	ignoreOrganizationDomain(
+		id: ID!
+		domain: String!
+	): Organization!
 	reportProtectedServicesSnapshot(
 		namespace: String!
 		services: [ProtectedServiceInput!]!
@@ -1853,11 +1858,13 @@ type Organization {
 type OrganizationSettings {
 	domains: [String!]
 	enforcedRegulations: [String!]
+	ignoredCloudDomains: [String!]
 }
 
 input OrganizationSettingsInput {
 	domains: [String!]
 	enforcedRegulations: [String]
+	ignoredCloudDomains: [String!]
 }
 
 input PaginationInput {
