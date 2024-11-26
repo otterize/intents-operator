@@ -222,7 +222,11 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestAddRolePolicyFromIntents_AzureKeyV
 
 			clientId := uuid.NewString()
 			s.expectGetUserAssignedIdentityReturnsClientID(clientId)
+
+			// Two calls - one from custom roles and one from backwards compatibility to built-in roles
 			s.expectListRoleAssignmentsReturnsEmpty()
+			s.expectListRoleAssignmentsReturnsEmpty()
+
 			s.expectListKeyVaultsReturnsNames(testKeyVaultName)
 
 			for _, policy := range testCase.ExisingAccessPolicy {
