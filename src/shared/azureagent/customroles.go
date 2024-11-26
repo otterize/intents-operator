@@ -17,7 +17,7 @@ const (
 	// maxRoleNameLength rules: 3-512 characters
 	maxRoleNameLength = 200
 
-	otterizeCustomRoleTag = "ocr"
+	otterizeCustomRoleTag = "OtterizeCustomRole"
 )
 
 func (a *Agent) getCustomRoleScope() string {

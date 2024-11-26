@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sync"
 	"testing"
 )
 
@@ -64,6 +65,8 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 			s.mockRoleAssignmentsClient,
 			s.mockVaultsClient,
 		),
+		sync.Mutex{},
+		sync.Mutex{},
 	}
 }
 

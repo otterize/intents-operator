@@ -4,6 +4,7 @@ import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/stretchr/testify/suite"
+	"sync"
 	"testing"
 )
 
@@ -35,6 +36,8 @@ func (s *AzureAgentPoliciesSuite) SetupTest() {
 				ResourceGroup:  testResourceGroup,
 			},
 		},
+		sync.Mutex{},
+		sync.Mutex{},
 	}
 }
 
