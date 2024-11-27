@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/rolesanywhere v1.9.0
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/cert-manager/cert-manager v1.12.3
-	github.com/otterize/intents-operator/src v0.0.0-20240922193632-8258e2a8a1d0
+	github.com/otterize/intents-operator/src v0.0.0-20241127113746-95f6fa0446b2
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.1
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.0
@@ -20,7 +20,7 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.1.1
 	github.com/spiffe/spire v1.4.3
 	github.com/spiffe/spire-api-sdk v1.3.1
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.10.0
 	github.com/suessflorian/gqlfetch v0.6.0
 	go.uber.org/mock v0.2.0
 	golang.org/x/exp v0.0.0-20230124195608-d38c7dcee874
@@ -50,10 +50,7 @@ require (
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.1 // indirect
 	github.com/DataDog/datadog-go v3.2.0+incompatible // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
-	github.com/agnivade/levenshtein v1.1.1 // indirect
 	github.com/aidarkhanov/nanoid v1.0.8 // indirect
-	github.com/alexflint/go-arg v1.4.2 // indirect
-	github.com/alexflint/go-scalar v1.0.0 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/aws/aws-sdk-go v1.51.21 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.26.0 // indirect
@@ -137,21 +134,21 @@ require (
 	github.com/twmb/murmur3 v1.1.6 // indirect
 	github.com/uber-go/tally/v4 v4.1.3 // indirect
 	github.com/vektah/gqlparser v1.3.1 // indirect
-	github.com/vektah/gqlparser/v2 v2.5.11 // indirect
+	github.com/vektah/gqlparser/v2 v2.5.20 // indirect
 	github.com/zeebo/errs v1.3.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/net v0.25.0 // indirect
+	golang.org/x/crypto v0.29.0 // indirect
+	golang.org/x/mod v0.22.0 // indirect
+	golang.org/x/net v0.31.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.20.0 // indirect
-	golang.org/x/term v0.20.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
+	golang.org/x/sync v0.9.0 // indirect
+	golang.org/x/sys v0.27.0 // indirect
+	golang.org/x/term v0.26.0 // indirect
+	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.21.0 // indirect
+	golang.org/x/tools v0.27.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
