@@ -252,6 +252,11 @@ type AzureResource {
 	resource: String!
 }
 
+type BasicEntity {
+	id: ID!
+	name: String!
+}
+
 """The `Boolean` scalar type represents `true` or `false`."""
 scalar Boolean
 
@@ -707,6 +712,21 @@ type FeatureFlags {
 	isCloudSecurityEnabled: Boolean
 }
 
+type Finding {
+	service: BasicEntity!
+	server: BasicEntity!
+	cluster: BasicEntity!
+	reason: String!
+	status: FindingStatus!
+}
+
+"""NEW findings"""
+enum FindingStatus {
+	OPEN
+	RESOLVED
+	IGNORED
+}
+
 type FindingSummary {
 	standard: RegulationStandard!
 	codeLabel: String!
@@ -719,6 +739,21 @@ type FindingSummary {
 	clusterCount: Int!
 	serviceCount: Int!
 	requirements: [FindingSummary!]
+}
+
+type FindingSummaryV2 {
+	standard: RegulationStandard!
+	code: RegulationCode!
+	codeLabel: String!
+	severity: Severity!
+	description: String!
+	validationDescription: String
+	status: FindingStatus!
+	serviceTotalCount: Int!
+	serviceOpenCount: Int!
+	clusterTotalCount: Int!
+	clusterOpenCount: Int!
+	requirements: [FindingSummaryV2!]
 }
 
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
@@ -927,6 +962,8 @@ input InputFindingFilter {
 """ Findings filter """
 	severity: InputIDFilterValue
 """ Findings filter """
+	status: InputIDFilterValue
+""" Findings filter """
 	clusterIds: InputIDFilterValue
 """ Findings filter """
 	serviceIds: InputIDFilterValue
@@ -1089,6 +1126,8 @@ type Intent {
 	databaseResources: [DatabaseConfig!]
 	awsActions: [String!]
 	azureRoles: [String!]
+	azureActions: [String!]
+	azureDataActions: [String!]
 	azureKeyVaultPolicy: AzureKeyVaultPolicy
 	gcpPermissions: [String!]
 	internet: InternetConfig
@@ -1109,6 +1148,8 @@ input IntentInput {
 	databaseResources: [DatabaseConfigInput!]
 	awsActions: [String!]
 	azureRoles: [String!]
+	azureActions: [String!]
+	azureDataActions: [String!]
 	azureKeyVaultPolicy: AzureKeyVaultPolicyInput
 	gcpPermissions: [String!]
 	internet: InternetConfigInput
@@ -1953,6 +1994,13 @@ type Query {
 		filter: InputFindingFilter
 		tree: Boolean
 	): Dashboard!
+"""NEW findings"""
+	findingSummary(
+		filter: InputFindingFilter
+	): [FindingSummaryV2!]!
+	findingsV2(
+		filter: InputFindingFilter
+	): [Finding!]!
 """List integrations"""
 	integrations(
 		name: String
