@@ -17,7 +17,7 @@ const (
 	// maxRoleNameLength rules: 3-512 characters
 	maxRoleNameLength = 200
 
-	otterizeCustomRoleTag = "OtterizeCustomRole"
+	OtterizeCustomRoleTag = "OtterizeCustomRole"
 )
 
 func (a *Agent) getCustomRoleScope() string {
@@ -29,7 +29,7 @@ func (a *Agent) GenerateCustomRoleName(uai armmsi.Identity, scope string) string
 	return agentutils.TruncateHashName(fullName, maxRoleNameLength)
 }
 
-func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.Identity, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) error {
+func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.Identity, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) (*armauthorization.RoleDefinition, error) {
 	roleScope := a.getCustomRoleScope()
 
 	formattedActions := lo.Map(actions, func(action v2alpha1.AzureAction, _ int) *string {
@@ -60,16 +60,10 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 	// create the custom role
 	resp, err := a.roleDefinitionsClient.CreateOrUpdate(ctx, roleScope, id, roleDefinition, nil)
 	if err != nil {
-		return errors.Wrap(err)
+		return nil, errors.Wrap(err)
 	}
 
-	// create a role assignment for the custom role
-	err = a.CreateRoleAssignment(ctx, scope, uai, resp.RoleDefinition, to.Ptr(otterizeCustomRoleTag))
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	return nil
+	return &resp.RoleDefinition, nil
 }
 
 func (a *Agent) UpdateCustomRole(ctx context.Context, role *armauthorization.RoleDefinition, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) error {

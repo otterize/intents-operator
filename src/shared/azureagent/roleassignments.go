@@ -16,7 +16,7 @@ func (a *Agent) IsCustomRoleAssignment(roleAssignment armauthorization.RoleAssig
 	if roleAssignment.Properties.Description == nil {
 		return false
 	}
-	return *roleAssignment.Properties.Description == otterizeCustomRoleTag
+	return *roleAssignment.Properties.Description == OtterizeCustomRoleTag
 }
 
 func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition, desc *string) error {

@@ -3,6 +3,7 @@ package azurepolicyagent
 import (
 	"context"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
@@ -373,8 +374,15 @@ func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdent
 			return errors.Wrap(err)
 		}
 	} else {
-		err := a.CreateCustomRole(ctx, scope, userAssignedIdentity, actions, dataActions)
+		newRole, err := a.CreateCustomRole(ctx, scope, userAssignedIdentity, actions, dataActions)
 		if err != nil {
+			return errors.Wrap(err)
+		}
+
+		// create a role assignment for the custom role
+		err = a.CreateRoleAssignment(ctx, scope, userAssignedIdentity, *newRole, to.Ptr(azureagent.OtterizeCustomRoleTag))
+		if err != nil {
+			// TODO: handle case when custom role is created and role assignment fails
 			return errors.Wrap(err)
 		}
 	}
