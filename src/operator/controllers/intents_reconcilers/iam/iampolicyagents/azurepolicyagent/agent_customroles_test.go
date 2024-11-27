@@ -2,7 +2,6 @@ package azurepolicyagent
 
 import (
 	"context"
-	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
@@ -20,9 +19,10 @@ import (
 
 type AzureCustomRoleTestCase struct {
 	Name                   string
+	Roles                  []string
 	Actions                []otterizev2alpha1.AzureAction
 	DataActions            []otterizev2alpha1.AzureDataAction
-	ExisingCustomRoles     []*armauthorization.RoleDefinition
+	ExisingRoles           []*armauthorization.RoleDefinition
 	UpdateExpected         bool
 	ShouldCreateAssignment bool
 }
@@ -42,8 +42,8 @@ type AzureAgentPoliciesCustomRolesSuite struct {
 	agent *Agent
 }
 
-func (s *AzureAgentPoliciesCustomRolesSuite) expectListRoleDefinitionsReturnsEmpty(scope string, roles []*armauthorization.RoleDefinition) {
-	s.mockRoleDefinitionsClient.EXPECT().NewListPager(scope, gomock.Any()).Return(azureagent.NewListPager[armauthorization.RoleDefinitionsClientListResponse](
+func (s *AzureAgentPoliciesCustomRolesSuite) expectListRoleDefinitionsReturnsPager(roles []*armauthorization.RoleDefinition) {
+	s.mockRoleDefinitionsClient.EXPECT().NewListPager(gomock.Any(), gomock.Any()).Return(azureagent.NewListPager[armauthorization.RoleDefinitionsClientListResponse](
 		armauthorization.RoleDefinitionsClientListResponse{
 			RoleDefinitionListResult: armauthorization.RoleDefinitionListResult{
 				Value: roles,
@@ -136,17 +136,21 @@ var azureCustomRoleTestCases = []AzureCustomRoleTestCase{
 		Actions: []otterizev2alpha1.AzureAction{
 			"Microsoft.Storage/storageAccounts/blobServices/containers/read",
 		},
-		ExisingCustomRoles:     nil,
+		DataActions: []otterizev2alpha1.AzureDataAction{
+			"Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",
+			"Microsoft.Storage/storageAccounts/blobServices/containers/blobs/add/action",
+		},
+		ExisingRoles:           nil,
 		UpdateExpected:         true,
 		ShouldCreateAssignment: true,
 	},
 	{
-		Name: "AddsNewPolicy",
+		Name: "UpdatesExistingPolicy",
 		Actions: []otterizev2alpha1.AzureAction{
 			"Microsoft.Storage/storageAccounts/blobServices/containers/read",
 			"Microsoft.Storage/storageAccounts/blobServices/containers/write",
 		},
-		ExisingCustomRoles: []*armauthorization.RoleDefinition{
+		ExisingRoles: []*armauthorization.RoleDefinition{
 			{
 				Name: to.Ptr("otterizeCustomRole"),
 				Properties: &armauthorization.RoleDefinitionProperties{
@@ -163,6 +167,36 @@ var azureCustomRoleTestCases = []AzureCustomRoleTestCase{
 		UpdateExpected:         true,
 		ShouldCreateAssignment: false,
 	},
+	{
+		// This test case is for backwards compatibility with the old built-in roles
+		// The storage blob is a builtin (existing role) that is being used in the new custom role
+		// No custom role should be created - only assignment
+		Name: "BackwardsCompatibility",
+		Roles: []string{
+			"Storage Blob Data Reader",
+		},
+		Actions: []otterizev2alpha1.AzureAction{
+			"Microsoft.Storage/storageAccounts/blobServices/containers/read",
+		},
+		ExisingRoles: []*armauthorization.RoleDefinition{
+			{
+				ID:   to.Ptr("Storage Blob Data Reader"),
+				Name: to.Ptr("Storage Blob Data Reader"),
+				Properties: &armauthorization.RoleDefinitionProperties{
+					RoleName: to.Ptr("Storage Blob Data Reader"),
+					Permissions: []*armauthorization.Permission{
+						{
+							Actions: []*string{
+								to.Ptr("Microsoft.Storage/storageAccounts/blobServices/containers/read"),
+							},
+						},
+					},
+				},
+			},
+		},
+		UpdateExpected:         false,
+		ShouldCreateAssignment: true,
+	},
 }
 
 func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_CustomRoles() {
@@ -172,13 +206,12 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 				{
 					Azure: &otterizev2alpha1.AzureTarget{
 						Scope:       "/providers/Microsoft.Storage/storageAccounts/test/blobServices/default/containers/container",
+						Roles:       testCase.Roles,
 						Actions:     testCase.Actions,
 						DataActions: testCase.DataActions,
 					},
 				},
 			}
-
-			customRoleScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", testSubscriptionID, testResourceGroup)
 
 			clientId := uuid.NewString()
 			s.expectGetUserAssignedIdentityReturnsClientID(clientId)
@@ -190,14 +223,16 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 			s.expectListRoleAssignmentsReturnsEmpty()
 
 			// CustomRole related calls
-			s.expectListRoleDefinitionsReturnsEmpty(customRoleScope, testCase.ExisingCustomRoles)
+			s.expectListRoleDefinitionsReturnsPager(testCase.ExisingRoles)
 			if testCase.ShouldCreateAssignment {
 				s.expectCreateRoleAssignmentReturnsEmpty()
 			}
 
 			// Make sure the custom role is created
 			var customRoleDefinition armauthorization.RoleDefinition
-			s.expectCreateOrUpdateRoleDefinitionWriteRoleDefinition(&customRoleDefinition)
+			if testCase.UpdateExpected {
+				s.expectCreateOrUpdateRoleDefinitionWriteRoleDefinition(&customRoleDefinition)
+			}
 
 			err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, intents, corev1.Pod{})
 			s.NoError(err)
