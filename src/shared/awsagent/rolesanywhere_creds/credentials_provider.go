@@ -57,6 +57,12 @@ func getCredentials(keyPath string, certPath string, roleARN string, account ope
 
 	leaf := certs[0]
 	intermediates := certs[1:]
+	if len(intermediates) == 0 {
+		// awssh.CreateSignFunction compares the intermediates slice to nil to check if the 'X-Amz-X509-Chain' header should be added to the request,
+		// and starting at some point, the AWS API started rejecting requests with an existing-yet-empty 'X-Amz-X509-Chain' header.
+		// To avoid this, we set the intermediates slice to nil if it's empty.
+		intermediates = nil
+	}
 
 	privKey, err := os.ReadFile(keyPath)
 	if err != nil {
