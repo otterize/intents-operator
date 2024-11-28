@@ -26,7 +26,7 @@ func GetClusterUID(ctx context.Context) (string, error) {
 	podNamespace := os.Getenv("POD_NAMESPACE")
 	configMap, err := k8sclient.CoreV1().ConfigMaps(podNamespace).Get(ctx, OtterizeClusterUIDResourceName, metav1.GetOptions{})
 	if err != nil {
-		return "", err // DO NOT wrap this error as it causes the error to not be identified by k8serrors.IsType(err)
+		return "", errors.Wrap(err)
 	}
 
 	clusterUID, ok := configMap.Data[OtterizeClusterUIDKeyName]
@@ -76,12 +76,14 @@ func SetClusterUID(ctx context.Context) (string, error) {
 func getOrCreateClusterUID(ctx context.Context) (string, error) {
 	clusterUID, err := GetClusterUID(ctx)
 	if err != nil {
-		if k8serrors.IsNotFound(errors.Unwrap(err)) {
-			clusterUID, err = SetClusterUID(ctx)
-			if err != nil {
-				return "", errors.Wrap(err)
+		if k8sErr := &(k8serrors.StatusError{}); errors.As(err, &k8sErr) {
+			if k8serrors.IsNotFound(k8sErr) {
+				clusterUID, err = SetClusterUID(ctx)
+				if err != nil {
+					return "", errors.Wrap(err)
+				}
+				return clusterUID, nil
 			}
-			return clusterUID, nil
 		}
 		return "", errors.Wrap(err)
 	}
