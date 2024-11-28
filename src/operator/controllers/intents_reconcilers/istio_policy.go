@@ -80,8 +80,10 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.policyManager.DeleteAll(ctx, intents)
 		if err != nil {
-			if k8serrors.IsConflict(errors.Unwrap(err)) {
-				return ctrl.Result{Requeue: true}, nil
+			if k8sErr := &(k8serrors.StatusError{}); errors.As(err, &k8sErr) {
+				if k8serrors.IsConflict(k8sErr) {
+					return ctrl.Result{Requeue: true}, nil
+				}
 			}
 			r.RecordWarningEventf(intents, consts.ReasonRemovingIstioPolicyFailed, "Could not remove Istio policies: %s", err.Error())
 			return ctrl.Result{}, errors.Wrap(err)
