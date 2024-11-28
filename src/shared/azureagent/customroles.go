@@ -17,7 +17,8 @@ const (
 	// maxRoleNameLength rules: 3-512 characters
 	maxRoleNameLength = 200
 
-	OtterizeCustomRoleTag = "OtterizeCustomRole"
+	OtterizeCustomRoleTag         = "OtterizeCustomRole"
+	OtterizeCustomRoleDescription = "This custom role was created by the Otterize intents-operator's Azure integration. For more details, go to https://otterize.com"
 )
 
 func (a *Agent) getCustomRoleScope() string {
@@ -41,12 +42,11 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 
 	id := uuid.NewString()
 	name := a.GenerateCustomRoleName(uai, scope)
-	description := fmt.Sprintf("Otterize managed custom role for uai [%s] with permissions for scope [%s]", *uai.Name, scope)
 
 	roleDefinition := armauthorization.RoleDefinition{
 		Properties: &armauthorization.RoleDefinitionProperties{
 			RoleName:         to.Ptr(name),
-			Description:      to.Ptr(description),
+			Description:      to.Ptr(OtterizeCustomRoleDescription),
 			AssignableScopes: []*string{to.Ptr(scope)}, // Where the role can be assigned
 			Permissions: []*armauthorization.Permission{
 				{
