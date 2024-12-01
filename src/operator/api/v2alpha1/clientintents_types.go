@@ -276,11 +276,20 @@ type GCPTarget struct {
 }
 
 type AzureTarget struct {
-	Scope string   `json:"scope,omitempty" yaml:"scope,omitempty"`
+	Scope string `json:"scope,omitempty" yaml:"scope,omitempty"`
+	//+optional
 	Roles []string `json:"roles,omitempty" yaml:"roles,omitempty"`
 	//+optional
 	KeyVaultPolicy *AzureKeyVaultPolicy `json:"keyVaultPolicy,omitempty" yaml:"keyVaultPolicy,omitempty"`
+	//+optional
+	Actions []AzureAction `json:"actions,omitempty" yaml:"actions,omitempty"`
+	//+optional
+	DataActions []AzureDataAction `json:"dataActions,omitempty" yaml:"dataActions,omitempty"`
 }
+
+type AzureAction string
+
+type AzureDataAction string
 
 type KubernetesTarget struct {
 	Name string `json:"name" yaml:"name"`
@@ -874,6 +883,13 @@ func (in *Target) ConvertToCloudFormat(ctx context.Context, k8sClient client.Cli
 
 	if in.Azure != nil {
 		intentInput.AzureRoles = lo.ToSlicePtr(in.Azure.Roles)
+		intentInput.AzureActions = lo.Map(in.Azure.Actions, func(action AzureAction, _ int) *string {
+			return lo.ToPtr(string(action))
+		})
+		intentInput.AzureDataActions = lo.Map(in.Azure.DataActions, func(action AzureDataAction, _ int) *string {
+			return lo.ToPtr(string(action))
+		})
+
 		if in.Azure.KeyVaultPolicy != nil {
 			intentInput.AzureKeyVaultPolicy = &graphqlclient.AzureKeyVaultPolicyInput{
 				CertificatePermissions: enumSliceToStrPtrSlice(in.Azure.KeyVaultPolicy.CertificatePermissions),

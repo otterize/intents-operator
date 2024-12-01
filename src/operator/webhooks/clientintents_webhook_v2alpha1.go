@@ -385,6 +385,24 @@ func (v *IntentsValidatorV2alpha1) validateAzureTarget(azureTarget *otterizev2al
 			Detail: "invalid intent format, field scope is required",
 		}
 	}
+	// check that at least one of the optional fields is set
+	if len(azureTarget.Actions) == 0 && len(azureTarget.DataActions) == 0 && len(azureTarget.Roles) == 0 && azureTarget.KeyVaultPolicy == nil {
+		return &field.Error{
+			Type:   field.ErrorTypeRequired,
+			Field:  "actions",
+			Detail: "invalid intent format, at least one of [actions, dataActions, roles, keyVaultPolicy] must be set",
+		}
+	}
+
+	// check that that if intents uses actions/dataActions then roles must be empty (and vice versa)
+	if (len(azureTarget.Actions) > 0 || len(azureTarget.DataActions) > 0) && len(azureTarget.Roles) > 0 {
+		return &field.Error{
+			Type:   field.ErrorTypeRequired,
+			Field:  "roles",
+			Detail: "invalid intent format, if actions or dataActions are set, roles must be empty",
+		}
+	}
+
 	return nil
 
 }

@@ -36,6 +36,8 @@ type AzureARMMSIFederatedIdentityCredentialsClient interface {
 }
 
 type AzureARMAuthorizationRoleDefinitionsClient interface {
+	Delete(ctx context.Context, scope string, roleDefinitionID string, options *armauthorization.RoleDefinitionsClientDeleteOptions) (armauthorization.RoleDefinitionsClientDeleteResponse, error)
+	CreateOrUpdate(ctx context.Context, scope string, roleDefinitionID string, roleDefinition armauthorization.RoleDefinition, options *armauthorization.RoleDefinitionsClientCreateOrUpdateOptions) (armauthorization.RoleDefinitionsClientCreateOrUpdateResponse, error)
 	NewListPager(scope string, options *armauthorization.RoleDefinitionsClientListOptions) *runtime.Pager[armauthorization.RoleDefinitionsClientListResponse]
 }
 

@@ -248,22 +248,28 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 		}
 		if call.Type == IntentTypeAzure {
 			dst.Spec.Targets[i] = v2alpha1.Target{Azure: lo.ToPtr(v2alpha1.AzureTarget{Scope: call.Name, Roles: call.AzureRoles})}
-			if call.AzureKeyVaultPolicy == nil {
-				continue
+			if len(call.AzureActions) > 0 {
+				dst.Spec.Targets[i].Azure.Actions = lo.Map(call.AzureActions, func(action AzureAction, _ int) v2alpha1.AzureAction { return v2alpha1.AzureAction(action) })
 			}
-			dst.Spec.Targets[i].Azure.KeyVaultPolicy = &v2alpha1.AzureKeyVaultPolicy{}
-			dst.Spec.Targets[i].Azure.KeyVaultPolicy.KeyPermissions = lo.Map(call.AzureKeyVaultPolicy.KeyPermissions, func(permission AzureKeyVaultKeyPermission, _ int) v2alpha1.AzureKeyVaultKeyPermission {
-				return v2alpha1.AzureKeyVaultKeyPermission(permission)
-			})
-			dst.Spec.Targets[i].Azure.KeyVaultPolicy.SecretPermissions = lo.Map(call.AzureKeyVaultPolicy.SecretPermissions, func(permission AzureKeyVaultSecretPermission, _ int) v2alpha1.AzureKeyVaultSecretPermission {
-				return v2alpha1.AzureKeyVaultSecretPermission(permission)
-			})
-			dst.Spec.Targets[i].Azure.KeyVaultPolicy.CertificatePermissions = lo.Map(call.AzureKeyVaultPolicy.CertificatePermissions, func(permission AzureKeyVaultCertificatePermission, _ int) v2alpha1.AzureKeyVaultCertificatePermission {
-				return v2alpha1.AzureKeyVaultCertificatePermission(permission)
-			})
-			dst.Spec.Targets[i].Azure.KeyVaultPolicy.StoragePermissions = lo.Map(call.AzureKeyVaultPolicy.StoragePermissions, func(permission AzureKeyVaultStoragePermission, _ int) v2alpha1.AzureKeyVaultStoragePermission {
-				return v2alpha1.AzureKeyVaultStoragePermission(permission)
-			})
+			if len(call.AzureDataActions) > 0 {
+				dst.Spec.Targets[i].Azure.DataActions = lo.Map(call.AzureDataActions, func(action AzureDataAction, _ int) v2alpha1.AzureDataAction { return v2alpha1.AzureDataAction(action) })
+			}
+
+			if call.AzureKeyVaultPolicy != nil {
+				dst.Spec.Targets[i].Azure.KeyVaultPolicy = &v2alpha1.AzureKeyVaultPolicy{}
+				dst.Spec.Targets[i].Azure.KeyVaultPolicy.KeyPermissions = lo.Map(call.AzureKeyVaultPolicy.KeyPermissions, func(permission AzureKeyVaultKeyPermission, _ int) v2alpha1.AzureKeyVaultKeyPermission {
+					return v2alpha1.AzureKeyVaultKeyPermission(permission)
+				})
+				dst.Spec.Targets[i].Azure.KeyVaultPolicy.SecretPermissions = lo.Map(call.AzureKeyVaultPolicy.SecretPermissions, func(permission AzureKeyVaultSecretPermission, _ int) v2alpha1.AzureKeyVaultSecretPermission {
+					return v2alpha1.AzureKeyVaultSecretPermission(permission)
+				})
+				dst.Spec.Targets[i].Azure.KeyVaultPolicy.CertificatePermissions = lo.Map(call.AzureKeyVaultPolicy.CertificatePermissions, func(permission AzureKeyVaultCertificatePermission, _ int) v2alpha1.AzureKeyVaultCertificatePermission {
+					return v2alpha1.AzureKeyVaultCertificatePermission(permission)
+				})
+				dst.Spec.Targets[i].Azure.KeyVaultPolicy.StoragePermissions = lo.Map(call.AzureKeyVaultPolicy.StoragePermissions, func(permission AzureKeyVaultStoragePermission, _ int) v2alpha1.AzureKeyVaultStoragePermission {
+					return v2alpha1.AzureKeyVaultStoragePermission(permission)
+				})
+			}
 		}
 		if call.Type == IntentTypeInternet && call.Internet != nil {
 			dst.Spec.Targets[i] = v2alpha1.Target{Internet: lo.ToPtr(v2alpha1.Internet{Domains: call.Internet.Domains, Ports: call.Internet.Ports, Ips: call.Internet.Ips})}
@@ -335,6 +341,12 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 		}
 		if target.Azure != nil {
 			in.Spec.Calls[i] = Intent{Type: IntentTypeAzure, Name: target.Azure.Scope, AzureRoles: target.Azure.Roles}
+			if len(target.Azure.Actions) > 0 {
+				in.Spec.Calls[i].AzureActions = lo.Map(target.Azure.Actions, func(action v2alpha1.AzureAction, _ int) AzureAction { return AzureAction(action) })
+			}
+			if len(target.Azure.DataActions) > 0 {
+				in.Spec.Calls[i].AzureDataActions = lo.Map(target.Azure.DataActions, func(action v2alpha1.AzureDataAction, _ int) AzureDataAction { return AzureDataAction(action) })
+			}
 			if target.Azure.KeyVaultPolicy == nil {
 				continue
 			}

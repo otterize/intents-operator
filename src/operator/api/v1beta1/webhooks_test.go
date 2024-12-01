@@ -241,6 +241,51 @@ func (t *WebhooksTestSuite) TestClientIntentsFromV2_EmptySliceHTTPShouldNotBeTyp
 	t.Require().Equal("", string(converted.Spec.Calls[1].Type))
 }
 
+func (t *WebhooksTestSuite) TestClientIntentsAzureActionsDataActions() {
+	// Create a ClientIntents with random data
+	original := &ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "test",
+		},
+		Spec: &IntentsSpec{
+			Service: Service{
+				Name: "test",
+			},
+			Calls: []Intent{
+				{
+					Name: "testscope1",
+					Type: IntentTypeAzure,
+					AzureDataActions: []AzureDataAction{
+						"testDataAction1",
+						"testDataAction2",
+					},
+				},
+				{
+					Name: "testscope2",
+					Type: IntentTypeAzure,
+					AzureActions: []AzureAction{
+						"testAction1",
+						"testAction2",
+					},
+				},
+			},
+		},
+	}
+
+	// ConvertTo
+	dstRaw := &v2alpha1.ClientIntents{}
+	err := original.ConvertTo(dstRaw)
+	t.Require().NoError(err)
+
+	// ConvertFrom
+	converted := &ClientIntents{}
+	err = converted.ConvertFrom(dstRaw)
+	t.Require().NoError(err)
+
+	t.Require().Equal(original.Spec, converted.Spec)
+}
+
 func TestWebhooksTestSuite(t *testing.T) {
 	suite.Run(t, new(WebhooksTestSuite))
 }
