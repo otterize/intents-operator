@@ -473,6 +473,14 @@ spec:
                       items:
                         type: string
                       type: array
+                    azureActions:
+                      items:
+                        type: string
+                      type: array
+                    azureDataActions:
+                      items:
+                        type: string
+                      type: array
                     azureKeyVaultPolicy:
                       properties:
                         certificatePermissions:
@@ -726,6 +734,14 @@ spec:
                       type: object
                     azure:
                       properties:
+                        actions:
+                          items:
+                            type: string
+                          type: array
+                        dataActions:
+                          items:
+                            type: string
+                          type: array
                         keyVaultPolicy:
                           properties:
                             certificatePermissions:
@@ -905,7 +921,6 @@ spec:
                         name:
                           type: string
                       required:
-                      - kind
                       - name
                       type: object
                     service:

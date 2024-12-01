@@ -15,6 +15,7 @@ import (
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sync"
 	"testing"
 )
 
@@ -64,6 +65,8 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 			s.mockRoleAssignmentsClient,
 			s.mockVaultsClient,
 		),
+		sync.Mutex{},
+		sync.Mutex{},
 	}
 }
 
@@ -116,7 +119,6 @@ func (s *AzureAgentPoliciesKeyVaultSuite) expectUpdateKeyVaultAccessPolicyWrites
 			*updatedPolicy = parameters
 			return armkeyvault.VaultsClientUpdateAccessPolicyResponse{}, nil
 		})
-
 }
 
 type AzureKeyVaultPolicyTestCase struct {
@@ -219,7 +221,11 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestAddRolePolicyFromIntents_AzureKeyV
 
 			clientId := uuid.NewString()
 			s.expectGetUserAssignedIdentityReturnsClientID(clientId)
+
+			// Two calls - one from custom roles and one from backwards compatibility to built-in roles
 			s.expectListRoleAssignmentsReturnsEmpty()
+			s.expectListRoleAssignmentsReturnsEmpty()
+
 			s.expectListKeyVaultsReturnsNames(testKeyVaultName)
 
 			for _, policy := range testCase.ExisingAccessPolicy {

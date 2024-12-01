@@ -27,11 +27,9 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/health"
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
-	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesconfig"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
@@ -68,7 +66,6 @@ func NewIntentsReconciler(
 	kafkaServerStore kafkaacls.ServersStore,
 	restrictToNamespaces []string,
 	enforcementConfig enforcement.Config,
-	otterizeClient operator_cloud_client.CloudClient,
 	operatorPodName string,
 	operatorPodNamespace string,
 	additionalReconcilers ...reconcilergroup.ReconcilerWithEvents,
@@ -94,16 +91,6 @@ func NewIntentsReconciler(
 	intentsReconciler := &IntentsReconciler{
 		group:  reconcilersGroup,
 		client: client,
-	}
-
-	if telemetriesconfig.IsUsageTelemetryEnabled() {
-		telemetryReconciler := intents_reconcilers.NewTelemetryReconciler(client, scheme)
-		intentsReconciler.group.AddToGroup(telemetryReconciler)
-	}
-
-	if otterizeClient != nil {
-		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(client, scheme, otterizeClient)
-		intentsReconciler.group.AddToGroup(otterizeCloudReconciler)
 	}
 
 	if enforcementConfig.EnableDatabasePolicy {
@@ -168,9 +155,12 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
-		health.UpdateLastReconcileEndTime()
 	}
 
+	// Only consider reconcile ended if no error and no requeue.
+	if result.IsZero() {
+		health.UpdateLastReconcileEndTime()
+	}
 	return result, nil
 }
 

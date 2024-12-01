@@ -33,6 +33,7 @@ require (
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/bugsnag/bugsnag-go/v2 v2.2.0
 	github.com/go-sql-driver/mysql v1.8.1
+	github.com/go-test/deep v1.1.1
 	github.com/golang/mock v1.6.0
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.5.0

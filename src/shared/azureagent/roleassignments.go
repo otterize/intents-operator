@@ -9,11 +9,19 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"strings"
 )
 
-func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition) error {
+func (a *Agent) IsCustomRoleAssignment(roleAssignment armauthorization.RoleAssignment) bool {
+	if roleAssignment.Properties.Description == nil {
+		return false
+	}
+	return *roleAssignment.Properties.Description == OtterizeCustomRoleTag
+}
+
+func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition, desc *string) error {
 	roleAssignmentName := uuid.NewString()
-	roleAssignment, err := a.roleAssignmentsClient.Create(
+	_, err := a.roleAssignmentsClient.Create(
 		ctx,
 		scope,
 		roleAssignmentName,
@@ -22,16 +30,13 @@ func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssi
 				PrincipalID:      userAssignedIdentity.Properties.PrincipalID,
 				PrincipalType:    lo.ToPtr(armauthorization.PrincipalTypeServicePrincipal),
 				RoleDefinitionID: roleDefinition.ID,
+				Description:      desc,
 			},
 		},
 		nil)
 	if err != nil {
 		return errors.Wrap(err)
 	}
-	logrus.WithField("scope", *roleAssignment.Properties.Scope).
-		WithField("role", *roleAssignment.Properties.RoleDefinitionID).
-		WithField("assignment", *roleAssignment.Name).
-		Debug("role assignment created")
 	return nil
 }
 
@@ -44,6 +49,18 @@ func (a *Agent) DeleteRoleAssignment(ctx context.Context, roleAssignment armauth
 	if err != nil {
 		return errors.Wrap(err)
 	}
+
+	// If the assignment is for a custom role, we also need to delete the role itself
+	if a.IsCustomRoleAssignment(roleAssignment) {
+		// The role id is the last hash of the assignments roleDefinitionID
+		fullID := *roleAssignment.Properties.RoleDefinitionID
+		roleDefinitionID := fullID[strings.LastIndex(fullID, "/")+1:]
+
+		if err := a.DeleteCustomRole(ctx, roleDefinitionID); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
 	return nil
 }
 

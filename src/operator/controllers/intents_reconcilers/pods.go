@@ -51,9 +51,10 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if !intents.DeletionTimestamp.IsZero() {
 		err := r.removeLabelsFromPods(ctx, intents)
 		if err != nil {
-			errUnwrap := errors.Unwrap(err)
-			if k8serrors.IsConflict(errUnwrap) || k8serrors.IsNotFound(errUnwrap) || k8serrors.IsForbidden(errUnwrap) {
-				return ctrl.Result{Requeue: true}, nil
+			if k8sErr := &(k8serrors.StatusError{}); errors.As(err, &k8sErr) {
+				if k8serrors.IsConflict(k8sErr) || k8serrors.IsNotFound(k8sErr) || k8serrors.IsForbidden(k8sErr) {
+					return ctrl.Result{Requeue: true}, nil
+				}
 			}
 			r.RecordWarningEventf(intents, ReasonRemovingPodLabelsFailed, "could not remove pod labels: %s", err.Error())
 			return ctrl.Result{}, errors.Wrap(err)

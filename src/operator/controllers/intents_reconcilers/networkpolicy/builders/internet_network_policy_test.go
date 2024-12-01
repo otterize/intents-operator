@@ -5,6 +5,8 @@ import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/networking/v1"
@@ -44,7 +46,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 	serviceName := "test-client"
 	clientNamespace := testClientNamespace
 	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
-	ips := []string{"10.1.2.2", "254.3.4.0/24", "2620:0:860:ed1a::1", "2607:f8b0:4001:c05::63/64"}
+	ips := []string{"10.1.2.2", "254.3.4.0/24", "2620:0:860:ed1a::1", "2607:f8b0:4001:c05::/64"}
 
 	namespacedName := types.NamespacedName{
 		Namespace: testClientNamespace,
@@ -1007,6 +1009,104 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForAnyDNS() {
 	s.Require().NoError(err)
 	s.Require().Empty(res)
 	s.ExpectEvent(consts.ReasonInternetEgressNetworkPolicyCreationWaitingUnresolvedDNS)
+}
+
+func (s *InternetNetworkPolicyReconcilerTestSuite) TestIPsToCIDRConsolidation() {
+	viper.Set(operatorconfig.EnableGroupInternetIPsByCIDRKey, true)
+	viper.Set(operatorconfig.EnableGroupInternetIPsByCIDRPeersLimitKey, 2) // just under len(ips)
+	clientIntentsName := "client-intents"
+	policyName := "test-client-access"
+	serviceName := "test-client"
+	clientNamespace := testClientNamespace
+	formattedTargetClient := "test-client-test-client-namespac-edb3a2"
+	dns := "wiki.otters.com"
+	ips := []string{"10.1.2.4", "10.1.2.5", "10.1.2.6"}
+	expectedCIDRs := []string{"10.1.2.0"}
+
+	namespacedName := types.NamespacedName{
+		Namespace: testClientNamespace,
+		Name:      clientIntentsName,
+	}
+	req := ctrl.Request{
+		NamespacedName: namespacedName,
+	}
+
+	intentsSpec := &otterizev2alpha1.IntentsSpec{
+		Workload: otterizev2alpha1.Workload{Name: serviceName},
+		Targets: []otterizev2alpha1.Target{
+			{
+				Internet: &otterizev2alpha1.Internet{
+					Domains: []string{dns},
+				},
+			},
+		},
+	}
+
+	intentsStatus := otterizev2alpha1.IntentsStatus{
+		ResolvedIPs: []otterizev2alpha1.ResolvedIPs{
+			{
+				DNS: dns,
+				IPs: ips,
+			},
+		},
+	}
+	clientIntents := otterizev2alpha1.ClientIntents{
+		Spec:   intentsSpec,
+		Status: intentsStatus,
+	}
+	clientIntents.Namespace = clientNamespace
+	clientIntents.Name = clientIntentsName
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+
+	// Search for existing NetworkPolicy
+	emptyNetworkPolicy := &v1.NetworkPolicy{}
+	networkPolicyNamespacedName := types.NamespacedName{
+		Namespace: clientNamespace,
+		Name:      policyName,
+	}
+	s.Client.EXPECT().Get(gomock.Any(), networkPolicyNamespacedName, gomock.Eq(emptyNetworkPolicy)).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, networkPolicy *v1.NetworkPolicy, options ...client.ListOption) error {
+			return apierrors.NewNotFound(v1.Resource("networkpolicy"), name.Name)
+		})
+
+	newPolicy := &v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      policyName,
+			Namespace: clientNamespace,
+			Labels: map[string]string{
+				otterizev2alpha1.OtterizeNetworkPolicy: formattedTargetClient,
+			},
+		},
+		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeEgress},
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					otterizev2alpha1.OtterizeServiceLabelKey: formattedTargetClient,
+				},
+			},
+			Egress: []v1.NetworkPolicyEgressRule{
+				{
+					To: []v1.NetworkPolicyPeer{
+						{
+							IPBlock: &v1.IPBlock{
+								CIDR: expectedCIDRs[0] + "/24",
+							},
+						},
+					},
+					Ports: []v1.NetworkPolicyPort{},
+				},
+			},
+		},
+	}
+	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy))
+	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), gomock.Any(), gomock.Any())
+
+	s.ignoreRemoveOrphan()
+
+	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
+	s.Require().NoError(err)
+	s.Require().Empty(res)
+	s.ExpectEvent(consts.ReasonCreatedEgressNetworkPolicies)
 }
 
 func TestInternetNetworkPolicyReconcilerTestSuite(t *testing.T) {

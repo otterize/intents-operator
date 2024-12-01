@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
-	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strings"
@@ -188,10 +187,12 @@ func (r *Reconciler) applyServiceEffectivePolicy(ctx context.Context, ep effecti
 
 func (r *Reconciler) applyNetpol(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol v1.NetworkPolicy) error {
 	existingPolicy := &v1.NetworkPolicy{}
+
 	err := r.Get(ctx, types.NamespacedName{
 		Name:      netpol.Name,
 		Namespace: ep.Service.Namespace},
 		existingPolicy)
+
 	if err != nil && !k8serrors.IsNotFound(err) {
 		r.RecordWarningEventf(existingPolicy, consts.ReasonGettingNetworkPolicyFailed, "failed to get network policy: %s", err.Error())
 		return errors.Wrap(err)
@@ -354,9 +355,10 @@ func (r *Reconciler) buildSinglePolicy(ep effectivepolicy.ServiceEffectivePolicy
 	if shouldCreateEgress {
 		policyTypes = append(policyTypes, v1.PolicyTypeEgress)
 	}
+
 	return v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, ep.Service.GetNameWithKind()),
+			Name:      fmt.Sprintf(otterizev2alpha1.OtterizeSingleNetworkPolicyNameTemplate, ep.Service.GetRFC1123NameWithKind()),
 			Namespace: ep.Service.Namespace,
 			Labels: map[string]string{
 				otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
@@ -376,7 +378,7 @@ func (r *Reconciler) buildSeparatePolicies(ep effectivepolicy.ServiceEffectivePo
 	if shouldCreateIngress {
 		ingressPolicy := v1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyIngressNameTemplate, ep.Service.GetNameWithKind()),
+				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyIngressNameTemplate, ep.Service.GetRFC1123NameWithKind()),
 				Namespace: ep.Service.Namespace,
 				Labels: map[string]string{
 					otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
@@ -393,7 +395,7 @@ func (r *Reconciler) buildSeparatePolicies(ep effectivepolicy.ServiceEffectivePo
 	if shouldCreateEgress {
 		egressPolicy := v1.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyEgressNameTemplate, ep.Service.GetNameWithKind()),
+				Name:      fmt.Sprintf(otterizev2alpha1.OtterizeNetworkPolicyEgressNameTemplate, ep.Service.GetRFC1123NameWithKind()),
 				Namespace: ep.Service.Namespace,
 				Labels: map[string]string{
 					otterizev2alpha1.OtterizeNetworkPolicy: ep.Service.GetFormattedOtterizeIdentityWithKind(),
@@ -426,13 +428,12 @@ func (r *Reconciler) createNetworkPolicy(ctx context.Context, ep effectivepolicy
 }
 
 func (r *Reconciler) updateExistingPolicy(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) error {
-	// PAY ATTENTION: deepEqual is sensitive the differance between nil and empty slice
-	// therefore, we marshal and unmarshal to nullify empty slices of the new policy
-	newPolicyForComparison, err := marshalUnmarshalNetpol(newPolicy)
+	unmarshalledNewPolicy, err := marshalUnmarshalNetpol(newPolicy)
 	if err != nil {
 		return errors.Wrap(err)
 	}
-	if reflect.DeepEqual(existingPolicy.Spec, newPolicyForComparison.Spec) {
+
+	if isNetworkPolicySpecEqual(existingPolicy.Spec, unmarshalledNewPolicy.Spec) {
 		return nil
 	}
 
@@ -580,22 +581,23 @@ func (r *Reconciler) handleExistingPolicyRetry(ctx context.Context, ep effective
 
 func (r *Reconciler) handleCreationErrors(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy, netpol *v1.NetworkPolicy, err error) error {
 	errStr := err.Error()
-	errUnwrap := errors.Unwrap(err)
-	if k8serrors.IsAlreadyExists(errUnwrap) {
-		// Ideally we would just return {Requeue: true} but it is not possible without a mini-refactor
-		return r.handleExistingPolicyRetry(ctx, ep, netpol)
-	}
+	if k8sErr := &(k8serrors.StatusError{}); errors.As(err, &k8sErr) {
+		if k8serrors.IsAlreadyExists(k8sErr) {
+			// Ideally we would just return {Requeue: true} but it is not possible without a mini-refactor
+			return r.handleExistingPolicyRetry(ctx, ep, netpol)
+		}
 
-	if k8serrors.IsForbidden(errUnwrap) && strings.Contains(errStr, "is being terminated") {
-		// Namespace is being deleted, nothing to do further
-		logrus.Debugf("Namespace %s is being terminated, ignoring api server error", netpol.Namespace)
-		return nil
-	}
+		if k8serrors.IsForbidden(k8sErr) && strings.Contains(errStr, "is being terminated") {
+			// Namespace is being deleted, nothing to do further
+			logrus.Debugf("Namespace %s is being terminated, ignoring api server error", netpol.Namespace)
+			return nil
+		}
 
-	if k8serrors.IsNotFound(errUnwrap) && strings.Contains(errStr, netpol.Namespace) {
-		// Namespace was deleted since we started .Create() logic, nothing to do further
-		logrus.Debugf("Namespace %s was deleted, ignoring api server error", netpol.Namespace)
-		return nil
+		if k8serrors.IsNotFound(k8sErr) && strings.Contains(errStr, netpol.Namespace) {
+			// Namespace was deleted since we started .Create() logic, nothing to do further
+			logrus.Debugf("Namespace %s was deleted, ignoring api server error", netpol.Namespace)
+			return nil
+		}
 	}
 
 	return errors.Wrap(err)
@@ -619,17 +621,4 @@ func matchAccessNetworkPolicy() (labels.Selector, error) {
 		isNotExternalTrafficPolicy,
 		isNotDefaultDenyPolicy,
 	}})
-}
-
-func marshalUnmarshalNetpol(netpol *v1.NetworkPolicy) (v1.NetworkPolicy, error) {
-	data, err := netpol.Marshal()
-	if err != nil {
-		return v1.NetworkPolicy{}, errors.Wrap(err)
-	}
-	newNetpol := v1.NetworkPolicy{}
-	err = newNetpol.Unmarshal(data)
-	if err != nil {
-		return v1.NetworkPolicy{}, errors.Wrap(err)
-	}
-	return newNetpol, nil
 }

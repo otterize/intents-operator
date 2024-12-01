@@ -458,9 +458,9 @@ func (c *PolicyManagerImpl) updatePolicy(ctx context.Context, existingPolicy *v1
 
 func (c *PolicyManagerImpl) getPolicyName(intents *v2alpha1.ClientIntents, intent v2alpha1.Target) string {
 	clientIdentity := intents.ToServiceIdentity()
-	clientName := fmt.Sprintf("%s.%s", clientIdentity.GetNameWithKind(), intents.Namespace)
+	clientName := fmt.Sprintf("%s.%s", clientIdentity.GetRFC1123NameWithKind(), intents.Namespace)
 	serverIdentity := intent.ToServiceIdentity(intents.Namespace)
-	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, serverIdentity.GetNameWithKind(), clientName)
+	policyName := fmt.Sprintf(OtterizeIstioPolicyNameTemplate, serverIdentity.GetRFC1123NameWithKind(), clientName)
 	return policyName
 }
 

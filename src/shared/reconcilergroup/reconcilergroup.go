@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 )
 
 type ReconcilerWithEvents interface {
@@ -54,9 +55,13 @@ func (g *Group) AddToGroup(reconciler ReconcilerWithEvents) {
 }
 
 func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 70*time.Second, errors.Errorf("timeout while reconciling client intents %s", req.NamespacedName))
+	defer cancel()
+	ctx = timeoutCtx
+
 	var finalErr error
 	var finalRes ctrl.Result
-	logrus.Debugf("## Starting reconciliation group cycle for %s", g.name)
+	logrus.Debugf("## Starting reconciliation group cycle for %s, resource %s in namespace %s", g.name, req.Name, req.Namespace)
 
 	resourceObject := g.baseObject.DeepCopyObject().(client.Object)
 	err := g.client.Get(ctx, req.NamespacedName, resourceObject)
@@ -167,8 +172,11 @@ func (g *Group) InjectRecorder(recorder record.EventRecorder) {
 }
 
 func isKubernetesRaceRelatedError(err error) bool {
-	errUnwrap := errors.Unwrap(err)
-	return k8serrors.IsConflict(errUnwrap) || k8serrors.IsNotFound(errUnwrap) || k8serrors.IsForbidden(errUnwrap) || k8serrors.IsAlreadyExists(errUnwrap)
+	if k8sErr := &(k8serrors.StatusError{}); errors.As(err, &k8sErr) {
+		return k8serrors.IsConflict(k8sErr) || k8serrors.IsNotFound(k8sErr) || k8serrors.IsForbidden(k8sErr) || k8serrors.IsAlreadyExists(k8sErr)
+	}
+
+	return false
 }
 
 func shortestRequeue(a, b reconcile.Result) reconcile.Result {
