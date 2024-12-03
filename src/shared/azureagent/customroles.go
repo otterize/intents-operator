@@ -35,7 +35,8 @@ func (a *Agent) ValidateScope(ctx context.Context, scope string) error {
 	res, err := a.resourceClient.GetByID(ctx, scope, "2022-09-01", nil)
 	if err != nil {
 		return err
-	} else if res.GenericResource.ID == nil {
+	}
+	if res.GenericResource.ID == nil {
 		return errors.Errorf("scope %s not found", scope)
 	}
 	return nil
