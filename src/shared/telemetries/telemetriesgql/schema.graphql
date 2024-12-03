@@ -713,18 +713,27 @@ type FeatureFlags {
 }
 
 type Finding {
+	hash: String!
 	service: BasicEntity!
+	serviceNamespace: BasicEntity
 	server: BasicEntity!
 	cluster: BasicEntity!
+	intentsOperatorState: IntentsOperatorState
 	reason: String!
 	status: FindingStatus!
+	type: FindingType!
 }
 
-"""NEW findings"""
 enum FindingStatus {
 	OPEN
 	RESOLVED
 	IGNORED
+}
+
+type FindingStatusHistory {
+	timestamp: Time!
+	status: FindingStatus!
+	reason: String
 }
 
 type FindingSummary {
@@ -741,6 +750,11 @@ type FindingSummary {
 	requirements: [FindingSummary!]
 }
 
+type FindingSummaryResponse {
+	findingSummaries: [FindingSummaryV2!]!
+	timestamp: Time!
+}
+
 type FindingSummaryV2 {
 	standard: RegulationStandard!
 	code: RegulationCode!
@@ -754,6 +768,12 @@ type FindingSummaryV2 {
 	clusterTotalCount: Int!
 	clusterOpenCount: Int!
 	requirements: [FindingSummaryV2!]
+}
+
+"""NEW findings"""
+enum FindingType {
+	SERVICE
+	CLUSTER
 }
 
 """The `Float` scalar type represents signed double-precision fractional values as specified by [IEEE 754](http://en.wikipedia.org/wiki/IEEE_floating_point)."""
@@ -973,6 +993,8 @@ input InputFindingFilter {
 	regulationIds: InputIDFilterValue
 """ Findings filter """
 	environmentIds: InputIDFilterValue
+""" Findings filter """
+	findingTypes: InputIDFilterValue
 }
 
 input InputIDFilterValue {
@@ -1584,6 +1606,9 @@ type Mutation {
 		component: Component
 		errors: [Error!]!
 	): Boolean!
+	toggleIgnoreFindings(
+		hashes: [String!]!
+	): Boolean!
 """Create a new generic integration"""
 	createGenericIntegration(
 		name: String!
@@ -1778,11 +1803,6 @@ type Mutation {
 		id: ID!
 		userId: ID!
 	): ID!
-"""Ignore domain for organization"""
-	ignoreOrganizationDomain(
-		id: ID!
-		domain: String!
-	): Organization!
 	reportProtectedServicesSnapshot(
 		namespace: String!
 		services: [ProtectedServiceInput!]!
@@ -1957,6 +1977,13 @@ type Query {
 		enableInternetIntents: Boolean
 		featureFlags: InputFeatureFlags
 	): ServiceClientIntents!
+""" Get service ClientIntents by filter """
+	clientIntents(
+		filter: InputServiceFilter!
+		lastSeenAfter: Time
+		clusterIds: [ID!]
+		featureFlags: InputFeatureFlags
+	): [ClientIntentsFileRepresentation!]!
 """Get access log"""
 	accessLog(
 		filter: InputAccessLogFilter
@@ -1997,10 +2024,13 @@ type Query {
 """NEW findings"""
 	findingSummary(
 		filter: InputFindingFilter
-	): [FindingSummaryV2!]!
+	): FindingSummaryResponse!
 	findingsV2(
 		filter: InputFindingFilter
 	): [Finding!]!
+	findingStatusHistory(
+		hash: String!
+	): [FindingStatusHistory!]!
 """List integrations"""
 	integrations(
 		name: String

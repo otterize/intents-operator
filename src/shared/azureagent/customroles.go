@@ -31,6 +31,17 @@ func (a *Agent) GenerateCustomRoleName(uai armmsi.Identity, scope string) string
 	return agentutils.TruncateHashName(fullName, maxRoleNameLength)
 }
 
+func (a *Agent) ValidateScope(ctx context.Context, scope string) error {
+	res, err := a.resourceClient.GetByID(ctx, scope, "2022-09-01", nil)
+	if err != nil {
+		return err
+	}
+	if res.GenericResource.ID == nil {
+		return errors.Errorf("scope %s not found", scope)
+	}
+	return nil
+}
+
 func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.Identity, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) (*armauthorization.RoleDefinition, error) {
 	roleScope := a.getCustomRoleScope()
 

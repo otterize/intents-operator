@@ -11,6 +11,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 )
 
+type AzureARMResourcesClient interface {
+	GetByID(ctx context.Context, resourceID string, apiVersion string, options *armresources.ClientGetByIDOptions) (armresources.ClientGetByIDResponse, error)
+}
+
 type AzureARMSubscriptionsClient interface {
 	Get(ctx context.Context, subscriptionID string, options *armsubscriptions.ClientGetOptions) (armsubscriptions.ClientGetResponse, error)
 }
