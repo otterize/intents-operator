@@ -99,8 +99,32 @@ func (a *Agent) DeleteUserAssignedIdentity(ctx context.Context, namespace string
 	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)
 	federatedIdentityCredentialsName := a.generateFederatedIdentityCredentialsName(namespace, accountName)
 
+	// Delete roles assigned to the identity
+	identity, err := a.FindUserAssignedIdentity(ctx, namespace, accountName)
+	if err != nil {
+		if azureerrors.IsNotFoundErr(err) {
+			return nil
+		}
+		return errors.Wrap(err)
+	}
+
+	roleAssignments, err := a.ListRoleAssignments(ctx, identity)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	for _, roleAssignment := range roleAssignments {
+		if err := a.DeleteRoleAssignment(ctx, roleAssignment); err != nil {
+			if azureerrors.IsNotFoundErr(err) {
+				continue
+			}
+			return errors.Wrap(err)
+		}
+	}
+
+	// Delete the federated identity credentials
 	logger.WithField("federatedIdentity", federatedIdentityCredentialsName).Info("deleting federated identity credentials")
-	_, err := a.federatedIdentityCredentialsClient.Delete(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, federatedIdentityCredentialsName, nil)
+	_, err = a.federatedIdentityCredentialsClient.Delete(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, federatedIdentityCredentialsName, nil)
 	if err != nil && !azureerrors.IsNotFoundErr(err) && !IsParentResourceNotFoundErr(err) {
 		return errors.Wrap(err)
 	}

@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
-	"github.com/sirupsen/logrus"
 	"strings"
 )
 
@@ -41,10 +40,6 @@ func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssi
 }
 
 func (a *Agent) DeleteRoleAssignment(ctx context.Context, roleAssignment armauthorization.RoleAssignment) error {
-	logrus.WithField("scope", *roleAssignment.Properties.Scope).
-		WithField("role", *roleAssignment.Properties.RoleDefinitionID).
-		WithField("assignment", *roleAssignment.Name).
-		Debug("deleting role assignment")
 	_, err := a.roleAssignmentsClient.Delete(ctx, *roleAssignment.Properties.Scope, *roleAssignment.Name, nil)
 	if err != nil {
 		return errors.Wrap(err)

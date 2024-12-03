@@ -3,6 +3,7 @@ package azureagent
 import (
 	"context"
 	"fmt"
+	azureerrors "github.com/Azure/azure-sdk-for-go-extensions/pkg/errors"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
@@ -114,6 +115,9 @@ func (a *Agent) DeleteCustomRole(ctx context.Context, roleDefinitionID string) e
 
 	_, err := a.roleDefinitionsClient.Delete(ctx, scope, roleDefinitionID, nil)
 	if err != nil {
+		if azureerrors.IsNotFoundErr(err) {
+			return nil
+		}
 		return errors.Wrap(err)
 	}
 
