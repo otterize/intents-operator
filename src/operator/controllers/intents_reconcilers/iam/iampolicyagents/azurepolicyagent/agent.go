@@ -367,9 +367,9 @@ func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdent
 	dataActions := intent.Azure.DataActions
 
 	// Validate that the scope exists before creating the custom role
-	ok := a.ValidateScope(ctx, scope)
-	if !ok {
-		return errors.Errorf("scope %s does not exist", scope)
+	err := a.ValidateScope(ctx, scope)
+	if err != nil {
+		return errors.Wrap(err)
 	}
 
 	customRoleName := a.GenerateCustomRoleName(userAssignedIdentity, scope)
