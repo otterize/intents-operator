@@ -18,6 +18,44 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockAzureARMResourcesClient is a mock of AzureARMResourcesClient interface.
+type MockAzureARMResourcesClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockAzureARMResourcesClientMockRecorder
+}
+
+// MockAzureARMResourcesClientMockRecorder is the mock recorder for MockAzureARMResourcesClient.
+type MockAzureARMResourcesClientMockRecorder struct {
+	mock *MockAzureARMResourcesClient
+}
+
+// NewMockAzureARMResourcesClient creates a new mock instance.
+func NewMockAzureARMResourcesClient(ctrl *gomock.Controller) *MockAzureARMResourcesClient {
+	mock := &MockAzureARMResourcesClient{ctrl: ctrl}
+	mock.recorder = &MockAzureARMResourcesClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockAzureARMResourcesClient) EXPECT() *MockAzureARMResourcesClientMockRecorder {
+	return m.recorder
+}
+
+// GetByID mocks base method.
+func (m *MockAzureARMResourcesClient) GetByID(ctx context.Context, resourceID, apiVersion string, options *armresources.ClientGetByIDOptions) (armresources.ClientGetByIDResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByID", ctx, resourceID, apiVersion, options)
+	ret0, _ := ret[0].(armresources.ClientGetByIDResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByID indicates an expected call of GetByID.
+func (mr *MockAzureARMResourcesClientMockRecorder) GetByID(ctx, resourceID, apiVersion, options interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByID", reflect.TypeOf((*MockAzureARMResourcesClient)(nil).GetByID), ctx, resourceID, apiVersion, options)
+}
+
 // MockAzureARMSubscriptionsClient is a mock of AzureARMSubscriptionsClient interface.
 type MockAzureARMSubscriptionsClient struct {
 	ctrl     *gomock.Controller
