@@ -6,6 +6,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/google/uuid"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
@@ -30,6 +31,7 @@ type AzureCustomRoleTestCase struct {
 type AzureAgentPoliciesCustomRolesSuite struct {
 	suite.Suite
 
+	mockResourcesClient                    *mock_azureagent.MockAzureARMResourcesClient
 	mockSubscriptionsClient                *mock_azureagent.MockAzureARMSubscriptionsClient
 	mockResourceGroupsClient               *mock_azureagent.MockAzureARMResourcesResourceGroupsClient
 	mockManagedClustersClient              *mock_azureagent.MockAzureARMContainerServiceManagedClustersClient
@@ -40,6 +42,14 @@ type AzureAgentPoliciesCustomRolesSuite struct {
 	mockVaultsClient                       *mock_azureagent.MockAzureARMKeyVaultVaultsClient
 
 	agent *Agent
+}
+
+func (s *AzureAgentPoliciesCustomRolesSuite) expectGetByIDReturnsResource(scope string) {
+	s.mockResourcesClient.EXPECT().GetByID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(armresources.ClientGetByIDResponse{
+		GenericResource: armresources.GenericResource{
+			ID: &scope,
+		},
+	}, nil)
 }
 
 func (s *AzureAgentPoliciesCustomRolesSuite) expectListRoleDefinitionsReturnsPager(roles []*armauthorization.RoleDefinition) {
@@ -96,6 +106,8 @@ func (s *AzureAgentPoliciesCustomRolesSuite) expectListKeyVaultsReturnsEmpty() {
 
 func (s *AzureAgentPoliciesCustomRolesSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
+
+	s.mockResourcesClient = mock_azureagent.NewMockAzureARMResourcesClient(controller)
 	s.mockSubscriptionsClient = mock_azureagent.NewMockAzureARMSubscriptionsClient(controller)
 	s.mockResourceGroupsClient = mock_azureagent.NewMockAzureARMResourcesResourceGroupsClient(controller)
 	s.mockManagedClustersClient = mock_azureagent.NewMockAzureARMContainerServiceManagedClustersClient(controller)
@@ -116,6 +128,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) SetupTest() {
 				AKSClusterOIDCIssuerURL: testOIDCIssuerURL,
 			},
 			nil,
+			s.mockResourcesClient,
 			s.mockSubscriptionsClient,
 			s.mockResourceGroupsClient,
 			s.mockManagedClustersClient,
@@ -201,11 +214,13 @@ var azureCustomRoleTestCases = []AzureCustomRoleTestCase{
 
 func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_CustomRoles() {
 	for _, testCase := range azureCustomRoleTestCases {
+		targetScope := "/providers/Microsoft.Storage/storageAccounts/test/blobServices/default/containers/container"
+
 		s.Run(testCase.Name, func() {
 			intents := []otterizev2alpha1.Target{
 				{
 					Azure: &otterizev2alpha1.AzureTarget{
-						Scope:       "/providers/Microsoft.Storage/storageAccounts/test/blobServices/default/containers/container",
+						Scope:       targetScope,
 						Roles:       testCase.Roles,
 						Actions:     testCase.Actions,
 						DataActions: testCase.DataActions,
@@ -231,6 +246,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 			// Make sure the custom role is created
 			var customRoleDefinition armauthorization.RoleDefinition
 			if testCase.UpdateExpected {
+				s.expectGetByIDReturnsResource(targetScope)
 				s.expectCreateOrUpdateRoleDefinitionWriteRoleDefinition(&customRoleDefinition)
 			}
 

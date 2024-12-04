@@ -31,6 +31,7 @@ type Config struct {
 type Agent struct {
 	Conf                               Config
 	credentials                        *azidentity.DefaultAzureCredential
+	resourceClient                     AzureARMResourcesClient
 	subscriptionClient                 AzureARMSubscriptionsClient
 	resourceGroupsClient               AzureARMResourcesResourceGroupsClient
 	managedClustersClient              AzureARMContainerServiceManagedClustersClient
@@ -45,6 +46,11 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	logrus.Info("Initializing Azure agent")
 
 	credentials, err := azidentity.NewDefaultAzureCredential(nil)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	armResourcesClientFactory, err := armresources.NewClientFactory(conf.SubscriptionID, credentials, nil)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -79,6 +85,7 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 		return nil, errors.Wrap(err)
 	}
 
+	resourceClient := armResourcesClientFactory.NewClient()
 	subscriptionClient := armsubscriptionsClientFactory.NewClient()
 	userAssignedIdentitiesClient := armmsiClientFactory.NewUserAssignedIdentitiesClient()
 	federatedIdentityCredentialsClient := armmsiClientFactory.NewFederatedIdentityCredentialsClient()
@@ -87,7 +94,19 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	managedClustersClient := armcontainerserviceClientFactory.NewManagedClustersClient()
 	vaultsClient := armkeyvaultClientFactory.NewVaultsClient()
 
-	agent := NewAzureAgentFromClients(conf, credentials, subscriptionClient, resourceGroupsClient, managedClustersClient, userAssignedIdentitiesClient, federatedIdentityCredentialsClient, roleDefinitionsClient, roleAssignmentsClient, vaultsClient)
+	agent := NewAzureAgentFromClients(
+		conf,
+		credentials,
+		resourceClient,
+		subscriptionClient,
+		resourceGroupsClient,
+		managedClustersClient,
+		userAssignedIdentitiesClient,
+		federatedIdentityCredentialsClient,
+		roleDefinitionsClient,
+		roleAssignmentsClient,
+		vaultsClient,
+	)
 
 	if err := agent.loadConfDefaults(ctx); err != nil {
 		return nil, errors.Wrap(err)
@@ -96,10 +115,11 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	return agent, nil
 }
 
-func NewAzureAgentFromClients(conf Config, credentials *azidentity.DefaultAzureCredential, subscriptionClient AzureARMSubscriptionsClient, resourceGroupsClient AzureARMResourcesResourceGroupsClient, managedClustersClient AzureARMContainerServiceManagedClustersClient, userAssignedIdentitiesClient AzureARMMSIUserAssignedIdentitiesClient, federatedIdentityCredentialsClient AzureARMMSIFederatedIdentityCredentialsClient, roleDefinitionsClient AzureARMAuthorizationRoleDefinitionsClient, roleAssignmentsClient AzureARMAuthorizationRoleAssignmentsClient, vaultsClient AzureARMKeyVaultVaultsClient) *Agent {
+func NewAzureAgentFromClients(conf Config, credentials *azidentity.DefaultAzureCredential, resourceClient AzureARMResourcesClient, subscriptionClient AzureARMSubscriptionsClient, resourceGroupsClient AzureARMResourcesResourceGroupsClient, managedClustersClient AzureARMContainerServiceManagedClustersClient, userAssignedIdentitiesClient AzureARMMSIUserAssignedIdentitiesClient, federatedIdentityCredentialsClient AzureARMMSIFederatedIdentityCredentialsClient, roleDefinitionsClient AzureARMAuthorizationRoleDefinitionsClient, roleAssignmentsClient AzureARMAuthorizationRoleAssignmentsClient, vaultsClient AzureARMKeyVaultVaultsClient) *Agent {
 	return &Agent{
 		Conf:                               conf,
 		credentials:                        credentials,
+		resourceClient:                     resourceClient,
 		subscriptionClient:                 subscriptionClient,
 		resourceGroupsClient:               resourceGroupsClient,
 		managedClustersClient:              managedClustersClient,

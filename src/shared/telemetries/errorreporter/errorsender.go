@@ -43,7 +43,7 @@ func (s *ErrorSender) SendSync(errs []*telemetriesgql.Error) error {
 	return nil
 }
 
-func New(componentType telemetriesgql.TelemetryComponentType) *ErrorSender {
+func New(componentType telemetriesgql.TelemetryComponentType, version string) *ErrorSender {
 	enabled := telemetriesconfig.IsErrorTelemetryEnabled()
 	maxBatchSize := viper.GetInt(telemetriesconfig.TelemetryMaxBatchSizeKey)
 	interval := viper.GetInt(telemetriesconfig.TelemetryIntervalKey)
@@ -52,7 +52,7 @@ func New(componentType telemetriesgql.TelemetryComponentType) *ErrorSender {
 	sender := &ErrorSender{
 		gqlClient: gqlClient,
 		enabled:   enabled,
-		component: currentComponent(componentType),
+		component: currentComponent(componentType, version),
 	}
 
 	sender.errorBatcher = basicbatch.NewBatcher(sender.SendSync, time.Duration(interval)*time.Second, maxBatchSize, 5000)

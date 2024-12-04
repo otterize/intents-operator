@@ -7,7 +7,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
 	"github.com/otterize/intents-operator/src/shared/telemetries/telemetriesgql"
-	"github.com/otterize/intents-operator/src/shared/version"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -83,18 +82,18 @@ func sendErrorSync(err *bugsnagerrors.Error, metadata map[string]string) error {
 	return nil
 }
 
-func currentComponent(componentType telemetriesgql.TelemetryComponentType) telemetriesgql.Component {
+func currentComponent(componentType telemetriesgql.TelemetryComponentType, version string) telemetriesgql.Component {
 	return telemetriesgql.Component{
 		CloudClientId:       viper.GetString(otterizecloudclient.ApiClientIdKey),
 		ComponentType:       componentType,
 		ComponentInstanceId: componentinfo.GlobalComponentInstanceId(),
 		ContextId:           componentinfo.GlobalContextId(),
-		Version:             version.Version(),
+		Version:             version,
 	}
 }
 
-func initSender(componentType telemetriesgql.TelemetryComponentType) {
-	sender = New(componentType)
+func initSender(componentType telemetriesgql.TelemetryComponentType, version string) {
+	sender = New(componentType, version)
 	if componentinfo.IsRunningUnderTest() {
 		logrus.Infof("Disabling error sender because this is a test")
 		sender.enabled = false

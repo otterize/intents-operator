@@ -22,6 +22,7 @@ import (
 type AzureAgentPoliciesKeyVaultSuite struct {
 	suite.Suite
 
+	mockResourcesClient                    *mock_azureagent.MockAzureARMResourcesClient
 	mockSubscriptionsClient                *mock_azureagent.MockAzureARMSubscriptionsClient
 	mockResourceGroupsClient               *mock_azureagent.MockAzureARMResourcesResourceGroupsClient
 	mockManagedClustersClient              *mock_azureagent.MockAzureARMContainerServiceManagedClustersClient
@@ -36,6 +37,8 @@ type AzureAgentPoliciesKeyVaultSuite struct {
 
 func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
+
+	s.mockResourcesClient = mock_azureagent.NewMockAzureARMResourcesClient(controller)
 	s.mockSubscriptionsClient = mock_azureagent.NewMockAzureARMSubscriptionsClient(controller)
 	s.mockResourceGroupsClient = mock_azureagent.NewMockAzureARMResourcesResourceGroupsClient(controller)
 	s.mockManagedClustersClient = mock_azureagent.NewMockAzureARMContainerServiceManagedClustersClient(controller)
@@ -56,6 +59,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 				AKSClusterOIDCIssuerURL: testOIDCIssuerURL,
 			},
 			nil,
+			s.mockResourcesClient,
 			s.mockSubscriptionsClient,
 			s.mockResourceGroupsClient,
 			s.mockManagedClustersClient,
