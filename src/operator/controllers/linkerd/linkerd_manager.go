@@ -469,7 +469,7 @@ func (ldm *LinkerdManager) generateLinkerdServer(svcIdentity serviceidentity.Ser
 			Port:        intstr.FromInt32(port),
 		},
 	}
-	return &s, nil
+	return &s
 }
 
 func (ldm *LinkerdManager) generateAuthorizationPolicy(
