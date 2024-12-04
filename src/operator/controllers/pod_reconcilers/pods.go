@@ -8,7 +8,6 @@ import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/access_annotation"
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
-	linkerdmanager "github.com/otterize/intents-operator/src/operator/controllers/linkerd"
 	"github.com/otterize/intents-operator/src/prometheus"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -47,7 +46,6 @@ type PodWatcher struct {
 	istioPolicyAdmin  istiopolicy.PolicyManager
 	injectablerecorder.InjectableRecorder
 	intentsReconciler reconcile.Reconciler
-	linkerdManager    *linkerdmanager.LinkerdManager
 	epReconciler      GroupReconciler
 }
 

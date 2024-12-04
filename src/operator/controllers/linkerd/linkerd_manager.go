@@ -230,7 +230,7 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 
 			if shouldCreateServer {
 				podSelector := ldm.BuildPodLabelSelectorFromTarget(target.Target, clientNamespace)
-				server, err = ldm.generateLinkerdServer(ep.Service, target.Target, podSelector, port)
+				server = ldm.generateLinkerdServer(ep.Service, target.Target, podSelector, port)
 				err = ldm.Client.Create(ctx, server)
 				if err != nil {
 					logrus.Errorf("Failed to create Linkerd server: %s", err.Error())
@@ -255,6 +255,7 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 
 				for _, httpResource := range httpResources {
 					if err := ldm.handleHTTPResource(ctx, clientNamespace, server.Name, target, ep.Service, httpResource, port, currentResources); err != nil {
+						return nil, errors.Wrap(err)
 					}
 				}
 			} else {
@@ -451,7 +452,7 @@ func (ldm *LinkerdManager) shouldCreateNetAuth(ctx context.Context, svcIdentity 
 	return true, nil
 }
 
-func (ldm *LinkerdManager) generateLinkerdServer(svcIdentity serviceidentity.ServiceIdentity, target otterizev2alpha1.Target, podSelector metav1.LabelSelector, port int32) (*linkerdserver.Server, error) {
+func (ldm *LinkerdManager) generateLinkerdServer(svcIdentity serviceidentity.ServiceIdentity, target otterizev2alpha1.Target, podSelector metav1.LabelSelector, port int32) *linkerdserver.Server {
 	name := ldm.getServerName(target, port)
 	serverNamespace := target.GetTargetServerNamespace(svcIdentity.Namespace)
 
