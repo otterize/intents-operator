@@ -631,7 +631,7 @@ func (ldm *LinkerdManager) handleLivenessProbResources(
 		NetworkAuthenticationNameTemplate,
 		LinkerdNetAuthKindName)
 	if err != nil {
-		errors.Wrap(err)
+		return errors.Wrap(err)
 	}
 
 	if shouldCreatePolicy {
