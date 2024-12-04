@@ -2,6 +2,8 @@ package linkerdmanager
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	authpolicy "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
 	linkerdserver "github.com/linkerd/linkerd2/controller/gen/apis/server/v1beta1"
@@ -88,7 +90,7 @@ func (ldm *LinkerdManager) DeleteOutdatedResources(ctx context.Context, eps []ef
 			existingPolicies   authpolicy.AuthorizationPolicyList
 			existingServers    linkerdserver.ServerList
 			existingHttpRoutes authpolicy.HTTPRouteList
-			existingNetAuth    authpolicy.NetworkAuthenticationList
+			existingNetAuths   authpolicy.NetworkAuthenticationList
 			existingMTLS       authpolicy.MeshTLSAuthenticationList
 		)
 
@@ -112,7 +114,7 @@ func (ldm *LinkerdManager) DeleteOutdatedResources(ctx context.Context, eps []ef
 		}
 
 		err = ldm.Client.List(ctx,
-			&existingNetAuth,
+			&existingNetAuths,
 			client.MatchingLabels{otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: clientFormattedIdentity})
 		if err != nil {
 			return errors.Wrap(err)
@@ -172,13 +174,9 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
-		svcIdentity, err := ldm.serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
-		if err != nil {
-			return nil, errors.Wrap(err)
-		}
 
 		shouldCreateLinkerdResources, err := protected_services.IsServerEnforcementEnabledDueToProtectionOrDefaultState(
-			ctx, ldm.Client, svcIdentity, ldm.enforcementDefaultState, goset.FromSlice(ldm.restrictedToNamespaces))
+			ctx, ldm.Client, ep.Service, ldm.enforcementDefaultState, goset.FromSlice(ldm.restrictedToNamespaces))
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
@@ -250,13 +248,13 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 				}
 
 				if probePath != "" {
-					if err := ldm.handleLivenessProbResources(ctx, probePath, clientNamespace, server.Name, svcIdentity, target, port, currentResources); err != nil {
+					if err := ldm.handleLivenessProbResources(ctx, probePath, clientNamespace, server.Name, ep.Service, target, port, currentResources); err != nil {
 						return nil, errors.Wrap(err)
 					}
 				}
 
 				for _, httpResource := range httpResources {
-					if err := ldm.handleHTTPResource(ctx, clientNamespace, server.Name, target, svcIdentity, httpResource, port, currentResources); err != nil {
+					if err := ldm.handleHTTPResource(ctx, clientNamespace, server.Name, target, ep.Service, httpResource, port, currentResources); err != nil {
 					}
 				}
 			} else {
@@ -562,14 +560,12 @@ func (ldm *LinkerdManager) generateHTTPRoute(svcIdentity serviceidentity.Service
 }
 
 func (ldm *LinkerdManager) generateMeshTLS(svcIdentity serviceidentity.ServiceIdentity, targets []string) (*authpolicy.MeshTLSAuthentication, error) {
-	otterizeIdentity := svcIdentity.GetFormattedOtterizeIdentityWithoutKind()
-
 	mtls := authpolicy.MeshTLSAuthentication{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf(OtterizeLinkerdMeshTLSNameTemplate, svcIdentity.GetName()),
 			Namespace: svcIdentity.Namespace,
 			Labels: map[string]string{
-				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: otterizeIdentity,
+				otterizev2alpha1.OtterizeLinkerdServerAnnotationKey: svcIdentity.GetFormattedOtterizeIdentityWithoutKind(),
 			},
 		},
 		Spec: authpolicy.MeshTLSAuthenticationSpec{
@@ -581,10 +577,6 @@ func (ldm *LinkerdManager) generateMeshTLS(svcIdentity serviceidentity.ServiceId
 
 func (ldm *LinkerdManager) generateNetworkAuthentication(svcIdentity serviceidentity.ServiceIdentity) (*authpolicy.NetworkAuthentication, error) {
 	return &authpolicy.NetworkAuthentication{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "policy.linkerd.io/v1alpha1",
-			Kind:       "NetworkAuthentication",
-		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      NetworkAuthenticationNameTemplate,
 			Namespace: svcIdentity.Namespace,
@@ -671,7 +663,8 @@ func (ldm *LinkerdManager) handleHTTPResource(
 	port int32,
 	currentResources *LinkerdResourceMapping,
 ) error {
-	httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, target.GetTargetServerName(), port, generateRandomString(8))
+
+	httpRouteName := ldm.getHTTPRouteName(target, port, clientNamespace, httpResource.Path)
 	route, shouldCreateRoute, err := ldm.shouldCreateHTTPRoute(ctx, svcIdentity,
 		httpResource.Path, serverName)
 	if err != nil {
@@ -716,4 +709,9 @@ func (ldm *LinkerdManager) handleHTTPResource(
 
 	currentResources.AuthorizationPolicies.Add(policy.UID)
 	return nil
+}
+
+func (ldm *LinkerdManager) getHTTPRouteName(target effectivepolicy.Call, port int32, clientNamespace, apiPath string) string {
+	hash := md5.Sum([]byte(fmt.Sprintf("%s-%s-%d-%s", target.GetTargetServerName(), target.GetTargetServerNamespace(clientNamespace), port, apiPath)))
+	return fmt.Sprintf(HTTPRouteNameTemplate, target.GetTargetServerName(), port, hex.EncodeToString(hash[:])[:6])
 }
