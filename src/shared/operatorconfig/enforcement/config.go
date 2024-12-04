@@ -51,7 +51,7 @@ const (
 	EnableIstioPolicyKey                        = "enable-istio-policy-creation" // Whether to enable Istio authorization policy creation
 	EnableIstioPolicyDefault                    = true
 	EnableLinkerdPolicyKey                      = "enable-linkerd-policy"
-	EnableLinkerdPolicyDefault                  = true
+	EnableLinkerdPolicyDefault                  = false
 	EnableKafkaACLKey                           = "enable-kafka-acl-creation" // Whether to disable Intents Kafka ACL creation
 	EnableKafkaACLDefault                       = true
 	EnableDatabasePolicy                        = "enable-database-policy-creation" // Whether to enable the new database reconciler
@@ -86,7 +86,7 @@ func InitCLIFlags() {
 	pflag.Bool(EnableKafkaACLKey, EnableKafkaACLDefault, "Whether to disable Intents Kafka ACL creation")
 	pflag.StringSlice(ActiveEnforcementNamespacesKey, nil, "While using the shadow enforcement mode, namespaces in this list will be treated as if the enforcement were active.")
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
-	pflag.Bool(EnableLinkerdPolicyKey, EnableLinkerdPolicyDefault, "Whether to enable Linkerd policy creation")
+	pflag.Bool(EnableLinkerdPolicyKey, EnableLinkerdPolicyDefault, "Experimental - enable Linkerd policy creation")
 	pflag.Bool(EnableDatabasePolicy, EnableDatabasePolicyDefault, "Enable the database reconciler")
 	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
 	pflag.Bool(EnableAWSPolicyKey, EnableAWSPolicyDefault, "Enable the AWS IAM reconciler")
