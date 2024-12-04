@@ -608,7 +608,7 @@ func (ldm *LinkerdManager) handleLivenessProbResources(
 	httpRouteName := fmt.Sprintf(HTTPRouteNameTemplate, target.GetTargetServerName(), port, generateRandomString(8))
 	probePathRoute, shouldCreateRoute, err := ldm.shouldCreateHTTPRoute(ctx, svcIdentity, probePath, serverName)
 	if err != nil {
-		errors.Wrap(err)
+		return errors.Wrap(err)
 	}
 
 	if shouldCreateRoute {
@@ -616,11 +616,11 @@ func (ldm *LinkerdManager) handleLivenessProbResources(
 			httpRouteName,
 			clientNamespace)
 		if err != nil {
-			errors.Wrap(err)
+			return errors.Wrap(err)
 		}
 		err = ldm.Client.Create(ctx, probePathRoute)
 		if err != nil {
-			errors.Wrap(err)
+			return errors.Wrap(err)
 		}
 	}
 	currentResources.Routes.Add(probePathRoute.UID)

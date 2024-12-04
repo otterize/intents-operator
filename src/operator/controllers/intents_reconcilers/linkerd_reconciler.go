@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var ErrNotPartOfMesh = errors.New("not part of mesh")
+var ErrNotPartOfMesh = errors.NewSentinelError("not part of mesh")
 
 type LinkerdReconciler struct {
 	client.Client
