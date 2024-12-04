@@ -15,7 +15,7 @@ func Init(componentType telemetriesgql.TelemetryComponentType, version string) {
 		logrus.Info("error reporting disabled")
 	}
 
-	initSender(componentType)
+	initSender(componentType, version)
 
 	hook, err := NewErrorReportingHook()
 	if err != nil {
