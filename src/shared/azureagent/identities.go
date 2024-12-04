@@ -102,7 +102,7 @@ func (a *Agent) DeleteUserAssignedIdentity(ctx context.Context, namespace string
 	// Delete roles assigned to the identity
 	identity, err := a.FindUserAssignedIdentity(ctx, namespace, accountName)
 	if err != nil {
-		if azureerrors.IsNotFoundErr(err) {
+		if errors.Is(err, ErrUserIdentityNotFound) {
 			return nil
 		}
 		return errors.Wrap(err)
