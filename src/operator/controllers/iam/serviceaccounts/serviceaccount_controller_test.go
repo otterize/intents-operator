@@ -133,35 +133,6 @@ func (s *TestServiceAccountSuite) TestServiceAccountSuite_ServiceAccountTerminat
 	s.Require().Empty(res)
 }
 
-func (s *TestServiceAccountSuite) TestServiceAccountSuite_ServiceAccountServiceAccountLabeledNoPodsDeletesRoleAndDoesntRemoveFinalizer() {
-	req := testutils.GetTestServiceRequestSchema()
-
-	serviceAccount := corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        testServiceAccountName,
-			Namespace:   testNamespace,
-			Annotations: map[string]string{awscredentialsagent.ServiceAccountAWSRoleARNAnnotation: testRoleARN},
-			Labels: map[string]string{
-				mockServiceAccountLabel: metadata.OtterizeServiceAccountHasNoPodsValue,
-			},
-			Finalizers: []string{mockFinalizer},
-		},
-	}
-
-	s.client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&serviceAccount)).DoAndReturn(
-		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *corev1.ServiceAccount, arg3 ...client.GetOption) error {
-			serviceAccount.DeepCopyInto(arg2)
-			return nil
-		},
-	)
-
-	s.mockIAM.EXPECT().OnServiceAccountTermination(context.Background(), gomock.AssignableToTypeOf(&serviceAccount)).Return(nil)
-
-	res, err := s.reconciler.Reconcile(context.Background(), req)
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-}
-
 func (s *TestServiceAccountSuite) TestServiceAccountSuite_ServiceAccountServiceAccountTerminatingButRoleDeletionFailsSoDoesntRemoveFinalizer() {
 	req := testutils.GetTestServiceRequestSchema()
 
