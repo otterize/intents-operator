@@ -330,7 +330,7 @@ func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIde
 	a.roleMutex.Lock()
 	defer a.roleMutex.Unlock()
 
-	existingRoleAssignments, err := a.ListRoleAssignments(ctx, userAssignedIdentity)
+	existingRoleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -373,9 +373,9 @@ func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdent
 	}
 
 	customRoleName := a.GenerateCustomRoleName(userAssignedIdentity, scope)
-	role, found := a.FindCustomRoleByName(ctx, customRoleName)
+	role, found := a.FindCustomRoleByName(ctx, scope, customRoleName)
 	if found {
-		err := a.UpdateCustomRole(ctx, role, actions, dataActions)
+		err := a.UpdateCustomRole(ctx, scope, role, actions, dataActions)
 		if err != nil {
 			return errors.Wrap(err)
 		}

@@ -51,7 +51,7 @@ func (a *Agent) DeleteRoleAssignment(ctx context.Context, roleAssignment armauth
 		fullID := *roleAssignment.Properties.RoleDefinitionID
 		roleDefinitionID := fullID[strings.LastIndex(fullID, "/")+1:]
 
-		if err := a.DeleteCustomRole(ctx, roleDefinitionID); err != nil {
+		if err := a.DeleteCustomRole(ctx, *roleAssignment.Properties.Scope, roleDefinitionID); err != nil {
 			return errors.Wrap(err)
 		}
 	}
@@ -70,6 +70,38 @@ func (a *Agent) ListRoleAssignments(ctx context.Context, userAssignedIdentity ar
 		for _, roleAssignment := range page.Value {
 			if *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
 				roleAssignments = append(roleAssignments, *roleAssignment)
+			}
+		}
+	}
+
+	return roleAssignments, nil
+}
+
+func (a *Agent) ListRoleAssignmentsAcrossSubscriptions(ctx context.Context, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
+	subscriptions, err := a.ListSubscriptions(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	var roleAssignments []armauthorization.RoleAssignment
+	for _, sub := range subscriptions {
+		// Create a role assignments client for the subscription
+		roleClient, err := armauthorization.NewRoleAssignmentsClient(*sub.SubscriptionID, a.credentials, nil)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+
+		pager := roleClient.NewListForSubscriptionPager(nil)
+		for pager.More() {
+			page, err := pager.NextPage(ctx)
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+
+			for _, roleAssignment := range page.Value {
+				if *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
+					roleAssignments = append(roleAssignments, *roleAssignment)
+				}
 			}
 		}
 	}
