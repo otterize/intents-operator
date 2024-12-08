@@ -54,6 +54,8 @@ const (
 	OtterizeCreatedForServiceAnnotation        = "intents.otterize.com/created-for-service"
 	OtterizeCreatedForIngressAnnotation        = "intents.otterize.com/created-for-ingress"
 	OtterizeSingleNetworkPolicyNameTemplate    = "%s-access"
+	OtterizeLinkerdMeshTLSAnnotationKey        = "intents.otterize.com/linkerd-authenticates"
+	OtterizeLinkerdServerAnnotationKey         = "intents.otterize.com/linkerd-server"
 	OtterizeNetworkPolicyIngressNameTemplate   = "%s-ingress"
 	OtterizeNetworkPolicyEgressNameTemplate    = "%s-egress"
 	OtterizeNetworkPolicy                      = "intents.otterize.com/network-policy"

@@ -17,8 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"path"
+	"time"
+
 	"context"
 	"github.com/bombsimon/logrusr/v3"
+	linkerdauthscheme "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
+	linkerdserverscheme "github.com/linkerd/linkerd2/controller/gen/apis/server/v1beta1"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
@@ -62,14 +67,12 @@ import (
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"net/http"
-	"path"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -100,6 +103,8 @@ func init() {
 	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
 	utilruntime.Must(otterizev1beta1.AddToScheme(scheme))
 	utilruntime.Must(otterizev2alpha1.AddToScheme(scheme))
+	utilruntime.Must(linkerdauthscheme.AddToScheme(scheme))
+	utilruntime.Must(linkerdserverscheme.AddToScheme(scheme))
 
 	// Config Connector CRDs
 	utilruntime.Must(gcpiamv1.AddToScheme(scheme))
@@ -214,6 +219,11 @@ func main() {
 			[]networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder, dnsServerNetpolBuilder},
 			make([]networkpolicy.EgressRuleBuilder, 0))
 	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, serviceIdResolver, epNetpolReconciler)
+
+	if enforcementConfig.EnableLinkerdPolicies {
+		epGroupReconciler.AddReconciler(intents_reconcilers.NewLinkerdReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnforcementDefaultState))
+	}
+
 	if enforcementConfig.EnableEgressNetworkPolicyReconcilers {
 		egressNetworkPolicyHandler := builders.NewEgressNetworkPolicyBuilder()
 		epNetpolReconciler.AddEgressRuleBuilder(egressNetworkPolicyHandler)

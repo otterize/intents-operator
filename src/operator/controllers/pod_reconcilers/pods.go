@@ -53,9 +53,10 @@ type GroupReconciler interface {
 	Reconcile(ctx context.Context) error
 }
 
-func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string], intentsReconciler reconcile.Reconciler, serviceEffectivePolicyReconciler GroupReconciler) *PodWatcher {
+func NewPodWatcher(c client.Client, eventRecorder record.EventRecorder, watchedNamespaces []string, enforcementDefaultState, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string], intentsReconciler reconcile.Reconciler, serviceEffectivePolicyReconciler GroupReconciler) *PodWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
 	creator := istiopolicy.NewPolicyManager(c, &recorder, watchedNamespaces, enforcementDefaultState, istioEnforcementEnabled, activeNamespaces)
+
 	return &PodWatcher{
 		Client:             c,
 		serviceIdResolver:  serviceidresolver.NewResolver(c),
