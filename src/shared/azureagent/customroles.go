@@ -23,7 +23,7 @@ const (
 )
 
 func (a *Agent) getCustomRoleScope() string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", a.Conf.SubscriptionID, a.Conf.ResourceGroup)
+	return fmt.Sprintf("/subscriptions/%s", a.Conf.SubscriptionID)
 }
 
 func (a *Agent) GenerateCustomRoleName(uai armmsi.Identity, scope string) string {
