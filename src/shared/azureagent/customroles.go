@@ -23,10 +23,6 @@ const (
 	OtterizeCustomRoleDescription = "This custom role was created by the Otterize intents-operator's Azure integration. For more details, go to https://otterize.com"
 )
 
-func (a *Agent) getCustomRoleScope() string {
-	return fmt.Sprintf("/subscriptions/%s", a.Conf.SubscriptionID)
-}
-
 func (a *Agent) getSubscriptionScope(scope string) string {
 	subscriptionId := strings.Split(scope, "/")[2]
 	return fmt.Sprintf("/subscriptions/%s", subscriptionId)
