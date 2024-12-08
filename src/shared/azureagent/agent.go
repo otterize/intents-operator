@@ -170,6 +170,8 @@ func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
 	return pod.Labels != nil && pod.Labels[AzureApplyOnPodLabel] == "true"
 }
 
+// GetRoleAssignmentClientForSubscription returns a role assignments client for the given subscription ID.
+// In order to support multiple subscriptions, we need to create a role assignments client for each subscription.
 func (a *Agent) GetRoleAssignmentClientForSubscription(subId string) (client AzureARMAuthorizationRoleAssignmentsClient, err error) {
 	client, ok := a.subscriptionToRoleAssignmentsClient[subId]
 	if !ok {
