@@ -85,8 +85,7 @@ func (a *Agent) ListRoleAssignmentsAcrossSubscriptions(ctx context.Context, user
 
 	var roleAssignments []armauthorization.RoleAssignment
 	for _, sub := range subscriptions {
-		// Create a role assignments client for the subscription
-		roleClient, err := armauthorization.NewRoleAssignmentsClient(*sub.SubscriptionID, a.credentials, nil)
+		roleClient, err := a.GetRoleAssignmentClientForSubscription(*sub.SubscriptionID)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
