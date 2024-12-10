@@ -51,7 +51,7 @@ func (a *Agent) DeleteRoleAssignment(ctx context.Context, roleAssignment armauth
 		fullID := *roleAssignment.Properties.RoleDefinitionID
 		roleDefinitionID := fullID[strings.LastIndex(fullID, "/")+1:]
 
-		if err := a.DeleteCustomRole(ctx, roleDefinitionID); err != nil {
+		if err := a.DeleteCustomRole(ctx, *roleAssignment.Properties.Scope, roleDefinitionID); err != nil {
 			return errors.Wrap(err)
 		}
 	}
@@ -59,14 +59,39 @@ func (a *Agent) DeleteRoleAssignment(ctx context.Context, roleAssignment armauth
 	return nil
 }
 
-func (a *Agent) ListRoleAssignments(ctx context.Context, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
+func (a *Agent) ListRoleAssignmentsAcrossSubscriptions(ctx context.Context, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
+	subscriptions, err := a.ListSubscriptions(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
 	var roleAssignments []armauthorization.RoleAssignment
-	pager := a.roleAssignmentsClient.NewListForSubscriptionPager(nil)
+	for _, sub := range subscriptions {
+		roleAssignmentsForSubscription, err := a.ListRoleAssignmentsForSubscription(ctx, *sub.SubscriptionID, userAssignedIdentity)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+
+		roleAssignments = append(roleAssignments, roleAssignmentsForSubscription...)
+	}
+
+	return roleAssignments, nil
+}
+
+func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscriptionID string, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
+	roleClient, err := a.GetRoleAssignmentClientForSubscription(subscriptionID)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	var roleAssignments []armauthorization.RoleAssignment
+	pager := roleClient.NewListForSubscriptionPager(nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
+
 		for _, roleAssignment := range page.Value {
 			if *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
 				roleAssignments = append(roleAssignments, *roleAssignment)

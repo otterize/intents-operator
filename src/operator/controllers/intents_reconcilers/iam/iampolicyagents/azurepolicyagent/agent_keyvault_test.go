@@ -6,6 +6,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/google/uuid"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
@@ -32,6 +33,8 @@ type AzureAgentPoliciesKeyVaultSuite struct {
 	mockRoleAssignmentsClient              *mock_azureagent.MockAzureARMAuthorizationRoleAssignmentsClient
 	mockVaultsClient                       *mock_azureagent.MockAzureARMKeyVaultVaultsClient
 
+	subscriptionToRoleAssignmentsClient map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient
+
 	agent *Agent
 }
 
@@ -47,6 +50,9 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 	s.mockRoleDefinitionsClient = mock_azureagent.NewMockAzureARMAuthorizationRoleDefinitionsClient(controller)
 	s.mockRoleAssignmentsClient = mock_azureagent.NewMockAzureARMAuthorizationRoleAssignmentsClient(controller)
 	s.mockVaultsClient = mock_azureagent.NewMockAzureARMKeyVaultVaultsClient(controller)
+
+	s.subscriptionToRoleAssignmentsClient = make(map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient)
+	s.subscriptionToRoleAssignmentsClient[testSubscriptionID] = s.mockRoleAssignmentsClient
 
 	s.agent = &Agent{
 		azureagent.NewAzureAgentFromClients(
@@ -68,6 +74,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 			s.mockRoleDefinitionsClient,
 			s.mockRoleAssignmentsClient,
 			s.mockVaultsClient,
+			s.subscriptionToRoleAssignmentsClient,
 		),
 		sync.Mutex{},
 		sync.Mutex{},
@@ -89,6 +96,20 @@ func (s *AzureAgentPoliciesKeyVaultSuite) expectGetUserAssignedIdentityReturnsCl
 
 func (s *AzureAgentPoliciesKeyVaultSuite) expectListRoleAssignmentsReturnsEmpty() {
 	s.mockRoleAssignmentsClient.EXPECT().NewListForSubscriptionPager(nil).Return(azureagent.NewListPager[armauthorization.RoleAssignmentsClientListForSubscriptionResponse]())
+}
+
+func (s *AzureAgentPoliciesKeyVaultSuite) expectListSubscriptionsReturnsPager() {
+	s.mockSubscriptionsClient.EXPECT().NewListPager(nil).Return(azureagent.NewListPager[armsubscriptions.ClientListResponse](
+		armsubscriptions.ClientListResponse{
+			SubscriptionListResult: armsubscriptions.SubscriptionListResult{
+				Value: []*armsubscriptions.Subscription{
+					{
+						SubscriptionID: lo.ToPtr(testSubscriptionID),
+					},
+				},
+			},
+		},
+	))
 }
 
 func (s *AzureAgentPoliciesKeyVaultSuite) expectListKeyVaultsReturnsNames(names ...string) {
@@ -227,6 +248,8 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestAddRolePolicyFromIntents_AzureKeyV
 			s.expectGetUserAssignedIdentityReturnsClientID(clientId)
 
 			// Two calls - one from custom roles and one from backwards compatibility to built-in roles
+			s.expectListSubscriptionsReturnsPager()
+			s.expectListSubscriptionsReturnsPager()
 			s.expectListRoleAssignmentsReturnsEmpty()
 			s.expectListRoleAssignmentsReturnsEmpty()
 
@@ -282,6 +305,8 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestDeleteRolePolicyFromIntents_Clears
 	s.expectGetUserAssignedIdentityReturnsClientID(clientId)
 	s.expectListRoleAssignmentsReturnsEmpty()
 	s.expectListKeyVaultsReturnsNames(testKeyVaultName)
+
+	s.expectListSubscriptionsReturnsPager()
 
 	s.expectGetKeyVaultReturnsAccessPolicies(testKeyVaultName, []*armkeyvault.AccessPolicyEntry{
 		{

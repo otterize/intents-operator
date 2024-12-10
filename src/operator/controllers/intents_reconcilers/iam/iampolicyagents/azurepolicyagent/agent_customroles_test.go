@@ -7,10 +7,12 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/google/uuid"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	mock_azureagent "github.com/otterize/intents-operator/src/shared/azureagent/mocks"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +43,8 @@ type AzureAgentPoliciesCustomRolesSuite struct {
 	mockRoleAssignmentsClient              *mock_azureagent.MockAzureARMAuthorizationRoleAssignmentsClient
 	mockVaultsClient                       *mock_azureagent.MockAzureARMKeyVaultVaultsClient
 
+	subscriptionToRoleAssignmentsClient map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient
+
 	agent *Agent
 }
 
@@ -50,6 +54,20 @@ func (s *AzureAgentPoliciesCustomRolesSuite) expectGetByIDReturnsResource(scope 
 			ID: &scope,
 		},
 	}, nil)
+}
+
+func (s *AzureAgentPoliciesCustomRolesSuite) expectListSubscriptionsReturnsPager() {
+	s.mockSubscriptionsClient.EXPECT().NewListPager(nil).Return(azureagent.NewListPager[armsubscriptions.ClientListResponse](
+		armsubscriptions.ClientListResponse{
+			SubscriptionListResult: armsubscriptions.SubscriptionListResult{
+				Value: []*armsubscriptions.Subscription{
+					{
+						SubscriptionID: lo.ToPtr(testSubscriptionID),
+					},
+				},
+			},
+		},
+	))
 }
 
 func (s *AzureAgentPoliciesCustomRolesSuite) expectListRoleDefinitionsReturnsPager(roles []*armauthorization.RoleDefinition) {
@@ -117,6 +135,9 @@ func (s *AzureAgentPoliciesCustomRolesSuite) SetupTest() {
 	s.mockRoleAssignmentsClient = mock_azureagent.NewMockAzureARMAuthorizationRoleAssignmentsClient(controller)
 	s.mockVaultsClient = mock_azureagent.NewMockAzureARMKeyVaultVaultsClient(controller)
 
+	s.subscriptionToRoleAssignmentsClient = make(map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient)
+	s.subscriptionToRoleAssignmentsClient[testSubscriptionID] = s.mockRoleAssignmentsClient
+
 	s.agent = &Agent{
 		azureagent.NewAzureAgentFromClients(
 			azureagent.Config{
@@ -137,6 +158,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) SetupTest() {
 			s.mockRoleDefinitionsClient,
 			s.mockRoleAssignmentsClient,
 			s.mockVaultsClient,
+			s.subscriptionToRoleAssignmentsClient,
 		),
 		sync.Mutex{},
 		sync.Mutex{},
@@ -234,6 +256,8 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 			s.expectListKeyVaultsReturnsEmpty()
 
 			// Two calls - one from custom roles and one from backwards compatibility to built-in roles
+			s.expectListSubscriptionsReturnsPager()
+			s.expectListSubscriptionsReturnsPager()
 			s.expectListRoleAssignmentsReturnsEmpty()
 			s.expectListRoleAssignmentsReturnsEmpty()
 

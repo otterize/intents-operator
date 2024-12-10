@@ -94,6 +94,20 @@ func (mr *MockAzureARMSubscriptionsClientMockRecorder) Get(ctx, subscriptionID, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockAzureARMSubscriptionsClient)(nil).Get), ctx, subscriptionID, options)
 }
 
+// NewListPager mocks base method.
+func (m *MockAzureARMSubscriptionsClient) NewListPager(options *armsubscriptions.ClientListOptions) *runtime.Pager[armsubscriptions.ClientListResponse] {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewListPager", options)
+	ret0, _ := ret[0].(*runtime.Pager[armsubscriptions.ClientListResponse])
+	return ret0
+}
+
+// NewListPager indicates an expected call of NewListPager.
+func (mr *MockAzureARMSubscriptionsClientMockRecorder) NewListPager(options interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewListPager", reflect.TypeOf((*MockAzureARMSubscriptionsClient)(nil).NewListPager), options)
+}
+
 // MockAzureARMResourcesResourceGroupsClient is a mock of AzureARMResourcesResourceGroupsClient interface.
 type MockAzureARMResourcesResourceGroupsClient struct {
 	ctrl     *gomock.Controller

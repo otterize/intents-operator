@@ -29,17 +29,18 @@ type Config struct {
 }
 
 type Agent struct {
-	Conf                               Config
-	credentials                        *azidentity.DefaultAzureCredential
-	resourceClient                     AzureARMResourcesClient
-	subscriptionClient                 AzureARMSubscriptionsClient
-	resourceGroupsClient               AzureARMResourcesResourceGroupsClient
-	managedClustersClient              AzureARMContainerServiceManagedClustersClient
-	userAssignedIdentitiesClient       AzureARMMSIUserAssignedIdentitiesClient
-	federatedIdentityCredentialsClient AzureARMMSIFederatedIdentityCredentialsClient
-	roleDefinitionsClient              AzureARMAuthorizationRoleDefinitionsClient
-	roleAssignmentsClient              AzureARMAuthorizationRoleAssignmentsClient
-	vaultsClient                       AzureARMKeyVaultVaultsClient
+	Conf                                Config
+	credentials                         *azidentity.DefaultAzureCredential
+	resourceClient                      AzureARMResourcesClient
+	subscriptionClient                  AzureARMSubscriptionsClient
+	resourceGroupsClient                AzureARMResourcesResourceGroupsClient
+	managedClustersClient               AzureARMContainerServiceManagedClustersClient
+	userAssignedIdentitiesClient        AzureARMMSIUserAssignedIdentitiesClient
+	federatedIdentityCredentialsClient  AzureARMMSIFederatedIdentityCredentialsClient
+	roleDefinitionsClient               AzureARMAuthorizationRoleDefinitionsClient
+	roleAssignmentsClient               AzureARMAuthorizationRoleAssignmentsClient
+	vaultsClient                        AzureARMKeyVaultVaultsClient
+	subscriptionToRoleAssignmentsClient map[string]AzureARMAuthorizationRoleAssignmentsClient
 }
 
 func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
@@ -89,10 +90,13 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	subscriptionClient := armsubscriptionsClientFactory.NewClient()
 	userAssignedIdentitiesClient := armmsiClientFactory.NewUserAssignedIdentitiesClient()
 	federatedIdentityCredentialsClient := armmsiClientFactory.NewFederatedIdentityCredentialsClient()
-	roleDefinitionsClient := armauthorizationClientFactory.NewRoleDefinitionsClient()
-	roleAssignmentsClient := armauthorizationClientFactory.NewRoleAssignmentsClient()
+	roleDefinitionsClient := armauthorizationClientFactory.NewRoleDefinitionsClient() // Not using SubscriptionID
+	roleAssignmentsClient := armauthorizationClientFactory.NewRoleAssignmentsClient() // Using SubscriptionID
 	managedClustersClient := armcontainerserviceClientFactory.NewManagedClustersClient()
 	vaultsClient := armkeyvaultClientFactory.NewVaultsClient()
+
+	subscriptionToRoleAssignmentsClient := make(map[string]AzureARMAuthorizationRoleAssignmentsClient)
+	subscriptionToRoleAssignmentsClient[conf.SubscriptionID] = roleAssignmentsClient
 
 	agent := NewAzureAgentFromClients(
 		conf,
@@ -106,6 +110,7 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 		roleDefinitionsClient,
 		roleAssignmentsClient,
 		vaultsClient,
+		subscriptionToRoleAssignmentsClient,
 	)
 
 	if err := agent.loadConfDefaults(ctx); err != nil {
@@ -115,19 +120,20 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	return agent, nil
 }
 
-func NewAzureAgentFromClients(conf Config, credentials *azidentity.DefaultAzureCredential, resourceClient AzureARMResourcesClient, subscriptionClient AzureARMSubscriptionsClient, resourceGroupsClient AzureARMResourcesResourceGroupsClient, managedClustersClient AzureARMContainerServiceManagedClustersClient, userAssignedIdentitiesClient AzureARMMSIUserAssignedIdentitiesClient, federatedIdentityCredentialsClient AzureARMMSIFederatedIdentityCredentialsClient, roleDefinitionsClient AzureARMAuthorizationRoleDefinitionsClient, roleAssignmentsClient AzureARMAuthorizationRoleAssignmentsClient, vaultsClient AzureARMKeyVaultVaultsClient) *Agent {
+func NewAzureAgentFromClients(conf Config, credentials *azidentity.DefaultAzureCredential, resourceClient AzureARMResourcesClient, subscriptionClient AzureARMSubscriptionsClient, resourceGroupsClient AzureARMResourcesResourceGroupsClient, managedClustersClient AzureARMContainerServiceManagedClustersClient, userAssignedIdentitiesClient AzureARMMSIUserAssignedIdentitiesClient, federatedIdentityCredentialsClient AzureARMMSIFederatedIdentityCredentialsClient, roleDefinitionsClient AzureARMAuthorizationRoleDefinitionsClient, roleAssignmentsClient AzureARMAuthorizationRoleAssignmentsClient, vaultsClient AzureARMKeyVaultVaultsClient, subscriptionToRoleAssignmentsClient map[string]AzureARMAuthorizationRoleAssignmentsClient) *Agent {
 	return &Agent{
-		Conf:                               conf,
-		credentials:                        credentials,
-		resourceClient:                     resourceClient,
-		subscriptionClient:                 subscriptionClient,
-		resourceGroupsClient:               resourceGroupsClient,
-		managedClustersClient:              managedClustersClient,
-		userAssignedIdentitiesClient:       userAssignedIdentitiesClient,
-		federatedIdentityCredentialsClient: federatedIdentityCredentialsClient,
-		roleDefinitionsClient:              roleDefinitionsClient,
-		roleAssignmentsClient:              roleAssignmentsClient,
-		vaultsClient:                       vaultsClient,
+		Conf:                                conf,
+		credentials:                         credentials,
+		resourceClient:                      resourceClient,
+		subscriptionClient:                  subscriptionClient,
+		resourceGroupsClient:                resourceGroupsClient,
+		managedClustersClient:               managedClustersClient,
+		userAssignedIdentitiesClient:        userAssignedIdentitiesClient,
+		federatedIdentityCredentialsClient:  federatedIdentityCredentialsClient,
+		roleDefinitionsClient:               roleDefinitionsClient,
+		roleAssignmentsClient:               roleAssignmentsClient,
+		vaultsClient:                        vaultsClient,
+		subscriptionToRoleAssignmentsClient: subscriptionToRoleAssignmentsClient,
 	}
 }
 
@@ -162,4 +168,21 @@ func (a *Agent) loadConfDefaults(ctx context.Context) error {
 
 func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
 	return pod.Labels != nil && pod.Labels[AzureApplyOnPodLabel] == "true"
+}
+
+// GetRoleAssignmentClientForSubscription returns a role assignments client for the given subscription ID.
+// In order to support multiple subscriptions, we need to create a role assignments client for each subscription.
+func (a *Agent) GetRoleAssignmentClientForSubscription(subId string) (client AzureARMAuthorizationRoleAssignmentsClient, err error) {
+	client, ok := a.subscriptionToRoleAssignmentsClient[subId]
+	if !ok {
+		// Create a role assignments client for the subscription
+		client, err = armauthorization.NewRoleAssignmentsClient(subId, a.credentials, nil)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+
+		a.subscriptionToRoleAssignmentsClient[subId] = client
+	}
+
+	return client, nil
 }

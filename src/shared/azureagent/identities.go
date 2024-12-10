@@ -108,7 +108,7 @@ func (a *Agent) DeleteUserAssignedIdentity(ctx context.Context, namespace string
 		return errors.Wrap(err)
 	}
 
-	roleAssignments, err := a.ListRoleAssignments(ctx, identity)
+	roleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, identity)
 	if err != nil {
 		return errors.Wrap(err)
 	}
