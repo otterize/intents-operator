@@ -261,9 +261,9 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestAddRolePolicyFromIntents_AzureKeyV
 			clientId := uuid.NewString()
 			s.expectGetUserAssignedIdentityReturnsClientID(clientId)
 
-			s.expectListSubscriptionsReturnsPager()
-
 			// Two calls - one from custom roles and one from backwards compatibility to built-in roles
+			s.expectListSubscriptionsReturnsPager()
+			s.expectListSubscriptionsReturnsPager()
 			s.expectListRoleAssignmentsReturnsEmpty()
 			s.expectListRoleAssignmentsReturnsEmpty()
 
@@ -324,6 +324,8 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestDeleteRolePolicyFromIntents_Clears
 	s.expectGetUserAssignedIdentityReturnsClientID(clientId)
 	s.expectListRoleAssignmentsReturnsEmpty()
 	s.expectListKeyVaultsReturnsNames(testKeyVaultName)
+
+	s.expectListSubscriptionsReturnsPager()
 
 	s.expectGetKeyVaultReturnsAccessPolicies(testKeyVaultName, []*armkeyvault.AccessPolicyEntry{
 		{
