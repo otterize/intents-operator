@@ -5,9 +5,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	mock_azureagent "github.com/otterize/intents-operator/src/shared/azureagent/mocks"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	"sync"
@@ -105,6 +107,20 @@ func (s *AzureAgentIdentitiesSuite) expectDeleteRoleAssignmentSuccess(scope stri
 	)
 }
 
+func (s *AzureAgentIdentitiesSuite) expectListSubscriptionsReturnsPager() {
+	s.mockSubscriptionsClient.EXPECT().NewListPager(nil).Return(azureagent.NewListPager[armsubscriptions.ClientListResponse](
+		armsubscriptions.ClientListResponse{
+			SubscriptionListResult: armsubscriptions.SubscriptionListResult{
+				Value: []*armsubscriptions.Subscription{
+					{
+						SubscriptionID: lo.ToPtr(testSubscriptionID),
+					},
+				},
+			},
+		},
+	))
+}
+
 func (s *AzureAgentIdentitiesSuite) expectDeleteFederatedIdentityCredentialsSuccess() {
 	userAssignedIndentityName := s.agent.GenerateUserAssignedIdentityName(testNamespace, testIntentsServiceName)
 	s.mockFederatedIdentityCredentialsClient.EXPECT().Delete(gomock.Any(), testResourceGroup, userAssignedIndentityName, gomock.Any(), gomock.Any()).Return(
@@ -135,6 +151,8 @@ func (s *AzureAgentIdentitiesSuite) TestDeleteUserAssignedIdentityWithRoles() {
 			},
 		},
 	})
+
+	s.expectListSubscriptionsReturnsPager()
 
 	s.expectDeleteRoleAssignmentSuccess(scope)
 	s.expectDeleteFederatedIdentityCredentialsSuccess()

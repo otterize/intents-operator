@@ -254,9 +254,10 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 			s.expectGetUserAssignedIdentityReturnsClientID(clientId)
 
 			s.expectListKeyVaultsReturnsEmpty()
-			s.expectListSubscriptionsReturnsPager()
 
 			// Two calls - one from custom roles and one from backwards compatibility to built-in roles
+			s.expectListSubscriptionsReturnsPager()
+			s.expectListSubscriptionsReturnsPager()
 			s.expectListRoleAssignmentsReturnsEmpty()
 			s.expectListRoleAssignmentsReturnsEmpty()
 
