@@ -59,24 +59,6 @@ func (a *Agent) DeleteRoleAssignment(ctx context.Context, roleAssignment armauth
 	return nil
 }
 
-func (a *Agent) ListRoleAssignments(ctx context.Context, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
-	var roleAssignments []armauthorization.RoleAssignment
-	pager := a.roleAssignmentsClient.NewListForSubscriptionPager(nil)
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err)
-		}
-		for _, roleAssignment := range page.Value {
-			if *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
-				roleAssignments = append(roleAssignments, *roleAssignment)
-			}
-		}
-	}
-
-	return roleAssignments, nil
-}
-
 func (a *Agent) ListRoleAssignmentsAcrossSubscriptions(ctx context.Context, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
 	subscriptions, err := a.ListSubscriptions(ctx)
 	if err != nil {
@@ -85,22 +67,34 @@ func (a *Agent) ListRoleAssignmentsAcrossSubscriptions(ctx context.Context, user
 
 	var roleAssignments []armauthorization.RoleAssignment
 	for _, sub := range subscriptions {
-		roleClient, err := a.GetRoleAssignmentClientForSubscription(*sub.SubscriptionID)
+		roleAssignmentsForSubscription, err := a.ListRoleAssignmentsForSubscription(ctx, *sub.SubscriptionID, userAssignedIdentity)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
 
-		pager := roleClient.NewListForSubscriptionPager(nil)
-		for pager.More() {
-			page, err := pager.NextPage(ctx)
-			if err != nil {
-				return nil, errors.Wrap(err)
-			}
+		roleAssignments = append(roleAssignments, roleAssignmentsForSubscription...)
+	}
 
-			for _, roleAssignment := range page.Value {
-				if *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
-					roleAssignments = append(roleAssignments, *roleAssignment)
-				}
+	return roleAssignments, nil
+}
+
+func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscriptionID string, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
+	roleClient, err := a.GetRoleAssignmentClientForSubscription(subscriptionID)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	var roleAssignments []armauthorization.RoleAssignment
+	pager := roleClient.NewListForSubscriptionPager(nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+
+		for _, roleAssignment := range page.Value {
+			if *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
+				roleAssignments = append(roleAssignments, *roleAssignment)
 			}
 		}
 	}

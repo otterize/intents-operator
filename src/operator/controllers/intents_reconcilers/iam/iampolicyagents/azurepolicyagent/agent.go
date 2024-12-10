@@ -91,7 +91,7 @@ func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssigne
 	a.assignmentMutex.Lock()
 	defer a.assignmentMutex.Unlock()
 
-	existingRoleAssignments, err := a.ListRoleAssignments(ctx, userAssignedIdentity)
+	existingRoleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -195,7 +195,7 @@ func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otteriz
 		return errors.Wrap(err)
 	}
 
-	existingRoleAssignments, err := a.ListRoleAssignments(ctx, userAssignedIdentity)
+	existingRoleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
 	}

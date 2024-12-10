@@ -15,8 +15,8 @@ func (a *Agent) ListSubscriptions(ctx context.Context) ([]armsubscriptions.Subsc
 			return nil, errors.Wrap(err)
 		}
 
-		for _, roleAssignment := range page.Value {
-			subscriptions = append(subscriptions, *roleAssignment)
+		for _, subscription := range page.Value {
+			subscriptions = append(subscriptions, *subscription)
 		}
 	}
 
