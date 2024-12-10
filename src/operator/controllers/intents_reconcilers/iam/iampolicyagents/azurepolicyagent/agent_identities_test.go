@@ -27,6 +27,7 @@ type AzureAgentIdentitiesSuite struct {
 	mockRoleAssignmentsClient              *mock_azureagent.MockAzureARMAuthorizationRoleAssignmentsClient
 	mockVaultsClient                       *mock_azureagent.MockAzureARMKeyVaultVaultsClient
 
+	subscriptionToResourceClient        map[string]azureagent.AzureARMResourcesClient
 	subscriptionToRoleAssignmentsClient map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient
 
 	agent *Agent
@@ -44,6 +45,9 @@ func (s *AzureAgentIdentitiesSuite) SetupTest() {
 	s.mockRoleDefinitionsClient = mock_azureagent.NewMockAzureARMAuthorizationRoleDefinitionsClient(controller)
 	s.mockRoleAssignmentsClient = mock_azureagent.NewMockAzureARMAuthorizationRoleAssignmentsClient(controller)
 	s.mockVaultsClient = mock_azureagent.NewMockAzureARMKeyVaultVaultsClient(controller)
+
+	s.subscriptionToResourceClient = make(map[string]azureagent.AzureARMResourcesClient)
+	s.subscriptionToResourceClient[testSubscriptionID] = s.mockResourcesClient
 
 	s.subscriptionToRoleAssignmentsClient = make(map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient)
 	s.subscriptionToRoleAssignmentsClient[testSubscriptionID] = s.mockRoleAssignmentsClient
@@ -68,6 +72,7 @@ func (s *AzureAgentIdentitiesSuite) SetupTest() {
 			s.mockRoleDefinitionsClient,
 			s.mockRoleAssignmentsClient,
 			s.mockVaultsClient,
+			s.subscriptionToResourceClient,
 			s.subscriptionToRoleAssignmentsClient,
 		),
 		sync.Mutex{},

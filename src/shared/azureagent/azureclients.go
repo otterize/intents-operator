@@ -13,6 +13,7 @@ import (
 
 type AzureARMResourcesClient interface {
 	GetByID(ctx context.Context, resourceID string, apiVersion string, options *armresources.ClientGetByIDOptions) (armresources.ClientGetByIDResponse, error)
+	NewListPager(options *armresources.ClientListOptions) *runtime.Pager[armresources.ClientListResponse]
 }
 
 type AzureARMSubscriptionsClient interface {

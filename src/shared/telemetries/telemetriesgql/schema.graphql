@@ -767,6 +767,7 @@ type FindingSummaryV2 {
 	description: String!
 	validationDescription: String
 	status: FindingStatus!
+	ignoredReason: String
 	serviceTotalCount: Int!
 	serviceOpenCount: Int!
 	clusterTotalCount: Int!
@@ -1166,8 +1167,10 @@ type Intent {
 input IntentInput {
 	namespace: String!
 	clientName: String!
+	clientResolutionData: String
 	clientWorkloadKind: String
 	serverName: String!
+	serverResolutionData: String
 	serverWorkloadKind: String
 	serverAlias: ServerAliasInput
 	serverNamespace: String
@@ -1183,6 +1186,7 @@ input IntentInput {
 	gcpPermissions: [String!]
 	internet: InternetConfigInput
 	status: IntentStatusInput
+	resolutionData: String
 }
 
 type IntentStatus {
@@ -2044,6 +2048,9 @@ type Query {
 	): [Finding!]!
 	findingStatusHistory(
 		hash: String!
+	): [FindingStatusHistory!]!
+	findingSummaryStatusHistory(
+		leafControlIDs: [RegulationCode!]!
 	): [FindingStatusHistory!]!
 """List integrations"""
 	integrations(

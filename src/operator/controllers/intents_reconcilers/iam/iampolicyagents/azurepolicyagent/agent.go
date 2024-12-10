@@ -2,7 +2,6 @@ package azurepolicyagent
 
 import (
 	"context"
-	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
@@ -34,26 +33,23 @@ func (a *Agent) IntentType() otterizev2alpha1.IntentType {
 	return otterizev2alpha1.IntentTypeAzure
 }
 
-func (a *Agent) getIntentScope(intent otterizev2alpha1.Target) (string, error) {
+func (a *Agent) getIntentScope(ctx context.Context, intent otterizev2alpha1.Target) (string, error) {
 	name := intent.GetTargetServerName()
 	if !strings.HasPrefix(name, "/") {
 		return "", errors.Errorf("expected intent name to start with /, got %s", name)
 	}
 
+	// If the scope is already a full scope, validate and return it
 	if strings.HasPrefix(name, "/subscriptions/") {
-		// the name is already a full scope
+		err := a.ValidateScope(ctx, name)
+		if err != nil {
+			return "", errors.Wrap(err)
+		}
+
 		return name, nil
 	}
 
-	if strings.HasPrefix(name, "/resourceGroups/") {
-		// append the subscription ID to the scope
-		fullScope := fmt.Sprintf("/subscriptions/%s%s", a.Conf.SubscriptionID, name)
-		return fullScope, nil
-	}
-
-	// append both the subscription ID and the resource group to the scope
-	fullScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s%s", a.Conf.SubscriptionID, a.Conf.ResourceGroup, name)
-	return fullScope, nil
+	return a.GetFullResourceScope(ctx, name)
 }
 
 func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, _ string, intentsServiceName string, intents []otterizev2alpha1.Target, _ corev1.Pod) error {
@@ -111,7 +107,7 @@ func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssigne
 
 	var expectedScopes []string
 	for _, intent := range intents {
-		scope, err := a.getIntentScope(intent)
+		scope, err := a.getIntentScope(ctx, intent)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -242,7 +238,7 @@ func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAss
 	var expectedIntentsKeyVaults []string
 
 	for _, intent := range intents {
-		scope, err := a.getIntentScope(intent)
+		scope, err := a.getIntentScope(ctx, intent)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -342,7 +338,7 @@ func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIde
 
 	var expectedScopes []string
 	for _, intent := range intents {
-		scope, err := a.getIntentScope(intent)
+		scope, err := a.getIntentScope(ctx, intent)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -365,12 +361,6 @@ func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIde
 func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdentity armmsi.Identity, scope string, intent otterizev2alpha1.Target) error {
 	actions := intent.Azure.Actions
 	dataActions := intent.Azure.DataActions
-
-	// Validate that the scope exists before creating the custom role
-	err := a.ValidateScope(ctx, scope)
-	if err != nil {
-		return errors.Wrap(err)
-	}
 
 	customRoleName := a.GenerateCustomRoleName(userAssignedIdentity, scope)
 	role, found := a.FindCustomRoleByName(ctx, scope, customRoleName)
