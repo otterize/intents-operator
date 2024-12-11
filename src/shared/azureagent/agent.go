@@ -40,6 +40,7 @@ type Agent struct {
 	roleDefinitionsClient               AzureARMAuthorizationRoleDefinitionsClient
 	roleAssignmentsClient               AzureARMAuthorizationRoleAssignmentsClient
 	vaultsClient                        AzureARMKeyVaultVaultsClient
+	subscriptionToResourceClient        map[string]AzureARMResourcesClient
 	subscriptionToRoleAssignmentsClient map[string]AzureARMAuthorizationRoleAssignmentsClient
 }
 
@@ -95,6 +96,10 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	managedClustersClient := armcontainerserviceClientFactory.NewManagedClustersClient()
 	vaultsClient := armkeyvaultClientFactory.NewVaultsClient()
 
+	// Per-subscription clients
+	subscriptionToResourceClient := make(map[string]AzureARMResourcesClient)
+	subscriptionToResourceClient[conf.SubscriptionID] = resourceClient
+
 	subscriptionToRoleAssignmentsClient := make(map[string]AzureARMAuthorizationRoleAssignmentsClient)
 	subscriptionToRoleAssignmentsClient[conf.SubscriptionID] = roleAssignmentsClient
 
@@ -110,6 +115,7 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 		roleDefinitionsClient,
 		roleAssignmentsClient,
 		vaultsClient,
+		subscriptionToResourceClient,
 		subscriptionToRoleAssignmentsClient,
 	)
 
@@ -120,7 +126,21 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	return agent, nil
 }
 
-func NewAzureAgentFromClients(conf Config, credentials *azidentity.DefaultAzureCredential, resourceClient AzureARMResourcesClient, subscriptionClient AzureARMSubscriptionsClient, resourceGroupsClient AzureARMResourcesResourceGroupsClient, managedClustersClient AzureARMContainerServiceManagedClustersClient, userAssignedIdentitiesClient AzureARMMSIUserAssignedIdentitiesClient, federatedIdentityCredentialsClient AzureARMMSIFederatedIdentityCredentialsClient, roleDefinitionsClient AzureARMAuthorizationRoleDefinitionsClient, roleAssignmentsClient AzureARMAuthorizationRoleAssignmentsClient, vaultsClient AzureARMKeyVaultVaultsClient, subscriptionToRoleAssignmentsClient map[string]AzureARMAuthorizationRoleAssignmentsClient) *Agent {
+func NewAzureAgentFromClients(
+	conf Config,
+	credentials *azidentity.DefaultAzureCredential,
+	resourceClient AzureARMResourcesClient,
+	subscriptionClient AzureARMSubscriptionsClient,
+	resourceGroupsClient AzureARMResourcesResourceGroupsClient,
+	managedClustersClient AzureARMContainerServiceManagedClustersClient,
+	userAssignedIdentitiesClient AzureARMMSIUserAssignedIdentitiesClient,
+	federatedIdentityCredentialsClient AzureARMMSIFederatedIdentityCredentialsClient,
+	roleDefinitionsClient AzureARMAuthorizationRoleDefinitionsClient,
+	roleAssignmentsClient AzureARMAuthorizationRoleAssignmentsClient,
+	vaultsClient AzureARMKeyVaultVaultsClient,
+	subscriptionToResourceClient map[string]AzureARMResourcesClient,
+	subscriptionToRoleAssignmentsClient map[string]AzureARMAuthorizationRoleAssignmentsClient,
+) *Agent {
 	return &Agent{
 		Conf:                                conf,
 		credentials:                         credentials,
@@ -133,6 +153,7 @@ func NewAzureAgentFromClients(conf Config, credentials *azidentity.DefaultAzureC
 		roleDefinitionsClient:               roleDefinitionsClient,
 		roleAssignmentsClient:               roleAssignmentsClient,
 		vaultsClient:                        vaultsClient,
+		subscriptionToResourceClient:        subscriptionToResourceClient,
 		subscriptionToRoleAssignmentsClient: subscriptionToRoleAssignmentsClient,
 	}
 }
@@ -182,6 +203,21 @@ func (a *Agent) GetRoleAssignmentClientForSubscription(subId string) (client Azu
 		}
 
 		a.subscriptionToRoleAssignmentsClient[subId] = client
+	}
+
+	return client, nil
+}
+
+func (a *Agent) GetResourceClientForSubscription(subId string) (client AzureARMResourcesClient, err error) {
+	client, ok := a.subscriptionToResourceClient[subId]
+	if !ok {
+		// Create a resource client for the subscription
+		client, err = armresources.NewClient(subId, a.credentials, nil)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+
+		a.subscriptionToResourceClient[subId] = client
 	}
 
 	return client, nil

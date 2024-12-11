@@ -2,6 +2,7 @@ package azurepolicyagent
 
 import (
 	"context"
+	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
@@ -43,6 +44,7 @@ type AzureAgentPoliciesCustomRolesSuite struct {
 	mockRoleAssignmentsClient              *mock_azureagent.MockAzureARMAuthorizationRoleAssignmentsClient
 	mockVaultsClient                       *mock_azureagent.MockAzureARMKeyVaultVaultsClient
 
+	subscriptionToResourceClient        map[string]azureagent.AzureARMResourcesClient
 	subscriptionToRoleAssignmentsClient map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient
 
 	agent *Agent
@@ -135,6 +137,9 @@ func (s *AzureAgentPoliciesCustomRolesSuite) SetupTest() {
 	s.mockRoleAssignmentsClient = mock_azureagent.NewMockAzureARMAuthorizationRoleAssignmentsClient(controller)
 	s.mockVaultsClient = mock_azureagent.NewMockAzureARMKeyVaultVaultsClient(controller)
 
+	s.subscriptionToResourceClient = make(map[string]azureagent.AzureARMResourcesClient)
+	s.subscriptionToResourceClient[testSubscriptionID] = s.mockResourcesClient
+
 	s.subscriptionToRoleAssignmentsClient = make(map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient)
 	s.subscriptionToRoleAssignmentsClient[testSubscriptionID] = s.mockRoleAssignmentsClient
 
@@ -158,6 +163,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) SetupTest() {
 			s.mockRoleDefinitionsClient,
 			s.mockRoleAssignmentsClient,
 			s.mockVaultsClient,
+			s.subscriptionToResourceClient,
 			s.subscriptionToRoleAssignmentsClient,
 		),
 		sync.Mutex{},
@@ -236,7 +242,7 @@ var azureCustomRoleTestCases = []AzureCustomRoleTestCase{
 
 func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_CustomRoles() {
 	for _, testCase := range azureCustomRoleTestCases {
-		targetScope := "/providers/Microsoft.Storage/storageAccounts/test/blobServices/default/containers/container"
+		targetScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/test/blobServices/default/containers/container", testSubscriptionID, testResourceGroup)
 
 		s.Run(testCase.Name, func() {
 			intents := []otterizev2alpha1.Target{
@@ -267,10 +273,11 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 				s.expectCreateRoleAssignmentReturnsEmpty()
 			}
 
+			s.expectGetByIDReturnsResource(targetScope)
+
 			// Make sure the custom role is created
 			var customRoleDefinition armauthorization.RoleDefinition
 			if testCase.UpdateExpected {
-				s.expectGetByIDReturnsResource(targetScope)
 				s.expectCreateOrUpdateRoleDefinitionWriteRoleDefinition(&customRoleDefinition)
 			}
 

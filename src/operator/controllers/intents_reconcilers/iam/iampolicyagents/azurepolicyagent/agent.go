@@ -19,6 +19,7 @@ import (
 )
 
 var KeyVaultNameRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.KeyVault/vaults/([^/]+)$`)
+var StorageAccountRegex = regexp.MustCompile(`providers/Microsoft.Storage/storageAccounts/([^/]+)`)
 
 type Agent struct {
 	*azureagent.Agent
@@ -34,15 +35,30 @@ func (a *Agent) IntentType() otterizev2alpha1.IntentType {
 	return otterizev2alpha1.IntentTypeAzure
 }
 
-func (a *Agent) getIntentScope(intent otterizev2alpha1.Target) (string, error) {
+func (a *Agent) getIntentScope(ctx context.Context, intent otterizev2alpha1.Target) (string, error) {
 	name := intent.GetTargetServerName()
 	if !strings.HasPrefix(name, "/") {
 		return "", errors.Errorf("expected intent name to start with /, got %s", name)
 	}
 
+	// If the scope is already a full scope, validate and return it
 	if strings.HasPrefix(name, "/subscriptions/") {
-		// the name is already a full scope
+		err := a.ValidateScope(ctx, name)
+		if err != nil {
+			return "", errors.Wrap(err)
+		}
+
 		return name, nil
+	}
+
+	// If the scope is a partial storage account scope, find the full scope and return it
+	if match := StorageAccountRegex.FindStringSubmatch(name); len(match) > 1 {
+		storageAccountScope := fmt.Sprintf("/providers/Microsoft.Storage/storageAccounts/%s", match[1])
+		fullScope, err := a.GetFullStorageResourceScope(ctx, storageAccountScope, name)
+		if err != nil {
+			return "", errors.Wrap(err)
+		}
+		return fullScope, nil
 	}
 
 	if strings.HasPrefix(name, "/resourceGroups/") {
@@ -111,7 +127,7 @@ func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssigne
 
 	var expectedScopes []string
 	for _, intent := range intents {
-		scope, err := a.getIntentScope(intent)
+		scope, err := a.getIntentScope(ctx, intent)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -242,7 +258,7 @@ func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAss
 	var expectedIntentsKeyVaults []string
 
 	for _, intent := range intents {
-		scope, err := a.getIntentScope(intent)
+		scope, err := a.getIntentScope(ctx, intent)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -342,7 +358,7 @@ func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIde
 
 	var expectedScopes []string
 	for _, intent := range intents {
-		scope, err := a.getIntentScope(intent)
+		scope, err := a.getIntentScope(ctx, intent)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -365,12 +381,6 @@ func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIde
 func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdentity armmsi.Identity, scope string, intent otterizev2alpha1.Target) error {
 	actions := intent.Azure.Actions
 	dataActions := intent.Azure.DataActions
-
-	// Validate that the scope exists before creating the custom role
-	err := a.ValidateScope(ctx, scope)
-	if err != nil {
-		return errors.Wrap(err)
-	}
 
 	customRoleName := a.GenerateCustomRoleName(userAssignedIdentity, scope)
 	role, found := a.FindCustomRoleByName(ctx, scope, customRoleName)
