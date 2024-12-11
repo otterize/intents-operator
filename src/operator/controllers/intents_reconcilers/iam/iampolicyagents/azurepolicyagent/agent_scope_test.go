@@ -112,7 +112,7 @@ func (s *AzureAgentScopeSuite) expectListSubscriptionsReturnsPager() {
 }
 
 func (s *AzureAgentScopeSuite) expectListResourcesReturnsPager(resource string) {
-	s.mockResourcesClient.EXPECT().NewListPager(nil).Return(azureagent.NewListPager[armresources.ClientListResponse](
+	s.mockResourcesClient.EXPECT().NewListPager(gomock.Any()).Return(azureagent.NewListPager[armresources.ClientListResponse](
 		armresources.ClientListResponse{
 			ResourceListResult: armresources.ResourceListResult{
 				Value: []*armresources.GenericResourceExpanded{
