@@ -2,6 +2,7 @@ package azurepolicyagent
 
 import (
 	"context"
+	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
@@ -18,6 +19,7 @@ import (
 )
 
 var KeyVaultNameRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.KeyVault/vaults/([^/]+)$`)
+var StorageAccountRegex = regexp.MustCompile(`providers/Microsoft.Storage/storageAccounts/([^/]+)`)
 
 type Agent struct {
 	*azureagent.Agent
@@ -49,7 +51,25 @@ func (a *Agent) getIntentScope(ctx context.Context, intent otterizev2alpha1.Targ
 		return name, nil
 	}
 
-	return a.GetFullResourceScope(ctx, name)
+	// If the scope is a partial storage account scope, find the full scope and return it
+	if match := StorageAccountRegex.FindStringSubmatch(name); len(match) > 1 {
+		storageAccountScope := fmt.Sprintf("/providers/Microsoft.Storage/storageAccounts/%s", match[1])
+		fullScope, err := a.GetFullStorageResourceScope(ctx, storageAccountScope, name)
+		if err != nil {
+			return "", errors.Wrap(err)
+		}
+		return fullScope, nil
+	}
+
+	if strings.HasPrefix(name, "/resourceGroups/") {
+		// append the subscription ID to the scope
+		fullScope := fmt.Sprintf("/subscriptions/%s%s", a.Conf.SubscriptionID, name)
+		return fullScope, nil
+	}
+
+	// append both the subscription ID and the resource group to the scope
+	fullScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s%s", a.Conf.SubscriptionID, a.Conf.ResourceGroup, name)
+	return fullScope, nil
 }
 
 func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, _ string, intentsServiceName string, intents []otterizev2alpha1.Target, _ corev1.Pod) error {

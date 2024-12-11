@@ -3,17 +3,16 @@ package azureagent
 import (
 	"context"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"regexp"
 	"strings"
 )
-
-const StorageAccountPattern = `providers/Microsoft.Storage/storageAccounts/([^/]+)`
 
 func (a *Agent) ValidateScope(ctx context.Context, scope string) error {
 	res, err := a.resourceClient.GetByID(ctx, scope, "2022-09-01", nil)
 	if err != nil {
-		return err
+		return errors.Wrap(err)
 	}
 	if res.GenericResource.ID == nil {
 		return errors.Errorf("scope %s not found", scope)
@@ -21,27 +20,23 @@ func (a *Agent) ValidateScope(ctx context.Context, scope string) error {
 	return nil
 }
 
-func (a *Agent) GetFullResourceScope(ctx context.Context, partialScope string) (string, error) {
+func (a *Agent) GetFullStorageResourceScope(ctx context.Context, storageAccountScope string, partialScope string) (string, error) {
 	subscriptions, err := a.ListSubscriptions(ctx)
 	if err != nil {
 		return "", errors.Wrap(err)
 	}
 
-	// Storage accounts are unique across azure, so we should look up the storage account directly
-	regex := regexp.MustCompile(StorageAccountPattern)
-	matchStorageAccount := regex.FindStringSubmatch(partialScope)
-	scopeToCheck := partialScope
-	if len(matchStorageAccount) > 1 {
-		scopeToCheck = fmt.Sprintf("/providers/Microsoft.Storage/storageAccounts/%s", matchStorageAccount[1])
-	}
-
+	// Iterate through all subscriptions to find the parent storage account
 	for _, sub := range subscriptions {
 		resourceClient, err := a.GetResourceClientForSubscription(*sub.SubscriptionID)
 		if err != nil {
 			return "", errors.Wrap(err)
 		}
 
-		pager := resourceClient.NewListPager(nil)
+		// List only storage accounts to reduce the number of resources to iterate through
+		pager := resourceClient.NewListPager(&armresources.ClientListOptions{
+			Filter: to.Ptr("resourceType eq 'Microsoft.Storage/storageAccounts'"),
+		})
 		for pager.More() {
 			resp, err := pager.NextPage(ctx)
 			if err != nil {
@@ -50,17 +45,13 @@ func (a *Agent) GetFullResourceScope(ctx context.Context, partialScope string) (
 
 			// Iterate through resources to find a resource matching the partial scope
 			for _, resource := range resp.Value {
-				if resource.ID != nil && strings.HasSuffix(*resource.ID, scopeToCheck) {
-					if len(matchStorageAccount) > 1 {
-						// Rebuild the full scope:
-						// partialScope: <optional-prefix>/providers/Microsoft.Storage/storageAccounts/<storage-account-name>/<child-resource>
-						// scopeToCheck: /providers/Microsoft.Storage/storageAccounts/<storage-account-name>
-						// parts[1]: /<child-resource> || ""
-						parts := strings.Split(partialScope, scopeToCheck)
-						fullScope := fmt.Sprintf("%s%s", *resource.ID, parts[1])
-						return fullScope, nil
-					}
-					return *resource.ID, nil
+				if resource.ID != nil && strings.HasSuffix(*resource.ID, storageAccountScope) {
+					// Rebuild the full scope:
+					// partialScope: <optional-prefix>/providers/Microsoft.Storage/storageAccounts/<storage-account-name>/<child-resource>
+					// parts[1]: /<child-resource> || ""
+					parts := strings.Split(partialScope, storageAccountScope)
+					fullScope := fmt.Sprintf("%s%s", *resource.ID, parts[1])
+					return fullScope, nil
 				}
 			}
 		}
