@@ -178,7 +178,7 @@ func (v *IntentsValidatorV1) validateSpec(intents *otterizev1beta1.ClientIntents
 			}
 			for _, dns := range intent.Internet.Domains {
 				_, err := idna.Lookup.ToASCII(dns)
-				if err != nil && !strings.Contains(dns, "*") {
+				if err != nil && !strings.HasPrefix(dns, "*") {
 					return &field.Error{
 						Type:     field.ErrorTypeInvalid,
 						Field:    "domains",
