@@ -54,9 +54,9 @@ require (
 	github.com/vektah/gqlparser/v2 v2.4.5
 	github.com/vishalkuo/bimap v0.0.0-20220726225509-e0b4f20de28b
 	go.uber.org/mock v0.2.0
-	golang.org/x/crypto v0.17.0
+	golang.org/x/crypto v0.31.0
 	golang.org/x/exp v0.0.0-20230124195608-d38c7dcee874
-	golang.org/x/net v0.19.0
+	golang.org/x/net v0.25.0
 	golang.org/x/oauth2 v0.12.0
 	istio.io/api v0.0.0-20230310175855-3be9c0870417
 	istio.io/client-go v1.17.1
@@ -67,7 +67,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.17.2
 )
 
-require gopkg.in/yaml.v3 v3.0.1 // indirect
+require gopkg.in/yaml.v3 v3.0.1
 
 require (
 	cloud.google.com/go/compute v1.23.0 // indirect
@@ -145,12 +145,12 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/vektah/gqlparser v1.3.1 // indirect
-	golang.org/x/mod v0.14.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
-	golang.org/x/term v0.15.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/mod v0.17.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
+	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.16.1 // indirect
+	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230815205213-6bfd019c3878 // indirect
