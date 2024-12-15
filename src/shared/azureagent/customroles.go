@@ -123,8 +123,8 @@ func (a *Agent) FindCustomRoleByName(ctx context.Context, scope string, name str
 
 func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, roleDefinitionID string) error {
 	roleScope := a.getSubscriptionScope(scope)
-	logrus.Debugf("Deleting custom role %s", roleDefinitionID)
 
+	logrus.Debugf("Deleting custom role %s", roleDefinitionID)
 	_, err := a.roleDefinitionsClient.Delete(ctx, roleScope, roleDefinitionID, nil)
 	if err != nil {
 		if azureerrors.IsNotFoundErr(err) {
