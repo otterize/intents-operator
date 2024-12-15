@@ -73,7 +73,7 @@ func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req
 	}
 	resourceCopy := crd.DeepCopy()
 	resourceCopy.Spec = baseCRD.Spec
-	if resourceCopy.Spec.Conversion == nil || resourceCopy.Spec.Conversion.Webhook == nil || resourceCopy.Spec.Conversion.Webhook.ClientConfig == nil {
+	if resourceCopy.Spec.Conversion == nil || resourceCopy.Spec.Conversion.Webhook == nil || resourceCopy.Spec.Conversion.Webhook.ClientConfig == nil || resourceCopy.Spec.Conversion.Webhook.ClientConfig.Service == nil {
 		return ctrl.Result{}, errors.Errorf("CRD does not contain a proper conversion webhook definition")
 	}
 	if bytes.Equal(crd.Spec.Conversion.Webhook.ClientConfig.CABundle, r.certPem) && crd.Spec.Conversion.Webhook.ClientConfig.Service.Namespace == r.namespace {
