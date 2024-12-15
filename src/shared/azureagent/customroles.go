@@ -62,7 +62,7 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 		},
 	}
 
-	logrus.Debugf("Creating custom role for %s", *uai.Name)
+	logrus.WithField("name", *uai.Name).Debug("Creating custom role for uai")
 	resp, err := a.roleDefinitionsClient.CreateOrUpdate(ctx, roleScope, id, roleDefinition, nil)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -98,7 +98,7 @@ func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armaut
 		},
 	}
 
-	logrus.Debugf("Updating custom role %s", *role.Name)
+	logrus.WithField("name", *role.Name).Debug("Updating custom role")
 	_, err := a.roleDefinitionsClient.CreateOrUpdate(ctx, roleScope, *role.Name, *role, nil)
 	if err != nil {
 		return errors.Wrap(err)
@@ -128,7 +128,7 @@ func (a *Agent) FindCustomRoleByName(ctx context.Context, scope string, name str
 func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, roleDefinitionID string) error {
 	roleScope := a.getSubscriptionScope(scope)
 
-	logrus.Debugf("Deleting custom role %s", roleDefinitionID)
+	logrus.WithField("id", roleDefinitionID).Debug("Deleting custom role")
 	_, err := a.roleDefinitionsClient.Delete(ctx, roleScope, roleDefinitionID, nil)
 	if err != nil {
 		if azureerrors.IsNotFoundErr(err) {
