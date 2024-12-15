@@ -430,7 +430,7 @@ func (v *IntentsValidatorV2alpha1) validateInternetTarget(internetTarget *otteri
 	}
 	for _, dns := range internetTarget.Domains {
 		_, err := idna.Lookup.ToASCII(dns)
-		if err != nil {
+		if err != nil && !strings.HasPrefix(dns, "*") {
 			return &field.Error{
 				Type:     field.ErrorTypeInvalid,
 				Field:    "domains",
