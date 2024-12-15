@@ -12,6 +12,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"strings"
 )
 
@@ -60,7 +61,7 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 		},
 	}
 
-	// create the custom role
+	logrus.WithField("name", *uai.Name).Debug("Creating custom role for uai")
 	resp, err := a.roleDefinitionsClient.CreateOrUpdate(ctx, roleScope, id, roleDefinition, nil)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -70,6 +71,10 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 }
 
 func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armauthorization.RoleDefinition, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) error {
+	if role == nil || role.Properties == nil || role.Properties.Permissions == nil || len(role.Properties.Permissions) == 0 {
+		return errors.Errorf("role definition is nil or does not have any permissions")
+	}
+
 	roleScope := a.getSubscriptionScope(scope)
 
 	formattedActions := lo.Map(actions, func(action v2alpha1.AzureAction, _ int) *string {
@@ -79,6 +84,12 @@ func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armaut
 		return to.Ptr(string(action))
 	})
 
+	// Compare the actions and dataActions to the existing role definition
+	if IsEqualAzureActions(role.Properties.Permissions[0].Actions, formattedActions) && IsEqualAzureActions(role.Properties.Permissions[0].DataActions, formattedDataActions) {
+		logrus.Debugf("Role %s already has the correct permissions", *role.Name)
+		return nil
+	}
+
 	role.Properties.Permissions = []*armauthorization.Permission{
 		{
 			Actions:     formattedActions,
@@ -86,6 +97,7 @@ func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armaut
 		},
 	}
 
+	logrus.WithField("name", *role.Name).Debug("Updating custom role")
 	_, err := a.roleDefinitionsClient.CreateOrUpdate(ctx, roleScope, *role.Name, *role, nil)
 	if err != nil {
 		return errors.Wrap(err)
@@ -115,6 +127,7 @@ func (a *Agent) FindCustomRoleByName(ctx context.Context, scope string, name str
 func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, roleDefinitionID string) error {
 	roleScope := a.getSubscriptionScope(scope)
 
+	logrus.WithField("id", roleDefinitionID).Debug("Deleting custom role")
 	_, err := a.roleDefinitionsClient.Delete(ctx, roleScope, roleDefinitionID, nil)
 	if err != nil {
 		if azureerrors.IsNotFoundErr(err) {
