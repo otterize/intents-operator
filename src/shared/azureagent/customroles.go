@@ -72,6 +72,10 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 }
 
 func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armauthorization.RoleDefinition, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) error {
+	if role == nil || role.Properties == nil || role.Properties.Permissions == nil || len(role.Properties.Permissions) == 0 {
+		return errors.Errorf("role definition is nil or does not have any permissions")
+	}
+
 	roleScope := a.getSubscriptionScope(scope)
 
 	formattedActions := lo.Map(actions, func(action v2alpha1.AzureAction, _ int) *string {
