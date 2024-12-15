@@ -7,7 +7,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
-	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/agentutils"
@@ -86,7 +85,7 @@ func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armaut
 	})
 
 	// Compare the actions and dataActions to the existing role definition
-	if cmp.Equal(role.Properties.Permissions[0].Actions, formattedActions) && cmp.Equal(role.Properties.Permissions[0].DataActions, formattedDataActions) {
+	if IsEqualAzureActions(role.Properties.Permissions[0].Actions, formattedActions) && IsEqualAzureActions(role.Properties.Permissions[0].DataActions, formattedDataActions) {
 		logrus.Debugf("Role %s already has the correct permissions", *role.Name)
 		return nil
 	}
