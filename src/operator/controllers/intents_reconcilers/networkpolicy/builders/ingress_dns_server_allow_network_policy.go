@@ -29,10 +29,16 @@ func (r *IngressDNSServerAutoAllowNetpolBuilder) buildIngressRulesFromServiceEff
 		return ingressRules
 	}
 	ingressRules = append(ingressRules, v1.NetworkPolicyIngressRule{
-		Ports: []v1.NetworkPolicyPort{{
-			Protocol: lo.ToPtr(corev1.ProtocolUDP),
-			Port:     lo.ToPtr(intstr.FromInt32(53)),
-		}},
+		Ports: []v1.NetworkPolicyPort{
+			{
+				Protocol: lo.ToPtr(corev1.ProtocolUDP),
+				Port:     lo.ToPtr(intstr.FromInt32(53)),
+			},
+			{
+				Protocol: lo.ToPtr(corev1.ProtocolTCP),
+				Port:     lo.ToPtr(intstr.FromInt32(53)),
+			},
+		},
 	})
 	return ingressRules
 }
