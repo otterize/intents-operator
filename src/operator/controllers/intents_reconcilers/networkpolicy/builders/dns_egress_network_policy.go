@@ -30,6 +30,10 @@ func (r *DNSEgressNetworkPolicyBuilder) buildNetworkPolicyEgressRules(ep effecti
 				Protocol: lo.ToPtr(corev1.ProtocolUDP),
 				Port:     lo.ToPtr(intstr.FromInt32(53)),
 			},
+			{
+				Protocol: lo.ToPtr(corev1.ProtocolTCP),
+				Port:     lo.ToPtr(intstr.FromInt32(53)),
+			},
 		},
 	})
 	return egressRules

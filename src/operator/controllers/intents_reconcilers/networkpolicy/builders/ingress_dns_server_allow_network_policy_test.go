@@ -104,10 +104,16 @@ func ingressDNSnetworkPolicyIngressTemplate(
 ) *v1.NetworkPolicy {
 	ingressRules := lo.Map(intentsObjNamespaces, func(namespace string, _ int) v1.NetworkPolicyIngressRule {
 		return v1.NetworkPolicyIngressRule{
-			Ports: []v1.NetworkPolicyPort{{
-				Protocol: lo.ToPtr(v12.ProtocolUDP),
-				Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: 53},
-			}},
+			Ports: []v1.NetworkPolicyPort{
+				{
+					Protocol: lo.ToPtr(v12.ProtocolUDP),
+					Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: 53},
+				},
+				{
+					Protocol: lo.ToPtr(v12.ProtocolTCP),
+					Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: 53},
+				},
+			},
 		}
 	})
 	return &v1.NetworkPolicy{
