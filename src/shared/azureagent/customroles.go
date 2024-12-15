@@ -37,7 +37,6 @@ func (a *Agent) GenerateCustomRoleName(uai armmsi.Identity, scope string) string
 
 func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.Identity, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) (*armauthorization.RoleDefinition, error) {
 	roleScope := a.getSubscriptionScope(scope)
-	logrus.Debugf("Creating custom role for %s", *uai.Name)
 
 	formattedActions := lo.Map(actions, func(action v2alpha1.AzureAction, _ int) *string {
 		return to.Ptr(string(action))
@@ -63,7 +62,7 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 		},
 	}
 
-	// create the custom role
+	logrus.Debugf("Creating custom role for %s", *uai.Name)
 	resp, err := a.roleDefinitionsClient.CreateOrUpdate(ctx, roleScope, id, roleDefinition, nil)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -74,7 +73,6 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 
 func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armauthorization.RoleDefinition, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) error {
 	roleScope := a.getSubscriptionScope(scope)
-	logrus.Debugf("Updating custom role %s", *role.Name)
 
 	formattedActions := lo.Map(actions, func(action v2alpha1.AzureAction, _ int) *string {
 		return to.Ptr(string(action))
@@ -96,6 +94,7 @@ func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armaut
 		},
 	}
 
+	logrus.Debugf("Updating custom role %s", *role.Name)
 	_, err := a.roleDefinitionsClient.CreateOrUpdate(ctx, roleScope, *role.Name, *role, nil)
 	if err != nil {
 		return errors.Wrap(err)
