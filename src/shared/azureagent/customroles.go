@@ -7,11 +7,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"strings"
 )
 
@@ -35,6 +37,7 @@ func (a *Agent) GenerateCustomRoleName(uai armmsi.Identity, scope string) string
 
 func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.Identity, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) (*armauthorization.RoleDefinition, error) {
 	roleScope := a.getSubscriptionScope(scope)
+	logrus.Debugf("Creating custom role for %s", *uai.Name)
 
 	formattedActions := lo.Map(actions, func(action v2alpha1.AzureAction, _ int) *string {
 		return to.Ptr(string(action))
@@ -71,6 +74,7 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 
 func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armauthorization.RoleDefinition, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) error {
 	roleScope := a.getSubscriptionScope(scope)
+	logrus.Debugf("Updating custom role %s", *role.Name)
 
 	formattedActions := lo.Map(actions, func(action v2alpha1.AzureAction, _ int) *string {
 		return to.Ptr(string(action))
@@ -78,6 +82,12 @@ func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armaut
 	formattedDataActions := lo.Map(dataActions, func(action v2alpha1.AzureDataAction, _ int) *string {
 		return to.Ptr(string(action))
 	})
+
+	// Compare the actions and dataActions to the existing role definition
+	if cmp.Equal(role.Properties.Permissions[0].Actions, formattedActions) && cmp.Equal(role.Properties.Permissions[0].DataActions, formattedDataActions) {
+		logrus.Debugf("Role %s already has the correct permissions", *role.Name)
+		return nil
+	}
 
 	role.Properties.Permissions = []*armauthorization.Permission{
 		{
@@ -114,6 +124,7 @@ func (a *Agent) FindCustomRoleByName(ctx context.Context, scope string, name str
 
 func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, roleDefinitionID string) error {
 	roleScope := a.getSubscriptionScope(scope)
+	logrus.Debugf("Deleting custom role %s", roleDefinitionID)
 
 	_, err := a.roleDefinitionsClient.Delete(ctx, roleScope, roleDefinitionID, nil)
 	if err != nil {
