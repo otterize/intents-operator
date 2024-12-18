@@ -24,7 +24,7 @@ type ServiceWatcher struct {
 	defaultDenyReconciler            *protected_service_reconcilers.DefaultDenyReconciler
 }
 
-func NewServiceWatcher(c client.Client, eventRecorder record.EventRecorder, serviceEffectivePolicyReconciler *effectivepolicy.GroupReconciler, netpolEnabled bool, externalHandler protected_service_reconcilers.ExternalNepolHandler) *ServiceWatcher {
+func NewServiceWatcher(c client.Client, eventRecorder record.EventRecorder, serviceEffectivePolicyReconciler *effectivepolicy.GroupReconciler, netpolEnabled bool) *ServiceWatcher {
 	recorder := injectablerecorder.InjectableRecorder{Recorder: eventRecorder}
 	sw := &ServiceWatcher{
 		Client:                           c,
@@ -32,7 +32,7 @@ func NewServiceWatcher(c client.Client, eventRecorder record.EventRecorder, serv
 		serviceEffectivePolicyReconciler: serviceEffectivePolicyReconciler,
 	}
 	if netpolEnabled {
-		sw.defaultDenyReconciler = protected_service_reconcilers.NewDefaultDenyReconciler(c, externalHandler, netpolEnabled)
+		sw.defaultDenyReconciler = protected_service_reconcilers.NewDefaultDenyReconciler(c, netpolEnabled)
 	}
 	return sw
 }

@@ -18,20 +18,13 @@ import (
 // DefaultDenyReconciler reconciles a ProtectedService object
 type DefaultDenyReconciler struct {
 	client.Client
-	extNetpolHandler ExternalNepolHandler
 	injectablerecorder.InjectableRecorder
 	netpolEnforcementEnabled bool
 }
 
-type ExternalNepolHandler interface {
-	HandlePodsByNamespace(ctx context.Context, namespace string) error
-	HandleAllPods(ctx context.Context) error
-}
-
-func NewDefaultDenyReconciler(client client.Client, extNetpolHandler ExternalNepolHandler, netpolEnforcementEnabled bool) *DefaultDenyReconciler {
+func NewDefaultDenyReconciler(client client.Client, netpolEnforcementEnabled bool) *DefaultDenyReconciler {
 	return &DefaultDenyReconciler{
 		Client:                   client,
-		extNetpolHandler:         extNetpolHandler,
 		netpolEnforcementEnabled: netpolEnforcementEnabled,
 	}
 }
@@ -58,7 +51,7 @@ func (r *DefaultDenyReconciler) handleDefaultDenyInNamespace(ctx context.Context
 		return errors.Wrap(err)
 	}
 
-	return r.extNetpolHandler.HandleAllPods(ctx)
+	return nil
 }
 
 func (r *DefaultDenyReconciler) blockAccessToServices(ctx context.Context, protectedServices otterizev2alpha1.ProtectedServiceList, namespace string) error {
