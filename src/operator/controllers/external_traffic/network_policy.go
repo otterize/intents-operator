@@ -83,8 +83,7 @@ func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 		logrus.Debugf("Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
 		err := r.client.Create(ctx, newPolicy)
 		if err != nil {
-			r.RecordWarningEventf(owner, ReasonCreatingExternalTrafficPolicyFailed, "failed to create external traffic network policy: %s", err.Error())
-			return errors.Wrap(err)
+			return r.handleCreationErrors(ctx, err, newPolicy, owner)
 		}
 		r.RecordNormalEvent(owner, ReasonCreatedExternalTrafficPolicy, successMsg)
 		return nil
@@ -99,7 +98,19 @@ func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 	}
 
 	return r.updatePolicy(ctx, existingPolicy, newPolicy, owner)
+}
 
+func (r *NetworkPolicyHandler) handleCreationErrors(ctx context.Context, err error, policy *v1.NetworkPolicy, owner *corev1.Service) error {
+	if !k8serrors.IsAlreadyExists(err) {
+		r.RecordWarningEventf(owner, ReasonCreatingExternalTrafficPolicyFailed, "failed to create external traffic network policy: %s", err.Error())
+		return errors.Wrap(err)
+	}
+	existingPolicy := &v1.NetworkPolicy{}
+	err = r.client.Get(ctx, types.NamespacedName{Name: policy.Name, Namespace: policy.Namespace}, existingPolicy)
+	if err != nil {
+		return errors.Wrap(err) // Don't retry anymore
+	}
+	return r.updatePolicy(ctx, existingPolicy, policy, owner)
 }
 
 func (r *NetworkPolicyHandler) updatePolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, owner *corev1.Service) error {
