@@ -23,7 +23,6 @@ const (
 	protectedServicesResourceName        = "staging-protected-services"
 	protectedServiceName                 = "test-service"
 	protectedServiceFormattedName        = "test-service-test-namespace-b0207e"
-	anotherProtectedServiceResourceName  = "protect-other-services"
 	anotherProtectedServiceName          = "other-test-service"
 	anotherProtectedServiceFormattedName = "other-test-service-test-namespace-398a04"
 	testNamespace                        = "test-namespace"
@@ -43,7 +42,7 @@ func (s *DefaultDenyReconcilerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 
 	s.extNetpolHandler = protectedservicesmock.NewMockExternalNepolHandler(s.Controller)
-	s.reconciler = NewDefaultDenyReconciler(s.Client, s.extNetpolHandler, true)
+	s.reconciler = NewDefaultDenyReconciler(s.Client, true)
 }
 
 func (s *DefaultDenyReconcilerTestSuite) TearDownTest() {

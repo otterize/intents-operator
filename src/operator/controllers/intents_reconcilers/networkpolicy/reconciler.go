@@ -137,15 +137,6 @@ func (r *Reconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effec
 		telemetrysender.SendIntentOperator(telemetriesgql.EventTypeNetworkPoliciesCreated, currentPolicies.Len())
 	}
 
-	// We do it to make sure any excess external allow policies are removed
-	extTimeoutCtx, cancel := context.WithTimeoutCause(ctx, 30*time.Second, errors.Errorf("timeout while handling external traffic netpols"))
-	defer cancel()
-
-	err = r.extNetpolHandler.HandleAllPods(extTimeoutCtx)
-	if err != nil {
-		return currentPolicies.Len(), []error{errors.Wrap(err)}
-	}
-
 	return currentPolicies.Len(), nil
 }
 

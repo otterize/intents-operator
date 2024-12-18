@@ -55,7 +55,6 @@ func NewProtectedServiceReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	otterizeClient operator_cloud_client.CloudClient,
-	extNetpolHandler protected_service_reconcilers.ExternalNepolHandler,
 	enforcementDefaultState bool,
 	netpolEnforcementEnabled bool,
 	effectivePolicySyncer protected_service_reconcilers.EffectivePolicyReconcilerGroup,
@@ -70,7 +69,7 @@ func NewProtectedServiceReconciler(
 	)
 
 	if netpolEnforcementEnabled {
-		defaultDenyReconciler := protected_service_reconcilers.NewDefaultDenyReconciler(client, extNetpolHandler, netpolEnforcementEnabled)
+		defaultDenyReconciler := protected_service_reconcilers.NewDefaultDenyReconciler(client, netpolEnforcementEnabled)
 		group.AddToGroup(defaultDenyReconciler)
 	}
 
