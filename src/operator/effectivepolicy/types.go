@@ -16,6 +16,8 @@ type ClientCall struct {
 
 type Call struct {
 	v2alpha1.Target
+	// This is here as a workaround to make egress policies work in AWS VPC CNI which requires a rule matching the service's selector exactly in order to allow traffic to ClusterIP.
+	// it will be populated only if egress is enabled
 	ReferencingKubernetesServices []v1.Service
 	EventRecorder                 *injectablerecorder.ObjectEventRecorder
 }
