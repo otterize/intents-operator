@@ -8,6 +8,7 @@ import (
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -43,6 +44,7 @@ type RulesBuilderTestSuiteBase struct {
 
 func (s *RulesBuilderTestSuiteBase) SetupTest() {
 	logrus.SetLevel(logrus.DebugLevel)
+	viper.Set(enforcement.EnableEgressNetworkPolicyReconcilersKey, true)
 	s.MocksSuiteBase.SetupTest()
 	s.externalNetpolHandler = mocks.NewMockExternalNetpolHandler(s.Controller)
 	restrictToNamespaces := make([]string, 0)

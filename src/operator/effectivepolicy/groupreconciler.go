@@ -8,6 +8,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/access_annotation"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
@@ -30,6 +31,7 @@ type GroupReconciler struct {
 	Scheme            *runtime.Scheme
 	reconcilers       []reconciler
 	serviceIdResolver *serviceidresolver.Resolver
+	egressEnabled     bool
 	injectablerecorder.InjectableRecorder
 }
 
@@ -39,6 +41,7 @@ func NewGroupReconciler(k8sClient client.Client, scheme *runtime.Scheme, service
 		Scheme:            scheme,
 		serviceIdResolver: serviceIdResolver,
 		reconcilers:       reconcilers,
+		egressEnabled:     enforcement.GetConfig().EnableEgressNetworkPolicyReconcilers,
 	}
 }
 
@@ -183,10 +186,11 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(
 		for _, intent := range clientIntents.GetTargetList() {
 			serversFoundInClientIntents.Add(intent.ToServiceIdentity(clientIntents.Namespace))
 			call := Call{Target: intent, EventRecorder: recorder}
-
-			call, err = g.populateReferencedKubernetesServices(ctx, call, clientIntents, intent)
-			if err != nil {
-				return ServiceEffectivePolicy{}, errors.Wrap(err)
+			if g.egressEnabled {
+				call, err = g.populateReferencedKubernetesServices(ctx, call, clientIntents, intent)
+				if err != nil {
+					return ServiceEffectivePolicy{}, errors.Wrap(err)
+				}
 			}
 			calls = append(calls, call)
 
