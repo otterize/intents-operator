@@ -38,6 +38,15 @@ func TranslatePostgresConnectionError(err error) (string, bool) {
 	return "", false
 }
 
+func IsInvalidAuthorizationError(err error) bool {
+	if pgErr := &(pgconn.PgError{}); errors.As(err, &pgErr) {
+		if pgErr.Code == "28000" {
+			return true
+		}
+	}
+	return false
+}
+
 func IsManagedDBName(dbName string) bool {
 	return ManagedDatabases.Contains(dbName)
 }
