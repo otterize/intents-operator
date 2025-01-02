@@ -3,12 +3,14 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"github.com/amit7itz/goset"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"net"
 )
 
 var ErrUndefinedObject = errors.NewSentinelError("undefined object")
+var ManagedDatabases = goset.NewSet[string]("cloudsqladmin", "rdsadmin")
 
 func TranslatePostgresConnectionError(err error) (string, bool) {
 	if opErr := &(net.OpError{}); errors.As(err, &opErr) || errors.Is(err, context.DeadlineExceeded) {
@@ -36,13 +38,8 @@ func TranslatePostgresConnectionError(err error) (string, bool) {
 	return "", false
 }
 
-func IsInvalidAuthorizationError(err error) bool {
-	if pgErr := &(pgconn.PgError{}); errors.As(err, &pgErr) {
-		if pgErr.Code == "28000" {
-			return true
-		}
-	}
-	return false
+func IsManagedDBName(dbName string) bool {
+	return ManagedDatabases.Contains(dbName)
 }
 
 func TranslatePostgresCommandsError(err error) error {
