@@ -45,7 +45,7 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 			Namespace: testNamespace,
 		},
 		Spec: otterizev2alpha1.KafkaServerConfigSpec{
-			Service: otterizev2alpha1.Workload{
+			Workload: otterizev2alpha1.Workload{
 				Name: server,
 			},
 		},
@@ -63,7 +63,7 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 			Namespace: testNamespace,
 		},
 		Spec: otterizev2alpha1.KafkaServerConfigSpec{
-			Service: otterizev2alpha1.Workload{
+			Workload: otterizev2alpha1.Workload{
 				Name: anotherServer,
 			},
 		},
@@ -77,7 +77,7 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 			Namespace: testNamespace,
 		},
 		Spec: otterizev2alpha1.KafkaServerConfigSpec{
-			Service: otterizev2alpha1.Workload{
+			Workload: otterizev2alpha1.Workload{
 				Name: server,
 			},
 		},
@@ -91,7 +91,7 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 			Namespace: anotherNamespace,
 		},
 		Spec: otterizev2alpha1.KafkaServerConfigSpec{
-			Service: otterizev2alpha1.Workload{
+			Workload: otterizev2alpha1.Workload{
 				Name: server,
 			},
 		},
@@ -105,7 +105,7 @@ func (s *CountReconcilerTestSuite) TestAppliedProtectedServices() {
 			Namespace: anotherNamespace,
 		},
 		Spec: otterizev2alpha1.KafkaServerConfigSpec{
-			Service: otterizev2alpha1.Workload{
+			Workload: otterizev2alpha1.Workload{
 				Name: anotherServer,
 			},
 		},

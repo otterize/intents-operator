@@ -254,6 +254,19 @@ rules:
   - update
   - watch
 - apiGroups:
+  - policy.linkerd.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - security.istio.io
   resources:
   - authorizationpolicies

@@ -118,7 +118,7 @@ func (r *KafkaServerConfigReconciler) InitKafkaServerConfigIndices(mgr ctrl.Mana
 		otterizev2alpha1.OtterizeKafkaServerConfigServiceNameField,
 		func(object client.Object) []string {
 			ksc := object.(*otterizev2alpha1.KafkaServerConfig)
-			return []string{ksc.Spec.Service.Name}
+			return []string{ksc.Spec.Workload.Name}
 		})
 }
 

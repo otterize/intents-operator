@@ -40,7 +40,7 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 
 	anonymizedServerName := telemetrysender.Anonymize(fmt.Sprintf("%s/%s",
 		kafkaServerConfig.Namespace,
-		kafkaServerConfig.Spec.Service.Name,
+		kafkaServerConfig.Spec.Workload.Name,
 	))
 
 	if !kafkaServerConfig.DeletionTimestamp.IsZero() {

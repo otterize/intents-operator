@@ -87,7 +87,7 @@ func (s *KafkaACLReconcilerTestSuite) SetupSuite() {
 func (s *KafkaACLReconcilerTestSuite) setupServerStore(serviceName string) *kafkaacls.ServersStoreImpl {
 	serverConfig := &otterizev2alpha1.KafkaServerConfig{
 		Spec: otterizev2alpha1.KafkaServerConfigSpec{
-			Service: otterizev2alpha1.Workload{
+			Workload: otterizev2alpha1.Workload{
 				Name: serviceName,
 			},
 			Topics: []otterizev2alpha1.TopicConfig{{
