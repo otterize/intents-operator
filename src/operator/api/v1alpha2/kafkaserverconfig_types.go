@@ -100,7 +100,7 @@ func (ksc *KafkaServerConfig) ConvertTo(dstRaw conversion.Hub) error {
 	dst.ObjectMeta = ksc.ObjectMeta
 	dst.Spec = v2alpha1.KafkaServerConfigSpec{}
 	dst.Spec.Addr = ksc.Spec.Addr
-	dst.Spec.Service = v2alpha1.Workload{Name: ksc.Spec.Service.Name}
+	dst.Spec.Workload = v2alpha1.Workload{Name: ksc.Spec.Service.Name}
 	dst.Spec.NoAutoCreateIntentsForOperator = ksc.Spec.NoAutoCreateIntentsForOperator
 	dst.Spec.TLS = v2alpha1.TLSSource{
 		CertFile:   ksc.Spec.TLS.CertFile,
@@ -124,7 +124,7 @@ func (ksc *KafkaServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
 	ksc.ObjectMeta = src.ObjectMeta
 	ksc.Spec = KafkaServerConfigSpec{}
 	ksc.Spec.Addr = src.Spec.Addr
-	ksc.Spec.Service = Service{Name: src.Spec.Service.Name}
+	ksc.Spec.Service = Service{Name: src.Spec.Workload.Name}
 	ksc.Spec.NoAutoCreateIntentsForOperator = src.Spec.NoAutoCreateIntentsForOperator
 	ksc.Spec.TLS = TLSSource{
 		CertFile:   src.Spec.TLS.CertFile,

@@ -40,7 +40,7 @@ func (s *IntentAdminSuite) TestApplyServerConfig() {
 			Namespace: testNamespace,
 		},
 		Spec: otterizev2alpha1.KafkaServerConfigSpec{
-			Service: otterizev2alpha1.Workload{
+			Workload: otterizev2alpha1.Workload{
 				Name: serverName,
 			},
 			Addr: serverAddress,
@@ -105,7 +105,7 @@ func (s *IntentAdminSuite) TestApplyServerConfigPermissionExists() {
 			Namespace: testNamespace,
 		},
 		Spec: otterizev2alpha1.KafkaServerConfigSpec{
-			Service: otterizev2alpha1.Workload{
+			Workload: otterizev2alpha1.Workload{
 				Name: serverName,
 			},
 			Addr: serverAddress,
@@ -200,7 +200,7 @@ func (s *IntentAdminSuite) TestDeleteServerConfig() {
 			DeletionTimestamp: lo.ToPtr(metav1.Date(2021, 6, 13, 0, 0, 0, 0, time.UTC)),
 		},
 		Spec: otterizev2alpha1.KafkaServerConfigSpec{
-			Service: otterizev2alpha1.Workload{
+			Workload: otterizev2alpha1.Workload{
 				Name: serverName,
 			},
 			Addr: serverAddress,

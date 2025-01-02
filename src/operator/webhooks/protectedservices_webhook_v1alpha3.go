@@ -138,11 +138,11 @@ func (v *ProtectedServiceValidatorV1alpha3) validateNoDuplicateClients(
 func (v *ProtectedServiceValidatorV1alpha3) validateSpec(protectedService *otterizev1alpha3.ProtectedService) *field.Error {
 	serviceName := strings.ReplaceAll(protectedService.Spec.Name, "-", "")
 	serviceName = strings.ReplaceAll(serviceName, "_", "")
-	// Validate Service Name contains only lowercase alphanumeric characters
-	// Service name should be a valid RFC 1123 subdomain name
+	// Validate Workload Name contains only lowercase alphanumeric characters
+	// Workload name should be a valid RFC 1123 subdomain name
 	// It's a namespaced resource, we do not expect resources in other namespaces
 	if !govalidator.IsAlphanumeric(serviceName) || !govalidator.IsLowerCase(serviceName) {
-		message := fmt.Sprintf("Invalid Name: %s. Service name must contain only lowercase alphanumeric characters, '-' or '_'", protectedService.Spec.Name)
+		message := fmt.Sprintf("Invalid Name: %s. Workload name must contain only lowercase alphanumeric characters, '-' or '_'", protectedService.Spec.Name)
 		return &field.Error{
 			Type:   field.ErrorTypeForbidden,
 			Field:  "Name",

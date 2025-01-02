@@ -78,7 +78,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TearDownTest() {
 func (s *KafkaServerConfigReconcilerTestSuite) setupServerStore(serviceName string) kafkaacls.ServersStore {
 	serverConfig := &otterizev2alpha1.KafkaServerConfig{
 		Spec: otterizev2alpha1.KafkaServerConfigSpec{
-			Service: otterizev2alpha1.Workload{
+			Workload: otterizev2alpha1.Workload{
 				Name: serviceName,
 			},
 			Topics: []otterizev2alpha1.TopicConfig{{
@@ -113,7 +113,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) generateKafkaServerConfig() otter
 		},
 		Spec: otterizev2alpha1.KafkaServerConfigSpec{
 			NoAutoCreateIntentsForOperator: true,
-			Service: otterizev2alpha1.Workload{
+			Workload: otterizev2alpha1.Workload{
 				Name: kafkaServiceName,
 			},
 			Topics: []otterizev2alpha1.TopicConfig{

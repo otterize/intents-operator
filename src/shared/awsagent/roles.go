@@ -462,7 +462,7 @@ func (a *Agent) generateTrustPolicyForRolesAnywhere(namespaceName, accountName s
 				Effect: iamEffectAllow,
 				Action: []string{"sts:AssumeRole", "sts:TagSession", "sts:SetSourceIdentity"},
 				Principal: map[string]string{
-					"Service": "rolesanywhere.amazonaws.com",
+					"Workload": "rolesanywhere.amazonaws.com",
 				},
 				Condition: map[string]any{
 					"StringEquals": map[string]string{

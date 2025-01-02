@@ -76,7 +76,7 @@ func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConf
 		},
 	)
 
-	intentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.Service.Name, kafkaServerConfig.Namespace)
+	intentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.Workload.Name, kafkaServerConfig.Namespace)
 	if err != nil && errors.Is(err, kafkaacls.ServerSpecNotFound) {
 		logger.Info("Kafka server not registered to servers store")
 		return nil
@@ -92,7 +92,7 @@ func (r *KafkaServerConfigReconciler) removeKafkaServerFromStore(kafkaServerConf
 	}
 
 	logger.Info("Removing Kafka server from store")
-	r.ServersStore.Remove(kafkaServerConfig.Spec.Service.Name, kafkaServerConfig.Namespace)
+	r.ServersStore.Remove(kafkaServerConfig.Spec.Workload.Name, kafkaServerConfig.Namespace)
 	return nil
 }
 
@@ -154,7 +154,7 @@ func (r *KafkaServerConfigReconciler) createIntentsFromOperatorToKafkaServer(ctx
 			},
 			Targets: []otterizev2alpha1.Target{{
 				Kafka: &otterizev2alpha1.KafkaTarget{
-					Name: fmt.Sprintf("%s.%s", config.Spec.Service.Name, config.Namespace),
+					Name: fmt.Sprintf("%s.%s", config.Spec.Workload.Name, config.Namespace),
 					Topics: []otterizev2alpha1.KafkaTopic{{
 						Name: "*",
 						Operations: []otterizev2alpha1.KafkaOperation{
@@ -230,7 +230,7 @@ func (r *KafkaServerConfigReconciler) reconcileObject(ctx context.Context, kafka
 
 	r.ServersStore.Add(kafkaServerConfig)
 
-	kafkaIntentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.Service.Name, kafkaServerConfig.Namespace)
+	kafkaIntentsAdmin, err := r.ServersStore.Get(kafkaServerConfig.Spec.Workload.Name, kafkaServerConfig.Namespace)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
@@ -292,7 +292,7 @@ func kafkaServerConfigCRDToCloudModel(kafkaServerConfig otterizev2alpha1.KafkaSe
 	}
 
 	input := graphqlclient.KafkaServerConfigInput{
-		Name:      kafkaServerConfig.Spec.Service.Name,
+		Name:      kafkaServerConfig.Spec.Workload.Name,
 		Namespace: kafkaServerConfig.Namespace,
 		Address:   kafkaServerConfig.Spec.Addr,
 		Topics:    topics,
