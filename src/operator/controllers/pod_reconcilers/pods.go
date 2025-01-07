@@ -272,8 +272,8 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 
 	if hasUpdates {
 		err = p.Patch(ctx, updatedPod, client.StrategicMergeFrom(&pod))
-		if client.IgnoreNotFound(err) != nil {
-			return errors.Errorf("failed updating Otterize labels for pod %s in namespace %s: %w", pod.Name, pod.Namespace, err)
+		if err != nil {
+			return p.handleUpdateFailure(ctx, updatedPod, err)
 		}
 	}
 	return nil
@@ -603,4 +603,20 @@ func (p *PodWatcher) handleDatabaseIntents(ctx context.Context, pod v1.Pod, serv
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (p *PodWatcher) handleUpdateFailure(ctx context.Context, pod *v1.Pod, updateErr error) error {
+	podLatest := v1.Pod{}
+	err := p.Client.Get(ctx, types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, &podLatest)
+	if err != nil && k8serrors.IsNotFound(err) {
+		return nil // Deleted, move on
+	}
+	if podLatest.Status.Phase == v1.PodReasonTerminationByKubelet || podLatest.Status.Phase == v1.PodSucceeded {
+		return nil
+	}
+
+	if client.IgnoreNotFound(updateErr) != nil {
+		return errors.Errorf("failed updating Otterize labels for pod %s in namespace %s: %w", pod.Name, pod.Namespace, updateErr)
+	}
+	return nil
 }
