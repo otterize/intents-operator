@@ -611,9 +611,9 @@ func (p *PodWatcher) handleUpdateFailure(ctx context.Context, pod *v1.Pod, updat
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Errorf("failed updating Otterize labels for pod %s in namespace %s: %w", pod.Name, pod.Namespace, updateErr)
 	}
-	if podLatest.Status.Phase == v1.PodReasonTerminationByKubelet || podLatest.Status.Phase == v1.PodSucceeded {
+	if k8serrors.IsNotFound(err) || podLatest.Status.Phase == v1.PodReasonTerminationByKubelet || podLatest.Status.Phase == v1.PodSucceeded {
 		return nil
 	}
 
-	return nil
+	return errors.Errorf("failed updating Otterize labels for pod %s in namespace %s: %w", pod.Name, pod.Namespace, updateErr)
 }
