@@ -11,8 +11,8 @@ import (
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
-	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/podownerresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -324,7 +324,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestIntentsGeneratedForOperator()
 	operatorPod := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				serviceidresolver.ServiceNameOverrideAnnotationKeyDefault: operatorServiceName,
+				podownerresolver.WorkloadNameOverrideAnnotationKey: operatorServiceName,
 			},
 			Name:      operatorPodName,
 			Namespace: operatorPodNamespace,
@@ -445,7 +445,7 @@ func (s *KafkaServerConfigReconcilerTestSuite) TestUpdateIntentsGeneratedForOper
 	operatorPod := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				serviceidresolver.ServiceNameOverrideAnnotationKeyDefault: operatorServiceName,
+				podownerresolver.WorkloadNameOverrideAnnotationKey: operatorServiceName,
 			},
 			Name:      operatorPodName,
 			Namespace: operatorPodNamespace,

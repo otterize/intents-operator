@@ -6,6 +6,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	serviceidresolvermocks "github.com/otterize/intents-operator/src/shared/serviceidresolver/mocks"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/podownerresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
@@ -107,7 +108,7 @@ func (s *ServiceIdResolverTestSuite) TestGetPodAnnotatedName_PodExists() {
 	podNamespace := "coolnamespace"
 	serviceName := "coolservice"
 
-	pod := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: podNamespace, Annotations: map[string]string{viper.GetString(serviceNameOverrideAnnotationKey): serviceName}}}
+	pod := corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: podName, Namespace: podNamespace, Annotations: map[string]string{viper.GetString(podownerresolver.WorkloadNameOverrideAnnotationKey): serviceName}}}
 	id, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &pod)
 	s.Require().NoError(err)
 	s.Require().Equal(serviceName, id.Name)
@@ -281,7 +282,7 @@ func (s *ServiceIdResolverTestSuite) TestJobWithNoParent() {
 			return nil
 		})
 
-	viper.Set(useImageNameForServiceIDForJobs, false)
+	viper.Set(podownerresolver.UseImageNameForServiceIDForJobs, false)
 	service, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
 	s.Require().NoError(err)
 	s.Require().Equal(jobName, service.Name)
@@ -292,7 +293,7 @@ func (s *ServiceIdResolverTestSuite) TestJobWithNoParent() {
 			return nil
 		})
 
-	viper.Set(useImageNameForServiceIDForJobs, true)
+	viper.Set(podownerresolver.UseImageNameForServiceIDForJobs, true)
 	service, err = s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
 	s.Require().NoError(err)
 	s.Require().Equal(imageName, service.Name)
@@ -463,9 +464,9 @@ func (s *ServiceIdResolverTestSuite) TestUserSpecifiedAnnotationForServiceName()
 	annotationName := "coolAnnotationName"
 	expectedEnvVarName := "OTTERIZE_SERVICE_NAME_OVERRIDE_ANNOTATION"
 	_ = os.Setenv(expectedEnvVarName, annotationName)
-	s.Require().Equal(annotationName, viper.GetString(serviceNameOverrideAnnotationKey))
+	s.Require().Equal(annotationName, viper.GetString(podownerresolver.WorkloadNameOverrideAnnotationKey))
 	_ = os.Unsetenv(expectedEnvVarName)
-	s.Require().Equal(ServiceNameOverrideAnnotationKeyDefault, viper.GetString(serviceNameOverrideAnnotationKey))
+	s.Require().Equal(podownerresolver.WorkloadNameOverrideAnnotationKeyDefault, viper.GetString(podownerresolver.WorkloadNameOverrideAnnotationKey))
 }
 
 func TestServiceIdResolverTestSuite(t *testing.T) {
