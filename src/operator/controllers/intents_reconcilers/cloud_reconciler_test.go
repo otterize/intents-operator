@@ -831,7 +831,7 @@ func (s *CloudReconcilerTestSuite) TestReportTargetKubernetesAPIServiceWithNoSel
 	intent := &otterizev2alpha1.Target{Service: &otterizev2alpha1.ServiceTarget{Name: fmt.Sprint(serverName, ".", serverNamespace)}}
 	cloudIntent, err := intent.ConvertToCloudFormat(context.Background(), s.client, serviceidentity.ServiceIdentity{Name: clientName, Namespace: testNamespace})
 	s.Require().NoError(err)
-	s.Require().Equal(lo.FromPtr(cloudIntent.ServerWorkloadKind), "Workload")
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerWorkloadKind), "Service")
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerAlias), graphqlclient.ServerAliasInput{Name: lo.ToPtr(serverName + "." + serverNamespace), Kind: lo.ToPtr("Service")})
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), serverNamespace)
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerName), serverName)
