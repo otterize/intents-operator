@@ -321,7 +321,7 @@ func (c *PolicyManagerImpl) updateServiceAccountSharedStatus(ctx context.Context
 		}
 
 		if isServiceAccountShared {
-			c.recorder.RecordWarningEventf(updatedIntents, ReasonSharedServiceAccount, "Workload account %s is shared and will also grant access to the following clients: %s", serviceAccount, clientsNames)
+			c.recorder.RecordWarningEventf(updatedIntents, ReasonSharedServiceAccount, "Service account %s is shared and will also grant access to the following clients: %s", serviceAccount, clientsNames)
 		}
 	}
 	return nil

@@ -22,7 +22,7 @@ type ServiceIdentity struct {
 	OwnerObject client.Object
 }
 
-const KindService = "Workload"
+const KindService = "Service"
 const KindOtterizeLegacy = "OttrLegacy"
 
 func (si ServiceIdentity) GetFormattedOtterizeIdentityWithoutKind() string {

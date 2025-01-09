@@ -821,7 +821,7 @@ func (s *CloudReconcilerTestSuite) TestReportKindAndAlias() {
 	cloudIntent, err := intent.ConvertToCloudFormat(context.Background(), s.client, serviceidentity.ServiceIdentity{Name: clientName, Namespace: testNamespace, Kind: "StatefulSet"})
 	s.Require().NoError(err)
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerWorkloadKind), "Deployment")
-	s.Require().Equal(lo.FromPtr(cloudIntent.ServerAlias), graphqlclient.ServerAliasInput{Name: lo.ToPtr(serverName + "." + testNamespace), Kind: lo.ToPtr("Workload")})
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerAlias), graphqlclient.ServerAliasInput{Name: lo.ToPtr(serverName + "." + testNamespace), Kind: lo.ToPtr("Service")})
 	s.Require().Equal(lo.FromPtr(cloudIntent.ClientWorkloadKind), "StatefulSet")
 }
 
@@ -832,7 +832,7 @@ func (s *CloudReconcilerTestSuite) TestReportTargetKubernetesAPIServiceWithNoSel
 	cloudIntent, err := intent.ConvertToCloudFormat(context.Background(), s.client, serviceidentity.ServiceIdentity{Name: clientName, Namespace: testNamespace})
 	s.Require().NoError(err)
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerWorkloadKind), "Workload")
-	s.Require().Equal(lo.FromPtr(cloudIntent.ServerAlias), graphqlclient.ServerAliasInput{Name: lo.ToPtr(serverName + "." + serverNamespace), Kind: lo.ToPtr("Workload")})
+	s.Require().Equal(lo.FromPtr(cloudIntent.ServerAlias), graphqlclient.ServerAliasInput{Name: lo.ToPtr(serverName + "." + serverNamespace), Kind: lo.ToPtr("Service")})
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerNamespace), serverNamespace)
 	s.Require().Equal(lo.FromPtr(cloudIntent.ServerName), serverName)
 }
