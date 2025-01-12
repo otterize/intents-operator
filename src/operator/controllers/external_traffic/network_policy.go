@@ -344,12 +344,12 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod) e
 //	external traffic policy will be created (if there were no other intents affecting the service before then) or
 //	deleted (if no intents network policies refer to the pods backing the service any longer).
 //
-//	 When HandleEndpoints is called, and the Workload is of type LoadBalancer, NodePort, or is referenced by an Ingress,
+//	 When HandleEndpoints is called, and the Service is of type LoadBalancer, NodePort, or is referenced by an Ingress,
 //		   it checks if the backing pods are affected by Otterize Intents Network Policies.
 //		   If so, and the reconciler is enabled, it will create network policies to allow external traffic to those pods.
 //		   If the Endpoints (= Services) update port, it will update the port specified in the corresponding network policy.
 //		   If the Endpoints no longer refer to pods affected by Intents, then the network policy will be deleted.
-//		   If the Workload is deleted completely, then the corresponding network policy will be deleted, since it is owned
+//		   If the Service is deleted completely, then the corresponding network policy will be deleted, since it is owned
 //		   by the service.
 func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *corev1.Endpoints) error {
 	svc := corev1.Service{}

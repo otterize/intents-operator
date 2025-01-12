@@ -161,7 +161,7 @@ func (s *DefaultDenyReconcilerTestSuite) TestProtectedServicesCreate_KindService
 			},
 			Spec: otterizev2alpha1.ProtectedServiceSpec{
 				Name: protectedServiceName,
-				Kind: "Workload",
+				Kind: "Service",
 			},
 		},
 	}
