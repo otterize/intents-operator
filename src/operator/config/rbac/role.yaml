@@ -254,6 +254,71 @@ rules:
   - update
   - watch
 - apiGroups:
+  - policy.linkerd.io
+  resources:
+  - authorizationpolicies
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - policy.linkerd.io
+  resources:
+  - httproutes
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - policy.linkerd.io
+  resources:
+  - meshtlsauthentications
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - policy.linkerd.io
+  resources:
+  - networkauthentications
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - policy.linkerd.io
+  resources:
+  - servers
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - security.istio.io
   resources:
   - authorizationpolicies
