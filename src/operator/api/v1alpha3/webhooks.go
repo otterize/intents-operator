@@ -107,8 +107,8 @@ func (ksc *KafkaServerConfig) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v2alpha1.KafkaServerConfig)
 	dst.ObjectMeta = ksc.ObjectMeta
 	// convert each spec attribute
-	dst.Spec.Service.Name = ksc.Spec.Service.Name
-	dst.Spec.Service.Kind = ksc.Spec.Service.Kind
+	dst.Spec.Workload.Name = ksc.Spec.Service.Name
+	dst.Spec.Workload.Kind = ksc.Spec.Service.Kind
 	dst.Spec.NoAutoCreateIntentsForOperator = ksc.Spec.NoAutoCreateIntentsForOperator
 	dst.Spec.Addr = ksc.Spec.Addr
 	dst.Spec.TLS = v2alpha1.TLSSource{
@@ -130,8 +130,8 @@ func (ksc *KafkaServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v2alpha1.KafkaServerConfig)
 	ksc.ObjectMeta = src.ObjectMeta
 	// convert each spec attribute
-	ksc.Spec.Service.Name = src.Spec.Service.Name
-	ksc.Spec.Service.Kind = src.Spec.Service.Kind
+	ksc.Spec.Service.Name = src.Spec.Workload.Name
+	ksc.Spec.Service.Kind = src.Spec.Workload.Kind
 	ksc.Spec.NoAutoCreateIntentsForOperator = src.Spec.NoAutoCreateIntentsForOperator
 	ksc.Spec.Addr = src.Spec.Addr
 	ksc.Spec.TLS = TLSSource{

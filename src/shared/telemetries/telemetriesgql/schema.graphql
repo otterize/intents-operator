@@ -359,6 +359,7 @@ input ClientIntentStatusInput {
 
 type ClientIntentsFileRepresentation {
 	fileName: String!
+	namespacedFileName: String!
 	service: Service!
 	rows: [ClientIntentsRow!]!
 	content: String!
@@ -503,6 +504,11 @@ type DashboardData {
 	overallCompliance: Fraction!
 	nonCompliantStandards: Fraction!
 	nonCompliantControls: Fraction!
+}
+
+type DashboardV2 {
+	dashboard: DashboardData!
+	findings: [FindingSummaryV2!]!
 }
 
 type DatabaseConfig {
@@ -712,6 +718,8 @@ type FeatureFlags {
 	isCloudServicesDetectionEnabled: Boolean
 	isCloudSecurityEnabled: Boolean
 	useClientIntentsV2: Boolean
+	enableFindingsV2: Boolean
+	useTypedIntentsCTE: Boolean
 }
 
 type Finding {
@@ -726,6 +734,7 @@ type Finding {
 	status: FindingStatus!
 	ignoredReason: String
 	type: FindingType!
+	controlId: RegulationCode!
 }
 
 enum FindingStatus {
@@ -768,11 +777,10 @@ type FindingSummaryV2 {
 	validationDescription: String
 	status: FindingStatus!
 	ignoredReason: String
-	serviceTotalCount: Int!
-	serviceOpenCount: Int!
-	clusterTotalCount: Int!
-	clusterOpenCount: Int!
+	workloadFindingsStatus: StatusSummary!
+	clusterFindingStatus: StatusSummary!
 	requirements: [FindingSummaryV2!]
+	wasOpen: Boolean!
 }
 
 """NEW findings"""
@@ -981,6 +989,8 @@ input InputFeatureFlags {
 	isCloudServicesDetectionEnabled: Boolean
 	isCloudSecurityEnabled: Boolean
 	useClientIntentsV2: Boolean
+	enableFindingsV2: Boolean
+	useTypedIntentsCTE: Boolean
 }
 
 """ Findings filter """
@@ -2052,6 +2062,9 @@ type Query {
 	findingSummaryStatusHistory(
 		leafControlIDs: [RegulationCode!]!
 	): [FindingStatusHistory!]!
+	dashboardV2(
+		filter: InputFindingFilter
+	): DashboardV2!
 """List integrations"""
 	integrations(
 		name: String
@@ -2451,6 +2464,14 @@ input StackFrame {
 	lineNumber: Int!
 	name: String!
 	package: String!
+}
+
+type StatusSummary {
+	openCount: Int!
+	resolvedCount: Int!
+	ignoredCount: Int!
+	totalCount: Int!
+	status: FindingStatus!
 }
 
 """The `String`scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text."""

@@ -37,7 +37,7 @@ func NewServersStore(tlsSourceFiles otterizev2alpha1.TLSSource, enableKafkaACLCr
 }
 
 func (s *ServersStoreImpl) Add(config *otterizev2alpha1.KafkaServerConfig) {
-	name := types.NamespacedName{Name: config.Spec.Service.Name, Namespace: config.Namespace}
+	name := types.NamespacedName{Name: config.Spec.Workload.Name, Namespace: config.Namespace}
 	s.serversByName[name] = config
 }
 
