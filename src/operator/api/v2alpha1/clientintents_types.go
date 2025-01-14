@@ -294,10 +294,8 @@ type AzureAction string
 type AzureDataAction string
 
 type KubernetesTarget struct {
-	Name string `json:"name" yaml:"name"`
-	//+optional
-	Kind string `json:"kind,omitempty" yaml:"kind,omitempty"`
-	//+optional
+	Name string       `json:"name" yaml:"name"`
+	Kind string       `json:"kind" yaml:"kind"`
 	HTTP []HTTPTarget `json:"http,omitempty" yaml:"http,omitempty"`
 }
 
