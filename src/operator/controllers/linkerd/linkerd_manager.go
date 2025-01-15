@@ -47,7 +47,12 @@ const (
 	LinkerdContainer                      = "linkerd-proxy"
 )
 
-//+kubebuilder:rbac:groups="policy.linkerd.io",resources=*,verbs=get;update;patch;list;watch;delete;create;deletecollection
+//+kubebuilder:rbac:groups="policy.linkerd.io",resources=authorizationpolicies,verbs=get;update;patch;list;watch;delete;create;deletecollection
+//+kubebuilder:rbac:groups="policy.linkerd.io",resources=meshtlsauthentications,verbs=get;update;patch;list;watch;delete;create;deletecollection
+//+kubebuilder:rbac:groups="policy.linkerd.io",resources=networkauthentications,verbs=get;update;patch;list;watch;delete;create;deletecollection
+//+kubebuilder:rbac:groups="policy.linkerd.io",resources=servers,verbs=get;update;patch;list;watch;delete;create;deletecollection
+//+kubebuilder:rbac:groups="policy.linkerd.io",resources=httproutes,verbs=get;update;patch;list;watch;delete;create;deletecollection
+//+kubebuilder:rbac:groups="policy.linkerd.io",resources=httproutes,verbs=get;update;patch;list;watch;delete;create;deletecollection
 
 type LinkerdPolicyManager interface {
 	DeleteOutdatedResources(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy, validResources LinkerdResourceMapping) error
