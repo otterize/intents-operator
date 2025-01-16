@@ -388,6 +388,7 @@ type IntentsOperatorConfigurationInput struct {
 	NetworkPolicyEnforcementEnabled       bool                                   `json:"networkPolicyEnforcementEnabled"`
 	KafkaACLEnforcementEnabled            bool                                   `json:"kafkaACLEnforcementEnabled"`
 	IstioPolicyEnforcementEnabled         bool                                   `json:"istioPolicyEnforcementEnabled"`
+	LinkerdPolicyEnforcementEnabled       bool                                   `json:"linkerdPolicyEnforcementEnabled"`
 	ProtectedServicesEnabled              bool                                   `json:"protectedServicesEnabled"`
 	EgressNetworkPolicyEnforcementEnabled bool                                   `json:"egressNetworkPolicyEnforcementEnabled"`
 	AwsIAMPolicyEnforcementEnabled        bool                                   `json:"awsIAMPolicyEnforcementEnabled"`
@@ -419,6 +420,11 @@ func (v *IntentsOperatorConfigurationInput) GetKafkaACLEnforcementEnabled() bool
 // GetIstioPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.IstioPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetIstioPolicyEnforcementEnabled() bool {
 	return v.IstioPolicyEnforcementEnabled
+}
+
+// GetLinkerdPolicyEnforcementEnabled returns IntentsOperatorConfigurationInput.LinkerdPolicyEnforcementEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetLinkerdPolicyEnforcementEnabled() bool {
+	return v.LinkerdPolicyEnforcementEnabled
 }
 
 // GetProtectedServicesEnabled returns IntentsOperatorConfigurationInput.ProtectedServicesEnabled, and is useful for accessing the field via an interface.

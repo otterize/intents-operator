@@ -2,6 +2,8 @@ package operator_cloud_client
 
 import (
 	"context"
+	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
+	linkerdmanager "github.com/otterize/intents-operator/src/operator/controllers/linkerd"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
@@ -12,26 +14,27 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
 
-func StartPeriodicCloudReports(ctx context.Context, client CloudClient) {
+func StartPeriodicCloudReports(ctx context.Context, client CloudClient, kubeClient client.Client) {
 	statusReportInterval := viper.GetInt(otterizecloudclient.ComponentReportIntervalKey)
 	configReportInterval := viper.GetInt(otterizecloudclient.OperatorConfigReportIntervalKey)
 
 	go func() {
 		defer errorreporter.AutoNotify()
-		runPeriodicReportConnection(statusReportInterval, configReportInterval, client, ctx)
+		runPeriodicReportConnection(ctx, statusReportInterval, configReportInterval, client, kubeClient)
 	}()
 }
 
-func runPeriodicReportConnection(statusInterval int, configReportInterval int, client CloudClient, ctx context.Context) {
+func runPeriodicReportConnection(ctx context.Context, statusInterval int, configReportInterval int, client CloudClient, kubeClient client.Client) {
 	cloudUploadTicker := time.NewTicker(time.Second * time.Duration(statusInterval))
 	configUploadTicker := time.NewTicker(time.Second * time.Duration(configReportInterval))
 
 	logrus.Info("Starting cloud connection ticker")
 	reportStatus(ctx, client)
-	uploadConfiguration(ctx, client)
+	uploadConfiguration(ctx, client, kubeClient)
 
 	for {
 		select {
@@ -39,7 +42,7 @@ func runPeriodicReportConnection(statusInterval int, configReportInterval int, c
 			reportStatus(ctx, client)
 
 		case <-configUploadTicker.C:
-			uploadConfiguration(ctx, client)
+			uploadConfiguration(ctx, client, kubeClient)
 
 		case <-ctx.Done():
 			logrus.Info("Periodic upload exit")
@@ -68,12 +71,26 @@ func getAllowExternalConfig() graphqlclient.AllowExternalTrafficPolicy {
 	}
 }
 
-func uploadConfiguration(ctx context.Context, client CloudClient) {
+func uploadConfiguration(ctx context.Context, client CloudClient, kubeClient client.Client) {
 	ingressConfigIdentities := operatorconfig.GetIngressControllerServiceIdentities()
 	externallyManagedPolicyWorkloadIdentities := operatorconfig.GetExternallyManagedPoliciesServiceIdentities()
 	enforcementConfig := enforcement.GetConfig()
 	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
+
+	// This has to be checked here rather in the enforcement config, because the enforcement config will not be updated if Istio is installed after the fact
+	isIstioInstalled, err := istiopolicy.IsIstioAuthorizationPoliciesInstalled(ctx, kubeClient)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to check if Istio CRDs are installed, assuming yes")
+		isIstioInstalled = true
+		// Intentionally no return here, as we want to report the configuration even if the check failed
+	}
+
+	isLinkerdInstalled, err := linkerdmanager.IsLinkerdInstalled(ctx, kubeClient)
+	if err != nil {
+		logrus.WithError(err).Error("Failed to check if Linkerd CRDs exist, assuming yes")
+		isLinkerdInstalled = true
+	}
 
 	configInput := graphqlclient.IntentsOperatorConfigurationInput{
 		GlobalEnforcementEnabled:              enforcementConfig.EnforcementDefaultState,
@@ -84,7 +101,8 @@ func uploadConfiguration(ctx context.Context, client CloudClient) {
 		GcpIAMPolicyEnforcementEnabled:        enforcementConfig.EnableGCPPolicy,
 		AzureIAMPolicyEnforcementEnabled:      enforcementConfig.EnableAzurePolicy,
 		DatabaseEnforcementEnabled:            enforcementConfig.EnableDatabasePolicy,
-		IstioPolicyEnforcementEnabled:         enforcementConfig.EnableIstioPolicy,
+		IstioPolicyEnforcementEnabled:         enforcementConfig.EnableIstioPolicy && isIstioInstalled,
+		LinkerdPolicyEnforcementEnabled:       enforcementConfig.EnableLinkerdPolicies && isLinkerdInstalled,
 		ProtectedServicesEnabled:              enforcementConfig.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 		EnforcedNamespaces:                    enforcementConfig.EnforcedNamespaces.Items(),
 		AllowExternalTrafficPolicy:            getAllowExternalConfig(),

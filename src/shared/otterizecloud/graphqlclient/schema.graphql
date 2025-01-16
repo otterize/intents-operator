@@ -309,6 +309,13 @@ input ClientIPConfig {
 	timeoutSeconds: Int
 }
 
+type ClientIntentAccessStatus {
+	total: Int!
+	allowed: Int!
+	blocked: Int!
+	wouldBeBlocked: Int!
+}
+
 type ClientIntentEvent {
 	firstTimestamp: Time
 	lastTimestamp: Time
@@ -720,6 +727,7 @@ type FeatureFlags {
 	useClientIntentsV2: Boolean
 	enableFindingsV2: Boolean
 	useTypedIntentsCTE: Boolean
+	enableInternetIntentsSuggestions: Boolean
 }
 
 type Finding {
@@ -991,6 +999,7 @@ input InputFeatureFlags {
 	useClientIntentsV2: Boolean
 	enableFindingsV2: Boolean
 	useTypedIntentsCTE: Boolean
+	enableInternetIntentsSuggestions: Boolean
 }
 
 """ Findings filter """
@@ -1232,6 +1241,7 @@ type IntentsOperatorConfiguration {
 	networkPolicyEnforcementEnabled: Boolean!
 	kafkaACLEnforcementEnabled: Boolean!
 	istioPolicyEnforcementEnabled: Boolean!
+	linkerdPolicyEnforcementEnabled: Boolean!
 	awsIAMPolicyEnforcementEnabled: Boolean!
 	gcpIAMPolicyEnforcementEnabled: Boolean!
 	azureIAMPolicyEnforcementEnabled: Boolean!
@@ -1247,6 +1257,7 @@ input IntentsOperatorConfigurationInput {
 	networkPolicyEnforcementEnabled: Boolean
 	kafkaACLEnforcementEnabled: Boolean
 	istioPolicyEnforcementEnabled: Boolean
+	linkerdPolicyEnforcementEnabled: Boolean
 	protectedServicesEnabled: Boolean
 	egressNetworkPolicyEnforcementEnabled: Boolean
 	awsIAMPolicyEnforcementEnabled: Boolean
@@ -1939,6 +1950,7 @@ input NetworkPolicySpecInput {
 type Organization {
 	id: ID!
 	name: String!
+	uniqueName: String!
 	imageURL: String
 	settings: OrganizationSettings!
 	created: Time!
@@ -2356,6 +2368,8 @@ input ServiceBackendPortInput {
 type ServiceClientIntents {
 	asClient: ClientIntentsFiles
 	asServer: ClientIntentsFiles
+	asClientStatus: ClientIntentAccessStatus
+	asServerStatus: ClientIntentAccessStatus
 	appliedIntentStatus: ClientIntentStatus
 	appliedIntentEvents: [ClientIntentEvent!]
 }
