@@ -584,6 +584,7 @@ input DiscoveredIntentInput {
 type EdgeAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
+	useLinkerdPoliciesInAccessGraphStates: Boolean!
 	useKafkaPoliciesInAccessGraphStates: Boolean!
 	verdict: EdgeAccessStatusVerdict!
 	reason: EdgeAccessStatusReason!
@@ -645,6 +646,7 @@ type EdgeAccessStatuses {
 	gcpIam: EdgeAccessStatus!
 	azureIAM: EdgeAccessStatus!
 	database: EdgeAccessStatus!
+	linkerdPolicies: EdgeAccessStatus!
 }
 
 type Environment {

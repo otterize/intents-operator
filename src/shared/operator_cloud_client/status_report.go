@@ -105,7 +105,7 @@ func uploadConfiguration(ctx context.Context, client CloudClient, kubeClient cli
 		LinkerdPolicyEnforcementEnabled:       enforcementConfig.EnableLinkerdPolicies && isLinkerdInstalled,
 		ProtectedServicesEnabled:              enforcementConfig.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 		EnforcedNamespaces:                    enforcementConfig.EnforcedNamespaces.Items(),
-		AllowExternalTrafficPolicy:            getAllowExternalConfig(),
+		//AllowExternalTrafficPolicy:            getAllowExternalConfig(),
 	}
 
 	configInput.IngressControllerConfig = lo.Map(ingressConfigIdentities, func(identity serviceidentity.ServiceIdentity, _ int) graphqlclient.IngressControllerConfigInput {
