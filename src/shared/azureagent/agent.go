@@ -9,9 +9,11 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"time"
 )
 
 const (
@@ -32,6 +34,7 @@ type Agent struct {
 	Conf                                Config
 	credentials                         *azidentity.DefaultAzureCredential
 	resourceClient                      AzureARMResourcesClient
+	providerResourceTypesClient         AzureARMResourcesProviderResourceTypesClient
 	subscriptionClient                  AzureARMSubscriptionsClient
 	resourceGroupsClient                AzureARMResourcesResourceGroupsClient
 	managedClustersClient               AzureARMContainerServiceManagedClustersClient
@@ -42,6 +45,8 @@ type Agent struct {
 	vaultsClient                        AzureARMKeyVaultVaultsClient
 	subscriptionToResourceClient        map[string]AzureARMResourcesClient
 	subscriptionToRoleAssignmentsClient map[string]AzureARMAuthorizationRoleAssignmentsClient
+
+	providerResourceTypesCache *expirable.LRU[string, map[string]armresources.ProviderResourceType]
 }
 
 func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
@@ -88,6 +93,7 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 	}
 
 	resourceClient := armResourcesClientFactory.NewClient()
+	providerResourceTypesClient := armResourcesClientFactory.NewProviderResourceTypesClient()
 	subscriptionClient := armsubscriptionsClientFactory.NewClient()
 	userAssignedIdentitiesClient := armmsiClientFactory.NewUserAssignedIdentitiesClient()
 	federatedIdentityCredentialsClient := armmsiClientFactory.NewFederatedIdentityCredentialsClient()
@@ -107,6 +113,7 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 		conf,
 		credentials,
 		resourceClient,
+		providerResourceTypesClient,
 		subscriptionClient,
 		resourceGroupsClient,
 		managedClustersClient,
@@ -130,6 +137,7 @@ func NewAzureAgentFromClients(
 	conf Config,
 	credentials *azidentity.DefaultAzureCredential,
 	resourceClient AzureARMResourcesClient,
+	providerResourceTypesClient AzureARMResourcesProviderResourceTypesClient,
 	subscriptionClient AzureARMSubscriptionsClient,
 	resourceGroupsClient AzureARMResourcesResourceGroupsClient,
 	managedClustersClient AzureARMContainerServiceManagedClustersClient,
@@ -145,6 +153,7 @@ func NewAzureAgentFromClients(
 		Conf:                                conf,
 		credentials:                         credentials,
 		resourceClient:                      resourceClient,
+		providerResourceTypesClient:         providerResourceTypesClient,
 		subscriptionClient:                  subscriptionClient,
 		resourceGroupsClient:                resourceGroupsClient,
 		managedClustersClient:               managedClustersClient,
@@ -155,6 +164,8 @@ func NewAzureAgentFromClients(
 		vaultsClient:                        vaultsClient,
 		subscriptionToResourceClient:        subscriptionToResourceClient,
 		subscriptionToRoleAssignmentsClient: subscriptionToRoleAssignmentsClient,
+		
+		providerResourceTypesCache: expirable.NewLRU[string, map[string]armresources.ProviderResourceType](100, nil, time.Hour),
 	}
 }
 

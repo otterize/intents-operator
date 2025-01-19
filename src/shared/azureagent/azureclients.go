@@ -16,6 +16,10 @@ type AzureARMResourcesClient interface {
 	NewListPager(options *armresources.ClientListOptions) *runtime.Pager[armresources.ClientListResponse]
 }
 
+type AzureARMResourcesProviderResourceTypesClient interface {
+	List(ctx context.Context, resourceProviderNamespace string, options *armresources.ProviderResourceTypesClientListOptions) (armresources.ProviderResourceTypesClientListResponse, error)
+}
+
 type AzureARMSubscriptionsClient interface {
 	Get(ctx context.Context, subscriptionID string, options *armsubscriptions.ClientGetOptions) (armsubscriptions.ClientGetResponse, error)
 	NewListPager(options *armsubscriptions.ClientListOptions) *runtime.Pager[armsubscriptions.ClientListResponse]

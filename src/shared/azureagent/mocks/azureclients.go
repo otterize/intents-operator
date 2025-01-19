@@ -70,6 +70,44 @@ func (mr *MockAzureARMResourcesClientMockRecorder) NewListPager(options interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewListPager", reflect.TypeOf((*MockAzureARMResourcesClient)(nil).NewListPager), options)
 }
 
+// MockAzureARMResourcesProviderResourceTypesClient is a mock of AzureARMResourcesProviderResourceTypesClient interface.
+type MockAzureARMResourcesProviderResourceTypesClient struct {
+	ctrl     *gomock.Controller
+	recorder *MockAzureARMResourcesProviderResourceTypesClientMockRecorder
+}
+
+// MockAzureARMResourcesProviderResourceTypesClientMockRecorder is the mock recorder for MockAzureARMResourcesProviderResourceTypesClient.
+type MockAzureARMResourcesProviderResourceTypesClientMockRecorder struct {
+	mock *MockAzureARMResourcesProviderResourceTypesClient
+}
+
+// NewMockAzureARMResourcesProviderResourceTypesClient creates a new mock instance.
+func NewMockAzureARMResourcesProviderResourceTypesClient(ctrl *gomock.Controller) *MockAzureARMResourcesProviderResourceTypesClient {
+	mock := &MockAzureARMResourcesProviderResourceTypesClient{ctrl: ctrl}
+	mock.recorder = &MockAzureARMResourcesProviderResourceTypesClientMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockAzureARMResourcesProviderResourceTypesClient) EXPECT() *MockAzureARMResourcesProviderResourceTypesClientMockRecorder {
+	return m.recorder
+}
+
+// List mocks base method.
+func (m *MockAzureARMResourcesProviderResourceTypesClient) List(ctx context.Context, resourceProviderNamespace string, options *armresources.ProviderResourceTypesClientListOptions) (armresources.ProviderResourceTypesClientListResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", ctx, resourceProviderNamespace, options)
+	ret0, _ := ret[0].(armresources.ProviderResourceTypesClientListResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockAzureARMResourcesProviderResourceTypesClientMockRecorder) List(ctx, resourceProviderNamespace, options interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockAzureARMResourcesProviderResourceTypesClient)(nil).List), ctx, resourceProviderNamespace, options)
+}
+
 // MockAzureARMSubscriptionsClient is a mock of AzureARMSubscriptionsClient interface.
 type MockAzureARMSubscriptionsClient struct {
 	ctrl     *gomock.Controller

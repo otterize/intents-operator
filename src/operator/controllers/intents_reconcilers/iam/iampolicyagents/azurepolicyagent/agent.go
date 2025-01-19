@@ -43,11 +43,6 @@ func (a *Agent) getIntentScope(ctx context.Context, intent otterizev2alpha1.Targ
 
 	// If the scope is already a full scope, validate and return it
 	if strings.HasPrefix(name, "/subscriptions/") {
-		err := a.ValidateScope(ctx, name)
-		if err != nil {
-			return "", errors.Wrap(err)
-		}
-
 		return name, nil
 	}
 
@@ -381,6 +376,12 @@ func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIde
 func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdentity armmsi.Identity, scope string, intent otterizev2alpha1.Target) error {
 	actions := intent.Azure.Actions
 	dataActions := intent.Azure.DataActions
+
+	if err := a.ValidateScope(ctx, scope); err != nil {
+		// Prevent using non-existing scopes for custom roles,
+		// as they may cause issues when deleting the custom role
+		return errors.Wrap(err)
+	}
 
 	customRoleName := a.GenerateCustomRoleName(userAssignedIdentity, scope)
 	role, found := a.FindCustomRoleByName(ctx, scope, customRoleName)
