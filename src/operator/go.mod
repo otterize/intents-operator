@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/rolesanywhere v1.9.0
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/cert-manager/cert-manager v1.12.3
-	github.com/otterize/intents-operator/src v0.0.0-20241212075559-8e21903324c2
+	github.com/otterize/intents-operator/src v0.0.0-20250119123559-c30c1b150ff0
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.1
 	github.com/samber/lo v1.33.0
 	github.com/sirupsen/logrus v1.9.3
