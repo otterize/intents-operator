@@ -6,7 +6,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/google/uuid"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
@@ -25,6 +24,7 @@ type AzureAgentPoliciesKeyVaultSuite struct {
 	suite.Suite
 
 	mockResourcesClient                    *mock_azureagent.MockAzureARMResourcesClient
+	mockProviderResourceTypesClient        *mock_azureagent.MockAzureARMResourcesProviderResourceTypesClient
 	mockSubscriptionsClient                *mock_azureagent.MockAzureARMSubscriptionsClient
 	mockResourceGroupsClient               *mock_azureagent.MockAzureARMResourcesResourceGroupsClient
 	mockManagedClustersClient              *mock_azureagent.MockAzureARMContainerServiceManagedClustersClient
@@ -44,6 +44,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
 
 	s.mockResourcesClient = mock_azureagent.NewMockAzureARMResourcesClient(controller)
+	s.mockProviderResourceTypesClient = mock_azureagent.NewMockAzureARMResourcesProviderResourceTypesClient(controller)
 	s.mockSubscriptionsClient = mock_azureagent.NewMockAzureARMSubscriptionsClient(controller)
 	s.mockResourceGroupsClient = mock_azureagent.NewMockAzureARMResourcesResourceGroupsClient(controller)
 	s.mockManagedClustersClient = mock_azureagent.NewMockAzureARMContainerServiceManagedClustersClient(controller)
@@ -71,6 +72,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 			},
 			nil,
 			s.mockResourcesClient,
+			s.mockProviderResourceTypesClient,
 			s.mockSubscriptionsClient,
 			s.mockResourceGroupsClient,
 			s.mockManagedClustersClient,
@@ -85,14 +87,6 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 		sync.Mutex{},
 		sync.Mutex{},
 	}
-}
-
-func (s *AzureAgentPoliciesKeyVaultSuite) expectGetByIDReturnsResource(scope string) {
-	s.mockResourcesClient.EXPECT().GetByID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(armresources.ClientGetByIDResponse{
-		GenericResource: armresources.GenericResource{
-			ID: &scope,
-		},
-	}, nil)
 }
 
 func (s *AzureAgentPoliciesKeyVaultSuite) expectGetUserAssignedIdentityReturnsClientID(clientId string) {
@@ -277,11 +271,6 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestAddRolePolicyFromIntents_AzureKeyV
 			var updatedPolicy armkeyvault.VaultAccessPolicyParameters
 			if testCase.UpdateExpected {
 				s.expectUpdateKeyVaultAccessPolicyWritesPolicy(testKeyVaultName, testCase.UpdateKind, &updatedPolicy)
-			}
-
-			// The scope should be validated when passing valid intent:
-			if intents[0].Azure.KeyVaultPolicy != nil {
-				s.expectGetByIDReturnsResource(scope)
 			}
 
 			// Act

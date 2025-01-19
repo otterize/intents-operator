@@ -8,7 +8,6 @@ import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	mock_azureagent "github.com/otterize/intents-operator/src/shared/azureagent/mocks"
-	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
@@ -20,6 +19,7 @@ type AzureAgentScopeSuite struct {
 	suite.Suite
 
 	mockResourcesClient                    *mock_azureagent.MockAzureARMResourcesClient
+	mockProviderResourceTypesClient        *mock_azureagent.MockAzureARMResourcesProviderResourceTypesClient
 	mockSubscriptionsClient                *mock_azureagent.MockAzureARMSubscriptionsClient
 	mockResourceGroupsClient               *mock_azureagent.MockAzureARMResourcesResourceGroupsClient
 	mockManagedClustersClient              *mock_azureagent.MockAzureARMContainerServiceManagedClustersClient
@@ -39,6 +39,7 @@ func (s *AzureAgentScopeSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
 
 	s.mockResourcesClient = mock_azureagent.NewMockAzureARMResourcesClient(controller)
+	s.mockProviderResourceTypesClient = mock_azureagent.NewMockAzureARMResourcesProviderResourceTypesClient(controller)
 	s.mockSubscriptionsClient = mock_azureagent.NewMockAzureARMSubscriptionsClient(controller)
 	s.mockResourceGroupsClient = mock_azureagent.NewMockAzureARMResourcesResourceGroupsClient(controller)
 	s.mockManagedClustersClient = mock_azureagent.NewMockAzureARMContainerServiceManagedClustersClient(controller)
@@ -66,6 +67,7 @@ func (s *AzureAgentScopeSuite) SetupTest() {
 			},
 			nil,
 			s.mockResourcesClient,
+			s.mockProviderResourceTypesClient,
 			s.mockSubscriptionsClient,
 			s.mockResourceGroupsClient,
 			s.mockManagedClustersClient,
@@ -80,21 +82,6 @@ func (s *AzureAgentScopeSuite) SetupTest() {
 		sync.Mutex{},
 		sync.Mutex{},
 	}
-}
-
-func (s *AzureAgentScopeSuite) expectGetByIDReturnsResource(scope string) {
-	s.mockResourcesClient.EXPECT().GetByID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(armresources.ClientGetByIDResponse{
-		GenericResource: armresources.GenericResource{
-			ID: &scope,
-		},
-	}, nil)
-}
-
-func (s *AzureAgentScopeSuite) expectGetByIDReturnsError() {
-	s.mockResourcesClient.EXPECT().GetByID(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(
-		armresources.ClientGetByIDResponse{},
-		errors.Errorf("resource not found"),
-	)
 }
 
 func (s *AzureAgentScopeSuite) expectListSubscriptionsReturnsPager() {
@@ -134,8 +121,6 @@ func (s *AzureAgentScopeSuite) TestGetIntentScopeFullScope() {
 		},
 	}
 
-	s.expectGetByIDReturnsResource(targetScope)
-
 	// Act
 	scope, err := s.agent.getIntentScope(context.Background(), intent)
 
@@ -174,25 +159,6 @@ func (s *AzureAgentScopeSuite) TestGetIntentScopeInvalidScope() {
 			Scope: "invalid-scope",
 		},
 	}
-
-	// Act
-	scope, err := s.agent.getIntentScope(context.Background(), intent)
-
-	// Assert
-	s.Require().Error(err)
-	s.Empty(scope)
-}
-
-func (s *AzureAgentScopeSuite) TestGetIntentScopeNotFoundFullScope() {
-	// Arrange
-	targetScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/test/blobServices/default/containers/container", testSubscriptionID, testResourceGroup)
-	intent := otterizev2alpha1.Target{
-		Azure: &otterizev2alpha1.AzureTarget{
-			Scope: targetScope,
-		},
-	}
-
-	s.expectGetByIDReturnsError()
 
 	// Act
 	scope, err := s.agent.getIntentScope(context.Background(), intent)
