@@ -20,6 +20,7 @@ type AzureAgentIdentitiesSuite struct {
 	suite.Suite
 
 	mockResourcesClient                    *mock_azureagent.MockAzureARMResourcesClient
+	mockProviderResourceTypesClient        *mock_azureagent.MockAzureARMResourcesProviderResourceTypesClient
 	mockSubscriptionsClient                *mock_azureagent.MockAzureARMSubscriptionsClient
 	mockResourceGroupsClient               *mock_azureagent.MockAzureARMResourcesResourceGroupsClient
 	mockManagedClustersClient              *mock_azureagent.MockAzureARMContainerServiceManagedClustersClient
@@ -39,6 +40,7 @@ func (s *AzureAgentIdentitiesSuite) SetupTest() {
 	controller := gomock.NewController(s.T())
 
 	s.mockResourcesClient = mock_azureagent.NewMockAzureARMResourcesClient(controller)
+	s.mockProviderResourceTypesClient = mock_azureagent.NewMockAzureARMResourcesProviderResourceTypesClient(controller)
 	s.mockSubscriptionsClient = mock_azureagent.NewMockAzureARMSubscriptionsClient(controller)
 	s.mockResourceGroupsClient = mock_azureagent.NewMockAzureARMResourcesResourceGroupsClient(controller)
 	s.mockManagedClustersClient = mock_azureagent.NewMockAzureARMContainerServiceManagedClustersClient(controller)
@@ -66,6 +68,7 @@ func (s *AzureAgentIdentitiesSuite) SetupTest() {
 			},
 			nil,
 			s.mockResourcesClient,
+			s.mockProviderResourceTypesClient,
 			s.mockSubscriptionsClient,
 			s.mockResourceGroupsClient,
 			s.mockManagedClustersClient,

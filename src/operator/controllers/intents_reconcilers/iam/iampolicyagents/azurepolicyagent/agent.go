@@ -377,12 +377,6 @@ func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdent
 	actions := intent.Azure.Actions
 	dataActions := intent.Azure.DataActions
 
-	if err := a.ValidateScope(ctx, scope); err != nil {
-		// Prevent using non-existing scopes for custom roles,
-		// as they may cause issues when deleting the custom role
-		return errors.Wrap(err)
-	}
-
 	customRoleName := a.GenerateCustomRoleName(userAssignedIdentity, scope)
 	role, found := a.FindCustomRoleByName(ctx, scope, customRoleName)
 	if found {
@@ -391,6 +385,12 @@ func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdent
 			return errors.Wrap(err)
 		}
 	} else {
+		if err := a.ValidateScope(ctx, scope); err != nil {
+			// Prevent using non-existing scopes for custom roles,
+			// as they may cause issues when deleting the custom role
+			return errors.Wrap(err)
+		}
+
 		newRole, err := a.CreateCustomRole(ctx, scope, userAssignedIdentity, actions, dataActions)
 		if err != nil {
 			return errors.Wrap(err)
