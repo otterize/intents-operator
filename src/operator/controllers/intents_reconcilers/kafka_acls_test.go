@@ -14,7 +14,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	kafkaaclsmocks "github.com/otterize/intents-operator/src/operator/controllers/kafkaacls/mocks"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
-	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/podownerresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
@@ -174,7 +174,7 @@ func (s *KafkaACLReconcilerTestSuite) TestNoACLCreatedForIntentsOperator() {
 	operatorPod := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				serviceidresolver.ServiceNameOverrideAnnotationKeyDefault: operatorServiceName,
+				podownerresolver.WorkloadNameOverrideAnnotationKey: operatorServiceName,
 			},
 			Name:      operatorPodName,
 			Namespace: s.operatorNamespace,

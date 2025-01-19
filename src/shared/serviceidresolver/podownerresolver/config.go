@@ -6,15 +6,16 @@ import (
 )
 
 const (
-	serviceNameOverrideAnnotationKey        = "service-name-override-annotation"
-	ServiceNameOverrideAnnotationKeyDefault = "intents.otterize.com/service-name"
-	useImageNameForServiceIDForJobs         = "use-image-name-for-service-id-for-jobs"
-	EnvPrefix                               = "OTTERIZE"
+	WorkloadNameOverrideAnnotationKey        = "workload-name-override-annotation"
+	WorkloadNameOverrideAnnotationKeyDefault = "intents.otterize.com/workload-name"
+	ServiceNameOverrideAnnotationDeprecated  = "intents.otterize.com/service-name"
+	UseImageNameForServiceIDForJobs          = "use-image-name-for-service-id-for-jobs"
+	EnvPrefix                                = "OTTERIZE"
 )
 
 func init() {
-	viper.SetDefault(serviceNameOverrideAnnotationKey, ServiceNameOverrideAnnotationKeyDefault)
-	viper.SetDefault(useImageNameForServiceIDForJobs, false)
+	viper.SetDefault(WorkloadNameOverrideAnnotationKey, WorkloadNameOverrideAnnotationKeyDefault)
+	viper.SetDefault(UseImageNameForServiceIDForJobs, false)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()

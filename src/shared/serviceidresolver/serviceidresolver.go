@@ -7,10 +7,8 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/podownerresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
-	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 var (
@@ -33,36 +31,6 @@ type Resolver struct {
 
 func NewResolver(c client.Client) *Resolver {
 	return &Resolver{client: c}
-}
-
-func ResolvePodToServiceIdentityUsingAnnotationOnly(pod *corev1.Pod) (string, bool) {
-	annotation, ok := pod.Annotations[viper.GetString(serviceNameOverrideAnnotationKey)]
-	return annotation, ok
-}
-
-func ResolvePodToServiceIdentityUsingImageName(pod *corev1.Pod) string {
-	// filter out Istio and sidecars
-	images := make([]string, 0)
-	for _, container := range pod.Spec.Containers {
-		if container.Name == "istio-proxy" || strings.Contains(container.Name, "sidecar") {
-			continue
-		}
-		image := container.Image
-		_, after, found := strings.Cut(image, "/")
-		if !found {
-			images = append(images, image)
-			continue
-		}
-
-		before, _, found := strings.Cut(after, ":")
-		if !found {
-			images = append(images, after)
-			continue
-		}
-		images = append(images, before)
-	}
-
-	return strings.Join(images, "-")
 }
 
 func (r *Resolver) ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error) {
