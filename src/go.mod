@@ -43,7 +43,7 @@ require (
 	github.com/otterize/lox v0.0.0-20220525164329-9ca2bf91c3dd
 	github.com/otterize/nilable v0.0.0-20240410132629-f242bb6f056f
 	github.com/prometheus/client_golang v1.18.0
-	github.com/samber/lo v1.33.0
+	github.com/samber/lo v1.47.0
 	github.com/simukti/sqldb-logger v0.0.0-20230108155151-646c1a075551
 	github.com/simukti/sqldb-logger/logadapter/logrusadapter v0.0.0-20230108155151-646c1a075551
 	github.com/sirupsen/logrus v1.9.3

@@ -128,6 +128,10 @@ func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssigne
 		}
 		expectedScopes = append(expectedScopes, scope)
 
+		if err := a.ValidateScope(ctx, scope); err != nil {
+			return errors.Wrap(err)
+		}
+
 		roleNames := intent.Azure.Roles
 		existingRoleAssignmentsForScope := existingRoleAssignmentsByScope[scope]
 
