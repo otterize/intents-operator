@@ -51,7 +51,7 @@ type KafkaServerConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Service Workload `json:"service,omitempty" yaml:"service,omitempty"`
+	Workload Workload `json:"workload,omitempty" yaml:"workload,omitempty"`
 	// If Intents for network policies are enabled, and there are other Intents to this Kafka server,
 	// will automatically create an Target so that the Intents Operator can connect. Set to true to disable.
 	NoAutoCreateIntentsForOperator bool   `json:"noAutoCreateIntentsForOperator,omitempty" yaml:"noAutoCreateIntentsForOperator,omitempty"`
