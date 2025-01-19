@@ -113,9 +113,9 @@ func (s *PodControllerSuiteWithoutEventRecorder) TestController_Reconcile() {
 
 	// expect update pod labels
 	var update *corev1.Pod
-	s.client.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Pod{})).
-		Return(nil).Do(func(ctx context.Context, pod *corev1.Pod, opts ...client.UpdateOption) {
-		update = pod
+	s.client.EXPECT().Patch(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Pod{}), gomock.Any()).Do(func(
+		_ context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) {
+		update = obj.(*corev1.Pod)
 	})
 
 	// expect spire entry registration
@@ -301,10 +301,10 @@ func (s *PodControllerSuiteWithEventRecorder) TestController_Reconcile_Deprecate
 		})
 
 	// expect update pod labels
-	var update *corev1.Pod
-	s.client.EXPECT().Update(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Pod{})).
-		Return(nil).Do(func(ctx context.Context, pod *corev1.Pod, opts ...client.UpdateOption) {
-		update = pod
+	var updatedPod *corev1.Pod
+	s.client.EXPECT().Patch(gomock.Any(), gomock.AssignableToTypeOf(&corev1.Pod{}), gomock.Any()).Do(func(
+		_ context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) {
+		updatedPod = obj.(*corev1.Pod)
 	})
 
 	// expect spire entry registration
@@ -333,7 +333,7 @@ func (s *PodControllerSuiteWithEventRecorder) TestController_Reconcile_Deprecate
 	result, err := s.podReconciler.Reconcile(context.Background(), request)
 	s.Require().NoError(err)
 	s.Require().True(result.IsZero())
-	s.Require().Equal(update.Labels[metadata.RegisteredServiceNameLabel], servicename)
+	s.Require().Equal(updatedPod.Labels[metadata.RegisteredServiceNameLabel], servicename)
 }
 
 func TestRunPodControllerWithRecorderSuite(t *testing.T) {

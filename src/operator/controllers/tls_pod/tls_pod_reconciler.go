@@ -94,16 +94,17 @@ func (r *PodReconciler) updatePodLabel(ctx context.Context, pod *corev1.Pod, lab
 
 	log.Info("updating pod label")
 
+	updatedPod := pod.DeepCopy()
 	if pod.Labels == nil {
-		pod.Labels = map[string]string{}
+		updatedPod.Labels = map[string]string{}
 	}
 
-	pod.Labels[labelKey] = labelValue
+	updatedPod.Labels[labelKey] = labelValue
 
-	if err := r.Update(ctx, pod); err != nil {
+	if err := r.Patch(ctx, updatedPod, client.MergeFrom(pod)); err != nil {
 		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 			// The Pod has been updated since we read it.
-			// Requeue the Pod to try to reconciliate again.
+			// Requeue the Pod to try to reconcile again.
 			return ctrl.Result{Requeue: true}, nil
 		}
 		if apierrors.IsNotFound(err) {
