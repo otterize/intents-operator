@@ -399,8 +399,10 @@ type Cluster {
 type ClusterConfiguration {
 	globalDefaultDeny: Boolean!
 	istioGlobalDefaultDeny: Boolean!
+	linkerdGlobalDefaultDeny: Boolean!
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
+	useLinkerdPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useAWSIAMInAccessGraphStates: Boolean!
 	useGCPIAMInAccessGraphStates: Boolean!
@@ -412,8 +414,10 @@ type ClusterConfiguration {
 input ClusterConfigurationInput {
 	globalDefaultDeny: Boolean!
 	istioGlobalDefaultDeny: Boolean
+	linkerdGlobalDefaultDeny: Boolean
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
+	useLinkerdPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useAWSIAMInAccessGraphStates: Boolean
 	useGCPIAMInAccessGraphStates: Boolean
