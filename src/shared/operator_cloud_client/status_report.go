@@ -67,7 +67,7 @@ func getAllowExternalConfig() graphqlclient.AllowExternalTrafficPolicy {
 	case allowexternaltraffic.IfBlockedByOtterize:
 		return graphqlclient.AllowExternalTrafficPolicyIfBlockedByOtterize
 	default:
-		return graphqlclient.AllowExternalTrafficPolicyOff
+		return ""
 	}
 }
 
