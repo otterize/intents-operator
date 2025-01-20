@@ -39,7 +39,9 @@ func NewLinkerdReconciler(c client.Client, s *runtime.Scheme, namespaces []strin
 	return linkerdreconciler
 }
 
-func (r *LinkerdReconciler) InjectRecorder(recorder record.EventRecorder) {}
+func (r *LinkerdReconciler) InjectRecorder(recorder record.EventRecorder) {
+	r.Recorder = recorder
+}
 
 func (r *LinkerdReconciler) ReconcileEffectivePolicies(ctx context.Context, eps []effectivepolicy.ServiceEffectivePolicy) (int, []error) {
 	installed, err := linkerdmanager.IsLinkerdInstalled(ctx, r.Client)
