@@ -54,7 +54,7 @@ func (a *Agent) ServiceAccountLabel() string {
 }
 
 func (a *Agent) OnPodAdmission(ctx context.Context, pod *corev1.Pod, serviceAccount *corev1.ServiceAccount, dryRun bool) error {
-	logger := logrus.WithFields(logrus.Fields{"serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
+	logger := logrus.WithFields(logrus.Fields{"pod": pod.Name, "serviceAccount": serviceAccount.Name, "namespace": serviceAccount.Namespace})
 
 	roleArn := a.agent.GenerateRoleARN(serviceAccount.Namespace, serviceAccount.Name)
 	apiutils.AddAnnotation(serviceAccount, ServiceAccountAWSRoleARNAnnotation, roleArn)

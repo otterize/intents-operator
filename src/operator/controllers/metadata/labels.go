@@ -11,6 +11,5 @@ const (
 	// This is used to detect which secrets are managed by this operator.
 	SecretTypeLabel = "credentials-operator.otterize.com/secret-type"
 
-	OtterizeServiceAccountHasPodsValue   = "true"
-	OtterizeServiceAccountHasNoPodsValue = "no-pods"
+	OtterizeServiceAccountHasPodsValue = "true"
 )

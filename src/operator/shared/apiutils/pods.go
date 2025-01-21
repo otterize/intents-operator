@@ -3,7 +3,6 @@ package apiutils
 import (
 	"context"
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,26 +28,6 @@ func InitPodServiceAccountIndexField(mgr ctrl.Manager) error {
 	}
 
 	return nil
-}
-
-func GetPodServiceAccountConsumers(ctx context.Context, c client.Client, pod corev1.Pod) ([]corev1.Pod, error) {
-	pods := corev1.PodList{}
-	err := c.List(ctx, &pods,
-		client.MatchingFields{PodServiceAccountIndexField: pod.Spec.ServiceAccountName},
-		&client.ListOptions{Namespace: pod.Namespace},
-	)
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-
-	thisPodAndNonTerminatingPods := lo.Filter(pods.Items, func(filteredPod corev1.Pod, _ int) bool {
-		if pod.UID == filteredPod.UID || filteredPod.DeletionTimestamp == nil {
-			return true
-		}
-		return false
-	})
-
-	return thisPodAndNonTerminatingPods, nil
 }
 
 func AddLabel(o client.Object, key, value string) {

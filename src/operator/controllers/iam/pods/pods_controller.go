@@ -68,11 +68,15 @@ func (r *PodReconciler) handlePodUpdate(ctx context.Context, pod corev1.Pod) (ct
 		return ctrl.Result{}, nil
 	}
 
+	logger.Debug("Otterize IAM label found on pod")
+
 	var serviceAccount corev1.ServiceAccount
 	err := r.Get(ctx, types.NamespacedName{Name: pod.Spec.ServiceAccountName, Namespace: pod.Namespace}, &serviceAccount)
 	if err != nil {
 		return ctrl.Result{}, errors.Errorf("failed to get service account: %w", err)
 	}
+
+	logger = logger.WithField("serviceAccount", serviceAccount.Name)
 
 	updatedServiceAccount := serviceAccount.DeepCopy()
 	updatedPod := pod.DeepCopy()
@@ -85,6 +89,7 @@ func (r *PodReconciler) handlePodUpdate(ctx context.Context, pod corev1.Pod) (ct
 		return ctrl.Result{Requeue: true}, nil
 	}
 	if updated {
+		logger.Info("updating Otterize IAM managed pod")
 		controllerutil.AddFinalizer(updatedPod, r.agent.FinalizerName())
 		err := r.Patch(ctx, updatedPod, client.MergeFrom(&pod))
 		if err != nil {
@@ -94,6 +99,7 @@ func (r *PodReconciler) handlePodUpdate(ctx context.Context, pod corev1.Pod) (ct
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 
+		logger.Info("updating Otterize IAM managed serviceAccount")
 		apiutils.AddLabel(updatedServiceAccount, r.agent.ServiceAccountLabel(), metadata.OtterizeServiceAccountHasPodsValue)
 		err = r.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
 		if err != nil {
@@ -115,14 +121,6 @@ func (r *PodReconciler) handlePodCleanup(ctx context.Context, pod corev1.Pod) (c
 		return ctrl.Result{}, nil
 	}
 
-	requeue, err := r.handleLastPodWithThisSA(ctx, pod)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err)
-	}
-	if requeue {
-		return ctrl.Result{Requeue: true}, nil
-	}
-
 	updatedPod := pod.DeepCopy()
 	if controllerutil.RemoveFinalizer(updatedPod, r.agent.FinalizerName()) || controllerutil.RemoveFinalizer(updatedPod, metadata.DeprecatedIAMRoleFinalizer) {
 		err := r.Patch(ctx, updatedPod, client.StrategicMergeFrom(&pod))
@@ -137,47 +135,4 @@ func (r *PodReconciler) handlePodCleanup(ctx context.Context, pod corev1.Pod) (c
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *PodReconciler) handleLastPodWithThisSA(ctx context.Context, pod corev1.Pod) (requeue bool, err error) {
-	// Find all pods that have the same service account
-	saConsumers, err := apiutils.GetPodServiceAccountConsumers(ctx, r, pod)
-	if err != nil {
-		return false, errors.Wrap(err)
-	}
-
-	// Get only the pods that are IAM consumers - also handles case where label was removed from the pod.
-	iamSAConsumers := lo.Filter(saConsumers, func(filteredPod corev1.Pod, _ int) bool {
-		return controllerutil.ContainsFinalizer(&filteredPod, r.agent.FinalizerName()) || pod.UID == filteredPod.UID
-	})
-
-	// check if this is the last pod linked to this SA.
-	isLastPodWithThisSA := len(iamSAConsumers) == 1 && iamSAConsumers[0].UID == pod.UID
-	if !isLastPodWithThisSA {
-		return false, nil
-	}
-
-	var serviceAccount corev1.ServiceAccount
-	err = r.Get(ctx, types.NamespacedName{Name: pod.Spec.ServiceAccountName, Namespace: pod.Namespace}, &serviceAccount)
-	if err != nil {
-		// service account can be deleted before the pods go down, in which case cleanup has already occurred, so just let the pod terminate.
-		if apierrors.IsNotFound(err) {
-			return false, nil
-		}
-		return false, errors.Wrap(err)
-	}
-
-	updatedServiceAccount := serviceAccount.DeepCopy()
-	// Normally we would call the other reconciler, but because this is blocking the removal of a pod finalizer,
-	// we instead update the ServiceAccount and let it do the hard work, so we can remove the pod finalizer ASAP.
-	apiutils.AddLabel(updatedServiceAccount, r.agent.ServiceAccountLabel(), metadata.OtterizeServiceAccountHasNoPodsValue)
-	err = r.Client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
-	if err != nil {
-		if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
-			return true, nil
-		}
-		return false, errors.Wrap(err)
-	}
-
-	return false, nil
 }

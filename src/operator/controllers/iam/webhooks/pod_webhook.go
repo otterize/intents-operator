@@ -41,17 +41,23 @@ func NewServiceAccountAnnotatingPodWebhook(mgr manager.Manager, agent iamcredent
 }
 
 func (w *ServiceAccountAnnotatingPodWebhook) handleOnce(ctx context.Context, pod corev1.Pod, dryRun bool) (outputPod corev1.Pod, patched bool, successMsg string, err error) {
+	logger := logrus.WithField("name", pod.Name).WithField("namespace", pod.Namespace).WithField("dryRun", dryRun)
 	if pod.DeletionTimestamp != nil {
+		logger.Debug("Pod is terminating, skipping")
 		return pod, false, "no webhook handling if pod is terminating", nil
 	}
 
 	if !w.agent.AppliesOnPod(&pod) {
+		logger.Debug("pod does not have the Otterize IAM label, skipping")
 		return pod, false, "no create IAM role label - no modifications made", nil
 	}
 
 	if !controllerutil.AddFinalizer(&pod, w.agent.FinalizerName()) {
+		logger.Debug("pod already handled by webhook, skipping")
 		return pod, false, "pod already handled by webhook", nil
 	}
+
+	logger.Debug("Otterize IAM label found on pod")
 
 	var serviceAccount corev1.ServiceAccount
 	err = w.client.Get(ctx, types.NamespacedName{
@@ -62,12 +68,15 @@ func (w *ServiceAccountAnnotatingPodWebhook) handleOnce(ctx context.Context, pod
 		return corev1.Pod{}, false, "", errors.Errorf("could not get service account: %w", err)
 	}
 
+	logger = logger.WithField("serviceAccount", serviceAccount.Name)
+
 	updatedServiceAccount := serviceAccount.DeepCopy()
 	if err := w.agent.OnPodAdmission(ctx, &pod, updatedServiceAccount, dryRun); err != nil {
 		return corev1.Pod{}, false, "", errors.Errorf("failed to handle pod admission: %w", err)
 	}
 
 	if !dryRun {
+		logger.Info("updating Otterize IAM managed serviceAccount")
 		apiutils.AddLabel(updatedServiceAccount, w.agent.ServiceAccountLabel(), metadata.OtterizeServiceAccountHasPodsValue)
 		controllerutil.AddFinalizer(updatedServiceAccount, w.agent.FinalizerName())
 		err = w.client.Patch(ctx, updatedServiceAccount, client.MergeFrom(&serviceAccount))
@@ -76,6 +85,7 @@ func (w *ServiceAccountAnnotatingPodWebhook) handleOnce(ctx context.Context, pod
 		}
 	}
 
+	logger.Debug("Pod and service account updated to create IAM role")
 	return pod, true, "pod and service account updated to create IAM role", nil
 }
 
