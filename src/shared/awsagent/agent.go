@@ -95,7 +95,7 @@ type Agent struct {
 	profileCacheOnce    sync.Once
 }
 
-const ApplyOnPodLabel = "credentials-operator.otterize.com/create-aws-role"
+const AWSApplyOnPodLabel = "credentials-operator.otterize.com/create-aws-role"
 
 // ServiceAccountAWSAccountIDAnnotation is used by Otterize to indicate that this service account should result in a role in the specified AWS account.
 const ServiceAccountAWSAccountIDAnnotation = "credentials-operator.otterize.com/aws-account"
@@ -113,15 +113,7 @@ func WithSoftDeleteStrategy() Option {
 }
 
 func (a *Agent) AppliesOnPod(pod *corev1.Pod) bool {
-	return AppliesOnPod(pod)
-}
-
-func AppliesOnPod(pod *corev1.Pod) bool {
-	if pod.Labels == nil {
-		return false
-	}
-	_, foundLabel := pod.Labels[ApplyOnPodLabel]
-	return foundLabel
+	return pod.Labels != nil && pod.Labels[AWSApplyOnPodLabel] == "true"
 }
 
 func WithRolesAnywhere(account operatorconfig.AWSAccount, clusterName string, keyPath string, certPath string) Option {
