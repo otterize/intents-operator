@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+var ErrRoleNotFound = errors.NewSentinelError("role not found")
+
 func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName string, intentsServiceName string, statements []StatementEntry) error {
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
 
@@ -22,7 +24,9 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	}
 
 	if !exists {
-		return errors.Errorf("role not found: %s", a.generateRoleName(namespace, accountName))
+		// Allow sentinel comparison + dynamic error message
+		roleName := a.generateRoleName(namespace, accountName)
+		return fmt.Errorf("%w: %s", ErrRoleNotFound, roleName)
 	}
 
 	softDeletionStrategyEnabled := HasSoftDeleteStrategyTagSet(role.Tags)
