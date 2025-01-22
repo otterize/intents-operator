@@ -3,6 +3,7 @@ package awsagent
 import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -238,4 +239,12 @@ func getCurrentEKSCluster(ctx context.Context, config aws.Config) (*eksTypes.Clu
 	}
 
 	return describeClusterOutput.Cluster, nil
+}
+
+// AWSRetriesOptions adds retry options for AWS SDK operations that may fail due to concurrency issues.
+// ref - https://pkg.go.dev/github.com/aws/aws-sdk-go-v2/aws/retry
+func AWSBackoffRetryerOptions(options *iam.Options) {
+	options.Retryer = retry.NewStandard(func(o *retry.StandardOptions) {
+		o.MaxAttempts = 5
+	})
 }

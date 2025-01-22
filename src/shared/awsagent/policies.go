@@ -228,7 +228,7 @@ func (a *Agent) createPolicy(ctx context.Context, role *types.Role, namespace st
 		PolicyDocument: aws.String(policyDoc),
 		PolicyName:     aws.String(fullPolicyName),
 		Tags:           tags,
-	})
+	}, AWSBackoffRetryerOptions)
 
 	if err != nil {
 		if isEntityAlreadyExistsException(err) {
@@ -258,7 +258,7 @@ func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statemen
 		_, err = a.iamClient.UntagPolicy(ctx, &iam.UntagPolicyInput{
 			PolicyArn: policy.Arn,
 			TagKeys:   []string{softDeletedTagKey},
-		})
+		}, AWSBackoffRetryerOptions)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -269,7 +269,7 @@ func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statemen
 		_, err = a.iamClient.UntagPolicy(ctx, &iam.UntagPolicyInput{
 			PolicyArn: policy.Arn,
 			TagKeys:   []string{softDeletionStrategyTagKey},
-		})
+		}, AWSBackoffRetryerOptions)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -280,7 +280,7 @@ func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statemen
 		_, err = a.iamClient.TagPolicy(ctx, &iam.TagPolicyInput{
 			PolicyArn: policy.Arn,
 			Tags:      []types.Tag{{Key: aws.String(softDeletionStrategyTagKey), Value: aws.String(softDeletionStrategyTagValue)}},
-		})
+		}, AWSBackoffRetryerOptions)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -304,7 +304,7 @@ func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statemen
 		PolicyArn:      policy.Arn,
 		PolicyDocument: aws.String(policyDoc),
 		SetAsDefault:   true,
-	})
+	}, AWSBackoffRetryerOptions)
 
 	if err != nil {
 		return errors.Wrap(err)
@@ -318,7 +318,7 @@ func (a *Agent) updatePolicy(ctx context.Context, policy *types.Policy, statemen
 				Value: aws.String(policyHash),
 			},
 		},
-	})
+	}, AWSBackoffRetryerOptions)
 
 	if err != nil {
 		return errors.Wrap(err)
@@ -348,7 +348,7 @@ func (a *Agent) deleteOldestPolicyVersion(ctx context.Context, policy *types.Pol
 	_, err = a.iamClient.DeletePolicyVersion(ctx, &iam.DeletePolicyVersionInput{
 		PolicyArn: policy.Arn,
 		VersionId: oldest.VersionId,
-	})
+	}, AWSBackoffRetryerOptions)
 
 	if err != nil {
 		return errors.Wrap(err)
@@ -361,7 +361,7 @@ func (a *Agent) attachPolicy(ctx context.Context, role *types.Role, policy *type
 	_, err := a.iamClient.AttachRolePolicy(ctx, &iam.AttachRolePolicyInput{
 		PolicyArn: policy.Arn,
 		RoleName:  role.RoleName,
-	})
+	}, AWSBackoffRetryerOptions)
 
 	return errors.Wrap(err)
 }
