@@ -22,7 +22,7 @@ func NewMultiaccountAWSCredentialsAgent(ctx context.Context, accounts []operator
 }
 
 func (m *MultiaccountAWSCredentialsAgent) AppliesOnPod(pod *corev1.Pod) bool {
-	return awsagent.AppliesOnPod(pod)
+	return multi_account_aws_agent.AppliesOnPod(pod)
 }
 
 func (m *MultiaccountAWSCredentialsAgent) FinalizerName() string {

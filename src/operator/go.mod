@@ -11,9 +11,9 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/rolesanywhere v1.9.0
 	github.com/bombsimon/logrusr/v3 v3.0.0
 	github.com/cert-manager/cert-manager v1.12.3
-	github.com/otterize/intents-operator/src v0.0.0-20250119123559-c30c1b150ff0
+	github.com/otterize/intents-operator/src v0.0.0-20250122082157-56ba6855b221
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.1
-	github.com/samber/lo v1.33.0
+	github.com/samber/lo v1.47.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.13.0
@@ -134,21 +134,21 @@ require (
 	github.com/twmb/murmur3 v1.1.6 // indirect
 	github.com/uber-go/tally/v4 v4.1.3 // indirect
 	github.com/vektah/gqlparser v1.3.1 // indirect
-	github.com/vektah/gqlparser/v2 v2.5.20 // indirect
+	github.com/vektah/gqlparser/v2 v2.5.21 // indirect
 	github.com/zeebo/errs v1.3.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
+	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/net v0.32.0 // indirect
+	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/term v0.27.0 // indirect
+	golang.org/x/sys v0.29.0 // indirect
+	golang.org/x/term v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	golang.org/x/tools v0.28.0 // indirect
+	golang.org/x/tools v0.29.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
