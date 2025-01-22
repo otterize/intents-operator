@@ -3,7 +3,6 @@ package awspolicyagent
 import (
 	"context"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
-	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/awsagent/multi_account_aws_agent"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
@@ -27,7 +26,7 @@ func (m *MultiaccountAWSPolicyAgent) IntentType() otterizev2alpha1.IntentType {
 }
 
 func (m *MultiaccountAWSPolicyAgent) AppliesOnPod(pod *corev1.Pod) bool {
-	return awsagent.AppliesOnPod(pod)
+	return multi_account_aws_agent.AppliesOnPod(pod)
 }
 
 func (m *MultiaccountAWSPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev2alpha1.Target, pod corev1.Pod) error {
