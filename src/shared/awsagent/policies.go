@@ -8,13 +8,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"time"
 )
-
-var ErrRoleNotFound = errors.NewSentinelError("role not found")
 
 func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName string, intentsServiceName string, statements []StatementEntry) error {
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
@@ -26,7 +25,7 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	if !exists {
 		// Allow sentinel comparison + dynamic error message
 		roleName := a.generateRoleName(namespace, accountName)
-		return fmt.Errorf("%w: %s", ErrRoleNotFound, roleName)
+		return errors.Errorf("%w: %s", agentutils.ErrRoleNotFound, roleName)
 	}
 
 	softDeletionStrategyEnabled := HasSoftDeleteStrategyTagSet(role.Tags)

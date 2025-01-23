@@ -5,7 +5,7 @@ import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/consts"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/iam/iampolicyagents"
-	"github.com/otterize/intents-operator/src/shared/awsagent"
+	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -84,7 +84,7 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	}
 
 	if err := r.applyTypedIAMIntents(ctx, pod, intents, r.agent); err != nil {
-		if errors.Is(err, awsagent.ErrRoleNotFound) {
+		if errors.Is(err, agentutils.ErrRoleNotFound) {
 			return ctrl.Result{Requeue: true}, nil
 		}
 		return ctrl.Result{}, errors.Wrap(err)

@@ -3,6 +3,7 @@ package agentutils
 import (
 	"crypto/sha256"
 	"fmt"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 )
@@ -10,6 +11,8 @@ import (
 const (
 	truncatedHashLength = 6
 )
+
+var ErrRoleNotFound = errors.NewSentinelError("role not found")
 
 // TruncateHashName truncates the given name to the given max length and appends a hash to it.
 func TruncateHashName(fullName string, maxLen int) string {
