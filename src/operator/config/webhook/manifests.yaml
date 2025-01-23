@@ -94,6 +94,27 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-k8s-otterize-com-v2beta1-clientintents
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: clientintentsv2beta1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - clientintents
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-k8s-otterize-com-v1alpha3-mysqlserverconfig
   failurePolicy: Fail
   matchPolicy: Exact
@@ -157,6 +178,27 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
+      path: /validate-k8s-otterize-com-v2beta1-mysqlserverconfig
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: mysqlserverconfigv2beta1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - mysqlserverconfigs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
       path: /validate-k8s-otterize-com-v1alpha3-postgresqlserverconfig
   failurePolicy: Fail
   matchPolicy: Exact
@@ -208,6 +250,27 @@ webhooks:
     - k8s.otterize.com
     apiVersions:
     - v2alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - postgresqlserverconfigs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-k8s-otterize-com-v2beta1-postgresqlserverconfig
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: postgresqlserverconfigv2beta1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2beta1
     operations:
     - CREATE
     - UPDATE
@@ -292,6 +355,27 @@ webhooks:
     - k8s.otterize.com
     apiVersions:
     - v2alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - protectedservice
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-k8s-otterize-com-v2beta1-protectedservice
+  failurePolicy: Fail
+  matchPolicy: Exact
+  name: protectedservicev2beta1.kb.io
+  rules:
+  - apiGroups:
+    - k8s.otterize.com
+    apiVersions:
+    - v2beta1
     operations:
     - CREATE
     - UPDATE
