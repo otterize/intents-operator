@@ -399,8 +399,10 @@ type Cluster {
 type ClusterConfiguration {
 	globalDefaultDeny: Boolean!
 	istioGlobalDefaultDeny: Boolean!
+	linkerdGlobalDefaultDeny: Boolean!
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
+	useLinkerdPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useAWSIAMInAccessGraphStates: Boolean!
 	useGCPIAMInAccessGraphStates: Boolean!
@@ -412,8 +414,10 @@ type ClusterConfiguration {
 input ClusterConfigurationInput {
 	globalDefaultDeny: Boolean!
 	istioGlobalDefaultDeny: Boolean
+	linkerdGlobalDefaultDeny: Boolean
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
+	useLinkerdPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useAWSIAMInAccessGraphStates: Boolean
 	useGCPIAMInAccessGraphStates: Boolean
@@ -584,6 +588,7 @@ input DiscoveredIntentInput {
 type EdgeAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
+	useLinkerdPoliciesInAccessGraphStates: Boolean!
 	useKafkaPoliciesInAccessGraphStates: Boolean!
 	verdict: EdgeAccessStatusVerdict!
 	reason: EdgeAccessStatusReason!
@@ -645,6 +650,7 @@ type EdgeAccessStatuses {
 	gcpIam: EdgeAccessStatus!
 	azureIAM: EdgeAccessStatus!
 	database: EdgeAccessStatus!
+	linkerdPolicies: EdgeAccessStatus!
 }
 
 type Environment {
@@ -1241,6 +1247,7 @@ type IntentsOperatorConfiguration {
 	networkPolicyEnforcementEnabled: Boolean!
 	kafkaACLEnforcementEnabled: Boolean!
 	istioPolicyEnforcementEnabled: Boolean!
+	linkerdPolicyEnforcementEnabled: Boolean!
 	awsIAMPolicyEnforcementEnabled: Boolean!
 	gcpIAMPolicyEnforcementEnabled: Boolean!
 	azureIAMPolicyEnforcementEnabled: Boolean!
@@ -1256,6 +1263,7 @@ input IntentsOperatorConfigurationInput {
 	networkPolicyEnforcementEnabled: Boolean
 	kafkaACLEnforcementEnabled: Boolean
 	istioPolicyEnforcementEnabled: Boolean
+	linkerdPolicyEnforcementEnabled: Boolean
 	protectedServicesEnabled: Boolean
 	egressNetworkPolicyEnforcementEnabled: Boolean
 	awsIAMPolicyEnforcementEnabled: Boolean
