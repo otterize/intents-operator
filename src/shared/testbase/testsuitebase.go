@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -506,6 +507,13 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsv2alpha1(
 	return s.AddIntentsInNamespacev2alpha1(objName, clientName, s.TestNamespace, callList)
 }
 
+func (s *ControllerManagerTestSuiteBase) AddIntentsv2beta1(
+	objName,
+	clientName string,
+	callList []otterizev2beta1.Target) (*otterizev2beta1.ClientIntents, error) {
+	return s.AddIntentsInNamespaceV2beta1(objName, clientName, s.TestNamespace, callList)
+}
+
 func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV1alpha2(
 	objName,
 	clientName string,
@@ -551,6 +559,35 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespacev2alpha1(
 		},
 		Spec: &otterizev2alpha1.IntentsSpec{
 			Workload: otterizev2alpha1.Workload{Name: clientName},
+			Targets:  callList,
+		},
+	}
+	err := s.Mgr.GetClient().Create(context.Background(), intents)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+	s.WaitForObjectToBeCreated(intents)
+
+	return intents, nil
+}
+
+func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespaceV2beta1(
+	objName,
+	clientName string,
+	namespace string,
+	callList []otterizev2beta1.Target) (*otterizev2beta1.ClientIntents, error) {
+
+	intents := &otterizev2beta1.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      objName,
+			Namespace: namespace,
+			Finalizers: []string{
+				// Dummy finalizer so the object won't actually be deleted just marked as deleted
+				"dummy-finalizer",
+			},
+		},
+		Spec: &otterizev2beta1.IntentsSpec{
+			Workload: otterizev2beta1.Workload{Name: clientName},
 			Targets:  callList,
 		},
 	}
