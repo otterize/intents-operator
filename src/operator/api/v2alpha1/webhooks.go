@@ -5,6 +5,7 @@ import (
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
@@ -17,7 +18,7 @@ func (in *MySQLServerConfig) SetupWebhookWithManager(mgr ctrl.Manager, validator
 }
 
 // convert to and convert from functions for MySQLServerConfig (hub version is v2beta1)
-func (in *MySQLServerConfig) ConvertTo(dstRaw interface{}) error {
+func (in *MySQLServerConfig) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v2beta1.MySQLServerConfig)
 	dst.ObjectMeta = in.ObjectMeta
 	dst.Spec.Address = in.Spec.Address
@@ -34,7 +35,7 @@ func (in *MySQLServerConfig) ConvertTo(dstRaw interface{}) error {
 	return nil
 }
 
-func (in *MySQLServerConfig) ConvertFrom(srcRaw interface{}) error {
+func (in *MySQLServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v2beta1.MySQLServerConfig)
 	in.ObjectMeta = src.ObjectMeta
 	in.Spec.Address = src.Spec.Address
@@ -59,7 +60,7 @@ func (in *PostgreSQLServerConfig) SetupWebhookWithManager(mgr ctrl.Manager, vali
 		Complete()
 }
 
-func (in *PostgreSQLServerConfig) ConvertTo(dstRaw interface{}) error {
+func (in *PostgreSQLServerConfig) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v2beta1.PostgreSQLServerConfig)
 	dst.ObjectMeta = in.ObjectMeta
 	dst.Spec.Address = in.Spec.Address
@@ -76,7 +77,7 @@ func (in *PostgreSQLServerConfig) ConvertTo(dstRaw interface{}) error {
 	return nil
 }
 
-func (in *PostgreSQLServerConfig) ConvertFrom(srcRaw interface{}) error {
+func (in *PostgreSQLServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v2beta1.PostgreSQLServerConfig)
 	in.ObjectMeta = src.ObjectMeta
 	in.Spec.Address = src.Spec.Address
@@ -101,7 +102,7 @@ func (ksc *KafkaServerConfig) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-func (ksc *KafkaServerConfig) ConvertTo(dstRaw interface{}) error {
+func (ksc *KafkaServerConfig) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v2beta1.KafkaServerConfig)
 	dst.ObjectMeta = ksc.ObjectMeta
 	dst.Spec.Addr = ksc.Spec.Addr
@@ -121,7 +122,7 @@ func (ksc *KafkaServerConfig) ConvertTo(dstRaw interface{}) error {
 	return nil
 }
 
-func (ksc *KafkaServerConfig) ConvertFrom(srcRaw interface{}) error {
+func (ksc *KafkaServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v2beta1.KafkaServerConfig)
 	ksc.ObjectMeta = src.ObjectMeta
 	ksc.Spec.Addr = src.Spec.Addr
@@ -149,7 +150,7 @@ func (in *ProtectedService) SetupWebhookWithManager(mgr ctrl.Manager, validator 
 		Complete()
 }
 
-func (in *ProtectedService) ConvertTo(dstRaw interface{}) error {
+func (in *ProtectedService) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v2beta1.ProtectedService)
 	dst.ObjectMeta = in.ObjectMeta
 	dst.Spec.Name = in.Spec.Name
@@ -157,7 +158,7 @@ func (in *ProtectedService) ConvertTo(dstRaw interface{}) error {
 	return nil
 }
 
-func (in *ProtectedService) ConvertFrom(srcRaw interface{}) error {
+func (in *ProtectedService) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v2beta1.ProtectedService)
 	in.ObjectMeta = src.ObjectMeta
 	in.Spec.Name = src.Spec.Name
@@ -173,7 +174,7 @@ func (in *ClientIntents) SetupWebhookWithManager(mgr ctrl.Manager, validator web
 		Complete()
 }
 
-func (in *ClientIntents) ConvertTo(dstRaw interface{}) error {
+func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	dst := dstRaw.(*v2beta1.ClientIntents)
 	dst.ObjectMeta = in.ObjectMeta
 
@@ -342,7 +343,7 @@ func (in *ClientIntents) ConvertTo(dstRaw interface{}) error {
 	return nil
 }
 
-func (in *ClientIntents) ConvertFrom(srcRaw interface{}) error {
+func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	src := srcRaw.(*v2beta1.ClientIntents)
 	in.ObjectMeta = src.ObjectMeta
 

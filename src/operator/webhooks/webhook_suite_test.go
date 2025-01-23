@@ -52,6 +52,7 @@ type ValidationWebhookTestSuite struct {
 
 func (s *ValidationWebhookTestSuite) SetupSuite() {
 	logrus.Info("Setting up test suite")
+	logrus.SetLevel(logrus.DebugLevel)
 	s.TestEnv = &envtest.Environment{Scheme: scheme.Scheme}
 	var err error
 	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "config", "crd")}
@@ -84,8 +85,10 @@ func (s *ValidationWebhookTestSuite) SetupTest() {
 	s.Require().NoError((&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator))
 	intentsValidator13 := NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
 	s.Require().NoError((&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator13))
-	intentsValidator2 := NewIntentsValidatorV2beta1(s.Mgr.GetClient())
-	s.Require().NoError((&otterizev2beta1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
+	intentsValidator2 := NewIntentsValidatorV2alpha1(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev2alpha1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
+	intentsValidator2beta1 := NewIntentsValidatorV2beta1(s.Mgr.GetClient())
+	s.Require().NoError((&otterizev2beta1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2beta1))
 }
 
 func (s *ValidationWebhookTestSuite) BeforeTest(suiteName, testName string) {
