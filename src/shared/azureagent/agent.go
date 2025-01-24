@@ -13,6 +13,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"time"
 )
 
@@ -130,6 +131,9 @@ func NewAzureAgent(ctx context.Context, conf Config) (*Agent, error) {
 		return nil, errors.Wrap(err)
 	}
 
+	// Start periodic tasks goroutine
+	go wait.Forever(agent.PeriodicTasks, 5*time.Hour)
+
 	return agent, nil
 }
 
@@ -164,7 +168,7 @@ func NewAzureAgentFromClients(
 		vaultsClient:                        vaultsClient,
 		subscriptionToResourceClient:        subscriptionToResourceClient,
 		subscriptionToRoleAssignmentsClient: subscriptionToRoleAssignmentsClient,
-		
+
 		providerResourceTypesCache: expirable.NewLRU[string, map[string]armresources.ProviderResourceType](100, nil, time.Hour),
 	}
 }

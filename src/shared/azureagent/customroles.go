@@ -20,7 +20,7 @@ const (
 	// maxRoleNameLength rules: 3-512 characters
 	maxRoleNameLength = 200
 
-	OtterizeCustomRoleTag         = "OtterizeCustomRole"
+	OtterizeCustomRoleTag         = "Otterize"
 	OtterizeCustomRoleDescription = "This custom role was created by the Otterize intents-operator's Azure integration. For more details, go to https://otterize.com"
 )
 
@@ -46,11 +46,12 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 
 	id := uuid.NewString()
 	name := a.GenerateCustomRoleName(uai, scope)
+	description := fmt.Sprintf("%s - %s", OtterizeCustomRoleTag, OtterizeCustomRoleDescription)
 
 	roleDefinition := armauthorization.RoleDefinition{
 		Properties: &armauthorization.RoleDefinitionProperties{
 			RoleName:         to.Ptr(name),
-			Description:      to.Ptr(OtterizeCustomRoleDescription),
+			Description:      to.Ptr(description),
 			AssignableScopes: []*string{to.Ptr(scope)}, // Where the role can be assigned
 			Permissions: []*armauthorization.Permission{
 				{
@@ -137,4 +138,46 @@ func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, roleDefiniti
 	}
 
 	return nil
+}
+
+func (a *Agent) ListCustomRolesAcrossSubscriptions(ctx context.Context) ([]armauthorization.RoleDefinition, error) {
+	subscriptions, err := a.ListSubscriptions(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	var customRoles []armauthorization.RoleDefinition
+	for _, sub := range subscriptions {
+		rolesForSubscription, err := a.ListCustomRolesForSubscription(ctx, *sub.ID)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+
+		customRoles = append(customRoles, rolesForSubscription...)
+	}
+
+	return customRoles, nil
+}
+
+func (a *Agent) ListCustomRolesForSubscription(ctx context.Context, subscriptionID string) ([]armauthorization.RoleDefinition, error) {
+	var customRoles []armauthorization.RoleDefinition
+
+	pager := a.roleDefinitionsClient.NewListPager(subscriptionID, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+
+		for _, role := range page.Value {
+			isCustomRole := role.Properties.RoleType != nil && *role.Properties.RoleType == "CustomRole"
+			isOtterizeRole := role.Properties.Description != nil && strings.Contains(*role.Properties.Description, OtterizeCustomRoleTag)
+
+			if isCustomRole && isOtterizeRole {
+				customRoles = append(customRoles, *role)
+			}
+		}
+	}
+
+	return customRoles, nil
 }

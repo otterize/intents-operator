@@ -11,11 +11,15 @@ import (
 	"strings"
 )
 
+const (
+	OtterizeRoleAssignmentTag = "OtterizeCustomRole"
+)
+
 func (a *Agent) IsCustomRoleAssignment(roleAssignment armauthorization.RoleAssignment) bool {
 	if roleAssignment.Properties.Description == nil {
 		return false
 	}
-	return *roleAssignment.Properties.Description == OtterizeCustomRoleTag
+	return *roleAssignment.Properties.Description == OtterizeRoleAssignmentTag
 }
 
 func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition, desc *string) error {
@@ -59,7 +63,7 @@ func (a *Agent) DeleteRoleAssignment(ctx context.Context, roleAssignment armauth
 	return nil
 }
 
-func (a *Agent) ListRoleAssignmentsAcrossSubscriptions(ctx context.Context, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
+func (a *Agent) ListRoleAssignmentsAcrossSubscriptions(ctx context.Context, userAssignedIdentity *armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
 	subscriptions, err := a.ListSubscriptions(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -78,7 +82,7 @@ func (a *Agent) ListRoleAssignmentsAcrossSubscriptions(ctx context.Context, user
 	return roleAssignments, nil
 }
 
-func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscriptionID string, userAssignedIdentity armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
+func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscriptionID string, userAssignedIdentity *armmsi.Identity) ([]armauthorization.RoleAssignment, error) {
 	roleClient, err := a.GetRoleAssignmentClientForSubscription(subscriptionID)
 	if err != nil {
 		return nil, errors.Wrap(err)
@@ -93,6 +97,17 @@ func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscrip
 		}
 
 		for _, roleAssignment := range page.Value {
+			// We want to list only otterize role assignments
+			if !a.IsCustomRoleAssignment(*roleAssignment) {
+				continue
+			}
+
+			// Skip filtering if userAssignedIdentity is nil
+			if userAssignedIdentity == nil {
+				roleAssignments = append(roleAssignments, *roleAssignment)
+				continue
+			}
+
 			if *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
 				roleAssignments = append(roleAssignments, *roleAssignment)
 			}
