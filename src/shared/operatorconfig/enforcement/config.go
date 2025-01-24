@@ -51,7 +51,7 @@ const (
 	EnableIstioPolicyKey                        = "enable-istio-policy-creation" // Whether to enable Istio authorization policy creation
 	EnableIstioPolicyDefault                    = true
 	EnableLinkerdPolicyKey                      = "enable-linkerd-policy"
-	EnableLinkerdPolicyDefault                  = false
+	EnableLinkerdPolicyDefault                  = true
 	EnableKafkaACLKey                           = "enable-kafka-acl-creation" // Whether to disable Intents Kafka ACL creation
 	EnableKafkaACLDefault                       = true
 	EnableDatabasePolicy                        = "enable-database-policy-creation" // Whether to enable the new database reconciler
