@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/iam"
 	"github.com/aws/aws-sdk-go-v2/service/iam/types"
+	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -22,7 +23,9 @@ func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName
 	}
 
 	if !exists {
-		return errors.Errorf("role not found: %s", a.generateRoleName(namespace, accountName))
+		// Allow sentinel comparison + dynamic error message
+		roleName := a.generateRoleName(namespace, accountName)
+		return errors.Errorf("%w: %s", agentutils.ErrRoleNotFound, roleName)
 	}
 
 	softDeletionStrategyEnabled := HasSoftDeleteStrategyTagSet(role.Tags)
