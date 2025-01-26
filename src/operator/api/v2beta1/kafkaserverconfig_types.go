@@ -14,12 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha2
+package v2beta1
 
 import (
-	"github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -53,9 +51,9 @@ type KafkaServerConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Service Service `json:"service,omitempty" yaml:"service,omitempty"`
+	Workload Workload `json:"workload,omitempty" yaml:"workload,omitempty"`
 	// If Intents for network policies are enabled, and there are other Intents to this Kafka server,
-	// will automatically create an Intent so that the Intents Operator can connect. Set to true to disable.
+	// will automatically create an Target so that the Intents Operator can connect. Set to true to disable.
 	NoAutoCreateIntentsForOperator bool   `json:"noAutoCreateIntentsForOperator,omitempty" yaml:"noAutoCreateIntentsForOperator,omitempty"`
 	Addr                           string `json:"addr,omitempty" yaml:"addr,omitempty"`
 	// +kubebuilder:validation:Optional
@@ -92,52 +90,4 @@ type KafkaServerConfigList struct {
 
 func init() {
 	SchemeBuilder.Register(&KafkaServerConfig{}, &KafkaServerConfigList{})
-}
-
-// ConvertTo converts this ProtectedService to the Hub version (v1alpha3).
-func (ksc *KafkaServerConfig) ConvertTo(dstRaw conversion.Hub) error {
-	dst := dstRaw.(*v2beta1.KafkaServerConfig)
-	dst.ObjectMeta = ksc.ObjectMeta
-	dst.Spec = v2beta1.KafkaServerConfigSpec{}
-	dst.Spec.Addr = ksc.Spec.Addr
-	dst.Spec.Workload = v2beta1.Workload{Name: ksc.Spec.Service.Name}
-	dst.Spec.NoAutoCreateIntentsForOperator = ksc.Spec.NoAutoCreateIntentsForOperator
-	dst.Spec.TLS = v2beta1.TLSSource{
-		CertFile:   ksc.Spec.TLS.CertFile,
-		KeyFile:    ksc.Spec.TLS.KeyFile,
-		RootCAFile: ksc.Spec.TLS.RootCAFile,
-	}
-	for _, topic := range ksc.Spec.Topics {
-		dst.Spec.Topics = append(dst.Spec.Topics, v2beta1.TopicConfig{
-			Topic:                  topic.Topic,
-			Pattern:                v2beta1.ResourcePatternType(topic.Pattern), // this casting is fine as v1alpha2 == v1alpha3
-			ClientIdentityRequired: topic.ClientIdentityRequired,
-			IntentsRequired:        topic.IntentsRequired,
-		})
-	}
-	return nil
-}
-
-// ConvertFrom converts the Hub version (v1alpha3) to this KafkaServerConfig.
-func (ksc *KafkaServerConfig) ConvertFrom(srcRaw conversion.Hub) error {
-	src := srcRaw.(*v2beta1.KafkaServerConfig)
-	ksc.ObjectMeta = src.ObjectMeta
-	ksc.Spec = KafkaServerConfigSpec{}
-	ksc.Spec.Addr = src.Spec.Addr
-	ksc.Spec.Service = Service{Name: src.Spec.Workload.Name}
-	ksc.Spec.NoAutoCreateIntentsForOperator = src.Spec.NoAutoCreateIntentsForOperator
-	ksc.Spec.TLS = TLSSource{
-		CertFile:   src.Spec.TLS.CertFile,
-		KeyFile:    src.Spec.TLS.KeyFile,
-		RootCAFile: src.Spec.TLS.RootCAFile,
-	}
-	for _, topic := range src.Spec.Topics {
-		ksc.Spec.Topics = append(ksc.Spec.Topics, TopicConfig{
-			Topic:                  topic.Topic,
-			Pattern:                ResourcePatternType(topic.Pattern), // this casting is fine as v1alpha2 == v1alpha3
-			ClientIdentityRequired: topic.ClientIdentityRequired,
-			IntentsRequired:        topic.IntentsRequired,
-		})
-	}
-	return nil
 }

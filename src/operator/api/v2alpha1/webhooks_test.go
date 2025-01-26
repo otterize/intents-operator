@@ -1,4 +1,4 @@
-package v1alpha3
+package v2alpha1
 
 import (
 	"github.com/otterize/intents-operator/src/operator/api/v2beta1"
@@ -93,7 +93,7 @@ func (t *WebhooksTestSuite) TestKafkaServerConfigConversion() {
 		},
 		Spec: KafkaServerConfigSpec{
 			// random data for tests
-			Service: Service{
+			Workload: Workload{
 				Name: "test",
 				Kind: "test",
 			},
@@ -155,22 +155,32 @@ func (t *WebhooksTestSuite) TestClientIntentsKubernetes() {
 			Namespace: "test",
 		},
 		Spec: &IntentsSpec{
-			Service: Service{
+			Workload: Workload{
 				Name: "test",
 				Kind: "test",
 			},
-			Calls: []Intent{
+			Targets: []Target{
 				{
-					Name: "test.test",
+					Kubernetes: &KubernetesTarget{
+						Name: "test.test",
+					},
 				},
 				{
-					Name: "test2",
+					Kubernetes: &KubernetesTarget{
+						Name: "test2",
+						Kind: "Deployment",
+					},
 				},
 				{
-					Name: "test3.other-namespace",
+					Kubernetes: &KubernetesTarget{
+						Name: "test3.other-namespace",
+						Kind: "Deployment",
+					},
 				},
 				{
-					Name: "svc:kubernetes.default",
+					Service: &ServiceTarget{
+						Name: "kubernetes.default",
+					},
 				},
 			},
 		}}
@@ -189,56 +199,51 @@ func (t *WebhooksTestSuite) TestClientIntentsKubernetes() {
 	t.Require().Equal(original.Status, converted.Status)
 }
 
-func (t *WebhooksTestSuite) TestClientIntentsFromV2_serviceKubernetesDefault() {
-	// Create a v2beta1.ClientIntents with random data
-	original := &v2beta1.ClientIntents{
-		Spec: &v2beta1.IntentsSpec{
-			Targets: []v2beta1.Target{
+func (t *WebhooksTestSuite) TestClientIntentsAzureActionsDataActions() {
+	// Create a ClientIntents with random data
+	original := &ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "test",
+		},
+		Spec: &IntentsSpec{
+			Workload: Workload{
+				Name: "test",
+			},
+			Targets: []Target{
 				{
-					Service: &v2beta1.ServiceTarget{
-						Name: "kubernetes.default",
+					Azure: &AzureTarget{
+						Scope: "testscope1",
+						DataActions: []AzureDataAction{
+							"testDataAction1",
+							"testDataAction2",
+						},
+					},
+				},
+				{
+					Azure: &AzureTarget{
+						Scope: "testscope2",
+						Actions: []AzureAction{
+							"testAction1",
+							"testAction2",
+						},
 					},
 				},
 			},
 		},
 	}
 
-	// ConvertFrom
-	converted := &ClientIntents{}
-	err := converted.ConvertFrom(original)
+	// ConvertTo
+	dstRaw := &v2beta1.ClientIntents{}
+	err := original.ConvertTo(dstRaw)
 	t.Require().NoError(err)
-	t.Require().Equal("svc:kubernetes.default", converted.Spec.Calls[0].Name)
-}
-
-func (t *WebhooksTestSuite) TestClientIntentsFromV2_EmptySliceHTTPShouldNotBeTypeHTTP() {
-	// Create a v2beta1.ClientIntents with random data
-	original := &v2beta1.ClientIntents{
-		Spec: &v2beta1.IntentsSpec{
-			Targets: []v2beta1.Target{
-				{
-					Service: &v2beta1.ServiceTarget{
-						Name: "test",
-						HTTP: []v2beta1.HTTPTarget{},
-					},
-				},
-				{
-					Kubernetes: &v2beta1.KubernetesTarget{
-						Name: "test2",
-						HTTP: []v2beta1.HTTPTarget{},
-					},
-				},
-			},
-		},
-	}
 
 	// ConvertFrom
 	converted := &ClientIntents{}
-	err := converted.ConvertFrom(original)
+	err = converted.ConvertFrom(dstRaw)
 	t.Require().NoError(err)
-	t.Require().Equal("test", converted.Spec.Calls[0].Name)
-	t.Require().Equal("", string(converted.Spec.Calls[0].Type))
-	t.Require().Equal("test2", converted.Spec.Calls[1].Name)
-	t.Require().Equal("", string(converted.Spec.Calls[1].Type))
+
+	t.Require().Equal(original.Spec, converted.Spec)
 }
 
 func TestWebhooksTestSuite(t *testing.T) {

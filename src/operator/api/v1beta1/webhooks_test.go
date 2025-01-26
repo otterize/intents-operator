@@ -1,7 +1,7 @@
 package v1beta1
 
 import (
-	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	"github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	"github.com/stretchr/testify/suite"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
@@ -34,7 +34,7 @@ func (t *WebhooksTestSuite) TestMySQLServerConfigConversion() {
 	}
 
 	// ConvertTo
-	dstRaw := &v2alpha1.MySQLServerConfig{}
+	dstRaw := &v2beta1.MySQLServerConfig{}
 	err := original.ConvertTo(dstRaw)
 	t.Require().NoError(err)
 
@@ -71,7 +71,7 @@ func (t *WebhooksTestSuite) TestPostgreSQLServerConfigConversion() {
 	}
 
 	// ConvertTo
-	dstRaw := &v2alpha1.PostgreSQLServerConfig{}
+	dstRaw := &v2beta1.PostgreSQLServerConfig{}
 	err := original.ConvertTo(dstRaw)
 	t.Require().NoError(err)
 
@@ -107,7 +107,7 @@ func (t *WebhooksTestSuite) TestKafkaServerConfigConversion() {
 	}
 
 	// ConvertTo
-	dstRaw := &v2alpha1.KafkaServerConfig{}
+	dstRaw := &v2beta1.KafkaServerConfig{}
 	err := original.ConvertTo(dstRaw)
 	t.Require().NoError(err)
 
@@ -134,7 +134,7 @@ func (t *WebhooksTestSuite) TestProtectedServiceConversion() {
 	}
 
 	// ConvertTo
-	dstRaw := &v2alpha1.ProtectedService{}
+	dstRaw := &v2beta1.ProtectedService{}
 	err := original.ConvertTo(dstRaw)
 	t.Require().NoError(err)
 
@@ -176,7 +176,7 @@ func (t *WebhooksTestSuite) TestClientIntentsKubernetes() {
 		}}
 
 	// ConvertTo
-	dstRaw := &v2alpha1.ClientIntents{}
+	dstRaw := &v2beta1.ClientIntents{}
 	err := original.ConvertTo(dstRaw)
 	t.Require().NoError(err)
 
@@ -190,12 +190,12 @@ func (t *WebhooksTestSuite) TestClientIntentsKubernetes() {
 }
 
 func (t *WebhooksTestSuite) TestClientIntentsFromV2_serviceKubernetesDefault() {
-	// Create a v2alpha1.ClientIntents with random data
-	original := &v2alpha1.ClientIntents{
-		Spec: &v2alpha1.IntentsSpec{
-			Targets: []v2alpha1.Target{
+	// Create a v2beta1.ClientIntents with random data
+	original := &v2beta1.ClientIntents{
+		Spec: &v2beta1.IntentsSpec{
+			Targets: []v2beta1.Target{
 				{
-					Service: &v2alpha1.ServiceTarget{
+					Service: &v2beta1.ServiceTarget{
 						Name: "kubernetes.default",
 					},
 				},
@@ -211,20 +211,20 @@ func (t *WebhooksTestSuite) TestClientIntentsFromV2_serviceKubernetesDefault() {
 }
 
 func (t *WebhooksTestSuite) TestClientIntentsFromV2_EmptySliceHTTPShouldNotBeTypeHTTP() {
-	// Create a v2alpha1.ClientIntents with random data
-	original := &v2alpha1.ClientIntents{
-		Spec: &v2alpha1.IntentsSpec{
-			Targets: []v2alpha1.Target{
+	// Create a v2beta1.ClientIntents with random data
+	original := &v2beta1.ClientIntents{
+		Spec: &v2beta1.IntentsSpec{
+			Targets: []v2beta1.Target{
 				{
-					Service: &v2alpha1.ServiceTarget{
+					Service: &v2beta1.ServiceTarget{
 						Name: "test",
-						HTTP: []v2alpha1.HTTPTarget{},
+						HTTP: []v2beta1.HTTPTarget{},
 					},
 				},
 				{
-					Kubernetes: &v2alpha1.KubernetesTarget{
+					Kubernetes: &v2beta1.KubernetesTarget{
 						Name: "test2",
-						HTTP: []v2alpha1.HTTPTarget{},
+						HTTP: []v2beta1.HTTPTarget{},
 					},
 				},
 			},
@@ -274,7 +274,7 @@ func (t *WebhooksTestSuite) TestClientIntentsAzureActionsDataActions() {
 	}
 
 	// ConvertTo
-	dstRaw := &v2alpha1.ClientIntents{}
+	dstRaw := &v2beta1.ClientIntents{}
 	err := original.ConvertTo(dstRaw)
 	t.Require().NoError(err)
 

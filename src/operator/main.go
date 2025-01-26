@@ -27,6 +27,7 @@ import (
 	otterizev1alpha2 "github.com/otterize/intents-operator/src/operator/api/v1alpha2"
 	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	"github.com/otterize/intents-operator/src/operator/controllers"
 	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/iam_pod_reconciler"
@@ -103,6 +104,7 @@ func init() {
 	utilruntime.Must(otterizev1alpha3.AddToScheme(scheme))
 	utilruntime.Must(otterizev1beta1.AddToScheme(scheme))
 	utilruntime.Must(otterizev2alpha1.AddToScheme(scheme))
+	utilruntime.Must(otterizev2beta1.AddToScheme(scheme))
 	utilruntime.Must(linkerdauthscheme.AddToScheme(scheme))
 	utilruntime.Must(linkerdserverscheme.AddToScheme(scheme))
 
@@ -583,6 +585,11 @@ func initWebhookValidators(mgr manager.Manager) {
 		logrus.WithError(err).Panic(err, "unable to create webhook v2alpha1", "webhook", "ClientIntents")
 	}
 
+	intentsValidatorV2beta1 := webhooks.NewIntentsValidatorV2beta1(mgr.GetClient())
+	if err := (&otterizev2beta1.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidatorV2beta1); err != nil {
+		logrus.WithError(err).Panic(err, "unable to create webhook v2beta1", "webhook", "ClientIntents")
+	}
+
 	protectedServiceValidator := webhooks.NewProtectedServiceValidatorV1alpha2(mgr.GetClient())
 	if err := (&otterizev1alpha2.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidator); err != nil {
 		logrus.WithError(err).Panic("unable to create webhook v1alpha2", "webhook", "ProtectedService")
@@ -603,6 +610,11 @@ func initWebhookValidators(mgr manager.Manager) {
 		logrus.WithError(err).Panic("unable to create webhook v2alpha1", "webhook", "ProtectedService")
 	}
 
+	protectedServiceValidatorV2beta1 := webhooks.NewProtectedServiceValidatorV2beta1(mgr.GetClient())
+	if err := (&otterizev2beta1.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV2beta1); err != nil {
+		logrus.WithError(err).Panic("unable to create webhook v2beta1", "webhook", "ProtectedService")
+	}
+
 	if err := (&otterizev1alpha2.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create webhook v1alpha2", "webhook", "KafkaServerConfig")
 	}
@@ -617,6 +629,10 @@ func initWebhookValidators(mgr manager.Manager) {
 
 	if err := (&otterizev2alpha1.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create webhook v2alpha1", "webhook", "KafkaServerConfig")
+	}
+
+	if err := (&otterizev2beta1.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create webhook v2beta1", "webhook", "KafkaServerConfig")
 	}
 
 	pgServerConfValidator := webhooks.NewPostgresConfValidator(mgr.GetClient())
@@ -634,6 +650,11 @@ func initWebhookValidators(mgr manager.Manager) {
 		logrus.WithError(err).Panic("unable to create webhook v2alpha1", "webhook", "PostgreSQLServerConfig")
 	}
 
+	pgServerConfValidatorV2beta1 := webhooks.NewPostgresConfValidatorV2beta1(mgr.GetClient())
+	if err := (&otterizev2beta1.PostgreSQLServerConfig{}).SetupWebhookWithManager(mgr, pgServerConfValidatorV2beta1); err != nil {
+		logrus.WithError(err).Panic("unable to create webhook v2beta1", "webhook", "PostgreSQLServerConfig")
+	}
+
 	mysqlServerConfValidator := webhooks.NewMySQLConfValidator(mgr.GetClient())
 	if err := (&otterizev1alpha3.MySQLServerConfig{}).SetupWebhookWithManager(mgr, mysqlServerConfValidator); err != nil {
 		logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "MySQLServerConfig")
@@ -647,5 +668,10 @@ func initWebhookValidators(mgr manager.Manager) {
 	mysqlServerConfValidatorV2alpha1 := webhooks.NewMySQLConfValidatorV2alpha1(mgr.GetClient())
 	if err := (&otterizev2alpha1.MySQLServerConfig{}).SetupWebhookWithManager(mgr, mysqlServerConfValidatorV2alpha1); err != nil {
 		logrus.WithError(err).Panic("unable to create webhook v2alpha1", "webhook", "MySQLServerConfig")
+	}
+
+	mysqlServerConfValidatorV2beta1 := webhooks.NewMySQLConfValidatorV2beta1(mgr.GetClient())
+	if err := (&otterizev2beta1.MySQLServerConfig{}).SetupWebhookWithManager(mgr, mysqlServerConfValidatorV2beta1); err != nil {
+		logrus.WithError(err).Panic("unable to create webhook v2beta1", "webhook", "MySQLServerConfig")
 	}
 }
