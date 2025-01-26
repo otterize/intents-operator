@@ -350,6 +350,14 @@ type ResolvedIPs struct {
 	IPs []string `json:"ips,omitempty" yaml:"ips,omitempty"`
 }
 
+type ReviewStatus string
+
+const (
+	ReviewStatusApproved ReviewStatus = "APPROVED"
+	ReviewStatusPending  ReviewStatus = "PENDING"
+	ReviewStatusDenied   ReviewStatus = "DENIED"
+)
+
 type AzureKeyVaultPolicy struct {
 	//+optional
 	CertificatePermissions []AzureKeyVaultCertificatePermission `json:"certificatePermissions,omitempty" yaml:"certificatePermissions,omitempty"`
@@ -373,6 +381,8 @@ type IntentsStatus struct {
 	// ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
 	// +optional
 	ResolvedIPs []ResolvedIPs `json:"resolvedIPs,omitempty" yaml:"resolvedIPs,omitempty"`
+	// ReviewStatus stores the review status for these ClientIntents (whether they were approved, denied, or pending)
+	ReviewStatus ReviewStatus `json:"reviewStatus,omitempty" yaml:"reviewStatus,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -1035,5 +1035,10 @@ spec:
           type: object
       served: true
       storage: false
+      additionalPrinterColumns:
+        - name: Review Status
+          type: string
+          description: ClientIntents review status
+          jsonPath: .status.reviewStatus
       subresources:
         status: {}

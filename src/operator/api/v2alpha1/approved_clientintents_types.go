@@ -9,6 +9,16 @@ func init() {
 	SchemeBuilder.Register(&ApprovedClientIntents{}, &ApprovedClientIntentsList{})
 }
 
+// +kubebuilder:validation:Enum=CREATED;PENDING;IN PROGRESS;FAILED
+type PolicyStatus string
+
+const (
+	PolicySuccess    PolicyStatus = "CREATED"
+	PolicyPending    PolicyStatus = "PENDING"
+	PolicyInProgress PolicyStatus = "IN PROGRESS"
+	PolicyFailed     PolicyStatus = "FAILED"
+)
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
@@ -38,16 +48,6 @@ func (in *ApprovedClientIntentsList) DeepCopyObject() runtime.Object {
 type ApprovedClientIntentsStatus struct {
 	PolicyStatus PolicyStatus `json:"policyStatus,omitempty" yaml:"policyStatus,omitempty"`
 }
-
-// +kubebuilder:validation:Enum=CREATED;PENDING;IN PROGRESS;FAILED
-type PolicyStatus string
-
-const (
-	PolicySuccess    PolicyStatus = "CREATED"
-	PolicyPending    PolicyStatus = "PENDING"
-	PolicyInProgress PolicyStatus = "IN PROGRESS"
-	PolicyFailed     PolicyStatus = "FAILED"
-)
 
 type ApprovedIntentsStatus struct {
 	PolicyStatus PolicyStatus `json:"policyStatus,omitempty" yaml:"policyStatus,omitempty"`
