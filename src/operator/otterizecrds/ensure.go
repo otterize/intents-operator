@@ -34,6 +34,10 @@ func Ensure(ctx context.Context, k8sClient client.Client, operatorNamespace stri
 	if err != nil {
 		return errors.Errorf("failed to ensure CLientIntents CRD: %w", err)
 	}
+	err = ensureCRD(ctx, k8sClient, operatorNamespace, approvedClientIntentsCRDContents, certPem)
+	if err != nil {
+		return errors.Errorf("failed to ensure Approved CLientIntents CRD: %w", err)
+	}
 	err = ensureCRD(ctx, k8sClient, operatorNamespace, protectedServiceCRDContents, certPem)
 	if err != nil {
 		return errors.Errorf("failed to ensure ProtectedService CRD: %w", err)
@@ -59,8 +63,8 @@ func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace s
 	if err != nil {
 		return errors.Errorf("failed to unmarshal ClientIntents CRD: %w", err)
 	}
-	crdToCreate.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = operatorNamespace
-	crdToCreate.Spec.Conversion.Webhook.ClientConfig.CABundle = certPem
+	//crdToCreate.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = operatorNamespace
+	//crdToCreate.Spec.Conversion.Webhook.ClientConfig.CABundle = certPem
 	crd := apiextensionsv1.CustomResourceDefinition{}
 	err = k8sClient.Get(ctx, types.NamespacedName{Name: crdToCreate.Name}, &crd)
 	if err != nil && !k8serrors.IsNotFound(err) {

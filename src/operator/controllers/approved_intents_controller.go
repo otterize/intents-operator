@@ -27,6 +27,16 @@ import (
 	"time"
 )
 
+var intentsLegacyFinalizers = []string{
+	"intents.otterize.com/svc-network-policy-finalizer",
+	"intents.otterize.com/network-policy-finalizer",
+	"intents.otterize.com/telemetry-reconciler-finalizer",
+	"intents.otterize.com/kafka-finalizer",
+	"intents.otterize.com/istio-policy-finalizer",
+	"intents.otterize.com/database-finalizer",
+	"intents.otterize.com/pods-finalizer",
+}
+
 // ApprovedIntentsReconciler reconciles a Intents object
 type ApprovedIntentsReconciler struct {
 	group  *reconcilergroup.Group

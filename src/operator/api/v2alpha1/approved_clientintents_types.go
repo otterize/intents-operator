@@ -41,6 +41,10 @@ type ApprovedClientIntentsList struct {
 	Items           []ApprovedClientIntents `json:"items" yaml:"items"`
 }
 
+func init() {
+	SchemeBuilder.Register(&ApprovedClientIntents{}, &ApprovedClientIntentsList{})
+}
+
 func (in *ApprovedClientIntentsList) DeepCopyObject() runtime.Object {
 	if c := in.DeepCopy(); c != nil {
 		return c

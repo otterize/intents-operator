@@ -427,7 +427,12 @@ func main() {
 	}
 
 	if err = approvedIntentsReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to create controller", "controller", "Intents")
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Approved Intents")
+	}
+
+	intentsReconciler := controllers.NewIntentsReconciler(signalHandlerCtx, mgr.GetClient(), otterizeCloudClient)
+	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Client Intents")
 	}
 
 	if telemetriesconfig.IsUsageTelemetryEnabled() {
