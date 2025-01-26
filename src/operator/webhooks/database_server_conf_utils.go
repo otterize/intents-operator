@@ -6,6 +6,7 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -111,6 +112,19 @@ func validateNoDuplicateForUpdate(ctx context.Context, client client.Client, con
 }
 
 func validateCredentialsNotEmpty(credentials otterizev2alpha1.DatabaseCredentials) *field.Error {
+	if (credentials.Username == "" || credentials.Password == "") && credentials.SecretRef == nil {
+		return &field.Error{
+			Type:     field.ErrorTypeRequired,
+			Field:    "credentials",
+			BadValue: credentials,
+			Detail:   "Either username and password must be provided or a secretRef must be provided",
+		}
+	}
+
+	return nil
+}
+
+func validateCredentialsNotEmptyV2beta1(credentials otterizev2beta1.DatabaseCredentials) *field.Error {
 	if (credentials.Username == "" || credentials.Password == "") && credentials.SecretRef == nil {
 		return &field.Error{
 			Type:     field.ErrorTypeRequired,

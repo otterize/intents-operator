@@ -362,3 +362,87 @@ spec:
       storage: false
       subresources:
         status: {}
+    - name: v2beta1
+      schema:
+        openAPIV3Schema:
+          description: KafkaServerConfig is the Schema for the kafkaserverconfigs API
+          properties:
+            apiVersion:
+              description: |-
+                APIVersion defines the versioned schema of this representation of an object.
+                Servers should convert recognized schemas to the latest internal value, and
+                may reject unrecognized values.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+              type: string
+            kind:
+              description: |-
+                Kind is a string value representing the REST resource this object represents.
+                Servers may infer this from the endpoint the client submits requests to.
+                Cannot be updated.
+                In CamelCase.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: KafkaServerConfigSpec defines the desired state of KafkaServerConfig
+              properties:
+                addr:
+                  type: string
+                noAutoCreateIntentsForOperator:
+                  description: |-
+                    If Intents for network policies are enabled, and there are other Intents to this Kafka server,
+                    will automatically create an Target so that the Intents Operator can connect. Set to true to disable.
+                  type: boolean
+                tls:
+                  properties:
+                    certFile:
+                      type: string
+                    keyFile:
+                      type: string
+                    rootCAFile:
+                      type: string
+                  required:
+                    - certFile
+                    - keyFile
+                    - rootCAFile
+                  type: object
+                topics:
+                  items:
+                    properties:
+                      clientIdentityRequired:
+                        type: boolean
+                      intentsRequired:
+                        type: boolean
+                      pattern:
+                        enum:
+                          - literal
+                          - prefix
+                        type: string
+                      topic:
+                        type: string
+                    required:
+                      - clientIdentityRequired
+                      - intentsRequired
+                      - pattern
+                      - topic
+                    type: object
+                  type: array
+                workload:
+                  properties:
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                  required:
+                    - name
+                  type: object
+              type: object
+            status:
+              description: KafkaServerConfigStatus defines the observed state of KafkaServerConfig
+              type: object
+          type: object
+      served: true
+      storage: false
+      subresources:
+        status: {}
