@@ -11,6 +11,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//go:embed approved-clientintents-customresourcedefinition.yaml
+var approvedClientIntentsCRDContents []byte
+
 //go:embed clientintents-customresourcedefinition.yaml
 var clientIntentsCRDContents []byte
 
@@ -98,6 +101,8 @@ func GetCRDDefinitionByName(name string) (*apiextensionsv1.CustomResourceDefinit
 	var err error
 	crd := apiextensionsv1.CustomResourceDefinition{}
 	switch name {
+	case "approvedclientintents.k8sotterize.com":
+		err = yaml.Unmarshal(approvedClientIntentsCRDContents, &crd)
 	case "clientintents.k8s.otterize.com":
 		err = yaml.Unmarshal(clientIntentsCRDContents, &crd)
 	case "protectedservices.k8s.otterize.com":

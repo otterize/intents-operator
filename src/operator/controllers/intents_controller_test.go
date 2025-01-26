@@ -17,13 +17,13 @@ import (
 
 type IntentsControllerTestSuite struct {
 	testbase.MocksSuiteBase
-	intentsReconciler *IntentsReconciler
+	intentsReconciler *ApprovedIntentsReconciler
 }
 
 func (s *IntentsControllerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 
-	s.intentsReconciler = NewIntentsReconciler(
+	s.intentsReconciler = NewApprovedIntentsReconciler(
 		s.Client,
 		scheme.Scheme,
 		nil,

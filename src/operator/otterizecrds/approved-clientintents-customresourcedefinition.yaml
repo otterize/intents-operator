@@ -328,6 +328,11 @@ spec:
           type: object
       served: true
       storage: true
+      additionalPrinterColumns:
+        - name: Policy Status
+          type: string
+          description: Approved ClientIntents policy status
+          jsonPath: .status.policyStatus
       subresources:
         status: {}
 

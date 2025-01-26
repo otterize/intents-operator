@@ -403,7 +403,7 @@ func main() {
 		initWebhookValidators(mgr)
 	}
 
-	intentsReconciler := controllers.NewIntentsReconciler(
+	approvedIntentsReconciler := controllers.NewApprovedIntentsReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
@@ -414,19 +414,19 @@ func main() {
 		additionalIntentsReconcilers...,
 	)
 
-	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
+	if err = approvedIntentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to init indices")
 	}
 
-	if err = intentsReconciler.InitEndpointsPodNamesIndex(mgr); err != nil {
+	if err = approvedIntentsReconciler.InitEndpointsPodNamesIndex(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to init indices")
 	}
 
-	if err = intentsReconciler.InitProtectedServiceIndexField(mgr); err != nil {
+	if err = approvedIntentsReconciler.InitProtectedServiceIndexField(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to init protected service index")
 	}
 
-	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
+	if err = approvedIntentsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Intents")
 	}
 
@@ -492,7 +492,7 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "ProtectedServices")
 	}
 
-	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, intentsReconciler, epGroupReconciler)
+	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, approvedIntentsReconciler, epGroupReconciler)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
 	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler, enforcementConfig.EnableNetworkPolicy)
 

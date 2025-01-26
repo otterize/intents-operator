@@ -20,6 +20,7 @@ type CloudClient interface {
 	ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error
 	ReportIntentEvents(ctx context.Context, events []graphqlclient.ClientIntentEventInput) error
 	ReportClientIntentStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) error
+	FetchApprovalState(ctx context.Context) error
 }
 
 type CloudClientImpl struct {
@@ -124,4 +125,8 @@ func (c *CloudClientImpl) ReportIntentEvents(ctx context.Context, events []graph
 func (c *CloudClientImpl) ReportClientIntentStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) error {
 	_, err := graphqlclient.ReportClientIntentStatuses(ctx, c.client, statuses)
 	return errors.Wrap(err)
+}
+
+func (c *CloudClientImpl) FetchApprovalState(ctx context.Context) error {
+	return nil
 }

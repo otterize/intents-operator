@@ -1,6 +1,9 @@
 package v2alpha1
 
 import (
+	"fmt"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
+	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -13,10 +16,10 @@ func init() {
 type PolicyStatus string
 
 const (
-	PolicySuccess    PolicyStatus = "CREATED"
-	PolicyPending    PolicyStatus = "PENDING"
-	PolicyInProgress PolicyStatus = "IN PROGRESS"
-	PolicyFailed     PolicyStatus = "FAILED"
+	PolicyStatusSuccess    PolicyStatus = "CREATED SUCCESSFULLY"
+	PolicyStatusPending    PolicyStatus = "PENDING"
+	PolicyStatusInProgress PolicyStatus = "IN PROGRESS"
+	PolicyStatusFailed     PolicyStatus = "FAILED"
 )
 
 //+kubebuilder:object:root=true
@@ -51,4 +54,82 @@ type ApprovedClientIntentsStatus struct {
 
 type ApprovedIntentsStatus struct {
 	PolicyStatus PolicyStatus `json:"policyStatus,omitempty" yaml:"policyStatus,omitempty"`
+}
+
+func (aci *ApprovedClientIntents) GetWorkloadName() string {
+	return aci.Spec.Workload.Name
+}
+
+func (aci *ApprovedClientIntents) GetTargetList() []Target {
+	return aci.Spec.Targets
+}
+
+func (aci *ApprovedClientIntents) GetFilteredTargetList(intentTypes ...IntentType) []Target {
+	return lo.Filter(aci.GetTargetList(), func(item Target, index int) bool {
+		for _, intentType := range intentTypes {
+			if intentType == IntentTypeHTTP {
+				if item.Kubernetes != nil && len(item.Kubernetes.HTTP) > 0 {
+					return true
+				}
+				if item.Service != nil && len(item.Service.HTTP) > 0 {
+					return true
+				}
+			}
+			if intentType == IntentTypeKafka && item.Kafka != nil {
+				return true
+			}
+			if intentType == IntentTypeDatabase && item.SQL != nil {
+				return true
+			}
+			if intentType == IntentTypeAWS && item.AWS != nil {
+				return true
+			}
+			if intentType == IntentTypeGCP && item.GCP != nil {
+				return true
+			}
+			if intentType == IntentTypeAzure && item.Azure != nil {
+				return true
+			}
+			if intentType == IntentTypeInternet && item.Internet != nil {
+				return true
+			}
+		}
+		return false
+	})
+}
+
+func (aci *ApprovedClientIntents) GetClientKind() string {
+	if aci.Spec.Workload.Kind == "" {
+		return serviceidentity.KindOtterizeLegacy
+	}
+	return aci.Spec.Workload.Kind
+}
+
+func (aci *ApprovedClientIntents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
+	otterizeAccessLabels := make(map[string]string)
+
+	for _, intent := range aci.GetTargetList() {
+		if intent.IsTargetOutOfCluster() {
+			continue
+		}
+		targetServiceIdentity := intent.ToServiceIdentity(requestNamespace)
+		labelKey := fmt.Sprintf(OtterizeAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentityWithKind())
+		if intent.IsTargetServerKubernetesService() {
+			labelKey = fmt.Sprintf(OtterizeSvcAccessLabelKey, targetServiceIdentity.GetFormattedOtterizeIdentityWithKind())
+		}
+		otterizeAccessLabels[labelKey] = "true"
+	}
+
+	return otterizeAccessLabels
+}
+
+func (aci *ApprovedClientIntents) GetDatabaseIntents() []Target {
+	return aci.GetFilteredTargetList(IntentTypeDatabase)
+}
+
+func (aci *ApprovedClientIntents) FromClientIntents(intents ClientIntents) {
+	aci.Name = intents.ToApprovedIntentsName()
+	aci.Namespace = intents.GetNamespace()
+	aci.Spec.Targets = intents.GetTargetList()
+	aci.Spec.Workload = intents.Spec.Workload
 }
