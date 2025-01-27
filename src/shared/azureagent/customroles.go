@@ -20,6 +20,8 @@ const (
 	// maxRoleNameLength rules: 3-512 characters
 	maxRoleNameLength = 200
 
+	AzureCustomRole = "CustomRole"
+
 	OtterizeCustomRoleTag         = "Otterize"
 	OtterizeCustomRoleDescription = "This custom role was created by the Otterize intents-operator's Azure integration. For more details, go to https://otterize.com"
 )
@@ -170,7 +172,7 @@ func (a *Agent) ListCustomRolesForSubscription(ctx context.Context, subscription
 		}
 
 		for _, role := range page.Value {
-			isCustomRole := role.Properties.RoleType != nil && *role.Properties.RoleType == "CustomRole"
+			isCustomRole := role.Properties.RoleType != nil && *role.Properties.RoleType == AzureCustomRole
 			isOtterizeRole := role.Properties.Description != nil && strings.Contains(*role.Properties.Description, OtterizeCustomRoleTag)
 
 			if isCustomRole && isOtterizeRole {

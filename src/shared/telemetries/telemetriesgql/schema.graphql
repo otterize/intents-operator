@@ -399,8 +399,10 @@ type Cluster {
 type ClusterConfiguration {
 	globalDefaultDeny: Boolean!
 	istioGlobalDefaultDeny: Boolean!
+	linkerdGlobalDefaultDeny: Boolean!
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
+	useLinkerdPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useAWSIAMInAccessGraphStates: Boolean!
 	useGCPIAMInAccessGraphStates: Boolean!
@@ -412,8 +414,10 @@ type ClusterConfiguration {
 input ClusterConfigurationInput {
 	globalDefaultDeny: Boolean!
 	istioGlobalDefaultDeny: Boolean
+	linkerdGlobalDefaultDeny: Boolean
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
+	useLinkerdPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useAWSIAMInAccessGraphStates: Boolean
 	useGCPIAMInAccessGraphStates: Boolean
@@ -581,9 +585,16 @@ input DiscoveredIntentInput {
 	intent: IntentInput!
 }
 
+input EBPFDiagnostics {
+	containerImage: String
+	executable: String
+	programName: String
+}
+
 type EdgeAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
+	useLinkerdPoliciesInAccessGraphStates: Boolean!
 	useKafkaPoliciesInAccessGraphStates: Boolean!
 	verdict: EdgeAccessStatusVerdict!
 	reason: EdgeAccessStatusReason!
@@ -645,6 +656,7 @@ type EdgeAccessStatuses {
 	gcpIam: EdgeAccessStatus!
 	azureIAM: EdgeAccessStatus!
 	database: EdgeAccessStatus!
+	linkerdPolicies: EdgeAccessStatus!
 }
 
 type Environment {
@@ -693,6 +705,8 @@ enum EventType {
 	PROTECTED_SERVICE_APPLIED
 	PROTECTED_SERVICE_DELETED
 	ACTIVE
+	EBPF_ATTACHED
+	EBPF_ATTACH_FAILED
 }
 
 input ExternalTrafficDiscoveredIntentInput {
@@ -1137,6 +1151,7 @@ enum IntegrationState {
 	FAILURE
 	PENDING
 	WARNING
+	DISABLED
 }
 
 type IntegrationStatus {
@@ -1241,6 +1256,7 @@ type IntentsOperatorConfiguration {
 	networkPolicyEnforcementEnabled: Boolean!
 	kafkaACLEnforcementEnabled: Boolean!
 	istioPolicyEnforcementEnabled: Boolean!
+	linkerdPolicyEnforcementEnabled: Boolean!
 	awsIAMPolicyEnforcementEnabled: Boolean!
 	gcpIAMPolicyEnforcementEnabled: Boolean!
 	azureIAMPolicyEnforcementEnabled: Boolean!
@@ -1256,6 +1272,7 @@ input IntentsOperatorConfigurationInput {
 	networkPolicyEnforcementEnabled: Boolean
 	kafkaACLEnforcementEnabled: Boolean
 	istioPolicyEnforcementEnabled: Boolean
+	linkerdPolicyEnforcementEnabled: Boolean
 	protectedServicesEnabled: Boolean
 	egressNetworkPolicyEnforcementEnabled: Boolean
 	awsIAMPolicyEnforcementEnabled: Boolean
@@ -1646,6 +1663,7 @@ type Mutation {
 		ignored: Boolean!
 		reason: String
 	): Boolean!
+	createFindingsForOrg: Boolean!
 """Create a new generic integration"""
 	createGenericIntegration(
 		name: String!
@@ -2022,6 +2040,11 @@ type Query {
 		clusterIds: [ID!]
 		featureFlags: InputFeatureFlags
 	): [ClientIntentsFileRepresentation!]!
+""" Get service incoming internet connections """
+	serviceIncomingInternetConnections(
+		targetServiceId: ID!
+		lastSeenAfter: Time!
+	): [String!]!
 """Get access log"""
 	accessLog(
 		filter: InputAccessLogFilter
@@ -2352,6 +2375,7 @@ type ServiceAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
+	useLinkerdPoliciesInAccessGraphStates: Boolean!
 	protectionStatus: ServerProtectionStatus!
 	protectionStatuses: ServerProtectionStatuses!
 	blockingStatus: ServerBlockingStatus!
@@ -2494,11 +2518,13 @@ enum TelemetryComponentType {
 	CREDENTIALS_OPERATOR
 	NETWORK_MAPPER
 	CLI
+	NODE_AGENT
 }
 
 input TelemetryData {
 	eventType: EventType!
 	count: Int
+	ebpf: EBPFDiagnostics
 }
 
 input TelemetryInput {

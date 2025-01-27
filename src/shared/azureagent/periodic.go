@@ -45,7 +45,8 @@ func (a *Agent) CleanupCustomRoles(ctx context.Context) error {
 			roleID := *roleAssignment.Properties.RoleDefinitionID
 
 			if _, ok := rolesInUse[roleID]; !ok {
-				// This otterize role assignment is linked to a non-otterize custom role - should not happen
+				// This otterize role assignment is linked to a non-otterize custom role - should not happen in production
+				// If this does happen in testing environments we clean up the role assignment and the custom role it's linked to
 				err := a.DeleteRoleAssignment(ctx, roleAssignment)
 
 				logrus.WithError(err).

@@ -585,6 +585,12 @@ input DiscoveredIntentInput {
 	intent: IntentInput!
 }
 
+input EBPFDiagnostics {
+	containerImage: String
+	executable: String
+	programName: String
+}
+
 type EdgeAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
@@ -699,6 +705,8 @@ enum EventType {
 	PROTECTED_SERVICE_APPLIED
 	PROTECTED_SERVICE_DELETED
 	ACTIVE
+	EBPF_ATTACHED
+	EBPF_ATTACH_FAILED
 }
 
 input ExternalTrafficDiscoveredIntentInput {
@@ -1143,6 +1151,7 @@ enum IntegrationState {
 	FAILURE
 	PENDING
 	WARNING
+	DISABLED
 }
 
 type IntegrationStatus {
@@ -1654,6 +1663,7 @@ type Mutation {
 		ignored: Boolean!
 		reason: String
 	): Boolean!
+	createFindingsForOrg: Boolean!
 """Create a new generic integration"""
 	createGenericIntegration(
 		name: String!
@@ -2030,6 +2040,11 @@ type Query {
 		clusterIds: [ID!]
 		featureFlags: InputFeatureFlags
 	): [ClientIntentsFileRepresentation!]!
+""" Get service incoming internet connections """
+	serviceIncomingInternetConnections(
+		targetServiceId: ID!
+		lastSeenAfter: Time!
+	): [String!]!
 """Get access log"""
 	accessLog(
 		filter: InputAccessLogFilter
@@ -2360,6 +2375,7 @@ type ServiceAccessStatus {
 	useNetworkPoliciesInAccessGraphStates: Boolean!
 	useKafkaACLsInAccessGraphStates: Boolean!
 	useIstioPoliciesInAccessGraphStates: Boolean!
+	useLinkerdPoliciesInAccessGraphStates: Boolean!
 	protectionStatus: ServerProtectionStatus!
 	protectionStatuses: ServerProtectionStatuses!
 	blockingStatus: ServerBlockingStatus!
@@ -2502,11 +2518,13 @@ enum TelemetryComponentType {
 	CREDENTIALS_OPERATOR
 	NETWORK_MAPPER
 	CLI
+	NODE_AGENT
 }
 
 input TelemetryData {
 	eventType: EventType!
 	count: Int
+	ebpf: EBPFDiagnostics
 }
 
 input TelemetryInput {
