@@ -18,17 +18,29 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/aws/aws-sdk-go/service/route53"
+	"github.com/google/uuid"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sync"
+	"time"
+)
+
+const (
+	ReviewStatusJSONPath = ".status.reviewStatus"
 )
 
 // IntentsReconciler reconciles a Intents object
@@ -151,6 +163,7 @@ func (r *IntentsReconciler) InitIntentsApprovalState(ctx context.Context) error 
 		r.approvalState.approvalMethod = ApprovalMethodAutoApproval
 	} else {
 		r.approvalState.approvalMethod = ApprovalMethodCloudApproval
+		go r.periodicIntentsApprovalLoop(ctx)
 	}
 	return nil
 }
@@ -218,4 +231,67 @@ func (r *IntentsReconciler) handleCloudApprovalForIntents(ctx context.Context, i
 	}
 
 	return errors.Wrap(r.cloudClient.ReportAppliedIntentsForApproval(ctx, cloudIntents))
+}
+
+func (r *IntentsReconciler) periodicIntentsApprovalLoop(ctx context.Context) {
+	approvalQueryTicker := time.NewTicker(time.Second * time.Duration(viper.GetInt(otterizecloudclient.IntentsApprovalQueryIntervalKey)))
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-approvalQueryTicker.C:
+			r.queryApprovalStatus(ctx)
+		}
+	}
+}
+
+func (r *IntentsReconciler) queryApprovalStatus(ctx context.Context) {
+	clientIntentsList := &otterizev2alpha1.ClientIntentsList{}
+	statusSelector := fields.OneTermEqualSelector(ReviewStatusJSONPath, string(otterizev2alpha1.ReviewStatusPending))
+	if err := r.client.List(ctx, clientIntentsList, &client.ListOptions{FieldSelector: statusSelector}); err != nil {
+		logrus.WithError(err).Error("periodic intents approval query failed")
+		return
+	}
+	if clientIntentsList.Items == nil || len(clientIntentsList.Items) == 0 {
+		logrus.Debug("No intents pending review")
+		return
+	}
+	// Convert to GQL intents && hash the entire JSON before checking for approval status
+	intentsInput, err := clientIntentsList.FormatAsOtterizeIntents(ctx, r.client)
+	if err != nil {
+		logrus.WithError(err).Error("periodic intents approval query failed")
+		return
+	}
+	intentHashes := lo.Map(intentsInput, func(intent graphqlclient.IntentInput, _ int) string {
+		id, err := newIntentsApprovalHistoryHash(intent)
+		if err != nil {
+			logrus.WithError(err).Error("failed to generate intent hash")
+			return ""
+		}
+		return id.String()
+	})
+
+	result, err := r.cloudClient.GetIntentsApprovalHistory(ctx, intentHashes)
+	if err != nil {
+		logrus.WithError(err).Error("periodic intents approval query failed")
+		return
+	}
+	if len(result) == 0 {
+		return
+	}
+	return r.handleApprovalUpdates(ctx, result)
+}
+
+func (r *IntentsReconciler) handleApprovalUpdates(ctx context.Context, result []operator_cloud_client.IntentsApprovalResult) {
+
+}
+
+func newIntentsApprovalHistoryHash(intent graphqlclient.IntentInput) (uuid.UUID, error) {
+	intentsJSON, err := json.Marshal(intent)
+	if err != nil {
+		return uuid.UUID{}, errors.Wrap(err)
+	}
+
+	return uuid.NewMD5(uuid.UUID{}, intentsJSON), nil
 }
