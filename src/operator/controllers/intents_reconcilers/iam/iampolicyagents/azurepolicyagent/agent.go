@@ -201,7 +201,7 @@ func (a *Agent) deleteRoleAssignmentsWithUnexpectedScopes(ctx context.Context, e
 	return nil
 }
 
-func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ApprovedClientIntents) error {
 	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, intents.Namespace, intents.Spec.Workload.Name)
 	if err != nil {
 		if errors.Is(err, azureagent.ErrUserIdentityNotFound) {

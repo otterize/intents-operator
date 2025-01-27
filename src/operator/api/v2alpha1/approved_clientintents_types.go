@@ -1,11 +1,14 @@
 package v2alpha1
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func init() {
@@ -60,16 +63,16 @@ type ApprovedIntentsStatus struct {
 	PolicyStatus PolicyStatus `json:"policyStatus,omitempty" yaml:"policyStatus,omitempty"`
 }
 
-func (aci *ApprovedClientIntents) GetWorkloadName() string {
-	return aci.Spec.Workload.Name
+func (in *ApprovedClientIntents) GetWorkloadName() string {
+	return in.Spec.Workload.Name
 }
 
-func (aci *ApprovedClientIntents) GetTargetList() []Target {
-	return aci.Spec.Targets
+func (in *ApprovedClientIntents) GetTargetList() []Target {
+	return in.Spec.Targets
 }
 
-func (aci *ApprovedClientIntents) GetFilteredTargetList(intentTypes ...IntentType) []Target {
-	return lo.Filter(aci.GetTargetList(), func(item Target, index int) bool {
+func (in *ApprovedClientIntents) GetFilteredTargetList(intentTypes ...IntentType) []Target {
+	return lo.Filter(in.GetTargetList(), func(item Target, index int) bool {
 		for _, intentType := range intentTypes {
 			if intentType == IntentTypeHTTP {
 				if item.Kubernetes != nil && len(item.Kubernetes.HTTP) > 0 {
@@ -102,17 +105,17 @@ func (aci *ApprovedClientIntents) GetFilteredTargetList(intentTypes ...IntentTyp
 	})
 }
 
-func (aci *ApprovedClientIntents) GetClientKind() string {
-	if aci.Spec.Workload.Kind == "" {
+func (in *ApprovedClientIntents) GetClientKind() string {
+	if in.Spec.Workload.Kind == "" {
 		return serviceidentity.KindOtterizeLegacy
 	}
-	return aci.Spec.Workload.Kind
+	return in.Spec.Workload.Kind
 }
 
-func (aci *ApprovedClientIntents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
+func (in *ApprovedClientIntents) GetIntentsLabelMapping(requestNamespace string) map[string]string {
 	otterizeAccessLabels := make(map[string]string)
 
-	for _, intent := range aci.GetTargetList() {
+	for _, intent := range in.GetTargetList() {
 		if intent.IsTargetOutOfCluster() {
 			continue
 		}
@@ -127,12 +130,31 @@ func (aci *ApprovedClientIntents) GetIntentsLabelMapping(requestNamespace string
 	return otterizeAccessLabels
 }
 
-func (aci *ApprovedClientIntents) GetDatabaseIntents() []Target {
-	return aci.GetFilteredTargetList(IntentTypeDatabase)
+func (in *ApprovedClientIntents) GetServersWithoutSidecar() (sets.Set[string], error) {
+	if in.Annotations == nil {
+		return sets.New[string](), nil
+	}
+
+	servers, ok := in.Annotations[OtterizeServersWithoutSidecarAnnotation]
+	if !ok {
+		return sets.New[string](), nil
+	}
+
+	serversList := make([]string, 0)
+	err := json.Unmarshal([]byte(servers), &serversList)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	return sets.New[string](serversList...), nil
 }
 
-func (aci *ApprovedClientIntents) FromClientIntents(intents ClientIntents) {
-	aci.Name = intents.ToApprovedIntentsName()
-	aci.Namespace = intents.GetNamespace()
-	aci.Spec = intents.Spec
+func (in *ApprovedClientIntents) GetDatabaseIntents() []Target {
+	return in.GetFilteredTargetList(IntentTypeDatabase)
+}
+
+func (in *ApprovedClientIntents) FromClientIntents(intents ClientIntents) {
+	in.Name = intents.ToApprovedIntentsName()
+	in.Namespace = intents.GetNamespace()
+	in.Spec = intents.Spec
 }

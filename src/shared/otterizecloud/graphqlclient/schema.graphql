@@ -197,7 +197,7 @@ type AccessRequestDetails {
 }
 
 input AccessRequestResponse {
-	status: Boolean!
+	approved: Boolean!
 	reason: String!
 }
 
@@ -1853,7 +1853,6 @@ type Mutation {
 		services: [ExternallyAccessibleServiceInput!]!
 	): Boolean!
 	reportAppliedIntentsForApproval(
-		namespace: String!
 		intents: [IntentInput!]!
 	): Boolean!
 	createRuleset(

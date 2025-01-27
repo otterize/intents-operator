@@ -7,6 +7,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,7 +21,7 @@ type CloudClient interface {
 	ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error
 	ReportIntentEvents(ctx context.Context, events []graphqlclient.ClientIntentEventInput) error
 	ReportClientIntentStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) error
-	ReportAppliedIntentsForApproval(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error
+	ReportAppliedIntentsForApproval(ctx context.Context, intents []*graphqlclient.IntentInput) error
 	GetIntentsApprovalHistory(ctx context.Context, ids []string) ([]IntentsApprovalResult, error)
 	GetApprovalState(ctx context.Context) (bool, error)
 }
@@ -135,11 +136,14 @@ func (c *CloudClientImpl) GetIntentsApprovalHistory(ctx context.Context, ids []s
 		return nil, errors.Wrap(err)
 	}
 
-	return translateLatestApprovalHistoryModel(result), nil
+	return translateLatestApprovalHistoryModel(result.GetGetIntentsApprovalHistory()), nil
 }
 
-func (c *CloudClientImpl) ReportAppliedIntentsForApproval(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error {
-	return nil
+func (c *CloudClientImpl) ReportAppliedIntentsForApproval(ctx context.Context, intents []*graphqlclient.IntentInput) error {
+	_, err := graphqlclient.ReportAppliedIntentsForApproval(ctx, c.client, lo.Map(intents, func(intent *graphqlclient.IntentInput, _ int) graphqlclient.IntentInput {
+		return *intent
+	}))
+	return errors.Wrap(err)
 }
 
 func (c *CloudClientImpl) GetApprovalState(ctx context.Context) (bool, error) {

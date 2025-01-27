@@ -189,7 +189,6 @@ func (r *IntentsReconciler) handleAutoApprovalForIntents(ctx context.Context, in
 
 	// TODO: Handle diffs here. Consider if metadata changes & actual spec changes should be treated equally.
 	return nil
-
 }
 
 func (r *IntentsReconciler) createApprovedIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
@@ -218,5 +217,5 @@ func (r *IntentsReconciler) handleCloudApprovalForIntents(ctx context.Context, i
 		return errors.Wrap(err)
 	}
 
-	return errors.Wrap(r.cloudClient.ReportAppliedIntentsForApproval(ctx, lo.ToPtr(intents.Namespace), cloudIntents))
+	return errors.Wrap(r.cloudClient.ReportAppliedIntentsForApproval(ctx, cloudIntents))
 }

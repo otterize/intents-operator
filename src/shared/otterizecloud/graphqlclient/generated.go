@@ -857,12 +857,8 @@ func (v *__GetIntentsApprovalHistoryInput) GetIds() []string { return v.Ids }
 
 // __ReportAppliedIntentsForApprovalInput is used internally by genqlient
 type __ReportAppliedIntentsForApprovalInput struct {
-	Namespace string        `json:"namespace"`
-	Intents   []IntentInput `json:"intents"`
+	Intents []IntentInput `json:"intents"`
 }
-
-// GetNamespace returns __ReportAppliedIntentsForApprovalInput.Namespace, and is useful for accessing the field via an interface.
-func (v *__ReportAppliedIntentsForApprovalInput) GetNamespace() string { return v.Namespace }
 
 // GetIntents returns __ReportAppliedIntentsForApprovalInput.Intents, and is useful for accessing the field via an interface.
 func (v *__ReportAppliedIntentsForApprovalInput) GetIntents() []IntentInput { return v.Intents }
@@ -1044,19 +1040,17 @@ query GetIntentsApprovalHistory ($ids: [ID!]!) {
 func ReportAppliedIntentsForApproval(
 	ctx context.Context,
 	client graphql.Client,
-	namespace string,
 	intents []IntentInput,
 ) (*ReportAppliedIntentsForApprovalResponse, error) {
 	req := &graphql.Request{
 		OpName: "ReportAppliedIntentsForApproval",
 		Query: `
-mutation ReportAppliedIntentsForApproval ($namespace: String!, $intents: [IntentInput!]!) {
-	reportAppliedIntentsForApproval(namespace: $namespace, intents: $intents)
+mutation ReportAppliedIntentsForApproval ($intents: [IntentInput!]!) {
+	reportAppliedIntentsForApproval(intents: $intents)
 }
 `,
 		Variables: &__ReportAppliedIntentsForApprovalInput{
-			Namespace: namespace,
-			Intents:   intents,
+			Intents: intents,
 		},
 	}
 	var err error

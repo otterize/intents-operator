@@ -35,8 +35,8 @@ mutation ReportClientIntentStatuses($statuses: [ClientIntentStatusInput!]!) {
     reportClientIntentStatus(statuses: $statuses)
 }
 
-mutation ReportAppliedIntentsForApproval($namespace: String!,$intents: [IntentInput!]!) {
-    reportAppliedIntentsForApproval(namespace: $namespace, intents: $intents)
+mutation ReportAppliedIntentsForApproval($intents: [IntentInput!]!) {
+    reportAppliedIntentsForApproval(intents: $intents)
 }
 
 query GetIntentsApprovalHistory($ids: [ID!]!) {

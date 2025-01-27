@@ -19,7 +19,7 @@ var (
 //+kubebuilder:rbac:groups="batch",resources=jobs;cronjobs,verbs=get;list;watch
 
 type ServiceResolver interface {
-	ResolveClientIntentToPod(ctx context.Context, intent v2alpha1.ClientIntents) (corev1.Pod, error)
+	ResolveClientIntentToPod(ctx context.Context, intent v2alpha1.ApprovedClientIntents) (corev1.Pod, error)
 	ResolvePodToServiceIdentity(ctx context.Context, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error)
 	ResolveServiceIdentityToPodSlice(ctx context.Context, identity serviceidentity.ServiceIdentity) ([]corev1.Pod, bool, error)
 	ResolveIntentTargetToPod(ctx context.Context, target v2alpha1.Target, intentsObjNamespace string) (corev1.Pod, error)
@@ -56,7 +56,7 @@ func (r *Resolver) ResolveServiceIdentityToPodSlice(ctx context.Context, identit
 	return pods, len(pods) > 0, nil
 }
 
-func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v2alpha1.ClientIntents) (corev1.Pod, error) {
+func (r *Resolver) ResolveClientIntentToPod(ctx context.Context, intent v2alpha1.ApprovedClientIntents) (corev1.Pod, error) {
 	serviceID := intent.ToServiceIdentity()
 	pods, ok, err := r.ResolveServiceIdentityToPodSlice(ctx, serviceID)
 	if err != nil {

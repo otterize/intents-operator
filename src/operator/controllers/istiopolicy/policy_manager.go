@@ -52,11 +52,11 @@ type PolicyManagerImpl struct {
 }
 
 type PolicyManager interface {
-	DeleteAll(ctx context.Context, clientIntents *v2alpha1.ClientIntents) error
-	Create(ctx context.Context, clientIntents *v2alpha1.ClientIntents, clientServiceAccount string) error
-	UpdateIntentsStatus(ctx context.Context, clientIntents *v2alpha1.ClientIntents, clientServiceAccount string, missingSideCar bool) error
-	UpdateServerSidecar(ctx context.Context, clientIntents *v2alpha1.ClientIntents, serverName string, missingSideCar bool) error
-	RemoveDeprecatedPoliciesForClient(ctx context.Context, clientIntents *v2alpha1.ClientIntents) error
+	DeleteAll(ctx context.Context, clientIntents *v2alpha1.ApprovedClientIntents) error
+	Create(ctx context.Context, clientIntents *v2alpha1.ApprovedClientIntents, clientServiceAccount string) error
+	UpdateIntentsStatus(ctx context.Context, clientIntents *v2alpha1.ApprovedClientIntents, clientServiceAccount string, missingSideCar bool) error
+	UpdateServerSidecar(ctx context.Context, clientIntents *v2alpha1.ApprovedClientIntents, serverName string, missingSideCar bool) error
+	RemoveDeprecatedPoliciesForClient(ctx context.Context, clientIntents *v2alpha1.ApprovedClientIntents) error
 }
 
 func NewPolicyManager(client client.Client, recorder *injectablerecorder.InjectableRecorder, restrictedNamespaces []string, enforcementDefaultState bool, istioEnforcementEnabled bool, activeNamespaces *goset.Set[string]) *PolicyManagerImpl {
@@ -72,7 +72,7 @@ func NewPolicyManager(client client.Client, recorder *injectablerecorder.Injecta
 
 func (c *PolicyManagerImpl) DeleteAll(
 	ctx context.Context,
-	clientIntents *v2alpha1.ClientIntents,
+	clientIntents *v2alpha1.ApprovedClientIntents,
 ) error {
 	clientServiceIdentity := clientIntents.ToServiceIdentity()
 	clientFormattedIdentity := clientServiceIdentity.GetFormattedOtterizeIdentityWithKind()
@@ -101,7 +101,7 @@ func (c *PolicyManagerImpl) DeleteAll(
 
 func (c *PolicyManagerImpl) RemoveDeprecatedPoliciesForClient(
 	ctx context.Context,
-	clientIntents *v2alpha1.ClientIntents,
+	clientIntents *v2alpha1.ApprovedClientIntents,
 ) error {
 	clientServiceIdentity := clientIntents.ToServiceIdentity()
 	clientFormattedIdentity := clientServiceIdentity.GetFormattedOtterizeIdentityWithoutKind()
@@ -125,7 +125,7 @@ func (c *PolicyManagerImpl) RemoveDeprecatedPoliciesForClient(
 
 func (c *PolicyManagerImpl) Create(
 	ctx context.Context,
-	clientIntents *v2alpha1.ClientIntents,
+	clientIntents *v2alpha1.ApprovedClientIntents,
 	clientServiceAccount string,
 ) error {
 	clientServiceIdentity := clientIntents.ToServiceIdentity()
@@ -154,7 +154,7 @@ func (c *PolicyManagerImpl) Create(
 
 func (c *PolicyManagerImpl) UpdateIntentsStatus(
 	ctx context.Context,
-	clientIntents *v2alpha1.ClientIntents,
+	clientIntents *v2alpha1.ApprovedClientIntents,
 	clientServiceAccount string,
 	missingSideCar bool,
 ) error {
@@ -173,7 +173,7 @@ func (c *PolicyManagerImpl) UpdateIntentsStatus(
 
 func (c *PolicyManagerImpl) UpdateServerSidecar(
 	ctx context.Context,
-	clientIntents *v2alpha1.ClientIntents,
+	clientIntents *v2alpha1.ApprovedClientIntents,
 	serverName string,
 	missingSideCar bool,
 ) error {
@@ -211,7 +211,7 @@ func (c *PolicyManagerImpl) UpdateServerSidecar(
 	return nil
 }
 
-func (c *PolicyManagerImpl) setServersWithoutSidecar(ctx context.Context, clientIntents *v2alpha1.ClientIntents, set sets.Set[string]) error {
+func (c *PolicyManagerImpl) setServersWithoutSidecar(ctx context.Context, clientIntents *v2alpha1.ApprovedClientIntents, set sets.Set[string]) error {
 	serversSortedList := sets.List(set)
 	serversValues, err := json.Marshal(serversSortedList)
 	if err != nil {
@@ -230,7 +230,7 @@ func (c *PolicyManagerImpl) setServersWithoutSidecar(ctx context.Context, client
 	return nil
 }
 
-func (c *PolicyManagerImpl) saveServiceAccountName(ctx context.Context, clientIntents *v2alpha1.ClientIntents, clientServiceAccount string) error {
+func (c *PolicyManagerImpl) saveServiceAccountName(ctx context.Context, clientIntents *v2alpha1.ApprovedClientIntents, clientServiceAccount string) error {
 	serviceAccountLabelValue, ok := clientIntents.Annotations[v2alpha1.OtterizeClientServiceAccountAnnotation]
 	if ok && serviceAccountLabelValue == clientServiceAccount {
 		return nil
@@ -253,7 +253,7 @@ func (c *PolicyManagerImpl) saveServiceAccountName(ctx context.Context, clientIn
 	return nil
 }
 
-func (c *PolicyManagerImpl) saveSideCarStatus(ctx context.Context, clientIntents *v2alpha1.ClientIntents, missingSideCar bool) error {
+func (c *PolicyManagerImpl) saveSideCarStatus(ctx context.Context, clientIntents *v2alpha1.ApprovedClientIntents, missingSideCar bool) error {
 	oldValue, ok := clientIntents.Annotations[v2alpha1.OtterizeMissingSidecarAnnotation]
 	if ok && oldValue == strconv.FormatBool(missingSideCar) {
 		return nil
@@ -343,7 +343,7 @@ func shouldUpdateStatus(intents v2alpha1.ClientIntents, currentName string, curr
 
 func (c *PolicyManagerImpl) createOrUpdatePolicies(
 	ctx context.Context,
-	clientIntents *v2alpha1.ClientIntents,
+	clientIntents *v2alpha1.ApprovedClientIntents,
 	clientServiceAccount string,
 	existingPolicies v1beta1.AuthorizationPolicyList,
 ) (*goset.Set[PolicyID], error) {
@@ -456,7 +456,7 @@ func (c *PolicyManagerImpl) updatePolicy(ctx context.Context, existingPolicy *v1
 	return nil
 }
 
-func (c *PolicyManagerImpl) getPolicyName(intents *v2alpha1.ClientIntents, intent v2alpha1.Target) string {
+func (c *PolicyManagerImpl) getPolicyName(intents *v2alpha1.ApprovedClientIntents, intent v2alpha1.Target) string {
 	clientIdentity := intents.ToServiceIdentity()
 	clientName := fmt.Sprintf("%s.%s", clientIdentity.GetRFC1123NameWithKind(), intents.Namespace)
 	serverIdentity := intent.ToServiceIdentity(intents.Namespace)
@@ -500,7 +500,7 @@ func compareHTTPRules(existingRules []*v1beta1security.Rule_To, newRules []*v1be
 
 func (c *PolicyManagerImpl) generateAuthorizationPolicy(
 	ctx context.Context,
-	clientIntents *v2alpha1.ClientIntents,
+	clientIntents *v2alpha1.ApprovedClientIntents,
 	intent v2alpha1.Target,
 	clientServiceAccountName string,
 ) (*v1beta1.AuthorizationPolicy, bool, error) {
