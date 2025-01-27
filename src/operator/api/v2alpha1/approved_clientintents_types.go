@@ -134,6 +134,5 @@ func (aci *ApprovedClientIntents) GetDatabaseIntents() []Target {
 func (aci *ApprovedClientIntents) FromClientIntents(intents ClientIntents) {
 	aci.Name = intents.ToApprovedIntentsName()
 	aci.Namespace = intents.GetNamespace()
-	aci.Spec.Targets = intents.GetTargetList()
-	aci.Spec.Workload = intents.Spec.Workload
+	aci.Spec = intents.Spec
 }

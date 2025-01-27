@@ -179,6 +179,53 @@ type AccessLogEdge {
 	accessStatus: EdgeAccessStatus!
 }
 
+type AccessRequest {
+	id: ID!
+	service: Service!
+	timestamp: Time!
+	status: AccessRequestStatus!
+	reason: String
+}
+
+type AccessRequestDetails {
+	id: ID!
+	services: [Service!]!
+	timestamp: Time!
+	status: AccessRequestStatus!
+	reason: String
+	clientIntents: ClientIntentsFileRepresentation!
+}
+
+input AccessRequestResponse {
+	status: Boolean!
+	reason: String!
+}
+
+enum AccessRequestStatus {
+	PENDING
+	APPROVED
+	DENIED
+}
+
+type AccessRule {
+	origin: AccessRuleFilter!
+	target: AccessRuleFilter!
+	action: AccessRuleAction!
+}
+
+enum AccessRuleAction {
+	AUTO_APPROVE
+	AUTO_DENY
+	REQUIRE_APPROVAL
+}
+
+type AccessRuleFilter {
+	clusterIds: IDFilterValue
+	serviceIds: IDFilterValue
+	namespaceIds: IDFilterValue
+	environmentIds: IDFilterValue
+}
+
 enum AllowExternalTrafficPolicy {
 	OFF
 	ALWAYS
@@ -1805,6 +1852,17 @@ type Mutation {
 		namespace: String!
 		services: [ExternallyAccessibleServiceInput!]!
 	): Boolean!
+	reportAppliedIntentsForApproval(
+		namespace: String!
+		intents: [IntentInput!]!
+	): Boolean!
+	createRuleset(
+		environmentId: ID!
+	): Boolean!
+	responseToAccessRequest(
+		id: ID!
+		response: AccessRequestResponse!
+	): Boolean!
 	reportClientIntentStatus(
 		statuses: [ClientIntentStatusInput!]!
 	): Boolean!
@@ -2120,6 +2178,18 @@ type Query {
 	testDatabaseVisibilityConnection(
 		databaseInfo: DatabaseInfoInput!
 	): TestDatabaseConnectionResponse!
+	cloudApprovalEnabled: Boolean!
+	getIntentsApprovalHistory(
+		ids: [ID!]!
+	): [AccessRequest!]!
+	accessRequestList: [AccessRequest!]!
+	accessRequest(
+		id: ID!
+	): AccessRequestDetails!
+	rulesetList: [RulesetOverview!]!
+	ruleset(
+		environmentId: ID!
+	): [AccessRule!]!
 	clientIntentEventsForWorkload(
 		id: ID!
 	): [ClientIntentEvent!]
@@ -2265,6 +2335,11 @@ type Resource {
 enum RowDiff {
 	ADDED
 	REMOVED
+}
+
+type RulesetOverview {
+	environment: BasicEntity!
+	count: Int!
 }
 
 input SelectorKeyValueInput {

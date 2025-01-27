@@ -20,7 +20,9 @@ type CloudClient interface {
 	ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error
 	ReportIntentEvents(ctx context.Context, events []graphqlclient.ClientIntentEventInput) error
 	ReportClientIntentStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) error
-	FetchApprovalState(ctx context.Context) error
+	ReportAppliedIntentsForApproval(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error
+	GetIntentsApprovalHistory(ctx context.Context, ids []string) ([]IntentsApprovalResult, error)
+	GetApprovalState(ctx context.Context) (bool, error)
 }
 
 type CloudClientImpl struct {
@@ -127,6 +129,23 @@ func (c *CloudClientImpl) ReportClientIntentStatuses(ctx context.Context, status
 	return errors.Wrap(err)
 }
 
-func (c *CloudClientImpl) FetchApprovalState(ctx context.Context) error {
+func (c *CloudClientImpl) GetIntentsApprovalHistory(ctx context.Context, ids []string) ([]IntentsApprovalResult, error) {
+	result, err := graphqlclient.GetIntentsApprovalHistory(ctx, c.client, ids)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	return translateLatestApprovalHistoryModel(result), nil
+}
+
+func (c *CloudClientImpl) ReportAppliedIntentsForApproval(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error {
 	return nil
+}
+
+func (c *CloudClientImpl) GetApprovalState(ctx context.Context) (bool, error) {
+	result, err := graphqlclient.CloudApprovalEnabled(ctx, c.client)
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+	return result.CloudApprovalEnabled, nil
 }

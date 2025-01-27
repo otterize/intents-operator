@@ -121,11 +121,12 @@ func (r *IntentsReconciler) handleClientIntentsApproval(ctx context.Context, int
 	if !intents.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
-
 	approvalMethod := r.approvalState.approvalMethod
 	switch approvalMethod {
 	case ApprovalMethodCloudApproval:
-		//r.handleCloudApprovalForIntents(intents)
+		if err := r.handleCloudApprovalForIntents(ctx, intents); err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
 	case ApprovalMethodAutoApproval:
 		if err := r.handleAutoApprovalForIntents(ctx, intents); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
@@ -139,23 +140,19 @@ func (r *IntentsReconciler) InitIntentsApprovalState(ctx context.Context) error 
 		r.approvalState.approvalMethod = ApprovalMethodAutoApproval
 		return nil
 	}
-
 	// Fetch initial approval status
 	r.approvalState.mutex.Lock()
 	defer r.approvalState.mutex.Unlock()
-	err := r.cloudClient.FetchApprovalState(ctx)
+	enabled, err := r.cloudClient.GetApprovalState(ctx)
 	if err != nil {
 		return errors.Wrap(err)
 	}
-	// TODO: Do something with result
-	// TODO: Start periodic sampling and updating of approval state
+	if !enabled {
+		r.approvalState.approvalMethod = ApprovalMethodAutoApproval
+	} else {
+		r.approvalState.approvalMethod = ApprovalMethodCloudApproval
+	}
 	return nil
-}
-
-// periodicCheckApprovalState runs for operators integrated with Otterize cloud
-// Checks whether the general approval state is cloud based, or OSS based (auto-approve).
-func (r *IntentsReconciler) periodicCheckApprovalState(ctx context.Context) {
-
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -176,7 +173,7 @@ func (r *IntentsReconciler) handleAutoApprovalForIntents(ctx context.Context, in
 	if intents.Status.ReviewStatus != otterizev2alpha1.ReviewStatusApproved {
 		intentsCopy := intents.DeepCopy()
 		intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusApproved
-		if err := r.client.Patch(ctx, intentsCopy, client.StrategicMergeFrom(&intents)); err != nil {
+		if err := r.client.Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
 			return errors.Wrap(err)
 		}
 	}
@@ -205,4 +202,21 @@ func (r *IntentsReconciler) createApprovedIntents(ctx context.Context, intents o
 	}
 	return nil
 
+}
+
+func (r *IntentsReconciler) handleCloudApprovalForIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+	if intents.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved || !intents.DeletionTimestamp.IsZero() {
+		// Will be handled elsewhere
+		return nil
+	}
+	// Convert to list to save the hellish conversion to cloud format
+	intentsList := &otterizev2alpha1.ClientIntentsList{
+		Items: []otterizev2alpha1.ClientIntents{intents},
+	}
+	cloudIntents, err := intentsList.FormatAsOtterizeIntents(ctx, r.client)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return errors.Wrap(r.cloudClient.ReportAppliedIntentsForApproval(ctx, lo.ToPtr(intents.Namespace), cloudIntents))
 }
