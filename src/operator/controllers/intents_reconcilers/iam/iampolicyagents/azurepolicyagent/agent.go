@@ -13,9 +13,11 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
 var KeyVaultNameRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.KeyVault/vaults/([^/]+)$`)
@@ -27,8 +29,13 @@ type Agent struct {
 	assignmentMutex sync.Mutex
 }
 
-func NewAzurePolicyAgent(azureAgent *azureagent.Agent) *Agent {
-	return &Agent{azureAgent, sync.Mutex{}, sync.Mutex{}}
+func NewAzurePolicyAgent(ctx context.Context, azureAgent *azureagent.Agent) *Agent {
+	agent := &Agent{azureAgent, sync.Mutex{}, sync.Mutex{}}
+
+	// Start periodic tasks goroutine
+	go wait.Forever(func() { agent.PeriodicTasks(ctx) }, 5*time.Hour)
+
+	return agent
 }
 
 func (a *Agent) IntentType() otterizev2alpha1.IntentType {

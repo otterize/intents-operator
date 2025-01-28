@@ -1,16 +1,13 @@
-package azureagent
+package azurepolicyagent
 
 import (
 	"context"
-	"fmt"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/sirupsen/logrus"
 	"strings"
 )
 
-func (a *Agent) PeriodicTasks() {
-	ctx := context.TODO()
-
+func (a *Agent) PeriodicTasks(ctx context.Context) {
 	err := a.CleanupCustomRoles(ctx)
 	if err != nil {
 		logrus.WithError(err).Error("Failed to clean up custom roles")
@@ -20,10 +17,13 @@ func (a *Agent) PeriodicTasks() {
 // CleanupCustomRoles deletes custom roles that got orphaned due to the deletion of its role assignments
 // when deleting a role assignment, the custom role might not get deleted if some error occurs (DeleteRoleAssignment)
 func (a *Agent) CleanupCustomRoles(ctx context.Context) error {
+	// Lock the agent to ensure that no other goroutine is modifying the custom roles in parallel
+	a.roleMutex.Lock()
+	defer a.roleMutex.Unlock()
+
 	// List otterize custom roles across all subscriptions
 	existingCustomRoles, err := a.ListCustomRolesAcrossSubscriptions(ctx)
 	if err != nil {
-		fmt.Println("Error: ", err)
 		return errors.Wrap(err)
 	}
 
@@ -41,29 +41,27 @@ func (a *Agent) CleanupCustomRoles(ctx context.Context) error {
 
 	// Mark custom roles that are in use
 	for _, roleAssignment := range existingRoleAssignments {
-		if a.IsCustomRoleAssignment(roleAssignment) {
-			roleID := *roleAssignment.Properties.RoleDefinitionID
+		roleID := *roleAssignment.Properties.RoleDefinitionID
 
-			if _, ok := rolesInUse[roleID]; !ok {
-				// This otterize role assignment is linked to a non-otterize custom role - should not happen in production
-				// If this does happen in testing environments we clean up the role assignment and the custom role it's linked to
-				err := a.DeleteRoleAssignment(ctx, roleAssignment)
+		if _, ok := rolesInUse[roleID]; !ok {
+			// This otterize role assignment is linked to a non-otterize custom role - should not happen in production
+			// If this does happen in testing environments we clean up the role assignment and the custom role it's linked to
+			err := a.DeleteRoleAssignment(ctx, roleAssignment)
 
-				logrus.WithError(err).
-					WithField("role", roleID).
-					WithField("assignment", roleAssignment.Name).
-					Error("Otterize custom role assignment to a non-otterize custom role found")
-				continue
-			}
-
-			rolesInUse[roleID] = true
+			logrus.WithError(err).
+				WithField("role", roleID).
+				WithField("assignment", roleAssignment.Name).
+				Error("Otterize custom role assignment to a non-otterize custom role found")
+			continue
 		}
+
+		rolesInUse[roleID] = true
 	}
 
 	// Delete custom roles that are not in use
 	for roleID, inUse := range rolesInUse {
 		if !inUse {
-			roleScope := a.getSubscriptionScope(roleID)
+			roleScope := a.GetSubscriptionScope(roleID)
 			roleDefinitionID := roleID[strings.LastIndex(roleID, "/")+1:]
 
 			err := a.DeleteCustomRole(ctx, roleScope, roleDefinitionID)

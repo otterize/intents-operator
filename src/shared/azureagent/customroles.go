@@ -26,7 +26,7 @@ const (
 	OtterizeCustomRoleDescription = "This custom role was created by the Otterize intents-operator's Azure integration. For more details, go to https://otterize.com"
 )
 
-func (a *Agent) getSubscriptionScope(scope string) string {
+func (a *Agent) GetSubscriptionScope(scope string) string {
 	subscriptionId := strings.Split(scope, "/")[2]
 	return fmt.Sprintf("/subscriptions/%s", subscriptionId)
 }
@@ -37,7 +37,7 @@ func (a *Agent) GenerateCustomRoleName(uai armmsi.Identity, scope string) string
 }
 
 func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.Identity, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) (*armauthorization.RoleDefinition, error) {
-	roleScope := a.getSubscriptionScope(scope)
+	roleScope := a.GetSubscriptionScope(scope)
 
 	formattedActions := lo.Map(actions, func(action v2alpha1.AzureAction, _ int) *string {
 		return to.Ptr(string(action))
@@ -78,7 +78,7 @@ func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armaut
 		return errors.Errorf("role definition is nil or does not have any permissions")
 	}
 
-	roleScope := a.getSubscriptionScope(scope)
+	roleScope := a.GetSubscriptionScope(scope)
 
 	formattedActions := lo.Map(actions, func(action v2alpha1.AzureAction, _ int) *string {
 		return to.Ptr(string(action))
@@ -110,7 +110,7 @@ func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armaut
 }
 
 func (a *Agent) FindCustomRoleByName(ctx context.Context, scope string, name string) (*armauthorization.RoleDefinition, bool) {
-	roleScope := a.getSubscriptionScope(scope)
+	roleScope := a.GetSubscriptionScope(scope)
 	filter := fmt.Sprintf("roleName eq '%s'", name)
 
 	pager := a.roleDefinitionsClient.NewListPager(roleScope, &armauthorization.RoleDefinitionsClientListOptions{
@@ -128,7 +128,7 @@ func (a *Agent) FindCustomRoleByName(ctx context.Context, scope string, name str
 }
 
 func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, roleDefinitionID string) error {
-	roleScope := a.getSubscriptionScope(scope)
+	roleScope := a.GetSubscriptionScope(scope)
 
 	logrus.WithField("id", roleDefinitionID).Debug("Deleting custom role")
 	_, err := a.roleDefinitionsClient.Delete(ctx, roleScope, roleDefinitionID, nil)
