@@ -19,7 +19,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	"github.com/aws/aws-sdk-go/service/route53"
+	"fmt"
 	"github.com/google/uuid"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -246,52 +246,75 @@ func (r *IntentsReconciler) periodicIntentsApprovalLoop(ctx context.Context) {
 	}
 }
 
-func (r *IntentsReconciler) queryApprovalStatus(ctx context.Context) {
+func (r *IntentsReconciler) queryApprovalStatus(ctx context.Context) error {
 	clientIntentsList := &otterizev2alpha1.ClientIntentsList{}
 	statusSelector := fields.OneTermEqualSelector(ReviewStatusJSONPath, string(otterizev2alpha1.ReviewStatusPending))
 	if err := r.client.List(ctx, clientIntentsList, &client.ListOptions{FieldSelector: statusSelector}); err != nil {
 		logrus.WithError(err).Error("periodic intents approval query failed")
-		return
+		return errors.Wrap(err)
 	}
 	if clientIntentsList.Items == nil || len(clientIntentsList.Items) == 0 {
 		logrus.Debug("No intents pending review")
-		return
+		return nil
 	}
 	// Convert to GQL intents && hash the entire JSON before checking for approval status
 	intentsInput, err := clientIntentsList.FormatAsOtterizeIntents(ctx, r.client)
 	if err != nil {
 		logrus.WithError(err).Error("periodic intents approval query failed")
-		return
+		return errors.Wrap(err)
 	}
-	intentHashes := lo.Map(intentsInput, func(intent graphqlclient.IntentInput, _ int) string {
+	// TODO: Make this better
+	namespacedWorkloadToIntents := map[string]otterizev2alpha1.ClientIntents{}
+	for _, intent := range clientIntentsList.Items {
+		namespacedWorkloadToIntents[fmt.Sprintf("%s.%s", intent.GetWorkloadName(), intent.Namespace)] = intent
+	}
+	// TODO: /Make this better
+	contentHashToIntent := lo.SliceToMap(intentsInput, func(intent *graphqlclient.IntentInput) (string, *graphqlclient.IntentInput) {
 		id, err := newIntentsApprovalHistoryHash(intent)
 		if err != nil {
 			logrus.WithError(err).Error("failed to generate intent hash")
-			return ""
+			return "", nil
 		}
-		return id.String()
+		return id.String(), intent
 	})
 
-	result, err := r.cloudClient.GetIntentsApprovalHistory(ctx, intentHashes)
+	result, err := r.cloudClient.GetIntentsApprovalHistory(ctx, lo.Keys(contentHashToIntent))
 	if err != nil {
 		logrus.WithError(err).Error("periodic intents approval query failed")
-		return
+		return errors.Wrap(err)
 	}
 	if len(result) == 0 {
-		return
+		return nil
 	}
-	return r.handleApprovalUpdates(ctx, result)
+	return r.handleApprovalUpdates(ctx, result, contentHashToIntent, namespacedWorkloadToIntents)
 }
 
-func (r *IntentsReconciler) handleApprovalUpdates(ctx context.Context, result []operator_cloud_client.IntentsApprovalResult) {
-
+func (r *IntentsReconciler) handleApprovalUpdates(ctx context.Context, approvalUpdates []operator_cloud_client.IntentsApprovalResult, contentHashToIntent map[string]*graphqlclient.IntentInput, namespacedWorkloadToIntents map[string]otterizev2alpha1.ClientIntents) error {
+	for _, update := range approvalUpdates {
+		intentInput := contentHashToIntent[update.ID]
+		clientIntentsResource := namespacedWorkloadToIntents[getNamespacedWorkload(*intentInput)]
+		intentsCopy := clientIntentsResource.DeepCopy()
+		// Status "PENDING" cannot return from cloud so a boolean style check is enough
+		intentsCopy.Status.ReviewStatus = lo.Ternary(update.Status == graphqlclient.AccessRequestStatusApproved, otterizev2alpha1.ReviewStatusApproved, otterizev2alpha1.ReviewStatusDenied)
+		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&clientIntentsResource)); err != nil {
+			return errors.Wrap(err)
+		}
+		if intentsCopy.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved {
+			return r.createApprovedIntents(ctx, *intentsCopy)
+		}
+	}
+	return nil
 }
 
-func newIntentsApprovalHistoryHash(intent graphqlclient.IntentInput) (uuid.UUID, error) {
+func newIntentsApprovalHistoryHash(intent *graphqlclient.IntentInput) (uuid.UUID, error) {
 	intentsJSON, err := json.Marshal(intent)
 	if err != nil {
 		return uuid.UUID{}, errors.Wrap(err)
 	}
 
 	return uuid.NewMD5(uuid.UUID{}, intentsJSON), nil
+}
+
+func getNamespacedWorkload(intent graphqlclient.IntentInput) string {
+	return fmt.Sprintf("%s.%s", lo.FromPtr(intent.ClientName), lo.FromPtr(intent.Namespace))
 }
