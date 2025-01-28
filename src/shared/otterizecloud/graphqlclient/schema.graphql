@@ -1858,6 +1858,10 @@ type Mutation {
 	createRuleset(
 		environmentId: ID!
 	): Boolean!
+	updateRuleset(
+		environmentName: String!
+		enableAutoApprove: Boolean!
+	): Boolean!
 	responseToAccessRequest(
 		id: ID!
 		response: AccessRequestResponse!
@@ -2187,7 +2191,7 @@ type Query {
 	): AccessRequestDetails!
 	rulesetList: [RulesetOverview!]!
 	ruleset(
-		environmentId: ID!
+		environmentName: String!
 	): [AccessRule!]!
 	clientIntentEventsForWorkload(
 		id: ID!

@@ -63,8 +63,8 @@ func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace s
 	if err != nil {
 		return errors.Errorf("failed to unmarshal ClientIntents CRD: %w", err)
 	}
-	crdToCreate.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = operatorNamespace
-	crdToCreate.Spec.Conversion.Webhook.ClientConfig.CABundle = certPem
+	//crdToCreate.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = operatorNamespace
+	//crdToCreate.Spec.Conversion.Webhook.ClientConfig.CABundle = certPem
 
 	crd := apiextensionsv1.CustomResourceDefinition{}
 	err = k8sClient.Get(ctx, types.NamespacedName{Name: crdToCreate.Name}, &crd)

@@ -40,7 +40,7 @@ import (
 )
 
 const (
-	ReviewStatusJSONPath = ".status.reviewStatus"
+	ReviewStatusIndexField = ".status.reviewStatus"
 )
 
 // IntentsReconciler reconciles a Intents object
@@ -99,26 +99,6 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, errors.Wrap(err)
-	}
-
-	if intents.Status.UpToDate != false && intents.Status.ObservedGeneration != intents.Generation {
-		intentsCopy := intents.DeepCopy()
-		intentsCopy.Status.UpToDate = false
-		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
-			return ctrl.Result{}, errors.Wrap(err)
-		}
-		// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
-		// and that we don't trigger an infinite loop
-		return ctrl.Result{}, nil
-	}
-
-	if intents.DeletionTimestamp.IsZero() {
-		intentsCopy := intents.DeepCopy()
-		intentsCopy.Status.UpToDate = true
-		intentsCopy.Status.ObservedGeneration = intentsCopy.Generation
-		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
-			return ctrl.Result{}, errors.Wrap(err)
-		}
 	}
 
 	result, err := r.handleClientIntentsApproval(ctx, *intents)
@@ -221,6 +201,12 @@ func (r *IntentsReconciler) handleCloudApprovalForIntents(ctx context.Context, i
 		// Will be handled elsewhere
 		return nil
 	}
+	if intents.Status.ReviewStatus == "" {
+		if err := r.setPendingReviewStatus(ctx, intents); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
 	// Convert to list to save the hellish conversion to cloud format
 	intentsList := &otterizev2alpha1.ClientIntentsList{
 		Items: []otterizev2alpha1.ClientIntents{intents},
@@ -241,20 +227,22 @@ func (r *IntentsReconciler) periodicIntentsApprovalLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-approvalQueryTicker.C:
-			r.queryApprovalStatus(ctx)
+			if err := r.queryApprovalStatus(ctx); err != nil {
+				logrus.WithError(err).Error("periodic intents approval query failed")
+			}
 		}
 	}
 }
 
 func (r *IntentsReconciler) queryApprovalStatus(ctx context.Context) error {
 	clientIntentsList := &otterizev2alpha1.ClientIntentsList{}
-	statusSelector := fields.OneTermEqualSelector(ReviewStatusJSONPath, string(otterizev2alpha1.ReviewStatusPending))
+	statusSelector := fields.OneTermEqualSelector(ReviewStatusIndexField, string(otterizev2alpha1.ReviewStatusPending))
 	if err := r.client.List(ctx, clientIntentsList, &client.ListOptions{FieldSelector: statusSelector}); err != nil {
 		logrus.WithError(err).Error("periodic intents approval query failed")
 		return errors.Wrap(err)
 	}
 	if clientIntentsList.Items == nil || len(clientIntentsList.Items) == 0 {
-		logrus.Debug("No intents pending review")
+		logrus.Info("No intents pending review")
 		return nil
 	}
 	// Convert to GQL intents && hash the entire JSON before checking for approval status
@@ -303,6 +291,28 @@ func (r *IntentsReconciler) handleApprovalUpdates(ctx context.Context, approvalU
 			return r.createApprovedIntents(ctx, *intentsCopy)
 		}
 	}
+	return nil
+}
+
+func (*IntentsReconciler) InitReviewStatusIndex(mgr ctrl.Manager) error {
+	return mgr.GetCache().IndexField(
+		context.Background(),
+		&otterizev2alpha1.ClientIntents{},
+		ReviewStatusIndexField,
+		func(object client.Object) []string {
+			clientIntents := object.(*otterizev2alpha1.ClientIntents)
+			return []string{string(clientIntents.Status.ReviewStatus)}
+		})
+}
+
+func (r *IntentsReconciler) setPendingReviewStatus(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+	intentsCopy := intents.DeepCopy()
+	intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusPending
+	err := r.client.Status().Update(ctx, intentsCopy)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
 	return nil
 }
 

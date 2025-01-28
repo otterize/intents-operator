@@ -38,7 +38,7 @@ func (m *MockServiceResolver) EXPECT() *MockServiceResolverMockRecorder {
 }
 
 // ResolveClientIntentToPod mocks base method.
-func (m *MockServiceResolver) ResolveClientIntentToPod(ctx context.Context, intent v2alpha1.ClientIntents) (v1.Pod, error) {
+func (m *MockServiceResolver) ResolveClientIntentToPod(ctx context.Context, intent v2alpha1.ApprovedClientIntents) (v1.Pod, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ResolveClientIntentToPod", ctx, intent)
 	ret0, _ := ret[0].(v1.Pod)

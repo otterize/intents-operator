@@ -388,17 +388,17 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Panic("unable to create controller", "controller", "ValidatingWebhookConfigs")
 		}
-
-		customResourceDefinitionsReconciler := controllers.NewCustomResourceDefinitionsReconciler(
-			mgr.GetClient(),
-			mgr.GetScheme(),
-			certBundle.CertPem,
-			podNamespace,
-		)
-		err = customResourceDefinitionsReconciler.SetupWithManager(mgr)
-		if err != nil {
-			logrus.WithError(err).Panic("unable to create controller", "controller", "CustomResourceDefinition")
-		}
+		//
+		//customResourceDefinitionsReconciler := controllers.NewCustomResourceDefinitionsReconciler(
+		//	mgr.GetClient(),
+		//	mgr.GetScheme(),
+		//	certBundle.CertPem,
+		//	podNamespace,
+		//)
+		//err = customResourceDefinitionsReconciler.SetupWithManager(mgr)
+		//if err != nil {
+		//	logrus.WithError(err).Panic("unable to create controller", "controller", "CustomResourceDefinition")
+		//}
 	}
 
 	if !disableWebhookServer {
@@ -434,6 +434,10 @@ func main() {
 
 	intentsReconciler := controllers.NewIntentsReconciler(signalHandlerCtx, mgr.GetClient(), otterizeCloudClient)
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Client Intents")
+	}
+
+	if err = intentsReconciler.InitReviewStatusIndex(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Client Intents")
 	}
 

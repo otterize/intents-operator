@@ -1017,6 +1017,10 @@ spec:
                       type: array
                   type: object
                 type: array
+              reviewStatus:
+                description: ReviewStatus stores the review status for these ClientIntents
+                  (whether they were approved, denied, or pending)
+                type: string
               upToDate:
                 description: |-
                   upToDate field reflects whether the client intents have successfully been applied

@@ -289,7 +289,7 @@ func (g *GroupReconciler) getAnnotationIntentsAsServer(service serviceidentity.S
 	return calledBy
 }
 
-func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientIntent v2alpha1.ClientIntents, filter func(intent v2alpha1.Target) bool) []ClientCall {
+func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientIntent v2alpha1.ApprovedClientIntents, filter func(intent v2alpha1.Target) bool) []ClientCall {
 	clientService := serviceidentity.ServiceIdentity{Name: clientIntent.Spec.Workload.Name, Namespace: clientIntent.Namespace}
 	clientCalls := make([]ClientCall, 0)
 	for _, intendedCall := range clientIntent.GetTargetList() {
@@ -302,8 +302,8 @@ func (g *GroupReconciler) filterAndTransformClientIntentsIntoClientCalls(clientI
 	return clientCalls
 }
 
-func (g *GroupReconciler) getClientIntentsAsAServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v2alpha1.ClientIntents, error) {
-	var intentsList v2alpha1.ClientIntentsList
+func (g *GroupReconciler) getClientIntentsAsAServer(ctx context.Context, server serviceidentity.ServiceIdentity) ([]v2alpha1.ApprovedClientIntents, error) {
+	var intentsList v2alpha1.ApprovedClientIntentsList
 	matchFields := client.MatchingFields{v2alpha1.OtterizeFormattedTargetServerIndexField: server.GetFormattedOtterizeIdentityWithKind()}
 	err := g.Client.List(
 		ctx, &intentsList,

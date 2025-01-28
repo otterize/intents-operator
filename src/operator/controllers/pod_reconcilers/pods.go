@@ -407,10 +407,10 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev2
 func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev2alpha1.ClientIntents{},
+		&otterizev2alpha1.ApprovedClientIntents{},
 		OtterizeClientNameIndexField,
 		func(object client.Object) []string {
-			intents := object.(*otterizev2alpha1.ClientIntents)
+			intents := object.(*otterizev2alpha1.ApprovedClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}
@@ -423,10 +423,10 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 
 	err = mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev2alpha1.ClientIntents{},
+		&otterizev2alpha1.ApprovedClientIntents{},
 		OtterizeClientNameWithKindIndexField,
 		func(object client.Object) []string {
-			intents := object.(*otterizev2alpha1.ClientIntents)
+			intents := object.(*otterizev2alpha1.ApprovedClientIntents)
 			serviceIdentity := intents.ToServiceIdentity()
 			return []string{serviceIdentity.GetNameWithKind()}
 		})

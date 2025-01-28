@@ -134,6 +134,18 @@ rules:
 - apiGroups:
   - k8s.otterize.com
   resources:
+  - approvedclientintents
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - k8s.otterize.com
+  resources:
   - clientintents
   verbs:
   - create
