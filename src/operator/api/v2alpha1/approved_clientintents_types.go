@@ -1,14 +1,18 @@
 package v2alpha1
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 )
 
 func init() {
@@ -157,4 +161,70 @@ func (in *ApprovedClientIntents) FromClientIntents(intents ClientIntents) {
 	in.Name = intents.ToApprovedIntentsName()
 	in.Namespace = intents.GetNamespace()
 	in.Spec = intents.Spec
+}
+
+func (in *ApprovedClientIntentsList) FormatAsOtterizeIntents(ctx context.Context, k8sClient client.Client) ([]*graphqlclient.IntentInput, error) {
+	otterizeIntents := make([]*graphqlclient.IntentInput, 0)
+	for _, clientIntents := range in.Items {
+		for _, intent := range clientIntents.GetTargetList() {
+			clientServiceIdentity := clientIntents.ToServiceIdentity()
+			input, err := intent.ConvertToCloudFormat(ctx, k8sClient, clientServiceIdentity)
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+
+			input.Status = nil
+			if ok {
+				input.Status = statusInput
+			}
+			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
+		}
+	}
+
+	return otterizeIntents, nil
+}
+
+func clientIntentsStatusToCloudFormat(clientIntents ApprovedClientIntents, intent Target) (*graphqlclient.IntentStatusInput, bool, error) {
+	status := graphqlclient.IntentStatusInput{
+		IstioStatus: &graphqlclient.IstioStatusInput{},
+	}
+
+	serviceAccountName, ok := clientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
+	if !ok {
+		// Status is not set, nothing to do
+		return nil, false, nil
+	}
+
+	status.IstioStatus.ServiceAccountName = toPtrOrNil(serviceAccountName)
+	isSharedValue, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
+	if !ok {
+		return nil, false, errors.Errorf("missing annotation shared service account for client intents %s", clientIntents.Name)
+	}
+
+	isShared, err := strconv.ParseBool(isSharedValue)
+	if err != nil {
+		return nil, false, errors.Errorf("failed to parse shared service account annotation for client intents %s", clientIntents.Name)
+	}
+	status.IstioStatus.IsServiceAccountShared = lo.ToPtr(isShared)
+
+	clientMissingSidecarValue, ok := clientIntents.Annotations[OtterizeMissingSidecarAnnotation]
+	if !ok {
+		return nil, false, errors.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
+	}
+
+	clientMissingSidecar, err := strconv.ParseBool(clientMissingSidecarValue)
+	if err != nil {
+		return nil, false, errors.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
+	}
+	status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(clientMissingSidecar)
+	isServerMissingSidecar, err := clientIntents.IsServerMissingSidecar(intent)
+	if err != nil {
+		return nil, false, errors.Wrap(err)
+	}
+	status.IstioStatus.IsServerMissingSidecar = lo.ToPtr(isServerMissingSidecar)
+	return &status, true, nil
 }

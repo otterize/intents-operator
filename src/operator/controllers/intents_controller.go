@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
@@ -258,7 +257,7 @@ func (r *IntentsReconciler) queryApprovalStatus(ctx context.Context) error {
 	}
 	// TODO: /Make this better
 	contentHashToIntent := lo.SliceToMap(intentsInput, func(intent *graphqlclient.IntentInput) (string, *graphqlclient.IntentInput) {
-		id, err := newIntentsApprovalHistoryHash(intent)
+		id, err := newIntentsApprovalHistoryHash(*intent)
 		if err != nil {
 			logrus.WithError(err).Error("failed to generate intent hash")
 			return "", nil
@@ -279,10 +278,12 @@ func (r *IntentsReconciler) queryApprovalStatus(ctx context.Context) error {
 
 func (r *IntentsReconciler) handleApprovalUpdates(ctx context.Context, approvalUpdates []operator_cloud_client.IntentsApprovalResult, contentHashToIntent map[string]*graphqlclient.IntentInput, namespacedWorkloadToIntents map[string]otterizev2alpha1.ClientIntents) error {
 	for _, update := range approvalUpdates {
+		if update.Status == graphqlclient.AccessRequestStatusPending {
+			return nil
+		}
 		intentInput := contentHashToIntent[update.ID]
 		clientIntentsResource := namespacedWorkloadToIntents[getNamespacedWorkload(*intentInput)]
 		intentsCopy := clientIntentsResource.DeepCopy()
-		// Status "PENDING" cannot return from cloud so a boolean style check is enough
 		intentsCopy.Status.ReviewStatus = lo.Ternary(update.Status == graphqlclient.AccessRequestStatusApproved, otterizev2alpha1.ReviewStatusApproved, otterizev2alpha1.ReviewStatusDenied)
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&clientIntentsResource)); err != nil {
 			return errors.Wrap(err)
@@ -308,21 +309,16 @@ func (*IntentsReconciler) InitReviewStatusIndex(mgr ctrl.Manager) error {
 func (r *IntentsReconciler) setPendingReviewStatus(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
 	intentsCopy := intents.DeepCopy()
 	intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusPending
-	err := r.client.Status().Update(ctx, intentsCopy)
-	if err != nil {
+	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
 		return errors.Wrap(err)
 	}
 
 	return nil
 }
 
-func newIntentsApprovalHistoryHash(intent *graphqlclient.IntentInput) (uuid.UUID, error) {
-	intentsJSON, err := json.Marshal(intent)
-	if err != nil {
-		return uuid.UUID{}, errors.Wrap(err)
-	}
+func newIntentsApprovalHistoryHash(intent graphqlclient.IntentInput) (uuid.UUID, error) {
+	return uuid.NewMD5(uuid.UUID{}, []byte(lo.FromPtr(intent.Namespace)+lo.FromPtr(intent.ClientName)+lo.FromPtr(intent.ServerName))), nil
 
-	return uuid.NewMD5(uuid.UUID{}, intentsJSON), nil
 }
 
 func getNamespacedWorkload(intent graphqlclient.IntentInput) string {
