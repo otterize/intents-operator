@@ -201,7 +201,7 @@ func (r *IntentsReconciler) handleCloudApprovalForIntents(ctx context.Context, i
 		return nil
 	}
 	if intents.Status.ReviewStatus == "" {
-		if err := r.setPendingReviewStatus(ctx, intents); err != nil {
+		if err := r.updateClientIntentsStatus(ctx, intents, otterizev2alpha1.ReviewStatusPending); err != nil {
 			return errors.Wrap(err)
 		}
 	}
@@ -279,15 +279,16 @@ func (r *IntentsReconciler) queryApprovalStatus(ctx context.Context) error {
 func (r *IntentsReconciler) handleApprovalUpdates(ctx context.Context, approvalUpdates []operator_cloud_client.IntentsApprovalResult, contentHashToIntent map[string]*graphqlclient.IntentInput, namespacedWorkloadToIntents map[string]otterizev2alpha1.ClientIntents) error {
 	for _, update := range approvalUpdates {
 		if update.Status == graphqlclient.AccessRequestStatusPending {
-			return nil
+			continue
 		}
-		intentInput := contentHashToIntent[update.ID]
+		intentInput, ok := contentHashToIntent[update.ID]
+		if !ok {
+			continue // Should not happen
+		}
 		clientIntentsResource := namespacedWorkloadToIntents[getNamespacedWorkload(*intentInput)]
 		intentsCopy := clientIntentsResource.DeepCopy()
-		intentsCopy.Status.ReviewStatus = lo.Ternary(update.Status == graphqlclient.AccessRequestStatusApproved, otterizev2alpha1.ReviewStatusApproved, otterizev2alpha1.ReviewStatusDenied)
-		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&clientIntentsResource)); err != nil {
-			return errors.Wrap(err)
-		}
+		reviewStatus := lo.Ternary(update.Status == graphqlclient.AccessRequestStatusApproved, otterizev2alpha1.ReviewStatusApproved, otterizev2alpha1.ReviewStatusDenied)
+
 		if intentsCopy.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved {
 			return r.createApprovedIntents(ctx, *intentsCopy)
 		}
@@ -306,15 +307,17 @@ func (*IntentsReconciler) InitReviewStatusIndex(mgr ctrl.Manager) error {
 		})
 }
 
-func (r *IntentsReconciler) setPendingReviewStatus(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+func (r *IntentsReconciler) updateClientIntentsStatus(ctx context.Context, intents otterizev2alpha1.ClientIntents, status otterizev2alpha1.ReviewStatus) error {
 	intentsCopy := intents.DeepCopy()
-	intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusPending
+	intentsCopy.Status.ReviewStatus = status
 	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
 		return errors.Wrap(err)
 	}
 
 	return nil
 }
+
+func (r *IntentsReconciler)
 
 func newIntentsApprovalHistoryHash(intent graphqlclient.IntentInput) (uuid.UUID, error) {
 	return uuid.NewMD5(uuid.UUID{}, []byte(lo.FromPtr(intent.Namespace)+lo.FromPtr(intent.ClientName)+lo.FromPtr(intent.ServerName))), nil
