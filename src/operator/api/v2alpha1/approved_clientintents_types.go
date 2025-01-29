@@ -172,7 +172,7 @@ func (in *ApprovedClientIntentsList) FormatAsOtterizeIntents(ctx context.Context
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
-			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
+			statusInput, ok, err := approvedClientIntentsStatusToCloudFormat(clientIntents, intent)
 			if err != nil {
 				return nil, errors.Wrap(err)
 			}
@@ -188,43 +188,53 @@ func (in *ApprovedClientIntentsList) FormatAsOtterizeIntents(ctx context.Context
 	return otterizeIntents, nil
 }
 
-func clientIntentsStatusToCloudFormat(clientIntents ApprovedClientIntents, intent Target) (*graphqlclient.IntentStatusInput, bool, error) {
+func approvedClientIntentsStatusToCloudFormat(approvedClientIntents ApprovedClientIntents, intent Target) (*graphqlclient.IntentStatusInput, bool, error) {
 	status := graphqlclient.IntentStatusInput{
 		IstioStatus: &graphqlclient.IstioStatusInput{},
 	}
 
-	serviceAccountName, ok := clientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
+	serviceAccountName, ok := approvedClientIntents.Annotations[OtterizeClientServiceAccountAnnotation]
 	if !ok {
 		// Status is not set, nothing to do
 		return nil, false, nil
 	}
 
 	status.IstioStatus.ServiceAccountName = toPtrOrNil(serviceAccountName)
-	isSharedValue, ok := clientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
+	isSharedValue, ok := approvedClientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
 	if !ok {
-		return nil, false, errors.Errorf("missing annotation shared service account for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("missing annotation shared service account for client intents %s", approvedClientIntents.Name)
 	}
 
 	isShared, err := strconv.ParseBool(isSharedValue)
 	if err != nil {
-		return nil, false, errors.Errorf("failed to parse shared service account annotation for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("failed to parse shared service account annotation for client intents %s", approvedClientIntents.Name)
 	}
 	status.IstioStatus.IsServiceAccountShared = lo.ToPtr(isShared)
 
-	clientMissingSidecarValue, ok := clientIntents.Annotations[OtterizeMissingSidecarAnnotation]
+	clientMissingSidecarValue, ok := approvedClientIntents.Annotations[OtterizeMissingSidecarAnnotation]
 	if !ok {
-		return nil, false, errors.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("missing annotation missing sidecar for client intents %s", approvedClientIntents.Name)
 	}
 
 	clientMissingSidecar, err := strconv.ParseBool(clientMissingSidecarValue)
 	if err != nil {
-		return nil, false, errors.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
+		return nil, false, errors.Errorf("failed to parse missing sidecar annotation for client intents %s", approvedClientIntents.Name)
 	}
 	status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(clientMissingSidecar)
-	isServerMissingSidecar, err := clientIntents.IsServerMissingSidecar(intent)
+	isServerMissingSidecar, err := approvedClientIntents.IsServerMissingSidecar(intent)
 	if err != nil {
 		return nil, false, errors.Wrap(err)
 	}
 	status.IstioStatus.IsServerMissingSidecar = lo.ToPtr(isServerMissingSidecar)
 	return &status, true, nil
+}
+
+func (in *ApprovedClientIntents) IsServerMissingSidecar(intent Target) (bool, error) {
+	serversSet, err := in.GetServersWithoutSidecar()
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+	identity := intent.ToServiceIdentity(in.Namespace)
+	serverIdentity := identity.GetFormattedOtterizeIdentityWithoutKind()
+	return serversSet.Has(serverIdentity), nil
 }
