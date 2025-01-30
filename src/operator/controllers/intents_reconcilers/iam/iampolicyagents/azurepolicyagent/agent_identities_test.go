@@ -2,6 +2,7 @@ package azurepolicyagent
 
 import (
 	"context"
+	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
@@ -115,6 +116,12 @@ func (s *AzureAgentIdentitiesSuite) expectDeleteRoleAssignmentSuccess(scope stri
 	)
 }
 
+func (s *AzureAgentIdentitiesSuite) expectDeleteCustomRoleDefinitionSuccess(roleDefinitionID string) {
+	s.mockRoleDefinitionsClient.EXPECT().Delete(gomock.Any(), gomock.Any(), roleDefinitionID, nil).Return(
+		armauthorization.RoleDefinitionsClientDeleteResponse{}, nil,
+	)
+}
+
 func (s *AzureAgentIdentitiesSuite) expectListSubscriptionsReturnsPager() {
 	s.mockSubscriptionsClient.EXPECT().NewListPager(nil).Return(azureagent.NewListPager[armsubscriptions.ClientListResponse](
 		armsubscriptions.ClientListResponse{
@@ -145,7 +152,11 @@ func (s *AzureAgentIdentitiesSuite) expectDeleteUserAssignedIdentitiesSuccess() 
 
 func (s *AzureAgentIdentitiesSuite) TestDeleteUserAssignedIdentityWithRoles() {
 	clientId := uuid.NewString()
-	scope := "scope-1"
+
+	roleID := "custom-role-id"
+	scope := fmt.Sprintf("/subscription/%s", testSubscriptionID)
+	fullRoleID := fmt.Sprintf("/subscription/%s/role/%s", testSubscriptionID, roleID)
+
 	s.expectGetUserAssignedIdentityReturnsClientID(clientId)
 
 	// 1 role assigned to the identity
@@ -154,8 +165,10 @@ func (s *AzureAgentIdentitiesSuite) TestDeleteUserAssignedIdentityWithRoles() {
 			ID:   to.Ptr("role-assignment-1"),
 			Name: to.Ptr("role-assignment-1"),
 			Properties: &armauthorization.RoleAssignmentProperties{
-				PrincipalID: to.Ptr(clientId),
-				Scope:       &scope,
+				PrincipalID:      to.Ptr(clientId),
+				Scope:            &scope,
+				Description:      lo.ToPtr(azureagent.OtterizeRoleAssignmentTag),
+				RoleDefinitionID: lo.ToPtr(fullRoleID),
 			},
 		},
 	})
@@ -163,6 +176,8 @@ func (s *AzureAgentIdentitiesSuite) TestDeleteUserAssignedIdentityWithRoles() {
 	s.expectListSubscriptionsReturnsPager()
 
 	s.expectDeleteRoleAssignmentSuccess(scope)
+	s.expectDeleteCustomRoleDefinitionSuccess(roleID)
+
 	s.expectDeleteFederatedIdentityCredentialsSuccess()
 	s.expectDeleteUserAssignedIdentitiesSuccess()
 

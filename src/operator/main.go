@@ -303,7 +303,7 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize Azure agent")
 		}
-		azureIntentsAgent := azurepolicyagent.NewAzurePolicyAgent(azureAgent)
+		azureIntentsAgent := azurepolicyagent.NewAzurePolicyAgent(signalHandlerCtx, azureAgent)
 
 		iamAgents = append(iamAgents, azureIntentsAgent)
 	}
