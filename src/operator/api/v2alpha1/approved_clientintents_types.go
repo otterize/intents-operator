@@ -60,6 +60,17 @@ func (in *ApprovedClientIntentsList) DeepCopyObject() runtime.Object {
 }
 
 type ApprovedClientIntentsStatus struct {
+	// upToDate field reflects whether the client intents have successfully been applied
+	// to the cluster to the state specified
+	// +optional
+	UpToDate bool `json:"upToDate"`
+	// The last generation of the intents that was successfully reconciled.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration"`
+	// ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
+	// +optional
+	ResolvedIPs []ResolvedIPs `json:"resolvedIPs,omitempty" yaml:"resolvedIPs,omitempty"`
+	// ReviewStatus stores the review status for these ClientIntents (whether they were approved, denied, or pending)
 	PolicyStatus PolicyStatus `json:"policyStatus,omitempty" yaml:"policyStatus,omitempty"`
 }
 
