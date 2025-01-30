@@ -64,6 +64,7 @@ func (a *Agent) CleanupCustomRoles(ctx context.Context) error {
 			roleScope := a.GetSubscriptionScope(roleID)
 			roleDefinitionID := roleID[strings.LastIndex(roleID, "/")+1:]
 
+			logrus.Warnf("Deleting custom role %s", roleID)
 			err := a.DeleteCustomRole(ctx, roleScope, roleDefinitionID)
 			if err != nil {
 				return errors.Wrap(err)
