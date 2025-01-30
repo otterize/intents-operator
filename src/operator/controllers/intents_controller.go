@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -244,28 +243,11 @@ func (r *IntentsReconciler) queryApprovalStatus(ctx context.Context) error {
 		logrus.Info("No intents pending review")
 		return nil
 	}
-	// Convert to GQL intents && hash the entire JSON before checking for approval status
-	intentsInput, err := clientIntentsList.FormatAsOtterizeIntents(ctx, r.client)
-	if err != nil {
-		logrus.WithError(err).Error("periodic intents approval query failed")
-		return errors.Wrap(err)
-	}
-	// TODO: Make this better
-	namespacedWorkloadToIntents := map[string]otterizev2alpha1.ClientIntents{}
-	for _, intent := range clientIntentsList.Items {
-		namespacedWorkloadToIntents[fmt.Sprintf("%s.%s", intent.GetWorkloadName(), intent.Namespace)] = intent
-	}
-	// TODO: /Make this better
-	contentHashToIntent := lo.SliceToMap(intentsInput, func(intent *graphqlclient.IntentInput) (string, *graphqlclient.IntentInput) {
-		id, err := newIntentsApprovalHistoryHash(*intent)
-		if err != nil {
-			logrus.WithError(err).Error("failed to generate intent hash")
-			return "", nil
-		}
-		return id.String(), intent
+	resourceUIDToIntent := lo.SliceToMap(clientIntentsList.Items, func(intent otterizev2alpha1.ClientIntents) (string, otterizev2alpha1.ClientIntents) {
+		return string(intent.UID), intent
 	})
 
-	result, err := r.cloudClient.GetIntentsApprovalHistory(ctx, lo.Keys(contentHashToIntent))
+	result, err := r.cloudClient.GetIntentsApprovalHistory(ctx, lo.Keys(resourceUIDToIntent))
 	if err != nil {
 		logrus.WithError(err).Error("periodic intents approval query failed")
 		return errors.Wrap(err)
@@ -273,24 +255,26 @@ func (r *IntentsReconciler) queryApprovalStatus(ctx context.Context) error {
 	if len(result) == 0 {
 		return nil
 	}
-	return r.handleApprovalUpdates(ctx, result, contentHashToIntent, namespacedWorkloadToIntents)
+	return r.handleApprovalUpdates(ctx, result, resourceUIDToIntent)
 }
 
-func (r *IntentsReconciler) handleApprovalUpdates(ctx context.Context, approvalUpdates []operator_cloud_client.IntentsApprovalResult, contentHashToIntent map[string]*graphqlclient.IntentInput, namespacedWorkloadToIntents map[string]otterizev2alpha1.ClientIntents) error {
+func (r *IntentsReconciler) handleApprovalUpdates(ctx context.Context, approvalUpdates []operator_cloud_client.IntentsApprovalResult, resourceUIDToIntent map[string]otterizev2alpha1.ClientIntents) error {
 	for _, update := range approvalUpdates {
 		if update.Status == graphqlclient.AccessRequestStatusPending {
 			continue
 		}
-		intentInput, ok := contentHashToIntent[update.ID]
+		clientIntents, ok := resourceUIDToIntent[update.ID]
 		if !ok {
 			continue // Should not happen
 		}
-		clientIntentsResource := namespacedWorkloadToIntents[getNamespacedWorkload(*intentInput)]
-		intentsCopy := clientIntentsResource.DeepCopy()
+		// Check the GQL status that returned and update the K8s status accordingly
 		reviewStatus := lo.Ternary(update.Status == graphqlclient.AccessRequestStatusApproved, otterizev2alpha1.ReviewStatusApproved, otterizev2alpha1.ReviewStatusDenied)
+		if err := r.updateClientIntentsStatus(ctx, clientIntents, reviewStatus); err != nil {
+			return errors.Wrap(err)
+		}
 
-		if intentsCopy.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved {
-			return r.createApprovedIntents(ctx, *intentsCopy)
+		if update.Status == graphqlclient.AccessRequestStatusApproved {
+			return r.createApprovedIntents(ctx, clientIntents)
 		}
 	}
 	return nil
@@ -315,13 +299,6 @@ func (r *IntentsReconciler) updateClientIntentsStatus(ctx context.Context, inten
 	}
 
 	return nil
-}
-
-func (r *IntentsReconciler)
-
-func newIntentsApprovalHistoryHash(intent graphqlclient.IntentInput) (uuid.UUID, error) {
-	return uuid.NewMD5(uuid.UUID{}, []byte(lo.FromPtr(intent.Namespace)+lo.FromPtr(intent.ClientName)+lo.FromPtr(intent.ServerName))), nil
-
 }
 
 func getNamespacedWorkload(intent graphqlclient.IntentInput) string {
