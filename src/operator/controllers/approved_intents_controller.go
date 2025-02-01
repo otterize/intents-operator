@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -89,8 +90,40 @@ func NewApprovedIntentsReconciler(
 func (r *ApprovedIntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	health.UpdateLastReconcileStartTime()
 
-	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 60*time.Second, errors.Errorf("timeout while reconciling approved client intents %s", req.NamespacedName))
+	approvedClientIntents := &otterizev2alpha1.ApprovedClientIntents{}
+
+	err := r.client.Get(ctx, req.NamespacedName, approvedClientIntents)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
+	if approvedClientIntents.Status.UpToDate != false && approvedClientIntents.Status.ObservedGeneration != approvedClientIntents.Generation {
+		intentsCopy := approvedClientIntents.DeepCopy()
+		intentsCopy.Status.UpToDate = false
+		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(approvedClientIntents)); err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+		// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
+		// and that we don't trigger an infinite loop
+		return ctrl.Result{}, nil
+	}
+
+	health.UpdateLastReconcileStartTime()
+
+	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 60*time.Second, errors.Errorf("timeout while reconciling client intents %s", req.NamespacedName))
 	defer cancel()
+
+	if approvedClientIntents.DeletionTimestamp == nil {
+		intentsCopy := approvedClientIntents.DeepCopy()
+		intentsCopy.Status.UpToDate = true
+		intentsCopy.Status.ObservedGeneration = intentsCopy.Generation
+		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(approvedClientIntents)); err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+	}
 
 	result, err := r.group.Reconcile(timeoutCtx, req)
 	if err != nil {
