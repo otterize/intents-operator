@@ -14,27 +14,27 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"time"
 )
 
-func StartPeriodicCloudReports(ctx context.Context, client CloudClient, kubeClient client.Client) {
+func StartPeriodicCloudReports(ctx context.Context, client CloudClient, mgr manager.Manager) {
 	statusReportInterval := viper.GetInt(otterizecloudclient.ComponentReportIntervalKey)
 	configReportInterval := viper.GetInt(otterizecloudclient.OperatorConfigReportIntervalKey)
 
 	go func() {
 		defer errorreporter.AutoNotify()
-		runPeriodicReportConnection(ctx, statusReportInterval, configReportInterval, client, kubeClient)
+		runPeriodicReportConnection(ctx, statusReportInterval, configReportInterval, client, mgr)
 	}()
 }
 
-func runPeriodicReportConnection(ctx context.Context, statusInterval int, configReportInterval int, client CloudClient, kubeClient client.Client) {
+func runPeriodicReportConnection(ctx context.Context, statusInterval int, configReportInterval int, client CloudClient, mgr manager.Manager) {
 	cloudUploadTicker := time.NewTicker(time.Second * time.Duration(statusInterval))
 	configUploadTicker := time.NewTicker(time.Second * time.Duration(configReportInterval))
 
 	logrus.Info("Starting cloud connection ticker")
 	reportStatus(ctx, client)
-	uploadConfiguration(ctx, client, kubeClient)
+	uploadConfiguration(ctx, client, mgr)
 
 	for {
 		select {
@@ -42,7 +42,7 @@ func runPeriodicReportConnection(ctx context.Context, statusInterval int, config
 			reportStatus(ctx, client)
 
 		case <-configUploadTicker.C:
-			uploadConfiguration(ctx, client, kubeClient)
+			uploadConfiguration(ctx, client, mgr)
 
 		case <-ctx.Done():
 			logrus.Info("Periodic upload exit")
@@ -71,25 +71,35 @@ func getAllowExternalConfig() graphqlclient.AllowExternalTrafficPolicy {
 	}
 }
 
-func uploadConfiguration(ctx context.Context, client CloudClient, kubeClient client.Client) {
+func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Manager) {
 	ingressConfigIdentities := operatorconfig.GetIngressControllerServiceIdentities()
 	externallyManagedPolicyWorkloadIdentities := operatorconfig.GetExternallyManagedPoliciesServiceIdentities()
 	enforcementConfig := enforcement.GetConfig()
 	timeoutCtx, cancel := context.WithTimeout(ctx, viper.GetDuration(otterizecloudclient.CloudClientTimeoutKey))
 	defer cancel()
 
-	// This has to be checked here rather in the enforcement config, because the enforcement config will not be updated if Istio is installed after the fact
-	isIstioInstalled, err := istiopolicy.IsIstioAuthorizationPoliciesInstalled(ctx, kubeClient)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to check if Istio CRDs are installed, assuming yes")
-		isIstioInstalled = true
-		// Intentionally no return here, as we want to report the configuration even if the check failed
+	// Cache must be ready before we attempt to read Istio/Linekrd state.
+	synced := mgr.GetCache().WaitForCacheSync(timeoutCtx)
+	if !synced {
+		if timeoutCtx.Err() != nil {
+			logrus.Error("Failed to sync cache due to deadline exceeded, not reporting configuration, will retry in 60s")
+			return
+		}
+		logrus.Error("Failed to sync cache, not reporting configuration, will retry in 60s")
+		return
 	}
 
-	isLinkerdInstalled, err := linkerdmanager.IsLinkerdInstalled(ctx, kubeClient)
+	// This has to be checked here rather in the enforcement config, because the enforcement config will not be updated if Istio is installed after the fact
+	isIstioInstalled, err := istiopolicy.IsIstioAuthorizationPoliciesInstalled(ctx, mgr.GetClient())
+	if err != nil {
+		logrus.WithError(err).Error("Failed to check if Istio CRDs are installed, assuming yes")
+		return
+	}
+
+	isLinkerdInstalled, err := linkerdmanager.IsLinkerdInstalled(ctx, mgr.GetClient())
 	if err != nil {
 		logrus.WithError(err).Error("Failed to check if Linkerd CRDs exist, assuming yes")
-		isLinkerdInstalled = true
+		return
 	}
 
 	configInput := graphqlclient.IntentsOperatorConfigurationInput{
