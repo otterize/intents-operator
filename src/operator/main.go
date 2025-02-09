@@ -552,7 +552,7 @@ func main() {
 	}
 
 	logrus.Info("starting manager")
-	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 0)
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 1)
 	telemetrysender.IntentsOperatorRunActiveReporter(signalHandlerCtx)
 
 	if err := mgr.Start(signalHandlerCtx); err != nil {
