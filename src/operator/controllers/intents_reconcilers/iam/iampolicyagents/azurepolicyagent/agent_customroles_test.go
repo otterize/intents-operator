@@ -3,6 +3,8 @@ package azurepolicyagent
 import (
 	"context"
 	"fmt"
+	armerrros "github.com/Azure/azure-sdk-for-go-extensions/pkg/errors"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
@@ -11,6 +13,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/google/uuid"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	mock_azureagent "github.com/otterize/intents-operator/src/shared/azureagent/mocks"
 	"github.com/samber/lo"
@@ -127,6 +130,14 @@ func (s *AzureAgentPoliciesCustomRolesSuite) expectGetUserAssignedIdentityReturn
 				},
 			},
 		}, nil)
+}
+
+func (s *AzureAgentPoliciesCustomRolesSuite) expectGetUserAssignedIdentityReturnsNotFoundError() {
+	notFoundError := &azcore.ResponseError{ErrorCode: armerrros.ResourceNotFound}
+	s.mockUserAssignedIdentitiesClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), nil).Return(
+		armmsi.UserAssignedIdentitiesClientGetResponse{},
+		notFoundError,
+	)
 }
 
 func (s *AzureAgentPoliciesCustomRolesSuite) expectListKeyVaultsReturnsEmpty() {
@@ -303,6 +314,21 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 			}
 		})
 	}
+}
+
+func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_IdentityNotFound() {
+	s.expectGetUserAssignedIdentityReturnsNotFoundError()
+
+	err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, nil, corev1.Pod{})
+	s.Require().ErrorIs(err, agentutils.ErrCloudIdentityNotFound)
+}
+
+func (s *AzureAgentPoliciesCustomRolesSuite) TestDeleteRolePolicyFromIntents_IdentityNotFound() {
+	s.expectGetUserAssignedIdentityReturnsNotFoundError()
+
+	intent := otterizev2alpha1.ClientIntents{Spec: &otterizev2alpha1.IntentsSpec{Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName}}}
+	err := s.agent.DeleteRolePolicyFromIntents(context.Background(), intent)
+	s.Require().ErrorIs(err, agentutils.ErrCloudIdentityNotFound)
 }
 
 func TestAzureAgentPoliciesCustomRolesSuite(t *testing.T) {

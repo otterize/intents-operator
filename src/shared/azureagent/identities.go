@@ -36,19 +36,17 @@ func (a *Agent) generateFederatedIdentityCredentialsName(namespace string, accou
 	return agentutils.TruncateHashName(fullName, maxFederatedIdentityLength)
 }
 
-var ErrUserIdentityNotFound = errors.NewSentinelError("user assigned identity not found")
-
-func (a *Agent) FindUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
+func (a *Agent) FindUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, bool, error) {
 	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)
 	userAssignedIdentity, err := a.userAssignedIdentitiesClient.Get(ctx, a.Conf.ResourceGroup, userAssignedIdentityName, nil)
 	if err != nil {
 		if azureerrors.IsNotFoundErr(err) {
-			return armmsi.Identity{}, errors.Wrap(ErrUserIdentityNotFound)
+			return armmsi.Identity{}, false, nil
 		}
-		return armmsi.Identity{}, errors.Wrap(err)
+		return armmsi.Identity{}, false, errors.Wrap(err)
 	}
 
-	return userAssignedIdentity.Identity, nil
+	return userAssignedIdentity.Identity, true, nil
 }
 
 func (a *Agent) GetOrCreateUserAssignedIdentity(ctx context.Context, namespace string, accountName string) (armmsi.Identity, error) {
@@ -99,15 +97,15 @@ func (a *Agent) DeleteUserAssignedIdentity(ctx context.Context, namespace string
 	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)
 	federatedIdentityCredentialsName := a.generateFederatedIdentityCredentialsName(namespace, accountName)
 
-	// Delete roles assigned to the identity
-	identity, err := a.FindUserAssignedIdentity(ctx, namespace, accountName)
+	identity, exists, err := a.FindUserAssignedIdentity(ctx, namespace, accountName)
 	if err != nil {
-		if errors.Is(err, ErrUserIdentityNotFound) {
-			return nil
-		}
 		return errors.Wrap(err)
 	}
+	if !exists {
+		return nil
+	}
 
+	// Delete roles assigned to the identity
 	roleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, &identity)
 	if err != nil {
 		return errors.Wrap(err)
