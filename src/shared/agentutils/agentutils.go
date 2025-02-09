@@ -12,7 +12,7 @@ const (
 	truncatedHashLength = 6
 )
 
-var ErrRoleNotFound = errors.NewSentinelError("role not found")
+var ErrCloudIdentityNotFound = errors.NewSentinelError("cloud identity/role not found")
 
 // TruncateHashName truncates the given name to the given max length and appends a hash to it.
 func TruncateHashName(fullName string, maxLen int) string {

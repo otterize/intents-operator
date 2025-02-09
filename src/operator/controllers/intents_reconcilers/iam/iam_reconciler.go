@@ -59,6 +59,10 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 
 		err := r.agent.DeleteRolePolicyFromIntents(ctx, intents)
 		if err != nil {
+			// ignore not found when deleting - credential operator cleans up the dependencies when deleting the role
+			if errors.Is(err, agentutils.ErrCloudIdentityNotFound) {
+				return ctrl.Result{}, nil
+			}
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 
@@ -84,7 +88,8 @@ func (r *IAMIntentsReconciler) Reconcile(ctx context.Context, req reconcile.Requ
 	}
 
 	if err := r.applyTypedIAMIntents(ctx, pod, intents, r.agent); err != nil {
-		if errors.Is(err, agentutils.ErrRoleNotFound) {
+		// requeue if role not found - means the credentials operator deleted it and cleaned up the dependencies
+		if errors.Is(err, agentutils.ErrCloudIdentityNotFound) {
 			return ctrl.Result{Requeue: true}, nil
 		}
 		return ctrl.Result{}, errors.Wrap(err)

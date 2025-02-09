@@ -9,6 +9,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/amit7itz/goset"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
@@ -75,9 +76,12 @@ func (a *Agent) getIntentScope(ctx context.Context, intent otterizev2alpha1.Targ
 }
 
 func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, _ string, intentsServiceName string, intents []otterizev2alpha1.Target, _ corev1.Pod) error {
-	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, namespace, intentsServiceName)
+	userAssignedIdentity, exists, err := a.FindUserAssignedIdentity(ctx, namespace, intentsServiceName)
 	if err != nil {
 		return errors.Wrap(err)
+	}
+	if !exists {
+		return errors.Errorf("%w: %s-%s", agentutils.ErrCloudIdentityNotFound, namespace, intentsServiceName)
 	}
 
 	// Custom roles
@@ -209,12 +213,13 @@ func (a *Agent) deleteRoleAssignmentsWithUnexpectedScopes(ctx context.Context, e
 }
 
 func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
-	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, intents.Namespace, intents.Spec.Workload.Name)
+	accountName := intents.Spec.Workload.Name
+	userAssignedIdentity, exists, err := a.FindUserAssignedIdentity(ctx, intents.Namespace, accountName)
 	if err != nil {
-		if errors.Is(err, azureagent.ErrUserIdentityNotFound) {
-			return nil
-		}
 		return errors.Wrap(err)
+	}
+	if !exists {
+		return errors.Errorf("%w: %s-%s", agentutils.ErrCloudIdentityNotFound, intents.Namespace, accountName)
 	}
 
 	existingRoleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, &userAssignedIdentity)
