@@ -95,7 +95,7 @@ func (s *AnnotationIntentsTestSuite) TestGetIntentsForService() {
 	clientB := serviceidentity.ServiceIdentity{Name: "client-b", Namespace: "namespace-b", Kind: "Deployment"}
 	clientC := serviceidentity.ServiceIdentity{Name: "client-c", Namespace: "namespace-b", Kind: "StatefulSet"}
 
-	annotationIntents, err := GetIntentsInCluster(context.Background(), s.Client, s.serviceResolver, s.injectableRecorder)
+	annotationIntents, err := GetAllAdditionalAccessFromCluster(context.Background(), s.Client, s.serviceResolver, s.injectableRecorder)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(annotationIntents)
 
@@ -179,7 +179,7 @@ func (s *AnnotationIntentsTestSuite) TestGetIntentsOneHasError() {
 		return nil
 	})
 
-	annotationIntents, err := GetIntentsInCluster(context.Background(), s.Client, s.serviceResolver, s.injectableRecorder)
+	annotationIntents, err := GetAllAdditionalAccessFromCluster(context.Background(), s.Client, s.serviceResolver, s.injectableRecorder)
 	s.Require().Error(err)
 	s.Require().Empty(annotationIntents)
 }
@@ -210,7 +210,7 @@ func (s *AnnotationIntentsTestSuite) TestPodEventsRecorder() {
 	server := serviceidentity.ServiceIdentity{Name: "server-b", Namespace: "namespace-a"}
 	s.serviceResolver.EXPECT().ResolvePodToServiceIdentity(gomock.Any(), &podsList[0]).Return(server, nil)
 
-	annotationIntents, err := GetIntentsInCluster(context.Background(), s.Client, s.serviceResolver, s.injectableRecorder)
+	annotationIntents, err := GetAllAdditionalAccessFromCluster(context.Background(), s.Client, s.serviceResolver, s.injectableRecorder)
 	s.Require().NoError(err)
 
 	intents, ok := annotationIntents.IntentsByServer[server]
@@ -269,7 +269,7 @@ func (s *AnnotationIntentsTestSuite) TestGetIntentsHasEmptyPods() {
 
 	s.serviceResolver.EXPECT().ResolvePodToServiceIdentity(gomock.Any(), &validPod).Return(serviceidentity.ServiceIdentity{Name: "server-a", Namespace: "namespace-a"}, nil)
 
-	annotationIntents, err := GetIntentsInCluster(context.Background(), s.Client, s.serviceResolver, s.injectableRecorder)
+	annotationIntents, err := GetAllAdditionalAccessFromCluster(context.Background(), s.Client, s.serviceResolver, s.injectableRecorder)
 	s.Require().NoError(err)
 	s.Require().Len(annotationIntents.IntentsByServer, 1)
 	s.Require().Len(annotationIntents.IntentsByClient, 1)

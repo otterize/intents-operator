@@ -6,42 +6,42 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
+	"github.com/otterize/nilable"
 	"github.com/samber/lo"
 	v1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type AnnotationIntent struct {
-	Client        serviceidentity.ServiceIdentity
+type AdditionalAccess struct {
+	// Client is not required - if not set, all access is allowed.
+	Client        nilable.Nilable[serviceidentity.ServiceIdentity]
 	Server        serviceidentity.ServiceIdentity
 	EventRecorder *injectablerecorder.ObjectEventRecorder
 }
 
-type IntentsByService map[serviceidentity.ServiceIdentity][]AnnotationIntent
-
-type AnnotationIntents struct {
-	IntentsByServer IntentsByService
-	IntentsByClient IntentsByService
+type AllAdditionalAccess struct {
+	IntentsByServer map[serviceidentity.ServiceIdentity][]AdditionalAccess
+	IntentsByClient map[serviceidentity.ServiceIdentity][]AdditionalAccess
 }
 
 type ServiceIdResolver interface {
 	ResolvePodToServiceIdentity(ctx context.Context, pod *v1.Pod) (serviceidentity.ServiceIdentity, error)
 }
 
-func GetIntentsInCluster(
+func GetAllAdditionalAccessFromCluster(
 	ctx context.Context,
 	k8sClient client.Client,
 	serviceIdResolver ServiceIdResolver,
 	recorder *injectablerecorder.InjectableRecorder,
-) (AnnotationIntents, error) {
-	annotationIntents := AnnotationIntents{
-		IntentsByServer: make(IntentsByService),
-		IntentsByClient: make(IntentsByService),
+) (AllAdditionalAccess, error) {
+	annotationIntents := AllAdditionalAccess{
+		IntentsByServer: make(map[serviceidentity.ServiceIdentity][]AdditionalAccess),
+		IntentsByClient: make(map[serviceidentity.ServiceIdentity][]AdditionalAccess),
 	}
 
 	podList, err := getAllAnnotationIntentsServers(ctx, k8sClient)
 	if err != nil {
-		return AnnotationIntents{}, errors.Wrap(err)
+		return AllAdditionalAccess{}, errors.Wrap(err)
 	}
 
 	for _, pod := range podList.Items {
@@ -49,19 +49,19 @@ func GetIntentsInCluster(
 			continue
 		}
 
-		clients, ok, err := ParseAccessAnnotations(&pod)
+		clients, ok, err := ParseAdditionalAccess(&pod)
 		if err != nil {
-			return AnnotationIntents{}, errors.Wrap(err)
+			return AllAdditionalAccess{}, errors.Wrap(err)
 		}
 		if !ok {
 			continue
 		}
 		serverIdentity, err := serviceIdResolver.ResolvePodToServiceIdentity(ctx, &pod)
 		if err != nil {
-			return AnnotationIntents{}, errors.Wrap(err)
+			return AllAdditionalAccess{}, errors.Wrap(err)
 		}
 		for _, clientIdentity := range clients {
-			intent := AnnotationIntent{
+			intent := AdditionalAccess{
 				Client:        clientIdentity,
 				Server:        serverIdentity,
 				EventRecorder: injectablerecorder.NewObjectEventRecorder(recorder, lo.ToPtr(pod)),
@@ -85,11 +85,11 @@ func getAllAnnotationIntentsServers(ctx context.Context, k8sClient client.Client
 	return podList, nil
 }
 
-func (a *AnnotationIntents) addIntent(intent AnnotationIntent) {
+func (a *AllAdditionalAccess) addIntent(intent AdditionalAccess) {
 	serverIdentity := intent.Server
 	existing, ok := a.IntentsByServer[serverIdentity]
 	if !ok {
-		existing = make([]AnnotationIntent, 0)
+		existing = make([]AdditionalAccess, 0)
 	}
 	existing = append(existing, intent)
 	a.IntentsByServer[serverIdentity] = existing
@@ -97,7 +97,7 @@ func (a *AnnotationIntents) addIntent(intent AnnotationIntent) {
 	clientIdentity := intent.Client
 	existing, ok = a.IntentsByClient[clientIdentity]
 	if !ok {
-		existing = make([]AnnotationIntent, 0)
+		existing = make([]AdditionalAccess, 0)
 	}
 	existing = append(existing, intent)
 	a.IntentsByClient[clientIdentity] = existing

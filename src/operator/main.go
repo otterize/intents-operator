@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"github.com/otterize/intents-operator/src/webhookserver"
 	"path"
 	"time"
 
@@ -73,8 +74,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -164,7 +163,7 @@ func main() {
 		Metrics: server.Options{
 			BindAddress: metricsAddr,
 		},
-		WebhookServer: webhook.NewServer(webhook.Options{
+		WebhookServer: webhookserver.NewServer(webhookserver.Options{
 			Port:    9443,
 			CertDir: webhooks.CertDirPath,
 		}),

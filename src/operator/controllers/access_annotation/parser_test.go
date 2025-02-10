@@ -110,7 +110,7 @@ func (s *PodAnnotationParserSuite) TestGetAccessAnnotationFromPod() {
 			},
 		},
 	}
-	client, ok, err := ParseAccessAnnotations(pod)
+	client, ok, err := ParseAdditionalAccess(pod)
 	s.Require().NoError(err)
 	s.Require().True(ok)
 	s.Require().Equal(2, len(client))
@@ -136,7 +136,7 @@ func (s *PodAnnotationParserSuite) TestPodWithoutAnnotation() {
 			},
 		},
 	}
-	client, ok, err := ParseAccessAnnotations(podWithOtherAnnotation)
+	client, ok, err := ParseAdditionalAccess(podWithOtherAnnotation)
 	s.Require().NoError(err)
 	s.Require().False(ok)
 	s.Require().Equal(0, len(client))
@@ -148,7 +148,7 @@ func (s *PodAnnotationParserSuite) TestPodWithoutAnnotation() {
 			Annotations: map[string]string{},
 		},
 	}
-	client, ok, err = ParseAccessAnnotations(podWithEmptyObject)
+	client, ok, err = ParseAdditionalAccess(podWithEmptyObject)
 	s.Require().NoError(err)
 	s.Require().False(ok)
 	s.Require().Equal(0, len(client))
@@ -160,7 +160,7 @@ func (s *PodAnnotationParserSuite) TestPodWithoutAnnotation() {
 			Annotations: nil,
 		},
 	}
-	client, ok, err = ParseAccessAnnotations(podWithNoAnnotations)
+	client, ok, err = ParseAdditionalAccess(podWithNoAnnotations)
 	s.Require().NoError(err)
 	s.Require().False(ok)
 	s.Require().Equal(0, len(client))

@@ -124,7 +124,7 @@ func (p *PodWatcher) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 
 func (p *PodWatcher) runServiceEffectivePolicy(ctx context.Context, pod v1.Pod) error {
 	// Run even if the pod is being deleted to remove intents if needed
-	_, ok, err := access_annotation.ParseAccessAnnotations(&pod)
+	_, ok, err := access_annotation.ParseAdditionalAccess(&pod)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -443,7 +443,7 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 			if pod.DeletionTimestamp != nil {
 				return []string{}
 			}
-			clients, ok, err := access_annotation.ParseAccessAnnotations(pod)
+			clients, ok, err := access_annotation.ParseAdditionalAccess(pod)
 			if err != nil {
 				logrus.WithError(err).Error("Failed to parse access annotation")
 				mgr.GetEventRecorderFor("intents-operator").Eventf(pod, "Warning", FailedParsingAnnotationEvent, annotationParsingErr(err))
@@ -472,7 +472,7 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 			if pod.DeletionTimestamp != nil {
 				return []string{}
 			}
-			_, ok, err := access_annotation.ParseAccessAnnotations(pod)
+			_, ok, err := access_annotation.ParseAdditionalAccess(pod)
 			if err != nil {
 				logrus.WithError(err).Error("Failed to parse access annotation")
 				mgr.GetEventRecorderFor("intents-operator").Eventf(pod, "Warning", FailedParsingAnnotationEvent, annotationParsingErr(err))
@@ -524,7 +524,7 @@ func (p *PodWatcher) PodsToRequests(ctx context.Context, obj client.Object) []re
 
 	// Explicitly generate requests for clients of this pod even if it's during deletion, Since those pods
 	// should get reconciled, but now the server access intents would be considered as deleted
-	clients, ok, err := access_annotation.ParseAccessAnnotations(pod)
+	clients, ok, err := access_annotation.ParseAdditionalAccess(pod)
 	if err != nil {
 		p.RecordAnnotationParsingErr(pod, err)
 		return requests

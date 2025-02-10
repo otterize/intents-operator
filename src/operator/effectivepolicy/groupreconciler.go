@@ -106,7 +106,7 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 		}
 	}
 
-	annotationIntents, err := access_annotation.GetIntentsInCluster(ctx, g.Client, g.serviceIdResolver, &g.InjectableRecorder)
+	annotationIntents, err := access_annotation.GetAllAdditionalAccessFromCluster(ctx, g.Client, g.serviceIdResolver, &g.InjectableRecorder)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -147,7 +147,7 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(
 	ctx context.Context,
 	service serviceidentity.ServiceIdentity,
 	serviceToIntent map[serviceidentity.ServiceIdentity]v2alpha1.ClientIntents,
-	intentsFromAnnotation access_annotation.AnnotationIntents,
+	intentsFromAnnotation access_annotation.AllAdditionalAccess,
 ) (ServiceEffectivePolicy, error) {
 	relevantClientIntents, err := g.getClientIntentsAsAServer(ctx, service)
 	if err != nil {
@@ -245,7 +245,7 @@ func (g *GroupReconciler) populateReferencedKubernetesServices(ctx context.Conte
 	return call, nil
 }
 
-func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []access_annotation.AnnotationIntent, serversFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []Call {
+func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []access_annotation.AdditionalAccess, serversFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []Call {
 	calls := make([]Call, 0)
 	for _, annotationIntent := range annotationsIntents {
 		if serversFoundInClientIntents.Contains(annotationIntent.Server) {
@@ -262,7 +262,7 @@ func (g *GroupReconciler) getAnnotationIntentsAsClient(annotationsIntents []acce
 	return calls
 }
 
-func asIntentTarget(annotationIntent access_annotation.AnnotationIntent) v2alpha1.Target {
+func asIntentTarget(annotationIntent access_annotation.AdditionalAccess) v2alpha1.Target {
 	return v2alpha1.Target{
 		Kubernetes: &v2alpha1.KubernetesTarget{
 			Name: annotationIntent.Server.GetNameAsServer(),
@@ -271,7 +271,7 @@ func asIntentTarget(annotationIntent access_annotation.AnnotationIntent) v2alpha
 	}
 }
 
-func (g *GroupReconciler) getAnnotationIntentsAsServer(service serviceidentity.ServiceIdentity, annotationsIntents []access_annotation.AnnotationIntent, clientsFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []ClientCall {
+func (g *GroupReconciler) getAnnotationIntentsAsServer(service serviceidentity.ServiceIdentity, annotationsIntents []access_annotation.AdditionalAccess, clientsFoundInClientIntents *goset.Set[serviceidentity.ServiceIdentity]) []ClientCall {
 	calledBy := make([]ClientCall, 0)
 	for _, annotationIntent := range annotationsIntents {
 		if clientsFoundInClientIntents.Contains(annotationIntent.Client) {

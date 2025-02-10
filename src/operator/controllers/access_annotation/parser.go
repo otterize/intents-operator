@@ -6,6 +6,7 @@ import (
 	otterizev1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
+	"github.com/otterize/nilable"
 	v1 "k8s.io/api/core/v1"
 	"strings"
 	"unicode"
@@ -16,49 +17,47 @@ type CalledByClient struct {
 	Kind string `json:"kind"`
 }
 
-type AnnotationIntentList struct {
-	Intents []CalledByClient `json:"intents"`
-}
-
-func ParseAccessAnnotations(pod *v1.Pod) ([]serviceidentity.ServiceIdentity, bool, error) {
+func ParseAdditionalAccess(pod *v1.Pod) ([]nilable.Nilable[serviceidentity.ServiceIdentity], bool, error) {
 	annotation := pod.GetAnnotations()
 	if annotation == nil {
-		return []serviceidentity.ServiceIdentity{}, false, nil
+		return nil, false, nil
 	}
 	value, ok := annotation[otterizev1alpha3.OtterizePodCalledByAnnotationKey]
 	if !ok {
-		return []serviceidentity.ServiceIdentity{}, false, nil
+		return nil, false, nil
 	}
 	clients, err := parseAnnotation(value)
 	if err != nil {
-		return []serviceidentity.ServiceIdentity{}, false, errors.Wrap(err)
+		return nil, false, errors.Wrap(err)
 	}
 	if len(clients) == 0 {
-		return []serviceidentity.ServiceIdentity{}, false, nil
+		return nil, false, nil
 	}
 	return clients, true, nil
 }
 
-func parseAnnotation(value string) ([]serviceidentity.ServiceIdentity, error) {
-	valueAsJSON := fmt.Sprintf("{\"intents\": %s}", value)
-	var annotationIntents AnnotationIntentList
-	err := json.Unmarshal([]byte(valueAsJSON), &annotationIntents)
+func parseAnnotation(value string) ([]nilable.Nilable[serviceidentity.ServiceIdentity], error) {
+	var annotationIntents []nilable.Nilable[CalledByClient]
+	err := json.Unmarshal([]byte(value), &annotationIntents)
 	if err != nil {
-		return []serviceidentity.ServiceIdentity{}, errors.Wrap(fmt.Errorf("failed to parse access annotation: %s", err))
+		return nil, errors.Errorf("failed to parse access annotation: %s", err)
 	}
 
-	identities := make([]serviceidentity.ServiceIdentity, 0)
-	for _, intent := range annotationIntents.Intents {
-		name, namespace, kind, err := parseName(intent.Name, intent.Kind)
+	identities := make([]nilable.Nilable[serviceidentity.ServiceIdentity], 0)
+	for _, intent := range annotationIntents {
+		if !intent.Set {
+			identities = append(identities, nilable.Nilable[serviceidentity.ServiceIdentity]{})
+		}
+		name, namespace, kind, err := parseName(intent.Item.Name, intent.Item.Kind)
 		if err != nil {
-			return []serviceidentity.ServiceIdentity{}, errors.Wrap(err)
+			return nil, errors.Wrap(err)
 		}
 		identity := serviceidentity.ServiceIdentity{
 			Name:      name,
 			Namespace: namespace,
 			Kind:      kind,
 		}
-		identities = append(identities, identity)
+		identities = append(identities, nilable.From(identity))
 	}
 	return identities, nil
 }
