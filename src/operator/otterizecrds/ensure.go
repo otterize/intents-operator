@@ -3,7 +3,9 @@ package otterizecrds
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/samber/lo"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -56,8 +58,11 @@ func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace s
 	if err != nil {
 		return errors.Errorf("failed to unmarshal ClientIntents CRD: %w", err)
 	}
-	crdToCreate.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = operatorNamespace
 	crdToCreate.Spec.Conversion.Webhook.ClientConfig.CABundle = certPem
+	x := fmt.Sprintf("https://host.minikube.internal:9443%s", lo.FromPtr(crdToCreate.Spec.Conversion.Webhook.ClientConfig.Service.Path))
+	crdToCreate.Spec.Conversion.Webhook.ClientConfig.URL = lo.ToPtr(x)
+	crdToCreate.Spec.Conversion.Webhook.ClientConfig.Service = nil
+	
 	crd := apiextensionsv1.CustomResourceDefinition{}
 	err = k8sClient.Get(ctx, types.NamespacedName{Name: crdToCreate.Name}, &crd)
 	if err != nil && !k8serrors.IsNotFound(err) {

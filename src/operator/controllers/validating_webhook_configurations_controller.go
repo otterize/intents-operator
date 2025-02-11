@@ -19,6 +19,7 @@ package controllers
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
@@ -77,6 +78,13 @@ func (r *ValidatingWebhookConfigsReconciler) Reconcile(ctx context.Context, req 
 	resourceCopy := webhookConfig.DeepCopy()
 	for i := range resourceCopy.Webhooks {
 		resourceCopy.Webhooks[i].ClientConfig.CABundle = r.certPEM
+		if resourceCopy.Webhooks[i].ClientConfig.Service == nil {
+			continue
+		}
+
+		resourceCopy.Webhooks[i].ClientConfig.URL = lo.ToPtr(fmt.Sprintf("https://host.minikube.internal:9443%s", lo.FromPtr(resourceCopy.Webhooks[i].ClientConfig.Service.Path)))
+		resourceCopy.Webhooks[i].ClientConfig.Service = nil
+
 	}
 
 	// Use optimistic locking to avoid using "mergeFrom" with an outdated resource

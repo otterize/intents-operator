@@ -19,6 +19,7 @@ package controllers
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/filters"
@@ -76,13 +77,16 @@ func (r *CustomResourceDefinitionsReconciler) Reconcile(ctx context.Context, req
 	if resourceCopy.Spec.Conversion == nil || resourceCopy.Spec.Conversion.Webhook == nil || resourceCopy.Spec.Conversion.Webhook.ClientConfig == nil || resourceCopy.Spec.Conversion.Webhook.ClientConfig.Service == nil {
 		return ctrl.Result{}, errors.Errorf("CRD does not contain a proper conversion webhook definition")
 	}
-	if bytes.Equal(crd.Spec.Conversion.Webhook.ClientConfig.CABundle, r.certPem) && crd.Spec.Conversion.Webhook.ClientConfig.Service.Namespace == r.namespace {
+	if bytes.Equal(crd.Spec.Conversion.Webhook.ClientConfig.CABundle, r.certPem) && ((crd.Spec.Conversion.Webhook.ClientConfig.Service != nil && crd.Spec.Conversion.Webhook.ClientConfig.Service.Namespace == r.namespace) || (crd.Spec.Conversion.Webhook.ClientConfig.Service == nil)) {
 		logrus.Infof("CustomResourceDefinition %s already has the correct CA bundle and namespace", resourceCopy.Name)
 		return ctrl.Result{}, nil
-
 	}
 	resourceCopy.Spec.Conversion.Webhook.ClientConfig.CABundle = r.certPem
-	resourceCopy.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = r.namespace
+	if resourceCopy.Spec.Conversion.Webhook.ClientConfig.Service != nil {
+		resourceCopy.Spec.Conversion.Webhook.ClientConfig.URL = lo.ToPtr(fmt.Sprintf("http://host.minikube.internal:9443/%s", lo.FromPtr(resourceCopy.Spec.Conversion.Webhook.ClientConfig.Service.Path)))
+	}
+
+	resourceCopy.Spec.Conversion.Webhook.ClientConfig.Service = nil
 
 	// Use optimistic locking to avoid using "mergeFrom" with an outdated resource
 	if err := r.Patch(ctx, resourceCopy, client.MergeFromWithOptions(crd, client.MergeFromWithOptimisticLock{})); err != nil {

@@ -364,7 +364,7 @@ func main() {
 	if selfSignedCert {
 		logrus.Infoln("Creating self signing certs")
 		certBundle, err :=
-			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
+			webhooks.GenerateSelfSignedCertificate("host.minikube.internal", podNamespace)
 		if err != nil {
 			logrus.WithError(err).Panic("unable to create self signed certs for webhook")
 		}
@@ -561,6 +561,7 @@ func main() {
 }
 
 func initWebhookValidators(mgr manager.Manager) {
+
 	intentsValidator := webhooks.NewIntentsValidatorV1alpha2(mgr.GetClient())
 	if err := (&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidator); err != nil {
 		logrus.WithError(err).Panic(err, "unable to create webhook for v1alpha2", "webhook", "ClientIntents")
