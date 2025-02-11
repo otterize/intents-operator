@@ -43,7 +43,7 @@ func (c Config) GetActualExternalTrafficPolicy() allowexternaltraffic.Enum {
 const (
 	ActiveEnforcementNamespacesKey              = "active-enforcement-namespaces" // When using the "shadow enforcement" mode, namespaces in this list will be treated as if the enforcement were active
 	AllowExternalTrafficKey                     = "allow-external-traffic"        // Whether to automatically create network policies for external traffic
-	AllowExternalTrafficDefault                 = allowexternaltraffic.IfBlockedByOtterize
+	AllowExternalTrafficDefault                 = string(allowexternaltraffic.IfBlockedByOtterize)
 	EnforcementDefaultStateKey                  = "enforcement-default-state" // Sets the default state of the  If true, always enforces. If false, can be overridden using ProtectedService.
 	EnforcementDefaultStateDefault              = true
 	EnableNetworkPolicyKey                      = "enable-network-policy-creation" // Whether to enable Intents network policy creation
@@ -91,7 +91,7 @@ func InitCLIFlags() {
 	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
 	pflag.Bool(EnableAWSPolicyKey, EnableAWSPolicyDefault, "Enable the AWS IAM reconciler")
 	allowExternalTrafficDefault := AllowExternalTrafficDefault
-	pflag.Var(&allowExternalTrafficDefault, AllowExternalTrafficKey, "Whether to automatically create network policies for external traffic")
+	pflag.String(allowExternalTrafficDefault, AllowExternalTrafficKey, "Whether to automatically create network policies for external traffic")
 }
 
 func GetConfig() Config {
