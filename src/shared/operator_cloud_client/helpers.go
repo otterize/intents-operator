@@ -1,20 +1,24 @@
 package operator_cloud_client
 
-import "github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
+import (
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
+	"time"
+)
 
-type IntentsApprovalResult struct {
-	ID     string
-	Reason string
-	Status graphqlclient.AccessRequestStatus
+type AppliedIntentsRequestStatus struct {
+	ID        string
+	Reason    string
+	Status    graphqlclient.AppliedIntentsRequestStatusLabel
+	Timestamp time.Time
 }
 
-func translateLatestApprovalHistoryModel(getApprovalHistoryResult []graphqlclient.GetIntentsApprovalHistoryGetIntentsApprovalHistoryAccessRequest) []IntentsApprovalResult {
-	result := make([]IntentsApprovalResult, 0)
-	for _, item := range getApprovalHistoryResult {
-		result = append(result, IntentsApprovalResult{
-			ID:     item.Id,
-			Reason: item.Reason,
-			Status: item.Status,
+func translateAppliedIntentsRequestsStatusModel(appliedIntentsRequestsStatuses []graphqlclient.GetAppliedIntentsRequestStatusAppliedIntentsRequestStatus) []AppliedIntentsRequestStatus {
+	result := make([]AppliedIntentsRequestStatus, 0)
+	for _, requestStatus := range appliedIntentsRequestsStatuses {
+		result = append(result, AppliedIntentsRequestStatus{
+			ID:     requestStatus.Id,
+			Reason: requestStatus.Reason,
+			Status: requestStatus.Status,
 		})
 	}
 

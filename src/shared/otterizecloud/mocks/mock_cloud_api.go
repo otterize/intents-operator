@@ -36,6 +36,21 @@ func (m *MockCloudClient) EXPECT() *MockCloudClientMockRecorder {
 	return m.recorder
 }
 
+// GetAppliedIntentsRequestsStatus mocks base method.
+func (m *MockCloudClient) GetAppliedIntentsRequestsStatus(ctx context.Context, ids []string) ([]operator_cloud_client.AppliedIntentsRequestStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAppliedIntentsRequestsStatus", ctx, ids)
+	ret0, _ := ret[0].([]operator_cloud_client.AppliedIntentsRequestStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAppliedIntentsRequestsStatus indicates an expected call of GetAppliedIntentsRequestsStatus.
+func (mr *MockCloudClientMockRecorder) GetAppliedIntentsRequestsStatus(ctx, ids interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedIntentsRequestsStatus", reflect.TypeOf((*MockCloudClient)(nil).GetAppliedIntentsRequestsStatus), ctx, ids)
+}
+
 // GetApprovalState mocks base method.
 func (m *MockCloudClient) GetApprovalState(ctx context.Context) (bool, error) {
 	m.ctrl.T.Helper()
@@ -49,21 +64,6 @@ func (m *MockCloudClient) GetApprovalState(ctx context.Context) (bool, error) {
 func (mr *MockCloudClientMockRecorder) GetApprovalState(ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApprovalState", reflect.TypeOf((*MockCloudClient)(nil).GetApprovalState), ctx)
-}
-
-// GetIntentsApprovalHistory mocks base method.
-func (m *MockCloudClient) GetIntentsApprovalHistory(ctx context.Context, ids []string) ([]operator_cloud_client.IntentsApprovalResult, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetIntentsApprovalHistory", ctx, ids)
-	ret0, _ := ret[0].([]operator_cloud_client.IntentsApprovalResult)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetIntentsApprovalHistory indicates an expected call of GetIntentsApprovalHistory.
-func (mr *MockCloudClientMockRecorder) GetIntentsApprovalHistory(ctx, ids interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIntentsApprovalHistory", reflect.TypeOf((*MockCloudClient)(nil).GetIntentsApprovalHistory), ctx, ids)
 }
 
 // ReportAppliedIntents mocks base method.
@@ -83,7 +83,7 @@ func (mr *MockCloudClientMockRecorder) ReportAppliedIntents(ctx, namespace, inte
 // ReportAppliedIntentsForApproval mocks base method.
 func (m *MockCloudClient) ReportAppliedIntentsForApproval(ctx context.Context, intents []*graphqlclient.IntentInput) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportAppliedIntentsForApproval", ctx, intents)
+	ret := m.ctrl.Call(m, "ReportAppliedIntentsRequest", ctx, intents)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -91,7 +91,7 @@ func (m *MockCloudClient) ReportAppliedIntentsForApproval(ctx context.Context, i
 // ReportAppliedIntentsForApproval indicates an expected call of ReportAppliedIntentsForApproval.
 func (mr *MockCloudClientMockRecorder) ReportAppliedIntentsForApproval(ctx, intents interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportAppliedIntentsForApproval", reflect.TypeOf((*MockCloudClient)(nil).ReportAppliedIntentsForApproval), ctx, intents)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportAppliedIntentsRequest", reflect.TypeOf((*MockCloudClient)(nil).ReportAppliedIntentsForApproval), ctx, intents)
 }
 
 // ReportClientIntentStatuses mocks base method.

@@ -70,7 +70,7 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 func (r *OtterizeCloudReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev2alpha1.ClientIntents{}).
+		For(&otterizev2alpha1.ApprovedClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 }

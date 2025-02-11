@@ -696,6 +696,35 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents(ctx context.Context, k8sCli
 	return otterizeIntents, nil
 }
 
+func (in *ClientIntentsList) FormatAsOtterizeIntentsRequests(ctx context.Context, k8sClient client.Client) ([]*graphqlclient.IntentRequestInput, error) {
+	otterizeIntents := make([]*graphqlclient.IntentRequestInput, 0)
+	for _, clientIntents := range in.Items {
+		for _, intent := range clientIntents.GetTargetList() {
+			clientServiceIdentity := clientIntents.ToServiceIdentity()
+			input, err := intent.ConvertToCloudFormat(ctx, k8sClient, clientServiceIdentity)
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+
+			input.Status = nil
+			if ok {
+				input.Status = statusInput
+			}
+
+			otterizeIntents = append(otterizeIntents, &graphqlclient.IntentRequestInput{
+				Intent:    input,
+				RequestID: string(clientIntents.UID),
+			})
+		}
+	}
+
+	return otterizeIntents, nil
+}
+
 func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Target) (*graphqlclient.IntentStatusInput, bool, error) {
 	status := graphqlclient.IntentStatusInput{
 		IstioStatus: &graphqlclient.IstioStatusInput{},

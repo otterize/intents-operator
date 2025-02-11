@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -56,18 +55,15 @@ type IntentsApprovalState struct {
 type IntentsApprover string
 
 const (
-	ApprovalMethodCloudApproval = "CloudApproval"
-	ApprovalMethodAutoApproval  = "AutoApproval" // auto approve, for operators not integrated with Otterize cloud
+	ApprovalMethodCloudApproval IntentsApprover = "CloudApproval"
+	ApprovalMethodAutoApproval  IntentsApprover = "AutoApproval" // auto approve, for operators not integrated with Otterize cloud
 )
 
 func NewIntentsReconciler(ctx context.Context, client client.Client, cloudClient operator_cloud_client.CloudClient) *IntentsReconciler {
-	approvalState := IntentsApprovalState{
-		mutex: &sync.Mutex{},
-	}
+	approvalState := IntentsApprovalState{mutex: &sync.Mutex{}}
+
 	intentsReconciler := &IntentsReconciler{client: client, cloudClient: cloudClient, approvalState: approvalState}
-	if err := intentsReconciler.InitIntentsApprovalState(ctx); err != nil {
-		logrus.WithError(err).Panic("failed to init intents approval state")
-	}
+	intentsReconciler.InitIntentsApprovalState(ctx)
 	return intentsReconciler
 }
 
@@ -99,7 +95,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	result, err := r.handleClientIntentsApproval(ctx, *intents)
+	result, err := r.handleClientIntentsRequests(ctx, *intents)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
@@ -107,14 +103,14 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	return result, nil
 }
 
-func (r *IntentsReconciler) handleClientIntentsApproval(ctx context.Context, intents otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+func (r *IntentsReconciler) handleClientIntentsRequests(ctx context.Context, intents otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
 	if !intents.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 	approvalMethod := r.approvalState.approvalMethod
 	switch approvalMethod {
 	case ApprovalMethodCloudApproval:
-		if err := r.handleCloudApprovalForIntents(ctx, intents); err != nil {
+		if err := r.handleCloudAppliedIntentsRequests(ctx, intents); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 	case ApprovalMethodAutoApproval:
@@ -125,25 +121,17 @@ func (r *IntentsReconciler) handleClientIntentsApproval(ctx context.Context, int
 	return ctrl.Result{}, nil
 }
 
-func (r *IntentsReconciler) InitIntentsApprovalState(ctx context.Context) error {
+func (r *IntentsReconciler) InitIntentsApprovalState(ctx context.Context) {
 	if r.cloudClient == nil {
 		r.approvalState.approvalMethod = ApprovalMethodAutoApproval
-		return nil
+		return
 	}
-	// Fetch initial approval status
+
 	r.approvalState.mutex.Lock()
 	defer r.approvalState.mutex.Unlock()
-	enabled, err := r.cloudClient.GetApprovalState(ctx)
-	if err != nil {
-		return errors.Wrap(err)
-	}
-	if !enabled {
-		r.approvalState.approvalMethod = ApprovalMethodAutoApproval
-	} else {
-		r.approvalState.approvalMethod = ApprovalMethodCloudApproval
-		go r.periodicIntentsApprovalLoop(ctx)
-	}
-	return nil
+
+	r.approvalState.approvalMethod = ApprovalMethodCloudApproval
+	go r.periodicQueryAppliedIntentsRequestsStatus(ctx)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -185,6 +173,8 @@ func (r *IntentsReconciler) handleAutoApprovalForIntents(ctx context.Context, in
 func (r *IntentsReconciler) createApprovedIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
 	approvedClientIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	approvedClientIntents.FromClientIntents(intents)
+
+	// TODO SAPIR: check whether after we've got an approved status, we should set the policy status to pending
 	approvedClientIntents.Status.PolicyStatus = otterizev2alpha1.PolicyStatusPending
 
 	if err := r.client.Create(ctx, approvedClientIntents); err != nil {
@@ -194,7 +184,7 @@ func (r *IntentsReconciler) createApprovedIntents(ctx context.Context, intents o
 
 }
 
-func (r *IntentsReconciler) handleCloudApprovalForIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+func (r *IntentsReconciler) handleCloudAppliedIntentsRequests(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
 	if intents.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved || !intents.DeletionTimestamp.IsZero() {
 		// Will be handled elsewhere
 		return nil
@@ -209,15 +199,15 @@ func (r *IntentsReconciler) handleCloudApprovalForIntents(ctx context.Context, i
 	intentsList := &otterizev2alpha1.ClientIntentsList{
 		Items: []otterizev2alpha1.ClientIntents{intents},
 	}
-	cloudIntents, err := intentsList.FormatAsOtterizeIntents(ctx, r.client)
+	cloudIntents, err := intentsList.FormatAsOtterizeIntentsRequests(ctx, r.client)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	return errors.Wrap(r.cloudClient.ReportAppliedIntentsForApproval(ctx, cloudIntents))
+	return errors.Wrap(r.cloudClient.ReportAppliedIntentsRequest(ctx, cloudIntents))
 }
 
-func (r *IntentsReconciler) periodicIntentsApprovalLoop(ctx context.Context) {
+func (r *IntentsReconciler) periodicQueryAppliedIntentsRequestsStatus(ctx context.Context) {
 	approvalQueryTicker := time.NewTicker(time.Second * time.Duration(viper.GetInt(otterizecloudclient.IntentsApprovalQueryIntervalKey)))
 
 	for {
@@ -225,58 +215,64 @@ func (r *IntentsReconciler) periodicIntentsApprovalLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-approvalQueryTicker.C:
-			if err := r.queryApprovalStatus(ctx); err != nil {
+			if err := r.queryAppliedIntentsRequestsStatus(ctx); err != nil {
 				logrus.WithError(err).Error("periodic intents approval query failed")
 			}
 		}
 	}
 }
 
-func (r *IntentsReconciler) queryApprovalStatus(ctx context.Context) error {
+func (r *IntentsReconciler) queryAppliedIntentsRequestsStatus(ctx context.Context) error {
 	clientIntentsList := &otterizev2alpha1.ClientIntentsList{}
 	statusSelector := fields.OneTermEqualSelector(ReviewStatusIndexField, string(otterizev2alpha1.ReviewStatusPending))
 	if err := r.client.List(ctx, clientIntentsList, &client.ListOptions{FieldSelector: statusSelector}); err != nil {
-		logrus.WithError(err).Error("periodic intents approval query failed")
+		logrus.WithError(err).Error("failed to list intents pending review")
 		return errors.Wrap(err)
 	}
+
 	if clientIntentsList.Items == nil || len(clientIntentsList.Items) == 0 {
 		logrus.Info("No intents pending review")
 		return nil
 	}
+
 	resourceUIDToIntent := lo.SliceToMap(clientIntentsList.Items, func(intent otterizev2alpha1.ClientIntents) (string, otterizev2alpha1.ClientIntents) {
 		return string(intent.UID), intent
 	})
 
-	result, err := r.cloudClient.GetIntentsApprovalHistory(ctx, lo.Keys(resourceUIDToIntent))
+	result, err := r.cloudClient.GetAppliedIntentsRequestsStatus(ctx, lo.Keys(resourceUIDToIntent))
 	if err != nil {
-		logrus.WithError(err).Error("periodic intents approval query failed")
+		logrus.WithError(err).Error("failed to get applied intents requests status")
 		return errors.Wrap(err)
 	}
 	if len(result) == 0 {
 		return nil
 	}
-	return r.handleApprovalUpdates(ctx, result, resourceUIDToIntent)
+
+	return r.handleAppliedIntentsRequestStatusUpdates(ctx, result, resourceUIDToIntent)
 }
 
-func (r *IntentsReconciler) handleApprovalUpdates(ctx context.Context, approvalUpdates []operator_cloud_client.IntentsApprovalResult, resourceUIDToIntent map[string]otterizev2alpha1.ClientIntents) error {
-	for _, update := range approvalUpdates {
-		if update.Status == graphqlclient.AccessRequestStatusPending {
+func (r *IntentsReconciler) handleAppliedIntentsRequestStatusUpdates(ctx context.Context, requestStatus []operator_cloud_client.AppliedIntentsRequestStatus, resourceUIDToIntent map[string]otterizev2alpha1.ClientIntents) error {
+	for _, request := range requestStatus {
+		if request.Status == graphqlclient.AppliedIntentsRequestStatusLabelPending {
 			continue
 		}
-		clientIntents, ok := resourceUIDToIntent[update.ID]
+
+		clientIntents, ok := resourceUIDToIntent[request.ID]
 		if !ok {
 			continue // Should not happen
 		}
-		// Check the GQL status that returned and update the K8s status accordingly
-		reviewStatus := lo.Ternary(update.Status == graphqlclient.AccessRequestStatusApproved, otterizev2alpha1.ReviewStatusApproved, otterizev2alpha1.ReviewStatusDenied)
+
+		// Check the GQL status that returned and request the K8s status accordingly
+		reviewStatus := lo.Ternary(request.Status == graphqlclient.AppliedIntentsRequestStatusLabelApproved, otterizev2alpha1.ReviewStatusApproved, otterizev2alpha1.ReviewStatusDenied)
 		if err := r.updateClientIntentsStatus(ctx, clientIntents, reviewStatus); err != nil {
 			return errors.Wrap(err)
 		}
 
-		if update.Status == graphqlclient.AccessRequestStatusApproved {
+		if request.Status == graphqlclient.AppliedIntentsRequestStatusLabelApproved {
 			return r.createApprovedIntents(ctx, clientIntents)
 		}
 	}
+
 	return nil
 }
 
@@ -299,8 +295,4 @@ func (r *IntentsReconciler) updateClientIntentsStatus(ctx context.Context, inten
 	}
 
 	return nil
-}
-
-func getNamespacedWorkload(intent graphqlclient.IntentInput) string {
-	return fmt.Sprintf("%s.%s", lo.FromPtr(intent.ClientName), lo.FromPtr(intent.Namespace))
 }

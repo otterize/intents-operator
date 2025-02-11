@@ -35,20 +35,16 @@ mutation ReportClientIntentStatuses($statuses: [ClientIntentStatusInput!]!) {
     reportClientIntentStatus(statuses: $statuses)
 }
 
-mutation ReportAppliedIntentsForApproval($intents: [IntentInput!]!) {
-    reportAppliedIntentsForApproval(intents: $intents)
+mutation ReportAppliedIntentsRequest($intents: [IntentRequestInput!]!) {
+    reportAppliedIntentsRequest(intents: $intents)
 }
 
-query GetIntentsApprovalHistory($ids: [ID!]!) {
-    getIntentsApprovalHistory(ids: $ids) {
+query GetAppliedIntentsRequestStatus($ids: [ID!]!) {
+    appliedIntentsRequestStatus(ids: $ids) {
         id
         reason
         status
     }
-}
-
-query CloudApprovalEnabled {
-    cloudApprovalEnabled
 }
 
 query dummy {
