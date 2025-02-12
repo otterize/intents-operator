@@ -12,11 +12,14 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/otterize/intents-operator/src/shared"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/util/keyutil"
 	"math/big"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"time"
 
@@ -30,11 +33,14 @@ import (
 )
 
 const (
-	Year               = 365 * 24 * time.Hour
-	CertDirPath        = "/tmp/k8s-webhook-server/serving-certs"
-	CertFilename       = "tls.crt"
-	PrivateKeyFilename = "tls.key"
+	Year                  = 365 * 24 * time.Hour
+	CertDirPath           = "/tmp/k8s-webhook-server/serving-certs"
+	CertFilename          = "tls.crt"
+	PrivateKeyFilename    = "tls.key"
+	WebhookCertSecretName = "intents-operator-webhook-cert"
 )
+
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update,resourceNames={intents-operator-webhook-cert}
 
 type CertificateBundle struct {
 	CertPem       []byte
@@ -125,6 +131,64 @@ func GenerateSelfSignedCertificate(hostname string, namespace string) (Certifica
 		CertPem:       signedCert.Bytes(),
 		PrivateKeyPem: privateKeyPem,
 	}, nil
+}
+
+func ReadCertBundleFromSecret(ctx context.Context, client client.Client, operatorNamespace string) (CertificateBundle, bool, error) {
+	var secret v1.Secret
+	err := client.Get(ctx, types.NamespacedName{Name: "intents-operator-webhook-cert", Namespace: operatorNamespace}, &secret)
+	if err != nil {
+		return CertificateBundle{}, false, errors.Wrap(err)
+	}
+
+	if secret.Data[CertFilename] == nil ||
+		secret.Data[PrivateKeyFilename] == nil ||
+		bytes.Equal(secret.Data[CertFilename], []byte("placeholder")) ||
+		bytes.Equal(secret.Data[PrivateKeyFilename], []byte("placeholder")) {
+		return CertificateBundle{}, false, nil
+	}
+
+	block, restData := pem.Decode(secret.Data[CertFilename])
+	if len(restData) != 0 {
+		return CertificateBundle{}, false, errors.New("failed to decode certificate")
+	}
+
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return CertificateBundle{}, false, errors.Wrap(err)
+	}
+
+	// Check if the certificate is expired
+	if time.Now().After(cert.NotAfter) {
+		return CertificateBundle{}, false, errors.New("certificate is expired")
+	}
+
+	_, err = keyutil.ParsePrivateKeyPEM(secret.Data[PrivateKeyFilename])
+	if err != nil {
+		return CertificateBundle{}, false, errors.Wrap(err)
+	}
+
+	return CertificateBundle{
+		CertPem:       secret.Data[CertFilename],
+		PrivateKeyPem: secret.Data[PrivateKeyFilename],
+	}, true, nil
+}
+
+func PersistCertBundleToSecret(ctx context.Context, client client.Client, operatorNamespace string, bundle CertificateBundle) error {
+	var secret v1.Secret
+	err := client.Get(ctx, types.NamespacedName{Name: WebhookCertSecretName, Namespace: operatorNamespace}, &secret)
+	if err != nil {
+		// secret must exist as it is created as part of Helm chart
+		return errors.Wrap(err)
+	}
+
+	secret.Data[CertFilename] = bundle.CertPem
+	secret.Data[PrivateKeyFilename] = bundle.PrivateKeyPem
+
+	err = client.Update(ctx, &secret)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	return nil
 }
 
 func WriteCertToFiles(bundle CertificateBundle) error {
