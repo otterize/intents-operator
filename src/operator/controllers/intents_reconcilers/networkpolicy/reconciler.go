@@ -217,9 +217,21 @@ func (r *Reconciler) recordCreateFailedError(ep effectivepolicy.ServiceEffective
 
 func (r *Reconciler) buildEgressRules(ctx context.Context, ep effectivepolicy.ServiceEffectivePolicy) ([]v1.NetworkPolicyEgressRule, bool, error) {
 	rules := make([]v1.NetworkPolicyEgressRule, 0)
-	if len(ep.Calls) == 0 || len(r.egressRuleBuilders) == 0 {
+
+	if len(ep.Calls) == 0 {
 		return rules, false, nil
 	}
+
+	if len(r.egressRuleBuilders) == 0 {
+		hasInternetIntents := lo.SomeBy(ep.Calls, func(intent effectivepolicy.Call) bool { return intent.Internet != nil })
+		if hasInternetIntents {
+			logrus.Debugf("Client has interner intents but egress network policy is not enabled")
+			ep.ClientIntentsEventRecorder.RecordWarningEvent(consts.ReasonInternetEgressNetworkPolicyWithEgressPolicyDisabled, "ClientIntents refer to the Internet but egress network policy is disabled")
+		}
+
+		return rules, false, nil
+	}
+
 	if !r.EnforcementDefaultState {
 		logrus.Debugf("Enforcement is disabled globally skipping egress network policy creation for service %s in namespace %s", ep.Service.Name, ep.Service.Namespace)
 		ep.ClientIntentsEventRecorder.RecordNormalEventf(consts.ReasonEnforcementDefaultOff, "Enforcement is disabled globally, network policy creation skipped")
