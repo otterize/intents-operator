@@ -56,6 +56,17 @@ rules:
   - watch
 - apiGroups:
   - ""
+  resourceNames:
+  - intents-operator-webhook-cert
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
   resources:
   - services
   verbs:
