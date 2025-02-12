@@ -226,7 +226,7 @@ func (r *Reconciler) buildEgressRules(ctx context.Context, ep effectivepolicy.Se
 		hasInternetIntents := lo.SomeBy(ep.Calls, func(intent effectivepolicy.Call) bool { return intent.Internet != nil })
 		if hasInternetIntents {
 			logrus.Debugf("Client has interner intents but egress network policy is not enabled")
-			ep.ClientIntentsEventRecorder.RecordWarningEventf(consts.ReasonInternetEgressNetworkPolicyWithEgressPolicyDisabled, "ClientIntents refer to the Internet but egress network policy is disabled")
+			ep.ClientIntentsEventRecorder.RecordWarningEvent(consts.ReasonInternetEgressNetworkPolicyWithEgressPolicyDisabled, "ClientIntents refer to the Internet but egress network policy is disabled")
 		}
 
 		return rules, false, nil
