@@ -29,4 +29,5 @@ const (
 	ReasonCreatedInternetEgressNetworkPolicies                    = "CreatedInternetEgressNetworkPolicies"
 	ReasonIntentToUnresolvedDns                                   = "IntentToUnresolvedDns"
 	ReasonInternetEgressNetworkPolicyCreationWaitingUnresolvedDNS = "InternetEgressNetworkPolicyCreationWaitingUnresolvedDNS"
+	ReasonInternetEgressNetworkPolicyWithEgressPolicyDisabled     = "ReasonInternetEgressNetworkPolicyWithEgressPolicyDisabled"
 )
