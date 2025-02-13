@@ -47,7 +47,7 @@ jobs:
         working-directory: linters
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
           install-mode: goinstall
           # plugin versions (errorsnew in our case) has to use same versions of packages and go as specified in the main project's go.mod
@@ -59,7 +59,7 @@ jobs:
           working-directory: src
 
           # Optional: golangci-lint command line arguments.
-          args: --timeout 5m --out-format github-actions
+          args: --timeout 5m --out-format colored-line-number
 
           # Optional: show only new issues if it's a pull request. The default value is `false`.
           # only-new-issues: true
