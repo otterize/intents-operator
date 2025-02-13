@@ -24,6 +24,7 @@ type CustomResourceDefinitionsTestSuite struct {
 	testbase.MocksSuiteBase
 	Cert          []byte
 	crdReconciler *CustomResourceDefinitionsReconciler
+	a             int
 }
 
 func (s *CustomResourceDefinitionsTestSuite) SetupTest() {
