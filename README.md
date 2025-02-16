@@ -291,7 +291,7 @@ This label is used as a selector for servers in Istio authorization policies. Th
 
 Finally, an Istio authorization policy is created that allows communication between the client's service account and the server. If the service account covers clients other than the one requested, an event is generated on the ClientIntents to warn about this, and this appears as a warning on Otterize Cloud.
 
-Read more about it in the [Istio AuthorizationPolicy tutorial](https://docs.otterize.com/quick-tutorials/k8s-istio-authorization-policies).
+Read more about it in the [Istio AuthorizationPolicy tutorial](https://docs.otterize.com/features/istio/tutorials/k8s-istio-authorization-policies).
 
 ### Identities
 
