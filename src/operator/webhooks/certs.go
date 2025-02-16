@@ -33,11 +33,10 @@ import (
 )
 
 const (
-	Year                  = 365 * 24 * time.Hour
-	CertDirPath           = "/tmp/k8s-webhook-server/serving-certs"
-	CertFilename          = "tls.crt"
-	PrivateKeyFilename    = "tls.key"
-	WebhookCertSecretName = "intents-operator-webhook-cert"
+	Year               = 365 * 24 * time.Hour
+	CertDirPath        = "/tmp/k8s-webhook-server/serving-certs"
+	CertFilename       = "tls.crt"
+	PrivateKeyFilename = "tls.key"
 )
 
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;update,resourceNames={intents-operator-webhook-cert}
@@ -133,9 +132,9 @@ func GenerateSelfSignedCertificate(hostname string, namespace string) (Certifica
 	}, nil
 }
 
-func ReadCertBundleFromSecret(ctx context.Context, client client.Client, operatorNamespace string) (CertificateBundle, bool, error) {
+func ReadCertBundleFromSecret(ctx context.Context, client client.Client, secretName string, operatorNamespace string) (CertificateBundle, bool, error) {
 	var secret v1.Secret
-	err := client.Get(ctx, types.NamespacedName{Name: "intents-operator-webhook-cert", Namespace: operatorNamespace}, &secret)
+	err := client.Get(ctx, types.NamespacedName{Name: secretName, Namespace: operatorNamespace}, &secret)
 	if err != nil {
 		return CertificateBundle{}, false, errors.Wrap(err)
 	}
@@ -173,9 +172,9 @@ func ReadCertBundleFromSecret(ctx context.Context, client client.Client, operato
 	}, true, nil
 }
 
-func PersistCertBundleToSecret(ctx context.Context, client client.Client, operatorNamespace string, bundle CertificateBundle) error {
+func PersistCertBundleToSecret(ctx context.Context, client client.Client, secretName string, operatorNamespace string, bundle CertificateBundle) error {
 	var secret v1.Secret
-	err := client.Get(ctx, types.NamespacedName{Name: WebhookCertSecretName, Namespace: operatorNamespace}, &secret)
+	err := client.Get(ctx, types.NamespacedName{Name: secretName, Namespace: operatorNamespace}, &secret)
 	if err != nil {
 		// secret must exist as it is created as part of Helm chart
 		return errors.Wrap(err)
