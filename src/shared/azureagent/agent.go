@@ -164,7 +164,7 @@ func NewAzureAgentFromClients(
 		vaultsClient:                        vaultsClient,
 		subscriptionToResourceClient:        subscriptionToResourceClient,
 		subscriptionToRoleAssignmentsClient: subscriptionToRoleAssignmentsClient,
-		
+
 		providerResourceTypesCache: expirable.NewLRU[string, map[string]armresources.ProviderResourceType](100, nil, time.Hour),
 	}
 }

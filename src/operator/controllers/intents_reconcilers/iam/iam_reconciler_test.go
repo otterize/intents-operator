@@ -247,7 +247,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestRoleNotFoundErrorReQueuesEvent() {
 
 	// Throw the sentinel error
 	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, []otterizev2alpha1.Target{}, clientPod).Return(
-		errors.Errorf("%w: %s", agentutils.ErrRoleNotFound, "test error"),
+		errors.Errorf("%w: %s", agentutils.ErrCloudIdentityNotFound, "test error"),
 	)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)

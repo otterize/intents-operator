@@ -202,75 +202,6 @@ enum ApiMethod {
 	DELETE
 }
 
-input AppliedIntentsRequestApprovalData {
-	approved: Boolean!
-	reason: String!
-}
-
-type AppliedIntentsRequestStatus {
-	id: ID!
-	service: Service!
-	timestamp: Time!
-	status: AppliedIntentsRequestStatusLabel!
-	reason: String
-}
-
-enum AppliedIntentsRequestStatusLabel {
-	PENDING
-	APPROVED
-	DENIED
-}
-
-type AppliedIntentsRequestWithDetails {
-	id: ID!
-	services: [Service!]!
-	timestamp: Time!
-	status: AppliedIntentsRequestStatusLabel!
-	reason: String
-	clientIntents: ClientIntentsFileRepresentation!
-}
-
-type AppliedIntentsRuleset {
-	origin: AppliedIntentsRulesetFilter!
-	target: AppliedIntentsRulesetFilter!
-	action: AppliedIntentsRulesetAction!
-}
-
-enum AppliedIntentsRulesetAction {
-	AUTO_APPROVE
-	AUTO_DENY
-	REQUIRE_APPROVAL
-}
-
-type AppliedIntentsRulesetFilter {
-	clusterIds: IDFilterValue
-	serviceIds: IDFilterValue
-	namespaceIds: IDFilterValue
-	environmentIds: IDFilterValue
-}
-
-input AppliedIntentsRulesetFilterInput {
-	clusterIds: InputIDFilterValue
-	serviceIds: InputIDFilterValue
-	namespaceIds: InputIDFilterValue
-	environmentIds: InputIDFilterValue
-}
-
-enum AppliedIntentsRulesetFilterValue {
-	ANY
-}
-
-input AppliedIntentsRulesetInput {
-	origin: AppliedIntentsRulesetFilterInput!
-	target: AppliedIntentsRulesetFilterInput!
-	action: AppliedIntentsRulesetAction!
-}
-
-type AppliedIntentsRulesetSummary {
-	environment: Environment!
-	count: Int!
-}
-
 enum AwsIamStep {
 	CREATE_CLUSTER
 	CONNECT_CLUSTER
@@ -657,10 +588,7 @@ input DiscoveredIntentInput {
 input EBPFDiagnostics {
 	containerImage: String
 	executable: String
-	executableHash: String
 	programName: String
-	podName: String
-	podNamespace: String
 }
 
 type EdgeAccessStatus {
@@ -945,13 +873,11 @@ input GitHubRepoInfoInput {
 type GitHubSettings {
 	isActive: Boolean!
 	repoFilterPairs: [GitHubRepoFilterPair!]!
-	enableAutoMerge: Boolean!
 }
 
 input GitHubSettingsInput {
 	isActive: Boolean!
 	repoFilterPairs: [GitHubRepoFilterPairInput!]!
-	enableAutoMerge: Boolean
 }
 
 type GitLabRepoFilterPair {
@@ -1156,13 +1082,6 @@ input InputTimeFilterValue {
 	operator: TimeFilterOperators!
 }
 
-input InputValidateIDFilter {
-	clusterIds: InputIDFilterValue
-	serviceIds: InputIDFilterValue
-	namespaceIds: InputIDFilterValue
-	environmentIds: InputIDFilterValue
-}
-
 """ Workload/Resource inventory filter """
 input InputWorkloadInventoryFilter {
 """ Workload/Resource inventory filter """
@@ -1302,11 +1221,6 @@ input IntentInput {
 	internet: InternetConfigInput
 	status: IntentStatusInput
 	resolutionData: String
-}
-
-input IntentRequestInput {
-	requestID: ID!
-	intent: IntentInput!
 }
 
 type IntentStatus {
@@ -1683,17 +1597,6 @@ input MetadataEntry {
 type Mutation {
 """This is just a placeholder since currently GraphQL does not allow empty types"""
 	dummy: Boolean
-	reportAppliedIntentsRequest(
-		intents: [IntentRequestInput!]!
-	): Boolean!
-	updateIntentsApprovalStatus(
-		id: ID!
-		result: AppliedIntentsRequestApprovalData!
-	): Boolean!
-	createOrUpdateAppliedIntentsRulesets(
-		environmentId: ID!
-		rules: [AppliedIntentsRulesetInput!]!
-	): Boolean!
 """Register certificate-request details for kubernetes pod owner, returns the service associated with this pod owner"""
 	registerKubernetesPodOwnerCertificateRequest(
 		podOwner: NamespacedPodOwner!
@@ -2118,9 +2021,6 @@ type Query {
 	accessGraph(
 		filter: InputAccessGraphFilter
 	): AccessGraph!
-	accessGraphServices(
-		filter: InputAccessGraphFilter
-	): [Service!]!
 	serviceAccessGraph(
 		id: ID!
 	): ServiceAccessGraph!
@@ -2149,17 +2049,6 @@ type Query {
 	accessLog(
 		filter: InputAccessLogFilter
 	): AccessLog!
-	appliedIntentsRequestStatus(
-		ids: [ID!]!
-	): [AppliedIntentsRequestStatus!]!
-	appliedIntentsRequestList: [AppliedIntentsRequestStatus!]!
-	appliedIntentsRequestWithDetails(
-		id: ID!
-	): AppliedIntentsRequestWithDetails!
-	appliedIntentsRulesetSummary: [AppliedIntentsRulesetSummary!]!
-	appliedIntentsRulesetList(
-		environmentID: ID!
-	): [AppliedIntentsRuleset!]!
 """Get cluster"""
 	cluster(
 		id: ID!
@@ -2185,10 +2074,6 @@ type Query {
 	oneEnvironment(
 		name: String!
 	): Environment!
-"""Validate existing ID filters and return valid filters"""
-	validateFilters(
-		filter: InputValidateIDFilter!
-	): ValidIDFilter!
 	findings(
 		filter: InputFindingFilter
 		tree: Boolean
@@ -2235,6 +2120,12 @@ type Query {
 	testDatabaseVisibilityConnection(
 		databaseInfo: DatabaseInfoInput!
 	): TestDatabaseConnectionResponse!
+	clientIntentEventsForWorkload(
+		id: ID!
+	): [ClientIntentEvent!]
+	clientIntentStatusForWorkload(
+		id: ID!
+	): ClientIntentStatus
 """List user invites"""
 	invites(
 		email: String
@@ -2633,7 +2524,6 @@ enum TelemetryComponentType {
 input TelemetryData {
 	eventType: EventType!
 	count: Int
-	error: String
 	ebpf: EBPFDiagnostics
 }
 
@@ -2733,15 +2623,6 @@ type UserTutorial {
 	isCompleted: Boolean!
 	step: String!
 	stepSeen: String!
-}
-
-""" Used to validate ID based filters """
-type ValidIDFilter {
-	clusterIds: IDFilterValue
-	serviceIds: IDFilterValue
-	namespaceIds: IDFilterValue
-	regulationIds: IDFilterValue
-	environmentIds: IDFilterValue
 }
 
 type Workload {

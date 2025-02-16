@@ -253,7 +253,6 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accountName string) error {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
 	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
-
 	if err != nil {
 		return errors.Wrap(err)
 	}

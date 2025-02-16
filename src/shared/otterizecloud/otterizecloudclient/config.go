@@ -16,7 +16,7 @@ const (
 	ComponentReportIntervalKey          = "component-report-interval"
 	ComponentReportIntervalDefault      = 60
 	OperatorConfigReportIntervalKey     = "operator-config-report-interval"
-	OperatorConfigReportIntervalDefault = 600
+	OperatorConfigReportIntervalDefault = 60
 	IntentEventsReportIntervalKey       = "intent-events-report-interval"
 	IntentEventsReportIntervalDefault   = 60
 	IntentStatusReportIntervalKey       = "intent-status-report-interval"

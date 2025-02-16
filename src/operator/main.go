@@ -303,7 +303,7 @@ func main() {
 		if err != nil {
 			logrus.WithError(err).Panic("could not initialize Azure agent")
 		}
-		azureIntentsAgent := azurepolicyagent.NewAzurePolicyAgent(azureAgent)
+		azureIntentsAgent := azurepolicyagent.NewAzurePolicyAgent(signalHandlerCtx, azureAgent)
 
 		iamAgents = append(iamAgents, azureIntentsAgent)
 	}
@@ -329,7 +329,7 @@ func main() {
 		logrus.WithError(err).Error("Failed to initialize Otterize Cloud client")
 	}
 	if connectedToCloud {
-		operator_cloud_client.StartPeriodicCloudReports(signalHandlerCtx, otterizeCloudClient, mgr.GetClient())
+		operator_cloud_client.StartPeriodicCloudReports(signalHandlerCtx, otterizeCloudClient, mgr)
 		intentsEventsSender, err := operator_cloud_client.NewIntentEventsSender(otterizeCloudClient, mgr)
 		if err != nil {
 			logrus.WithError(err).Panic("unable to create intent events sender")
@@ -363,11 +363,29 @@ func main() {
 
 	if selfSignedCert {
 		logrus.Infoln("Creating self signing certs")
-		certBundle, err :=
-			webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
+		certBundle, ok, err := webhooks.ReadCertBundleFromSecret(signalHandlerCtx, directClient, podNamespace)
 		if err != nil {
-			logrus.WithError(err).Panic("unable to create self signed certs for webhook")
+			logrus.WithError(err).Warn("unable to read existing certs from secret, generating new ones")
 		}
+
+		if !ok {
+			logrus.Info("webhook certs uninitialized, generating new certs")
+		}
+
+		if !ok || err != nil {
+			certBundleNew, err :=
+				webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
+			if err != nil {
+				logrus.WithError(err).Panic("unable to create self signed certs for webhook")
+			}
+
+			err = webhooks.PersistCertBundleToSecret(signalHandlerCtx, directClient, podNamespace, certBundleNew)
+			if err != nil {
+				logrus.WithError(err).Panic("unable to persist certs to secret")
+			}
+			certBundle = certBundleNew
+		}
+
 		err = webhooks.WriteCertToFiles(certBundle)
 		if err != nil {
 			logrus.WithError(err).Panic("failed writing certs to file system")
@@ -555,13 +573,16 @@ func main() {
 	if err := mgr.AddHealthzCheck("cache", cacheHealthChecker); err != nil {
 		logrus.WithError(err).Panic("unable to set up cache health check")
 	}
+	if err := mgr.AddReadyzCheck("cache", cacheHealthChecker); err != nil {
+		logrus.WithError(err).Panic("unable to set up ready check")
+	}
 
 	if err := mgr.AddHealthzCheck("intentsReconcile", health.Checker); err != nil {
 		logrus.WithError(err).Panic("unable to set up health check")
 	}
 
 	logrus.Info("starting manager")
-	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 0)
+	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 1)
 	telemetrysender.IntentsOperatorRunActiveReporter(signalHandlerCtx)
 
 	if err := mgr.Start(signalHandlerCtx); err != nil {

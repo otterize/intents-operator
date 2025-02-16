@@ -9,13 +9,16 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/amit7itz/goset"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
 var KeyVaultNameRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.KeyVault/vaults/([^/]+)$`)
@@ -27,8 +30,13 @@ type Agent struct {
 	assignmentMutex sync.Mutex
 }
 
-func NewAzurePolicyAgent(azureAgent *azureagent.Agent) *Agent {
-	return &Agent{azureAgent, sync.Mutex{}, sync.Mutex{}}
+func NewAzurePolicyAgent(ctx context.Context, azureAgent *azureagent.Agent) *Agent {
+	agent := &Agent{azureAgent, sync.Mutex{}, sync.Mutex{}}
+
+	// Start periodic tasks goroutine
+	go wait.Forever(func() { agent.PeriodicTasks(ctx) }, 5*time.Hour)
+
+	return agent
 }
 
 func (a *Agent) IntentType() otterizev2alpha1.IntentType {
@@ -68,9 +76,12 @@ func (a *Agent) getIntentScope(ctx context.Context, intent otterizev2alpha1.Targ
 }
 
 func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, _ string, intentsServiceName string, intents []otterizev2alpha1.Target, _ corev1.Pod) error {
-	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, namespace, intentsServiceName)
+	userAssignedIdentity, exists, err := a.FindUserAssignedIdentity(ctx, namespace, intentsServiceName)
 	if err != nil {
 		return errors.Wrap(err)
+	}
+	if !exists {
+		return errors.Errorf("%w: %s-%s", agentutils.ErrCloudIdentityNotFound, namespace, intentsServiceName)
 	}
 
 	// Custom roles
@@ -106,7 +117,7 @@ func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssigne
 	a.assignmentMutex.Lock()
 	defer a.assignmentMutex.Unlock()
 
-	existingRoleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, userAssignedIdentity)
+	existingRoleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, &userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -202,15 +213,16 @@ func (a *Agent) deleteRoleAssignmentsWithUnexpectedScopes(ctx context.Context, e
 }
 
 func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ApprovedClientIntents) error {
-	userAssignedIdentity, err := a.FindUserAssignedIdentity(ctx, intents.Namespace, intents.Spec.Workload.Name)
+	accountName := intents.Spec.Workload.Name
+	userAssignedIdentity, exists, err := a.FindUserAssignedIdentity(ctx, intents.Namespace, accountName)
 	if err != nil {
-		if errors.Is(err, azureagent.ErrUserIdentityNotFound) {
-			return nil
-		}
 		return errors.Wrap(err)
 	}
+	if !exists {
+		return errors.Errorf("%w: %s-%s", agentutils.ErrCloudIdentityNotFound, intents.Namespace, accountName)
+	}
 
-	existingRoleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, userAssignedIdentity)
+	existingRoleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, &userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -341,7 +353,7 @@ func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIde
 	a.roleMutex.Lock()
 	defer a.roleMutex.Unlock()
 
-	existingRoleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, userAssignedIdentity)
+	existingRoleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, &userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -397,7 +409,7 @@ func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdent
 		}
 
 		// create a role assignment for the custom role
-		err = a.CreateRoleAssignment(ctx, scope, userAssignedIdentity, *newRole, to.Ptr(azureagent.OtterizeCustomRoleTag))
+		err = a.CreateRoleAssignment(ctx, scope, userAssignedIdentity, *newRole, to.Ptr(azureagent.OtterizeRoleAssignmentTag))
 		if err != nil {
 			// TODO: handle case when custom role is created and role assignment fails
 			return errors.Wrap(err)

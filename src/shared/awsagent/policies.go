@@ -17,15 +17,13 @@ import (
 
 func (a *Agent) AddRolePolicy(ctx context.Context, namespace string, accountName string, intentsServiceName string, statements []StatementEntry) error {
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
-
 	if err != nil {
 		return errors.Wrap(err)
 	}
-
 	if !exists {
 		// Allow sentinel comparison + dynamic error message
 		roleName := a.generateRoleName(namespace, accountName)
-		return errors.Errorf("%w: %s", agentutils.ErrRoleNotFound, roleName)
+		return errors.Errorf("%w: %s", agentutils.ErrCloudIdentityNotFound, roleName)
 	}
 
 	softDeletionStrategyEnabled := HasSoftDeleteStrategyTagSet(role.Tags)
@@ -152,7 +150,6 @@ func (a *Agent) softDeletePolicy(ctx context.Context, policyName string) error {
 	output, err := a.iamClient.GetPolicy(ctx, &iam.GetPolicyInput{
 		PolicyArn: aws.String(a.generatePolicyArn(policyName)),
 	})
-
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -173,13 +170,11 @@ func (a *Agent) SetRolePolicy(ctx context.Context, namespace, accountName string
 	roleName := a.generateRoleName(namespace, accountName)
 
 	exists, role, err := a.GetOtterizeRole(ctx, namespace, accountName)
-
 	if err != nil {
 		return errors.Wrap(err)
 	}
-
 	if !exists {
-		return errors.Errorf("role not found: %s", roleName)
+		return errors.Errorf("%w: %s", agentutils.ErrCloudIdentityNotFound, roleName)
 	}
 
 	policyDoc, _, err := generatePolicyDocument(statements)

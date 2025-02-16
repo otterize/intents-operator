@@ -588,10 +588,7 @@ input DiscoveredIntentInput {
 input EBPFDiagnostics {
 	containerImage: String
 	executable: String
-	executableHash: String
 	programName: String
-	podName: String
-	podNamespace: String
 }
 
 type EdgeAccessStatus {
@@ -876,13 +873,11 @@ input GitHubRepoInfoInput {
 type GitHubSettings {
 	isActive: Boolean!
 	repoFilterPairs: [GitHubRepoFilterPair!]!
-	enableAutoMerge: Boolean!
 }
 
 input GitHubSettingsInput {
 	isActive: Boolean!
 	repoFilterPairs: [GitHubRepoFilterPairInput!]!
-	enableAutoMerge: Boolean
 }
 
 type GitLabRepoFilterPair {
@@ -1085,13 +1080,6 @@ input InputServiceFilter {
 input InputTimeFilterValue {
 	value: Time!
 	operator: TimeFilterOperators!
-}
-
-input InputValidateIDFilter {
-	clusterIds: InputIDFilterValue
-	serviceIds: InputIDFilterValue
-	namespaceIds: InputIDFilterValue
-	environmentIds: InputIDFilterValue
 }
 
 """ Workload/Resource inventory filter """
@@ -2033,9 +2021,6 @@ type Query {
 	accessGraph(
 		filter: InputAccessGraphFilter
 	): AccessGraph!
-	accessGraphServices(
-		filter: InputAccessGraphFilter
-	): [Service!]!
 	serviceAccessGraph(
 		id: ID!
 	): ServiceAccessGraph!
@@ -2089,10 +2074,6 @@ type Query {
 	oneEnvironment(
 		name: String!
 	): Environment!
-"""Validate existing ID filters and return valid filters"""
-	validateFilters(
-		filter: InputValidateIDFilter!
-	): ValidIDFilter!
 	findings(
 		filter: InputFindingFilter
 		tree: Boolean
@@ -2139,6 +2120,12 @@ type Query {
 	testDatabaseVisibilityConnection(
 		databaseInfo: DatabaseInfoInput!
 	): TestDatabaseConnectionResponse!
+	clientIntentEventsForWorkload(
+		id: ID!
+	): [ClientIntentEvent!]
+	clientIntentStatusForWorkload(
+		id: ID!
+	): ClientIntentStatus
 """List user invites"""
 	invites(
 		email: String
@@ -2537,7 +2524,6 @@ enum TelemetryComponentType {
 input TelemetryData {
 	eventType: EventType!
 	count: Int
-	error: String
 	ebpf: EBPFDiagnostics
 }
 
@@ -2637,15 +2623,6 @@ type UserTutorial {
 	isCompleted: Boolean!
 	step: String!
 	stepSeen: String!
-}
-
-""" Used to validate ID based filters """
-type ValidIDFilter {
-	clusterIds: IDFilterValue
-	serviceIds: IDFilterValue
-	namespaceIds: IDFilterValue
-	regulationIds: IDFilterValue
-	environmentIds: IDFilterValue
 }
 
 type Workload {

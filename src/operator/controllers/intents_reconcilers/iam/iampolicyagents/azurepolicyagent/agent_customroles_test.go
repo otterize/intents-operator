@@ -3,6 +3,8 @@ package azurepolicyagent
 import (
 	"context"
 	"fmt"
+	armerrros "github.com/Azure/azure-sdk-for-go-extensions/pkg/errors"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
@@ -11,6 +13,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/google/uuid"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	mock_azureagent "github.com/otterize/intents-operator/src/shared/azureagent/mocks"
 	"github.com/samber/lo"
@@ -26,7 +29,7 @@ type AzureCustomRoleTestCase struct {
 	Roles                  []string
 	Actions                []otterizev2alpha1.AzureAction
 	DataActions            []otterizev2alpha1.AzureDataAction
-	ExisingRoles           []*armauthorization.RoleDefinition
+	ExistingRoles          []*armauthorization.RoleDefinition
 	UpdateExpected         bool
 	ShouldCreateAssignment bool
 }
@@ -129,6 +132,14 @@ func (s *AzureAgentPoliciesCustomRolesSuite) expectGetUserAssignedIdentityReturn
 		}, nil)
 }
 
+func (s *AzureAgentPoliciesCustomRolesSuite) expectGetUserAssignedIdentityReturnsNotFoundError() {
+	notFoundError := &azcore.ResponseError{ErrorCode: armerrros.ResourceNotFound}
+	s.mockUserAssignedIdentitiesClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), nil).Return(
+		armmsi.UserAssignedIdentitiesClientGetResponse{},
+		notFoundError,
+	)
+}
+
 func (s *AzureAgentPoliciesCustomRolesSuite) expectListKeyVaultsReturnsEmpty() {
 	s.mockVaultsClient.EXPECT().NewListByResourceGroupPager(testResourceGroup, nil).Return(azureagent.NewListPager[armkeyvault.VaultsClientListByResourceGroupResponse](
 		armkeyvault.VaultsClientListByResourceGroupResponse{},
@@ -194,7 +205,7 @@ var azureCustomRoleTestCases = []AzureCustomRoleTestCase{
 			"Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",
 			"Microsoft.Storage/storageAccounts/blobServices/containers/blobs/add/action",
 		},
-		ExisingRoles:           nil,
+		ExistingRoles:          nil,
 		UpdateExpected:         true,
 		ShouldCreateAssignment: true,
 	},
@@ -204,7 +215,7 @@ var azureCustomRoleTestCases = []AzureCustomRoleTestCase{
 			"Microsoft.Storage/storageAccounts/blobServices/containers/read",
 			"Microsoft.Storage/storageAccounts/blobServices/containers/write",
 		},
-		ExisingRoles: []*armauthorization.RoleDefinition{
+		ExistingRoles: []*armauthorization.RoleDefinition{
 			{
 				Name: to.Ptr("otterizeCustomRole"),
 				Properties: &armauthorization.RoleDefinitionProperties{
@@ -229,7 +240,7 @@ var azureCustomRoleTestCases = []AzureCustomRoleTestCase{
 		Roles: []string{
 			"Storage Blob Data Reader",
 		},
-		ExisingRoles: []*armauthorization.RoleDefinition{
+		ExistingRoles: []*armauthorization.RoleDefinition{
 			{
 				ID:   to.Ptr("Storage Blob Data Reader"),
 				Name: to.Ptr("Storage Blob Data Reader"),
@@ -278,12 +289,12 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 			s.expectListRoleAssignmentsReturnsEmpty()
 
 			// CustomRole related calls
-			s.expectListRoleDefinitionsReturnsPager(testCase.ExisingRoles)
+			s.expectListRoleDefinitionsReturnsPager(testCase.ExistingRoles)
 			if testCase.ShouldCreateAssignment {
 				s.expectCreateRoleAssignmentReturnsEmpty()
 			}
 
-			if testCase.ExisingRoles == nil {
+			if testCase.ExistingRoles == nil {
 				s.expectGetByIDReturnsResource(targetScope)
 			}
 
@@ -303,6 +314,21 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 			}
 		})
 	}
+}
+
+func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_IdentityNotFound() {
+	s.expectGetUserAssignedIdentityReturnsNotFoundError()
+
+	err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, nil, corev1.Pod{})
+	s.Require().ErrorIs(err, agentutils.ErrCloudIdentityNotFound)
+}
+
+func (s *AzureAgentPoliciesCustomRolesSuite) TestDeleteRolePolicyFromIntents_IdentityNotFound() {
+	s.expectGetUserAssignedIdentityReturnsNotFoundError()
+
+	intent := otterizev2alpha1.ClientIntents{Spec: &otterizev2alpha1.IntentsSpec{Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName}}}
+	err := s.agent.DeleteRolePolicyFromIntents(context.Background(), intent)
+	s.Require().ErrorIs(err, agentutils.ErrCloudIdentityNotFound)
 }
 
 func TestAzureAgentPoliciesCustomRolesSuite(t *testing.T) {
