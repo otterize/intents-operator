@@ -1011,11 +1011,15 @@ spec:
               description: IntentsStatus defines the observed state of ClientIntents
               properties:
                 observedGeneration:
-                  description: The last generation of the intents that was successfully reconciled.
+                  description: |-
+                    The last generation of the intents that was successfully reconciled.
+                    Deprecated: Use ApprovedClientIntents.Status.ObservedGeneration instead
                   format: int64
                   type: integer
                 resolvedIPs:
-                  description: ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
+                  description: |-
+                    ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
+                    Deprecated: Use ApprovedClientIntents.Status.ResolvedIPs instead
                   items:
                     properties:
                       dns:
@@ -1026,10 +1030,14 @@ spec:
                         type: array
                     type: object
                   type: array
+                reviewStatus:
+                  description: ReviewStatus stores the review status for these ClientIntents (whether they were approved, denied, or pending)
+                  type: string
                 upToDate:
                   description: |-
                     upToDate field reflects whether the client intents have successfully been applied
                     to the cluster to the state specified
+                    Deprecated: Use ApprovedClientIntents.Status.UpToDate instead
                   type: boolean
               type: object
           type: object
@@ -1357,6 +1365,9 @@ spec:
                         type: array
                     type: object
                   type: array
+                reviewStatus:
+                  description: ReviewStatus stores the review status for these ClientIntents (whether they were approved, denied, or pending)
+                  type: string
                 upToDate:
                   description: |-
                     upToDate field reflects whether the client intents have successfully been applied

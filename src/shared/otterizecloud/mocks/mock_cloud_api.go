@@ -51,21 +51,6 @@ func (mr *MockCloudClientMockRecorder) GetAppliedIntentsRequestsStatus(ctx, ids 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedIntentsRequestsStatus", reflect.TypeOf((*MockCloudClient)(nil).GetAppliedIntentsRequestsStatus), ctx, ids)
 }
 
-// GetApprovalState mocks base method.
-func (m *MockCloudClient) GetApprovalState(ctx context.Context) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetApprovalState", ctx)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetApprovalState indicates an expected call of GetApprovalState.
-func (mr *MockCloudClientMockRecorder) GetApprovalState(ctx interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetApprovalState", reflect.TypeOf((*MockCloudClient)(nil).GetApprovalState), ctx)
-}
-
 // ReportAppliedIntents mocks base method.
 func (m *MockCloudClient) ReportAppliedIntents(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error {
 	m.ctrl.T.Helper()
@@ -80,18 +65,18 @@ func (mr *MockCloudClientMockRecorder) ReportAppliedIntents(ctx, namespace, inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportAppliedIntents", reflect.TypeOf((*MockCloudClient)(nil).ReportAppliedIntents), ctx, namespace, intents)
 }
 
-// ReportAppliedIntentsForApproval mocks base method.
-func (m *MockCloudClient) ReportAppliedIntentsForApproval(ctx context.Context, intents []*graphqlclient.IntentInput) error {
+// ReportAppliedIntentsRequest mocks base method.
+func (m *MockCloudClient) ReportAppliedIntentsRequest(ctx context.Context, intents []*graphqlclient.IntentRequestInput) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReportAppliedIntentsRequest", ctx, intents)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// ReportAppliedIntentsForApproval indicates an expected call of ReportAppliedIntentsForApproval.
-func (mr *MockCloudClientMockRecorder) ReportAppliedIntentsForApproval(ctx, intents interface{}) *gomock.Call {
+// ReportAppliedIntentsRequest indicates an expected call of ReportAppliedIntentsRequest.
+func (mr *MockCloudClientMockRecorder) ReportAppliedIntentsRequest(ctx, intents interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportAppliedIntentsRequest", reflect.TypeOf((*MockCloudClient)(nil).ReportAppliedIntentsForApproval), ctx, intents)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportAppliedIntentsRequest", reflect.TypeOf((*MockCloudClient)(nil).ReportAppliedIntentsRequest), ctx, intents)
 }
 
 // ReportClientIntentStatuses mocks base method.

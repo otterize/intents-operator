@@ -184,6 +184,7 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.ResolvedIPs = lo.Map(in.Status.ResolvedIPs, func(resolvedIPs ResolvedIPs, _ int) v2beta1.ResolvedIPs {
 		return v2beta1.ResolvedIPs{DNS: resolvedIPs.DNS, IPs: slices.Clone(resolvedIPs.IPs)}
 	})
+	dst.Status.ReviewStatus = v2beta1.ReviewStatus(in.Status.ReviewStatus)
 
 	if dst.Spec == nil {
 		dst.Spec = &v2beta1.IntentsSpec{}
@@ -353,6 +354,7 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	in.Status.ResolvedIPs = lo.Map(src.Status.ResolvedIPs, func(resolvedIPs v2beta1.ResolvedIPs, _ int) ResolvedIPs {
 		return ResolvedIPs{DNS: resolvedIPs.DNS, IPs: slices.Clone(resolvedIPs.IPs)}
 	})
+	in.Status.ReviewStatus = ReviewStatus(src.Status.ReviewStatus)
 
 	if in.Spec == nil {
 		in.Spec = &IntentsSpec{}
