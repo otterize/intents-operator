@@ -68,8 +68,6 @@ const (
 	SeparateNetpolsForIngressAndEgress            = "separate-netpols-for-ingress-and-egress"
 	SeparateNetpolsForIngressAndEgressDefault     = false
 	ExternallyManagedPolicyWorkloadsKey           = "externallyManagedPolicyWorkloads"
-	WebhookCertSecretNameKey                      = "webhook-cert-secret-name"
-	WebhookCertSecretNameDefault                  = "intents-operator-webhook-cert"
 )
 
 func init() {
@@ -94,7 +92,6 @@ func init() {
 	viper.SetDefault(SeparateNetpolsForIngressAndEgress, SeparateNetpolsForIngressAndEgressDefault)
 	viper.SetDefault(EnableGroupInternetIPsByCIDRKey, EnableGroupInternetIPsByCIDRDefault)
 	viper.SetDefault(EnableGroupInternetIPsByCIDRPeersLimitKey, EnableGroupInternetIPsByCIDRPeersLimitDefault)
-	viper.SetDefault(WebhookCertSecretNameKey, WebhookCertSecretNameDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 

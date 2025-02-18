@@ -363,7 +363,7 @@ func main() {
 
 	if selfSignedCert {
 		logrus.Infoln("Creating self signing certs")
-		secretName := viper.GetString(operatorconfig.WebhookCertSecretNameKey)
+		secretName := "intents-operator-webhook-cert"
 		certBundle, ok, err := webhooks.ReadCertBundleFromSecret(signalHandlerCtx, directClient, secretName, podNamespace)
 		if err != nil {
 			logrus.WithError(err).Warn("unable to read existing certs from secret, generating new ones")
