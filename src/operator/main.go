@@ -241,7 +241,7 @@ func main() {
 		}
 		if !ok || err != nil {
 			certBundleNew, err :=
-				operatorwebhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
+				operatorwebhooks.GenerateSelfSignedCertificate("credentials-operator-webhook-service", podNamespace)
 			if err != nil {
 				logrus.WithError(err).Panic("unable to create self signed certs for webhook")
 			}
