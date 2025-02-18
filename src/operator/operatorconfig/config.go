@@ -57,8 +57,6 @@ const (
 	EnableSecretRotationDefault                = false
 	DatabasePasswordRotationIntervalKey        = "database-password-rotation-interval"
 	DatabasePasswordRotationIntervalDefault    = time.Hour * 8
-	WebhookCertSecretNameKey                   = "webhook-cert-secret-name"
-	WebhookCertSecretNameDefault               = "credentials-operator-webhook-cert"
 )
 
 const (
@@ -88,7 +86,6 @@ func init() {
 	viper.SetDefault(AWSUseSoftDeleteStrategyKey, AWSUseSoftDeleteStrategyDefault)
 	viper.SetDefault(EnableSecretRotationKey, EnableSecretRotationDefault)
 	viper.SetDefault(DebugKey, DebugDefault)
-	viper.SetDefault(WebhookCertSecretNameKey, WebhookCertSecretNameDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
