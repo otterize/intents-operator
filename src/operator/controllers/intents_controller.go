@@ -105,6 +105,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (r *IntentsReconciler) handleClientIntentsRequests(ctx context.Context, intents otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
 	if !intents.DeletionTimestamp.IsZero() {
+		// TODO: Handle deletion (Remove ApprovedClientIntents and report to the cloud)
 		return ctrl.Result{}, nil
 	}
 	approvalMethod := r.approvalState.approvalMethod

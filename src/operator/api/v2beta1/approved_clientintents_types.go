@@ -31,6 +31,7 @@ const (
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:storageversion
 
 // ApprovedClientIntents is the Schema for the intents API
 type ApprovedClientIntents struct {

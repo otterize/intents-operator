@@ -14,6 +14,347 @@ spec:
     singular: approvedclientintents
   scope: Namespaced
   versions:
+  - name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: ApprovedClientIntents is the Schema for the intents API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: IntentsSpec defines the desired state of ClientIntents
+            properties:
+              targets:
+                items:
+                  properties:
+                    aws:
+                      properties:
+                        actions:
+                          items:
+                            type: string
+                          type: array
+                        arn:
+                          type: string
+                      type: object
+                    azure:
+                      properties:
+                        actions:
+                          items:
+                            type: string
+                          type: array
+                        dataActions:
+                          items:
+                            type: string
+                          type: array
+                        keyVaultPolicy:
+                          properties:
+                            certificatePermissions:
+                              items:
+                                enum:
+                                - all
+                                - backup
+                                - create
+                                - delete
+                                - deleteissuers
+                                - get
+                                - getissuers
+                                - import
+                                - list
+                                - listissuers
+                                - managecontacts
+                                - manageissuers
+                                - purge
+                                - recover
+                                - restore
+                                - setissuers
+                                - update
+                                type: string
+                              type: array
+                            keyPermissions:
+                              items:
+                                enum:
+                                - all
+                                - backup
+                                - create
+                                - decrypt
+                                - delete
+                                - encrypt
+                                - get
+                                - getrotationpolicy
+                                - import
+                                - list
+                                - purge
+                                - recover
+                                - release
+                                - restore
+                                - rotate
+                                - setrotationpolicy
+                                - sign
+                                - unwrapkey
+                                - update
+                                - verify
+                                - wrapkey
+                                type: string
+                              type: array
+                            secretPermissions:
+                              items:
+                                enum:
+                                - all
+                                - backup
+                                - delete
+                                - get
+                                - list
+                                - purge
+                                - recover
+                                - restore
+                                - set
+                                type: string
+                              type: array
+                            storagePermissions:
+                              items:
+                                enum:
+                                - all
+                                - backup
+                                - delete
+                                - deletesas
+                                - get
+                                - getsas
+                                - list
+                                - listsas
+                                - purge
+                                - recover
+                                - regeneratekey
+                                - restore
+                                - set
+                                - setsas
+                                - update
+                                type: string
+                              type: array
+                          type: object
+                        roles:
+                          items:
+                            type: string
+                          type: array
+                        scope:
+                          type: string
+                      type: object
+                    gcp:
+                      properties:
+                        permissions:
+                          items:
+                            type: string
+                          type: array
+                        resource:
+                          type: string
+                      type: object
+                    internet:
+                      properties:
+                        domains:
+                          items:
+                            type: string
+                          type: array
+                        ips:
+                          items:
+                            type: string
+                          type: array
+                        ports:
+                          items:
+                            type: integer
+                          type: array
+                      type: object
+                    kafka:
+                      properties:
+                        name:
+                          type: string
+                        topics:
+                          items:
+                            properties:
+                              name:
+                                type: string
+                              operations:
+                                items:
+                                  enum:
+                                  - all
+                                  - consume
+                                  - produce
+                                  - create
+                                  - alter
+                                  - delete
+                                  - describe
+                                  - ClusterAction
+                                  - DescribeConfigs
+                                  - AlterConfigs
+                                  - IdempotentWrite
+                                  type: string
+                                type: array
+                            required:
+                            - name
+                            - operations
+                            type: object
+                          type: array
+                      required:
+                      - name
+                      type: object
+                    kubernetes:
+                      properties:
+                        http:
+                          items:
+                            properties:
+                              methods:
+                                items:
+                                  enum:
+                                  - GET
+                                  - POST
+                                  - PUT
+                                  - DELETE
+                                  - OPTIONS
+                                  - TRACE
+                                  - PATCH
+                                  - CONNECT
+                                  type: string
+                                type: array
+                              path:
+                                type: string
+                            required:
+                            - methods
+                            - path
+                            type: object
+                          type: array
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    service:
+                      properties:
+                        http:
+                          items:
+                            properties:
+                              methods:
+                                items:
+                                  enum:
+                                  - GET
+                                  - POST
+                                  - PUT
+                                  - DELETE
+                                  - OPTIONS
+                                  - TRACE
+                                  - PATCH
+                                  - CONNECT
+                                  type: string
+                                type: array
+                              path:
+                                type: string
+                            required:
+                            - methods
+                            - path
+                            type: object
+                          type: array
+                        name:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    sql:
+                      properties:
+                        name:
+                          type: string
+                        privileges:
+                          items:
+                            properties:
+                              databaseName:
+                                type: string
+                              operations:
+                                items:
+                                  enum:
+                                  - ALL
+                                  - SELECT
+                                  - INSERT
+                                  - UPDATE
+                                  - DELETE
+                                  type: string
+                                type: array
+                              table:
+                                type: string
+                            required:
+                            - databaseName
+                            type: object
+                          type: array
+                      required:
+                      - name
+                      type: object
+                  type: object
+                type: array
+              workload:
+                properties:
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+            required:
+            - targets
+            - workload
+            type: object
+          status:
+            properties:
+              observedGeneration:
+                description: The last generation of the intents that was successfully
+                  reconciled.
+                format: int64
+                type: integer
+              policyStatus:
+                description: ReviewStatus stores the review status for these ClientIntents
+                  (whether they were approved, denied, or pending)
+                enum:
+                - CREATED
+                - PENDING
+                - IN PROGRESS
+                - FAILED
+                type: string
+              resolvedIPs:
+                description: ResolvedIPs stores resolved IPs for a domain name - the
+                  network mapper populates it when DNS internetTarget is used
+                items:
+                  properties:
+                    dns:
+                      type: string
+                    ips:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
+              upToDate:
+                description: |-
+                  upToDate field reflects whether the client intents have successfully been applied
+                  to the cluster to the state specified
+                type: boolean
+            type: object
+        type: object
+    served: true
+    storage: false
+    subresources:
+      status: {}
   - name: v2beta1
     schema:
       openAPIV3Schema:

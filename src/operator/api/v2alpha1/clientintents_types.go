@@ -717,7 +717,7 @@ func (in *ClientIntentsList) FormatAsOtterizeIntentsRequests(ctx context.Context
 
 			otterizeIntents = append(otterizeIntents, &graphqlclient.IntentRequestInput{
 				Intent:    input,
-				RequestID: string(clientIntents.UID),
+				RequestId: string(clientIntents.UID),
 			})
 		}
 	}
