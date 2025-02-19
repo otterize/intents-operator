@@ -274,7 +274,7 @@ func (c *PolicyManagerImpl) saveSideCarStatus(ctx context.Context, clientIntents
 }
 
 func (c *PolicyManagerImpl) updateSharedServiceAccountsInNamespace(ctx context.Context, namespace string) error {
-	var namespacesClientIntents v2alpha1.ClientIntentsList
+	var namespacesClientIntents v2alpha1.ApprovedClientIntentsList
 	err := c.client.List(
 		ctx, &namespacesClientIntents,
 		&client.ListOptions{Namespace: namespace})
@@ -282,7 +282,7 @@ func (c *PolicyManagerImpl) updateSharedServiceAccountsInNamespace(ctx context.C
 		return errors.Wrap(err)
 	}
 
-	clientsByServiceAccount := lo.GroupBy(namespacesClientIntents.Items, func(intents v2alpha1.ClientIntents) string {
+	clientsByServiceAccount := lo.GroupBy(namespacesClientIntents.Items, func(intents v2alpha1.ApprovedClientIntents) string {
 		return intents.Annotations[v2alpha1.OtterizeClientServiceAccountAnnotation]
 	})
 
@@ -295,12 +295,12 @@ func (c *PolicyManagerImpl) updateSharedServiceAccountsInNamespace(ctx context.C
 	return nil
 }
 
-func (c *PolicyManagerImpl) updateServiceAccountSharedStatus(ctx context.Context, clientIntents []v2alpha1.ClientIntents, serviceAccount string) error {
+func (c *PolicyManagerImpl) updateServiceAccountSharedStatus(ctx context.Context, clientIntents []v2alpha1.ApprovedClientIntents, serviceAccount string) error {
 	logrus.Debugf("Found %d intents with service account %s", len(clientIntents), serviceAccount)
 	isServiceAccountShared := len(clientIntents) > 1
 	sharedAccountValue := lo.Ternary(isServiceAccountShared, "true", "false")
 
-	clients := lo.Map(clientIntents, func(intents v2alpha1.ClientIntents, _ int) string {
+	clients := lo.Map(clientIntents, func(intents v2alpha1.ApprovedClientIntents, _ int) string {
 		return intents.Spec.Workload.Name
 	})
 	clientsNames := strings.Join(clients, ", ")
@@ -327,7 +327,7 @@ func (c *PolicyManagerImpl) updateServiceAccountSharedStatus(ctx context.Context
 	return nil
 }
 
-func shouldUpdateStatus(intents v2alpha1.ClientIntents, currentName string, currentSharedStatus string) bool {
+func shouldUpdateStatus(intents v2alpha1.ApprovedClientIntents, currentName string, currentSharedStatus string) bool {
 	oldName, annotationExists := intents.Annotations[v2alpha1.OtterizeClientServiceAccountAnnotation]
 	if !annotationExists || oldName != currentName {
 		return true

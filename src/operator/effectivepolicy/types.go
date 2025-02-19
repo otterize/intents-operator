@@ -26,7 +26,7 @@ type ServiceEffectivePolicy struct {
 	Service                    serviceidentity.ServiceIdentity
 	CalledBy                   []ClientCall
 	Calls                      []Call
-	ClientIntentsStatus        v2alpha1.IntentsStatus
+	ClientIntentsStatus        v2alpha1.ApprovedClientIntentsStatus
 	ClientIntentsEventRecorder *injectablerecorder.ObjectEventRecorder
 }
 

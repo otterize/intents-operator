@@ -326,7 +326,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Identi
 func (s *AzureAgentPoliciesCustomRolesSuite) TestDeleteRolePolicyFromIntents_IdentityNotFound() {
 	s.expectGetUserAssignedIdentityReturnsNotFoundError()
 
-	intent := otterizev2alpha1.ClientIntents{Spec: &otterizev2alpha1.IntentsSpec{Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName}}}
+	intent := otterizev2alpha1.ApprovedClientIntents{Spec: &otterizev2alpha1.IntentsSpec{Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName}}}
 	err := s.agent.DeleteRolePolicyFromIntents(context.Background(), intent)
 	s.Require().ErrorIs(err, agentutils.ErrCloudIdentityNotFound)
 }

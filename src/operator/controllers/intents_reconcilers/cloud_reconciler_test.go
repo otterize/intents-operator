@@ -63,7 +63,7 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
 
 func (s *CloudReconcilerTestSuite) assertUploadIntent(server string, server2 string, server2Namespace string) {
 	server2FullName := server2 + "." + server2Namespace
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -123,7 +123,7 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUploadUnderscore() {
 func (s *CloudReconcilerTestSuite) TestAppliedIntentsRetryWhenUploadFailed() {
 	server := "test-server"
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -156,13 +156,13 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsRetryWhenUploadFailed() {
 		expectedIntentInNamespace,
 	}
 
-	emptyList := otterizev2alpha1.ClientIntentsList{}
-	clientIntentsList := otterizev2alpha1.ClientIntentsList{
-		Items: []otterizev2alpha1.ClientIntents{clientIntents},
+	emptyList := otterizev2alpha1.ApprovedClientIntentsList{}
+	clientIntentsList := otterizev2alpha1.ApprovedClientIntentsList{
+		Items: []otterizev2alpha1.ApprovedClientIntents{clientIntents},
 	}
 
 	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ClientIntentsList, opts *client.ListOptions) error {
+		func(ctx context.Context, list *otterizev2alpha1.ApprovedClientIntentsList, opts *client.ListOptions) error {
 			clientIntentsList.DeepCopyInto(list)
 			return nil
 		})
@@ -185,7 +185,7 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsRetryWhenUploadFailed() {
 func (s *CloudReconcilerTestSuite) TestUploadKafkaType() {
 	server := "test-server"
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -234,7 +234,7 @@ func (s *CloudReconcilerTestSuite) TestUploadKafkaType() {
 func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
 	serviceAccountName := "test-service-account"
 	server := "test-server"
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -304,7 +304,7 @@ func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
 
 func (s *CloudReconcilerTestSuite) TestInternetUpload() {
 	server := otterizev2alpha1.OtterizeInternetTargetName
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -365,7 +365,7 @@ func (s *CloudReconcilerTestSuite) TestInternetUpload() {
 
 func (s *CloudReconcilerTestSuite) TestInternetUploadWithDNS() {
 	server := otterizev2alpha1.OtterizeInternetTargetName
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -406,7 +406,7 @@ func (s *CloudReconcilerTestSuite) TestInternetUploadWithDNS() {
 
 func (s *CloudReconcilerTestSuite) TestInternetUploadDomainsOnly() {
 	server := otterizev2alpha1.OtterizeInternetTargetName
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -444,7 +444,7 @@ func (s *CloudReconcilerTestSuite) TestInternetUploadDomainsOnly() {
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSharedSA() {
 	serviceAccountName := "test-service-account"
 	server := "test-server"
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -482,7 +482,7 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingShared
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSidecar() {
 	serviceAccountName := "test-service-account"
 	server := "test-server"
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -521,7 +521,7 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatShar
 	serviceAccountName := "test-service-account"
 	server := "test-server"
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -560,7 +560,7 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatShar
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatSidecar() {
 	serviceAccountName := "test-service-account"
 	server := "test-server"
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -596,14 +596,14 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatSide
 	s.expectReconcilerError(clientIntents)
 }
 
-func (s *CloudReconcilerTestSuite) expectReconcilerError(clientIntents otterizev2alpha1.ClientIntents) {
-	emptyList := otterizev2alpha1.ClientIntentsList{}
-	clientIntentsList := otterizev2alpha1.ClientIntentsList{
-		Items: []otterizev2alpha1.ClientIntents{clientIntents},
+func (s *CloudReconcilerTestSuite) expectReconcilerError(clientIntents otterizev2alpha1.ApprovedClientIntents) {
+	emptyList := otterizev2alpha1.ApprovedClientIntentsList{}
+	clientIntentsList := otterizev2alpha1.ApprovedClientIntentsList{
+		Items: []otterizev2alpha1.ApprovedClientIntents{clientIntents},
 	}
 
 	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ClientIntentsList, opts *client.ListOptions) error {
+		func(ctx context.Context, list *otterizev2alpha1.ApprovedClientIntentsList, opts *client.ListOptions) error {
 			clientIntentsList.DeepCopyInto(list)
 			return nil
 		})
@@ -618,14 +618,14 @@ func (s *CloudReconcilerTestSuite) expectReconcilerError(clientIntents otterizev
 	s.Require().Equal(ctrl.Result{}, res)
 }
 
-func (s *CloudReconcilerTestSuite) assertReportedIntents(clientIntents otterizev2alpha1.ClientIntents, expectedIntents []graphqlclient.IntentInput) {
-	emptyList := otterizev2alpha1.ClientIntentsList{}
-	clientIntentsList := otterizev2alpha1.ClientIntentsList{
-		Items: []otterizev2alpha1.ClientIntents{clientIntents},
+func (s *CloudReconcilerTestSuite) assertReportedIntents(clientIntents otterizev2alpha1.ApprovedClientIntents, expectedIntents []graphqlclient.IntentInput) {
+	emptyList := otterizev2alpha1.ApprovedClientIntentsList{}
+	clientIntentsList := otterizev2alpha1.ApprovedClientIntentsList{
+		Items: []otterizev2alpha1.ApprovedClientIntents{clientIntents},
 	}
 
 	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ClientIntentsList, opts *client.ListOptions) error {
+		func(ctx context.Context, list *otterizev2alpha1.ApprovedClientIntentsList, opts *client.ListOptions) error {
 			clientIntentsList.DeepCopyInto(list)
 			return nil
 		})
@@ -645,7 +645,7 @@ func (s *CloudReconcilerTestSuite) assertReportedIntents(clientIntents otterizev
 }
 
 func (s *CloudReconcilerTestSuite) TestUploadIntentsDeletion() {
-	deletedIntents := otterizev2alpha1.ClientIntents{
+	deletedIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              intentsObjectName,
 			Namespace:         testNamespace,
@@ -664,13 +664,13 @@ func (s *CloudReconcilerTestSuite) TestUploadIntentsDeletion() {
 	}
 
 	emptyInput := make([]*graphqlclient.IntentInput, 0)
-	emptyList := otterizev2alpha1.ClientIntentsList{}
-	clientIntentsList := otterizev2alpha1.ClientIntentsList{
-		Items: []otterizev2alpha1.ClientIntents{deletedIntents},
+	emptyList := otterizev2alpha1.ApprovedClientIntentsList{}
+	clientIntentsList := otterizev2alpha1.ApprovedClientIntentsList{
+		Items: []otterizev2alpha1.ApprovedClientIntents{deletedIntents},
 	}
 
 	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ClientIntentsList, opts *client.ListOptions) error {
+		func(ctx context.Context, list *otterizev2alpha1.ApprovedClientIntentsList, opts *client.ListOptions) error {
 			clientIntentsList.DeepCopyInto(list)
 			return nil
 		})
@@ -690,7 +690,7 @@ func (s *CloudReconcilerTestSuite) TestUploadIntentsDeletion() {
 }
 
 func (s *CloudReconcilerTestSuite) TestUploadIntentsOnlyOneDeleted() {
-	deletedIntents := otterizev2alpha1.ClientIntents{
+	deletedIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "deleted-intents",
 			Namespace:         testNamespace,
@@ -708,7 +708,7 @@ func (s *CloudReconcilerTestSuite) TestUploadIntentsOnlyOneDeleted() {
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -725,9 +725,9 @@ func (s *CloudReconcilerTestSuite) TestUploadIntentsOnlyOneDeleted() {
 		},
 	}
 
-	emptyList := otterizev2alpha1.ClientIntentsList{}
-	clientIntentsList := otterizev2alpha1.ClientIntentsList{
-		Items: []otterizev2alpha1.ClientIntents{
+	emptyList := otterizev2alpha1.ApprovedClientIntentsList{}
+	clientIntentsList := otterizev2alpha1.ApprovedClientIntentsList{
+		Items: []otterizev2alpha1.ApprovedClientIntents{
 			deletedIntents,
 			clientIntents,
 		},
@@ -741,7 +741,7 @@ func (s *CloudReconcilerTestSuite) TestUploadIntentsOnlyOneDeleted() {
 	}
 
 	s.client.EXPECT().List(gomock.Any(), gomock.Eq(&emptyList), &client.ListOptions{Namespace: testNamespace}).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ClientIntentsList, opts *client.ListOptions) error {
+		func(ctx context.Context, list *otterizev2alpha1.ApprovedClientIntentsList, opts *client.ListOptions) error {
 			clientIntentsList.DeepCopyInto(list)
 			return nil
 		})

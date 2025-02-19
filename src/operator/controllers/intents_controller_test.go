@@ -51,7 +51,7 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
 		},
 	}
 
-	clientIntents := []otterizev2alpha1.ClientIntents{
+	clientIntents := []otterizev2alpha1.ApprovedClientIntents{
 		{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "client-intents",
@@ -89,10 +89,10 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntent() {
 	fullServerName := "checkoutservice.test-namespace"
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		&otterizev2alpha1.ClientIntentsList{},
+		&otterizev2alpha1.ApprovedClientIntentsList{},
 		&client.MatchingFields{otterizev2alpha1.OtterizeTargetServerIndexField: fullServerName},
 	).DoAndReturn(
-		func(ctx context.Context, list *otterizev2alpha1.ClientIntentsList, opts ...client.ListOption) error {
+		func(ctx context.Context, list *otterizev2alpha1.ApprovedClientIntentsList, opts ...client.ListOption) error {
 			list.Items = clientIntents
 			return nil
 		})
@@ -129,7 +129,7 @@ func (s *IntentsControllerTestSuite) TestMappingProtectedServicesToIntentNoInten
 	fullServerName := "checkoutservice.test-namespace"
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		&otterizev2alpha1.ClientIntentsList{},
+		&otterizev2alpha1.ApprovedClientIntentsList{},
 		&client.MatchingFields{otterizev2alpha1.OtterizeTargetServerIndexField: fullServerName},
 	).Return(nil)
 

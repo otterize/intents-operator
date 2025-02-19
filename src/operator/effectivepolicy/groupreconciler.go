@@ -81,14 +81,14 @@ func (g *GroupReconciler) getAllServiceEffectivePolicies(ctx context.Context) ([
 	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 10*time.Second, errors.Errorf("timeout while building list of service effective policies"))
 	defer cancel()
 	ctx = timeoutCtx
-	var intentsList v2alpha1.ClientIntentsList
+	var intentsList v2alpha1.ApprovedClientIntentsList
 
 	err := g.Client.List(ctx, &intentsList)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
 
-	serviceToIntent := make(map[serviceidentity.ServiceIdentity]v2alpha1.ClientIntents)
+	serviceToIntent := make(map[serviceidentity.ServiceIdentity]v2alpha1.ApprovedClientIntents)
 	// Extract all services from intents
 	services := goset.NewSet[serviceidentity.ServiceIdentity]()
 	for _, clientIntent := range intentsList.Items {
@@ -146,7 +146,7 @@ func (g *GroupReconciler) shouldCreateEffectivePolicyForIntentTargetServer(inten
 func (g *GroupReconciler) buildServiceEffectivePolicy(
 	ctx context.Context,
 	service serviceidentity.ServiceIdentity,
-	serviceToIntent map[serviceidentity.ServiceIdentity]v2alpha1.ClientIntents,
+	serviceToIntent map[serviceidentity.ServiceIdentity]v2alpha1.ApprovedClientIntents,
 	intentsFromAnnotation access_annotation.AnnotationIntents,
 ) (ServiceEffectivePolicy, error) {
 	relevantClientIntents, err := g.getClientIntentsAsAServer(ctx, service)
@@ -209,7 +209,7 @@ func (g *GroupReconciler) buildServiceEffectivePolicy(
 	return ep, nil
 }
 
-func (g *GroupReconciler) populateReferencedKubernetesServices(ctx context.Context, call Call, clientIntents v2alpha1.ClientIntents, intent v2alpha1.Target) (Call, error) {
+func (g *GroupReconciler) populateReferencedKubernetesServices(ctx context.Context, call Call, clientIntents v2alpha1.ApprovedClientIntents, intent v2alpha1.Target) (Call, error) {
 	var podList v1.PodList
 	if call.GetTargetServerKind() == serviceidentity.KindOtterizeLegacy {
 		err := g.Client.List(ctx, &podList, client.MatchingLabels{v2alpha1.OtterizeServiceLabelKey: intent.ToServiceIdentity(clientIntents.Namespace).GetFormattedOtterizeIdentityWithoutKind()})

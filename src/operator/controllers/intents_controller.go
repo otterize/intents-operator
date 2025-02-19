@@ -105,7 +105,10 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 func (r *IntentsReconciler) handleClientIntentsRequests(ctx context.Context, intents otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
 	if !intents.DeletionTimestamp.IsZero() {
-		// TODO: Handle deletion (Remove ApprovedClientIntents and report to the cloud)
+		// TODO: align with product
+		if err := r.deleteApprovedIntents(ctx, intents); err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
 		return ctrl.Result{}, nil
 	}
 	approvalMethod := r.approvalState.approvalMethod
@@ -181,6 +184,24 @@ func (r *IntentsReconciler) createApprovedIntents(ctx context.Context, intents o
 	if err := r.client.Create(ctx, approvedClientIntents); err != nil {
 		return errors.Wrap(err)
 	}
+	return nil
+
+}
+
+func (r *IntentsReconciler) deleteApprovedIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+	approvedClientIntents := otterizev2alpha1.ApprovedClientIntents{}
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: intents.Namespace, Name: intents.ToApprovedIntentsName()}, &approvedClientIntents)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return errors.Wrap(err)
+	}
+
+	if err := r.client.Delete(ctx, &approvedClientIntents); err != nil {
+		return errors.Wrap(err)
+	}
+
 	return nil
 
 }

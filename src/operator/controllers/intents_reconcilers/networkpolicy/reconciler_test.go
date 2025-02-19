@@ -62,7 +62,7 @@ func (s *NetworkPolicyReconcilerTestSuite) TestAddingWarningForInternetIntentWhe
 		},
 		CalledBy:            nil,
 		Calls:               calls,
-		ClientIntentsStatus: v2alpha1.IntentsStatus{},
+		ClientIntentsStatus: v2alpha1.ApprovedClientIntentsStatus{},
 		ClientIntentsEventRecorder: injectablerecorder.NewObjectEventRecorder(
 			&injectablerecorder.InjectableRecorder{Recorder: s.Recorder},
 			nil),
