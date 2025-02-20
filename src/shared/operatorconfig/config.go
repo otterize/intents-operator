@@ -30,8 +30,6 @@ const (
 	KafkaServerTLSCAKey         = "kafka-server-tls-ca"   // name of tls ca file
 	SelfSignedCertKey           = "self-signed-cert"      // Whether to generate and use a self signed cert as the CA for webhooks
 	SelfSignedCertDefault       = true
-	DisableWebhookServerKey     = "disable-webhook-server" // Disable webhook validator server
-	DisableWebhookServerDefault = false
 
 	IntentsOperatorPodNameKey                     = "pod-name"
 	IntentsOperatorPodNamespaceKey                = "pod-namespace"
@@ -75,7 +73,6 @@ func init() {
 	viper.SetDefault(ProbeAddrKey, ProbeAddrDefault)
 	viper.SetDefault(EnableLeaderElectionKey, EnableLeaderElectionDefault)
 	viper.SetDefault(SelfSignedCertKey, SelfSignedCertDefault)
-	viper.SetDefault(DisableWebhookServerKey, DisableWebhookServerDefault)
 	viper.SetDefault(EnableAWSRolesAnywhereKey, EnableAWSRolesAnywhereDefault)
 	viper.SetDefault(TelemetryErrorsAPIKeyKey, TelemetryErrorsAPIKeyDefault)
 	viper.SetDefault(AWSRolesAnywhereCertDirKey, AWSRolesAnywhereCertDirDefault)
@@ -171,7 +168,6 @@ func InitCLIFlags() {
 	pflag.String(KafkaServerTLSKeyKey, "", "name of tls private key file")
 	pflag.String(KafkaServerTLSCAKey, "", "name of tls ca file")
 	pflag.Bool(SelfSignedCertKey, SelfSignedCertDefault, "Whether to generate and use a self signed cert as the CA for webhooks")
-	pflag.Bool(DisableWebhookServerKey, DisableWebhookServerDefault, "Disable webhook validator server")
 	pflag.String(MetricsAddrKey, MetricsAddrDefault, "The address the metric endpoint binds to.")
 	pflag.String(ProbeAddrKey, ProbeAddrDefault, "The address the probe endpoint binds to.")
 	pflag.String(PprofBindAddressKey, PprofAddrDefault, "The address that the Go pprof profiler binds to.")

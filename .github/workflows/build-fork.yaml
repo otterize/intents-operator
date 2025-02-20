@@ -32,6 +32,7 @@ jobs:
       matrix:
         service:
           - intents-operator
+          - intents-operator-webhook-server
 
     steps:
       - id: registry
@@ -72,6 +73,8 @@ jobs:
       registry: ${{ needs.build.outputs.registry }}
       operator-tag: ${{ github.sha }}
       operator-image:  ${{ github.actor }}/intents-operator
+      webhook-server-tag: ${{ github.sha }}
+      webhook-server-image: intents-operator-webhook-server
 
     needs:
       - build
