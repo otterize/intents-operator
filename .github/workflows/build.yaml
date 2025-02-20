@@ -26,6 +26,7 @@ jobs:
       matrix:
         service:
           - intents-operator
+          - intents-operator-webhook-server
 
     steps:
       - id: registry
@@ -130,3 +131,4 @@ jobs:
         run: |-
           retag_image_as_latest() { if [[ $(gcloud container images add-tag "${{ env.REGISTRY }}/$1:${{ github.sha }}" "${{ env.REGISTRY }}/$1:latest" --quiet) ]]; then echo "Failed tagging $1 as latest"; exit 1; fi } # using --quiet to avoid prompt
           retag_image_as_latest intents-operator
+          retag_image_as_latest intents-operator-webhook-server
