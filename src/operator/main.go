@@ -164,7 +164,6 @@ func main() {
 	enableLeaderElection := viper.GetBool(operatorconfig.EnableLeaderElectionKey)
 	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
 	enforcementConfig := enforcement.GetConfig()
-	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev2alpha1.TLSSource{
 		CertFile:   viper.GetString(operatorconfig.KafkaServerTLSCertKey),
 		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
@@ -482,14 +481,6 @@ func main() {
 		logrus.WithError(err).Panic()
 	}
 
-	healthChecker := healthz.Ping
-	readyChecker := healthz.Ping
-
-	if !disableWebhookServer {
-		healthChecker = mgr.GetWebhookServer().StartedChecker()
-		readyChecker = mgr.GetWebhookServer().StartedChecker()
-	}
-
 	cacheHealthChecker := func(_ *http.Request) error {
 		timeoutCtx, cancel := context.WithTimeout(signalHandlerCtx, 1*time.Second)
 		defer cancel()
@@ -501,19 +492,12 @@ func main() {
 	}
 
 	//+kubebuilder:scaffold:builder
-	if err := mgr.AddHealthzCheck("healthz", healthChecker); err != nil {
+	if err := mgr.AddHealthzCheck("healthz", cacheHealthChecker); err != nil {
 		logrus.WithError(err).Panic("unable to set up health check")
 	}
-	if err := mgr.AddReadyzCheck("readyz", readyChecker); err != nil {
+	if err := mgr.AddReadyzCheck("readyz", cacheHealthChecker); err != nil {
 		logrus.WithError(err).Panic("unable to set up ready check")
 	}
-	if err := mgr.AddHealthzCheck("cache", cacheHealthChecker); err != nil {
-		logrus.WithError(err).Panic("unable to set up cache health check")
-	}
-	if err := mgr.AddReadyzCheck("cache", cacheHealthChecker); err != nil {
-		logrus.WithError(err).Panic("unable to set up ready check")
-	}
-
 	if err := mgr.AddHealthzCheck("intentsReconcile", health.Checker); err != nil {
 		logrus.WithError(err).Panic("unable to set up health check")
 	}

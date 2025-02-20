@@ -30,8 +30,6 @@ const (
 	KafkaServerTLSCAKey         = "kafka-server-tls-ca"   // name of tls ca file
 	SelfSignedCertKey           = "self-signed-cert"      // Whether to generate and use a self signed cert as the CA for webhooks
 	SelfSignedCertDefault       = true
-	DisableWebhookServerKey     = "disable-webhook-server" // Disable webhook validator server
-	DisableWebhookServerDefault = false
 
 	IntentsOperatorPodNameKey                     = "pod-name"
 	IntentsOperatorPodNamespaceKey                = "pod-namespace"

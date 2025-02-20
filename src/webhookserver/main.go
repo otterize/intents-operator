@@ -28,7 +28,6 @@ import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	"github.com/otterize/intents-operator/src/operator/controllers"
-	"github.com/otterize/intents-operator/src/operator/health"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared"
@@ -47,7 +46,6 @@ import (
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -123,7 +121,6 @@ func main() {
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
 	selfSignedCert := viper.GetBool(operatorconfig.SelfSignedCertKey)
 	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
-	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 
 	podNamespace := MustGetEnvVar(operatorconfig.IntentsOperatorPodNamespaceKey)
 	ctrl.SetLogger(logrusr.New(logrus.StandardLogger()))
@@ -228,17 +225,10 @@ func main() {
 		}
 	}
 
-	if !disableWebhookServer {
-		initWebhookValidators(mgr)
-	}
+	initWebhookValidators(mgr)
 
-	healthChecker := healthz.Ping
-	readyChecker := healthz.Ping
-
-	if !disableWebhookServer {
-		healthChecker = mgr.GetWebhookServer().StartedChecker()
-		readyChecker = mgr.GetWebhookServer().StartedChecker()
-	}
+	healthChecker := mgr.GetWebhookServer().StartedChecker()
+	readyChecker := mgr.GetWebhookServer().StartedChecker()
 
 	cacheHealthChecker := func(_ *http.Request) error {
 		timeoutCtx, cancel := context.WithTimeout(signalHandlerCtx, 1*time.Second)
@@ -262,10 +252,6 @@ func main() {
 	}
 	if err := mgr.AddReadyzCheck("cache", cacheHealthChecker); err != nil {
 		logrus.WithError(err).Panic("unable to set up ready check")
-	}
-
-	if err := mgr.AddHealthzCheck("intentsReconcile", health.Checker); err != nil {
-		logrus.WithError(err).Panic("unable to set up health check")
 	}
 
 	logrus.Info("starting manager")
