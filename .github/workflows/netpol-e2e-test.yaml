@@ -244,8 +244,17 @@ jobs:
           # should be blocked (using 3 because the log should repeat itself every 3 lines)
           echo check client other log
           wait_for_log $CLI2_POD 30 "curl timed out"
-      
 
+      - name: check we can restart the operator
+        run: |-
+          # kill the operator pod
+          kubectl delete pods -l app=intents-operator
+          # wait for the operator to be ready again
+          kubectl wait pods -n otterize-system -l app=intents-operator --for condition=Ready --timeout=360s
+          # wait for webhook to be ready
+          POD_IP=`kubectl get pod -l app=intents-operator -n otterize-system -o=jsonpath='{.items[0].status.podIP}'`
+          kubectl wait -n otterize-system --for=jsonpath='{.subsets[0].addresses[0].ip}'=$POD_IP endpoints/intents-operator-webhook-service
+  
 
   e2e-test-intents-after-pods-with-egress:
     timeout-minutes: 10
