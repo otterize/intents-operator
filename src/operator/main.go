@@ -565,9 +565,6 @@ func main() {
 	if err := mgr.AddHealthzCheck("cache", cacheHealthChecker); err != nil {
 		logrus.WithError(err).Panic("unable to set up cache health check")
 	}
-	if err := mgr.AddReadyzCheck("cache", cacheHealthChecker); err != nil {
-		logrus.WithError(err).Panic("unable to set up ready check")
-	}
 
 	if err := mgr.AddHealthzCheck("intentsReconcile", health.Checker); err != nil {
 		logrus.WithError(err).Panic("unable to set up health check")
