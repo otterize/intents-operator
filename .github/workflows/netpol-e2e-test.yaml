@@ -211,7 +211,7 @@ jobs:
 
       - name: Install Otterize
         run: |-
-          OPERATOR_FLAGS="--set-string intentsOperator.operator.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.repository=${{ env.REGISTRY }} --set-string intentsOperator.operator.image=${{ inputs.operator-image }} --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
+          OPERATOR_FLAGS="--set-string intentsOperator.operator.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.image=${{ inputs.webhook-server-image }} --set-string intentsOperator.webhookServer.tag=${{ inputs.webhook-server-tag }} --set-string intentsOperator.webhookServer.pullPolicy=Never --set-string intentsOperator.operator.image=${{ inputs.operator-image }} --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
           TELEMETRY_FLAG="--set global.telemetry.enabled=false"
           helm dep up ./helm-charts/otterize-kubernetes
           helm install otterize ./helm-charts/otterize-kubernetes -n otterize-system --create-namespace $OPERATOR_FLAGS $TELEMETRY_FLAG
@@ -331,7 +331,7 @@ jobs:
 
       - name: Install Otterize
         run: |-
-          OPERATOR_FLAGS="--set-string intentsOperator.operator.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.repository=${{ env.REGISTRY }} --set-string intentsOperator.operator.image=${{ inputs.operator-image }} --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
+          OPERATOR_FLAGS="--set-string intentsOperator.operator.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.image=${{ inputs.webhook-server-image }} --set-string intentsOperator.webhookServer.tag=${{ inputs.webhook-server-tag }} --set-string intentsOperator.webhookServer.pullPolicy=Never --set-string intentsOperator.operator.image=${{ inputs.operator-image }} --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
           TELEMETRY_FLAG="--set global.telemetry.enabled=false"
           EGRESS_FLAG="--set intentsOperator.operator.enableEgressNetworkPolicyCreation=true"
           helm dep up ./helm-charts/otterize-kubernetes
@@ -460,7 +460,7 @@ jobs:
 
       - name: Install Otterize
         run: |-
-          OPERATOR_FLAGS="--set-string intentsOperator.operator.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.repository=${{ env.REGISTRY }} --set-string intentsOperator.operator.image=${{ inputs.operator-image }} --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
+          OPERATOR_FLAGS="--set-string intentsOperator.operator.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.image=${{ inputs.webhook-server-image }} --set-string intentsOperator.webhookServer.tag=${{ inputs.webhook-server-tag }} --set-string intentsOperator.webhookServer.pullPolicy=Never --set-string intentsOperator.operator.image=${{ inputs.operator-image }} --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
           TELEMETRY_FLAG="--set global.telemetry.enabled=false"
           EGRESS_FLAG="--set intentsOperator.operator.enableEgressNetworkPolicyCreation=true"
           helm dep up ./helm-charts/otterize-kubernetes
