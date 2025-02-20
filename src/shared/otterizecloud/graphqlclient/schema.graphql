@@ -236,6 +236,7 @@ type AppliedIntentsRequestWithDetails {
 }
 
 type AppliedIntentsRuleset {
+	id: ID!
 	origin: AppliedIntentsRulesetFilter!
 	target: AppliedIntentsRulesetFilter!
 	action: AppliedIntentsRulesetAction!
@@ -633,6 +634,11 @@ input DatabaseVisibilitySettingsInput {
 
 enum DatabaseVisibilitySource {
 	GCP_PUBSUB
+}
+
+type DefaultIntentsApprovalActionByEnv {
+	environmentId: ID!
+	action: AppliedIntentsRulesetAction!
 }
 
 type DetectedCloudServer {
@@ -1110,6 +1116,10 @@ input InputAppliedIntentsRulesetConfigFilter {
 """ Ruleset filter """
 input InputAppliedIntentsRulesetFilter {
 """ Ruleset filter """
+	environmentIds: InputIDFilterValue
+""" Ruleset filter """
+	environmentNames: InputIDFilterValue
+""" Ruleset filter """
 	namespaceIds: InputIDFilterValue
 """ Ruleset filter """
 	clusterIds: InputIDFilterValue
@@ -1117,6 +1127,11 @@ input InputAppliedIntentsRulesetFilter {
 	serviceIds: InputIDFilterValue
 """ Ruleset filter """
 	actions: InputIDFilterValue
+}
+
+input InputDefaultIntentsApprovalActionByEnv {
+	environmentId: ID!
+	action: AppliedIntentsRulesetAction!
 }
 
 input InputFeatureFlags {
@@ -2113,12 +2128,14 @@ type OrganizationSettings {
 	domains: [String!]
 	enforcedRegulations: [String!]
 	ignoredCloudDomains: [String!]
+	defaultIntentsApprovalActionByEnv: [DefaultIntentsApprovalActionByEnv!]!
 }
 
 input OrganizationSettingsInput {
 	domains: [String!]
 	enforcedRegulations: [String]
 	ignoredCloudDomains: [String!]
+	defaultIntentsApprovalActionByEnv: [InputDefaultIntentsApprovalActionByEnv!]
 }
 
 input PaginationInput {
@@ -2191,7 +2208,7 @@ type Query {
 	): AccessLog!
 """applied intents requests"""
 	appliedIntentsRequestStatus(
-		filter: InputAppliedIntentsRequestFilter!
+		filter: InputAppliedIntentsRequestFilter
 	): [AppliedIntentsRequestStatus!]!
 	appliedIntentsRequestWithDetails(
 		id: ID!
@@ -2200,7 +2217,6 @@ type Query {
 """rulesets"""
 	appliedIntentsRulesetSummary: [AppliedIntentsRulesetSummary!]!
 	appliedIntentsRulesetList(
-		environmentId: ID!
 		filter: InputAppliedIntentsRulesetFilter
 	): [AppliedIntentsRuleset!]!
 """Get cluster"""

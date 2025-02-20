@@ -157,6 +157,20 @@ rules:
 - apiGroups:
   - k8s.otterize.com
   resources:
+  - approvedclientintents/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - k8s.otterize.com
+  resources:
+  - approvedclientintents/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - k8s.otterize.com
+  resources:
   - clientintents
   verbs:
   - create

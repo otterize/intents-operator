@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"github.com/amit7itz/goset"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -73,6 +74,8 @@ func NewIntentsReconciler(ctx context.Context, client client.Client, cloudClient
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=mysqlserverconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/finalizers,verbs=update
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=approvedclientintents/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=approvedclientintents/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;list;watch;create
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get
@@ -86,7 +89,6 @@ func NewIntentsReconciler(ctx context.Context, client client.Client, cloudClient
 // move the current state of the cluster closer to the desired state.
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	intents := &otterizev2alpha1.ClientIntents{}
-
 	err := r.client.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -100,15 +102,15 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	if err = r.removeOrphanedApprovedIntents(ctx); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
 	return result, nil
 }
 
 func (r *IntentsReconciler) handleClientIntentsRequests(ctx context.Context, intents otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
 	if !intents.DeletionTimestamp.IsZero() {
-		// TODO: align with product
-		if err := r.deleteApprovedIntents(ctx, intents); err != nil {
-			return ctrl.Result{}, errors.Wrap(err)
-		}
 		return ctrl.Result{}, nil
 	}
 	approvalMethod := r.approvalState.approvalMethod
@@ -188,22 +190,35 @@ func (r *IntentsReconciler) createApprovedIntents(ctx context.Context, intents o
 
 }
 
-func (r *IntentsReconciler) deleteApprovedIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
-	approvedClientIntents := otterizev2alpha1.ApprovedClientIntents{}
-	err := r.client.Get(ctx, types.NamespacedName{Namespace: intents.Namespace, Name: intents.ToApprovedIntentsName()}, &approvedClientIntents)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil
-		}
+func (r *IntentsReconciler) removeOrphanedApprovedIntents(ctx context.Context) error {
+	logrus.Debug("Checking for orphaned approved intents")
+
+	clientIntentsList := &otterizev2alpha1.ClientIntentsList{}
+	if err := r.client.List(ctx, clientIntentsList); err != nil {
 		return errors.Wrap(err)
 	}
 
-	if err := r.client.Delete(ctx, &approvedClientIntents); err != nil {
+	approvedNamesThatShouldExist := goset.FromSlice(lo.Map(
+		clientIntentsList.Items, func(intent otterizev2alpha1.ClientIntents, _ int) types.NamespacedName {
+			return types.NamespacedName{Namespace: intent.Namespace, Name: intent.ToApprovedIntentsName()}
+		}))
+
+	approvedClientIntentsList := &otterizev2alpha1.ApprovedClientIntentsList{}
+	if err := r.client.List(ctx, approvedClientIntentsList); err != nil {
 		return errors.Wrap(err)
+	}
+
+	for _, approvedClientIntents := range approvedClientIntentsList.Items {
+		if approvedNamesThatShouldExist.Contains(types.NamespacedName{Namespace: approvedClientIntents.Namespace, Name: approvedClientIntents.Name}) {
+			continue
+		}
+		logrus.Infof("Deleting orphaned approved intents %s", approvedClientIntents.Name)
+		if err := r.client.Delete(ctx, &approvedClientIntents); err != nil {
+			return errors.Wrap(err)
+		}
 	}
 
 	return nil
-
 }
 
 func (r *IntentsReconciler) handleCloudAppliedIntentsRequests(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
