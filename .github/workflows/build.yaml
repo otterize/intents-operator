@@ -98,7 +98,7 @@ jobs:
       - build
 
   helm-e2e-test:
-    uses: otterize/helm-charts/.github/workflows/e2e-test.yaml@main
+    uses: otterize/helm-charts/.github/workflows/e2e-test.yaml@orisho/separate_webhook_from_operator
     name: Trigger e2e tests from helm charts repo
     secrets: inherit
     with:
