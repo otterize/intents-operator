@@ -104,6 +104,7 @@ jobs:
     with:
       gcr-registry: ${{ needs.build.outputs.registry }}
       intents-operator-tag: ${{ github.sha }}
+      github_ref: orisho/separate_webhook_from_operator
     needs:
       - build
 
