@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strconv"
 	"strings"
 )
 
@@ -100,6 +101,50 @@ func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 	return r.updatePolicy(ctx, existingPolicy, newPolicy, owner)
 }
 
+func (r *NetworkPolicyHandler) HandlePod(ctx context.Context, pod *corev1.Pod) error {
+	shouldScrape := pod.Annotations["prometheus.io/scrape"]
+	scrapePort := pod.Annotations["prometheus.io/port"]
+
+	if shouldScrape == "true" {
+		fmt.Print("handle me. scrapePort: ", scrapePort)
+	}
+
+	return nil
+}
+
+func (r *NetworkPolicyHandler) createOrUpdatePrometheusPolicy(
+	ctx context.Context, endpoints *corev1.Endpoints, owner *corev1.Service, otterizeServiceName string, selector metav1.LabelSelector, ingressList *v1.IngressList, successMsg string) error {
+	policyName := fmt.Sprintf("prometheus-access-to-%s", endpoints.Name)
+	newPolicy, err := r.buildPrometheusPolicyObjectForEndpoints(ctx, endpoints, owner, otterizeServiceName, selector, ingressList, policyName)
+	err = controllerutil.SetOwnerReference(owner, newPolicy, r.scheme)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	existingPolicy := &v1.NetworkPolicy{}
+	errGetExistingPolicy := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
+
+	// No matching network policy found, create one
+	if k8serrors.IsNotFound(errGetExistingPolicy) {
+		logrus.Debugf("Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
+		err := r.client.Create(ctx, newPolicy)
+		if err != nil {
+			return r.handleCreationErrors(ctx, err, newPolicy, owner)
+		}
+		r.RecordNormalEvent(owner, ReasonCreatedExternalTrafficPolicy, successMsg)
+		return nil
+	} else if errGetExistingPolicy != nil {
+		r.RecordWarningEventf(owner, ReasonGettingExternalTrafficPolicyFailed, "failed to get external traffic network policy: %s", err.Error())
+		return errGetExistingPolicy
+	}
+
+	// Found matching policy, is an update needed?
+	if r.arePoliciesEqual(existingPolicy, newPolicy) {
+		return nil
+	}
+
+	return r.updatePolicy(ctx, existingPolicy, newPolicy, owner)
+}
+
 func (r *NetworkPolicyHandler) handleCreationErrors(ctx context.Context, err error, policy *v1.NetworkPolicy, owner *corev1.Service) error {
 	if !k8serrors.IsAlreadyExists(err) {
 		r.RecordWarningEventf(owner, ReasonCreatingExternalTrafficPolicyFailed, "failed to create external traffic network policy: %s", err.Error())
@@ -131,6 +176,26 @@ func (r *NetworkPolicyHandler) updatePolicy(ctx context.Context, existingPolicy 
 }
 
 func (r *NetworkPolicyHandler) arePoliciesEqual(existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) bool {
+	a := reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec)
+	if !a {
+		return false
+	}
+
+	a = reflect.DeepEqual(existingPolicy.Labels, newPolicy.Labels)
+	if !a {
+		return false
+	}
+
+	a = reflect.DeepEqual(existingPolicy.Annotations, newPolicy.Annotations)
+	if !a {
+		return false
+	}
+
+	a = reflect.DeepEqual(existingPolicy.OwnerReferences, newPolicy.OwnerReferences)
+	if !a {
+		return false
+	}
+
 	return reflect.DeepEqual(existingPolicy.Spec, newPolicy.Spec) &&
 		reflect.DeepEqual(existingPolicy.Labels, newPolicy.Labels) &&
 		reflect.DeepEqual(existingPolicy.Annotations, newPolicy.Annotations) &&
@@ -202,6 +267,72 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 	}
 
 	return netpol
+}
+
+func (r *NetworkPolicyHandler) buildPrometheusPolicyObjectForEndpoints(
+	ctx context.Context, endpoints *corev1.Endpoints, svc *corev1.Service, otterizeServiceName string, selector metav1.LabelSelector, ingressList *v1.IngressList, policyName string) (*v1.NetworkPolicy, error) {
+
+	shouldScrape := svc.Annotations["prometheus.io/scrape"]
+	scrapePort := svc.Annotations["prometheus.io/port"]
+	if shouldScrape != "true" {
+		return nil, nil
+	}
+
+	//
+	//podList := &corev1.PodList{}
+	//err := r.client.List(ctx, podList,
+	//	&client.ListOptions{Namespace: svc.Namespace},
+	//	client.MatchingLabelsSelector{Selector: labels.SelectorFromSet(svc.Spec.Selector)})
+	//
+	//if err != nil {
+	//	return nil, errors.Wrap(err)
+	//}
+	//
+	//for _, pod := range podList.Items {
+	//
+	//	fmt.Print("shouldScrape: ", shouldScrape, " scrapePort: ", scrapePort)
+	//}
+
+	annotations := map[string]string{
+		v2alpha1.OtterizeCreatedForServiceAnnotation: endpoints.GetName(),
+	}
+
+	if len(ingressList.Items) != 0 {
+		annotations[v2alpha1.OtterizeCreatedForIngressAnnotation] = strings.Join(lo.Map(ingressList.Items, func(ingress v1.Ingress, _ int) string {
+			return ingress.Name
+		}), ",")
+	}
+
+	rule := v1.NetworkPolicyIngressRule{}
+
+	netpol := &v1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      policyName,
+			Namespace: endpoints.Namespace,
+			Labels: map[string]string{
+				v2alpha1.OtterizeNetworkPolicyExternalTraffic: otterizeServiceName,
+			},
+			Annotations: annotations,
+		},
+		Spec: v1.NetworkPolicySpec{
+			PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
+			PodSelector: selector,
+			Ingress: []v1.NetworkPolicyIngressRule{
+				rule,
+			},
+		},
+	}
+
+	portNumber, err := strconv.Atoi(scrapePort)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	netpol.Spec.Ingress[0].Ports = append(netpol.Spec.Ingress[0].Ports, v1.NetworkPolicyPort{
+		Port: lo.ToPtr(intstr.IntOrString{IntVal: int32(portNumber), Type: intstr.Int}),
+	})
+
+	return netpol, nil
 }
 
 // HandleBeforeAccessPolicyRemoval - call this function when an access policy is being deleted, and you want to make sure
@@ -530,6 +661,17 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 	if err != nil {
 		return errors.Wrap(err)
 	}
+
+	// ==========================================
+	// Prometheus POC
+	for _, netpol := range netpolList {
+		successMsg := fmt.Sprintf(successMsgNetpolCreate, endpoints.GetName(), netpol.GetName())
+		err = r.createOrUpdatePrometheusPolicy(ctx, endpoints, svc, otterizeServiceName, netpol.Spec.PodSelector, ingressList, successMsg)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+	// ==========================================
 
 	// delete policy if disabled
 	if r.allowExternalTraffic == allowexternaltraffic.Off {

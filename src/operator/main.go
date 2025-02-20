@@ -355,6 +355,7 @@ func main() {
 
 	externalPolicySvcReconciler := external_traffic.NewServiceReconciler(mgr.GetClient(), extNetpolHandler)
 	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler)
+	etPodReconciler := external_traffic.NewPodReconciler(mgr.GetClient(), extNetpolHandler)
 	netpolReconciler := external_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), extNetpolHandler)
 
 	if !enforcementConfig.EnforcementDefaultState {
@@ -373,9 +374,9 @@ func main() {
 			logrus.Info("webhook certs uninitialized, generating new certs")
 		}
 
-		if !ok || err != nil {
+		if !ok || err != nil || true {
 			certBundleNew, err :=
-				webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
+				webhooks.GenerateSelfSignedCertificate("host.minikube.internal", podNamespace)
 			if err != nil {
 				logrus.WithError(err).Panic("unable to create self signed certs for webhook")
 			}
@@ -475,6 +476,10 @@ func main() {
 
 	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Ingress")
+	}
+
+	if err = etPodReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Pod")
 	}
 
 	if err = netpolReconciler.SetupWithManager(mgr); err != nil {
