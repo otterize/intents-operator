@@ -2,7 +2,7 @@ package metrics_collectors
 
 import (
 	"context"
-	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
+	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
@@ -19,14 +19,14 @@ import (
 
 type PodReconciler struct {
 	client.Client
-	extNetpolHandler *external_traffic.NetworkPolicyHandler
+	netpolHandle *NetworkPolicyHandler
 	injectablerecorder.InjectableRecorder
 }
 
-func NewPodReconciler(client client.Client, extNetpolHandler *external_traffic.NetworkPolicyHandler) *PodReconciler {
+func NewPodReconciler(client client.Client, netpolHandle *NetworkPolicyHandler) *PodReconciler {
 	return &PodReconciler{
-		Client:           client,
-		extNetpolHandler: extNetpolHandler,
+		Client:       client,
+		netpolHandle: netpolHandle,
 	}
 }
 
@@ -42,7 +42,7 @@ func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *PodReconciler) InjectRecorder(recorder record.EventRecorder) {
 	r.Recorder = recorder
-	r.extNetpolHandler.InjectRecorder(recorder)
+	r.netpolHandle.InjectRecorder(recorder)
 }
 
 func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -56,10 +56,24 @@ func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
-	//err = r.extNetpolHandler.HandlePod(ctx, pod)
-	//err = r.extNetpolHandler.HandleEndpoints(ctx, endpoints)
+
+	var endpointsList corev1.EndpointsList
+
+	err = r.Client.List(
+		ctx,
+		&endpointsList,
+		&client.MatchingFields{v2alpha1.EndpointsPodNamesIndexField: pod.Name},
+		&client.ListOptions{Namespace: pod.Namespace},
+	)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
+	}
+
+	for _, endpoints := range endpointsList.Items {
+		err = r.netpolHandle.HandleEndpoints(ctx, &endpoints)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
 	}
 
 	return ctrl.Result{}, nil

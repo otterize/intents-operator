@@ -99,22 +99,7 @@ func (r *NetworkPolicyHandler) arePoliciesEqual(existingPolicy *v1.NetworkPolicy
 }
 
 // HandleEndpoints
-// Every HandleX function goes through this function, and it handles this cases:
-// (1) Endpoints reconciler watch endpoints and call HandleEndpoints, which means it gets updates when Services are updated, or the pods backing them are updated.
-// (2) It receives handle requests from the IngressReconciler, when Ingresses are created, updated or deleted.
-// (3) It receives handle requests from the Intents NetworkPolicyReconciler, when Network Policies that apply intents
-//
-//	are created, updated or deleted. This means that if you create, update or delete intents, the corresponding
-//	external traffic policy will be created (if there were no other intents affecting the service before then) or
-//	deleted (if no intents network policies refer to the pods backing the service any longer).
-//
-//	 When HandleEndpoints is called, and the Service is of type LoadBalancer, NodePort, or is referenced by an Ingress,
-//		   it checks if the backing pods are affected by Otterize Intents Network Policies.
-//		   If so, and the reconciler is enabled, it will create network policies to allow external traffic to those pods.
-//		   If the Endpoints (= Services) update port, it will update the port specified in the corresponding network policy.
-//		   If the Endpoints no longer refer to pods affected by Intents, then the network policy will be deleted.
-//		   If the Service is deleted completely, then the corresponding network policy will be deleted, since it is owned
-//		   by the service.
+// Every HandleX function goes through this function, and it handles this cases
 func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *corev1.Endpoints) error {
 	svc := corev1.Service{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.GetName(), Namespace: endpoints.GetNamespace()}, &svc)
@@ -127,7 +112,6 @@ func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *c
 		return errors.Wrap(err)
 	}
 
-	//return nil
 	ingressList, err := r.getIngressRefersToService(ctx, r.client, svc)
 	if err != nil {
 		return errors.Wrap(err)
@@ -156,19 +140,23 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		if !ok {
 			continue
 		}
+
 		netpolSlice := make([]v1.NetworkPolicy, 0)
 
 		serviceId, err := serviceidresolver.NewResolver(r.client).ResolvePodToServiceIdentity(ctx, pod)
 		if err != nil {
 			return errors.Wrap(err)
 		}
+
 		netpolList := &v1.NetworkPolicyList{}
+
 		// Get netpolSlice which was created by intents targeting this pod by its owner with "kind"
 		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithKind()})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		netpolSlice = append(netpolSlice, netpolList.Items...)
+
 		// Get netpolSlice which was created by intents targeting this pod by its owner without "kind"
 		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithoutKind()})
 		if err != nil {
@@ -181,7 +169,6 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		if err != nil {
 			return errors.Wrap(err)
 		}
-
 		netpolSlice = append(netpolSlice, netpolList.Items...)
 
 		hasIngressRules := lo.SomeBy(netpolSlice, func(netpol v1.NetworkPolicy) bool {
@@ -208,7 +195,7 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		}
 
 		foundOtterizeNetpolsAffectingPods = true
-		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, netpolSlice)
+		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, netpolSlice, pod)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -288,7 +275,7 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 	return nil
 }
 
-func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, netpolList []v1.NetworkPolicy) error {
+func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, netpolList []v1.NetworkPolicy, pod *corev1.Pod) error {
 	svc := &corev1.Service{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
 	if err != nil {
@@ -297,7 +284,16 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 
 	// delete policy if disabled
 	if !r.allowMetricsCollector {
-		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
+		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
+		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+		return nil
+	}
+
+	if !r.shouldScrape(&svc.ObjectMeta) && !r.shouldScrape(&pod.ObjectMeta) {
+		r.RecordNormalEventf(svc, ReasonRemovingMetricsCollectorPolicy, "Removing policy for service '%s' could not find matching annotations", endpoints.GetName())
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {
 			return errors.Wrap(err)
@@ -309,7 +305,7 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 	// Prometheus POC
 	for _, netpol := range netpolList {
 		successMsg := fmt.Sprintf(successMsgNetpolCreate, endpoints.GetName(), netpol.GetName())
-		err = r.createOrUpdatePrometheusPolicy(ctx, endpoints, svc, otterizeServiceName, netpol.Spec.PodSelector, ingressList, successMsg)
+		err = r.createOrUpdatePrometheusPolicy(ctx, endpoints, svc, otterizeServiceName, netpol.Spec.PodSelector, ingressList, successMsg, pod)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -320,9 +316,18 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 }
 
 func (r *NetworkPolicyHandler) createOrUpdatePrometheusPolicy(
-	ctx context.Context, endpoints *corev1.Endpoints, owner *corev1.Service, otterizeServiceName string, selector metav1.LabelSelector, ingressList *v1.IngressList, successMsg string) error {
+	ctx context.Context, endpoints *corev1.Endpoints, owner *corev1.Service, otterizeServiceName string, selector metav1.LabelSelector, ingressList *v1.IngressList, successMsg string, pod *corev1.Pod) error {
 	policyName := r.formatPolicyName(endpoints.Name)
-	newPolicy, err := r.buildPrometheusPolicyObjectForEndpoints(ctx, endpoints, owner, otterizeServiceName, selector, ingressList, policyName)
+	newPolicy, err := r.buildPrometheusPolicyObjectForEndpoints(ctx, endpoints, owner, otterizeServiceName, selector, ingressList, policyName, pod)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	if newPolicy == nil {
+		// we don't want to reach this phase, this should be an error?
+		return nil
+	}
+
 	err = controllerutil.SetOwnerReference(owner, newPolicy, r.scheme)
 	if err != nil {
 		return errors.Wrap(err)
@@ -356,14 +361,49 @@ func (r *NetworkPolicyHandler) formatPolicyName(serviceName string) string {
 	return fmt.Sprintf(OtterizeMetricsCollectorPolicyNameTemplate, serviceName)
 }
 
-func (r *NetworkPolicyHandler) buildPrometheusPolicyObjectForEndpoints(
-	ctx context.Context, endpoints *corev1.Endpoints, svc *corev1.Service, otterizeServiceName string, selector metav1.LabelSelector, ingressList *v1.IngressList, policyName string) (*v1.NetworkPolicy, error) {
+func (r *NetworkPolicyHandler) shouldScrape(meta *metav1.ObjectMeta) bool {
+	shouldScrape := meta.Annotations["prometheus.io/scrape"]
+	return shouldScrape == "true"
+}
 
-	shouldScrape := svc.Annotations["prometheus.io/scrape"]
-	scrapePort := svc.Annotations["prometheus.io/port"]
-	if shouldScrape != "true" {
+func (r *NetworkPolicyHandler) getMetricsPorts(svc *corev1.Service, pod *corev1.Pod) ([]int32, error) {
+	ports := make([]int32, 0)
+	if r.shouldScrape(&svc.ObjectMeta) {
+		port, err := strconv.Atoi(svc.Annotations["prometheus.io/port"])
+		if err != nil {
+			logrus.Errorf("failed to convert port to int: %s", err)
+			return nil, errors.Wrap(err)
+		} else {
+			ports = append(ports, int32(port))
+		}
+	}
+
+	if r.shouldScrape(&pod.ObjectMeta) {
+		port, err := strconv.Atoi(pod.Annotations["prometheus.io/port"])
+		if err != nil {
+			logrus.Errorf("failed to convert port to int: %s", err)
+			return nil, errors.Wrap(err)
+		} else {
+			ports = append(ports, int32(port))
+		}
+	}
+
+	return ports, nil
+}
+
+func (r *NetworkPolicyHandler) buildPrometheusPolicyObjectForEndpoints(
+	ctx context.Context, endpoints *corev1.Endpoints, svc *corev1.Service, otterizeServiceName string, selector metav1.LabelSelector, ingressList *v1.IngressList, policyName string, pod *corev1.Pod) (*v1.NetworkPolicy, error) {
+
+	if !r.shouldScrape(&svc.ObjectMeta) && !r.shouldScrape(&pod.ObjectMeta) {
 		return nil, nil
 	}
+
+	scrapePorts, err := r.getMetricsPorts(svc, pod)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	//scrapePort := svc.Annotations["prometheus.io/port"]
 
 	//
 	//podList := &corev1.PodList{}
@@ -409,15 +449,16 @@ func (r *NetworkPolicyHandler) buildPrometheusPolicyObjectForEndpoints(
 			},
 		},
 	}
-
-	portNumber, err := strconv.Atoi(scrapePort)
-	if err != nil {
-		return nil, errors.Wrap(err)
+	for _, portNumber := range scrapePorts {
+		netpol.Spec.Ingress[0].Ports = append(netpol.Spec.Ingress[0].Ports, v1.NetworkPolicyPort{
+			Port: lo.ToPtr(intstr.IntOrString{IntVal: portNumber, Type: intstr.Int}),
+		})
 	}
-
-	netpol.Spec.Ingress[0].Ports = append(netpol.Spec.Ingress[0].Ports, v1.NetworkPolicyPort{
-		Port: lo.ToPtr(intstr.IntOrString{IntVal: int32(portNumber), Type: intstr.Int}),
-	})
+	
+	//portNumber, err := strconv.Atoi(scrapePort)
+	//if err != nil {
+	//	return nil, errors.Wrap(err)
+	//}
 
 	return netpol, nil
 }

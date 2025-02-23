@@ -212,7 +212,7 @@ func main() {
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
-	mcNetpolHandler := metrics_collectors.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), false)
+	mcNetpolHandler := metrics_collectors.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), true)
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 
@@ -365,7 +365,7 @@ func main() {
 	ingressReconciler := external_traffic.NewIngressReconciler(mgr.GetClient(), extNetpolHandler)
 	netpolReconciler := external_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), extNetpolHandler)
 
-	etPodReconciler := metrics_collectors.NewPodReconciler(mgr.GetClient(), extNetpolHandler)
+	etPodReconciler := metrics_collectors.NewPodReconciler(mgr.GetClient(), mcNetpolHandler)
 	mcSvcReconciler := metrics_collectors.NewServiceReconciler(mgr.GetClient(), mcNetpolHandler)
 
 	if !enforcementConfig.EnforcementDefaultState {
