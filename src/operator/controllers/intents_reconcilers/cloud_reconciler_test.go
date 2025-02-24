@@ -476,7 +476,29 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingShared
 		},
 	}
 
-	s.expectReconcilerError(clientIntents)
+	expectedIntent := graphqlclient.IntentInput{
+		ClientName:      lo.ToPtr(clientName),
+		ServerName:      lo.ToPtr(server),
+		Namespace:       lo.ToPtr(testNamespace),
+		ServerNamespace: lo.ToPtr(testNamespace),
+		Type:            lo.ToPtr(graphqlclient.IntentTypeHttp),
+		Resources: []*graphqlclient.HTTPConfigInput{
+			{
+				Path:    lo.ToPtr("/login"),
+				Methods: []*graphqlclient.HTTPMethod{lo.ToPtr(graphqlclient.HTTPMethodGet), lo.ToPtr(graphqlclient.HTTPMethodPost)},
+			},
+		},
+		Status: &graphqlclient.IntentStatusInput{
+			IstioStatus: &graphqlclient.IstioStatusInput{
+				ServiceAccountName:     lo.ToPtr(serviceAccountName),
+				IsServiceAccountShared: lo.ToPtr(false),
+				IsClientMissingSidecar: lo.ToPtr(false),
+				IsServerMissingSidecar: lo.ToPtr(false),
+			},
+		},
+	}
+
+	s.assertReportedIntents(clientIntents, []graphqlclient.IntentInput{expectedIntent})
 }
 
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSidecar() {
