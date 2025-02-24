@@ -53,6 +53,22 @@ jobs:
             "VERSION=${{ github.ref_name }}"
             "SOURCE_IMAGE=${{ env.REGISTRY }}/intents-operator:${{ github.sha }}"
 
+      - name: Build operator release image with tag as version
+        uses: docker/build-push-action@v2
+        with:
+          context: src/
+          file: src/release.Dockerfile
+          tags: otterize/intents-operator-webhook-server:${{ github.ref_name }},otterize/intents-operator-webhook-server:latest
+          push: true
+          network: host
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            "VERSION=${{ github.ref_name }}"
+            "SOURCE_IMAGE=${{ env.REGISTRY }}/intents-operator-webhook-server:${{ github.sha }}"
+
+
   commit-latest-build-tag-to-helm-chart:
     name: Commit Latest Build Tag
     runs-on: ubuntu-latest

@@ -44,14 +44,11 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/health"
-	"github.com/otterize/intents-operator/src/operator/otterizecrds"
-	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared"
 	"github.com/otterize/intents-operator/src/shared/awsagent"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
@@ -69,12 +66,8 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -124,6 +117,30 @@ func MustGetEnvVar(name string) string {
 	return value
 }
 
+type NoopWebhookServer struct{}
+
+func (NoopWebhookServer) NeedLeaderElection() bool {
+	return false
+}
+
+func (NoopWebhookServer) Register(path string, hook http.Handler) {
+	return
+}
+
+func (NoopWebhookServer) Start(ctx context.Context) error {
+	return nil
+}
+
+func (NoopWebhookServer) StartedChecker() healthz.Checker {
+	return func(req *http.Request) error {
+		return nil
+	}
+}
+
+func (NoopWebhookServer) WebhookMux() *http.ServeMux {
+	return http.NewServeMux()
+}
+
 func main() {
 	operatorconfig.InitCLIFlags()
 	logrus.SetFormatter(&logrus.JSONFormatter{
@@ -145,10 +162,8 @@ func main() {
 	metricsAddr := viper.GetString(operatorconfig.MetricsAddrKey)
 	probeAddr := viper.GetString(operatorconfig.ProbeAddrKey)
 	enableLeaderElection := viper.GetBool(operatorconfig.EnableLeaderElectionKey)
-	selfSignedCert := viper.GetBool(operatorconfig.SelfSignedCertKey)
 	watchedNamespaces := viper.GetStringSlice(operatorconfig.WatchedNamespacesKey)
 	enforcementConfig := enforcement.GetConfig()
-	disableWebhookServer := viper.GetBool(operatorconfig.DisableWebhookServerKey)
 	tlsSource := otterizev2alpha1.TLSSource{
 		CertFile:   viper.GetString(operatorconfig.KafkaServerTLSCertKey),
 		KeyFile:    viper.GetString(operatorconfig.KafkaServerTLSKeyKey),
@@ -164,10 +179,7 @@ func main() {
 		Metrics: server.Options{
 			BindAddress: metricsAddr,
 		},
-		WebhookServer: webhook.NewServer(webhook.Options{
-			Port:    9443,
-			CertDir: webhooks.CertDirPath,
-		}),
+		WebhookServer:          &NoopWebhookServer{},
 		HealthProbeBindAddress: probeAddr,
 		PprofBindAddress:       viper.GetString(operatorconfig.PprofBindAddressKey),
 		LeaderElection:         enableLeaderElection,
@@ -195,11 +207,6 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
 	if err != nil {
 		logrus.WithError(err).Panic(err, "unable to start manager")
-	}
-
-	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
-	if err != nil {
-		logrus.WithError(err).Panic("unable to create kubernetes API client")
 	}
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
@@ -361,68 +368,6 @@ func main() {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
 
-	if selfSignedCert {
-		logrus.Infoln("Creating self signing certs")
-		certBundle, ok, err := webhooks.ReadCertBundleFromSecret(signalHandlerCtx, directClient, podNamespace)
-		if err != nil {
-			logrus.WithError(err).Warn("unable to read existing certs from secret, generating new ones")
-		}
-
-		if !ok {
-			logrus.Info("webhook certs uninitialized, generating new certs")
-		}
-
-		if !ok || err != nil {
-			certBundleNew, err :=
-				webhooks.GenerateSelfSignedCertificate("intents-operator-webhook-service", podNamespace)
-			if err != nil {
-				logrus.WithError(err).Panic("unable to create self signed certs for webhook")
-			}
-
-			err = webhooks.PersistCertBundleToSecret(signalHandlerCtx, directClient, podNamespace, certBundleNew)
-			if err != nil {
-				logrus.WithError(err).Panic("unable to persist certs to secret")
-			}
-			certBundle = certBundleNew
-		}
-
-		err = webhooks.WriteCertToFiles(certBundle)
-		if err != nil {
-			logrus.WithError(err).Panic("failed writing certs to file system")
-		}
-
-		err = otterizecrds.Ensure(signalHandlerCtx, directClient, podNamespace, certBundle.CertPem)
-		if err != nil {
-			logrus.WithError(err).Panic("unable to ensure otterize CRDs")
-		}
-
-		validatingWebhookConfigsReconciler := controllers.NewValidatingWebhookConfigsReconciler(
-			mgr.GetClient(),
-			mgr.GetScheme(),
-			certBundle.CertPem,
-			filters.PartOfOtterizeLabelPredicate(),
-		)
-		err = validatingWebhookConfigsReconciler.SetupWithManager(mgr)
-		if err != nil {
-			logrus.WithError(err).Panic("unable to create controller", "controller", "ValidatingWebhookConfigs")
-		}
-
-		customResourceDefinitionsReconciler := controllers.NewCustomResourceDefinitionsReconciler(
-			mgr.GetClient(),
-			mgr.GetScheme(),
-			certBundle.CertPem,
-			podNamespace,
-		)
-		err = customResourceDefinitionsReconciler.SetupWithManager(mgr)
-		if err != nil {
-			logrus.WithError(err).Panic("unable to create controller", "controller", "CustomResourceDefinition")
-		}
-	}
-
-	if !disableWebhookServer {
-		initWebhookValidators(mgr)
-	}
-
 	approvedIntentsReconciler := controllers.NewApprovedIntentsReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
@@ -545,14 +490,6 @@ func main() {
 		logrus.WithError(err).Panic()
 	}
 
-	healthChecker := healthz.Ping
-	readyChecker := healthz.Ping
-
-	if !disableWebhookServer {
-		healthChecker = mgr.GetWebhookServer().StartedChecker()
-		readyChecker = mgr.GetWebhookServer().StartedChecker()
-	}
-
 	cacheHealthChecker := func(_ *http.Request) error {
 		timeoutCtx, cancel := context.WithTimeout(signalHandlerCtx, 1*time.Second)
 		defer cancel()
@@ -564,19 +501,12 @@ func main() {
 	}
 
 	//+kubebuilder:scaffold:builder
-	if err := mgr.AddHealthzCheck("healthz", healthChecker); err != nil {
+	if err := mgr.AddHealthzCheck("healthz", cacheHealthChecker); err != nil {
 		logrus.WithError(err).Panic("unable to set up health check")
 	}
-	if err := mgr.AddReadyzCheck("readyz", readyChecker); err != nil {
+	if err := mgr.AddReadyzCheck("readyz", cacheHealthChecker); err != nil {
 		logrus.WithError(err).Panic("unable to set up ready check")
 	}
-	if err := mgr.AddHealthzCheck("cache", cacheHealthChecker); err != nil {
-		logrus.WithError(err).Panic("unable to set up cache health check")
-	}
-	//if err := mgr.AddReadyzCheck("cache", cacheHealthChecker); err != nil {
-	//	logrus.WithError(err).Panic("unable to set up ready check")
-	//}
-
 	if err := mgr.AddHealthzCheck("intentsReconcile", health.Checker); err != nil {
 		logrus.WithError(err).Panic("unable to set up health check")
 	}
@@ -587,116 +517,5 @@ func main() {
 
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Panic("problem running manager")
-	}
-}
-
-func initWebhookValidators(mgr manager.Manager) {
-	intentsValidator := webhooks.NewIntentsValidatorV1alpha2(mgr.GetClient())
-	if err := (&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidator); err != nil {
-		logrus.WithError(err).Panic(err, "unable to create webhook for v1alpha2", "webhook", "ClientIntents")
-	}
-	intentsValidatorV1alpha3 := webhooks.NewIntentsValidatorV1alpha3(mgr.GetClient())
-	if err := (&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidatorV1alpha3); err != nil {
-		logrus.WithError(err).Panic(err, "unable to create webhook v1alpha3", "webhook", "ClientIntents")
-	}
-
-	intentsValidatorV1 := webhooks.NewIntentsValidatorV1(mgr.GetClient())
-	if err := (&otterizev1beta1.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidatorV1); err != nil {
-		logrus.WithError(err).Panic(err, "unable to create webhook v1", "webhook", "ClientIntents")
-	}
-
-	intentsValidatorV2alpha1 := webhooks.NewIntentsValidatorV2alpha1(mgr.GetClient())
-	if err := (&otterizev2alpha1.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidatorV2alpha1); err != nil {
-		logrus.WithError(err).Panic(err, "unable to create webhook v2alpha1", "webhook", "ClientIntents")
-	}
-
-	intentsValidatorV2beta1 := webhooks.NewIntentsValidatorV2beta1(mgr.GetClient())
-	if err := (&otterizev2beta1.ClientIntents{}).SetupWebhookWithManager(mgr, intentsValidatorV2beta1); err != nil {
-		logrus.WithError(err).Panic(err, "unable to create webhook v2beta1", "webhook", "ClientIntents")
-	}
-
-	protectedServiceValidator := webhooks.NewProtectedServiceValidatorV1alpha2(mgr.GetClient())
-	if err := (&otterizev1alpha2.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidator); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v1alpha2", "webhook", "ProtectedService")
-	}
-
-	protectedServiceValidatorV1alpha3 := webhooks.NewProtectedServiceValidatorV1alpha3(mgr.GetClient())
-	if err := (&otterizev1alpha3.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV1alpha3); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "ProtectedService")
-	}
-
-	protectedServiceValidatorV1 := webhooks.NewProtectedServiceValidatorV1(mgr.GetClient())
-	if err := (&otterizev1beta1.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV1); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v1", "webhook", "ProtectedService")
-	}
-
-	protectedServiceValidatorV2alpha1 := webhooks.NewProtectedServiceValidatorV2alpha1(mgr.GetClient())
-	if err := (&otterizev2alpha1.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV2alpha1); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v2alpha1", "webhook", "ProtectedService")
-	}
-
-	protectedServiceValidatorV2beta1 := webhooks.NewProtectedServiceValidatorV2beta1(mgr.GetClient())
-	if err := (&otterizev2beta1.ProtectedService{}).SetupWebhookWithManager(mgr, protectedServiceValidatorV2beta1); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v2beta1", "webhook", "ProtectedService")
-	}
-
-	if err := (&otterizev1alpha2.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v1alpha2", "webhook", "KafkaServerConfig")
-	}
-
-	if err := (&otterizev1alpha3.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "KafkaServerConfig")
-	}
-
-	if err := (&otterizev1beta1.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v1", "webhook", "KafkaServerConfig")
-	}
-
-	if err := (&otterizev2alpha1.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v2alpha1", "webhook", "KafkaServerConfig")
-	}
-
-	if err := (&otterizev2beta1.KafkaServerConfig{}).SetupWebhookWithManager(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v2beta1", "webhook", "KafkaServerConfig")
-	}
-
-	pgServerConfValidator := webhooks.NewPostgresConfValidator(mgr.GetClient())
-	if err := (&otterizev1alpha3.PostgreSQLServerConfig{}).SetupWebhookWithManager(mgr, pgServerConfValidator); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "PostgreSQLServerConfig")
-	}
-
-	pgServerConfValidatorV1 := webhooks.NewPostgresConfValidatorV1(mgr.GetClient())
-	if err := (&otterizev1beta1.PostgreSQLServerConfig{}).SetupWebhookWithManager(mgr, pgServerConfValidatorV1); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v1", "webhook", "PostgreSQLServerConfig")
-	}
-
-	pgServerConfValidatorV2alpha1 := webhooks.NewPostgresConfValidatorV2alpha1(mgr.GetClient())
-	if err := (&otterizev2alpha1.PostgreSQLServerConfig{}).SetupWebhookWithManager(mgr, pgServerConfValidatorV2alpha1); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v2alpha1", "webhook", "PostgreSQLServerConfig")
-	}
-
-	pgServerConfValidatorV2beta1 := webhooks.NewPostgresConfValidatorV2beta1(mgr.GetClient())
-	if err := (&otterizev2beta1.PostgreSQLServerConfig{}).SetupWebhookWithManager(mgr, pgServerConfValidatorV2beta1); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v2beta1", "webhook", "PostgreSQLServerConfig")
-	}
-
-	mysqlServerConfValidator := webhooks.NewMySQLConfValidator(mgr.GetClient())
-	if err := (&otterizev1alpha3.MySQLServerConfig{}).SetupWebhookWithManager(mgr, mysqlServerConfValidator); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v1alpha3", "webhook", "MySQLServerConfig")
-	}
-
-	mysqlServerConfValidatorV1 := webhooks.NewMySQLConfValidatorV1(mgr.GetClient())
-	if err := (&otterizev1beta1.MySQLServerConfig{}).SetupWebhookWithManager(mgr, mysqlServerConfValidatorV1); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v1", "webhook", "MySQLServerConfig")
-	}
-
-	mysqlServerConfValidatorV2alpha1 := webhooks.NewMySQLConfValidatorV2alpha1(mgr.GetClient())
-	if err := (&otterizev2alpha1.MySQLServerConfig{}).SetupWebhookWithManager(mgr, mysqlServerConfValidatorV2alpha1); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v2alpha1", "webhook", "MySQLServerConfig")
-	}
-
-	mysqlServerConfValidatorV2beta1 := webhooks.NewMySQLConfValidatorV2beta1(mgr.GetClient())
-	if err := (&otterizev2beta1.MySQLServerConfig{}).SetupWebhookWithManager(mgr, mysqlServerConfValidatorV2beta1); err != nil {
-		logrus.WithError(err).Panic("unable to create webhook v2beta1", "webhook", "MySQLServerConfig")
 	}
 }
