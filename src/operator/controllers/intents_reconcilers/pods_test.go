@@ -60,15 +60,15 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAdded() {
 		},
 	}
 
-	emptyIntents := &otterizev2alpha1.ClientIntents{}
+	emptyIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ApprovedClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			intents.Namespace = testNamespace
 			return nil
 		})
 
-	var intents otterizev2alpha1.ClientIntents
+	var intents otterizev2alpha1.ApprovedClientIntents
 	intents.Spec = &intentsSpec
 
 	listOption := &client.ListOptions{Namespace: testNamespace}
@@ -132,15 +132,15 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddedTruncatedNameAnd
 		},
 	}
 
-	emptyIntents := &otterizev2alpha1.ClientIntents{}
+	emptyIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ApprovedClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			intents.Namespace = longNamespace
 			return nil
 		})
 
-	var intents otterizev2alpha1.ClientIntents
+	var intents otterizev2alpha1.ApprovedClientIntents
 	intents.Spec = &intentsSpec
 
 	listOption := &client.ListOptions{Namespace: longNamespace}
@@ -211,15 +211,15 @@ func (s *PodLabelReconcilerTestSuite) testClientAccessLabelRemovedWithParams(pod
 		},
 	}
 
-	emptyIntents := &otterizev2alpha1.ClientIntents{}
+	emptyIntents := &otterizev2alpha1.ApprovedClientIntents{}
 
-	var deletedIntents otterizev2alpha1.ClientIntents
+	var deletedIntents otterizev2alpha1.ApprovedClientIntents
 	deletedIntents.Spec = &intentsSpec
 	deletedIntents.Namespace = testNamespace
 	deletedIntents.SetDeletionTimestamp(&metav1.Time{Time: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)})
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ApprovedClientIntents, options ...client.ListOption) error {
 			*intents = deletedIntents
 			return nil
 		})
@@ -293,15 +293,15 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 		},
 	}
 
-	emptyIntents := &otterizev2alpha1.ClientIntents{}
+	emptyIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ApprovedClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			intents.Namespace = testNamespace
 			return nil
 		})
 
-	var intents otterizev2alpha1.ClientIntents
+	var intents otterizev2alpha1.ApprovedClientIntents
 	intents.Spec = &intentsSpec
 	intents.Namespace = testNamespace
 
@@ -345,9 +345,9 @@ func (s *PodLabelReconcilerTestSuite) TestAccessLabelChangedOnIntentsEdit() {
 
 	intentsSpec.Targets[0].Kubernetes.Name = "test-server-2"
 
-	emptyIntents = &otterizev2alpha1.ClientIntents{}
+	emptyIntents = &otterizev2alpha1.ApprovedClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ApprovedClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			intents.Namespace = testNamespace
 			return nil
@@ -395,9 +395,9 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerAdded() {
 		},
 	}
 
-	emptyIntents := &otterizev2alpha1.ClientIntents{}
+	emptyIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ApprovedClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			return nil
 		})
@@ -431,10 +431,10 @@ func (s *PodLabelReconcilerTestSuite) TestPodLabelFinalizerRemoved() {
 		},
 	}
 
-	emptyIntents := &otterizev2alpha1.ClientIntents{}
+	emptyIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	deletionTimestamp := &metav1.Time{Time: time.Now()}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ApprovedClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			intents.DeletionTimestamp = deletionTimestamp
 			return nil
@@ -469,15 +469,15 @@ func (s *PodLabelReconcilerTestSuite) TestClientAccessLabelAddFailedPatch() {
 		},
 	}
 
-	emptyIntents := &otterizev2alpha1.ClientIntents{}
+	emptyIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ApprovedClientIntents, options ...client.ListOption) error {
 			intents.Spec = &intentsSpec
 			intents.Namespace = testNamespace
 			return nil
 		})
 
-	var intents otterizev2alpha1.ClientIntents
+	var intents otterizev2alpha1.ApprovedClientIntents
 	intents.Spec = &intentsSpec
 
 	listOption := &client.ListOptions{Namespace: testNamespace}

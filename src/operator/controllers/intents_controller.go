@@ -89,6 +89,10 @@ func NewIntentsReconciler(ctx context.Context, client client.Client, cloudClient
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if err := r.removeOrphanedApprovedIntents(ctx); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
 	intents := &otterizev2alpha1.ClientIntents{}
 	err := r.client.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
@@ -110,9 +114,22 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	result, err := r.handleClientIntentsRequests(ctx, *intents)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err)
+	result := ctrl.Result{}
+
+	// This is an idempotent way oh handling the intents review status
+	// If the intents are approved, we create the approved intents
+	// If the intents are not approved, we send them to the right approver
+	switch intents.Status.ReviewStatus {
+	case otterizev2alpha1.ReviewStatusApproved:
+		err = r.createOrUpdateApprovedIntents(ctx, *intents)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+	default:
+		result, err = r.handleClientIntentsRequests(ctx, *intents)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
 	}
 
 	if intents.DeletionTimestamp == nil {
@@ -122,10 +139,6 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
-	}
-
-	if err = r.removeOrphanedApprovedIntents(ctx); err != nil {
-		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	return result, nil
@@ -177,16 +190,16 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *IntentsReconciler) handleAutoApprovalForIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
-	if intents.Status.ReviewStatus != otterizev2alpha1.ReviewStatusApproved {
-		intentsCopy := intents.DeepCopy()
-		intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusApproved
-		if err := r.client.Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
-			return errors.Wrap(err)
-		}
+	if intents.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved {
+		return nil
 	}
+	intentsCopy := intents.DeepCopy()
+	intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusApproved
 
-	return errors.Wrap(r.createOrUpdateApprovedIntents(ctx, intents))
-
+	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
+		return errors.Wrap(err)
+	}
+	return nil
 }
 
 func (r *IntentsReconciler) createOrUpdateApprovedIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
@@ -202,7 +215,11 @@ func (r *IntentsReconciler) createOrUpdateApprovedIntents(ctx context.Context, i
 
 	if reflect.DeepEqual(existingApprovedClientIntents.Spec, newApprovedClientIntents.Spec) {
 		logrus.Debugf("Approved intents %s has not changed", newApprovedClientIntents.Name)
+		return nil
 	}
+
+	newApprovedClientIntents.ObjectMeta = existingApprovedClientIntents.ObjectMeta
+	newApprovedClientIntents.TypeMeta = existingApprovedClientIntents.TypeMeta
 
 	if err := r.client.Patch(ctx, newApprovedClientIntents, client.MergeFrom(existingApprovedClientIntents)); err != nil {
 		return errors.Wrap(err)
@@ -333,10 +350,6 @@ func (r *IntentsReconciler) handleAppliedIntentsRequestStatusUpdates(ctx context
 		reviewStatus := lo.Ternary(request.Status == graphqlclient.AppliedIntentsRequestStatusLabelApproved, otterizev2alpha1.ReviewStatusApproved, otterizev2alpha1.ReviewStatusDenied)
 		if err := r.updateClientIntentsStatus(ctx, clientIntents, reviewStatus); err != nil {
 			return errors.Wrap(err)
-		}
-
-		if request.Status == graphqlclient.AppliedIntentsRequestStatusLabelApproved {
-			return r.createOrUpdateApprovedIntents(ctx, clientIntents)
 		}
 	}
 
