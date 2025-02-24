@@ -30,6 +30,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -97,9 +98,30 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	if intents.Status.UpToDate != false && intents.Status.ObservedGeneration != intents.Generation {
+		intentsCopy := intents.DeepCopy()
+		intentsCopy.Status.UpToDate = false
+		intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusPending
+		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+		// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
+		// and that we don't trigger an infinite loop
+		return ctrl.Result{}, nil
+	}
+
 	result, err := r.handleClientIntentsRequests(ctx, *intents)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
+	}
+
+	if intents.DeletionTimestamp == nil {
+		intentsCopy := intents.DeepCopy()
+		intentsCopy.Status.UpToDate = true
+		intentsCopy.Status.ObservedGeneration = intentsCopy.Generation
+		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
 	}
 
 	if err = r.removeOrphanedApprovedIntents(ctx); err != nil {
@@ -163,31 +185,39 @@ func (r *IntentsReconciler) handleAutoApprovalForIntents(ctx context.Context, in
 		}
 	}
 
-	approvedClientIntents := otterizev2alpha1.ApprovedClientIntents{}
-	err := r.client.Get(ctx, types.NamespacedName{Namespace: intents.Namespace, Name: intents.ToApprovedIntentsName()}, &approvedClientIntents)
+	return errors.Wrap(r.createOrUpdateApprovedIntents(ctx, intents))
+
+}
+
+func (r *IntentsReconciler) createOrUpdateApprovedIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+	newApprovedClientIntents := r.buildApprovedClientIntents(intents)
+	existingApprovedClientIntents := &otterizev2alpha1.ApprovedClientIntents{}
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: newApprovedClientIntents.Namespace, Name: newApprovedClientIntents.Name}, existingApprovedClientIntents)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrap(err)
 	}
 	if k8serrors.IsNotFound(err) {
-		return r.createApprovedIntents(ctx, intents)
+		return errors.Wrap(r.client.Create(ctx, newApprovedClientIntents))
 	}
 
-	// TODO: Handle diffs here. Consider if metadata changes & actual spec changes should be treated equally.
+	if reflect.DeepEqual(existingApprovedClientIntents.Spec, newApprovedClientIntents.Spec) {
+		logrus.Debugf("Approved intents %s has not changed", newApprovedClientIntents.Name)
+	}
+
+	if err := r.client.Patch(ctx, newApprovedClientIntents, client.MergeFrom(existingApprovedClientIntents)); err != nil {
+		return errors.Wrap(err)
+	}
+
 	return nil
 }
 
-func (r *IntentsReconciler) createApprovedIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+func (r *IntentsReconciler) buildApprovedClientIntents(intents otterizev2alpha1.ClientIntents) *otterizev2alpha1.ApprovedClientIntents {
 	approvedClientIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	approvedClientIntents.FromClientIntents(intents)
 
 	// TODO SAPIR: check whether after we've got an approved status, we should set the policy status to pending
 	approvedClientIntents.Status.PolicyStatus = otterizev2alpha1.PolicyStatusPending
-
-	if err := r.client.Create(ctx, approvedClientIntents); err != nil {
-		return errors.Wrap(err)
-	}
-	return nil
-
+	return approvedClientIntents
 }
 
 func (r *IntentsReconciler) removeOrphanedApprovedIntents(ctx context.Context) error {
@@ -306,7 +336,7 @@ func (r *IntentsReconciler) handleAppliedIntentsRequestStatusUpdates(ctx context
 		}
 
 		if request.Status == graphqlclient.AppliedIntentsRequestStatusLabelApproved {
-			return r.createApprovedIntents(ctx, clientIntents)
+			return r.createOrUpdateApprovedIntents(ctx, clientIntents)
 		}
 	}
 

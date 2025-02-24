@@ -116,6 +116,11 @@ func (r *ApprovedIntentsReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 60*time.Second, errors.Errorf("timeout while reconciling client intents %s", req.NamespacedName))
 	defer cancel()
 
+	result, err := r.group.Reconcile(timeoutCtx, req)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
 	if approvedClientIntents.DeletionTimestamp == nil {
 		intentsCopy := approvedClientIntents.DeepCopy()
 		intentsCopy.Status.UpToDate = true
@@ -123,11 +128,6 @@ func (r *ApprovedIntentsReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(approvedClientIntents)); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
-	}
-
-	result, err := r.group.Reconcile(timeoutCtx, req)
-	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err)
 	}
 
 	// Only consider reconcile ended if no error and no requeue.
