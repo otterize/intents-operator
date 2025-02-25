@@ -105,6 +105,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if intents.Status.UpToDate != false && intents.Status.ObservedGeneration != intents.Generation {
 		intentsCopy := intents.DeepCopy()
 		intentsCopy.Status.UpToDate = false
+		intentsCopy.Status.ObservedGeneration = intents.Generation
 		intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusPending
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
@@ -114,34 +115,31 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 	}
 
-	result := ctrl.Result{}
+	// This is the idempotent way oh handling the intents review status:
 
-	// This is an idempotent way oh handling the intents review status
-	// If the intents are approved, we create the approved intents
-	// If the intents are not approved, we send them to the right approver
-	switch intents.Status.ReviewStatus {
-	case otterizev2alpha1.ReviewStatusApproved:
-		err = r.createOrUpdateApprovedIntents(ctx, *intents)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err)
-		}
-	default:
-		result, err = r.handleClientIntentsRequests(ctx, *intents)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrap(err)
-		}
+	if intents.Status.ReviewStatus != otterizev2alpha1.ReviewStatusApproved {
+		// If the intents are not approved, we send them to the right approver and stop the reconcile loop
+		// Once the intents will be approved we will get a new reconcile loop
+		res, err := r.handleClientIntentsRequests(ctx, *intents)
+		return res, errors.Wrap(err)
 	}
 
-	if intents.DeletionTimestamp == nil {
+	// intents.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved
+	// intents are approved so  we createOrUpdate the approved intents
+	err = r.createOrUpdateApprovedIntents(ctx, *intents)
+	if err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+
+	if intents.DeletionTimestamp == nil && !intents.Status.UpToDate && intents.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved {
 		intentsCopy := intents.DeepCopy()
 		intentsCopy.Status.UpToDate = true
-		intentsCopy.Status.ObservedGeneration = intentsCopy.Generation
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
 
-	return result, nil
+	return ctrl.Result{}, nil
 }
 
 func (r *IntentsReconciler) handleClientIntentsRequests(ctx context.Context, intents otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
@@ -232,8 +230,6 @@ func (r *IntentsReconciler) buildApprovedClientIntents(intents otterizev2alpha1.
 	approvedClientIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	approvedClientIntents.FromClientIntents(intents)
 
-	// TODO SAPIR: check whether after we've got an approved status, we should set the policy status to pending
-	approvedClientIntents.Status.PolicyStatus = otterizev2alpha1.PolicyStatusPending
 	return approvedClientIntents
 }
 

@@ -15,15 +15,17 @@ const (
 
 type MocksSuiteBase struct {
 	suite.Suite
-	Controller *gomock.Controller
-	Recorder   *record.FakeRecorder
-	Client     *mocks.MockClient
+	Controller   *gomock.Controller
+	Recorder     *record.FakeRecorder
+	Client       *mocks.MockClient
+	StatusWriter *mocks.MockSubResourceWriter
 }
 
 func (s *MocksSuiteBase) SetupTest() {
 	s.Controller = gomock.NewController(s.T())
 	s.Client = mocks.NewMockClient(s.Controller)
 	s.Recorder = record.NewFakeRecorder(FakeRecorderBufferSize)
+	s.StatusWriter = mocks.NewMockSubResourceWriter(s.Controller)
 }
 
 func (s *MocksSuiteBase) TearDownTest() {
