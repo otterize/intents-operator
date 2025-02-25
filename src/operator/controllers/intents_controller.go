@@ -320,7 +320,7 @@ func (r *IntentsReconciler) queryAppliedIntentsRequestsStatus(ctx context.Contex
 	}
 
 	resourceUIDToIntent := lo.SliceToMap(clientIntentsList.Items, func(intent otterizev2alpha1.ClientIntents) (string, otterizev2alpha1.ClientIntents) {
-		return string(intent.UID), intent
+		return intent.GetRequestID(), intent
 	})
 
 	result, err := r.cloudClient.GetAppliedIntentsRequestsStatus(ctx, lo.Keys(resourceUIDToIntent))

@@ -417,6 +417,10 @@ func init() {
 	SchemeBuilder.Register(&ClientIntents{}, &ClientIntentsList{})
 }
 
+func (in *ClientIntents) GetRequestID() string {
+	return fmt.Sprintf("%s-%d", in.UID, in.Generation)
+}
+
 func (in *ClientIntents) GetWorkloadName() string {
 	return in.Spec.Workload.Name
 }
@@ -717,7 +721,7 @@ func (in *ClientIntentsList) FormatAsOtterizeIntentsRequests(ctx context.Context
 
 			otterizeIntents = append(otterizeIntents, &graphqlclient.IntentRequestInput{
 				Intent:    input,
-				RequestId: string(clientIntents.UID),
+				RequestId: clientIntents.GetRequestID(),
 			})
 		}
 	}
