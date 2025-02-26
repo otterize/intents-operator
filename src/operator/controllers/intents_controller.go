@@ -351,7 +351,7 @@ func (r *IntentsReconciler) handleAppliedIntentsRequestStatusUpdates(ctx context
 
 		clientIntents, ok := resourceUIDToIntent[request.ID]
 		if !ok {
-			continue // Should not happen
+			logrus.Errorf("Received status for unknown intents request %s", request.ID)
 		}
 
 		// Check the GQL status that returned and request the K8s status accordingly
