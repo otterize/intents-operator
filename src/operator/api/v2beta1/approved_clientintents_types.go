@@ -207,13 +207,13 @@ func approvedClientIntentsStatusToCloudFormat(approvedClientIntents ApprovedClie
 
 	status.IstioStatus.ServiceAccountName = toPtrOrNil(serviceAccountName)
 	isSharedValue, ok := approvedClientIntents.Annotations[OtterizeSharedServiceAccountAnnotation]
-	if !ok {
-		return nil, false, errors.Errorf("missing annotation shared service account for client intents %s", approvedClientIntents.Name)
-	}
-
-	isShared, err := strconv.ParseBool(isSharedValue)
-	if err != nil {
-		return nil, false, errors.Errorf("failed to parse shared service account annotation for client intents %s", approvedClientIntents.Name)
+	isShared := false
+	if ok {
+		parsedIsShared, err := strconv.ParseBool(isSharedValue)
+		if err != nil {
+			return nil, false, errors.Errorf("failed to parse shared service account annotation for client intents %s", approvedClientIntents.Name)
+		}
+		isShared = parsedIsShared
 	}
 	status.IstioStatus.IsServiceAccountShared = lo.ToPtr(isShared)
 
