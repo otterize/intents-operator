@@ -22,6 +22,7 @@ type IntentsControllerTestSuite struct {
 func (s *IntentsControllerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 	s.intentsReconciler = NewIntentsReconciler(context.Background(), s.Client, nil)
+	s.intentsReconciler.InjectRecorder(s.Recorder)
 }
 
 func (s *IntentsControllerTestSuite) expectRemoveOrphanedIntents() {
@@ -34,14 +35,12 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_FullAppr
 	// 1. ClientIntents is updated, so it's generation is increased and the review status seems approved. The operator should:
 	//    a. Set the review status to pending
 	//    b. Set the observed generation to the new generation
-	//    c. Set the up-to-date status to false
 	//    d. finish reconciliation
-	// 2. ClientIntents is not up-to-date and review status is pending:
+	// 2. ClientIntents review status is pending:
 	//    a. The operator should approve the clientIntents (since we are on AutoApprove mode)
 	//    b. finish reconciliation
-	// 3. ClientIntents is not up-to-date and review status is approved:
+	// 3. ClientIntents review status is approved:
 	//    a. The operator should create the ApprovedClientIntents
-	//    b. Set the up-to-date status to true
 	//    c. finish reconciliation
 
 	s.expectRemoveOrphanedIntents()
@@ -62,7 +61,6 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_FullAppr
 		Status: v2alpha1.IntentsStatus{
 			ReviewStatus:       v2alpha1.ReviewStatusApproved,
 			ObservedGeneration: 1,
-			UpToDate:           true,
 		},
 	}
 
@@ -73,7 +71,6 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_FullAppr
 
 	// The operator should update the status of the clientIntents to be up-to-date and review status to pending and observed generation to generation
 	toBeUpdatedClientIntents := clientIntentsStatusApprovedNewGeneration.DeepCopy()
-	toBeUpdatedClientIntents.Status.UpToDate = false
 	toBeUpdatedClientIntents.Status.ReviewStatus = v2alpha1.ReviewStatusPending
 	toBeUpdatedClientIntents.Status.ObservedGeneration = clientIntentsStatusApprovedNewGeneration.Generation
 
@@ -89,20 +86,20 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_FullAppr
 
 	// Iteration 2: ClientIntents is not up-to-date and review status is pending -
 	//	we are on AutoApprove mode so we should patch the status to approved
-	clientIntentsStatusPendingUpToDateFalse := toBeUpdatedClientIntents
+	clientIntentsStatusPending := toBeUpdatedClientIntents
 
-	afterSecondIterationClientIntents := clientIntentsStatusPendingUpToDateFalse.DeepCopy()
+	afterSecondIterationClientIntents := clientIntentsStatusPending.DeepCopy()
 	afterSecondIterationClientIntents.Status.ReviewStatus = v2alpha1.ReviewStatusApproved
 
 	s.Client.EXPECT().Get(gomock.Any(), gomock.Eq(client.ObjectKey{Name: "client-intents", Namespace: "test-namespace"}), gomock.Any()).DoAndReturn(func(_ context.Context, _ client.ObjectKey, intent *v2alpha1.ClientIntents, _ ...any) error {
-		clientIntentsStatusPendingUpToDateFalse.DeepCopyInto(intent)
+		clientIntentsStatusPending.DeepCopyInto(intent)
 		return nil
 	})
 
 	s.Client.EXPECT().Status().DoAndReturn(func() client.StatusWriter {
 		return s.StatusWriter
 	})
-	s.StatusWriter.EXPECT().Patch(gomock.Any(), gomock.Eq(afterSecondIterationClientIntents), intents_reconcilers.MatchPatch(client.MergeFrom(clientIntentsStatusPendingUpToDateFalse)))
+	s.StatusWriter.EXPECT().Patch(gomock.Any(), gomock.Eq(afterSecondIterationClientIntents), intents_reconcilers.MatchPatch(client.MergeFrom(clientIntentsStatusPending)))
 
 	res, err = s.intentsReconciler.Reconcile(context.Background(), reconcile.Request{NamespacedName: client.ObjectKey{Name: "client-intents", Namespace: "test-namespace"}})
 	s.Require().NoError(err)
@@ -126,23 +123,16 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_FullAppr
 	// create the approvedClientIntents
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(&approvedClientIntents))
 
-	afterThirdIterationClientIntents := clientsIntentsWithApprovedReviewStatus.DeepCopy()
-	afterThirdIterationClientIntents.Status.UpToDate = true
-
-	s.Client.EXPECT().Status().DoAndReturn(func() client.StatusWriter {
-		return s.StatusWriter
-	})
-	s.StatusWriter.EXPECT().Patch(gomock.Any(), gomock.Eq(afterThirdIterationClientIntents), intents_reconcilers.MatchPatch(client.MergeFrom(clientsIntentsWithApprovedReviewStatus)))
-
 	res, err = s.intentsReconciler.Reconcile(context.Background(), reconcile.Request{NamespacedName: client.ObjectKey{Name: "client-intents", Namespace: "test-namespace"}})
 	s.Require().NoError(err)
 	s.Require().Equal(res, reconcile.Result{})
+	s.ExpectEvent(ReasonApprovedIntentsCreated)
 	// End of iteration 3
 }
 
 func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_ExistingApprovedIntentsNotChanged() {
 	// we won't test the full flow of the update of the clientIntents, we will only test the relevant reconcile iteration
-	// where the clientIntents is not up-to-date and the review status is approved and the approvedClientIntents already exists
+	// where the clientIntents review status is approved and the approvedClientIntents already exists
 
 	s.expectRemoveOrphanedIntents()
 
@@ -160,7 +150,6 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_Existing
 		Status: v2alpha1.IntentsStatus{
 			ReviewStatus:       v2alpha1.ReviewStatusApproved,
 			ObservedGeneration: 2,
-			UpToDate:           false,
 		},
 	}
 
@@ -179,15 +168,6 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_Existing
 		return nil
 	})
 
-	// update the clientIntents status to up-to-date
-	afterThirdIterationClientIntents := clientIntentsStatusApprovedNewGeneration.DeepCopy()
-	afterThirdIterationClientIntents.Status.UpToDate = true
-
-	s.Client.EXPECT().Status().DoAndReturn(func() client.StatusWriter {
-		return s.StatusWriter
-	})
-	s.StatusWriter.EXPECT().Patch(gomock.Any(), gomock.Eq(afterThirdIterationClientIntents), intents_reconcilers.MatchPatch(client.MergeFrom(&clientIntentsStatusApprovedNewGeneration)))
-
 	res, err := s.intentsReconciler.Reconcile(context.Background(), reconcile.Request{NamespacedName: client.ObjectKey{Name: "client-intents", Namespace: "test-namespace"}})
 	s.Require().NoError(err)
 	s.Require().Equal(res, reconcile.Result{})
@@ -195,7 +175,7 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_Existing
 
 func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_ExistingApprovedIntentsChanged() {
 	// we won't test the full flow of the update of the clientIntents, we will only test the relevant reconcile iteration
-	// where the clientIntents is not up-to-date and the review status is approved and the approvedClientIntents already exists
+	// where the clientIntents review status is approved and the approvedClientIntents already exists
 
 	s.expectRemoveOrphanedIntents()
 
@@ -213,7 +193,6 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_Existing
 		Status: v2alpha1.IntentsStatus{
 			ReviewStatus:       v2alpha1.ReviewStatusApproved,
 			ObservedGeneration: 2,
-			UpToDate:           false,
 		},
 	}
 
@@ -236,18 +215,10 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_Existing
 	// update the approvedClientIntents
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(&approvedClientIntents), intents_reconcilers.MatchPatch(client.MergeFrom(&approvedClientIntents)))
 
-	// update the clientIntents status to up-to-date
-	afterThirdIterationClientIntents := clientIntentsStatusApprovedNewGeneration.DeepCopy()
-	afterThirdIterationClientIntents.Status.UpToDate = true
-
-	s.Client.EXPECT().Status().DoAndReturn(func() client.StatusWriter {
-		return s.StatusWriter
-	})
-	s.StatusWriter.EXPECT().Patch(gomock.Any(), gomock.Eq(afterThirdIterationClientIntents), intents_reconcilers.MatchPatch(client.MergeFrom(&clientIntentsStatusApprovedNewGeneration)))
-
 	res, err := s.intentsReconciler.Reconcile(context.Background(), reconcile.Request{NamespacedName: client.ObjectKey{Name: "client-intents", Namespace: "test-namespace"}})
 	s.Require().NoError(err)
 	s.Require().Equal(res, reconcile.Result{})
+	s.ExpectEvent(ReasonApprovedIntentsUpdated)
 }
 
 func TestIntentsControllerTestSuite(t *testing.T) {

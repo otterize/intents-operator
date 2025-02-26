@@ -21,6 +21,7 @@ import (
 	"github.com/amit7itz/goset"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -39,7 +40,10 @@ import (
 )
 
 const (
-	ReviewStatusIndexField = ".status.reviewStatus"
+	ReviewStatusIndexField              = ".status.reviewStatus"
+	ReasonApprovedIntentsCreated        = "ApprovedIntentsCreated"
+	ReasonApprovedIntentsUpdated        = "ApprovedIntentsUpdated"
+	ReasonApprovedIntentsCreationFailed = "ApprovedIntentsCreationFailed"
 )
 
 // IntentsReconciler reconciles a Intents object
@@ -47,6 +51,7 @@ type IntentsReconciler struct {
 	client        client.Client
 	cloudClient   operator_cloud_client.CloudClient
 	approvalState IntentsApprovalState
+	injectablerecorder.InjectableRecorder
 }
 
 type IntentsApprovalState struct {
@@ -91,14 +96,12 @@ func NewIntentsReconciler(ctx context.Context, client client.Client, cloudClient
 //  1. ClientIntents is created/updated, so it's generation is increased and the review status seems approved/empty. The operator should:
 //     a. Set the review status to pending
 //     b. Set the observed generation to the new generation
-//     c. Set the up-to-date status to false
 //     d. finish reconciliation
-//  2. ClientIntents status is not up-to-date and review status is pending:
+//  2. ClientIntents review status is pending:
 //     a. The operator should handle intents requests (send to cloud / auto approve)
 //     b. finish reconciliation
-//  3. ClientIntents is not up-to-date and review status is approved (could be set by the pending intents go routine):
-//     a. The operator should create the ApprovedClientIntents
-//     b. Set the up-to-date status to true
+//  3. ClientIntents review status is approved (could be set by the pending-intents go routine):
+//     a. The operator should create/update/DoNothing the ApprovedClientIntents
 //     c. finish reconciliation
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if err := r.removeOrphanedApprovedIntents(ctx); err != nil {
@@ -114,9 +117,9 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	if intents.Status.UpToDate != false && intents.Status.ObservedGeneration != intents.Generation {
+	// If the observed generation is not the same as the generation, we update the observed generation and the review status
+	if intents.Status.ObservedGeneration != intents.Generation {
 		intentsCopy := intents.DeepCopy()
-		intentsCopy.Status.UpToDate = false
 		intentsCopy.Status.ObservedGeneration = intents.Generation
 		intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusPending
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
@@ -126,8 +129,6 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// and that we don't trigger an infinite loop
 		return ctrl.Result{}, nil
 	}
-
-	// This is the idempotent way oh handling the intents review status:
 
 	if intents.Status.ReviewStatus != otterizev2alpha1.ReviewStatusApproved {
 		// If the intents are not approved, we send them to the right approver and stop the reconcile loop
@@ -140,15 +141,8 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	// intents are approved so  we createOrUpdate the approved intents
 	err = r.createOrUpdateApprovedIntents(ctx, *intents)
 	if err != nil {
+		r.RecordWarningEventf(intents, ReasonApprovedIntentsCreationFailed, "Failed to create approved intents: %s", err)
 		return ctrl.Result{}, errors.Wrap(err)
-	}
-
-	if intents.DeletionTimestamp == nil && !intents.Status.UpToDate && intents.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved {
-		intentsCopy := intents.DeepCopy()
-		intentsCopy.Status.UpToDate = true
-		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
-			return ctrl.Result{}, errors.Wrap(err)
-		}
 	}
 
 	return ctrl.Result{}, nil
@@ -196,6 +190,8 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return errors.Wrap(err)
 	}
 
+	r.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+
 	return nil
 }
 
@@ -220,7 +216,12 @@ func (r *IntentsReconciler) createOrUpdateApprovedIntents(ctx context.Context, i
 		return errors.Wrap(err)
 	}
 	if k8serrors.IsNotFound(err) {
-		return errors.Wrap(r.client.Create(ctx, newApprovedClientIntents))
+		if err := r.client.Create(ctx, newApprovedClientIntents); err != nil {
+
+			return errors.Wrap(err)
+		}
+		r.RecordNormalEventf(&intents, ReasonApprovedIntentsCreated, "Created approved intents %s", newApprovedClientIntents.Name)
+		return nil
 	}
 
 	if reflect.DeepEqual(existingApprovedClientIntents.Spec, newApprovedClientIntents.Spec) {
@@ -234,6 +235,7 @@ func (r *IntentsReconciler) createOrUpdateApprovedIntents(ctx context.Context, i
 	if err := r.client.Patch(ctx, newApprovedClientIntents, client.MergeFrom(existingApprovedClientIntents)); err != nil {
 		return errors.Wrap(err)
 	}
+	r.RecordNormalEventf(&intents, ReasonApprovedIntentsUpdated, "Updated approved intents %s", newApprovedClientIntents.Name)
 
 	return nil
 }
