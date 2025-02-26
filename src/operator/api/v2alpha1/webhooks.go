@@ -550,7 +550,6 @@ func (in *ApprovedClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.ResolvedIPs = lo.Map(in.Status.ResolvedIPs, func(resolvedIPs ResolvedIPs, _ int) v2beta1.ResolvedIPs {
 		return v2beta1.ResolvedIPs{DNS: resolvedIPs.DNS, IPs: slices.Clone(resolvedIPs.IPs)}
 	})
-	dst.Status.PolicyStatus = v2beta1.PolicyStatus(in.Status.PolicyStatus)
 	return nil
 }
 
@@ -573,6 +572,5 @@ func (in *ApprovedClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	in.Status.ResolvedIPs = lo.Map(src.Status.ResolvedIPs, func(resolvedIPs v2beta1.ResolvedIPs, _ int) ResolvedIPs {
 		return ResolvedIPs{DNS: resolvedIPs.DNS, IPs: slices.Clone(resolvedIPs.IPs)}
 	})
-	in.Status.PolicyStatus = PolicyStatus(src.Status.PolicyStatus)
 	return nil
 }

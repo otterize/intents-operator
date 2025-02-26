@@ -70,12 +70,6 @@ type ApprovedClientIntentsStatus struct {
 	// ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
 	// +optional
 	ResolvedIPs []ResolvedIPs `json:"resolvedIPs,omitempty" yaml:"resolvedIPs,omitempty"`
-	// ReviewStatus stores the review status for these ClientIntents (whether they were approved, denied, or pending)
-	PolicyStatus PolicyStatus `json:"policyStatus,omitempty" yaml:"policyStatus,omitempty"`
-}
-
-type ApprovedIntentsStatus struct {
-	PolicyStatus PolicyStatus `json:"policyStatus,omitempty" yaml:"policyStatus,omitempty"`
 }
 
 func (in *ApprovedClientIntents) GetWorkloadName() string {

@@ -86,8 +86,20 @@ func NewIntentsReconciler(ctx context.Context, client client.Client, cloudClient
 //+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create;patch
 // +kubebuilder:rbac:groups=iam.cnrm.cloud.google.com,resources=iampartialpolicies,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
+// Reconcile - main reconciliation loop
+// The ClientIntents lifecycle is as follows:
+//  1. ClientIntents is created/updated, so it's generation is increased and the review status seems approved/empty. The operator should:
+//     a. Set the review status to pending
+//     b. Set the observed generation to the new generation
+//     c. Set the up-to-date status to false
+//     d. finish reconciliation
+//  2. ClientIntents status is not up-to-date and review status is pending:
+//     a. The operator should handle intents requests (send to cloud / auto approve)
+//     b. finish reconciliation
+//  3. ClientIntents is not up-to-date and review status is approved (could be set by the pending intents go routine):
+//     a. The operator should create the ApprovedClientIntents
+//     b. Set the up-to-date status to true
+//     c. finish reconciliation
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if err := r.removeOrphanedApprovedIntents(ctx); err != nil {
 		return ctrl.Result{}, errors.Wrap(err)

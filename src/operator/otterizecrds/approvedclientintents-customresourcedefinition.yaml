@@ -334,14 +334,6 @@ spec:
                   description: The last generation of the intents that was successfully reconciled.
                   format: int64
                   type: integer
-                policyStatus:
-                  description: ReviewStatus stores the review status for these ClientIntents (whether they were approved, denied, or pending)
-                  enum:
-                    - CREATED
-                    - PENDING
-                    - IN PROGRESS
-                    - FAILED
-                  type: string
                 resolvedIPs:
                   description: ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
                   items:
@@ -672,14 +664,6 @@ spec:
                   description: The last generation of the intents that was successfully reconciled.
                   format: int64
                   type: integer
-                policyStatus:
-                  description: ReviewStatus stores the review status for these ClientIntents (whether they were approved, denied, or pending)
-                  enum:
-                    - CREATED
-                    - PENDING
-                    - IN PROGRESS
-                    - FAILED
-                  type: string
                 resolvedIPs:
                   description: ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
                   items:
