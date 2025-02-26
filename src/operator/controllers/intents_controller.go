@@ -322,44 +322,70 @@ func (r *IntentsReconciler) queryAppliedIntentsRequestsStatus(ctx context.Contex
 		return errors.Wrap(err)
 	}
 
-	if clientIntentsList.Items == nil || len(clientIntentsList.Items) == 0 {
-		logrus.Info("No intents pending review")
+	if len(clientIntentsList.Items) == 0 {
+		logrus.Debug("No intents pending review")
 		return nil
 	}
 
-	resourceUIDToIntent := lo.SliceToMap(clientIntentsList.Items, func(intent otterizev2alpha1.ClientIntents) (string, otterizev2alpha1.ClientIntents) {
+	return errors.Wrap(r.handlePendingRequests(ctx, clientIntentsList))
+}
+
+func (r *IntentsReconciler) handlePendingRequests(ctx context.Context, pendingClientIntentsList *otterizev2alpha1.ClientIntentsList) error {
+	resourceUIDToIntent := lo.SliceToMap(pendingClientIntentsList.Items, func(intent otterizev2alpha1.ClientIntents) (string, otterizev2alpha1.ClientIntents) {
 		return intent.GetRequestID(), intent
 	})
 
-	result, err := r.cloudClient.GetAppliedIntentsRequestsStatus(ctx, lo.Keys(resourceUIDToIntent))
+	requestStatuses, err := r.cloudClient.GetAppliedIntentsRequestsStatus(ctx, lo.Keys(resourceUIDToIntent))
 	if err != nil {
 		logrus.WithError(err).Error("failed to get applied intents requests status")
 		return errors.Wrap(err)
 	}
-	if len(result) == 0 {
+	if len(requestStatuses) == 0 {
 		return nil
 	}
 
-	return r.handleAppliedIntentsRequestStatusUpdates(ctx, result, resourceUIDToIntent)
-}
-
-func (r *IntentsReconciler) handleAppliedIntentsRequestStatusUpdates(ctx context.Context, requestStatus []operator_cloud_client.AppliedIntentsRequestStatus, resourceUIDToIntent map[string]otterizev2alpha1.ClientIntents) error {
-	for _, request := range requestStatus {
-		if request.Status == graphqlclient.AppliedIntentsRequestStatusLabelPending {
+	for _, request := range requestStatuses {
+		clientIntents, ok := resourceUIDToIntent[request.ID]
+		if !ok {
+			// Should not happen
+			logrus.Errorf("Received status for unknown intents request %s", request.ID)
 			continue
 		}
 
-		clientIntents, ok := resourceUIDToIntent[request.ID]
-		if !ok {
-			logrus.Errorf("Received status for unknown intents request %s", request.ID)
-		}
-
-		// Check the GQL status that returned and request the K8s status accordingly
-		reviewStatus := lo.Ternary(request.Status == graphqlclient.AppliedIntentsRequestStatusLabelApproved, otterizev2alpha1.ReviewStatusApproved, otterizev2alpha1.ReviewStatusDenied)
-		if err := r.updateClientIntentsStatus(ctx, clientIntents, reviewStatus); err != nil {
+		if err := r.handleRequestStatusChanges(ctx, request, clientIntents); err != nil {
 			return errors.Wrap(err)
 		}
 	}
+
+	return nil
+}
+
+func (r *IntentsReconciler) handleRequestStatusChanges(ctx context.Context, request operator_cloud_client.AppliedIntentsRequestStatus, clientIntents otterizev2alpha1.ClientIntents) error {
+	if request.Status == graphqlclient.AppliedIntentsRequestStatusLabelPending {
+		logrus.Debugf("Received pending status for intents request %s", request.ID)
+		return nil
+	}
+
+	// Check the GQL status that returned and request the K8s status accordingly
+	reviewStatus := lo.Ternary(request.Status == graphqlclient.AppliedIntentsRequestStatusLabelApproved, otterizev2alpha1.ReviewStatusApproved, otterizev2alpha1.ReviewStatusDenied)
+	if err := r.updateClientIntentsStatus(ctx, clientIntents, reviewStatus); err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (r *IntentsReconciler) updateClientIntentsStatus(ctx context.Context, intents otterizev2alpha1.ClientIntents, status otterizev2alpha1.ReviewStatus) error {
+	intentsCopy := intents.DeepCopy()
+	intentsCopy.Status.ReviewStatus = status
+	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
+		return errors.Wrap(err)
+	}
+	logrus.WithFields(logrus.Fields{
+		"clientIntents.name":       intentsCopy.Name,
+		"clientIntents.namespaces": intentsCopy.Namespace,
+		"status":                   status,
+	}).Info("Updated client intents status")
 
 	return nil
 }
@@ -373,14 +399,4 @@ func (*IntentsReconciler) InitReviewStatusIndex(mgr ctrl.Manager) error {
 			clientIntents := object.(*otterizev2alpha1.ClientIntents)
 			return []string{string(clientIntents.Status.ReviewStatus)}
 		})
-}
-
-func (r *IntentsReconciler) updateClientIntentsStatus(ctx context.Context, intents otterizev2alpha1.ClientIntents, status otterizev2alpha1.ReviewStatus) error {
-	intentsCopy := intents.DeepCopy()
-	intentsCopy.Status.ReviewStatus = status
-	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
-		return errors.Wrap(err)
-	}
-
-	return nil
 }
