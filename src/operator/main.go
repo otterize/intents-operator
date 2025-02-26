@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"github.com/otterize/intents-operator/src/operator/controllers/metrics_collectors"
 	"path"
 	"time"
 
@@ -213,6 +214,10 @@ func main() {
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
+
+	metricsCollectorNetpolHandler := metrics_collectors.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy())
+	metricsCollectorPodReconciler := metrics_collectors.NewPodReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+
 	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 
 	serviceIdResolver := serviceidresolver.NewResolver(mgr.GetClient())
@@ -415,6 +420,10 @@ func main() {
 
 	if err = externalPolicySvcReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Endpoints")
+	}
+
+	if err = metricsCollectorPodReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Pod")
 	}
 
 	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
