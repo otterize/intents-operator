@@ -62,7 +62,7 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 		},
 	}
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -213,7 +213,7 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindShouldCreateSeparatePolici
 		},
 	}
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -365,7 +365,7 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 		},
 	}
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{{Spec: intentsSpec, ObjectMeta: metav1.ObjectMeta{Name: namespacedName.Name, Namespace: namespacedName.Namespace}}})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}

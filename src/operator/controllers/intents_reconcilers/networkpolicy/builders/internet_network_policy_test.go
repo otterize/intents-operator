@@ -67,10 +67,10 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicySingle
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -166,7 +166,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS
 		},
 	}
 
-	intentsStatus := otterizev2alpha1.IntentsStatus{
+	intentsStatus := otterizev2alpha1.ApprovedClientIntentsStatus{
 		ResolvedIPs: []otterizev2alpha1.ResolvedIPs{
 			{
 				DNS: dns,
@@ -174,13 +174,13 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForDNS
 			},
 		},
 	}
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		Spec:   intentsSpec,
 		Status: intentsStatus,
 	}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -274,7 +274,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyFromDN
 		},
 	}
 
-	intentsStatus := otterizev2alpha1.IntentsStatus{
+	intentsStatus := otterizev2alpha1.ApprovedClientIntentsStatus{
 		ResolvedIPs: []otterizev2alpha1.ResolvedIPs{
 			{
 				DNS: dns,
@@ -282,13 +282,13 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyFromDN
 			},
 		},
 	}
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		Spec:   intentsSpec,
 		Status: intentsStatus,
 	}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -386,10 +386,10 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyMultip
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -497,7 +497,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNetworkPolicyDeletedClean
 		},
 	}
 
-	clientIntentsObj := otterizev2alpha1.ClientIntents{
+	clientIntentsObj := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         clientNamespace,
@@ -506,7 +506,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNetworkPolicyDeletedClean
 		Spec: intentsSpec,
 	}
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntentsObj})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntentsObj})
 
 	// Remove network policy:
 	// 1. get all effective policies - this intent will not create a policy cause it is being deleted
@@ -589,10 +589,10 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	s.ignoreRemoveOrphan()
 
@@ -684,7 +684,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 		NamespacedName: namespacedName,
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: clientNamespace,
@@ -704,7 +704,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy
 		},
 	}
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -857,10 +857,10 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = testServerNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	s.ignoreRemoveOrphan()
 
@@ -899,7 +899,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForOneDNSButFoun
 		},
 	}
 
-	intentsStatus := otterizev2alpha1.IntentsStatus{
+	intentsStatus := otterizev2alpha1.ApprovedClientIntentsStatus{
 		ResolvedIPs: []otterizev2alpha1.ResolvedIPs{
 			{
 				DNS: dns,
@@ -907,13 +907,13 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForOneDNSButFoun
 			},
 		},
 	}
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		Spec:   intentsSpec,
 		Status: intentsStatus,
 	}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
@@ -993,16 +993,16 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestNoIpFoundForAnyDNS() {
 		},
 	}
 
-	intentsStatus := otterizev2alpha1.IntentsStatus{
+	intentsStatus := otterizev2alpha1.ApprovedClientIntentsStatus{
 		ResolvedIPs: []otterizev2alpha1.ResolvedIPs{},
 	}
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		Spec:   intentsSpec,
 		Status: intentsStatus,
 	}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 	s.ignoreRemoveOrphan()
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
@@ -1042,7 +1042,7 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestIPsToCIDRConsolidation() 
 		},
 	}
 
-	intentsStatus := otterizev2alpha1.IntentsStatus{
+	intentsStatus := otterizev2alpha1.ApprovedClientIntentsStatus{
 		ResolvedIPs: []otterizev2alpha1.ResolvedIPs{
 			{
 				DNS: dns,
@@ -1050,13 +1050,13 @@ func (s *InternetNetworkPolicyReconcilerTestSuite) TestIPsToCIDRConsolidation() 
 			},
 		},
 	}
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		Spec:   intentsSpec,
 		Status: intentsStatus,
 	}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}

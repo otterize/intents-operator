@@ -54,3 +54,12 @@ func (in *ClientIntents) SetupWebhookWithManager(mgr ctrl.Manager, validator web
 }
 
 func (in *ClientIntents) Hub() {}
+
+// ApprovedClientIntents //
+
+func (in *ApprovedClientIntents) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(in).Complete()
+}
+
+func (in *ApprovedClientIntents) Hub() {}

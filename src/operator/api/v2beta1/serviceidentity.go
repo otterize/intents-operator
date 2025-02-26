@@ -25,3 +25,11 @@ func (in *ProtectedService) ToServiceIdentity() serviceidentity.ServiceIdentity 
 		Kind:      in.GetKind(),
 	}
 }
+
+func (in *ApprovedClientIntents) ToServiceIdentity() serviceidentity.ServiceIdentity {
+	return serviceidentity.ServiceIdentity{
+		Name:      in.Spec.Workload.Name,
+		Namespace: in.Namespace,
+		Kind:      in.GetClientKind(),
+	}
+}

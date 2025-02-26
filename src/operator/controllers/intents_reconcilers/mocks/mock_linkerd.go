@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "go.uber.org/mock/gomock"
 	v1alpha3 "github.com/otterize/intents-operator/src/operator/api/v1alpha3"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockLinkerdPolicyManager is a mock of LinkerdPolicyManager interface.

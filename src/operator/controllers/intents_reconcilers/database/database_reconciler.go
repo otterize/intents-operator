@@ -54,9 +54,9 @@ func NewDatabaseReconciler(
 }
 
 func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	clientIntents := &otterizev2alpha1.ClientIntents{}
+	approvedClientIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	logger := logrus.WithField("namespacedName", req.String())
-	err := r.client.Get(ctx, req.NamespacedName, clientIntents)
+	err := r.client.Get(ctx, req.NamespacedName, approvedClientIntents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			logger.Info("No client intents found")
@@ -66,7 +66,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	if clientIntents.Spec == nil {
+	if approvedClientIntents.Spec == nil {
 		logger.Info("No specs found")
 		return ctrl.Result{}, nil
 	}
@@ -74,7 +74,7 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	pgServerConfigs := otterizev2alpha1.PostgreSQLServerConfigList{}
 	err = r.client.List(ctx, &pgServerConfigs)
 	if err != nil {
-		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingPostgresServerConfig,
+		r.RecordWarningEventf(approvedClientIntents, ReasonErrorFetchingPostgresServerConfig,
 			"Error listing PostgreSQLServerConfigs. Error: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
@@ -82,12 +82,12 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	mySQLServerConfigs := otterizev2alpha1.MySQLServerConfigList{}
 	err = r.client.List(ctx, &mySQLServerConfigs)
 	if err != nil {
-		r.RecordWarningEventf(clientIntents, ReasonErrorFetchingMySQLServerConfig,
+		r.RecordWarningEventf(approvedClientIntents, ReasonErrorFetchingMySQLServerConfig,
 			"Error listing MySQLServerConfigs. Error: %s", err.Error())
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	if !lo.SomeBy(clientIntents.GetDatabaseIntents(), func(intent otterizev2alpha1.Target) bool {
+	if !lo.SomeBy(approvedClientIntents.GetDatabaseIntents(), func(intent otterizev2alpha1.Target) bool {
 		return true
 	}) {
 		return ctrl.Result{}, nil
@@ -97,10 +97,10 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
-	username := clusterutils.BuildHashedUsername(clientIntents.GetWorkloadName(), clientIntents.Namespace, clusterID)
+	username := clusterutils.BuildHashedUsername(approvedClientIntents.GetWorkloadName(), approvedClientIntents.Namespace, clusterID)
 	dbUsername := clusterutils.KubernetesToPostgresName(username)
 
-	dbIntents := clientIntents.GetDatabaseIntents()
+	dbIntents := approvedClientIntents.GetDatabaseIntents()
 	dbInstanceToIntents := lo.GroupBy(dbIntents, func(intent otterizev2alpha1.Target) string {
 		return intent.GetTargetServerName() // "Name" is the db instance name in our case.
 	})
@@ -119,29 +119,29 @@ func (r *DatabaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		// DB instances mentioned in intents but not found in any DB Server Config CRD.
 		// We do not return an error on purpose, but rather record event and move on.
 		// When a new DB ServerConf is created, the clientIntents will be reconciled again.
-		r.RecordWarningEventf(clientIntents, ReasonMissingDBServerConfig,
+		r.RecordWarningEventf(approvedClientIntents, ReasonMissingDBServerConfig,
 			"Missing database server config: did not find DB server config to match database '%s' in the cluster", missingDBInstance)
 	}
 
 	for _, config := range pgServerConfigs.Items {
-		err := r.applyPGDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents[config.Name])
+		err := r.applyPGDBInstanceIntents(ctx, config, approvedClientIntents, dbUsername, dbInstanceToIntents[config.Name])
 		if err != nil {
-			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+			r.RecordWarningEventf(approvedClientIntents, ReasonApplyingDatabaseIntentsFailed,
 				"Failed applying database clientIntents: %s", err.Error())
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
 
 	for _, config := range mySQLServerConfigs.Items {
-		err := r.applyMySQLDBInstanceIntents(ctx, config, clientIntents, dbUsername, dbInstanceToIntents[config.Name])
+		err := r.applyMySQLDBInstanceIntents(ctx, config, approvedClientIntents, dbUsername, dbInstanceToIntents[config.Name])
 		if err != nil {
-			r.RecordWarningEventf(clientIntents, ReasonApplyingDatabaseIntentsFailed,
+			r.RecordWarningEventf(approvedClientIntents, ReasonApplyingDatabaseIntentsFailed,
 				"Failed applying database clientIntents: %s", err.Error())
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
 
-	r.RecordNormalEventf(clientIntents, ReasonAppliedDatabaseIntents, "Database clientIntents reconcile complete, reconciled %d intent calls", len(dbIntents))
+	r.RecordNormalEventf(approvedClientIntents, ReasonAppliedDatabaseIntents, "Database clientIntents reconcile complete, reconciled %d intent calls", len(dbIntents))
 
 	return ctrl.Result{}, nil
 }
@@ -197,7 +197,7 @@ func (r *DatabaseReconciler) createPostgresDBConfigurator(ctx context.Context, p
 	return dbConfigurator, nil
 }
 
-func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, config otterizev2alpha1.PostgreSQLServerConfig, clientIntents *otterizev2alpha1.ClientIntents, dbUsername string, dbInstanceIntents []otterizev2alpha1.Target) error {
+func (r *DatabaseReconciler) applyPGDBInstanceIntents(ctx context.Context, config otterizev2alpha1.PostgreSQLServerConfig, clientIntents *otterizev2alpha1.ApprovedClientIntents, dbUsername string, dbInstanceIntents []otterizev2alpha1.Target) error {
 	dbConfigurator, err := r.createPostgresDBConfigurator(ctx, config)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
@@ -228,7 +228,7 @@ func (r *DatabaseReconciler) createMySQLDBConfigurator(ctx context.Context, mySq
 	return dbConfigurator, nil
 }
 
-func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev2alpha1.MySQLServerConfig, clientIntents *otterizev2alpha1.ClientIntents, dbUsername string, dbInstanceIntents []otterizev2alpha1.Target) error {
+func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, config otterizev2alpha1.MySQLServerConfig, clientIntents *otterizev2alpha1.ApprovedClientIntents, dbUsername string, dbInstanceIntents []otterizev2alpha1.Target) error {
 	dbConfigurator, err := r.createMySQLDBConfigurator(ctx, config)
 	if err != nil {
 		r.RecordWarningEventf(clientIntents, ReasonErrorConnectingToDatabase,
@@ -244,7 +244,7 @@ func (r *DatabaseReconciler) applyMySQLDBInstanceIntents(ctx context.Context, co
 func (r *DatabaseReconciler) applyDBInstanceIntentsOnConfigurator(
 	ctx context.Context,
 	dbConfigurator databaseconfigurator.DatabaseConfigurator,
-	clientIntents *otterizev2alpha1.ClientIntents,
+	clientIntents *otterizev2alpha1.ApprovedClientIntents,
 	dbUsername string,
 	dbInstanceName string,
 	dbInstanceIntents []otterizev2alpha1.Target) error {
@@ -332,7 +332,7 @@ func (r *DatabaseReconciler) getClusterID(ctx context.Context) (string, error) {
 	return clusterID, nil
 }
 
-func (r *DatabaseReconciler) handleDatabaseAnnotationOnPod(ctx context.Context, intents otterizev2alpha1.ClientIntents, dbInstance string) error {
+func (r *DatabaseReconciler) handleDatabaseAnnotationOnPod(ctx context.Context, intents otterizev2alpha1.ApprovedClientIntents, dbInstance string) error {
 	// We annotate a pod here to trigger the credentials operator flow
 	// It will create a user-password secret and modify the databases so those credentials could connect successfully
 	// We only annotate one pod since we just need to trigger the credentials operator once, to create the secret

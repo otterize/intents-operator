@@ -2,6 +2,7 @@ package v2alpha1
 
 import (
 	"github.com/otterize/intents-operator/src/operator/api/v2beta1"
+	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -184,6 +185,7 @@ func (in *ClientIntents) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.ResolvedIPs = lo.Map(in.Status.ResolvedIPs, func(resolvedIPs ResolvedIPs, _ int) v2beta1.ResolvedIPs {
 		return v2beta1.ResolvedIPs{DNS: resolvedIPs.DNS, IPs: slices.Clone(resolvedIPs.IPs)}
 	})
+	dst.Status.ReviewStatus = v2beta1.ReviewStatus(in.Status.ReviewStatus)
 
 	if dst.Spec == nil {
 		dst.Spec = &v2beta1.IntentsSpec{}
@@ -353,6 +355,7 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 	in.Status.ResolvedIPs = lo.Map(src.Status.ResolvedIPs, func(resolvedIPs v2beta1.ResolvedIPs, _ int) ResolvedIPs {
 		return ResolvedIPs{DNS: resolvedIPs.DNS, IPs: slices.Clone(resolvedIPs.IPs)}
 	})
+	in.Status.ReviewStatus = ReviewStatus(src.Status.ReviewStatus)
 
 	if in.Spec == nil {
 		in.Spec = &IntentsSpec{}
@@ -514,5 +517,60 @@ func (in *ClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
 			}
 		}
 	}
+	return nil
+}
+
+// ApprovedClientIntents //
+
+func (in *ApprovedClientIntents) SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(in).Complete()
+}
+
+func (in *ApprovedClientIntents) ConvertTo(dstRaw conversion.Hub) error {
+	dst := dstRaw.(*v2beta1.ApprovedClientIntents)
+	dst.ObjectMeta = in.ObjectMeta
+
+	srcClientIntents := &ClientIntents{}
+	srcClientIntents.ObjectMeta = in.ObjectMeta
+	srcClientIntents.Spec = in.Spec
+
+	dst.Spec = &v2beta1.IntentsSpec{}
+	dstClientIntents := &v2beta1.ClientIntents{}
+	dstClientIntents.ObjectMeta = in.ObjectMeta
+
+	err := srcClientIntents.ConvertTo(dstClientIntents)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	dst.Spec = dstClientIntents.Spec
+
+	dst.Status.UpToDate = in.Status.UpToDate
+	dst.Status.ObservedGeneration = in.Status.ObservedGeneration
+	dst.Status.ResolvedIPs = lo.Map(in.Status.ResolvedIPs, func(resolvedIPs ResolvedIPs, _ int) v2beta1.ResolvedIPs {
+		return v2beta1.ResolvedIPs{DNS: resolvedIPs.DNS, IPs: slices.Clone(resolvedIPs.IPs)}
+	})
+	return nil
+}
+
+func (in *ApprovedClientIntents) ConvertFrom(srcRaw conversion.Hub) error {
+	src := srcRaw.(*v2beta1.ApprovedClientIntents)
+	srcClientIntents := &v2beta1.ClientIntents{}
+	srcClientIntents.ObjectMeta = src.ObjectMeta
+	srcClientIntents.Spec = src.Spec
+
+	dstClientIntents := &ClientIntents{}
+	err := dstClientIntents.ConvertFrom(srcClientIntents)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	in.ObjectMeta = src.ObjectMeta
+	in.Spec = dstClientIntents.Spec
+	in.Status.UpToDate = src.Status.UpToDate
+	in.Status.ObservedGeneration = src.Status.ObservedGeneration
+	in.Status.ResolvedIPs = lo.Map(src.Status.ResolvedIPs, func(resolvedIPs v2beta1.ResolvedIPs, _ int) ResolvedIPs {
+		return ResolvedIPs{DNS: resolvedIPs.DNS, IPs: slices.Clone(resolvedIPs.IPs)}
+	})
 	return nil
 }

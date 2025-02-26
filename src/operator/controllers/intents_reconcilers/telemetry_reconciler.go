@@ -37,7 +37,7 @@ func NewTelemetryReconciler(client client.Client, scheme *runtime.Scheme) *Telem
 }
 
 func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
-	intents := &otterizev2alpha1.ClientIntents{}
+	intents := &otterizev2alpha1.ApprovedClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
@@ -89,7 +89,7 @@ func (r *TelemetryReconciler) Reconcile(ctx context.Context, req reconcile.Reque
 // SetupWithManager sets up the controller with the Manager.
 func (r *TelemetryReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev2alpha1.ClientIntents{}).
+		For(&otterizev2alpha1.ApprovedClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 }

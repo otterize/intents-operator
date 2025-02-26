@@ -138,7 +138,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = testClientNamespace
 	clientIntents.Name = clientIntentsName
 
@@ -167,7 +167,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicy() {
 	// Update NetworkPolicy
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.Eq(newPolicy), intents_reconcilers.MatchPatch(client.MergeFrom(existingBadPolicy))).Return(nil)
 	s.ignoreRemoveOrphan()
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -199,7 +199,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 			},
 		},
 	}
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testServerNamespace,
@@ -259,7 +259,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) TestRemoveOrphanNetworkPolicy()
 
 	s.externalNetpolHandler.EXPECT().HandleBeforeAccessPolicyRemoval(gomock.Any(), gomock.Eq(orphanPolicy))
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.Eq(orphanPolicy)).Return(nil)
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 	s.ignoreRemoveDeprecatedPolicies()
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -285,7 +285,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIn
 		},
 	}
 
-	clientIntentsObj := otterizev2alpha1.ClientIntents{
+	clientIntentsObj := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         clientNamespace,
@@ -293,7 +293,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCleanNetworkPolicy(clientIn
 		},
 		Spec: intentsSpec,
 	}
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntentsObj})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntentsObj})
 
 	// Remove network policy:
 	// 1. get the network policy
@@ -347,7 +347,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
 
@@ -382,7 +382,7 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicy(
 
 	s.ignoreRemoveOrphan()
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), gomock.Any(), gomock.Any())
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -493,12 +493,12 @@ func (s *EgressNetworkPolicyReconcilerTestSuite) testEnforcementDisabled() {
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
 
 	s.ignoreRemoveOrphan()
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)

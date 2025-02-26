@@ -35,6 +35,22 @@ mutation ReportClientIntentStatuses($statuses: [ClientIntentStatusInput!]!) {
     reportClientIntentStatus(statuses: $statuses)
 }
 
+mutation ReportAppliedIntentsRequest($intents: [IntentRequestInput!]!) {
+    reportAppliedIntentsRequest(intents: $intents)
+}
+
+query GetAppliedIntentsRequestStatus($ids: [ID!]!) {
+    appliedIntentsRequestStatus(filter: {
+        requestIds: {
+            include: $ids
+        }
+    }) {
+        id
+        reason
+        status
+    }
+}
+
 query dummy {
     dummyError
 }

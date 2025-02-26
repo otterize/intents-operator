@@ -56,8 +56,8 @@ func getTestClientPod(serviceName string, clientServiceAccount string) corev1.Po
 	}
 }
 
-func getTestIAMIntents(clientIntentsName string, serviceName string, targets []otterizev2alpha1.Target) otterizev2alpha1.ClientIntents {
-	return otterizev2alpha1.ClientIntents{
+func getTestIAMIntents(clientIntentsName string, serviceName string, targets []otterizev2alpha1.Target) otterizev2alpha1.ApprovedClientIntents {
+	return otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      clientIntentsName,
 			Namespace: testNamespace,
@@ -100,7 +100,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentNoPodLabelHasNoEffect
 	})
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&iamIntents)).DoAndReturn(
-		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev2alpha1.ClientIntents, arg3 ...client.GetOption) error {
+		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev2alpha1.ApprovedClientIntents, arg3 ...client.GetOption) error {
 			iamIntents.DeepCopyInto(arg2)
 			return nil
 		},
@@ -144,7 +144,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheiamAgent() 
 	iamIntents := getTestIAMIntents(testClientIntentsName, testServiceName, allIntents)
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&iamIntents)).DoAndReturn(
-		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev2alpha1.ClientIntents, arg3 ...client.GetOption) error {
+		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev2alpha1.ApprovedClientIntents, arg3 ...client.GetOption) error {
 			iamIntents.DeepCopyInto(arg2)
 			return nil
 		},
@@ -155,7 +155,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheiamAgent() 
 	s.iamAgent.EXPECT().IntentType().Return(testIntentType)
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		gomock.AssignableToTypeOf(&otterizev2alpha1.ClientIntentsList{}),
+		gomock.AssignableToTypeOf(&otterizev2alpha1.ApprovedClientIntentsList{}),
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
 	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, filteredIntents, clientPod).Return(nil)
@@ -191,7 +191,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 	clientIntents := getTestIAMIntents(testClientIntentsName, testServiceName, awsIntents)
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&clientIntents)).DoAndReturn(
-		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev2alpha1.ClientIntents, arg3 ...client.GetOption) error {
+		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev2alpha1.ApprovedClientIntents, arg3 ...client.GetOption) error {
 			clientIntents.DeepCopyInto(arg2)
 			return nil
 		},
@@ -202,7 +202,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 	s.iamAgent.EXPECT().IntentType().Return(testIntentType)
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		gomock.AssignableToTypeOf(&otterizev2alpha1.ClientIntentsList{}),
+		gomock.AssignableToTypeOf(&otterizev2alpha1.ApprovedClientIntentsList{}),
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
 	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, []otterizev2alpha1.Target{}, clientPod).Return(nil)
@@ -230,7 +230,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestRoleNotFoundErrorReQueuesEvent() {
 	iamIntents := getTestIAMIntents(testClientIntentsName, testServiceName, []otterizev2alpha1.Target{})
 
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.AssignableToTypeOf(&iamIntents)).DoAndReturn(
-		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev2alpha1.ClientIntents, arg3 ...client.GetOption) error {
+		func(arg0 context.Context, arg1 types.NamespacedName, arg2 *otterizev2alpha1.ApprovedClientIntents, arg3 ...client.GetOption) error {
 			iamIntents.DeepCopyInto(arg2)
 			return nil
 		},
@@ -241,7 +241,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestRoleNotFoundErrorReQueuesEvent() {
 	s.iamAgent.EXPECT().IntentType().Return(testIntentType)
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		gomock.AssignableToTypeOf(&otterizev2alpha1.ClientIntentsList{}),
+		gomock.AssignableToTypeOf(&otterizev2alpha1.ApprovedClientIntentsList{}),
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
 

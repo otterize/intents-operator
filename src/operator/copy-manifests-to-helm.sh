@@ -7,6 +7,9 @@ fi
 TEMPLATE_DIR=$HELM_CHARTS_DIR/intents-operator/templates
 
 # copy clientIntents CRD
+
+cp ./config/crd/k8s.otterize.com_approvedclientintents.patched ./otterizecrds/approvedclientintents-customresourcedefinition.yaml
+
 cp ./config/crd/k8s.otterize.com_clientintents.patched ./otterizecrds/clientintents-customresourcedefinition.yaml
 
 cp ./config/crd/k8s.otterize.com_kafkaserverconfigs.patched ./otterizecrds/kafkaserverconfigs-customresourcedefinition.yaml
