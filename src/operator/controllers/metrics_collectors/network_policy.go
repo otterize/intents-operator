@@ -40,6 +40,38 @@ const (
 	OtterizeMetricsCollectorPolicyNameTemplate = "metrics-collector-access-to-%s-%s"
 )
 
+type K8sResourceEnum int
+
+const (
+	K8sResourceInvalid K8sResourceEnum = 0
+	K8sResourcePod     K8sResourceEnum = 1
+	K8sResourceService K8sResourceEnum = 2
+)
+
+func (r *K8sResource) GetRuntimeObject() metav1.Object {
+	if r.resourceType == K8sResourcePod {
+		return r.pod
+	}
+
+	return r.service
+}
+
+func (r *K8sResource) DeepCopyObject() runtime.Object {
+	if r.resourceType == K8sResourcePod {
+		return r.pod.DeepCopyObject()
+	}
+
+	return r.service.DeepCopyObject()
+}
+
+type K8sResource struct {
+	resourceType K8sResourceEnum
+	pod          *corev1.Pod
+	service      *corev1.Service
+	metav1.TypeMeta
+	metav1.ObjectMeta
+}
+
 type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
@@ -99,9 +131,18 @@ func (r *NetworkPolicyHandler) HandleService(ctx context.Context, service *corev
 		return errors.Wrap(err)
 	}
 
+	ownerResource := K8sResource{K8sResourceService, nil, service, service.TypeMeta, service.ObjectMeta}
 	for _, pod := range endpointsPods {
-		// TODO: pass the scraping metadata that we get from the service (if it is annotated)
-		err = r.handlePod(ctx, &pod)
+		// We want to handle the pod once from the service perspective (that will determine the Prometheus scrape properties)
+		err = r.handlePod(ctx, &pod, &ownerResource)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+		// And another time from the pod perspective. It seems like the PodReconciler would be good enough, but since we don't know who
+		// will go up first - the pod or its service endpoint - we might not find the pods' network policy that was created based on the
+		// service representing the pod
+		podOwnerResource := K8sResource{K8sResourcePod, &pod, nil, pod.TypeMeta, pod.ObjectMeta}
+		err = r.handlePod(ctx, &pod, &podOwnerResource)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -112,7 +153,8 @@ func (r *NetworkPolicyHandler) HandleService(ctx context.Context, service *corev
 }
 
 func (r *NetworkPolicyHandler) HandlePod(ctx context.Context, pod *corev1.Pod) error {
-	err := r.handlePod(ctx, pod)
+	podOwnerResource := K8sResource{K8sResourcePod, pod, nil, pod.TypeMeta, pod.ObjectMeta}
+	err := r.handlePod(ctx, pod, &podOwnerResource)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -120,8 +162,7 @@ func (r *NetworkPolicyHandler) HandlePod(ctx context.Context, pod *corev1.Pod) e
 	return nil
 }
 
-func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod) error {
-
+func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod, ownerResource *K8sResource) error {
 	// only act on pods affected by Otterize
 	serverLabel, ok := pod.Labels[v2alpha1.OtterizeServiceLabelKey]
 	if !ok {
@@ -133,12 +174,12 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod) e
 		return errors.Wrap(err)
 	}
 
-	policyName := r.formatPolicyName(serviceId.Kind, serviceId.Name)
+	policyName := r.formatPolicyName(serviceId, ownerResource)
 
 	// If configuration is set to "Always", we want to create the network policy regardless of other network policies
 	if r.allowMetricsCollector == allowexternaltraffic.Always {
 		r.RecordNormalEventf(pod, ReasonEnforcementGloballyEnabled, "Creating network policy for resource '%s' because enforcement is globally enabled", pod.GetName())
-		err = r.createNetpolForPod(ctx, pod, policyName, serviceId, serverLabel)
+		err = r.createNetpolForPod(ctx, pod, policyName, serviceId, serverLabel, ownerResource)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -177,7 +218,7 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod) e
 		return nil
 	}
 
-	err = r.createNetpolForPod(ctx, pod, policyName, serviceId, serverLabel)
+	err = r.createNetpolForPod(ctx, pod, policyName, serviceId, serverLabel, ownerResource)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -265,9 +306,9 @@ func (r *NetworkPolicyHandler) getAllPossibleNetworkPolicies(ctx context.Context
 	return netpolSlice, nil
 }
 
-func (r *NetworkPolicyHandler) createNetpolForPod(ctx context.Context, pod *corev1.Pod, policyName string, identity serviceidentity.ServiceIdentity, serverLabel string) error {
+func (r *NetworkPolicyHandler) createNetpolForPod(ctx context.Context, pod *corev1.Pod, policyName string, identity serviceidentity.ServiceIdentity, serverLabel string, ownerResource *K8sResource) error {
 
-	if !r.shouldScrape(&pod.ObjectMeta) {
+	if !r.shouldScrape(ownerResource) {
 		r.RecordNormalEventf(pod, ReasonRemovingMetricsCollectorPolicy, "Removing policy for resource '%s' - it is not marked for metrics collection", pod.GetName())
 		err := r.handlePolicyDelete(ctx, policyName, pod.Namespace)
 		if err != nil {
@@ -285,7 +326,6 @@ func (r *NetworkPolicyHandler) createNetpolForPod(ctx context.Context, pod *core
 		return errors.Wrap(err)
 	}
 	if !ok {
-		// TODO: add descriptive error here, this should not happen
 		return errors.Wrap(err)
 	}
 
@@ -311,7 +351,7 @@ func (r *NetworkPolicyHandler) createNetpolForPod(ctx context.Context, pod *core
 		},
 	}
 
-	scrapePorts, err := r.getMetricsPorts(pod)
+	scrapePorts, err := r.getMetricsPorts(ownerResource)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -328,7 +368,7 @@ func (r *NetworkPolicyHandler) createNetpolForPod(ctx context.Context, pod *core
 		})
 	}
 
-	err = controllerutil.SetOwnerReference(pod, newPolicy, r.scheme)
+	err = controllerutil.SetOwnerReference(ownerResource.GetRuntimeObject(), newPolicy, r.scheme)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -341,7 +381,7 @@ func (r *NetworkPolicyHandler) createNetpolForPod(ctx context.Context, pod *core
 		logrus.Debugf("Creating network policy to allow external traffic to %s (ns %s)", pod.GetName(), pod.GetNamespace())
 		err = r.client.Create(ctx, newPolicy)
 		if err != nil {
-			return r.handleCreationErrors(ctx, err, newPolicy, pod)
+			return r.handleCreationErrors(ctx, err, newPolicy, ownerResource)
 		}
 		r.RecordNormalEventf(pod, ReasonCreatedMetricsCollectorPolicy, "Created metrics collector network policy for resource '%s'", pod.GetName())
 		return nil
@@ -357,12 +397,12 @@ func (r *NetworkPolicyHandler) createNetpolForPod(ctx context.Context, pod *core
 		return nil
 	}
 
-	return r.updatePolicy(ctx, existingPolicy, newPolicy, pod)
+	return r.updatePolicy(ctx, existingPolicy, newPolicy, ownerResource)
 }
 
-func (r *NetworkPolicyHandler) handleCreationErrors(ctx context.Context, err error, policy *v1.NetworkPolicy, ownerPod *corev1.Pod) error {
+func (r *NetworkPolicyHandler) handleCreationErrors(ctx context.Context, err error, policy *v1.NetworkPolicy, ownerResource *K8sResource) error {
 	if !k8serrors.IsAlreadyExists(err) {
-		r.RecordWarningEventf(ownerPod, ReasonCreatingMetricsCollectorPolicyFailed, "failed to create metrics collector network policy: %s", err.Error())
+		r.RecordWarningEventf(ownerResource, ReasonCreatingMetricsCollectorPolicyFailed, "failed to create metrics collector network policy: %s", err.Error())
 		return errors.Wrap(err)
 	}
 
@@ -371,16 +411,16 @@ func (r *NetworkPolicyHandler) handleCreationErrors(ctx context.Context, err err
 	if err != nil {
 		return errors.Wrap(err) // Don't retry anymore
 	}
-	return r.updatePolicy(ctx, existingPolicy, policy, ownerPod)
+	return r.updatePolicy(ctx, existingPolicy, policy, ownerResource)
 }
 
-func (r *NetworkPolicyHandler) updatePolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, ownerPod *corev1.Pod) error {
+func (r *NetworkPolicyHandler) updatePolicy(ctx context.Context, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy, ownerResource *K8sResource) error {
 	policyCopy := existingPolicy.DeepCopy()
 	policyCopy.Labels = newPolicy.Labels
 	policyCopy.Annotations = newPolicy.Annotations
 	policyCopy.Spec = newPolicy.Spec
 
-	err := controllerutil.SetOwnerReference(ownerPod, policyCopy, r.scheme)
+	err := controllerutil.SetOwnerReference(ownerResource.GetRuntimeObject(), policyCopy, r.scheme)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -418,7 +458,7 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 		ownerObj := &unstructured.Unstructured{}
 		ownerObj.SetAPIVersion(ownerRef.APIVersion)
 		ownerObj.SetKind(ownerRef.Kind)
-		err := r.client.Get(ctx, types.NamespacedName{Name: ownerRef.Name, Namespace: policyNamespace}, ownerObj)
+		err = r.client.Get(ctx, types.NamespacedName{Name: ownerRef.Name, Namespace: policyNamespace}, ownerObj)
 		if err != nil {
 			logrus.Debugf("can't get the owner of %s. So no events will be recorded for the deletion", policyName)
 		}
@@ -437,23 +477,23 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 	return nil
 }
 
-func (r *NetworkPolicyHandler) formatPolicyName(kind string, name string) string {
-	return fmt.Sprintf(OtterizeMetricsCollectorPolicyNameTemplate, strings.ToLower(kind), strings.ToLower(name))
+func (r *NetworkPolicyHandler) formatPolicyName(serviceId serviceidentity.ServiceIdentity, ownerResource *K8sResource) string {
+	return fmt.Sprintf(OtterizeMetricsCollectorPolicyNameTemplate, strings.ToLower(ownerResource.Kind), strings.ToLower(serviceId.Name))
 }
 
-func (r *NetworkPolicyHandler) shouldScrape(meta *metav1.ObjectMeta) bool {
-	shouldScrape := meta.Annotations["prometheus.io/scrape"]
+func (r *NetworkPolicyHandler) shouldScrape(resource *K8sResource) bool {
+	shouldScrape := resource.Annotations["prometheus.io/scrape"]
 	return shouldScrape == "true"
 }
 
-func (r *NetworkPolicyHandler) getMetricsPorts(pod *corev1.Pod) ([]int32, error) {
+func (r *NetworkPolicyHandler) getMetricsPorts(resource *K8sResource) ([]int32, error) {
 	ports := make([]int32, 0)
 
-	if !r.shouldScrape(&pod.ObjectMeta) {
+	if !r.shouldScrape(resource) {
 		return ports, nil
 	}
 
-	port, err := strconv.Atoi(pod.Annotations["prometheus.io/port"])
+	port, err := strconv.Atoi(resource.Annotations["prometheus.io/port"])
 	if err != nil {
 		logrus.Errorf("failed to convert port to int: %s", err)
 		return nil, errors.Wrap(err)
