@@ -63,7 +63,64 @@ func (r *NetworkPolicyHandler) InjectRecorder(recorder record.EventRecorder) {
 	r.Recorder = recorder
 }
 
+func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *corev1.Endpoints) error {
+	// When we handle endpoints - we really wants the handle the service that is behind the endpoints
+	svc, err := r.getEndpointsService(ctx, endpoints)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	err = r.HandleService(ctx, svc)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (r *NetworkPolicyHandler) HandleService(ctx context.Context, service *corev1.Service) error {
+	// when we handle a service - we want to handle all the related pods. We fetch them using the endpoints
+	endpoints := &corev1.Endpoints{}
+	err := r.client.Get(ctx, client.ObjectKey{Namespace: service.Namespace, Name: service.Name}, endpoints)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	endpointsPods, err := r.getEndpointsPods(ctx, endpoints)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	for _, pod := range endpointsPods {
+		// TODO: pass the scraping metadata that we get from the service (if it is annotated)
+		err = r.handlePod(ctx, &pod)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	return nil
+
+}
+
 func (r *NetworkPolicyHandler) HandlePod(ctx context.Context, pod *corev1.Pod) error {
+	err := r.handlePod(ctx, pod)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod) error {
 
 	// only act on pods affected by Otterize
 	serverLabel, ok := pod.Labels[v2alpha1.OtterizeServiceLabelKey]
@@ -125,6 +182,46 @@ func (r *NetworkPolicyHandler) HandlePod(ctx context.Context, pod *corev1.Pod) e
 		return errors.Wrap(err)
 	}
 	return nil
+}
+
+func (r *NetworkPolicyHandler) getEndpointsService(ctx context.Context, endpoints *corev1.Endpoints) (*corev1.Service, error) {
+	svc := &corev1.Service{}
+	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
+	if k8serrors.IsNotFound(err) {
+		// we do not wrap the error here on purpose, this should not fail the flow - only stop it
+		return &corev1.Service{}, err
+	}
+
+	if err != nil {
+		return &corev1.Service{}, errors.Wrap(err)
+	}
+
+	return svc, nil
+}
+
+func (r *NetworkPolicyHandler) getEndpointsPods(ctx context.Context, endpoints *corev1.Endpoints) ([]corev1.Pod, error) {
+	addresses := make([]corev1.EndpointAddress, 0)
+	for _, subset := range endpoints.Subsets {
+		addresses = append(addresses, subset.Addresses...)
+		addresses = append(addresses, subset.NotReadyAddresses...)
+	}
+
+	pods := make([]corev1.Pod, 0)
+	for _, address := range addresses {
+		if address.TargetRef == nil || address.TargetRef.Kind != "Pod" {
+			// If we could not find the relevant pod, we just skip to the next one
+			continue
+		}
+
+		pod := &corev1.Pod{}
+		err := r.client.Get(ctx, types.NamespacedName{Name: address.TargetRef.Name, Namespace: address.TargetRef.Namespace}, pod)
+		if err != nil {
+			return make([]corev1.Pod, 0), errors.Wrap(err)
+		}
+
+		pods = append(pods, *pod)
+	}
+	return pods, nil
 }
 
 func (r *NetworkPolicyHandler) getAllPossibleNetworkPolicies(ctx context.Context, pod *corev1.Pod, serviceId serviceidentity.ServiceIdentity) ([]v1.NetworkPolicy, error) {

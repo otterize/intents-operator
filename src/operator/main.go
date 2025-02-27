@@ -18,6 +18,7 @@ package main
 
 import (
 	"github.com/otterize/intents-operator/src/operator/controllers/metrics_collectors"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"path"
 	"time"
 
@@ -215,8 +216,10 @@ func main() {
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 
-	metricsCollectorNetpolHandler := metrics_collectors.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy())
+	metricsCollectorNetpolHandler := metrics_collectors.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowexternaltraffic.IfBlockedByOtterize)
 	metricsCollectorPodReconciler := metrics_collectors.NewPodReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorSvcReconciler := metrics_collectors.NewServiceReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorEndpointsReconciler := metrics_collectors.NewEndpointsReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 
 	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 
@@ -424,6 +427,14 @@ func main() {
 
 	if err = metricsCollectorPodReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Pod")
+	}
+
+	if err = metricsCollectorSvcReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Service")
+	}
+
+	if err = metricsCollectorEndpointsReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Endpoints")
 	}
 
 	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
