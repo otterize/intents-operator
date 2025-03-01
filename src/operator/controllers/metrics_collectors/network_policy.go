@@ -189,7 +189,7 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod, o
 	// If configuration is set to "Off", we want to delete the network policy regardless of other network policies
 	if r.allowMetricsCollector == allowexternaltraffic.Off {
 		r.RecordNormalEventf(pod, ReasonEnforcementGloballyDisabled, "Skipping created network policy for resource '%s' because enforcement is globally disabled", pod.GetName())
-		err = r.handlePolicyDelete(ctx, policyName, pod.Namespace)
+		err = r.handlePolicyDelete(ctx, policyName, pod.Namespace, ownerResource)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -211,7 +211,7 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod, o
 	if !foundNetpolWithIngressRule {
 		// We didn't find any ingress rules for the service, so there isn't any network policy that currently blocks
 		// traffic to this pod
-		err = r.handlePolicyDelete(ctx, policyName, pod.Namespace)
+		err = r.handlePolicyDelete(ctx, policyName, pod.Namespace, ownerResource)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -222,6 +222,7 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *corev1.Pod, o
 	if err != nil {
 		return errors.Wrap(err)
 	}
+
 	return nil
 }
 
@@ -310,7 +311,7 @@ func (r *NetworkPolicyHandler) createNetpolForPod(ctx context.Context, pod *core
 
 	if !r.shouldScrape(ownerResource) {
 		r.RecordNormalEventf(pod, ReasonRemovingMetricsCollectorPolicy, "Removing policy for resource '%s' - it is not marked for metrics collection", pod.GetName())
-		err := r.handlePolicyDelete(ctx, policyName, pod.Namespace)
+		err := r.handlePolicyDelete(ctx, policyName, pod.Namespace, ownerResource)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -397,7 +398,12 @@ func (r *NetworkPolicyHandler) createNetpolForPod(ctx context.Context, pod *core
 		return nil
 	}
 
-	return r.updatePolicy(ctx, existingPolicy, newPolicy, ownerResource)
+	err = r.updatePolicy(ctx, existingPolicy, newPolicy, ownerResource)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
 }
 
 func (r *NetworkPolicyHandler) handleCreationErrors(ctx context.Context, err error, policy *v1.NetworkPolicy, ownerResource *K8sResource) error {
@@ -429,6 +435,7 @@ func (r *NetworkPolicyHandler) updatePolicy(ctx context.Context, existingPolicy 
 	if err != nil {
 		return errors.Wrap(err)
 	}
+
 	return nil
 }
 
@@ -439,7 +446,7 @@ func (r *NetworkPolicyHandler) arePoliciesEqual(existingPolicy *v1.NetworkPolicy
 		reflect.DeepEqual(existingPolicy.OwnerReferences, newPolicy.OwnerReferences)
 }
 
-func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyName string, policyNamespace string) error {
+func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyName string, policyNamespace string, ownerResource *K8sResource) error {
 	policy := &v1.NetworkPolicy{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: policyNamespace}, policy)
 	if err != nil {
@@ -451,28 +458,34 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 		return errors.Wrap(err)
 	}
 
-	var owner *unstructured.Unstructured
-
-	if len(policy.GetOwnerReferences()) > 0 {
-		ownerRef := policy.GetOwnerReferences()[0]
-		ownerObj := &unstructured.Unstructured{}
-		ownerObj.SetAPIVersion(ownerRef.APIVersion)
-		ownerObj.SetKind(ownerRef.Kind)
-		err = r.client.Get(ctx, types.NamespacedName{Name: ownerRef.Name, Namespace: policyNamespace}, ownerObj)
-		if err != nil {
-			logrus.Debugf("can't get the owner of %s. So no events will be recorded for the deletion", policyName)
-		}
-		owner = ownerObj
+	policyOwnerReferences := policy.GetOwnerReferences()
+	if len(policyOwnerReferences) != 1 {
+		// There are either 0 or more than 1 owner to the network policy, so either way - we are not the sole owner of the
+		// network policy, thus we don't want to delete it
+		return nil
 	}
 
-	r.RecordNormalEvent(owner, ReasonRemovingMetricsCollectorPolicy, "removing network policy, reconciler was disabled")
+	if policyOwnerReferences[0].UID != ownerResource.UID || policyOwnerReferences[0].Kind != ownerResource.Kind {
+		// There is a sole owner to the policy, but it is not this resource - so we should not delete it
+		return nil
+	}
+
+	ownerObj := &unstructured.Unstructured{}
+	ownerObj.SetAPIVersion(policyOwnerReferences[0].APIVersion)
+	ownerObj.SetKind(policyOwnerReferences[0].Kind)
+	err = r.client.Get(ctx, types.NamespacedName{Name: policyOwnerReferences[0].Name, Namespace: policyNamespace}, ownerObj)
+	if err != nil {
+		logrus.Debugf("can't get the owner of %s. So no events will be recorded for the deletion", policyName)
+	}
+
+	r.RecordNormalEvent(ownerObj, ReasonRemovingMetricsCollectorPolicy, "removing network policy, reconciler was disabled")
 
 	err = r.client.Delete(ctx, policy)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		r.RecordWarningEventf(owner, ReasonRemovingMetricsCollectorPolicyFailed, "failed removing network policy: %s", err.Error())
+		r.RecordWarningEventf(ownerObj, ReasonRemovingMetricsCollectorPolicyFailed, "failed removing network policy: %s", err.Error())
 		return errors.Wrap(err)
 	}
-	r.RecordNormalEvent(owner, ReasonRemovedMetricsCollectorPolicy, "removed network policy, success")
+	r.RecordNormalEvent(ownerObj, ReasonRemovedMetricsCollectorPolicy, "removed network policy, success")
 
 	return nil
 }
