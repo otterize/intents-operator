@@ -95,6 +95,49 @@ func (r *NetworkPolicyHandler) InjectRecorder(recorder record.EventRecorder) {
 	r.Recorder = recorder
 }
 
+func (r *NetworkPolicyHandler) HandleNamespace(ctx context.Context, namespace string) error {
+	podList := &corev1.PodList{}
+	err := r.client.List(ctx, podList, &client.ListOptions{Namespace: namespace})
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	for _, pod := range podList.Items {
+		err = r.HandlePod(ctx, &pod)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	serviceList := &corev1.ServiceList{}
+	err = r.client.List(ctx, serviceList, &client.ListOptions{Namespace: namespace})
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	for _, service := range serviceList.Items {
+		err = r.HandleService(ctx, &service)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	endpointsList := &corev1.EndpointsList{}
+	err = r.client.List(ctx, endpointsList, &client.ListOptions{Namespace: namespace})
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	for _, endpoints := range endpointsList.Items {
+		err = r.HandleEndpoints(ctx, &endpoints)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
 func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *corev1.Endpoints) error {
 	// When we handle endpoints - we really wants the handle the service that is behind the endpoints
 	svc, err := r.getEndpointsService(ctx, endpoints)

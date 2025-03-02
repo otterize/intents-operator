@@ -220,6 +220,7 @@ func main() {
 	metricsCollectorPodReconciler := metrics_collectors.NewPodReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 	metricsCollectorSvcReconciler := metrics_collectors.NewServiceReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 	metricsCollectorEndpointsReconciler := metrics_collectors.NewEndpointsReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorNetworkPoliciesReconciler := metrics_collectors.NewNetworkPolicyReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 
 	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 
@@ -435,6 +436,10 @@ func main() {
 
 	if err = metricsCollectorEndpointsReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Endpoints")
+	}
+
+	if err = metricsCollectorNetworkPoliciesReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "NetworkPolicy")
 	}
 
 	if err = ingressReconciler.SetupWithManager(mgr); err != nil {
