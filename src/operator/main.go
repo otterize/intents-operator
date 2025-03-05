@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"github.com/otterize/intents-operator/src/operator/controllers/metrics_collectors"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"path"
 	"time"
 
@@ -210,6 +212,9 @@ func main() {
 	}
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
+
+	metricsCollectorNetpolHandler := metrics_collectors.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowexternaltraffic.IfBlockedByOtterize)
+	metricsCollectorPodReconciler := metrics_collectors.NewPodReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
@@ -407,6 +412,10 @@ func main() {
 		if err = otterizeCloudReconciler.SetupWithManager(mgr); err != nil {
 			logrus.WithError(err).Panic("unable to create controller", "controller", "OtterizeCloud")
 		}
+	}
+
+	if err = metricsCollectorPodReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Pod")
 	}
 
 	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
