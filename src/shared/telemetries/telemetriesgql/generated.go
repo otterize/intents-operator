@@ -34,7 +34,10 @@ func (v *Component) GetCloudClientId() string { return v.CloudClientId }
 type EBPFDiagnostics struct {
 	ContainerImage string `json:"containerImage"`
 	Executable     string `json:"executable"`
+	ExecutableHash string `json:"executableHash"`
 	ProgramName    string `json:"programName"`
+	PodName        string `json:"podName"`
+	PodNamespace   string `json:"podNamespace"`
 }
 
 // GetContainerImage returns EBPFDiagnostics.ContainerImage, and is useful for accessing the field via an interface.
@@ -43,8 +46,17 @@ func (v *EBPFDiagnostics) GetContainerImage() string { return v.ContainerImage }
 // GetExecutable returns EBPFDiagnostics.Executable, and is useful for accessing the field via an interface.
 func (v *EBPFDiagnostics) GetExecutable() string { return v.Executable }
 
+// GetExecutableHash returns EBPFDiagnostics.ExecutableHash, and is useful for accessing the field via an interface.
+func (v *EBPFDiagnostics) GetExecutableHash() string { return v.ExecutableHash }
+
 // GetProgramName returns EBPFDiagnostics.ProgramName, and is useful for accessing the field via an interface.
 func (v *EBPFDiagnostics) GetProgramName() string { return v.ProgramName }
+
+// GetPodName returns EBPFDiagnostics.PodName, and is useful for accessing the field via an interface.
+func (v *EBPFDiagnostics) GetPodName() string { return v.PodName }
+
+// GetPodNamespace returns EBPFDiagnostics.PodNamespace, and is useful for accessing the field via an interface.
+func (v *EBPFDiagnostics) GetPodNamespace() string { return v.PodNamespace }
 
 type Error struct {
 	Message    *string          `json:"message"`
@@ -163,6 +175,7 @@ const (
 type TelemetryData struct {
 	EventType EventType       `json:"eventType"`
 	Count     int             `json:"count"`
+	Error     string          `json:"error"`
 	Ebpf      EBPFDiagnostics `json:"ebpf"`
 }
 
@@ -171,6 +184,9 @@ func (v *TelemetryData) GetEventType() EventType { return v.EventType }
 
 // GetCount returns TelemetryData.Count, and is useful for accessing the field via an interface.
 func (v *TelemetryData) GetCount() int { return v.Count }
+
+// GetError returns TelemetryData.Error, and is useful for accessing the field via an interface.
+func (v *TelemetryData) GetError() string { return v.Error }
 
 // GetEbpf returns TelemetryData.Ebpf, and is useful for accessing the field via an interface.
 func (v *TelemetryData) GetEbpf() EBPFDiagnostics { return v.Ebpf }

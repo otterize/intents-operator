@@ -37,6 +37,7 @@ type ProtectedServiceStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:storageversion
 
 // ProtectedService is the Schema for the protectedservice API
 type ProtectedService struct {
