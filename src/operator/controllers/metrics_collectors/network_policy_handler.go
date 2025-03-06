@@ -25,11 +25,26 @@ import (
 	"strings"
 )
 
+type K8sResourceEnum string
+
+const (
+	K8sResourceInvalid K8sResourceEnum = ""
+	K8sResourcePod     K8sResourceEnum = "pod"
+	K8sResourceService K8sResourceEnum = "service"
+)
+
 const (
 	OtterizeMetricsCollectorPolicyNameTemplate = "metrics-collector-access-to-%s-%s"
 )
 
 type NetworkPolicyByName map[string]*v1.NetworkPolicy
+
+type PotentiallyScrapeMetricPod struct {
+	pod                *corev1.Pod
+	scrapeResource     K8sResourceEnum
+	scrapeResourceMeta *metav1.ObjectMeta
+	scrapeResourceType *metav1.TypeMeta
+}
 
 type NetworkPolicyHandler struct {
 	client client.Client
@@ -61,12 +76,19 @@ func (r *NetworkPolicyHandler) HandleAllPodsInNamespace(ctx context.Context, nam
 		return errors.Wrap(err)
 	}
 
-	reducedPolicies, err := r.reducedNetworkPoliciesInNamespace(ctx, podsList.Items)
+	podsWithScrapeResource := lo.Map(podsList.Items, func(item corev1.Pod, _ int) PotentiallyScrapeMetricPod {
+		return PotentiallyScrapeMetricPod{pod: &item,
+			scrapeResourceMeta: &item.ObjectMeta,
+			scrapeResourceType: &item.TypeMeta,
+			scrapeResource:     K8sResourcePod}
+	})
+
+	reducedPolicies, err := r.reducedNetworkPoliciesInNamespace(ctx, podsWithScrapeResource)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	currentNetworkPolicies, err := r.getCurrentNetworkPoliciesInNamespace(ctx, namespace)
+	currentNetworkPolicies, err := r.getCurrentNetworkPoliciesInNamespace(ctx, namespace, K8sResourcePod)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -173,10 +195,10 @@ func (r *NetworkPolicyHandler) getAllOtterizeHandledPodsInNamespace(ctx context.
 	return podList, nil
 }
 
-func (r *NetworkPolicyHandler) reducedNetworkPoliciesInNamespace(ctx context.Context, pods []corev1.Pod) (NetworkPolicyByName, error) {
+func (r *NetworkPolicyHandler) reducedNetworkPoliciesInNamespace(ctx context.Context, pods []PotentiallyScrapeMetricPod) (NetworkPolicyByName, error) {
 	reducedPolicies := make(NetworkPolicyByName)
 	for _, pod := range pods {
-		if !r.resourceMarkedForMetricsScraping(&pod.ObjectMeta) {
+		if !r.resourceMarkedForMetricsScraping(pod.scrapeResourceMeta) {
 			continue
 		}
 
@@ -193,14 +215,10 @@ func (r *NetworkPolicyHandler) reducedNetworkPoliciesInNamespace(ctx context.Con
 	return reducedPolicies, nil
 }
 
-func (r *NetworkPolicyHandler) getCurrentNetworkPoliciesInNamespace(ctx context.Context, namespace string) (NetworkPolicyByName, error) {
+func (r *NetworkPolicyHandler) getCurrentNetworkPoliciesInNamespace(ctx context.Context, namespace string, annotationFrom K8sResourceEnum) (NetworkPolicyByName, error) {
 	metricsCollectorNetpolSelector, err := metav1.LabelSelectorAsSelector(
-		&metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      v2alpha1.OtterizeNetPolMetricsCollectors,
-				Operator: metav1.LabelSelectorOpExists,
-			},
-		},
+		&metav1.LabelSelector{MatchLabels: map[string]string{
+			v2alpha1.OtterizeNetPolMetricsCollectorsLevel: string(annotationFrom)},
 		})
 
 	if err != nil {
@@ -221,19 +239,19 @@ func (r *NetworkPolicyHandler) getCurrentNetworkPoliciesInNamespace(ctx context.
 	return networkPolicies, nil
 }
 
-func (r *NetworkPolicyHandler) buildNetworkPolicyIfNeeded(ctx context.Context, pod *corev1.Pod) (v1.NetworkPolicy, bool, error) {
-	serverLabel, ok := pod.Labels[v2alpha1.OtterizeServiceLabelKey]
+func (r *NetworkPolicyHandler) buildNetworkPolicyIfNeeded(ctx context.Context, pod *PotentiallyScrapeMetricPod) (v1.NetworkPolicy, bool, error) {
+	serverLabel, ok := pod.pod.Labels[v2alpha1.OtterizeServiceLabelKey]
 	if !ok {
 		// This should not really happen since we filtered only Otterize-affected pods before
 		return v1.NetworkPolicy{}, false, nil
 	}
 
-	serviceId, err := serviceidresolver.NewResolver(r.client).ResolvePodToServiceIdentity(ctx, pod)
+	serviceId, err := serviceidresolver.NewResolver(r.client).ResolvePodToServiceIdentity(ctx, pod.pod)
 	if err != nil {
 		return v1.NetworkPolicy{}, false, errors.Wrap(err)
 	}
 
-	policyName := r.formatPolicyName(serviceId)
+	policyName := r.formatPolicyName(pod.scrapeResourceType, serviceId)
 
 	// If configuration is set to "Always", we want to create the network policy regardless of other network policies
 	if r.allowMetricsCollector == allowexternaltraffic.Always {
@@ -253,7 +271,7 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyIfNeeded(ctx context.Context, p
 	// From this point we only handle the case where the configuration is set to "IfBlockedByOtterize", which means that
 	// we want to create the network policy only if there are other network policies that block the traffic.
 
-	netpolSlice, err := r.getAllApplicableNetworkPolicies(ctx, pod, serviceId)
+	netpolSlice, err := r.getAllApplicableNetworkPolicies(ctx, pod.pod, serviceId)
 	if err != nil {
 		return v1.NetworkPolicy{}, false, errors.Wrap(err)
 	}
@@ -314,7 +332,7 @@ func (r *NetworkPolicyHandler) getAllApplicableNetworkPolicies(ctx context.Conte
 	return netpolSlice, nil
 }
 
-func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *corev1.Pod, policyName string, identity serviceidentity.ServiceIdentity, serverLabel string) (v1.NetworkPolicy, error) {
+func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *PotentiallyScrapeMetricPod, policyName string, identity serviceidentity.ServiceIdentity, serverLabel string) (v1.NetworkPolicy, error) {
 	serviceIdentityLabels, ok, err := v2alpha1.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.client, identity)
 	if err != nil {
 		return v1.NetworkPolicy{}, errors.Wrap(err)
@@ -332,9 +350,10 @@ func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *corev
 	newPolicy := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
-			Namespace: pod.Namespace,
+			Namespace: pod.pod.Namespace,
 			Labels: map[string]string{
-				v2alpha1.OtterizeNetPolMetricsCollectors: serverLabel,
+				v2alpha1.OtterizeNetPolMetricsCollectors:      serverLabel,
+				v2alpha1.OtterizeNetPolMetricsCollectorsLevel: string(pod.scrapeResource),
 			},
 			Annotations: annotations,
 		},
@@ -349,7 +368,7 @@ func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *corev
 		},
 	}
 
-	scrapePort, err := r.getMetricsPort(&pod.ObjectMeta)
+	scrapePort, err := r.getMetricsPort(pod.scrapeResourceMeta)
 	if err != nil {
 		return v1.NetworkPolicy{}, errors.Wrap(err)
 	}
@@ -409,8 +428,8 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, networkPo
 	return nil
 }
 
-func (r *NetworkPolicyHandler) formatPolicyName(serviceId serviceidentity.ServiceIdentity) string {
-	return fmt.Sprintf(OtterizeMetricsCollectorPolicyNameTemplate, strings.ToLower(serviceId.Kind), strings.ToLower(serviceId.Name))
+func (r *NetworkPolicyHandler) formatPolicyName(ownerResourceKind *metav1.TypeMeta, serviceId serviceidentity.ServiceIdentity) string {
+	return fmt.Sprintf(OtterizeMetricsCollectorPolicyNameTemplate, strings.ToLower(ownerResourceKind.Kind), strings.ToLower(serviceId.Name))
 }
 
 func (r *NetworkPolicyHandler) resourceMarkedForMetricsScraping(resource *metav1.ObjectMeta) bool {
