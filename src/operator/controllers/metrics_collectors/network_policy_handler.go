@@ -54,7 +54,7 @@ func (r *NetworkPolicyHandler) InjectRecorder(recorder record.EventRecorder) {
 	r.Recorder = recorder
 }
 
-func (r *NetworkPolicyHandler) HandleAllPods(ctx context.Context, namespace string) error {
+func (r *NetworkPolicyHandler) HandleAllPodsInNamespace(ctx context.Context, namespace string) error {
 	// Fetch all the pods we handle in the given namespace
 	podsList, err := r.getAllOtterizeHandledPodsInNamespace(ctx, namespace)
 	if err != nil {
