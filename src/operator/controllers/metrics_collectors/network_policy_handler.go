@@ -35,6 +35,13 @@ const (
 
 const (
 	OtterizeMetricsCollectorPolicyNameTemplate = "metrics-collector-access-to-%s-%s"
+
+	ReasonCreatingMetricsCollectorPolicy       = "CreatingMetricsCollectorPolicy"
+	ReasonFailedCreatingMetricsCollectorPolicy = "FailedCreatingMetricsCollectorPolicy"
+	ReasonUpdatingMetricsCollectorPolicy       = "UpdatingMetricsCollectorPolicy"
+	ReasonFailedUpdatingMetricsCollectorPolicy = "FailedUpdatingMetricsCollectorPolicy"
+	ReasonRemovingMetricsCollectorPolicy       = "RemovingMetricsCollectorPolicy"
+	ReasonFailedRemovingMetricsCollectorPolicy = "FailedRemovingMetricsCollectorPolicy"
 )
 
 type NetworkPolicyByName map[string]*v1.NetworkPolicy
@@ -186,6 +193,7 @@ func (r *NetworkPolicyHandler) handlePoliciesToDelete(ctx context.Context, polic
 
 func (r *NetworkPolicyHandler) handlePoliciesToAdd(ctx context.Context, policiesNamesToAdd []string, policiesByName NetworkPolicyByName) error {
 	for _, policyName := range policiesNamesToAdd {
+		r.recordEvent(ctx, policiesByName[policyName], ReasonCreatingMetricsCollectorPolicy, "")
 		err := r.client.Create(ctx, policiesByName[policyName])
 		if err != nil {
 			return r.handleCreationErrors(ctx, err, policiesByName[policyName])
@@ -296,9 +304,12 @@ func (r *NetworkPolicyHandler) getCurrentNetworkPoliciesInNamespace(ctx context.
 }
 
 func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *PotentiallyScrapeMetricPod) (v1.NetworkPolicy, error) {
-	serverLabel, ok := pod.pod.Labels[v2alpha1.OtterizeServiceLabelKey]
+
+	scrapeResourceLabel, ok, err := r.getScrapeResourceLabel(pod)
+	if err != nil {
+		return v1.NetworkPolicy{}, errors.Wrap(err)
+	}
 	if !ok {
-		// This should not really happen since we filtered only Otterize-affected pods before
 		return v1.NetworkPolicy{}, nil
 	}
 
@@ -311,7 +322,7 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *PotentiallySc
 
 	// If configuration is set to "Always", we want to create the network policy regardless of other network policies
 	if r.allowMetricsCollector == allowexternaltraffic.Always {
-		netpol, errBuild := r.buildNetpolForPod(ctx, pod, policyName, serviceId, serverLabel)
+		netpol, errBuild := r.buildNetpolForPod(ctx, pod, policyName, serviceId, scrapeResourceLabel)
 		if errBuild != nil {
 			return v1.NetworkPolicy{}, errors.Wrap(errBuild)
 		}
@@ -340,7 +351,7 @@ func (r *NetworkPolicyHandler) handlePod(ctx context.Context, pod *PotentiallySc
 		return v1.NetworkPolicy{}, nil
 	}
 
-	netpol, errBuild := r.buildNetpolForPod(ctx, pod, policyName, serviceId, serverLabel)
+	netpol, errBuild := r.buildNetpolForPod(ctx, pod, policyName, serviceId, scrapeResourceLabel)
 	if errBuild != nil {
 		return v1.NetworkPolicy{}, errors.Wrap(errBuild)
 	}
@@ -388,7 +399,7 @@ func (r *NetworkPolicyHandler) getAllPossibleNetworkPolicies(ctx context.Context
 	return netpolSlice, nil
 }
 
-func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *PotentiallyScrapeMetricPod, policyName string, identity serviceidentity.ServiceIdentity, serverLabel string) (v1.NetworkPolicy, error) {
+func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *PotentiallyScrapeMetricPod, policyName string, identity serviceidentity.ServiceIdentity, scrapeResourceLabel string) (v1.NetworkPolicy, error) {
 	serviceIdentityLabels, ok, err := v2alpha1.ServiceIdentityToLabelsForWorkloadSelection(ctx, r.client, identity)
 	if err != nil {
 		return v1.NetworkPolicy{}, errors.Wrap(err)
@@ -408,7 +419,7 @@ func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *Poten
 			Name:      policyName,
 			Namespace: pod.pod.Namespace,
 			Labels: map[string]string{
-				v2alpha1.OtterizeNetPolMetricsCollectors:      serverLabel,
+				v2alpha1.OtterizeNetPolMetricsCollectors:      scrapeResourceLabel,
 				v2alpha1.OtterizeNetPolMetricsCollectorsLevel: string(pod.scrapeResource),
 			},
 			Annotations: annotations,
@@ -445,6 +456,7 @@ func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *Poten
 
 func (r *NetworkPolicyHandler) handleCreationErrors(ctx context.Context, err error, policy *v1.NetworkPolicy) error {
 	if !k8serrors.IsAlreadyExists(err) {
+		r.recordEvent(ctx, policy, ReasonFailedCreatingMetricsCollectorPolicy, "")
 		return errors.Wrap(err)
 	}
 
@@ -452,8 +464,10 @@ func (r *NetworkPolicyHandler) handleCreationErrors(ctx context.Context, err err
 	existingPolicy := &v1.NetworkPolicy{}
 	err = r.client.Get(ctx, types.NamespacedName{Name: policy.Name, Namespace: policy.Namespace}, existingPolicy)
 	if err != nil {
+		r.recordEvent(ctx, policy, ReasonFailedCreatingMetricsCollectorPolicy, "")
 		return errors.Wrap(err) // Don't retry anymore
 	}
+
 	return r.updatePolicy(ctx, existingPolicy, policy)
 }
 
@@ -463,8 +477,10 @@ func (r *NetworkPolicyHandler) updatePolicy(ctx context.Context, existingPolicy 
 	policyCopy.Annotations = newPolicy.Annotations
 	policyCopy.Spec = newPolicy.Spec
 
+	r.recordEvent(ctx, policyCopy, ReasonUpdatingMetricsCollectorPolicy, "")
 	err := r.client.Patch(ctx, policyCopy, client.MergeFrom(existingPolicy))
 	if err != nil {
+		r.recordEvent(ctx, policyCopy, ReasonFailedUpdatingMetricsCollectorPolicy, "")
 		return errors.Wrap(err)
 	}
 
@@ -478,12 +494,14 @@ func (r *NetworkPolicyHandler) arePoliciesEqual(existingPolicy *v1.NetworkPolicy
 }
 
 func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, networkPolicy *v1.NetworkPolicy) error {
+	r.recordEvent(ctx, networkPolicy, ReasonRemovingMetricsCollectorPolicy, "")
 	err := r.client.Delete(ctx, networkPolicy)
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
 
 	if err != nil {
+		r.recordEvent(ctx, networkPolicy, ReasonFailedRemovingMetricsCollectorPolicy, "")
 		return errors.Wrap(err)
 	}
 
@@ -512,7 +530,6 @@ func (r *NetworkPolicyHandler) getMetricsPort(resource *metav1.ObjectMeta) (int3
 
 	port, err := strconv.Atoi(portValue)
 	if err != nil {
-		logrus.Errorf("failed to convert port to int: %s", err)
 		return 0, errors.Wrap(err)
 	}
 
@@ -521,7 +538,7 @@ func (r *NetworkPolicyHandler) getMetricsPort(resource *metav1.ObjectMeta) (int3
 
 func (r *NetworkPolicyHandler) getAllServicesInNamespace(ctx context.Context, namespace string) (*corev1.ServiceList, error) {
 	serviceList := &corev1.ServiceList{}
-	err := r.client.List(ctx, serviceList, client.InNamespace(namespace)) //, client.MatchingLabelsSelector{Selector: otterizeSelector})
+	err := r.client.List(ctx, serviceList, client.InNamespace(namespace))
 	if err != nil {
 		return &corev1.ServiceList{}, errors.Wrap(err)
 	}
@@ -556,4 +573,58 @@ func (r *NetworkPolicyHandler) getEndpointsPods(ctx context.Context, endpoints *
 		pods = append(pods, *pod)
 	}
 	return pods, nil
+}
+
+// We will use this label in order to know to which resource we need to log events
+func (r *NetworkPolicyHandler) getScrapeResourceLabel(pod *PotentiallyScrapeMetricPod) (string, bool, error) {
+	if pod.scrapeResource == K8sResourceService {
+		return pod.scrapeResourceMeta.Name, true, nil
+	}
+
+	if pod.scrapeResource == K8sResourcePod {
+		scrapeResourceLabel, ok := pod.pod.Labels[v2alpha1.OtterizeServiceLabelKey]
+		if !ok {
+			// This should not really happen since we filtered only Otterize-affected pods before
+			return "", false, nil
+		}
+
+		return scrapeResourceLabel, true, nil
+	}
+
+	logrus.Debugf("Should not reach here")
+	return "", false, nil
+}
+
+func (r *NetworkPolicyHandler) recordEvent(ctx context.Context, networkPolicy *v1.NetworkPolicy, reason string, msg string) {
+	scrapeResourceType := networkPolicy.Labels[v2alpha1.OtterizeNetPolMetricsCollectorsLevel]
+	if scrapeResourceType == string(K8sResourcePod) {
+		selector, err := metav1.LabelSelectorAsSelector(&networkPolicy.Spec.PodSelector)
+		if err != nil {
+			return
+		}
+
+		podsList := &corev1.PodList{}
+		err = r.client.List(ctx, podsList, client.InNamespace(networkPolicy.Namespace), client.MatchingLabelsSelector{Selector: selector})
+		if err != nil {
+			return
+		}
+
+		lo.ForEach(podsList.Items, func(pod corev1.Pod, _ int) {
+			r.RecordNormalEvent(&pod, reason, msg)
+		})
+		return
+	}
+
+	if scrapeResourceType == string(K8sResourceService) {
+		serviceName := networkPolicy.Labels[v2alpha1.OtterizeNetPolMetricsCollectors]
+
+		service := &corev1.Service{}
+		err := r.client.Get(ctx, types.NamespacedName{Name: serviceName, Namespace: networkPolicy.Namespace}, service)
+		if err != nil {
+			return
+		}
+
+		r.RecordNormalEvent(service, reason, msg)
+		return
+	}
 }
