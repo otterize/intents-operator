@@ -39,7 +39,7 @@ func (r *NetworkPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *NetworkPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.netpolHandle.HandleAllPods(ctx, req.Namespace)
+	err := r.netpolHandle.HandleAllServicesInNamespace(ctx, req.Namespace)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}

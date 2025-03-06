@@ -45,7 +45,7 @@ func (r *ServiceReconciler) InjectRecorder(recorder record.EventRecorder) {
 }
 
 func (r *ServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.netpolHandle.HandleAllPodsInNamespace(ctx, req.Namespace)
+	err := r.netpolHandle.HandleAllServicesInNamespace(ctx, req.Namespace)
 
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)

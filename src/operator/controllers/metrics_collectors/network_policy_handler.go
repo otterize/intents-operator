@@ -82,13 +82,69 @@ func (r *NetworkPolicyHandler) HandleAllPodsInNamespace(ctx context.Context, nam
 			scrapeResourceType: &item.TypeMeta,
 			scrapeResource:     K8sResourcePod}
 	})
-
-	reducedPolicies, err := r.reducedNetworkPoliciesInNamespace(ctx, podsWithScrapeResource)
+	err = r.handleAllPods(ctx, namespace, podsWithScrapeResource, K8sResourcePod)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	currentNetworkPolicies, err := r.getCurrentNetworkPoliciesInNamespace(ctx, namespace, K8sResourcePod)
+	return nil
+}
+
+func (r *NetworkPolicyHandler) HandleAllServicesInNamespace(ctx context.Context, namespace string) error {
+	serviceList, err := r.getAllServicesInNamespace(ctx, namespace)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	pods := make([]PotentiallyScrapeMetricPod, 0)
+	for _, service := range serviceList.Items {
+		endpoints := &corev1.Endpoints{}
+		err = r.client.Get(ctx, client.ObjectKey{Namespace: service.Namespace, Name: service.Name}, endpoints)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+
+		if err != nil {
+			return errors.Wrap(err)
+		}
+
+		endpointsPods, err := r.getEndpointsPods(ctx, endpoints)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+
+		podsFromService := lo.Map(endpointsPods, func(item corev1.Pod, _ int) PotentiallyScrapeMetricPod {
+			return PotentiallyScrapeMetricPod{pod: &item,
+				scrapeResourceMeta: &service.ObjectMeta,
+				scrapeResourceType: &service.TypeMeta,
+				scrapeResource:     K8sResourceService}
+		})
+
+		pods = append(pods, podsFromService...)
+	}
+
+	// Handle all the pods related to a service in this namespace. Deduce the scraping annotations based on the service
+	err = r.handleAllPods(ctx, namespace, pods, K8sResourceService)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	// Since changes in the service might affect pods, we need to reconcile all the pods again
+	err = r.HandleAllPodsInNamespace(ctx, namespace)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	return nil
+}
+
+func (r *NetworkPolicyHandler) handleAllPods(ctx context.Context, namespace string, pods []PotentiallyScrapeMetricPod, annotationFrom K8sResourceEnum) error {
+	reducedPolicies, err := r.reducedNetworkPoliciesInNamespace(ctx, pods)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	currentNetworkPolicies, err := r.getCurrentNetworkPoliciesInNamespace(ctx, namespace, annotationFrom)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -453,4 +509,43 @@ func (r *NetworkPolicyHandler) getMetricsPort(resource *metav1.ObjectMeta) (int3
 	}
 
 	return int32(port), nil
+}
+
+func (r *NetworkPolicyHandler) getAllServicesInNamespace(ctx context.Context, namespace string) (*corev1.ServiceList, error) {
+	serviceList := &corev1.ServiceList{}
+	err := r.client.List(ctx, serviceList, client.InNamespace(namespace)) //, client.MatchingLabelsSelector{Selector: otterizeSelector})
+	if err != nil {
+		return &corev1.ServiceList{}, errors.Wrap(err)
+	}
+
+	return serviceList, nil
+}
+
+func (r *NetworkPolicyHandler) getEndpointsPods(ctx context.Context, endpoints *corev1.Endpoints) ([]corev1.Pod, error) {
+	addresses := make([]corev1.EndpointAddress, 0)
+	for _, subset := range endpoints.Subsets {
+		addresses = append(addresses, subset.Addresses...)
+		addresses = append(addresses, subset.NotReadyAddresses...)
+	}
+
+	pods := make([]corev1.Pod, 0)
+	for _, address := range addresses {
+		if address.TargetRef == nil || address.TargetRef.Kind != "Pod" {
+			// If we could not find the relevant pod, we just skip to the next one
+			continue
+		}
+
+		pod := &corev1.Pod{}
+		err := r.client.Get(ctx, types.NamespacedName{Name: address.TargetRef.Name, Namespace: address.TargetRef.Namespace}, pod)
+		if k8serrors.IsNotFound(err) {
+			continue
+		}
+
+		if err != nil {
+			return make([]corev1.Pod, 0), errors.Wrap(err)
+		}
+
+		pods = append(pods, *pod)
+	}
+	return pods, nil
 }
