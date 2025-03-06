@@ -217,6 +217,7 @@ func main() {
 	metricsCollectorPodReconciler := metrics_collectors.NewPodReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 	metricsCollectorEndpointsReconciler := metrics_collectors.NewEndpointsReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 	metricsCollectorServiceReconciler := metrics_collectors.NewServiceReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorNetworkPolicyReconciler := metrics_collectors.NewNetworkPolicyReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
@@ -426,6 +427,10 @@ func main() {
 
 	if err = metricsCollectorServiceReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Service")
+	}
+
+	if err = metricsCollectorNetworkPolicyReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "NetworkPolicy")
 	}
 
 	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
