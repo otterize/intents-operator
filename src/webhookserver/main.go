@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"github.com/otterize/intents-operator/src/shared/k8sconf"
 	"time"
 
 	"context"
