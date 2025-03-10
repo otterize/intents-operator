@@ -157,12 +157,12 @@ func main() {
 		logrus.Infof("Will only watch the following namespaces: %v", watchedNamespaces)
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
+	mgr, err := ctrl.NewManager(k8sconf.KubernetesConfigOrDie(), options)
 	if err != nil {
 		logrus.WithError(err).Panic(err, "unable to start manager")
 	}
 
-	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
+	directClient, err := client.New(k8sconf.KubernetesConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
 	if err != nil {
 		logrus.WithError(err).Panic("unable to create kubernetes API client")
 	}
