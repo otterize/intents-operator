@@ -280,17 +280,8 @@ func (r *NetworkPolicyHandler) reducedNetworkPoliciesInNamespace(ctx context.Con
 }
 
 func (r *NetworkPolicyHandler) getCurrentNetworkPoliciesInNamespace(ctx context.Context, namespace string, annotationFrom K8sResourceEnum) (NetworkPolicyByName, error) {
-	metricsCollectorNetpolSelector, err := metav1.LabelSelectorAsSelector(
-		&metav1.LabelSelector{MatchLabels: map[string]string{
-			v2alpha1.OtterizeNetPolMetricsCollectorsLevel: string(annotationFrom)},
-		})
-
-	if err != nil {
-		return make(NetworkPolicyByName), errors.Wrap(err)
-	}
-
 	networkPoliciesList := &v1.NetworkPolicyList{}
-	err = r.client.List(ctx, networkPoliciesList, client.InNamespace(namespace), client.MatchingLabelsSelector{Selector: metricsCollectorNetpolSelector})
+	err := r.client.List(ctx, networkPoliciesList, client.InNamespace(namespace), client.MatchingLabels{v2alpha1.OtterizeNetPolMetricsCollectorsLevel: string(annotationFrom)})
 	if err != nil {
 		return make(NetworkPolicyByName), errors.Wrap(err)
 	}
