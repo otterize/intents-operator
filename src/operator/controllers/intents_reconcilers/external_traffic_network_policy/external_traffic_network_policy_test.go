@@ -20,6 +20,7 @@ import (
 	podreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -91,7 +92,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	intentsValidator2beta1 := webhooks.NewIntentsValidatorV2beta1(s.Mgr.GetClient())
 	s.Require().NoError((&otterizev2beta1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2beta1))
 
-	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
+	recorder := mirrorevents.GetMirrorToClientIntentsEventRecorderFor(s.Mgr, "intents-operator")
 	testName := s.T().Name()
 	isShadowMode := strings.Contains(testName, "ShadowMode")
 	defaultActive := !isShadowMode

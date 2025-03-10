@@ -8,6 +8,7 @@ import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/access_annotation"
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/prometheus"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -446,7 +447,7 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 			clients, ok, err := access_annotation.ParseAccessAnnotations(pod)
 			if err != nil {
 				logrus.WithError(err).Error("Failed to parse access annotation")
-				mgr.GetEventRecorderFor("intents-operator").Eventf(pod, "Warning", FailedParsingAnnotationEvent, annotationParsingErr(err))
+				mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator").Eventf(pod, "Warning", FailedParsingAnnotationEvent, annotationParsingErr(err))
 				return []string{}
 			}
 			if !ok {
@@ -475,7 +476,7 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 			_, ok, err := access_annotation.ParseAccessAnnotations(pod)
 			if err != nil {
 				logrus.WithError(err).Error("Failed to parse access annotation")
-				mgr.GetEventRecorderFor("intents-operator").Eventf(pod, "Warning", FailedParsingAnnotationEvent, annotationParsingErr(err))
+				mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator").Eventf(pod, "Warning", FailedParsingAnnotationEvent, annotationParsingErr(err))
 				return []string{}
 			}
 			if !ok {

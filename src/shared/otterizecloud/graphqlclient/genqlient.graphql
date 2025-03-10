@@ -40,11 +40,14 @@ mutation ReportAppliedIntentsRequest($intents: [IntentRequestInput!]!) {
 }
 
 query GetAppliedIntentsRequestStatus($ids: [ID!]!) {
-    appliedIntentsRequestStatus(filter: {
-        requestIds: {
-            include: $ids
+    appliedIntentsRequestStatus(
+        filter: {
+            requestIds: {
+                include: $ids
+            }
         }
-    }) {
+        staleNonIncludedIds: true
+    ) {
         id
         reason
         status

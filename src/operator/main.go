@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"path"
 	"time"
 
@@ -319,7 +320,7 @@ func main() {
 		iamIntentsReconciler := iam.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceIdResolver, iamAgent)
 		additionalIntentsReconcilers = append(additionalIntentsReconcilers, iamIntentsReconciler)
 
-		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), iamIntentsReconciler)
+		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator"), iamIntentsReconciler)
 		err = iamPodWatcher.SetupWithManager(mgr)
 
 		if err != nil {
@@ -466,9 +467,9 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "ProtectedServices")
 	}
 
-	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, approvedIntentsReconciler, epGroupReconciler)
+	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, approvedIntentsReconciler, epGroupReconciler)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
-	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler, enforcementConfig.EnableNetworkPolicy)
+	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator"), epGroupReconciler, enforcementConfig.EnableNetworkPolicy)
 
 	err = svcWatcher.SetupWithManager(mgr)
 	if err != nil {

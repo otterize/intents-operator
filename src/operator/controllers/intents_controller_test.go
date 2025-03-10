@@ -23,11 +23,16 @@ func (s *IntentsControllerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 	s.intentsReconciler = NewIntentsReconciler(context.Background(), s.Client, nil)
 	s.intentsReconciler.InjectRecorder(s.Recorder)
+	s.expectScheme()
 }
 
 func (s *IntentsControllerTestSuite) expectRemoveOrphanedIntents() {
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v2alpha1.ClientIntentsList{})).AnyTimes()
 	s.Client.EXPECT().List(gomock.Any(), gomock.Eq(&v2alpha1.ApprovedClientIntentsList{})).AnyTimes()
+}
+
+func (s *IntentsControllerTestSuite) expectScheme() {
+	s.Client.EXPECT().Scheme().Return(s.Scheme).AnyTimes()
 }
 
 func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_FullApprovalFlow() {
@@ -116,6 +121,14 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_FullAppr
 
 	approvedClientIntents := v2alpha1.ApprovedClientIntents{}
 	approvedClientIntents.FromClientIntents(*afterSecondIterationClientIntents)
+	approvedClientIntents.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: "k8s.otterize.com/v2alpha1",
+			Kind:       "ClientIntents",
+			Name:       afterSecondIterationClientIntents.Name,
+			UID:        afterSecondIterationClientIntents.UID,
+		},
+	}
 
 	// check if the approvedClientIntents already exists - return NotFound error
 	s.Client.EXPECT().Get(gomock.Any(), gomock.Eq(client.ObjectKey{Name: approvedClientIntents.Name, Namespace: "test-namespace"}), gomock.Any()).Return(&errors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonNotFound}})
@@ -160,6 +173,14 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_Existing
 
 	approvedClientIntents := v2alpha1.ApprovedClientIntents{}
 	approvedClientIntents.FromClientIntents(clientIntentsStatusApprovedNewGeneration)
+	approvedClientIntents.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: "k8s.otterize.com/v2alpha1",
+			Kind:       "ClientIntents",
+			Name:       clientIntentsStatusApprovedNewGeneration.Name,
+			UID:        clientIntentsStatusApprovedNewGeneration.UID,
+		},
+	}
 
 	// check if the approvedClientIntents already exists
 	// no update should be done on the approvedClientIntents since I used the same approvedClientIntents object
@@ -203,6 +224,14 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_Existing
 
 	approvedClientIntents := v2alpha1.ApprovedClientIntents{}
 	approvedClientIntents.FromClientIntents(clientIntentsStatusApprovedNewGeneration)
+	approvedClientIntents.OwnerReferences = []metav1.OwnerReference{
+		{
+			APIVersion: "k8s.otterize.com/v2alpha1",
+			Kind:       "ClientIntents",
+			Name:       clientIntentsStatusApprovedNewGeneration.Name,
+			UID:        clientIntentsStatusApprovedNewGeneration.UID,
+		},
+	}
 
 	// check if the approvedClientIntents already exists
 	s.Client.EXPECT().Get(gomock.Any(), gomock.Eq(client.ObjectKey{Name: approvedClientIntents.Name, Namespace: "test-namespace"}), gomock.Any()).DoAndReturn(func(_ context.Context, _ client.ObjectKey, intent *v2alpha1.ApprovedClientIntents, _ ...any) error {

@@ -10,6 +10,7 @@ import (
 	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	podreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers/mocks"
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -74,7 +75,7 @@ func (s *WatcherPodLabelReconcilerTestSuite) SetupTest() {
 	intentsValidator2beta1 := webhooks.NewIntentsValidatorV2beta1(s.Mgr.GetClient())
 	s.Require().NoError((&otterizev2beta1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2beta1))
 
-	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
+	recorder := mirrorevents.GetMirrorToClientIntentsEventRecorderFor(s.Mgr, "intents-operator")
 	controller := gomock.NewController(s.T())
 	s.serviceEffectivePolicyReconciler = podreconcilersmocks.NewMockGroupReconciler(controller)
 	s.Reconciler = NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, true, true, nil, &mocks.MockIntentsReconcilerForTestEnv{}, s.serviceEffectivePolicyReconciler)

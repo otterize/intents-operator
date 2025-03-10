@@ -10,6 +10,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/health"
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
@@ -152,7 +153,7 @@ func (r *ApprovedIntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return errors.Wrap(err)
 	}
 
-	r.group.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+	r.group.InjectRecorder(mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator"))
 
 	return nil
 }

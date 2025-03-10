@@ -1,9 +1,11 @@
 package testbase
 
 import (
+	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"strings"
 	"time"
@@ -19,6 +21,7 @@ type MocksSuiteBase struct {
 	Recorder     *record.FakeRecorder
 	Client       *mocks.MockClient
 	StatusWriter *mocks.MockSubResourceWriter
+	Scheme       *runtime.Scheme
 }
 
 func (s *MocksSuiteBase) SetupTest() {
@@ -26,6 +29,8 @@ func (s *MocksSuiteBase) SetupTest() {
 	s.Client = mocks.NewMockClient(s.Controller)
 	s.Recorder = record.NewFakeRecorder(FakeRecorderBufferSize)
 	s.StatusWriter = mocks.NewMockSubResourceWriter(s.Controller)
+	s.Scheme = runtime.NewScheme()
+	s.Require().NoError(otterizev2alpha1.AddToScheme(s.Scheme))
 }
 
 func (s *MocksSuiteBase) TearDownTest() {

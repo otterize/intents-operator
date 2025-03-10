@@ -132,6 +132,41 @@ input AWSVisibilitySettingsInput {
 	regions: [String!]!
 }
 
+type AccessApprovalRuleset {
+	id: ID!
+	origin: AccessApprovalRulesetFilter!
+	target: AccessApprovalRulesetFilter!
+	action: AccessApprovalRulesetAction!
+}
+
+enum AccessApprovalRulesetAction {
+	AUTO_APPROVE
+	AUTO_DENY
+	REQUIRE_APPROVAL
+}
+
+type AccessApprovalRulesetFilter {
+	clusterIds: IDFilterValue
+	serviceIds: IDFilterValue
+	namespaceIds: IDFilterValue
+	environmentIds: IDFilterValue
+}
+
+enum AccessApprovalRulesetFilterValue {
+	ANY
+}
+
+type AccessApprovalRulesetResources {
+	clusters: [Cluster!]!
+	services: [Service!]!
+	namespaces: [Namespace!]!
+}
+
+type AccessApprovalRulesetSummary {
+	environment: Environment!
+	count: Int!
+}
+
 type AccessGraph {
 	filter: AccessGraphFilter!
 """Clusters for which there are results"""
@@ -148,6 +183,7 @@ type AccessGraphEdge {
 	accessStatus: EdgeAccessStatus!
 	accessStatuses: EdgeAccessStatuses!
 	findings: [CallFinding!]!
+	traffic: TrafficLevel!
 }
 
 """ Access graph filter """
@@ -223,6 +259,7 @@ enum AppliedIntentsRequestStatusLabel {
 	PENDING
 	APPROVED
 	DENIED
+	STALE
 }
 
 type AppliedIntentsRequestWithDetails {
@@ -233,35 +270,6 @@ type AppliedIntentsRequestWithDetails {
 	status: AppliedIntentsRequestStatusLabel!
 	reason: String
 	clientIntents: ClientIntentsFileRepresentation!
-}
-
-type AppliedIntentsRuleset {
-	id: ID!
-	origin: AppliedIntentsRulesetFilter!
-	target: AppliedIntentsRulesetFilter!
-	action: AppliedIntentsRulesetAction!
-}
-
-enum AppliedIntentsRulesetAction {
-	AUTO_APPROVE
-	AUTO_DENY
-	REQUIRE_APPROVAL
-}
-
-type AppliedIntentsRulesetFilter {
-	clusterIds: IDFilterValue
-	serviceIds: IDFilterValue
-	namespaceIds: IDFilterValue
-	environmentIds: IDFilterValue
-}
-
-enum AppliedIntentsRulesetFilterValue {
-	ANY
-}
-
-type AppliedIntentsRulesetSummary {
-	environment: Environment!
-	count: Int!
 }
 
 enum AwsIamStep {
@@ -443,6 +451,10 @@ type ClientIntentsRow {
 	text: String!
 	diff: RowDiff
 	calledServerId: ID
+}
+
+type CloudIam {
+	awsRoles: [String!]
 }
 
 type Cluster {
@@ -638,7 +650,7 @@ enum DatabaseVisibilitySource {
 
 type DefaultIntentsApprovalActionByEnv {
 	environmentId: ID!
-	action: AppliedIntentsRulesetAction!
+	action: AccessApprovalRulesetAction!
 }
 
 type DetectedCloudServer {
@@ -812,6 +824,7 @@ type FeatureFlags {
 	enableFindingsV2: Boolean
 	useTypedIntentsCTE: Boolean
 	enableInternetIntentsSuggestions: Boolean
+	enableIAMIntentsSuggestions: Boolean
 }
 
 type Finding {
@@ -1047,6 +1060,40 @@ input IngressControllerConfigInput {
 	kind: String!
 }
 
+"""Ruleset"""
+input InputAccessApprovalRuleset {
+"""Ruleset"""
+	id: ID!
+"""Ruleset"""
+	origin: InputAccessApprovalRulesetConfigFilter!
+"""Ruleset"""
+	target: InputAccessApprovalRulesetConfigFilter!
+"""Ruleset"""
+	action: AccessApprovalRulesetAction!
+}
+
+input InputAccessApprovalRulesetConfigFilter {
+	clusterIds: InputIDFilterValue
+	serviceIds: InputIDFilterValue
+	namespaceIds: InputIDFilterValue
+}
+
+""" Ruleset filter """
+input InputAccessApprovalRulesetFilter {
+""" Ruleset filter """
+	environmentIds: InputIDFilterValue
+""" Ruleset filter """
+	environmentNames: InputIDFilterValue
+""" Ruleset filter """
+	namespaceIds: InputIDFilterValue
+""" Ruleset filter """
+	clusterIds: InputIDFilterValue
+""" Ruleset filter """
+	serviceIds: InputIDFilterValue
+""" Ruleset filter """
+	actions: InputIDFilterValue
+}
+
 input InputAccessGraphFilter {
 	clusterIds: InputIDFilterValue
 	serviceIds: InputIDFilterValue
@@ -1095,43 +1142,9 @@ input InputAppliedIntentsRequestFilter {
 	approvalStatuses: InputIDFilterValue
 }
 
-"""Ruleset"""
-input InputAppliedIntentsRuleset {
-"""Ruleset"""
-	id: ID
-"""Ruleset"""
-	origin: InputAppliedIntentsRulesetConfigFilter!
-"""Ruleset"""
-	target: InputAppliedIntentsRulesetConfigFilter!
-"""Ruleset"""
-	action: AppliedIntentsRulesetAction!
-}
-
-input InputAppliedIntentsRulesetConfigFilter {
-	clusterIds: InputIDFilterValue
-	serviceIds: InputIDFilterValue
-	namespaceIds: InputIDFilterValue
-}
-
-""" Ruleset filter """
-input InputAppliedIntentsRulesetFilter {
-""" Ruleset filter """
-	environmentIds: InputIDFilterValue
-""" Ruleset filter """
-	environmentNames: InputIDFilterValue
-""" Ruleset filter """
-	namespaceIds: InputIDFilterValue
-""" Ruleset filter """
-	clusterIds: InputIDFilterValue
-""" Ruleset filter """
-	serviceIds: InputIDFilterValue
-""" Ruleset filter """
-	actions: InputIDFilterValue
-}
-
 input InputDefaultIntentsApprovalActionByEnv {
 	environmentId: ID!
-	action: AppliedIntentsRulesetAction!
+	action: AccessApprovalRulesetAction!
 }
 
 input InputFeatureFlags {
@@ -1141,6 +1154,7 @@ input InputFeatureFlags {
 	enableFindingsV2: Boolean
 	useTypedIntentsCTE: Boolean
 	enableInternetIntentsSuggestions: Boolean
+	enableIAMIntentsSuggestions: Boolean
 }
 
 """ Findings filter """
@@ -1322,6 +1336,7 @@ type Intent {
 	kafkaTopics: [KafkaConfig!]
 	httpResources: [HTTPConfig!]
 	databaseResources: [DatabaseConfig!]
+	awsRole: String
 	awsActions: [String!]
 	azureRoles: [String!]
 	azureActions: [String!]
@@ -1346,6 +1361,7 @@ input IntentInput {
 	topics: [KafkaConfigInput!]
 	resources: [HTTPConfigInput!]
 	databaseResources: [DatabaseConfigInput!]
+	awsRole: String
 	awsActions: [String!]
 	azureRoles: [String!]
 	azureActions: [String!]
@@ -1745,9 +1761,9 @@ type Mutation {
 		result: AppliedIntentsRequestApprovalData!
 	): Boolean!
 """rulesets"""
-	createOrUpdateAppliedIntentsRulesets(
+	saveAccessApprovalRulesets(
 		environmentId: ID!
-		rules: [InputAppliedIntentsRuleset!]!
+		rules: [InputAccessApprovalRuleset!]!
 	): Boolean!
 """Register certificate-request details for kubernetes pod owner, returns the service associated with this pod owner"""
 	registerKubernetesPodOwnerCertificateRequest(
@@ -2023,6 +2039,10 @@ type Mutation {
 	reportServiceMetadata(
 		serviceMeta: ReportServiceMetadataInput!
 	): Boolean!
+"""update multiple service metadata from operator"""
+	reportServicesMetadata(
+		servicesMeta: [ReportServiceMetadataInput!]!
+	): Boolean!
 """Bulk Update services"""
 	addTagsToServices(
 		ids: [ID!]!
@@ -2033,6 +2053,10 @@ type Mutation {
 	): Boolean!
 	sendCLITelemetries(
 		telemetries: [CLITelemetry!]!
+	): Boolean!
+"""Update service"""
+	reportTrafficLevels(
+		trafficLevels: [TrafficLevelInput!]!
 	): Boolean!
 	saveOnboardingFeedback(
 		userEmail: String!
@@ -2209,16 +2233,17 @@ type Query {
 """applied intents requests"""
 	appliedIntentsRequestStatus(
 		filter: InputAppliedIntentsRequestFilter
+		staleNonIncludedIds: Boolean
 	): [AppliedIntentsRequestStatus!]!
 	appliedIntentsRequestWithDetails(
 		id: ID!
 		featureFlags: InputFeatureFlags
 	): AppliedIntentsRequestWithDetails!
 """rulesets"""
-	appliedIntentsRulesetSummary: [AppliedIntentsRulesetSummary!]!
-	appliedIntentsRulesetList(
-		filter: InputAppliedIntentsRulesetFilter
-	): [AppliedIntentsRuleset!]!
+	accessApprovalRulesetSummary: [AccessApprovalRulesetSummary!]!
+	accessApprovalRulesetList(
+		filter: InputAccessApprovalRulesetFilter
+	): RulesetsWithResources!
 """Get cluster"""
 	cluster(
 		id: ID!
@@ -2435,6 +2460,11 @@ enum RowDiff {
 	REMOVED
 }
 
+type RulesetsWithResources {
+	rulesets: [AccessApprovalRuleset!]!
+	resources: AccessApprovalRulesetResources!
+}
+
 input SelectorKeyValueInput {
 	key: String
 	value: String
@@ -2513,6 +2543,7 @@ type Service {
 	id: ID!
 	name: String!
 	tags: [String!]
+	cloudIam: CloudIam
 	workloadKind: String
 	aliases: [ServerAlias!]
 	namespace: Namespace
@@ -2589,6 +2620,7 @@ enum ServiceInternalTrafficPolicy {
 
 input ServiceMetadataInput {
 	tags: [String!]
+	awsRoles: [String!]
 }
 
 enum ServiceType {
@@ -2726,6 +2758,21 @@ type TimeRange {
 input TimeRangeInput {
 	from: Time
 	to: Time
+}
+
+type TrafficLevel {
+	dataBytesPerSecond: Int!
+	flowsCountPerSecond: Int!
+	lastReportedAt: Time!
+}
+
+input TrafficLevelInput {
+	clientName: String!
+	clientNamespace: String!
+	serverName: String!
+	serverNamespace: String!
+	dataBytesPerSecond: Int!
+	flowsCountPerSecond: Int!
 }
 
 enum TutorialEvent {

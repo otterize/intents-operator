@@ -144,7 +144,11 @@ deploy-local: manifests copy-manifests-to-helm helm-dependency ## Deploy images 
 	--set intentsOperator.operator.tag=$(LOCAL_IMAGE_TAG) \
 	--set intentsOperator.webhookServer.tag=$(LOCAL_IMAGE_TAG) \
 	--set intentsOperator.operator.pullPolicy=Never \
-	--set global.telemetry.enabled=false
+	--set global.telemetry.enabled=false \
+    --set global.otterizeCloud.credentials.clientId=cli_66oagen24p \
+  	--set global.otterizeCloud.credentials.clientSecret=7e29e4bf84d2c49bd40007633371603ef809e08ae37883a2dfb141ddcc4acbb4 \
+    --set global.otterizeCloud.apiAddress=https://app-sapirwo-cloud-pr2975.staging.otterize.com/api \
+    --set intentsOperator.operator.mode=defaultActive
 
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.

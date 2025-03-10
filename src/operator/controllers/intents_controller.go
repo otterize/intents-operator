@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/amit7itz/goset"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -35,6 +36,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sync"
 	"time"
 )
@@ -190,7 +192,7 @@ func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return errors.Wrap(err)
 	}
 
-	r.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+	r.InjectRecorder(mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator"))
 
 	return nil
 }
@@ -210,8 +212,14 @@ func (r *IntentsReconciler) handleAutoApprovalForIntents(ctx context.Context, in
 
 func (r *IntentsReconciler) createOrUpdateApprovedIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
 	newApprovedClientIntents := r.buildApprovedClientIntents(intents)
+	// set owner reference
+	err := controllerutil.SetOwnerReference(&intents, newApprovedClientIntents, r.client.Scheme())
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
 	existingApprovedClientIntents := &otterizev2alpha1.ApprovedClientIntents{}
-	err := r.client.Get(ctx, types.NamespacedName{Namespace: newApprovedClientIntents.Namespace, Name: newApprovedClientIntents.Name}, existingApprovedClientIntents)
+	err = r.client.Get(ctx, types.NamespacedName{Namespace: newApprovedClientIntents.Namespace, Name: newApprovedClientIntents.Name}, existingApprovedClientIntents)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Wrap(err)
 	}
@@ -224,15 +232,16 @@ func (r *IntentsReconciler) createOrUpdateApprovedIntents(ctx context.Context, i
 		return nil
 	}
 
-	if reflect.DeepEqual(existingApprovedClientIntents.Spec, newApprovedClientIntents.Spec) {
+	if !r.hasApprovedClientIntentsChanged(existingApprovedClientIntents, newApprovedClientIntents) {
 		logrus.Debugf("Approved intents %s has not changed", newApprovedClientIntents.Name)
 		return nil
 	}
 
-	newApprovedClientIntents.ObjectMeta = existingApprovedClientIntents.ObjectMeta
-	newApprovedClientIntents.TypeMeta = existingApprovedClientIntents.TypeMeta
+	patchedClientIntents := existingApprovedClientIntents.DeepCopy()
+	patchedClientIntents.Spec = newApprovedClientIntents.Spec
+	patchedClientIntents.OwnerReferences = newApprovedClientIntents.OwnerReferences
 
-	if err := r.client.Patch(ctx, newApprovedClientIntents, client.MergeFrom(existingApprovedClientIntents)); err != nil {
+	if err := r.client.Patch(ctx, patchedClientIntents, client.MergeFrom(existingApprovedClientIntents)); err != nil {
 		return errors.Wrap(err)
 	}
 	r.RecordNormalEventf(&intents, ReasonApprovedIntentsUpdated, "Updated approved intents %s", newApprovedClientIntents.Name)
@@ -245,6 +254,23 @@ func (r *IntentsReconciler) buildApprovedClientIntents(intents otterizev2alpha1.
 	approvedClientIntents.FromClientIntents(intents)
 
 	return approvedClientIntents
+}
+
+func (r *IntentsReconciler) hasApprovedClientIntentsChanged(existingApprovedIntents, newApprovedIntents *otterizev2alpha1.ApprovedClientIntents) bool {
+	if !reflect.DeepEqual(existingApprovedIntents.Spec, newApprovedIntents.Spec) {
+		return true
+	}
+	oldOwnerReferences := existingApprovedIntents.GetOwnerReferences()
+	newOwnerReferences := newApprovedIntents.GetOwnerReferences()
+	if len(oldOwnerReferences) != 1 || len(newOwnerReferences) != 1 {
+		return true
+	}
+
+	if oldOwnerReferences[0].UID != newOwnerReferences[0].UID {
+		return true
+	}
+
+	return false
 }
 
 func (r *IntentsReconciler) removeOrphanedApprovedIntents(ctx context.Context) error {
