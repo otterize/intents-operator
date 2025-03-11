@@ -10,7 +10,8 @@ import (
 func KubernetesConfigOrDie() *rest.Config {
 	conf := ctrl.GetConfigOrDie()
 	conf.Proxy = func(*http.Request) (*url.URL, error) {
-		return nil, nil // Never use proxy for k8s API
+		// Never use proxy for k8s API
+		return nil, nil // nolint
 	}
 	return conf
 }
