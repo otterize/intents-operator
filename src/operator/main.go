@@ -412,6 +412,11 @@ func main() {
 		}
 	}
 
+	upToDateReconciler := intents_reconcilers.NewUpToDateReconciler(mgr.GetClient(), mgr.GetScheme())
+	if err = upToDateReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "UpToDate")
+	}
+
 	if otterizeCloudClient != nil {
 		otterizeCloudReconciler := intents_reconcilers.NewOtterizeCloudReconciler(mgr.GetClient(), mgr.GetScheme(), otterizeCloudClient)
 		if err = otterizeCloudReconciler.SetupWithManager(mgr); err != nil {
