@@ -87,6 +87,7 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_FullAppr
 	res, err := s.intentsReconciler.Reconcile(context.Background(), reconcile.Request{NamespacedName: client.ObjectKey{Name: "client-intents", Namespace: "test-namespace"}})
 	s.Require().NoError(err)
 	s.Require().Equal(res, reconcile.Result{})
+	s.ExpectEvent(ReasonReviewStatusChanged)
 	// End of iteration 1
 
 	// Iteration 2: ClientIntents is not up-to-date and review status is pending -
@@ -109,6 +110,7 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_FullAppr
 	res, err = s.intentsReconciler.Reconcile(context.Background(), reconcile.Request{NamespacedName: client.ObjectKey{Name: "client-intents", Namespace: "test-namespace"}})
 	s.Require().NoError(err)
 	s.Require().Equal(res, reconcile.Result{})
+	s.ExpectEvent(ReasonReviewStatusChanged)
 	// End of iteration 2
 
 	// Iteration 3: ClientIntents is not up-to-date and review status is approved - Now we will create the ApprovedClientIntents and set up-to-date to true

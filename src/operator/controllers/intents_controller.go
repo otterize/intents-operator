@@ -44,6 +44,7 @@ import (
 const (
 	ReviewStatusIndexField              = ".status.reviewStatus"
 	ReasonApprovedIntentsCreated        = "ApprovedIntentsCreated"
+	ReasonReviewStatusChanged           = "ReviewStatusChanged"
 	ReasonApprovedIntentsUpdated        = "ApprovedIntentsUpdated"
 	ReasonApprovedIntentsCreationFailed = "ApprovedIntentsCreationFailed"
 )
@@ -127,6 +128,7 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
+		r.RecordNormalEventf(intents, ReasonReviewStatusChanged, "Generation %d: Updated review status to %s", intents.Generation, otterizev2alpha1.ReviewStatusPending)
 		// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
 		// and that we don't trigger an infinite loop
 		return ctrl.Result{}, nil
@@ -207,6 +209,7 @@ func (r *IntentsReconciler) handleAutoApprovalForIntents(ctx context.Context, in
 	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
 		return errors.Wrap(err)
 	}
+	r.RecordNormalEventf(&intents, ReasonReviewStatusChanged, "Generation %d: Updated review status to %s", intents.Generation, otterizev2alpha1.ReviewStatusApproved)
 	return nil
 }
 
@@ -352,7 +355,7 @@ func (r *IntentsReconciler) queryAppliedIntentsRequestsStatus(ctx context.Contex
 
 	if len(clientIntentsList.Items) == 0 {
 		logrus.Debug("No intents pending review")
-		return nil
+		// Still reporting to the cloud since the cloud might have to mark the requests as stale
 	}
 
 	return errors.Wrap(r.handlePendingRequests(ctx, clientIntentsList))
@@ -409,6 +412,7 @@ func (r *IntentsReconciler) updateClientIntentsStatus(ctx context.Context, inten
 	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
 		return errors.Wrap(err)
 	}
+	r.RecordWarningEventf(&intents, ReasonReviewStatusChanged, "Generation %d: Updated review status to %s", intents.Generation, status)
 	logrus.WithFields(logrus.Fields{
 		"clientIntents.name":       intentsCopy.Name,
 		"clientIntents.namespaces": intentsCopy.Namespace,
