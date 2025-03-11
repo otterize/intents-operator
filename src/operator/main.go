@@ -53,6 +53,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/filters"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
+	"github.com/otterize/intents-operator/src/shared/k8sconf"
 	sharedconfig "github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/telemetries/componentinfo"
@@ -146,7 +147,7 @@ func main() {
 	defer errorreporter.AutoNotify()
 	shared.RegisterPanicHandlers()
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgr, err := ctrl.NewManager(k8sconf.KubernetesConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: server.Options{
 			BindAddress: viper.GetString(operatorconfig.MetricsAddrKey),
@@ -165,7 +166,7 @@ func main() {
 		logrus.Panic("POD_NAMESPACE environment variable is required")
 	}
 
-	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
+	directClient, err := client.New(k8sconf.KubernetesConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
 	if err != nil {
 		logrus.WithError(err).Panic("unable to create kubernetes API client")
 	}
