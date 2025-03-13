@@ -164,7 +164,7 @@ func (in *ApprovedClientIntents) GetDatabaseIntents() []Target {
 }
 
 func (in *ApprovedClientIntents) FromClientIntents(intents ClientIntents) {
-	in.Name = intents.ToApprovedIntentsName()
+	in.Name = intents.Name
 	in.Namespace = intents.GetNamespace()
 	in.Spec = intents.Spec
 }

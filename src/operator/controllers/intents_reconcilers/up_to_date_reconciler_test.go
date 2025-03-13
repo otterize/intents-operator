@@ -26,7 +26,7 @@ func (s *UpToDateReconcilerTestSuite) SetupTest() {
 func (s *UpToDateReconcilerTestSuite) TestReconcile_NeedsUpdate_FalseToTrue() {
 	approvedClientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      intentsObjectName + "-approved",
+			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 		Status: otterizev2alpha1.ApprovedClientIntentsStatus{
@@ -73,7 +73,7 @@ func (s *UpToDateReconcilerTestSuite) TestReconcile_NeedsUpdate_FalseToTrue() {
 func (s *UpToDateReconcilerTestSuite) TestReconcile_NeedsUpdate_TrueToFalse() {
 	approvedClientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      intentsObjectName + "-approved",
+			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 		Status: otterizev2alpha1.ApprovedClientIntentsStatus{
@@ -119,7 +119,7 @@ func (s *UpToDateReconcilerTestSuite) TestReconcile_NeedsUpdate_TrueToFalse() {
 func (s *UpToDateReconcilerTestSuite) TestReconcile_NoUpdate() {
 	approvedClientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      intentsObjectName + "-approved",
+			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
 		Status: otterizev2alpha1.ApprovedClientIntentsStatus{

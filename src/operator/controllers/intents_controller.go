@@ -182,7 +182,7 @@ func (r *IntentsReconciler) addFinalizer(ctx context.Context, intents *otterizev
 
 func (r *IntentsReconciler) handleClientIntentDeletion(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
 	approvedIntents := &otterizev2alpha1.ApprovedClientIntents{}
-	err := r.client.Get(ctx, types.NamespacedName{Namespace: intents.Namespace, Name: intents.ToApprovedIntentsName()}, approvedIntents)
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: intents.Namespace, Name: intents.Name}, approvedIntents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			// if approvedClientIntents not found, we can remove the finalizer and finish the reconcile loop
@@ -343,7 +343,7 @@ func (r *IntentsReconciler) removeOrphanedApprovedIntents(ctx context.Context) e
 
 	approvedNamesThatShouldExist := goset.FromSlice(lo.Map(
 		clientIntentsList.Items, func(intent otterizev2alpha1.ClientIntents, _ int) types.NamespacedName {
-			return types.NamespacedName{Namespace: intent.Namespace, Name: intent.ToApprovedIntentsName()}
+			return types.NamespacedName{Namespace: intent.Namespace, Name: intent.Name}
 		}))
 
 	approvedClientIntentsList := &otterizev2alpha1.ApprovedClientIntentsList{}

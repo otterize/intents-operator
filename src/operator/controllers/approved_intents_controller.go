@@ -92,7 +92,7 @@ func removeFinalizerFromCorrespondingClientIntents(ctx context.Context, client c
 	approvedIntents := resource.(*otterizev2alpha1.ApprovedClientIntents)
 	// get corresponding client intents
 	clientIntents := &otterizev2alpha1.ClientIntents{}
-	err := client.Get(ctx, types.NamespacedName{Name: approvedIntents.ToClientIntentsName(), Namespace: approvedIntents.Namespace}, clientIntents)
+	err := client.Get(ctx, types.NamespacedName{Name: approvedIntents.Name, Namespace: approvedIntents.Namespace}, clientIntents)
 	if err != nil && k8serrors.IsNotFound(err) {
 		return nil
 	}

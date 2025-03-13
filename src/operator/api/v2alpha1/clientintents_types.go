@@ -428,10 +428,6 @@ func (in *ClientIntents) GetTargetList() []Target {
 	return in.Spec.Targets
 }
 
-func (in *ClientIntents) ToApprovedIntentsName() string {
-	return fmt.Sprintf("%s-approved", in.Name)
-}
-
 func (in *ClientIntents) GetFilteredTargetList(intentTypes ...IntentType) []Target {
 	return lo.Filter(in.GetTargetList(), func(item Target, index int) bool {
 		for _, intentType := range intentTypes {

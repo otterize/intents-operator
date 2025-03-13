@@ -46,7 +46,7 @@ func (r *UpToDateReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 
 	// Get corresponding ClientIntents
 	clientIntents := &otterizev2alpha1.ClientIntents{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: approvedIntents.ToClientIntentsName()}, clientIntents)
+	err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: approvedIntents.Name}, clientIntents)
 	if k8serrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	}

@@ -8,8 +8,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-const approvedClientIntentsSuffix = "-approved"
-
 // mirrorToClientIntentsEventRecorder wraps record.EventRecorder to copy events from ApprovedClientIntents to ClientIntents.
 type mirrorToClientIntentsEventRecorder struct {
 	recorder record.EventRecorder
