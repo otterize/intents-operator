@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
+	"strings"
 )
 
 func init() {
@@ -166,6 +167,10 @@ func (in *ApprovedClientIntents) FromClientIntents(intents ClientIntents) {
 	in.Name = intents.ToApprovedIntentsName()
 	in.Namespace = intents.GetNamespace()
 	in.Spec = intents.Spec
+}
+
+func (in *ApprovedClientIntents) ToClientIntentsName() string {
+	return strings.TrimSuffix(in.Name, "-approved")
 }
 
 func (in *ApprovedClientIntentsList) FormatAsOtterizeIntents(ctx context.Context, k8sClient client.Client) ([]*graphqlclient.IntentInput, error) {

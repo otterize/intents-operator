@@ -6,7 +6,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"strings"
 )
 
 const approvedClientIntentsSuffix = "-approved"
@@ -72,8 +71,4 @@ func (r *mirrorToClientIntentsEventRecorder) mirrorEvent(object runtime.Object, 
 
 	// Record event for ClientIntent
 	r.recorder.Eventf(clientIntent, eventtype, reason, messageFmt, args...)
-}
-
-func removeApprovedSuffix(name string) string {
-	return strings.TrimSuffix(name, approvedClientIntentsSuffix)
 }

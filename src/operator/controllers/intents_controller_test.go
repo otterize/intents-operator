@@ -57,6 +57,7 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_FullAppr
 			Name:       "client-intents",
 			Namespace:  "test-namespace",
 			Generation: 2,
+			Finalizers: []string{v2alpha1.ClientIntentsFinalizerName},
 		},
 		Spec: &v2alpha1.IntentsSpec{
 			Workload: v2alpha1.Workload{
@@ -156,6 +157,7 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_Existing
 			Name:       "client-intents",
 			Namespace:  "test-namespace",
 			Generation: 2,
+			Finalizers: []string{v2alpha1.ClientIntentsFinalizerName},
 		},
 		Spec: &v2alpha1.IntentsSpec{
 			Workload: v2alpha1.Workload{
@@ -207,6 +209,7 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_Existing
 			Name:       "client-intents",
 			Namespace:  "test-namespace",
 			Generation: 2,
+			Finalizers: []string{v2alpha1.ClientIntentsFinalizerName},
 		},
 		Spec: &v2alpha1.IntentsSpec{
 			Workload: v2alpha1.Workload{

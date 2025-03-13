@@ -24,6 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
@@ -72,6 +73,7 @@ func NewApprovedIntentsReconciler(
 		intentsLegacyFinalizers,
 		reconcilers...,
 	)
+	reconcilersGroup.AddPreRemoveFinalizerHook(removeFinalizerFromCorrespondingClientIntents)
 
 	approvedIntentsReconciler := &ApprovedIntentsReconciler{
 		group:  reconcilersGroup,
@@ -84,6 +86,32 @@ func NewApprovedIntentsReconciler(
 	}
 
 	return approvedIntentsReconciler
+}
+
+func removeFinalizerFromCorrespondingClientIntents(ctx context.Context, client client.Client, resource client.Object) error {
+	approvedIntents := resource.(*otterizev2alpha1.ApprovedClientIntents)
+	// get corresponding client intents
+	clientIntents := &otterizev2alpha1.ClientIntents{}
+	err := client.Get(ctx, types.NamespacedName{Name: approvedIntents.ToClientIntentsName(), Namespace: approvedIntents.Namespace}, clientIntents)
+	if err != nil && k8serrors.IsNotFound(err) {
+		return nil
+	}
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	// check if client intents has the finalizer
+	if !controllerutil.ContainsFinalizer(clientIntents, otterizev2alpha1.ClientIntentsFinalizerName) {
+		return nil
+	}
+
+	// remove finalizer from client intents
+	controllerutil.RemoveFinalizer(clientIntents, otterizev2alpha1.ClientIntentsFinalizerName)
+	err = client.Update(ctx, clientIntents)
+	if err != nil {
+		return errors.Errorf("failed to remove clientIntents finalizer: %w", err)
+	}
+	return nil
 }
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to

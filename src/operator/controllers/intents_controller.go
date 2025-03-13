@@ -99,6 +99,7 @@ func NewIntentsReconciler(ctx context.Context, client client.Client, cloudClient
 //  1. ClientIntents is created/updated, so it's generation is increased and the review status seems approved/empty. The operator should:
 //     a. Set the review status to pending
 //     b. Set the observed generation to the new generation
+//     c. set upToData to false
 //     d. finish reconciliation
 //  2. ClientIntents review status is pending:
 //     a. The operator should handle intents requests (send to cloud / auto approve)
@@ -106,6 +107,9 @@ func NewIntentsReconciler(ctx context.Context, client client.Client, cloudClient
 //  3. ClientIntents review status is approved (could be set by the pending-intents go routine):
 //     a. The operator should create/update/DoNothing the ApprovedClientIntents
 //     c. finish reconciliation
+//
+// Status.UpToDate should reflect if the intents have been applied successfully to the cluster,
+// therefore it is being set to true only after the *approvedClientIntents* is reconciled successfully
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if err := r.removeOrphanedApprovedIntents(ctx); err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
@@ -120,35 +124,87 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
+	// delete approved intents if client intents is being deleted
+	if !intents.DeletionTimestamp.IsZero() {
+		return r.handleClientIntentDeletion(ctx, intents)
+	}
+
+	// add finalizer if not exists
+	if !controllerutil.ContainsFinalizer(intents, otterizev2alpha1.ClientIntentsFinalizerName) {
+		return r.addFinalizer(ctx, intents)
+	}
+
 	// If the observed generation is not the same as the generation, we update the observed generation and the review status
 	if intents.Status.ObservedGeneration != intents.Generation {
-		intentsCopy := intents.DeepCopy()
-		intentsCopy.Status.ObservedGeneration = intents.Generation
-		intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusPending
-		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
-			return ctrl.Result{}, errors.Wrap(err)
-		}
-		r.RecordNormalEventf(intents, ReasonReviewStatusChanged, "Generation %d: Updated review status to %s", intents.Generation, otterizev2alpha1.ReviewStatusPending)
-		// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
-		// and that we don't trigger an infinite loop
-		return ctrl.Result{}, nil
+		return r.handleClientIntentsChanged(ctx, intents)
 	}
 
 	if intents.Status.ReviewStatus != otterizev2alpha1.ReviewStatusApproved {
 		// If the intents are not approved, we send them to the right approver and stop the reconcile loop
 		// Once the intents will be approved we will get a new reconcile loop
-		res, err := r.handleClientIntentsRequests(ctx, *intents)
-		return res, errors.Wrap(err)
+		return r.handleClientIntentsRequests(ctx, *intents)
 	}
 
 	// intents.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved
-	// intents are approved so  we createOrUpdate the approved intents
-	err = r.createOrUpdateApprovedIntents(ctx, *intents)
-	if err != nil {
+	return r.handleApprovedClientIntents(ctx, intents)
+}
+
+func (r *IntentsReconciler) handleApprovedClientIntents(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+	if err := r.createOrUpdateApprovedIntents(ctx, *intents); err != nil {
 		r.RecordWarningEventf(intents, ReasonApprovedIntentsCreationFailed, "Failed to create approved intents: %s", err)
 		return ctrl.Result{}, errors.Wrap(err)
 	}
+	return ctrl.Result{}, nil
+}
 
+func (r *IntentsReconciler) handleClientIntentsChanged(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+	intentsCopy := intents.DeepCopy()
+	intentsCopy.Status.ObservedGeneration = intents.Generation
+	intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusPending
+	intentsCopy.Status.UpToDate = false
+	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+	r.RecordNormalEventf(intents, ReasonReviewStatusChanged, "Generation %d: Updated review status to %s", intents.Generation, otterizev2alpha1.ReviewStatusPending)
+	// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
+	// and that we don't trigger an infinite loop
+	return ctrl.Result{}, nil
+}
+
+func (r *IntentsReconciler) addFinalizer(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+	intentsCopy := intents.DeepCopy()
+	controllerutil.AddFinalizer(intentsCopy, otterizev2alpha1.ClientIntentsFinalizerName)
+	if err := r.client.Update(ctx, intentsCopy); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *IntentsReconciler) handleClientIntentDeletion(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+	approvedIntents := &otterizev2alpha1.ApprovedClientIntents{}
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: intents.Namespace, Name: intents.ToApprovedIntentsName()}, approvedIntents)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// if approvedClientIntents not found, we can remove the finalizer and finish the reconcile loop
+			return r.removeFinalizer(ctx, intents)
+		}
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+	if err := r.client.Delete(ctx, approvedIntents); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *IntentsReconciler) removeFinalizer(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+	intentsCopy := intents.DeepCopy()
+	if !controllerutil.ContainsFinalizer(intentsCopy, otterizev2alpha1.ClientIntentsFinalizerName) {
+		return ctrl.Result{}, nil
+	}
+	controllerutil.RemoveFinalizer(intentsCopy, otterizev2alpha1.ClientIntentsFinalizerName)
+	if err := r.client.Update(ctx, intentsCopy); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
 	return ctrl.Result{}, nil
 }
 

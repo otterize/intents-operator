@@ -13,7 +13,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"strings"
 )
 
 type UpToDateReconciler struct {
@@ -47,7 +46,7 @@ func (r *UpToDateReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 
 	// Get corresponding ClientIntents
 	clientIntents := &otterizev2alpha1.ClientIntents{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: removeApprovedSuffix(approvedIntents.Name)}, clientIntents)
+	err = r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: approvedIntents.ToClientIntentsName()}, clientIntents)
 	if k8serrors.IsNotFound(err) {
 		return ctrl.Result{}, nil
 	}
@@ -69,10 +68,6 @@ func (r *UpToDateReconciler) Reconcile(ctx context.Context, req reconcile.Reques
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func removeApprovedSuffix(name string) string {
-	return strings.TrimSuffix(name, "-approved")
 }
 
 // SetupWithManager sets up the controller with the Manager.
