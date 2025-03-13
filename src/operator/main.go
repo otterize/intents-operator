@@ -18,7 +18,9 @@ package main
 
 import (
 	"github.com/otterize/intents-operator/src/operator/mirrorevents"
+	"github.com/otterize/intents-operator/src/operator/otterizecrds"
 	"path"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 
 	"context"
@@ -520,6 +522,15 @@ func main() {
 	logrus.Info("starting manager")
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 1)
 	telemetrysender.IntentsOperatorRunActiveReporter(signalHandlerCtx)
+
+	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
+	if err != nil {
+		logrus.WithError(err).Panic("unable to create kubernetes API client")
+	}
+	err = otterizecrds.WaitForApprovedClientIntentsMigration(signalHandlerCtx, directClient)
+	if err != nil {
+		logrus.WithError(err).Panic("approved client intents migration has not completed")
+	}
 
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Panic("problem running manager")
