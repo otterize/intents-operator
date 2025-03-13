@@ -69,11 +69,11 @@ const (
 	ApprovalMethodAutoApproval  IntentsApprover = "AutoApproval" // auto approve, for operators not integrated with Otterize cloud
 )
 
-func NewIntentsReconciler(ctx context.Context, client client.Client, cloudClient operator_cloud_client.CloudClient) *IntentsReconciler {
+func NewIntentsReconciler(ctx context.Context, client client.Client, cloudClient operator_cloud_client.CloudClient, enableCloudApproval bool) *IntentsReconciler {
 	approvalState := IntentsApprovalState{mutex: &sync.Mutex{}}
 
 	intentsReconciler := &IntentsReconciler{client: client, cloudClient: cloudClient, approvalState: approvalState}
-	intentsReconciler.InitIntentsApprovalState(ctx)
+	intentsReconciler.initIntentsApprovalState(ctx, enableCloudApproval)
 	return intentsReconciler
 }
 
@@ -226,8 +226,8 @@ func (r *IntentsReconciler) handleClientIntentsRequests(ctx context.Context, int
 	return ctrl.Result{}, nil
 }
 
-func (r *IntentsReconciler) InitIntentsApprovalState(ctx context.Context) {
-	if r.cloudClient == nil {
+func (r *IntentsReconciler) initIntentsApprovalState(ctx context.Context, enableCloudApproval bool) {
+	if r.cloudClient == nil || !enableCloudApproval {
 		r.approvalState.approvalMethod = ApprovalMethodAutoApproval
 		return
 	}
@@ -241,7 +241,8 @@ func (r *IntentsReconciler) InitIntentsApprovalState(ctx context.Context) {
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := ctrl.NewControllerManagedBy(mgr).
+	err := r.initReviewStatusIndex(mgr)
+	err = ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev2alpha1.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
@@ -478,7 +479,7 @@ func (r *IntentsReconciler) updateClientIntentsStatus(ctx context.Context, inten
 	return nil
 }
 
-func (*IntentsReconciler) InitReviewStatusIndex(mgr ctrl.Manager) error {
+func (*IntentsReconciler) initReviewStatusIndex(mgr ctrl.Manager) error {
 	return mgr.GetCache().IndexField(
 		context.Background(),
 		&otterizev2alpha1.ClientIntents{},

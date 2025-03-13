@@ -66,6 +66,9 @@ const (
 	SeparateNetpolsForIngressAndEgress            = "separate-netpols-for-ingress-and-egress"
 	SeparateNetpolsForIngressAndEgressDefault     = false
 	ExternallyManagedPolicyWorkloadsKey           = "externallyManagedPolicyWorkloads"
+
+	EnableIntentsCloudApproval        = "enable-intents-cloud-approval"
+	EnableIntentsCloudApprovalDefault = true
 )
 
 func init() {
@@ -89,6 +92,7 @@ func init() {
 	viper.SetDefault(SeparateNetpolsForIngressAndEgress, SeparateNetpolsForIngressAndEgressDefault)
 	viper.SetDefault(EnableGroupInternetIPsByCIDRKey, EnableGroupInternetIPsByCIDRDefault)
 	viper.SetDefault(EnableGroupInternetIPsByCIDRPeersLimitKey, EnableGroupInternetIPsByCIDRPeersLimitDefault)
+	viper.SetDefault(EnableIntentsCloudApproval, EnableIntentsCloudApprovalDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 

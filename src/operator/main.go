@@ -398,12 +398,8 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Approved Intents")
 	}
 
-	intentsReconciler := controllers.NewIntentsReconciler(signalHandlerCtx, mgr.GetClient(), otterizeCloudClient)
+	intentsReconciler := controllers.NewIntentsReconciler(signalHandlerCtx, mgr.GetClient(), otterizeCloudClient, viper.GetBool(operatorconfig.EnableIntentsCloudApproval))
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to create controller", "controller", "Client Intents")
-	}
-
-	if err = intentsReconciler.InitReviewStatusIndex(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Client Intents")
 	}
 
