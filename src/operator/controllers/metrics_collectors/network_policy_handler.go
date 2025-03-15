@@ -11,6 +11,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,10 +48,11 @@ const (
 type NetworkPolicyByName map[string]*v1.NetworkPolicy
 
 type PotentiallyScrapeMetricPod struct {
-	pod                *corev1.Pod
-	scrapeResource     K8sResourceEnum
-	scrapeResourceMeta *metav1.ObjectMeta
-	scrapeResourceType *metav1.TypeMeta
+	pod                 *corev1.Pod
+	scrapeResource      K8sResourceEnum
+	scrapeResourceMeta  *metav1.ObjectMeta
+	scrapeResourceType  *metav1.TypeMeta
+	scrapeResourcePorts []int32
 }
 
 type NetworkPolicyHandler struct {
@@ -84,10 +86,19 @@ func (r *NetworkPolicyHandler) HandleAllPodsInNamespace(ctx context.Context, nam
 	}
 
 	podsWithScrapeResource := lo.Map(podsList.Items, func(item corev1.Pod, _ int) PotentiallyScrapeMetricPod {
+		scrapeResourcePorts := make([]int32, 0)
+		lo.ForEach(item.Spec.Containers, func(container corev1.Container, _ int) {
+			lo.ForEach(container.Ports, func(port corev1.ContainerPort, _ int) {
+				scrapeResourcePorts = append(scrapeResourcePorts, port.ContainerPort)
+			})
+		})
+
 		return PotentiallyScrapeMetricPod{pod: &item,
-			scrapeResourceMeta: &item.ObjectMeta,
-			scrapeResourceType: &item.TypeMeta,
-			scrapeResource:     K8sResourcePod}
+			scrapeResourceMeta:  &item.ObjectMeta,
+			scrapeResourceType:  &item.TypeMeta,
+			scrapeResourcePorts: scrapeResourcePorts,
+			scrapeResource:      K8sResourcePod,
+		}
 	})
 	err = r.handleAllPods(ctx, namespace, podsWithScrapeResource, K8sResourcePod)
 	if err != nil {
@@ -121,10 +132,19 @@ func (r *NetworkPolicyHandler) HandleAllServicesInNamespace(ctx context.Context,
 		}
 
 		podsFromService := lo.Map(endpointsPods, func(item corev1.Pod, _ int) PotentiallyScrapeMetricPod {
+			scrapeResourcePorts := make([]int32, 0)
+			lo.ForEach(endpoints.Subsets, func(endpointsSubset corev1.EndpointSubset, _ int) {
+				lo.ForEach(endpointsSubset.Ports, func(port corev1.EndpointPort, _ int) {
+					scrapeResourcePorts = append(scrapeResourcePorts, port.Port)
+				})
+			})
+
 			return PotentiallyScrapeMetricPod{pod: &item,
-				scrapeResourceMeta: &service.ObjectMeta,
-				scrapeResourceType: &service.TypeMeta,
-				scrapeResource:     K8sResourceService}
+				scrapeResourceMeta:  &service.ObjectMeta,
+				scrapeResourceType:  &service.TypeMeta,
+				scrapeResourcePorts: scrapeResourcePorts,
+				scrapeResource:      K8sResourceService,
+			}
 		})
 
 		pods = append(pods, podsFromService...)
@@ -425,15 +445,33 @@ func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *Poten
 		},
 	}
 
-	scrapePort, err := r.getMetricsPort(pod.scrapeResourceMeta)
+	scrapePort, portDefined, err := r.getMetricsPort(pod.scrapeResourceMeta)
 	if err != nil {
 		return v1.NetworkPolicy{}, errors.Wrap(err)
 	}
 
-	newPolicy.Spec.Ingress[0].Ports = append(newPolicy.Spec.Ingress[0].Ports, v1.NetworkPolicyPort{
-		Port:     lo.ToPtr(intstr.IntOrString{IntVal: scrapePort, Type: intstr.Int}),
-		Protocol: lo.ToPtr(corev1.ProtocolTCP),
+	if portDefined {
+		newPolicy.Spec.Ingress[0].Ports = append(newPolicy.Spec.Ingress[0].Ports, v1.NetworkPolicyPort{
+			Port:     lo.ToPtr(intstr.IntOrString{IntVal: scrapePort, Type: intstr.Int}),
+			Protocol: lo.ToPtr(corev1.ProtocolTCP),
+		})
+		return newPolicy, nil
+	}
+
+	if len(pod.scrapeResourcePorts) == 0 {
+		return v1.NetworkPolicy{}, errors.Wrap(fmt.Errorf("can not deduce the port to scrape"))
+	}
+
+	// We want to have deterministic order, since later on we will compare this policy with the existing one, and we don't
+	// want to order of the ports to create a difference
+	slices.Sort(pod.scrapeResourcePorts)
+	ingressPorts := lo.Map(pod.scrapeResourcePorts, func(port int32, _ int) v1.NetworkPolicyPort {
+		return v1.NetworkPolicyPort{
+			Port:     lo.ToPtr(intstr.IntOrString{IntVal: port, Type: intstr.Int}),
+			Protocol: lo.ToPtr(corev1.ProtocolTCP),
+		}
 	})
+	newPolicy.Spec.Ingress[0].Ports = ingressPorts
 
 	return newPolicy, nil
 }
@@ -498,24 +536,21 @@ func (r *NetworkPolicyHandler) formatPolicyName(ownerResourceKind *metav1.TypeMe
 
 func (r *NetworkPolicyHandler) resourceMarkedForMetricsScraping(resource *metav1.ObjectMeta) bool {
 	shouldScrape := resource.Annotations["prometheus.io/scrape"]
-	scrapePort := resource.Annotations["prometheus.io/port"]
-	return shouldScrape == "true" && scrapePort != ""
+	return shouldScrape == "true"
 }
 
-func (r *NetworkPolicyHandler) getMetricsPort(resource *metav1.ObjectMeta) (int32, error) {
+func (r *NetworkPolicyHandler) getMetricsPort(resource *metav1.ObjectMeta) (int32, bool, error) {
 	scrapePort := resource.Annotations["prometheus.io/port"]
 	if scrapePort == "" {
-		// Port is not defined for this resource, although it ts marked for scraping - but we don't want to create a network policy.
-		// Prometheus default behavior would be to try and scrape all ports defined, but we don't want to allow that.
-		return 0, errors.Wrap(fmt.Errorf("resource does not have a prometheus.io/port annotation"))
+		return 0, false, nil
 	}
 
 	port, err := strconv.Atoi(scrapePort)
 	if err != nil {
-		return 0, errors.Wrap(err)
+		return 0, false, errors.Wrap(err)
 	}
 
-	return int32(port), nil
+	return int32(port), true, nil
 }
 
 func (r *NetworkPolicyHandler) getAllServicesInNamespace(ctx context.Context, namespace string) (*corev1.ServiceList, error) {

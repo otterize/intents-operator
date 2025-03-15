@@ -34,12 +34,7 @@ var EXPECTRED_NETPOL = v1.NetworkPolicy{
 		},
 		Ingress: []v1.NetworkPolicyIngressRule{
 			{
-				Ports: []v1.NetworkPolicyPort{
-					{
-						Protocol: lo.ToPtr(corev1.ProtocolTCP),
-						Port:     lo.ToPtr(intstr.IntOrString{Type: intstr.Int, IntVal: 9090}),
-					},
-				},
+				Ports: []v1.NetworkPolicyPort{{}},
 			},
 		},
 		PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
@@ -47,10 +42,11 @@ var EXPECTRED_NETPOL = v1.NetworkPolicy{
 }
 
 type NetworkPolicyMatcher struct {
+	expectedPorts []int32
 }
 
-func NewNetworkPolicyMatcher() *NetworkPolicyMatcher {
-	return &NetworkPolicyMatcher{}
+func NewNetworkPolicyMatcher(expectedPorts []int32) *NetworkPolicyMatcher {
+	return &NetworkPolicyMatcher{expectedPorts: expectedPorts}
 }
 
 func (m *NetworkPolicyMatcher) Matches(other interface{}) bool {
@@ -59,11 +55,19 @@ func (m *NetworkPolicyMatcher) Matches(other interface{}) bool {
 		return false
 	}
 
+	expectedNetpol := EXPECTRED_NETPOL
+
+	expectedNetpol.Spec.Ingress[0].Ports = make([]v1.NetworkPolicyPort, len(m.expectedPorts))
+	for i, _ := range m.expectedPorts {
+		expectedNetpol.Spec.Ingress[0].Ports[i].Port = lo.ToPtr(intstr.IntOrString{Type: intstr.Int, IntVal: m.expectedPorts[i]})
+		expectedNetpol.Spec.Ingress[0].Ports[i].Protocol = lo.ToPtr(corev1.ProtocolTCP)
+	}
+
 	return otherAsNetpol.Namespace == TEST_NAMESPACE &&
-		otherAsNetpol.Name == EXPECTRED_NETPOL.Name &&
-		reflect.DeepEqual(otherAsNetpol.Labels, EXPECTRED_NETPOL.Labels) &&
-		reflect.DeepEqual(otherAsNetpol.Annotations, EXPECTRED_NETPOL.Annotations) &&
-		reflect.DeepEqual(otherAsNetpol.Spec, EXPECTRED_NETPOL.Spec)
+		otherAsNetpol.Name == expectedNetpol.Name &&
+		reflect.DeepEqual(otherAsNetpol.Labels, expectedNetpol.Labels) &&
+		reflect.DeepEqual(otherAsNetpol.Annotations, expectedNetpol.Annotations) &&
+		reflect.DeepEqual(otherAsNetpol.Spec, expectedNetpol.Spec)
 }
 
 func (m *NetworkPolicyMatcher) String() string {
@@ -122,7 +126,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 	s.mockNoExistingMetricCollectionNetworkPolicies()
 	s.mockForRecordingEventExistingPolicy()
 
-	netpolMatcher := NewNetworkPolicyMatcher()
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{9090})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAllPodsInNamespace(context.Background(), TEST_NAMESPACE)
 	s.Require().NoError(err)
@@ -151,7 +155,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 	s.mockForGettingExistingPolicyDuringUpdate()
 	s.mockForRecordingEventExistingPolicy()
 
-	netpolMatcher := NewNetworkPolicyMatcher()
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{9090})
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.All(netpolMatcher), gomock.Any()).Return(nil)
 	err := s.handler.HandleAllPodsInNamespace(context.Background(), TEST_NAMESPACE)
 	s.Require().NoError(err)
@@ -166,7 +170,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Sh
 	s.mockNoExistingMetricCollectionNetworkPolicies()
 	s.mockForRecordingEventExistingPolicy()
 
-	netpolMatcher := NewNetworkPolicyMatcher()
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{9090})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAllPodsInNamespace(context.Background(), TEST_NAMESPACE)
 	s.Require().NoError(err)
@@ -186,6 +190,34 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_Shoul
 	err := s.handler.HandleAllPodsInNamespace(context.Background(), TEST_NAMESPACE)
 	s.Require().NoError(err)
 	//s.ExpectEvent(ReasonCreatingMetricsCollectorPolicy) // would not reach here - not creating netpol
+}
+
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_PortNotDefinedWithAnnotation_ShouldAddPolicy_UseAllResourcesPort() {
+	s.setHandler(allowexternaltraffic.Always)
+	s.podMarkedForScraping.Annotations["prometheus.io/port"] = ""
+	s.podMarkedForScraping.Spec.Containers = []corev1.Container{
+		{
+			Ports: []corev1.ContainerPort{
+				{
+					ContainerPort: 4321,
+				},
+				{
+					ContainerPort: 1234,
+				},
+			},
+		},
+	}
+	s.mockForReturningScrapePodInListNamespace()
+	s.mockForResolvingScrapingPodIdentity()
+	//s.mockOneExistingOtterizeNetworkPolicies() // would not reach here since configuration is always
+	s.mockNoExistingMetricCollectionNetworkPolicies()
+	s.mockForRecordingEventExistingPolicy()
+
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{1234, 4321})
+	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
+	err := s.handler.HandleAllPodsInNamespace(context.Background(), TEST_NAMESPACE)
+	s.Require().NoError(err)
+	s.ExpectEvent(ReasonCreatingMetricsCollectorPolicy)
 }
 
 func (s *NetworkPolicyHandlerTestSuite) setHandler(allowMetricsCollector allowexternaltraffic.Enum) {
