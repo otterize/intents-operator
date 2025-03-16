@@ -1,4 +1,4 @@
-package metrics_collectors
+package metrics_collection_traffic
 
 import (
 	"context"
@@ -35,7 +35,7 @@ const (
 )
 
 const (
-	OtterizeMetricsCollectorPolicyNameTemplate = "metrics-collector-access-to-%s-%s"
+	OtterizeMetricsCollectorPolicyNameTemplate = "metrics-collection-access-to-%s-%s"
 
 	ReasonCreatingMetricsCollectorPolicy       = "CreatingMetricsCollectorPolicy"
 	ReasonFailedCreatingMetricsCollectorPolicy = "FailedCreatingMetricsCollectorPolicy"

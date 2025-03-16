@@ -38,7 +38,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy/builders"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
-	"github.com/otterize/intents-operator/src/operator/controllers/metrics_collectors"
+	"github.com/otterize/intents-operator/src/operator/controllers/metrics_collection_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/health"
@@ -213,11 +213,11 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
-	metricsCollectorNetpolHandler := metrics_collectors.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowexternaltraffic.Off)
-	metricsCollectorPodReconciler := metrics_collectors.NewPodReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
-	metricsCollectorEndpointsReconciler := metrics_collectors.NewEndpointsReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
-	metricsCollectorServiceReconciler := metrics_collectors.NewServiceReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
-	metricsCollectorNetworkPolicyReconciler := metrics_collectors.NewNetworkPolicyReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorNetpolHandler := metrics_collection_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowexternaltraffic.Off)
+	metricsCollectorPodReconciler := metrics_collection_traffic.NewPodReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorEndpointsReconciler := metrics_collection_traffic.NewEndpointsReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorServiceReconciler := metrics_collection_traffic.NewServiceReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorNetworkPolicyReconciler := metrics_collection_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)

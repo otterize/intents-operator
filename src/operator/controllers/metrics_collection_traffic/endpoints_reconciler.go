@@ -1,4 +1,4 @@
-package metrics_collectors
+package metrics_collection_traffic
 
 import (
 	"context"
@@ -15,36 +15,37 @@ import (
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 //+kubebuilder:rbac:groups="networking.k8s.io",resources=networkpolicies,verbs=get;update;patch;list;watch;delete;create
 
-type PodReconciler struct {
+type EndpointsReconciler struct {
 	client.Client
 	netpolHandle *NetworkPolicyHandler
 	injectablerecorder.InjectableRecorder
 }
 
-func NewPodReconciler(client client.Client, netpolHandle *NetworkPolicyHandler) *PodReconciler {
-	return &PodReconciler{
+func NewEndpointsReconciler(client client.Client, netpolHandle *NetworkPolicyHandler) *EndpointsReconciler {
+	return &EndpointsReconciler{
 		Client:       client,
 		netpolHandle: netpolHandle,
 	}
 }
 
-func (r *PodReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *EndpointsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	recorder := mgr.GetEventRecorderFor("intents-operator")
 	r.InjectRecorder(recorder)
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.Pod{}).
+		For(&corev1.Endpoints{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 }
 
-func (r *PodReconciler) InjectRecorder(recorder record.EventRecorder) {
+func (r *EndpointsReconciler) InjectRecorder(recorder record.EventRecorder) {
 	r.Recorder = recorder
 	r.netpolHandle.InjectRecorder(recorder)
 }
 
-func (r *PodReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.netpolHandle.HandleAllPodsInNamespace(ctx, req.Namespace)
+func (r *EndpointsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	err := r.netpolHandle.HandleAllServicesInNamespace(ctx, req.Namespace)
+
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}

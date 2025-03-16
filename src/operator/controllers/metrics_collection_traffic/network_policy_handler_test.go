@@ -1,4 +1,4 @@
-package metrics_collectors
+package metrics_collection_traffic
 
 import (
 	"context"
@@ -24,7 +24,7 @@ const TEST_NAMESPACE = "test-namespace"
 var EXPECTRED_NETPOL = v1.NetworkPolicy{
 	ObjectMeta: metav1.ObjectMeta{
 		Namespace:   TEST_NAMESPACE,
-		Name:        "metrics-collector-access-to-pod-test-server-5dfcbcbf9",
+		Name:        "metrics-collection-access-to-pod-test-server-5dfcbcbf9",
 		Labels:      map[string]string{v2alpha1.OtterizeNetPolMetricsCollectors: "test-server", v2alpha1.OtterizeNetPolMetricsCollectorsLevel: "pod"},
 		Annotations: map[string]string{v2alpha1.OtterizeCreatedForServiceAnnotation: "test-server-5dfcbcbf-test-namespace-c6140c"},
 	},
@@ -297,7 +297,7 @@ func (s *NetworkPolicyHandlerTestSuite) mockOneExistingMetricCollectionNetworkPo
 	).DoAndReturn(func(_ any, list *v1.NetworkPolicyList, _ ...any) error {
 		list.Items = []v1.NetworkPolicy{{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "metrics-collector-access-to-pod-test-server-5dfcbcbf9",
+				Name:      "metrics-collection-access-to-pod-test-server-5dfcbcbf9",
 				Namespace: TEST_NAMESPACE,
 				Labels:    map[string]string{v2alpha1.OtterizeNetPolMetricsCollectorsLevel: "pod"},
 			},
@@ -309,7 +309,7 @@ func (s *NetworkPolicyHandlerTestSuite) mockOneExistingMetricCollectionNetworkPo
 func (s *NetworkPolicyHandlerTestSuite) mockForGettingExistingPolicyDuringUpdate() {
 	s.Client.EXPECT().
 		Get(gomock.Any(),
-			types.NamespacedName{Name: "metrics-collector-access-to-pod-test-server-5dfcbcbf9", Namespace: TEST_NAMESPACE},
+			types.NamespacedName{Name: "metrics-collection-access-to-pod-test-server-5dfcbcbf9", Namespace: TEST_NAMESPACE},
 			gomock.Eq(&v1.NetworkPolicy{}),
 		).DoAndReturn(func(_ any, _ any, netpol *v1.NetworkPolicy, _ ...any) error {
 		netpol.ObjectMeta = *EXPECTRED_NETPOL.ObjectMeta.DeepCopy()
