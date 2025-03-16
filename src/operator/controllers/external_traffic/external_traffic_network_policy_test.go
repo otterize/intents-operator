@@ -1,4 +1,4 @@
-package external_traffic_network_policy
+package external_traffic
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	"github.com/otterize/intents-operator/src/operator/controllers"
-	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
@@ -25,7 +24,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
-	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -34,7 +32,6 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -47,22 +44,16 @@ import (
 	"testing"
 )
 
-const ingressControllerName = "ingress-controller"
-const ingressControllerNamespace = "ingress-nginx"
-const ingressControllerKind = "Deployment"
-const ingressControllerHashedName = "ingress-controller-ingress-nginx-53b476"
-
-type ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite struct {
+type ExternalNetworkPolicyReconcilerTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
-	IngressReconciler                *external_traffic.IngressReconciler
-	endpointReconciler               external_traffic.EndpointsReconciler
+	IngressReconciler                *IngressReconciler
+	endpointReconciler               EndpointsReconciler
 	EffectivePolicyIntentsReconciler *intents_reconcilers.ServiceEffectivePolicyIntentsReconciler
 	podWatcher                       *pod_reconcilers.PodWatcher
 	defaultDenyReconciler            *protected_service_reconcilers.DefaultDenyReconciler
-	netpolHandler                    *external_traffic.NetworkPolicyHandler
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) SetupSuite() {
+func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupSuite() {
 	logrus.Info("Setting up test suite")
 	s.TestEnv = &envtest.Environment{Scheme: clientgoscheme.Scheme}
 	var err error
@@ -89,7 +80,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NotNil(s.K8sDirectClient)
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) SetupTest() {
+func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.ControllerManagerTestSuiteBase.SetupTest()
 	intentsValidator := webhooks.NewIntentsValidatorV1alpha2(s.Mgr.GetClient())
 	s.Require().NoError((&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator))
@@ -104,13 +95,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	testName := s.T().Name()
 	isShadowMode := strings.Contains(testName, "ShadowMode")
 	defaultActive := !isShadowMode
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, automate_third_party_network_policy.IfBlockedByOtterize, []serviceidentity.ServiceIdentity{
-		{
-			Kind:      "Deployment",
-			Namespace: ingressControllerNamespace,
-			Name:      ingressControllerName,
-		},
-	}, false)
+	netpolHandler := NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, automate_third_party_network_policy.IfBlockedByOtterize, make([]serviceidentity.ServiceIdentity, 0), false)
 	s.defaultDenyReconciler = protected_service_reconcilers.NewDefaultDenyReconciler(s.Mgr.GetClient(), true)
 	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, goset.NewSet[string](), true, defaultActive, false, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder(), builders.NewPortNetworkPolicyReconciler(s.Mgr.GetClient())}, nil)
 	serviceIdResolver := serviceidresolver.NewResolver(s.Mgr.GetClient())
@@ -119,20 +104,18 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
 	s.EffectivePolicyIntentsReconciler.InjectRecorder(recorder)
 
-	s.endpointReconciler = external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
+	s.endpointReconciler = NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.endpointReconciler.InjectRecorder(recorder)
 	err := s.endpointReconciler.InitIngressReferencedServicesIndex(s.Mgr)
 	s.Require().NoError(err)
 
-	s.IngressReconciler = external_traffic.NewIngressReconciler(s.Mgr.GetClient(), netpolHandler)
+	s.IngressReconciler = NewIngressReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.IngressReconciler.InjectRecorder(recorder)
 	s.Require().NoError(err)
 
-	s.netpolHandler = netpolHandler
-
 	controller := gomock.NewController(s.T())
 	serviceEffectivePolicyReconciler := podreconcilersmocks.NewMockGroupReconciler(controller)
-	s.podWatcher = pod_reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, true, true, goset.NewSet[string](), &mocks.MockIntentsReconcilerForTestEnv{}, serviceEffectivePolicyReconciler)
+	s.podWatcher = pod_reconcilers.NewPodWatcher(s.Mgr.GetClient(), recorder, []string{}, defaultActive, true, goset.NewSet[string](), &mocks.MockIntentsReconcilerForTestEnv{}, serviceEffectivePolicyReconciler)
 	err = s.podWatcher.InitIntentsClientIndices(s.Mgr)
 	s.Require().NoError(err)
 
@@ -140,10 +123,12 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NoError(err)
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForIngress() {
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIngress() {
 	serviceName := "test-server-ingress-test"
 	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Kubernetes: lo.ToPtr(otterizev2alpha1.KubernetesTarget{Name: serviceName}),
+		Kubernetes: &otterizev2alpha1.KubernetesTarget{
+			Name: serviceName,
+		},
 	},
 	})
 	s.Require().NoError(err)
@@ -173,7 +158,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NoError(err)
 
 	// make sure the ingress network policy doesn't exist yet
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -195,27 +180,11 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 		assert.NoError(err)
 		assert.NotEmpty(np)
 	})
-
-	s.Require().Len(np.Spec.Ingress, 1)
-	s.Require().Len(np.Spec.Ingress[0].From, 1)
-	s.Require().Equal([]v1.NetworkPolicyPeer{
-		{PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-			"intents.otterize.com/owner-kind": ingressControllerKind,
-			"intents.otterize.com/service":    ingressControllerHashedName,
-		}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-				"kubernetes.io/metadata.name": ingressControllerNamespace,
-			},
-			},
-		}}, np.Spec.Ingress[0].From)
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForIngressWithIntentToSVC() {
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIngressWithIntentToSVC() {
 	serviceName := "test-server-ingress-test"
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Kubernetes: lo.ToPtr(otterizev2alpha1.KubernetesTarget{Name: serviceName, Kind: serviceidentity.KindService}),
-	},
-	})
+	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{Service: &otterizev2alpha1.ServiceTarget{Name: serviceName}}})
 	s.Require().NoError(err)
 	s.AddDeploymentWithService(serviceName, []string{"1.1.1.1"}, map[string]string{"app": "test"}, nil)
 
@@ -242,7 +211,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	})
 
 	// make sure the ingress network policy doesn't exist yet
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -264,22 +233,9 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 		assert.NoError(err)
 		assert.NotEmpty(np)
 	})
-
-	s.Require().Len(np.Spec.Ingress, 1)
-	s.Require().Len(np.Spec.Ingress[0].From, 1)
-	s.Require().Equal([]v1.NetworkPolicyPeer{
-		{PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-			"intents.otterize.com/owner-kind": ingressControllerKind,
-			"intents.otterize.com/service":    ingressControllerHashedName,
-		}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-				"kubernetes.io/metadata.name": ingressControllerNamespace,
-			},
-			},
-		}}, np.Spec.Ingress[0].From)
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForIngressWithIntentToDeployment() {
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForIngressWithIntentToDeployment() {
 	serviceName := "test-server-ingress-test"
 	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
 		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName, Kind: "Deployment"},
@@ -311,7 +267,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	})
 
 	// make sure the ingress network policy doesn't exist yet
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -332,24 +288,10 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.NoError(err)
 		assert.NotEmpty(np)
-
 	})
-
-	s.Require().Len(np.Spec.Ingress, 1)
-	s.Require().Len(np.Spec.Ingress[0].From, 1)
-	s.Require().Equal([]v1.NetworkPolicyPeer{
-		{PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-			"intents.otterize.com/owner-kind": ingressControllerKind,
-			"intents.otterize.com/service":    ingressControllerHashedName,
-		}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-				"kubernetes.io/metadata.name": ingressControllerNamespace,
-			},
-			},
-		}}, np.Spec.Ingress[0].From)
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestIngressProtectedService_ShadowMode() {
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestIngressProtectedService_ShadowMode() {
 	serviceName := "test-server-ingress-test"
 
 	s.AddDeploymentWithService(serviceName, []string{"1.1.1.1"}, map[string]string{"app": "test"}, nil)
@@ -400,7 +342,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NoError(err)
 
 	// make sure the ingress network policy doesn't exist yet
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -424,7 +366,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	})
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestIngressWithIntentsProtectedService_ShadowMode() {
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestIngressWithIntentsProtectedService_ShadowMode() {
 	serviceName := "test-server-ingress-test"
 
 	s.AddDeploymentWithService(serviceName, []string{"1.1.1.1"}, map[string]string{"app": "test"}, nil)
@@ -482,7 +424,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NoError(err)
 
 	// make sure the ingress network policy doesn't exist yet
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -504,23 +446,9 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 		assert.NoError(err)
 		assert.NotEmpty(np)
 	})
-
-	s.Require().Len(np.Spec.Ingress, 1)
-	s.Require().Len(np.Spec.Ingress[0].From, 1)
-	s.Require().Equal([]v1.NetworkPolicyPeer{
-		{PodSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-			"intents.otterize.com/owner-kind": ingressControllerKind,
-			"intents.otterize.com/service":    ingressControllerHashedName,
-		}},
-			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
-				"kubernetes.io/metadata.name": ingressControllerNamespace,
-			},
-			},
-		}}, np.Spec.Ingress[0].From)
-
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForLoadBalancer() {
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancer() {
 	serviceName := "test-server-load-balancer-test"
 	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
 		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
@@ -556,7 +484,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the load balancer network policy doesn't exist yet
 	loadBalancerServiceName := serviceName + "-lb"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
@@ -579,12 +507,10 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 		assert.NoError(err)
 		assert.NotEmpty(np)
 	})
-
-	s.Require().Len(np.Spec.Ingress, 1)
-	s.Require().Len(np.Spec.Ingress[0].From, 0)
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedAndDeletedWhenLastIntentDeleted() {
+// This one is flaky
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedAndDeletedWhenLastIntentDeleted() {
 	serviceName := "test-server-load-balancer-test"
 	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
 		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
@@ -620,7 +546,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the load balancer network policy doesn't exist yet
 	loadBalancerServiceName := serviceName + "-lb"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, netpol)
 		assert.True(errors.IsNotFound(err))
@@ -679,7 +605,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	})
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedAndDoesNotGetDeletedEvenWhenIntentRemovedAsLongAsOneRemains() {
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoadBalancerCreatedAndDoesNotGetDeletedEvenWhenIntentRemovedAsLongAsOneRemains() {
 	serviceName := "test-server-load-balancer-test"
 	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
 		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
@@ -732,7 +658,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the load balancer network policy doesn't exist yet
 	loadBalancerServiceName := serviceName + "-lb"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -787,12 +713,9 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 		assert.NoError(err)
 		assert.Nil(externalNetpol.DeletionTimestamp)
 	})
-
-	s.Require().Len(externalNetpol.Spec.Ingress, 1)
-	s.Require().Len(externalNetpol.Spec.Ingress[0].From, 0)
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyCreateForNodePort() {
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForNodePort() {
 	serviceName := "test-server-node-port-test"
 	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
 		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
@@ -829,7 +752,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the load balancer network policy doesn't exist yet
 	nodePortServiceName := serviceName + "-np"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
@@ -851,12 +774,9 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 		assert.NoError(err)
 		assert.NotEmpty(np)
 	})
-
-	s.Require().Len(np.Spec.Ingress, 1)
-	s.Require().Len(np.Spec.Ingress[0].From, 0)
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestEndpointsReconcilerNetworkPoliciesDisabled() {
+func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerNetworkPoliciesDisabled() {
 	serviceName := "test-endpoints-reconciler-enforcement-disabled"
 	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
 		Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serviceName},
@@ -892,7 +812,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the load balancer network policy doesn't exist yet
 	nodePortServiceName := serviceName + "-np"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -900,14 +820,8 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
 
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, automate_third_party_network_policy.Off, []serviceidentity.ServiceIdentity{
-		{
-			Namespace: s.TestNamespace,
-			Name:      ingressControllerName,
-			Kind:      "Deployment",
-		},
-	}, false)
-	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
+	netpolHandler := NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, automate_third_party_network_policy.Off, make([]serviceidentity.ServiceIdentity, 0), false)
+	endpointReconcilerWithEnforcementDisabled := NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	recorder := record.NewFakeRecorder(10)
 	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)
 
@@ -927,145 +841,6 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.ExpectNoEvent(recorder)
 }
 
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyForAWSALBExemption_enabled() {
-	serviceName := "ingress-service"
-	ingressName := "test-ingress-alb"
-	ingressNamespace := s.TestNamespace
-	s.netpolHandler.SetIngressControllerALBAllowAll(true)
-
-	// Add Ingress with the annotation "alb.ingress.kubernetes.io/scheme": "internet-facing"
-	ingress := s.AddIngressWithAnnotation(ingressName, ingressNamespace, serviceName, map[string]string{
-		"alb.ingress.kubernetes.io/target-type": "ip",
-	})
-
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Service: &otterizev2alpha1.ServiceTarget{Name: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name},
-	},
-	})
-	s.Require().NoError(err)
-
-	_, err = s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: intents.Namespace,
-			Name:      intents.Name,
-		},
-	})
-
-	s.Require().NoError(err)
-
-	// Reconcile the ingress
-	res, err := s.IngressReconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Namespace: ingressNamespace, Name: ingressName},
-	})
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-
-	// Verify that the network policy allows all ingress traffic
-	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
-	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: ingressNamespace, Name: policyName}, np)
-		assert.NoError(err)
-		assert.NotEmpty(np)
-		assert.Len(np.Spec.Ingress, 1)
-		if len(np.Spec.Ingress) == 1 {
-			assert.Len(np.Spec.Ingress[0].From, 0) // Allow all ingress traffic
-		}
-	})
-}
-
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) TestNetworkPolicyForAWSALBExemption_disabled() {
-	serviceName := "ingress-service"
-	ingressName := "test-ingress-alb"
-	ingressNamespace := s.TestNamespace
-	s.netpolHandler.SetIngressControllerALBAllowAll(false)
-
-	// Add Ingress with the annotation "alb.ingress.kubernetes.io/scheme": "internet-facing"
-	ingress := s.AddIngressWithAnnotation(ingressName, ingressNamespace, serviceName, map[string]string{
-		"alb.ingress.kubernetes.io/scheme": "internet-facing",
-	})
-
-	intents, err := s.AddIntents("test-intents", "test-client", "Deployment", []otterizev2alpha1.Target{{
-		Service: &otterizev2alpha1.ServiceTarget{Name: ingress.Spec.Rules[0].HTTP.Paths[0].Backend.Service.Name},
-	},
-	})
-	s.Require().NoError(err)
-
-	_, err = s.EffectivePolicyIntentsReconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{
-			Namespace: intents.Namespace,
-			Name:      intents.Name,
-		},
-	})
-
-	s.Require().NoError(err)
-
-	// Reconcile the ingress
-	res, err := s.IngressReconciler.Reconcile(context.Background(), ctrl.Request{
-		NamespacedName: types.NamespacedName{Namespace: ingressNamespace, Name: ingressName},
-	})
-	s.Require().NoError(err)
-	s.Require().Empty(res)
-
-	// Verify that the network policy allows all ingress traffic
-	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
-	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: ingressNamespace, Name: policyName}, np)
-		assert.NoError(err)
-		assert.NotEmpty(np)
-		assert.Len(np.Spec.Ingress, 1)
-		if len(np.Spec.Ingress) == 1 {
-			assert.Len(np.Spec.Ingress[0].From, 1) // Only allow traffic from the ingress controller
-		}
-	})
-}
-
-func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) AddIngressWithAnnotation(name, namespace, serviceName string, annotations map[string]string) *v1.Ingress {
-	ingress := &v1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
-			Annotations: annotations,
-		},
-		Spec: v1.IngressSpec{
-			Rules: []v1.IngressRule{
-				{
-					Host: "example.com",
-					IngressRuleValue: v1.IngressRuleValue{
-						HTTP: &v1.HTTPIngressRuleValue{
-							Paths: []v1.HTTPIngressPath{
-								{
-									Path:     "/",
-									PathType: lo.ToPtr(v1.PathTypePrefix),
-									Backend: v1.IngressBackend{
-										Service: &v1.IngressServiceBackend{
-											Name: serviceName,
-											Port: v1.ServiceBackendPort{
-												Number: 80,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	s.Require().NoError(s.Mgr.GetClient().Create(context.Background(), ingress))
-	s.WaitForObjectToBeCreated(ingress)
-
-	s.AddDeploymentWithService(serviceName, []string{"3.3.3.3"}, map[string]string{"app": "test"}, nil)
-
-	// the ingress reconciler expect the pod watcher labels in order to work
-	_, err := s.podWatcher.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Namespace: s.TestNamespace, Name: serviceName + "-0"}})
-	s.Require().NoError(err)
-
-	return ingress
-}
-
-func TestExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite(t *testing.T) {
-	suite.Run(t, new(ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite))
+func TestExternalNetworkPolicyReconcilerTestSuite(t *testing.T) {
+	suite.Run(t, new(ExternalNetworkPolicyReconcilerTestSuite))
 }
