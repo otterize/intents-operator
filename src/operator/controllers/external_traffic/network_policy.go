@@ -152,7 +152,7 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 
 	rule := v1.NetworkPolicyIngressRule{}
 	// Only limit netpol if there is an ingress controller restriction configured AND the service is not directly exposed.
-	if len(r.ingressControllerIdentities) != 0 && svc.Spec.Type == corev1.ServiceTypeClusterIP && !(r.ingressControllerALBAllowAll && isIngressListHasIPAWSALB(ingressList.Items)) {
+	if len(r.ingressControllerIdentities) != 0 && svc.Spec.Type == corev1.ServiceTypeClusterIP && !(r.ingressControllerALBAllowAll && IsIngressListHasIPAWSALB(ingressList.Items)) {
 		for _, ingressController := range r.ingressControllerIdentities {
 			rule.From = append(rule.From, v1.NetworkPolicyPeer{
 				PodSelector: &metav1.LabelSelector{
@@ -363,12 +363,12 @@ func (r *NetworkPolicyHandler) HandleEndpoints(ctx context.Context, endpoints *c
 		return errors.Wrap(err)
 	}
 
-	ingressList, err := getIngressRefersToService(ctx, r.client, svc)
+	ingressList, err := GetIngressRefersToService(ctx, r.client, svc)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	if !isServiceExternallyAccessible(svc, ingressList) {
+	if !IsServiceExternallyAccessible(svc, ingressList) {
 		return r.handlePolicyDelete(ctx, r.formatPolicyName(svc.Name), svc.Namespace)
 	}
 
