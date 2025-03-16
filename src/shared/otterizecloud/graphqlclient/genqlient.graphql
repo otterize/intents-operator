@@ -39,16 +39,12 @@ mutation ReportAppliedIntentsRequest($intents: [IntentRequestInput!]!) {
     reportAppliedIntentsRequest(intents: $intents)
 }
 
-query GetAppliedIntentsRequestStatus($ids: [ID!]!) {
-    appliedIntentsRequestStatus(
-        filter: {
-            requestIds: {
-                include: $ids
-            }
-        }
-        staleNonIncludedIds: true
+mutation GetAppliedIntentsRequestStatus($intentResourceGenerations: [IntentRequestResourceGeneration!]!) {
+    syncPendingRequestStatuses(
+        intentResourceGeneration: $intentResourceGenerations
     ) {
-        id
+        resourceId
+        generation
         reason
         status
     }

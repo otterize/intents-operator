@@ -22,7 +22,7 @@ type CloudClient interface {
 	ReportIntentEvents(ctx context.Context, events []graphqlclient.ClientIntentEventInput) error
 	ReportClientIntentStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) error
 	ReportAppliedIntentsRequest(ctx context.Context, intents []*graphqlclient.IntentRequestInput) error
-	GetAppliedIntentsRequestsStatus(ctx context.Context, ids []string) ([]AppliedIntentsRequestStatus, error)
+	GetAppliedIntentsRequestsStatus(ctx context.Context, resourceGenerations []graphqlclient.IntentRequestResourceGeneration) ([]AppliedIntentsRequestStatus, error)
 }
 
 type CloudClientImpl struct {
@@ -129,13 +129,13 @@ func (c *CloudClientImpl) ReportClientIntentStatuses(ctx context.Context, status
 	return errors.Wrap(err)
 }
 
-func (c *CloudClientImpl) GetAppliedIntentsRequestsStatus(ctx context.Context, ids []string) ([]AppliedIntentsRequestStatus, error) {
-	result, err := graphqlclient.GetAppliedIntentsRequestStatus(ctx, c.client, ids)
+func (c *CloudClientImpl) GetAppliedIntentsRequestsStatus(ctx context.Context, resourceGenerations []graphqlclient.IntentRequestResourceGeneration) ([]AppliedIntentsRequestStatus, error) {
+	result, err := graphqlclient.GetAppliedIntentsRequestStatus(ctx, c.client, resourceGenerations)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
 
-	return translateAppliedIntentsRequestsStatusModel(result.GetAppliedIntentsRequestStatus()), nil
+	return translateAppliedIntentsRequestsStatusModel(result.GetSyncPendingRequestStatuses()), nil
 }
 
 func (c *CloudClientImpl) ReportAppliedIntentsRequest(ctx context.Context, intents []*graphqlclient.IntentRequestInput) error {

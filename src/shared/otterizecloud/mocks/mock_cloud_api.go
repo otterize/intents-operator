@@ -37,18 +37,18 @@ func (m *MockCloudClient) EXPECT() *MockCloudClientMockRecorder {
 }
 
 // GetAppliedIntentsRequestsStatus mocks base method.
-func (m *MockCloudClient) GetAppliedIntentsRequestsStatus(ctx context.Context, ids []string) ([]operator_cloud_client.AppliedIntentsRequestStatus, error) {
+func (m *MockCloudClient) GetAppliedIntentsRequestsStatus(ctx context.Context, resourceGenerations []graphqlclient.IntentRequestResourceGeneration) ([]operator_cloud_client.AppliedIntentsRequestStatus, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAppliedIntentsRequestsStatus", ctx, ids)
+	ret := m.ctrl.Call(m, "GetAppliedIntentsRequestsStatus", ctx, resourceGenerations)
 	ret0, _ := ret[0].([]operator_cloud_client.AppliedIntentsRequestStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAppliedIntentsRequestsStatus indicates an expected call of GetAppliedIntentsRequestsStatus.
-func (mr *MockCloudClientMockRecorder) GetAppliedIntentsRequestsStatus(ctx, ids interface{}) *gomock.Call {
+func (mr *MockCloudClientMockRecorder) GetAppliedIntentsRequestsStatus(ctx, resourceGenerations interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedIntentsRequestsStatus", reflect.TypeOf((*MockCloudClient)(nil).GetAppliedIntentsRequestsStatus), ctx, ids)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedIntentsRequestsStatus", reflect.TypeOf((*MockCloudClient)(nil).GetAppliedIntentsRequestsStatus), ctx, resourceGenerations)
 }
 
 // ReportAppliedIntents mocks base method.

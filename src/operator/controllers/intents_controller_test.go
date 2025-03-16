@@ -21,7 +21,7 @@ type IntentsControllerTestSuite struct {
 
 func (s *IntentsControllerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.intentsReconciler = NewIntentsReconciler(context.Background(), s.Client, nil)
+	s.intentsReconciler = NewIntentsReconciler(context.Background(), s.Client, nil, false)
 	s.intentsReconciler.InjectRecorder(s.Recorder)
 	s.expectScheme()
 }

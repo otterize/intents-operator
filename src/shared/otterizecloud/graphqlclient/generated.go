@@ -239,35 +239,42 @@ func (v *ExternallyManagedPolicyWorkloadInput) GetNamespace() string { return v.
 // GetKind returns ExternallyManagedPolicyWorkloadInput.Kind, and is useful for accessing the field via an interface.
 func (v *ExternallyManagedPolicyWorkloadInput) GetKind() string { return v.Kind }
 
-// GetAppliedIntentsRequestStatusAppliedIntentsRequestStatus includes the requested fields of the GraphQL type AppliedIntentsRequestStatus.
-type GetAppliedIntentsRequestStatusAppliedIntentsRequestStatus struct {
-	Id     string                           `json:"id"`
-	Reason string                           `json:"reason"`
-	Status AppliedIntentsRequestStatusLabel `json:"status"`
+// GetAppliedIntentsRequestStatusResponse is returned by GetAppliedIntentsRequestStatus on success.
+type GetAppliedIntentsRequestStatusResponse struct {
+	SyncPendingRequestStatuses []GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus `json:"syncPendingRequestStatuses"`
 }
 
-// GetId returns GetAppliedIntentsRequestStatusAppliedIntentsRequestStatus.Id, and is useful for accessing the field via an interface.
-func (v *GetAppliedIntentsRequestStatusAppliedIntentsRequestStatus) GetId() string { return v.Id }
+// GetSyncPendingRequestStatuses returns GetAppliedIntentsRequestStatusResponse.SyncPendingRequestStatuses, and is useful for accessing the field via an interface.
+func (v *GetAppliedIntentsRequestStatusResponse) GetSyncPendingRequestStatuses() []GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus {
+	return v.SyncPendingRequestStatuses
+}
 
-// GetReason returns GetAppliedIntentsRequestStatusAppliedIntentsRequestStatus.Reason, and is useful for accessing the field via an interface.
-func (v *GetAppliedIntentsRequestStatusAppliedIntentsRequestStatus) GetReason() string {
+// GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus includes the requested fields of the GraphQL type AppliedIntentsRequestStatus.
+type GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus struct {
+	ResourceId string                           `json:"resourceId"`
+	Generation int                              `json:"generation"`
+	Reason     string                           `json:"reason"`
+	Status     AppliedIntentsRequestStatusLabel `json:"status"`
+}
+
+// GetResourceId returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.ResourceId, and is useful for accessing the field via an interface.
+func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetResourceId() string {
+	return v.ResourceId
+}
+
+// GetGeneration returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.Generation, and is useful for accessing the field via an interface.
+func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetGeneration() int {
+	return v.Generation
+}
+
+// GetReason returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.Reason, and is useful for accessing the field via an interface.
+func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetReason() string {
 	return v.Reason
 }
 
-// GetStatus returns GetAppliedIntentsRequestStatusAppliedIntentsRequestStatus.Status, and is useful for accessing the field via an interface.
-func (v *GetAppliedIntentsRequestStatusAppliedIntentsRequestStatus) GetStatus() AppliedIntentsRequestStatusLabel {
+// GetStatus returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.Status, and is useful for accessing the field via an interface.
+func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetStatus() AppliedIntentsRequestStatusLabel {
 	return v.Status
-}
-
-// GetAppliedIntentsRequestStatusResponse is returned by GetAppliedIntentsRequestStatus on success.
-type GetAppliedIntentsRequestStatusResponse struct {
-	// applied intents requests
-	AppliedIntentsRequestStatus []GetAppliedIntentsRequestStatusAppliedIntentsRequestStatus `json:"appliedIntentsRequestStatus"`
-}
-
-// GetAppliedIntentsRequestStatus returns GetAppliedIntentsRequestStatusResponse.AppliedIntentsRequestStatus, and is useful for accessing the field via an interface.
-func (v *GetAppliedIntentsRequestStatusResponse) GetAppliedIntentsRequestStatus() []GetAppliedIntentsRequestStatusAppliedIntentsRequestStatus {
-	return v.AppliedIntentsRequestStatus
 }
 
 type HTTPConfigInput struct {
@@ -408,15 +415,28 @@ func (v *IntentInput) GetStatus() *IntentStatusInput { return v.Status }
 func (v *IntentInput) GetResolutionData() *string { return v.ResolutionData }
 
 type IntentRequestInput struct {
-	RequestId string      `json:"requestId"`
-	Intent    IntentInput `json:"intent"`
+	ResourceGeneration IntentRequestResourceGeneration `json:"resourceGeneration"`
+	Intent             IntentInput                     `json:"intent"`
 }
 
-// GetRequestId returns IntentRequestInput.RequestId, and is useful for accessing the field via an interface.
-func (v *IntentRequestInput) GetRequestId() string { return v.RequestId }
+// GetResourceGeneration returns IntentRequestInput.ResourceGeneration, and is useful for accessing the field via an interface.
+func (v *IntentRequestInput) GetResourceGeneration() IntentRequestResourceGeneration {
+	return v.ResourceGeneration
+}
 
 // GetIntent returns IntentRequestInput.Intent, and is useful for accessing the field via an interface.
 func (v *IntentRequestInput) GetIntent() IntentInput { return v.Intent }
+
+type IntentRequestResourceGeneration struct {
+	ResourceId string `json:"resourceId"`
+	Generation int    `json:"generation"`
+}
+
+// GetResourceId returns IntentRequestResourceGeneration.ResourceId, and is useful for accessing the field via an interface.
+func (v *IntentRequestResourceGeneration) GetResourceId() string { return v.ResourceId }
+
+// GetGeneration returns IntentRequestResourceGeneration.Generation, and is useful for accessing the field via an interface.
+func (v *IntentRequestResourceGeneration) GetGeneration() int { return v.Generation }
 
 type IntentStatusInput struct {
 	IstioStatus *IstioStatusInput `json:"istioStatus"`
@@ -859,11 +879,13 @@ const (
 
 // __GetAppliedIntentsRequestStatusInput is used internally by genqlient
 type __GetAppliedIntentsRequestStatusInput struct {
-	Ids []string `json:"ids"`
+	IntentResourceGenerations []IntentRequestResourceGeneration `json:"intentResourceGenerations"`
 }
 
-// GetIds returns __GetAppliedIntentsRequestStatusInput.Ids, and is useful for accessing the field via an interface.
-func (v *__GetAppliedIntentsRequestStatusInput) GetIds() []string { return v.Ids }
+// GetIntentResourceGenerations returns __GetAppliedIntentsRequestStatusInput.IntentResourceGenerations, and is useful for accessing the field via an interface.
+func (v *__GetAppliedIntentsRequestStatusInput) GetIntentResourceGenerations() []IntentRequestResourceGeneration {
+	return v.IntentResourceGenerations
+}
 
 // __ReportAppliedIntentsRequestInput is used internally by genqlient
 type __ReportAppliedIntentsRequestInput struct {
@@ -990,21 +1012,22 @@ func (v *dummyResponse) GetDummyError() UserErrorType { return v.DummyError }
 func GetAppliedIntentsRequestStatus(
 	ctx context.Context,
 	client graphql.Client,
-	ids []string,
+	intentResourceGenerations []IntentRequestResourceGeneration,
 ) (*GetAppliedIntentsRequestStatusResponse, error) {
 	req := &graphql.Request{
 		OpName: "GetAppliedIntentsRequestStatus",
 		Query: `
-query GetAppliedIntentsRequestStatus ($ids: [ID!]!) {
-	appliedIntentsRequestStatus(filter: {requestIds:{include:$ids}}, staleNonIncludedIds: true) {
-		id
+mutation GetAppliedIntentsRequestStatus ($intentResourceGenerations: [IntentRequestResourceGeneration!]!) {
+	syncPendingRequestStatuses(intentResourceGeneration: $intentResourceGenerations) {
+		resourceId
+		generation
 		reason
 		status
 	}
 }
 `,
 		Variables: &__GetAppliedIntentsRequestStatusInput{
-			Ids: ids,
+			IntentResourceGenerations: intentResourceGenerations,
 		},
 	}
 	var err error

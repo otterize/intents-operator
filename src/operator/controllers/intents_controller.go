@@ -419,8 +419,8 @@ func (r *IntentsReconciler) queryAppliedIntentsRequestsStatus(ctx context.Contex
 }
 
 func (r *IntentsReconciler) handlePendingRequests(ctx context.Context, pendingClientIntentsList *otterizev2alpha1.ClientIntentsList) error {
-	resourceUIDToIntent := lo.SliceToMap(pendingClientIntentsList.Items, func(intent otterizev2alpha1.ClientIntents) (string, otterizev2alpha1.ClientIntents) {
-		return intent.GetRequestID(), intent
+	resourceUIDToIntent := lo.SliceToMap(pendingClientIntentsList.Items, func(intent otterizev2alpha1.ClientIntents) (graphqlclient.IntentRequestResourceGeneration, otterizev2alpha1.ClientIntents) {
+		return intent.GetResourceGeneration(), intent
 	})
 
 	requestStatuses, err := r.cloudClient.GetAppliedIntentsRequestsStatus(ctx, lo.Keys(resourceUIDToIntent))
@@ -433,10 +433,10 @@ func (r *IntentsReconciler) handlePendingRequests(ctx context.Context, pendingCl
 	}
 
 	for _, request := range requestStatuses {
-		clientIntents, ok := resourceUIDToIntent[request.ID]
+		clientIntents, ok := resourceUIDToIntent[request.ResourceGeneration]
 		if !ok {
 			// Should not happen
-			logrus.Errorf("Received status for unknown intents request %s", request.ID)
+			logrus.Errorf("Received status for unknown intents request %v", request.ResourceGeneration)
 			continue
 		}
 
@@ -450,7 +450,7 @@ func (r *IntentsReconciler) handlePendingRequests(ctx context.Context, pendingCl
 
 func (r *IntentsReconciler) handleRequestStatusChanges(ctx context.Context, request operator_cloud_client.AppliedIntentsRequestStatus, clientIntents otterizev2alpha1.ClientIntents) error {
 	if request.Status == graphqlclient.AppliedIntentsRequestStatusLabelPending {
-		logrus.Debugf("Received pending status for intents request %s", request.ID)
+		logrus.Debugf("Received pending status for intents request %v", request.ResourceGeneration)
 		return nil
 	}
 
