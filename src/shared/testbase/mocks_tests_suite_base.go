@@ -2,7 +2,6 @@ package testbase
 
 import (
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
-	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	"k8s.io/client-go/tools/record"
 	"strings"
@@ -14,7 +13,7 @@ const (
 )
 
 type MocksSuiteBase struct {
-	suite.Suite
+	TestSuiteBase
 	Controller *gomock.Controller
 	Recorder   *record.FakeRecorder
 	Client     *mocks.MockClient
@@ -61,14 +60,5 @@ func (s *MocksSuiteBase) ExpectEventsOrderAndCountDontMatter(expectedEventReason
 		case <-time.After(100 * time.Millisecond):
 			return
 		}
-	}
-}
-
-func (s *MocksSuiteBase) ExpectNoEvent(eventRecorder *record.FakeRecorder) {
-	select {
-	case event := <-eventRecorder.Events:
-		s.Fail("Unexpected event found", event)
-	default:
-		// Amazing, no events left behind!
 	}
 }
