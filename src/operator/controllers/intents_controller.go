@@ -242,6 +242,9 @@ func (r *IntentsReconciler) initIntentsApprovalState(ctx context.Context, enable
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := r.initReviewStatusIndex(mgr)
+	if err != nil {
+		return errors.Wrap(err)
+	}
 	err = ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev2alpha1.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
