@@ -156,12 +156,6 @@ enum AccessApprovalRulesetFilterValue {
 	ANY
 }
 
-type AccessApprovalRulesetResources {
-	clusters: [Cluster!]!
-	services: [Service!]!
-	namespaces: [Namespace!]!
-}
-
 type AccessApprovalRulesetSummary {
 	environment: Environment!
 	count: Int!
@@ -248,8 +242,6 @@ input AppliedIntentsRequestApprovalData {
 
 type AppliedIntentsRequestStatus {
 	id: ID!
-	resourceId: String!
-	generation: Int!
 """client"""
 	service: Service!
 	timestamp: Time!
@@ -261,7 +253,6 @@ enum AppliedIntentsRequestStatusLabel {
 	PENDING
 	APPROVED
 	DENIED
-	STALE
 }
 
 type AppliedIntentsRequestWithDetails {
@@ -826,7 +817,6 @@ type FeatureFlags {
 	enableFindingsV2: Boolean
 	useTypedIntentsCTE: Boolean
 	enableInternetIntentsSuggestions: Boolean
-	enableIAMIntentsSuggestions: Boolean
 }
 
 type Finding {
@@ -1065,7 +1055,7 @@ input IngressControllerConfigInput {
 """Ruleset"""
 input InputAccessApprovalRuleset {
 """Ruleset"""
-	id: ID!
+	id: ID
 """Ruleset"""
 	origin: InputAccessApprovalRulesetConfigFilter!
 """Ruleset"""
@@ -1156,7 +1146,6 @@ input InputFeatureFlags {
 	enableFindingsV2: Boolean
 	useTypedIntentsCTE: Boolean
 	enableInternetIntentsSuggestions: Boolean
-	enableIAMIntentsSuggestions: Boolean
 }
 
 """ Findings filter """
@@ -1218,25 +1207,6 @@ input InputServiceFilter {
 	environmentIds: [ID!]
 """ Service filter """
 	integrationIds: [ID!]
-}
-
-input InputTerraformAwsPolicyInfo {
-	arn: String!
-	address: String!
-}
-
-input InputTerraformAwsRoleInfo {
-	arn: String!
-	address: String!
-	inlinePolicy: String!
-	attachedPolicies: [InputTerraformAwsPolicyInfo!]
-}
-
-input InputTerraformResourceInfo {
-	modulePath: String!
-	gitOriginUrl: String!
-	gitCommitHash: String!
-	awsRoles: [InputTerraformAwsRoleInfo!]
 }
 
 input InputTimeFilterValue {
@@ -1395,13 +1365,8 @@ input IntentInput {
 }
 
 input IntentRequestInput {
-	resourceGeneration: IntentRequestResourceGeneration!
+	requestId: ID!
 	intent: IntentInput!
-}
-
-input IntentRequestResourceGeneration {
-	resourceId: String!
-	generation: Int!
 }
 
 type IntentStatus {
@@ -1786,11 +1751,8 @@ type Mutation {
 		id: ID!
 		result: AppliedIntentsRequestApprovalData!
 	): Boolean!
-	syncPendingRequestStatuses(
-		intentResourceGeneration: [IntentRequestResourceGeneration!]!
-	): [AppliedIntentsRequestStatus!]!
 """rulesets"""
-	saveAccessApprovalRulesets(
+	createOrUpdateAccessApprovalRulesets(
 		environmentId: ID!
 		rules: [InputAccessApprovalRuleset!]!
 	): Boolean!
@@ -2083,10 +2045,6 @@ type Mutation {
 	sendCLITelemetries(
 		telemetries: [CLITelemetry!]!
 	): Boolean!
-"""report terraform resources from Otterize CLI"""
-	reportTerraformResources(
-		resourceInfo: InputTerraformResourceInfo!
-	): TerraformResourceInfo!
 """Update service"""
 	reportTrafficLevels(
 		trafficLevels: [TrafficLevelInput!]!
@@ -2275,7 +2233,7 @@ type Query {
 	accessApprovalRulesetSummary: [AccessApprovalRulesetSummary!]!
 	accessApprovalRulesetList(
 		filter: InputAccessApprovalRulesetFilter
-	): RulesetsWithResources!
+	): [AccessApprovalRuleset!]!
 """Get cluster"""
 	cluster(
 		id: ID!
@@ -2425,12 +2383,6 @@ type Query {
 	serviceByIdentity(
 		identity: ServiceIdentityInput!
 	): Service!
-"""get terraform resource by git identity"""
-	terraformResourceByIdentity(
-		modulePath: String!
-		gitOriginUrl: String!
-		gitCommitHash: String!
-	): TerraformResourceInfo!
 """List users"""
 	users: [User!]!
 """Get user"""
@@ -2496,11 +2448,6 @@ type Resource {
 enum RowDiff {
 	ADDED
 	REMOVED
-}
-
-type RulesetsWithResources {
-	rulesets: [AccessApprovalRuleset!]!
-	resources: AccessApprovalRulesetResources!
 }
 
 input SelectorKeyValueInput {
@@ -2769,25 +2716,6 @@ input TelemetryData {
 input TelemetryInput {
 	component: Component!
 	data: TelemetryData!
-}
-
-type TerraformAwsPolicyInfo {
-	arn: String!
-	address: String!
-}
-
-type TerraformAwsRoleInfo {
-	arn: String!
-	address: String!
-	inlinePolicy: String!
-	attachedPolicies: [TerraformAwsPolicyInfo!]
-}
-
-type TerraformResourceInfo {
-	modulePath: String!
-	gitOriginUrl: String!
-	gitCommitHash: String!
-	awsRoles: [TerraformAwsRoleInfo!]
 }
 
 type TestDatabaseConnectionResponse {

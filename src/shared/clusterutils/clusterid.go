@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/otterize/intents-operator/src/shared/k8sconf"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -11,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"os"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const OtterizeClusterUIDResourceName = "otterize-cluster-uid"
@@ -19,7 +19,7 @@ const OtterizeClusterUIDKeyName = "clusteruid"
 
 // GetClusterUID Fetches cluster ID from the config map created in the Otterize namespace
 func GetClusterUID(ctx context.Context) (string, error) {
-	k8sclient, err := kubernetes.NewForConfig(ctrl.GetConfigOrDie())
+	k8sclient, err := kubernetes.NewForConfig(k8sconf.KubernetesConfigOrDie())
 	if err != nil {
 		return "", errors.Wrap(err)
 	}
@@ -39,7 +39,7 @@ func GetClusterUID(ctx context.Context) (string, error) {
 }
 
 func SetClusterUID(ctx context.Context) (string, error) {
-	k8sclient, err := kubernetes.NewForConfig(ctrl.GetConfigOrDie())
+	k8sclient, err := kubernetes.NewForConfig(k8sconf.KubernetesConfigOrDie())
 	if err != nil {
 		return "", errors.Wrap(err)
 	}

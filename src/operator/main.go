@@ -19,6 +19,7 @@ package main
 import (
 	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
+	"github.com/otterize/intents-operator/src/shared/k8sconf"
 	"path"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
@@ -207,7 +208,7 @@ func main() {
 		logrus.Infof("Will only watch the following namespaces: %v", watchedNamespaces)
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), options)
+	mgr, err := ctrl.NewManager(k8sconf.KubernetesConfigOrDie(), options)
 	if err != nil {
 		logrus.WithError(err).Panic(err, "unable to start manager")
 	}

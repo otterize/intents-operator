@@ -393,6 +393,7 @@ type IntentsStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:storageversion
 
 // ClientIntents is the Schema for the intents API
 type ClientIntents struct {
