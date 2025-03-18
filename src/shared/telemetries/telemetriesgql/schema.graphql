@@ -156,6 +156,12 @@ enum AccessApprovalRulesetFilterValue {
 	ANY
 }
 
+type AccessApprovalRulesetResources {
+	clusters: [Cluster!]!
+	services: [Service!]!
+	namespaces: [Namespace!]!
+}
+
 type AccessApprovalRulesetSummary {
 	environment: Environment!
 	count: Int!
@@ -242,6 +248,8 @@ input AppliedIntentsRequestApprovalData {
 
 type AppliedIntentsRequestStatus {
 	id: ID!
+	resourceId: String!
+	generation: Int!
 """client"""
 	service: Service!
 	timestamp: Time!
@@ -253,6 +261,7 @@ enum AppliedIntentsRequestStatusLabel {
 	PENDING
 	APPROVED
 	DENIED
+	STALE
 }
 
 type AppliedIntentsRequestWithDetails {
@@ -1056,7 +1065,7 @@ input IngressControllerConfigInput {
 """Ruleset"""
 input InputAccessApprovalRuleset {
 """Ruleset"""
-	id: ID
+	id: ID!
 """Ruleset"""
 	origin: InputAccessApprovalRulesetConfigFilter!
 """Ruleset"""
@@ -1386,8 +1395,13 @@ input IntentInput {
 }
 
 input IntentRequestInput {
-	requestId: ID!
+	resourceGeneration: IntentRequestResourceGeneration!
 	intent: IntentInput!
+}
+
+input IntentRequestResourceGeneration {
+	resourceId: String!
+	generation: Int!
 }
 
 type IntentStatus {
@@ -1772,8 +1786,11 @@ type Mutation {
 		id: ID!
 		result: AppliedIntentsRequestApprovalData!
 	): Boolean!
+	syncPendingRequestStatuses(
+		intentResourceGeneration: [IntentRequestResourceGeneration!]!
+	): [AppliedIntentsRequestStatus!]!
 """rulesets"""
-	createOrUpdateAccessApprovalRulesets(
+	saveAccessApprovalRulesets(
 		environmentId: ID!
 		rules: [InputAccessApprovalRuleset!]!
 	): Boolean!
@@ -2258,7 +2275,7 @@ type Query {
 	accessApprovalRulesetSummary: [AccessApprovalRulesetSummary!]!
 	accessApprovalRulesetList(
 		filter: InputAccessApprovalRulesetFilter
-	): [AccessApprovalRuleset!]!
+	): RulesetsWithResources!
 """Get cluster"""
 	cluster(
 		id: ID!
@@ -2479,6 +2496,11 @@ type Resource {
 enum RowDiff {
 	ADDED
 	REMOVED
+}
+
+type RulesetsWithResources {
+	rulesets: [AccessApprovalRuleset!]!
+	resources: AccessApprovalRulesetResources!
 }
 
 input SelectorKeyValueInput {
