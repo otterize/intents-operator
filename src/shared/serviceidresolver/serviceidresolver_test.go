@@ -385,6 +385,40 @@ func (s *ServiceIdResolverTestSuite) TestJobCronJobWithRemovedVersion() {
 
 }
 
+func (s *ServiceIdResolverTestSuite) TestPodOwnerWithBadKind() {
+	ownerName := "my-owner-name-1234567890-12345"
+	podName := "cool-pod-1234567890-12345"
+	podNamespace := "cool-namespace"
+
+	// Create a pod with reference to an owner with a bad kind
+	myPod := corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: podNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					Kind:       "BadKind",
+					Name:       ownerName,
+					APIVersion: "wrong.api/v1beta1",
+				},
+			},
+		},
+	}
+
+	ownerEmptyObject := &unstructured.Unstructured{}
+	ownerEmptyObject.SetKind("BadKind")
+	ownerEmptyObject.SetAPIVersion("wrong.api/v1beta1")
+	s.Client.EXPECT().Get(gomock.Any(), types.NamespacedName{Name: ownerName, Namespace: podNamespace}, ownerEmptyObject).Return(&meta.NoKindMatchError{})
+
+	service, err := s.Resolver.ResolvePodToServiceIdentity(context.Background(), &myPod)
+
+	// should return the owner name as the service name
+	s.Require().NoError(err)
+	s.Require().Equal(ownerName, service.Name)
+	s.Require().Equal("BadKind", service.Kind)
+
+}
+
 func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSelection_DeploymentKind() {
 	serviceName := "cool-service"
 	namespace := "cool-namespace"
