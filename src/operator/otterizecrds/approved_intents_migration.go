@@ -82,6 +82,9 @@ func createApprovedIntentsForExistingClientIntents(ctx context.Context, client c
 	for _, clientIntents := range clientIntentsList.Items {
 		approvedClientIntents := &otterizev2beta1.ApprovedClientIntents{}
 		approvedClientIntents.FromClientIntents(clientIntents)
+		if len(clientIntents.Status.ResolvedIPs) > 0 {
+			approvedClientIntents.Status.ResolvedIPs = clientIntents.Status.ResolvedIPs
+		}
 		err = client.Get(ctx, types.NamespacedName{Namespace: approvedClientIntents.Namespace, Name: approvedClientIntents.Name}, &otterizev2beta1.ApprovedClientIntents{})
 		if k8serrors.IsNotFound(err) {
 			err = client.Create(ctx, approvedClientIntents)
