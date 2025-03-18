@@ -54,7 +54,7 @@ func (s *DatabaseReconcilerTestSuite) SetupTest() {
 }
 
 func (s *DatabaseReconcilerTestSuite) TestPGServerConfNotMatching() {
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -105,7 +105,7 @@ func (s *DatabaseReconcilerTestSuite) TestPGServerConfNotMatching() {
 }
 
 func (s *DatabaseReconcilerTestSuite) TestNoPGServerConf() {
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -139,9 +139,9 @@ func (s *DatabaseReconcilerTestSuite) TestNoPGServerConf() {
 	s.ExpectEvent(ReasonAppliedDatabaseIntents)
 }
 
-func (s *DatabaseReconcilerTestSuite) reconcileWithExpectedResources(clientIntents otterizev2alpha1.ClientIntents, pgServerConfigs []otterizev2alpha1.PostgreSQLServerConfig) (ctrl.Result, error) {
-	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&otterizev2alpha1.ClientIntents{})).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+func (s *DatabaseReconcilerTestSuite) reconcileWithExpectedResources(clientIntents otterizev2alpha1.ApprovedClientIntents, pgServerConfigs []otterizev2alpha1.PostgreSQLServerConfig) (ctrl.Result, error) {
+	s.client.EXPECT().Get(gomock.Any(), gomock.Eq(s.namespacedName), gomock.Eq(&otterizev2alpha1.ApprovedClientIntents{})).DoAndReturn(
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ApprovedClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)
 			return nil
 		})

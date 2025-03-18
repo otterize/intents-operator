@@ -65,7 +65,7 @@ func (mr *MockIAMPolicyAgentMockRecorder) AppliesOnPod(pod interface{}) *gomock.
 }
 
 // DeleteRolePolicyFromIntents mocks base method.
-func (m *MockIAMPolicyAgent) DeleteRolePolicyFromIntents(ctx context.Context, intents v2alpha1.ClientIntents) error {
+func (m *MockIAMPolicyAgent) DeleteRolePolicyFromIntents(ctx context.Context, intents v2alpha1.ApprovedClientIntents) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteRolePolicyFromIntents", ctx, intents)
 	ret0, _ := ret[0].(error)

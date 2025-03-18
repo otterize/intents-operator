@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
@@ -61,7 +62,7 @@ func (r *ServiceWatcher) InjectRecorder(recorder record.EventRecorder) {
 }
 
 func (r *ServiceWatcher) SetupWithManager(mgr manager.Manager) error {
-	recorder := mgr.GetEventRecorderFor("intents-operator")
+	recorder := mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator")
 	r.InjectRecorder(recorder)
 
 	return ctrl.NewControllerManagedBy(mgr).

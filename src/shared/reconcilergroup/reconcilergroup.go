@@ -19,15 +19,18 @@ type ReconcilerWithEvents interface {
 	InjectRecorder(recorder record.EventRecorder)
 }
 
+type preRemoveFinalizerHook func(ctx context.Context, client client.Client, resource client.Object) error
+
 type Group struct {
-	reconcilers      []ReconcilerWithEvents
-	name             string
-	client           client.Client
-	scheme           *runtime.Scheme
-	recorder         record.EventRecorder
-	baseObject       client.Object
-	finalizer        string
-	legacyFinalizers []string
+	reconcilers             []ReconcilerWithEvents
+	name                    string
+	client                  client.Client
+	scheme                  *runtime.Scheme
+	recorder                record.EventRecorder
+	baseObject              client.Object
+	finalizer               string
+	preRemoveFinalizerHooks []preRemoveFinalizerHook
+	legacyFinalizers        []string
 }
 
 func NewGroup(
@@ -40,14 +43,29 @@ func NewGroup(
 	reconcilers ...ReconcilerWithEvents,
 ) *Group {
 	return &Group{
-		reconcilers:      reconcilers,
-		name:             name,
-		client:           client,
-		scheme:           scheme,
-		baseObject:       resourceObject,
-		finalizer:        finalizer,
-		legacyFinalizers: legacyFinalizers,
+		reconcilers:             reconcilers,
+		name:                    name,
+		client:                  client,
+		scheme:                  scheme,
+		baseObject:              resourceObject,
+		finalizer:               finalizer,
+		preRemoveFinalizerHooks: make([]preRemoveFinalizerHook, 0),
+		legacyFinalizers:        legacyFinalizers,
 	}
+}
+
+func (g *Group) AddPreRemoveFinalizerHook(hook preRemoveFinalizerHook) {
+	g.preRemoveFinalizerHooks = append(g.preRemoveFinalizerHooks, hook)
+}
+
+func (g *Group) runPreRemoveFinalizerHooks(ctx context.Context, resource client.Object) error {
+	for _, hook := range g.preRemoveFinalizerHooks {
+		err := hook(ctx, g.client, resource)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+	return nil
 }
 
 func (g *Group) AddToGroup(reconciler ReconcilerWithEvents) {
@@ -93,6 +111,13 @@ func (g *Group) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, e
 
 	objectBeingDeleted := resourceObject.GetDeletionTimestamp() != nil
 	if objectBeingDeleted && finalErr == nil && finalRes.IsZero() {
+		err = g.runPreRemoveFinalizerHooks(ctx, resourceObject)
+		if err != nil {
+			if isKubernetesRaceRelatedError(err) {
+				return ctrl.Result{Requeue: true}, nil
+			}
+			return ctrl.Result{}, errors.Wrap(err)
+		}
 		err = g.removeFinalizer(ctx, resourceObject)
 		if err != nil {
 			if isKubernetesRaceRelatedError(err) {

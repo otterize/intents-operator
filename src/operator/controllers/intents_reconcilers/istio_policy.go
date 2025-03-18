@@ -61,7 +61,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	intents := &otterizev2alpha1.ClientIntents{}
+	intents := &otterizev2alpha1.ApprovedClientIntents{}
 	err = r.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -141,7 +141,7 @@ func (r *IstioPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev2alpha1.ClientIntents) error {
+func (r *IstioPolicyReconciler) updateServerSidecarStatus(ctx context.Context, intents *otterizev2alpha1.ApprovedClientIntents) error {
 	for _, intent := range intents.Spec.Targets {
 		serviceId := intent.ToServiceIdentity(intents.Namespace)
 		pods, ok, err := r.serviceIdResolver.ResolveServiceIdentityToPodSlice(ctx, serviceId)

@@ -41,16 +41,16 @@ func NewOtterizeCloudReconciler(
 
 func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	// Report Applied intents from namespace
-	clientIntentsList := &otterizev2alpha1.ClientIntentsList{}
-	if err := r.List(ctx, clientIntentsList, &client.ListOptions{Namespace: req.Namespace}); err != nil {
+	approvedClientIntentsList := &otterizev2alpha1.ApprovedClientIntentsList{}
+	if err := r.List(ctx, approvedClientIntentsList, &client.ListOptions{Namespace: req.Namespace}); err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	clientIntentsList.Items = lo.Filter(clientIntentsList.Items, func(intents otterizev2alpha1.ClientIntents, _ int) bool {
+	approvedClientIntentsList.Items = lo.Filter(approvedClientIntentsList.Items, func(intents otterizev2alpha1.ApprovedClientIntents, _ int) bool {
 		return intents.DeletionTimestamp == nil
 	})
 
-	intentsInput, err := clientIntentsList.FormatAsOtterizeIntents(ctx, r.Client)
+	intentsInput, err := approvedClientIntentsList.FormatAsOtterizeIntents(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
@@ -59,18 +59,18 @@ func (r *OtterizeCloudReconciler) Reconcile(ctx context.Context, req reconcile.R
 	defer cancel()
 
 	if err = r.otterizeClient.ReportAppliedIntents(timeoutCtx, lo.ToPtr(req.Namespace), intentsInput); err != nil {
-		logrus.WithError(err).Error("failed to report applied intents")
+		logrus.WithError(err).Error("failed to report approved intents")
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	logrus.Debugf("successfully reported %d applied intents", len(clientIntentsList.Items))
+	logrus.Debugf("successfully reported %d approved intents", len(approvedClientIntentsList.Items))
 
 	return ctrl.Result{}, nil
 }
 
 func (r *OtterizeCloudReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&otterizev2alpha1.ClientIntents{}).
+		For(&otterizev2alpha1.ApprovedClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
 		Complete(r)
 }

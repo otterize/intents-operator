@@ -93,7 +93,7 @@ func (s *EgressDNSNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyDNS(
 	}
 
 	// Initial call to get the ClientIntents object when reconciler starts
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Namespace = clientNamespace
 	clientIntents.Name = clientIntentsName
 
@@ -128,7 +128,7 @@ func (s *EgressDNSNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyDNS(
 
 	s.ignoreRemoveOrphan()
 
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), gomock.Any(), gomock.Any())
 	res, err := s.EPIntentsReconciler.Reconcile(context.Background(), req)
 	s.NoError(err)

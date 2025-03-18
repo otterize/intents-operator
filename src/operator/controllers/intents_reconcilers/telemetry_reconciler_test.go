@@ -38,7 +38,7 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 	server := "test-server"
 	anotherServer := "another-test-server"
 
-	clientIntents1 := otterizev2alpha1.ClientIntents{
+	clientIntents1 := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -68,7 +68,7 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev2alpha1.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -93,7 +93,7 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev2alpha1.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -119,7 +119,7 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents2 := otterizev2alpha1.ClientIntents{
+	clientIntents2 := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
@@ -142,7 +142,7 @@ func (s *CountReconcilerTestSuite) TestAppliedIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents3 := otterizev2alpha1.ClientIntents{
+	clientIntents3 := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: "another-test-namespace",
@@ -175,7 +175,7 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 	server := "test-server"
 	anotherServer := "another-test-server"
 
-	clientIntents1 := otterizev2alpha1.ClientIntents{
+	clientIntents1 := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -203,7 +203,7 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev2alpha1.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -237,7 +237,7 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 	s.Require().Equal(1, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev2alpha1.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -284,7 +284,7 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 	s.Require().Equal(2, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents2 := otterizev2alpha1.ClientIntents{
+	clientIntents2 := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
@@ -307,7 +307,7 @@ func (s *CountReconcilerTestSuite) TestKafkaIntentsTelemetries() {
 	s.Require().Equal(2, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents3 := otterizev2alpha1.ClientIntents{
+	clientIntents3 := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
@@ -350,7 +350,7 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	server := "test-server"
 	anotherServer := "another-test-server"
 
-	clientIntents1 := otterizev2alpha1.ClientIntents{
+	clientIntents1 := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -378,7 +378,7 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(0, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev2alpha1.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -412,7 +412,7 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(1, httpIntentsCount(s.Reconciler))
 
-	clientIntents1 = otterizev2alpha1.ClientIntents{
+	clientIntents1 = otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
@@ -459,7 +459,7 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(2, httpIntentsCount(s.Reconciler))
 
-	clientIntents2 := otterizev2alpha1.ClientIntents{
+	clientIntents2 := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
@@ -482,7 +482,7 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	s.Require().Equal(0, kafkaIntentsCount(s.Reconciler))
 	s.Require().Equal(2, httpIntentsCount(s.Reconciler))
 
-	clientIntents3 := otterizev2alpha1.ClientIntents{
+	clientIntents3 := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "another-client-name",
 			Namespace: testNamespace,
@@ -521,7 +521,7 @@ func (s *CountReconcilerTestSuite) TestHTTPIntentsTelemetries() {
 	s.Require().Equal(1, httpIntentsCount(s.Reconciler))
 }
 
-func (s *CountReconcilerTestSuite) applyIntent(clientIntents otterizev2alpha1.ClientIntents) {
+func (s *CountReconcilerTestSuite) applyIntent(clientIntents otterizev2alpha1.ApprovedClientIntents) {
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: testNamespace,
@@ -529,9 +529,9 @@ func (s *CountReconcilerTestSuite) applyIntent(clientIntents otterizev2alpha1.Cl
 		},
 	}
 
-	emptyIntents := &otterizev2alpha1.ClientIntents{}
+	emptyIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ApprovedClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)
 			return nil
 		})
@@ -541,7 +541,7 @@ func (s *CountReconcilerTestSuite) applyIntent(clientIntents otterizev2alpha1.Cl
 	s.Require().Equal(ctrl.Result{}, res)
 }
 
-func (s *CountReconcilerTestSuite) removeIntent(clientIntents otterizev2alpha1.ClientIntents) {
+func (s *CountReconcilerTestSuite) removeIntent(clientIntents otterizev2alpha1.ApprovedClientIntents) {
 	clientIntents.DeletionTimestamp = &metav1.Time{Time: time.Date(2020, 12, 1, 17, 14, 0, 0, time.UTC)}
 	req := ctrl.Request{
 		NamespacedName: types.NamespacedName{
@@ -550,9 +550,9 @@ func (s *CountReconcilerTestSuite) removeIntent(clientIntents otterizev2alpha1.C
 		},
 	}
 
-	emptyIntents := &otterizev2alpha1.ClientIntents{}
+	emptyIntents := &otterizev2alpha1.ApprovedClientIntents{}
 	s.Client.EXPECT().Get(gomock.Any(), req.NamespacedName, gomock.Eq(emptyIntents)).DoAndReturn(
-		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ClientIntents, options ...client.ListOption) error {
+		func(ctx context.Context, name types.NamespacedName, intents *otterizev2alpha1.ApprovedClientIntents, options ...client.ListOption) error {
 			clientIntents.DeepCopyInto(intents)
 			return nil
 		})

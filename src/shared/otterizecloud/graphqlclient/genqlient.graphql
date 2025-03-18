@@ -35,6 +35,21 @@ mutation ReportClientIntentStatuses($statuses: [ClientIntentStatusInput!]!) {
     reportClientIntentStatus(statuses: $statuses)
 }
 
+mutation ReportAppliedIntentsRequest($intents: [IntentRequestInput!]!) {
+    reportAppliedIntentsRequest(intents: $intents)
+}
+
+mutation GetAppliedIntentsRequestStatus($intentResourceGenerations: [IntentRequestResourceGeneration!]!) {
+    syncPendingRequestStatuses(
+        intentResourceGeneration: $intentResourceGenerations
+    ) {
+        resourceId
+        generation
+        reason
+        status
+    }
+}
+
 query dummy {
     dummyError
 }

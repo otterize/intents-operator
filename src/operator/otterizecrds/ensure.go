@@ -11,6 +11,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//go:embed approvedclientintents-customresourcedefinition.yaml
+var approvedClientIntentsCRDContents []byte
+
 //go:embed clientintents-customresourcedefinition.yaml
 var clientIntentsCRDContents []byte
 
@@ -30,6 +33,10 @@ func Ensure(ctx context.Context, k8sClient client.Client, operatorNamespace stri
 	err := ensureCRD(ctx, k8sClient, operatorNamespace, clientIntentsCRDContents, certPem)
 	if err != nil {
 		return errors.Errorf("failed to ensure CLientIntents CRD: %w", err)
+	}
+	err = ensureCRD(ctx, k8sClient, operatorNamespace, approvedClientIntentsCRDContents, certPem)
+	if err != nil {
+		return errors.Errorf("failed to ensure Approved CLientIntents CRD: %w", err)
 	}
 	err = ensureCRD(ctx, k8sClient, operatorNamespace, protectedServiceCRDContents, certPem)
 	if err != nil {
@@ -56,8 +63,10 @@ func ensureCRD(ctx context.Context, k8sClient client.Client, operatorNamespace s
 	if err != nil {
 		return errors.Errorf("failed to unmarshal ClientIntents CRD: %w", err)
 	}
+
 	crdToCreate.Spec.Conversion.Webhook.ClientConfig.Service.Namespace = operatorNamespace
 	crdToCreate.Spec.Conversion.Webhook.ClientConfig.CABundle = certPem
+
 	crd := apiextensionsv1.CustomResourceDefinition{}
 	err = k8sClient.Get(ctx, types.NamespacedName{Name: crdToCreate.Name}, &crd)
 	if err != nil && !k8serrors.IsNotFound(err) {
@@ -98,6 +107,8 @@ func GetCRDDefinitionByName(name string) (*apiextensionsv1.CustomResourceDefinit
 	var err error
 	crd := apiextensionsv1.CustomResourceDefinition{}
 	switch name {
+	case "approvedclientintents.k8s.otterize.com":
+		err = yaml.Unmarshal(approvedClientIntentsCRDContents, &crd)
 	case "clientintents.k8s.otterize.com":
 		err = yaml.Unmarshal(clientIntentsCRDContents, &crd)
 	case "protectedservices.k8s.otterize.com":

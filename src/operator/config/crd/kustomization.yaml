@@ -2,6 +2,7 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
+- k8s.otterize.com_approvedclientintents.yaml
 - k8s.otterize.com_clientintents.yaml
 - k8s.otterize.com_kafkaserverconfigs.yaml
 - k8s.otterize.com_protectedservices.yaml
@@ -29,6 +30,7 @@ labels:
   pairs:
     app.kubernetes.io/part-of: otterize
 patches:
+- path: patches/webhook_in_approvedclientintents.yaml
 - path: patches/webhook_in_clientintents.yaml
 - path: patches/webhook_in_kafkaserverconfig.yaml
 - path: patches/webhook_in_protectedservice.yaml

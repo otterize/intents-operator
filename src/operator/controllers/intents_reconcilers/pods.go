@@ -37,7 +37,7 @@ func NewPodLabelReconciler(c client.Client, s *runtime.Scheme) *PodLabelReconcil
 func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	namespace := req.NamespacedName.Namespace
 
-	intents := &otterizev2alpha1.ClientIntents{}
+	intents := &otterizev2alpha1.ApprovedClientIntents{}
 	err := r.Get(ctx, req.NamespacedName, intents)
 	if k8serrors.IsNotFound(err) {
 		logrus.WithField("namespacedName", req.String()).Infof("Intents deleted")
@@ -92,7 +92,7 @@ func (r *PodLabelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 }
 
 func (r *PodLabelReconciler) removeLabelsFromPods(
-	ctx context.Context, intents *otterizev2alpha1.ClientIntents) error {
+	ctx context.Context, intents *otterizev2alpha1.ApprovedClientIntents) error {
 
 	logrus.Debugf("Unlabeling pods for Otterize service %s", intents.Spec.Workload.Name)
 

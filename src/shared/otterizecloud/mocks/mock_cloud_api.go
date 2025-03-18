@@ -8,6 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	operator_cloud_client "github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	graphqlclient "github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -35,6 +36,21 @@ func (m *MockCloudClient) EXPECT() *MockCloudClientMockRecorder {
 	return m.recorder
 }
 
+// GetAppliedIntentsRequestsStatus mocks base method.
+func (m *MockCloudClient) GetAppliedIntentsRequestsStatus(ctx context.Context, resourceGenerations []graphqlclient.IntentRequestResourceGeneration) ([]operator_cloud_client.AppliedIntentsRequestStatus, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAppliedIntentsRequestsStatus", ctx, resourceGenerations)
+	ret0, _ := ret[0].([]operator_cloud_client.AppliedIntentsRequestStatus)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAppliedIntentsRequestsStatus indicates an expected call of GetAppliedIntentsRequestsStatus.
+func (mr *MockCloudClientMockRecorder) GetAppliedIntentsRequestsStatus(ctx, resourceGenerations interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedIntentsRequestsStatus", reflect.TypeOf((*MockCloudClient)(nil).GetAppliedIntentsRequestsStatus), ctx, resourceGenerations)
+}
+
 // ReportAppliedIntents mocks base method.
 func (m *MockCloudClient) ReportAppliedIntents(ctx context.Context, namespace *string, intents []*graphqlclient.IntentInput) error {
 	m.ctrl.T.Helper()
@@ -47,6 +63,20 @@ func (m *MockCloudClient) ReportAppliedIntents(ctx context.Context, namespace *s
 func (mr *MockCloudClientMockRecorder) ReportAppliedIntents(ctx, namespace, intents interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportAppliedIntents", reflect.TypeOf((*MockCloudClient)(nil).ReportAppliedIntents), ctx, namespace, intents)
+}
+
+// ReportAppliedIntentsRequest mocks base method.
+func (m *MockCloudClient) ReportAppliedIntentsRequest(ctx context.Context, intents []*graphqlclient.IntentRequestInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReportAppliedIntentsRequest", ctx, intents)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReportAppliedIntentsRequest indicates an expected call of ReportAppliedIntentsRequest.
+func (mr *MockCloudClientMockRecorder) ReportAppliedIntentsRequest(ctx, intents interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportAppliedIntentsRequest", reflect.TypeOf((*MockCloudClient)(nil).ReportAppliedIntentsRequest), ctx, intents)
 }
 
 // ReportClientIntentStatuses mocks base method.
