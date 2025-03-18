@@ -17,10 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"github.com/otterize/intents-operator/src/shared/k8sconf"
-	"path"
-	"time"
-
 	"context"
 	"github.com/bombsimon/logrusr/v3"
 	linkerdauthscheme "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
@@ -42,6 +38,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy/builders"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/operator/controllers/metrics_collection_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/health"
@@ -51,8 +48,10 @@ import (
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
+	"github.com/otterize/intents-operator/src/shared/k8sconf"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -66,9 +65,11 @@ import (
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"net/http"
+	"path"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"time"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -211,6 +212,12 @@ func main() {
 	}
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
+
+	metricsCollectorNetpolHandler := metrics_collection_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowexternaltraffic.Off)
+	metricsCollectorPodReconciler := metrics_collection_traffic.NewPodReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorEndpointsReconciler := metrics_collection_traffic.NewEndpointsReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorServiceReconciler := metrics_collection_traffic.NewServiceReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorNetworkPolicyReconciler := metrics_collection_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 
 	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
@@ -408,6 +415,22 @@ func main() {
 		if err = otterizeCloudReconciler.SetupWithManager(mgr); err != nil {
 			logrus.WithError(err).Panic("unable to create controller", "controller", "OtterizeCloud")
 		}
+	}
+
+	if err = metricsCollectorPodReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Pod")
+	}
+
+	if err = metricsCollectorEndpointsReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Endpoints")
+	}
+
+	if err = metricsCollectorServiceReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Service")
+	}
+
+	if err = metricsCollectorNetworkPolicyReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "NetworkPolicy")
 	}
 
 	if err = endpointReconciler.SetupWithManager(mgr); err != nil {

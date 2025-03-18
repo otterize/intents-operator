@@ -62,6 +62,8 @@ const (
 	OtterizeSvcNetworkPolicy                   = "intents.otterize.com/svc-network-policy"
 	OtterizeNetworkPolicyServiceDefaultDeny    = "intents.otterize.com/network-policy-service-default-deny"
 	OtterizeNetworkPolicyExternalTraffic       = "intents.otterize.com/network-policy-external-traffic"
+	OtterizeNetPolMetricsCollectors            = "intents.otterize.com/network-policy-metrics-collectors"
+	OtterizeNetPolMetricsCollectorsLevel       = "intents.otterize.com/network-policy-metrics-collectors-level"
 	ClientIntentsFinalizerName                 = "intents.otterize.com/client-intents-finalizer"
 	ProtectedServicesFinalizerName             = "intents.otterize.com/protected-services-finalizer"
 	OtterizeIstioClientAnnotationKeyDeprecated = "intents.otterize.com/istio-client"
