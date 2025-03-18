@@ -17,6 +17,14 @@ const (
 	AllowExternalTrafficPolicyIfBlockedByOtterize AllowExternalTrafficPolicy = "IF_BLOCKED_BY_OTTERIZE"
 )
 
+type AllowMetricsCollectionTrafficPolicy string
+
+const (
+	AllowMetricsCollectionTrafficPolicyOff                 AllowMetricsCollectionTrafficPolicy = "OFF"
+	AllowMetricsCollectionTrafficPolicyAlways              AllowMetricsCollectionTrafficPolicy = "ALWAYS"
+	AllowMetricsCollectionTrafficPolicyIfBlockedByOtterize AllowMetricsCollectionTrafficPolicy = "IF_BLOCKED_BY_OTTERIZE"
+)
+
 type AzureKeyVaultPolicyInput struct {
 	CertificatePermissions []*string `json:"certificatePermissions"`
 	KeyPermissions         []*string `json:"keyPermissions"`
@@ -404,6 +412,7 @@ type IntentsOperatorConfigurationInput struct {
 	AwsALBLoadBalancerExemptionEnabled    bool                                   `json:"awsALBLoadBalancerExemptionEnabled"`
 	AllowExternalTrafficPolicy            AllowExternalTrafficPolicy             `json:"allowExternalTrafficPolicy"`
 	ExternallyManagedPolicyWorkloads      []ExternallyManagedPolicyWorkloadInput `json:"externallyManagedPolicyWorkloads"`
+	AllowMetricsCollectionTrafficPolicy   AllowMetricsCollectionTrafficPolicy    `json:"allowMetricsCollectionTrafficPolicy"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -484,6 +493,11 @@ func (v *IntentsOperatorConfigurationInput) GetAllowExternalTrafficPolicy() Allo
 // GetExternallyManagedPolicyWorkloads returns IntentsOperatorConfigurationInput.ExternallyManagedPolicyWorkloads, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetExternallyManagedPolicyWorkloads() []ExternallyManagedPolicyWorkloadInput {
 	return v.ExternallyManagedPolicyWorkloads
+}
+
+// GetAllowMetricsCollectionTrafficPolicy returns IntentsOperatorConfigurationInput.AllowMetricsCollectionTrafficPolicy, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAllowMetricsCollectionTrafficPolicy() AllowMetricsCollectionTrafficPolicy {
+	return v.AllowMetricsCollectionTrafficPolicy
 }
 
 type InternetConfigInput struct {

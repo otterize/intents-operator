@@ -2,6 +2,7 @@ package enforcement
 
 import (
 	"github.com/amit7itz/goset"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/allow_metrics_collection_traffic"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -20,6 +21,7 @@ type Config struct {
 	EnableLinkerdPolicies                bool
 	EnforcedNamespaces                   *goset.Set[string]
 	AllowExternalTraffic                 allowexternaltraffic.Enum
+	AllowMetricsCollectionTraffic        allow_metrics_collection_traffic.Enum
 }
 
 func (c Config) GetActualExternalTrafficPolicy() allowexternaltraffic.Enum {
@@ -40,10 +42,30 @@ func (c Config) GetActualExternalTrafficPolicy() allowexternaltraffic.Enum {
 	}
 }
 
+func (c Config) GetAllowMetricsCollectionTrafficPolicy() allow_metrics_collection_traffic.Enum {
+	// rewrite the above code to use a switch statement
+	switch c.AllowMetricsCollectionTraffic {
+	case allow_metrics_collection_traffic.Off:
+		return allow_metrics_collection_traffic.Off
+	case allow_metrics_collection_traffic.Always:
+		if !c.EnforcementDefaultState {
+			// We don't want to create network policies for metrics collection traffic when enforcement is disabled.
+			// However, if one uses shadow mode we can still block metrics collection traffic to his protected services
+			// therefore we should return allow_metrics_collection_traffic.IfBlockedByOtterize
+			return allow_metrics_collection_traffic.IfBlockedByOtterize
+		}
+		return allow_metrics_collection_traffic.Always
+	default:
+		return allow_metrics_collection_traffic.IfBlockedByOtterize
+	}
+}
+
 const (
 	ActiveEnforcementNamespacesKey              = "active-enforcement-namespaces" // When using the "shadow enforcement" mode, namespaces in this list will be treated as if the enforcement were active
 	AllowExternalTrafficKey                     = "allow-external-traffic"        // Whether to automatically create network policies for external traffic
 	AllowExternalTrafficDefault                 = string(allowexternaltraffic.IfBlockedByOtterize)
+	AllowMetricsCollectionTrafficKey            = "allow-metrics-collection-traffic" // Whether to automatically create network policies for metrics collection traffic
+	AllowMetricsCollectionTrafficDefault        = string(allow_metrics_collection_traffic.IfBlockedByOtterize)
 	EnforcementDefaultStateKey                  = "enforcement-default-state" // Sets the default state of the  If true, always enforces. If false, can be overridden using ProtectedService.
 	EnforcementDefaultStateDefault              = true
 	EnableNetworkPolicyKey                      = "enable-network-policy-creation" // Whether to enable Intents network policy creation
@@ -78,6 +100,7 @@ func init() {
 	viper.SetDefault(EnableGCPPolicyKey, EnableGCPPolicyDefault)
 	viper.SetDefault(EnableAzurePolicyKey, EnableAzurePolicyDefault)
 	viper.SetDefault(AllowExternalTrafficKey, AllowExternalTrafficDefault)
+	viper.SetDefault(AllowMetricsCollectionTrafficKey, AllowMetricsCollectionTrafficDefault)
 }
 
 func InitCLIFlags() {
@@ -92,6 +115,8 @@ func InitCLIFlags() {
 	pflag.Bool(EnableAWSPolicyKey, EnableAWSPolicyDefault, "Enable the AWS IAM reconciler")
 	allowExternalTrafficDefault := AllowExternalTrafficDefault
 	pflag.String(allowExternalTrafficDefault, AllowExternalTrafficKey, "Whether to automatically create network policies for external traffic")
+	allowMetricsCollectionTrafficDefault := AllowMetricsCollectionTrafficDefault
+	pflag.String(AllowMetricsCollectionTrafficKey, allowMetricsCollectionTrafficDefault, "Whether to automatically create network policies for metrics collection traffic")
 }
 
 func GetConfig() Config {
@@ -108,5 +133,6 @@ func GetConfig() Config {
 		EnableAzurePolicy:                    viper.GetBool(EnableAzurePolicyKey),
 		EnforcedNamespaces:                   goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
 		AllowExternalTraffic:                 allowexternaltraffic.Enum(viper.GetString(AllowExternalTrafficKey)),
+		AllowMetricsCollectionTraffic:        allow_metrics_collection_traffic.Enum(viper.GetString(AllowMetricsCollectionTrafficKey)),
 	}
 }
