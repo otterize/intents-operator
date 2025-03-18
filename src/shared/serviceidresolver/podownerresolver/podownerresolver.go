@@ -156,6 +156,12 @@ func GetOwnerObject(ctx context.Context, k8sClient client.Client, pod *corev1.Po
 				)
 				ownerObj.SetName(owner.Name)
 				return ownerObj, nil
+			} else if errors.Is(err, &meta.NoKindMatchError{}) {
+				log.WithError(err).WithFields(logrus.Fields{"owner": owner.Name, "ownerKind": obj.GetObjectKind().GroupVersionKind()}).Warning(
+					"resolving owner failed due to owner kind not found, will use current owner name as service identifier",
+				)
+				ownerObj.SetName(owner.Name)
+				return ownerObj, nil
 			}
 			return nil, errors.Errorf("error querying owner reference: %w", err)
 		}
