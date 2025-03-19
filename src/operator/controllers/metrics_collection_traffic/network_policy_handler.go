@@ -6,7 +6,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
@@ -59,13 +59,13 @@ type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	allowMetricsCollector allowexternaltraffic.Enum
+	allowMetricsCollector automate_third_party_network_policy.Enum
 }
 
 func NewNetworkPolicyHandler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	allowMetricsCollector allowexternaltraffic.Enum,
+	allowMetricsCollector automate_third_party_network_policy.Enum,
 ) *NetworkPolicyHandler {
 	return &NetworkPolicyHandler{
 		client:                client,
@@ -331,7 +331,7 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyIfNeeded(ctx context.Context, p
 	policyName := r.formatPolicyName(pod.scrapeResourceType, serviceId)
 
 	// If configuration is set to "Always", we want to create the network policy regardless of other network policies
-	if r.allowMetricsCollector == allowexternaltraffic.Always {
+	if r.allowMetricsCollector == automate_third_party_network_policy.Always {
 		netpol, errBuild := r.buildNetpolForPod(ctx, pod, policyName, serviceId, scrapeResourceLabel)
 		if errBuild != nil {
 			return v1.NetworkPolicy{}, false, errors.Wrap(errBuild)
@@ -341,7 +341,7 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyIfNeeded(ctx context.Context, p
 	}
 
 	// If configuration is set to "Off", we want to delete the network policy regardless of other network policies
-	if r.allowMetricsCollector == allowexternaltraffic.Off {
+	if r.allowMetricsCollector == automate_third_party_network_policy.Off {
 		return v1.NetworkPolicy{}, false, nil
 	}
 

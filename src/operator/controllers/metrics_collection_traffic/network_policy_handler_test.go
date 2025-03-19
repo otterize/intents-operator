@@ -3,7 +3,7 @@ package metrics_collection_traffic
 import (
 	"context"
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
@@ -86,7 +86,7 @@ func TestNetworkPolicyHandlerTestSuite(t *testing.T) {
 
 func (s *NetworkPolicyHandlerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, allowexternaltraffic.IfBlockedByOtterize)
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.IfBlockedByOtterize)
 	s.handler.InjectRecorder(s.Recorder)
 
 	s.podMarkedForScraping = &corev1.Pod{
@@ -163,7 +163,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 }
 
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_ShouldAddPolicy() {
-	s.setHandler(allowexternaltraffic.Always)
+	s.setHandler(automate_third_party_network_policy.Always)
 	s.mockForReturningScrapePodInListNamespace()
 	s.mockForResolvingScrapingPodIdentity()
 	//s.mockOneExistingOtterizeNetworkPolicies() // would not reach here since configuration is always
@@ -178,7 +178,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Sh
 }
 
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_ShouldDoNothing() {
-	s.setHandler(allowexternaltraffic.Off)
+	s.setHandler(automate_third_party_network_policy.Off)
 	s.mockForReturningScrapePodInListNamespace()
 	s.mockForResolvingScrapingPodIdentity()
 	//s.mockOneExistingOtterizeNetworkPolicies() // would not reach here since configuration is never
@@ -193,7 +193,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_Shoul
 }
 
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_PortNotDefinedWithAnnotation_ShouldAddPolicy_UseAllResourcesPort() {
-	s.setHandler(allowexternaltraffic.Always)
+	s.setHandler(automate_third_party_network_policy.Always)
 	s.podMarkedForScraping.Annotations["prometheus.io/port"] = ""
 	s.podMarkedForScraping.Spec.Containers = []corev1.Container{
 		{
@@ -220,7 +220,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Po
 	s.ExpectEvent(ReasonCreatingMetricsCollectorPolicy)
 }
 
-func (s *NetworkPolicyHandlerTestSuite) setHandler(allowMetricsCollector allowexternaltraffic.Enum) {
+func (s *NetworkPolicyHandlerTestSuite) setHandler(allowMetricsCollector automate_third_party_network_policy.Enum) {
 	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, allowMetricsCollector)
 	s.handler.InjectRecorder(s.Recorder)
 }
