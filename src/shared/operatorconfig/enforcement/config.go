@@ -19,18 +19,18 @@ type Config struct {
 	EnableAzurePolicy                    bool
 	EnableLinkerdPolicies                bool
 	EnforcedNamespaces                   *goset.Set[string]
-	AllowExternalTraffic                 allowexternaltraffic.Enum
+	AutomateThirdPartyNetworkPolicies    allowexternaltraffic.Enum
 }
 
-func (c Config) GetActualExternalTrafficPolicy() allowexternaltraffic.Enum {
+func (c Config) GetAutomateThirdPartyNetworkPolicy() allowexternaltraffic.Enum {
 	// rewrite the above code to use a switch statement
-	switch c.AllowExternalTraffic {
+	switch c.AutomateThirdPartyNetworkPolicies {
 	case allowexternaltraffic.Off:
 		return allowexternaltraffic.Off
 	case allowexternaltraffic.Always:
 		if !c.EnforcementDefaultState {
-			// We don't want to create network policies for external traffic when enforcement is disabled.
-			// However, if one uses shadow mode we can still block external traffic to his protected services
+			// We don't want to create network policies for third parties when enforcement is disabled.
+			// However, if one uses shadow mode we can still block third party traffic to his protected services
 			// therefore we should return allowexternaltraffic.IfBlockedByOtterize
 			return allowexternaltraffic.IfBlockedByOtterize
 		}
@@ -41,9 +41,9 @@ func (c Config) GetActualExternalTrafficPolicy() allowexternaltraffic.Enum {
 }
 
 const (
-	ActiveEnforcementNamespacesKey              = "active-enforcement-namespaces" // When using the "shadow enforcement" mode, namespaces in this list will be treated as if the enforcement were active
-	AllowExternalTrafficKey                     = "allow-external-traffic"        // Whether to automatically create network policies for external traffic
-	AllowExternalTrafficDefault                 = string(allowexternaltraffic.IfBlockedByOtterize)
+	ActiveEnforcementNamespacesKey              = "active-enforcement-namespaces"         // When using the "shadow enforcement" mode, namespaces in this list will be treated as if the enforcement were active
+	AutomateThirdPartyNetworkPoliciesKey        = "automate-third-party-network-policies" // Whether to automatically create network policies for external traffic & metrics collection traffic
+	AutomateThirdPartyNetworkPoliciesDefault    = string(allowexternaltraffic.IfBlockedByOtterize)
 	EnforcementDefaultStateKey                  = "enforcement-default-state" // Sets the default state of the  If true, always enforces. If false, can be overridden using ProtectedService.
 	EnforcementDefaultStateDefault              = true
 	EnableNetworkPolicyKey                      = "enable-network-policy-creation" // Whether to enable Intents network policy creation
@@ -77,7 +77,7 @@ func init() {
 	viper.SetDefault(EnableAWSPolicyKey, EnableAWSPolicyDefault)
 	viper.SetDefault(EnableGCPPolicyKey, EnableGCPPolicyDefault)
 	viper.SetDefault(EnableAzurePolicyKey, EnableAzurePolicyDefault)
-	viper.SetDefault(AllowExternalTrafficKey, AllowExternalTrafficDefault)
+	viper.SetDefault(AutomateThirdPartyNetworkPoliciesKey, AutomateThirdPartyNetworkPoliciesDefault)
 }
 
 func InitCLIFlags() {
@@ -90,8 +90,8 @@ func InitCLIFlags() {
 	pflag.Bool(EnableDatabasePolicy, EnableDatabasePolicyDefault, "Enable the database reconciler")
 	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
 	pflag.Bool(EnableAWSPolicyKey, EnableAWSPolicyDefault, "Enable the AWS IAM reconciler")
-	allowExternalTrafficDefault := AllowExternalTrafficDefault
-	pflag.String(allowExternalTrafficDefault, AllowExternalTrafficKey, "Whether to automatically create network policies for external traffic")
+	automateThirdPartyNetworkPoliciesKeyDefault := AutomateThirdPartyNetworkPoliciesDefault
+	pflag.String(automateThirdPartyNetworkPoliciesKeyDefault, AutomateThirdPartyNetworkPoliciesKey, "Whether to automatically create network policies for third parties traffic, like external traffic and metrics collection traffic")
 }
 
 func GetConfig() Config {
@@ -107,6 +107,6 @@ func GetConfig() Config {
 		EnableGCPPolicy:                      viper.GetBool(EnableGCPPolicyKey),
 		EnableAzurePolicy:                    viper.GetBool(EnableAzurePolicyKey),
 		EnforcedNamespaces:                   goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
-		AllowExternalTraffic:                 allowexternaltraffic.Enum(viper.GetString(AllowExternalTrafficKey)),
+		AutomateThirdPartyNetworkPolicies:    allowexternaltraffic.Enum(viper.GetString(AutomateThirdPartyNetworkPoliciesKey)),
 	}
 }

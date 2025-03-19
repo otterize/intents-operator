@@ -114,6 +114,7 @@ const (
 	EventTypeActive                      EventType = "ACTIVE"
 	EventTypeEbpfAttached                EventType = "EBPF_ATTACHED"
 	EventTypeEbpfAttachFailed            EventType = "EBPF_ATTACH_FAILED"
+	EventTypeEbpfProcessingError         EventType = "EBPF_PROCESSING_ERROR"
 )
 
 type MetadataEntry struct {

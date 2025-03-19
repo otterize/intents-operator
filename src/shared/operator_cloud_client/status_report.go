@@ -58,8 +58,8 @@ func reportStatus(ctx context.Context, client CloudClient) {
 	client.ReportComponentStatus(timeoutCtx, graphqlclient.ComponentTypeIntentsOperator)
 }
 
-func getAllowExternalConfig() graphqlclient.AllowExternalTrafficPolicy {
-	switch enforcement.GetConfig().AllowExternalTraffic {
+func getAutomateThirdPartyNetworkPoliciesConfig() graphqlclient.AllowExternalTrafficPolicy {
+	switch enforcement.GetConfig().AutomateThirdPartyNetworkPolicies {
 	case allowexternaltraffic.Always:
 		return graphqlclient.AllowExternalTrafficPolicyAlways
 	case allowexternaltraffic.Off:
@@ -115,7 +115,8 @@ func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Ma
 		LinkerdPolicyEnforcementEnabled:       enforcementConfig.EnableLinkerdPolicies && isLinkerdInstalled,
 		ProtectedServicesEnabled:              enforcementConfig.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 		EnforcedNamespaces:                    enforcementConfig.EnforcedNamespaces.Items(),
-		AllowExternalTrafficPolicy:            getAllowExternalConfig(),
+		AllowExternalTrafficPolicy:            getAutomateThirdPartyNetworkPoliciesConfig(), // This is required for backwards compatibility
+		AutomateThirdPartyNetworkPolicies:     getAutomateThirdPartyNetworkPoliciesConfig(),
 	}
 
 	configInput.IngressControllerConfig = lo.Map(ingressConfigIdentities, func(identity serviceidentity.ServiceIdentity, _ int) graphqlclient.IngressControllerConfigInput {
@@ -135,6 +136,6 @@ func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Ma
 	})
 
 	configInput.AwsALBLoadBalancerExemptionEnabled = viper.GetBool(operatorconfig.IngressControllerALBExemptKey)
-
+	
 	client.ReportIntentsOperatorConfiguration(timeoutCtx, configInput)
 }
