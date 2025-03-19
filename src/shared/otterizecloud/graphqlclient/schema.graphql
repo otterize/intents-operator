@@ -215,12 +215,6 @@ enum AllowExternalTrafficPolicy {
 	IF_BLOCKED_BY_OTTERIZE
 }
 
-enum AllowMetricsCollectionTrafficPolicy {
-	OFF
-	ALWAYS
-	IF_BLOCKED_BY_OTTERIZE
-}
-
 enum ApiFieldAction {
 """Do nothing, expose models to the REST API as id-only structs (Default behaviour)"""
 	COLLAPSE_MODEL
@@ -719,8 +713,6 @@ enum EdgeAccessStatusReason {
 	BLOCKED_BY_DEFAULT_DENY_MISSING_EXTERNAL_TRAFFIC_POLICY
 	BLOCKED_BY_APPLIED_INTENTS_MISSING_EXTERNAL_TRAFFIC_POLICY
 	ALLOWED_BY_EXTERNALLY_MANAGED_NETWORK_POLICY
-	ALLOWED_BY_METRICS_COLLECTION_TRAFFIC_NETWORK_POLICY
-	WOULD_BE_ALLOWED_BY_METRICS_COLLECTION_TRAFFIC_NETWORK_POLICY
 }
 
 enum EdgeAccessStatusVerdict {
@@ -825,7 +817,6 @@ type FeatureFlags {
 	enableFindingsV2: Boolean
 	useTypedIntentsCTE: Boolean
 	enableInternetIntentsSuggestions: Boolean
-	enableIAMIntentsSuggestions: Boolean
 }
 
 type Finding {
@@ -1155,7 +1146,6 @@ input InputFeatureFlags {
 	enableFindingsV2: Boolean
 	useTypedIntentsCTE: Boolean
 	enableInternetIntentsSuggestions: Boolean
-	enableIAMIntentsSuggestions: Boolean
 }
 
 """ Findings filter """
@@ -1217,25 +1207,6 @@ input InputServiceFilter {
 	environmentIds: [ID!]
 """ Service filter """
 	integrationIds: [ID!]
-}
-
-input InputTerraformAwsPolicyInfo {
-	arn: String!
-	address: String!
-}
-
-input InputTerraformAwsRoleInfo {
-	arn: String!
-	address: String!
-	inlinePolicy: String!
-	attachedPolicies: [InputTerraformAwsPolicyInfo!]
-}
-
-input InputTerraformResourceInfo {
-	modulePath: String!
-	gitOriginUrl: String!
-	gitCommitHash: String!
-	awsRoles: [InputTerraformAwsRoleInfo!]
 }
 
 input InputTimeFilterValue {
@@ -1459,7 +1430,6 @@ input IntentsOperatorConfigurationInput {
 	awsALBLoadBalancerExemptionEnabled: Boolean
 	allowExternalTrafficPolicy: AllowExternalTrafficPolicy
 	externallyManagedPolicyWorkloads: [ExternallyManagedPolicyWorkloadInput!]
-	allowMetricsCollectionTrafficPolicy: AllowMetricsCollectionTrafficPolicy
 }
 
 type IntentsOperatorState {
@@ -1513,12 +1483,6 @@ input IstioStatusInput {
 	isServiceAccountShared: Boolean!
 	isServerMissingSidecar: Boolean!
 	isClientMissingSidecar: Boolean!
-}
-
-input K8sEligibleForMetricsCollectionResourceInput {
-	namespace: String!
-	name: String!
-	kind: String!
 }
 
 input K8sIngressBackendInput {
@@ -1627,11 +1591,6 @@ input K8sResourceServiceSpecInput {
 
 input K8sResourceServiceStatusInput {
 	loadBalancer: K8sResourceServiceLoadBalancerStatusInput
-}
-
-enum K8sScrapeMetricResource {
-	POD_ANNOTATIONS
-	SERVICE_ANNOTATIONS
 }
 
 input K8sServiceInput {
@@ -2031,11 +1990,6 @@ type Mutation {
 		namespace: String!
 		ingresses: [K8sIngressInput!]!
 	): Boolean!
-	reportK8sEligibleForMetricsCollectionResource(
-		namespace: String!
-		scrapingOrigin: K8sScrapeMetricResource
-		resources: [K8sEligibleForMetricsCollectionResourceInput!]!
-	): Boolean!
 	reportKafkaServerConfigs(
 		namespace: String!
 		serverConfigs: [KafkaServerConfigInput!]!
@@ -2091,10 +2045,6 @@ type Mutation {
 	sendCLITelemetries(
 		telemetries: [CLITelemetry!]!
 	): Boolean!
-"""report terraform resources from Otterize CLI"""
-	reportTerraformResources(
-		resourceInfo: InputTerraformResourceInfo!
-	): TerraformResourceInfo!
 """Update service"""
 	reportTrafficLevels(
 		trafficLevels: [TrafficLevelInput!]!
@@ -2433,12 +2383,6 @@ type Query {
 	serviceByIdentity(
 		identity: ServiceIdentityInput!
 	): Service!
-"""get terraform resource by git identity"""
-	terraformResourceByIdentity(
-		modulePath: String!
-		gitOriginUrl: String!
-		gitCommitHash: String!
-	): TerraformResourceInfo!
 """List users"""
 	users: [User!]!
 """Get user"""
@@ -2772,25 +2716,6 @@ input TelemetryData {
 input TelemetryInput {
 	component: Component!
 	data: TelemetryData!
-}
-
-type TerraformAwsPolicyInfo {
-	arn: String!
-	address: String!
-}
-
-type TerraformAwsRoleInfo {
-	arn: String!
-	address: String!
-	inlinePolicy: String!
-	attachedPolicies: [TerraformAwsPolicyInfo!]
-}
-
-type TerraformResourceInfo {
-	modulePath: String!
-	gitOriginUrl: String!
-	gitCommitHash: String!
-	awsRoles: [TerraformAwsRoleInfo!]
 }
 
 type TestDatabaseConnectionResponse {

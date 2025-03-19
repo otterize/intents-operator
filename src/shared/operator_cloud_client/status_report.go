@@ -5,7 +5,6 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	linkerdmanager "github.com/otterize/intents-operator/src/operator/controllers/linkerd"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allow_metrics_collection_traffic"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
@@ -72,19 +71,6 @@ func getAllowExternalConfig() graphqlclient.AllowExternalTrafficPolicy {
 	}
 }
 
-func getAllowMetricsCollectionTrafficConfig() graphqlclient.AllowMetricsCollectionTrafficPolicy {
-	switch enforcement.GetConfig().AllowMetricsCollectionTraffic {
-	case allow_metrics_collection_traffic.Always:
-		return graphqlclient.AllowMetricsCollectionTrafficPolicyAlways
-	case allow_metrics_collection_traffic.Off:
-		return graphqlclient.AllowMetricsCollectionTrafficPolicyOff
-	case allow_metrics_collection_traffic.IfBlockedByOtterize:
-		return graphqlclient.AllowMetricsCollectionTrafficPolicyIfBlockedByOtterize
-	default:
-		return ""
-	}
-}
-
 func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Manager) {
 	ingressConfigIdentities := operatorconfig.GetIngressControllerServiceIdentities()
 	externallyManagedPolicyWorkloadIdentities := operatorconfig.GetExternallyManagedPoliciesServiceIdentities()
@@ -130,7 +116,6 @@ func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Ma
 		ProtectedServicesEnabled:              enforcementConfig.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 		EnforcedNamespaces:                    enforcementConfig.EnforcedNamespaces.Items(),
 		AllowExternalTrafficPolicy:            getAllowExternalConfig(),
-		AllowMetricsCollectionTrafficPolicy:   getAllowMetricsCollectionTrafficConfig(),
 	}
 
 	configInput.IngressControllerConfig = lo.Map(ingressConfigIdentities, func(identity serviceidentity.ServiceIdentity, _ int) graphqlclient.IngressControllerConfigInput {
