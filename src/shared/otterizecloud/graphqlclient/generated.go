@@ -404,6 +404,7 @@ type IntentsOperatorConfigurationInput struct {
 	AwsALBLoadBalancerExemptionEnabled    bool                                   `json:"awsALBLoadBalancerExemptionEnabled"`
 	AllowExternalTrafficPolicy            AllowExternalTrafficPolicy             `json:"allowExternalTrafficPolicy"`
 	ExternallyManagedPolicyWorkloads      []ExternallyManagedPolicyWorkloadInput `json:"externallyManagedPolicyWorkloads"`
+	AutomateThirdPartyNetworkPolicies     AllowExternalTrafficPolicy             `json:"automateThirdPartyNetworkPolicies"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -484,6 +485,11 @@ func (v *IntentsOperatorConfigurationInput) GetAllowExternalTrafficPolicy() Allo
 // GetExternallyManagedPolicyWorkloads returns IntentsOperatorConfigurationInput.ExternallyManagedPolicyWorkloads, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetExternallyManagedPolicyWorkloads() []ExternallyManagedPolicyWorkloadInput {
 	return v.ExternallyManagedPolicyWorkloads
+}
+
+// GetAutomateThirdPartyNetworkPolicies returns IntentsOperatorConfigurationInput.AutomateThirdPartyNetworkPolicies, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAutomateThirdPartyNetworkPolicies() AllowExternalTrafficPolicy {
+	return v.AutomateThirdPartyNetworkPolicies
 }
 
 type InternetConfigInput struct {

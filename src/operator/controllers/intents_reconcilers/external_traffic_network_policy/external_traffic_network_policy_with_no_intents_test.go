@@ -252,11 +252,11 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestEndpointsRec
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
 
 	enforcementConfig := enforcement.Config{
-		AllowExternalTraffic:    allowexternaltraffic.Always,
-		EnforcementDefaultState: false,
+		AutomateThirdPartyNetworkPolicies: allowexternaltraffic.Always,
+		EnforcementDefaultState:           false,
 	}
-	s.Require().Equal(allowexternaltraffic.IfBlockedByOtterize, enforcementConfig.GetActualExternalTrafficPolicy())
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, enforcementConfig.GetActualExternalTrafficPolicy(), make([]serviceidentity.ServiceIdentity, 0), false)
+	s.Require().Equal(allowexternaltraffic.IfBlockedByOtterize, enforcementConfig.GetAutomateThirdPartyNetworkPolicy())
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, enforcementConfig.GetAutomateThirdPartyNetworkPolicy(), make([]serviceidentity.ServiceIdentity, 0), false)
 	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	recorder := record.NewFakeRecorder(10)
 	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)
