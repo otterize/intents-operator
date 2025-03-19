@@ -19,7 +19,7 @@ import (
 	podreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
@@ -90,7 +90,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupTest() {
 	s.Require().NoError((&otterizev2beta1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2Beta1))
 
 	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Always, make([]serviceidentity.ServiceIdentity, 0), false)
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, automate_third_party_network_policy.Always, make([]serviceidentity.ServiceIdentity, 0), false)
 	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, goset.NewSet[string](), true, true, false, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder()}, nil)
 	serviceIdResolver := serviceidresolver.NewResolver(s.Mgr.GetClient())
 	groupReconciler := effectivepolicy.NewGroupReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, serviceIdResolver, netpolReconciler)
@@ -252,11 +252,11 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestEndpointsRec
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
 
 	enforcementConfig := enforcement.Config{
-		AllowExternalTraffic:    allowexternaltraffic.Always,
-		EnforcementDefaultState: false,
+		AutomateThirdPartyNetworkPolicies: automate_third_party_network_policy.Always,
+		EnforcementDefaultState:           false,
 	}
-	s.Require().Equal(allowexternaltraffic.IfBlockedByOtterize, enforcementConfig.GetActualExternalTrafficPolicy())
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, enforcementConfig.GetActualExternalTrafficPolicy(), make([]serviceidentity.ServiceIdentity, 0), false)
+	s.Require().Equal(automate_third_party_network_policy.IfBlockedByOtterize, enforcementConfig.GetAutomateThirdPartyNetworkPolicy())
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, enforcementConfig.GetAutomateThirdPartyNetworkPolicy(), make([]serviceidentity.ServiceIdentity, 0), false)
 	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	recorder := record.NewFakeRecorder(10)
 	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)

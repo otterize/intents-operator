@@ -6,7 +6,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
@@ -40,7 +40,7 @@ type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	allowExternalTraffic         allowexternaltraffic.Enum
+	allowExternalTraffic         automate_third_party_network_policy.Enum
 	ingressControllerIdentities  []serviceidentity.ServiceIdentity
 	ingressControllerALBAllowAll bool
 }
@@ -48,7 +48,7 @@ type NetworkPolicyHandler struct {
 func NewNetworkPolicyHandler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	allowExternalTraffic allowexternaltraffic.Enum,
+	allowExternalTraffic automate_third_party_network_policy.Enum,
 	ingressControllerIdentities []serviceidentity.ServiceIdentity,
 	ingressControllerALBAllowAll bool,
 ) *NetworkPolicyHandler {
@@ -207,7 +207,7 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 //	that related external policies will be removed as well (if needed)
 func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error {
 	// if allowExternalTraffic is Always - external policies are not dependent on access policies
-	if r.allowExternalTraffic == allowexternaltraffic.Always {
+	if r.allowExternalTraffic == automate_third_party_network_policy.Always {
 		return nil
 	}
 
@@ -426,7 +426,7 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		})
 
 		if !hasIngressRules {
-			if r.allowExternalTraffic == allowexternaltraffic.Always {
+			if r.allowExternalTraffic == automate_third_party_network_policy.Always {
 				err := r.handleNetpolsForOtterizeServiceWithoutIntents(ctx, endpoints, serverLabel, ingressList)
 				if err != nil {
 					return errors.Wrap(err)
@@ -449,7 +449,7 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 
 	}
 
-	if !foundOtterizeNetpolsAffectingPods && r.allowExternalTraffic != allowexternaltraffic.Always {
+	if !foundOtterizeNetpolsAffectingPods && r.allowExternalTraffic != automate_third_party_network_policy.Always {
 		policyName := r.formatPolicyName(endpoints.Name)
 		err := r.handlePolicyDelete(ctx, policyName, endpoints.Namespace)
 		if err != nil {
@@ -530,7 +530,7 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 	}
 
 	// delete policy if disabled
-	if r.allowExternalTraffic == allowexternaltraffic.Off {
+	if r.allowExternalTraffic == automate_third_party_network_policy.Off {
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {
 			return errors.Wrap(err)
