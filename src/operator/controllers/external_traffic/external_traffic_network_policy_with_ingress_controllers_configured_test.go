@@ -1,4 +1,4 @@
-package external_traffic_network_policy
+package external_traffic
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	"github.com/otterize/intents-operator/src/operator/controllers"
-	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
@@ -54,12 +53,12 @@ const ingressControllerHashedName = "ingress-controller-ingress-nginx-53b476"
 
 type ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
-	IngressReconciler                *external_traffic.IngressReconciler
-	endpointReconciler               external_traffic.EndpointsReconciler
+	IngressReconciler                *IngressReconciler
+	endpointReconciler               EndpointsReconciler
 	EffectivePolicyIntentsReconciler *intents_reconcilers.ServiceEffectivePolicyIntentsReconciler
 	podWatcher                       *pod_reconcilers.PodWatcher
 	defaultDenyReconciler            *protected_service_reconcilers.DefaultDenyReconciler
-	netpolHandler                    *external_traffic.NetworkPolicyHandler
+	netpolHandler                    *NetworkPolicyHandler
 }
 
 func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuite) SetupSuite() {
@@ -104,7 +103,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	testName := s.T().Name()
 	isShadowMode := strings.Contains(testName, "ShadowMode")
 	defaultActive := !isShadowMode
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.IfBlockedByOtterize, []serviceidentity.ServiceIdentity{
+	netpolHandler := NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.IfBlockedByOtterize, []serviceidentity.ServiceIdentity{
 		{
 			Kind:      "Deployment",
 			Namespace: ingressControllerNamespace,
@@ -119,12 +118,12 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
 	s.EffectivePolicyIntentsReconciler.InjectRecorder(recorder)
 
-	s.endpointReconciler = external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
+	s.endpointReconciler = NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.endpointReconciler.InjectRecorder(recorder)
 	err := s.endpointReconciler.InitIngressReferencedServicesIndex(s.Mgr)
 	s.Require().NoError(err)
 
-	s.IngressReconciler = external_traffic.NewIngressReconciler(s.Mgr.GetClient(), netpolHandler)
+	s.IngressReconciler = NewIngressReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.IngressReconciler.InjectRecorder(recorder)
 	s.Require().NoError(err)
 
@@ -173,7 +172,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NoError(err)
 
 	// make sure the ingress network policy doesn't exist yet
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -242,7 +241,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	})
 
 	// make sure the ingress network policy doesn't exist yet
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -311,7 +310,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	})
 
 	// make sure the ingress network policy doesn't exist yet
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -400,7 +399,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NoError(err)
 
 	// make sure the ingress network policy doesn't exist yet
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -482,7 +481,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	s.Require().NoError(err)
 
 	// make sure the ingress network policy doesn't exist yet
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -556,7 +555,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the load balancer network policy doesn't exist yet
 	loadBalancerServiceName := serviceName + "-lb"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
@@ -620,7 +619,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the load balancer network policy doesn't exist yet
 	loadBalancerServiceName := serviceName + "-lb"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, netpol)
 		assert.True(errors.IsNotFound(err))
@@ -732,7 +731,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the load balancer network policy doesn't exist yet
 	loadBalancerServiceName := serviceName + "-lb"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -829,7 +828,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the load balancer network policy doesn't exist yet
 	nodePortServiceName := serviceName + "-np"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
 
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
@@ -892,7 +891,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// make sure the load balancer network policy doesn't exist yet
 	nodePortServiceName := serviceName + "-np"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
@@ -900,14 +899,14 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
 
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Off, []serviceidentity.ServiceIdentity{
+	netpolHandler := NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Off, []serviceidentity.ServiceIdentity{
 		{
 			Namespace: s.TestNamespace,
 			Name:      ingressControllerName,
 			Kind:      "Deployment",
 		},
 	}, false)
-	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
+	endpointReconcilerWithEnforcementDisabled := NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	recorder := record.NewFakeRecorder(10)
 	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)
 
@@ -926,7 +925,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	})
 	select {
 	case event := <-recorder.Events:
-		s.Require().Contains(event, external_traffic.ReasonEnforcementGloballyDisabled)
+		s.Require().Contains(event, ReasonEnforcementGloballyDisabled)
 	default:
 		s.Fail("event not raised")
 	}
@@ -967,7 +966,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// Verify that the network policy allows all ingress traffic
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: ingressNamespace, Name: policyName}, np)
 		assert.NoError(err)
@@ -1014,7 +1013,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	// Verify that the network policy allows all ingress traffic
 	np := &v1.NetworkPolicy{}
-	policyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	policyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: ingressNamespace, Name: policyName}, np)
 		assert.NoError(err)
