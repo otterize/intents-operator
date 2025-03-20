@@ -19,16 +19,6 @@ func init() {
 	SchemeBuilder.Register(&ApprovedClientIntents{}, &ApprovedClientIntentsList{})
 }
 
-// +kubebuilder:validation:Enum=CREATED;PENDING;IN PROGRESS;FAILED
-type PolicyStatus string
-
-const (
-	PolicyStatusSuccess    PolicyStatus = "CREATED SUCCESSFULLY"
-	PolicyStatusPending    PolicyStatus = "PENDING"
-	PolicyStatusInProgress PolicyStatus = "IN PROGRESS"
-	PolicyStatusFailed     PolicyStatus = "FAILED"
-)
-
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 //+kubebuilder:storageversion
