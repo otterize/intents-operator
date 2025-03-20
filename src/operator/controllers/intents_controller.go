@@ -165,7 +165,7 @@ func (r *IntentsReconciler) handleClientIntentsChanged(ctx context.Context, inte
 	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
 		return ctrl.Result{}, errors.Wrap(err)
 	}
-	r.RecordNormalEventf(intents, ReasonReviewStatusChanged, "Generation %d: Updated review status to %s", intents.Generation, otterizev2alpha1.ReviewStatusPending)
+	r.RecordNormalEventf(intents, ReasonReviewStatusChanged, "Updated review status to %s (for generation %d)", otterizev2alpha1.ReviewStatusPending, intents.Generation)
 	// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
 	// and that we don't trigger an infinite loop
 	return ctrl.Result{}, nil
@@ -472,7 +472,7 @@ func (r *IntentsReconciler) updateClientIntentsStatus(ctx context.Context, inten
 	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
 		return errors.Wrap(err)
 	}
-	r.RecordWarningEventf(&intents, ReasonReviewStatusChanged, "Generation %d: Updated review status to %s", intents.Generation, status)
+	r.RecordNormalEventf(&intents, ReasonReviewStatusChanged, "Updated review status to %s (for generation %d)", status, intents.Generation)
 	logrus.WithFields(logrus.Fields{
 		"clientIntents.name":       intentsCopy.Name,
 		"clientIntents.namespaces": intentsCopy.Namespace,
