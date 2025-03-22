@@ -27,7 +27,6 @@ import (
 )
 
 const (
-	ReasonEnforcementGloballyDisabled         = "EnforcementGloballyDisabled"
 	ReasonCreatingExternalTrafficPolicyFailed = "CreatingExternalTrafficPolicyFailed"
 	ReasonCreatedExternalTrafficPolicy        = "CreatedExternalTrafficPolicy"
 	ReasonGettingExternalTrafficPolicyFailed  = "GettingExternalTrafficPolicyFailed"
@@ -35,7 +34,7 @@ const (
 	ReasonRemovingExternalTrafficPolicyFailed = "RemovingExternalTrafficPolicyFailed"
 	ReasonRemovedExternalTrafficPolicy        = "RemovedExternalTrafficPolicy"
 	OtterizeExternalNetworkPolicyNameTemplate = "external-access-to-%s"
-	successMsgNetpolCreate                    = "created external traffic network policy. service '%s' refers to pods protected by network policy '%s'"
+	successMsgNetpolCreate                    = "Created external traffic network policy. service '%s' refers to pods protected by network policy '%s'"
 )
 
 type NetworkPolicyHandler struct {
@@ -76,10 +75,10 @@ func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 		return errors.Wrap(err)
 	}
 	existingPolicy := &v1.NetworkPolicy{}
-	errGetExistingPolicy := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
+	err = r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
 
 	// No matching network policy found, create one
-	if k8serrors.IsNotFound(errGetExistingPolicy) {
+	if k8serrors.IsNotFound(err) {
 		logrus.Debugf("Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
 		err := r.client.Create(ctx, newPolicy)
 		if err != nil {
@@ -87,9 +86,9 @@ func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 		}
 		r.RecordNormalEvent(owner, ReasonCreatedExternalTrafficPolicy, successMsg)
 		return nil
-	} else if errGetExistingPolicy != nil {
+	} else if err != nil {
 		r.RecordWarningEventf(owner, ReasonGettingExternalTrafficPolicyFailed, "failed to get external traffic network policy: %s", err.Error())
-		return errGetExistingPolicy
+		return errors.Wrap(err)
 	}
 
 	// Found matching policy, is an update needed?
@@ -507,19 +506,19 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 		ownerObj.SetKind(ownerRef.Kind)
 		err := r.client.Get(ctx, types.NamespacedName{Name: ownerRef.Name, Namespace: policyNamespace}, ownerObj)
 		if err != nil {
-			logrus.Debugf("can't get the owner of %s. So no events will be recorded for the deletion", policyName)
+			logrus.Debugf("Can't get the owner of %s. So no events will be recorded for the deletion", policyName)
 		}
 		owner = ownerObj
 	}
 
-	r.RecordNormalEvent(owner, ReasonRemovingExternalTrafficPolicy, "removing external traffic network policy, reconciler was disabled")
+	r.RecordNormalEvent(owner, ReasonRemovingExternalTrafficPolicy, "Removing external traffic network policy")
 
 	err = r.client.Delete(ctx, policy)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		r.RecordWarningEventf(owner, ReasonRemovingExternalTrafficPolicyFailed, "failed removing external traffic network policy: %s", err.Error())
+		r.RecordWarningEventf(owner, ReasonRemovingExternalTrafficPolicyFailed, "Failed removing external traffic network policy: %s", err.Error())
 		return errors.Wrap(err)
 	}
-	r.RecordNormalEvent(owner, ReasonRemovedExternalTrafficPolicy, "removed external traffic network policy, success")
+	r.RecordNormalEvent(owner, ReasonRemovedExternalTrafficPolicy, "Removed external traffic network policy")
 
 	return nil
 }
@@ -533,7 +532,6 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 
 	// delete policy if disabled
 	if r.allowExternalTraffic == allowexternaltraffic.Off {
-		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {
 			return errors.Wrap(err)
