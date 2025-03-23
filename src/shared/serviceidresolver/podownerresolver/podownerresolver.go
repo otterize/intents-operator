@@ -53,16 +53,16 @@ func ResolvePodToServiceIdentityUsingImageName(pod *corev1.Pod) string {
 }
 
 func ResolvePodToServiceIdentityUsingAnnotationOnly(pod *corev1.Pod) (string, bool) {
-	annotation, ok := pod.Annotations[viper.GetString(WorkloadNameOverrideAnnotationKey)]
+	nameFromAnnotation, ok := pod.Annotations[viper.GetString(WorkloadNameOverrideAnnotationKey)]
 	if ok {
-		return annotation, ok
+		return nameFromAnnotation, ok
 	}
 	return resolvePodToServiceIdentityUsingDeprecatedAnnotationOnly(pod)
 }
 
 func resolvePodToServiceIdentityUsingDeprecatedAnnotationOnly(pod *corev1.Pod) (string, bool) {
-	annotation, ok := pod.Annotations[ServiceNameOverrideAnnotationDeprecated]
-	return annotation, ok
+	nameFromAnnotation, ok := pod.Annotations[ServiceNameOverrideAnnotationDeprecated]
+	return nameFromAnnotation, ok
 }
 
 func ResolvePodToServiceIdentity(ctx context.Context, k8sClient client.Client, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error) {
@@ -91,7 +91,7 @@ func ResolvePodToServiceIdentity(ctx context.Context, k8sClient client.Client, p
 func resolvePodToServiceIdentity(ctx context.Context, k8sClient client.Client, pod *corev1.Pod) (serviceidentity.ServiceIdentity, error) {
 	annotatedServiceName, ok := ResolvePodToServiceIdentityUsingAnnotationOnly(pod)
 	if ok {
-		return serviceidentity.ServiceIdentity{Name: annotatedServiceName, Namespace: pod.Namespace}, nil
+		return serviceidentity.ServiceIdentity{Name: annotatedServiceName, Namespace: pod.Namespace, ResolvedUsingOverrideAnnotation: true}, nil
 	}
 	ownerObj, err := GetOwnerObject(ctx, k8sClient, pod)
 	if err != nil {
