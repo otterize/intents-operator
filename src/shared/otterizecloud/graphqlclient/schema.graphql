@@ -1483,6 +1483,7 @@ input IntentsOperatorConfigurationInput {
 	allowExternalTrafficPolicy: AllowExternalTrafficPolicy
 	externallyManagedPolicyWorkloads: [ExternallyManagedPolicyWorkloadInput!]
 	automateThirdPartyNetworkPolicies: AutomateThirdPartyNetworkPolicy
+	metricsScrapingServerConfig: [MetricsScrapingServerConfigInput!]
 }
 
 type IntentsOperatorState {
@@ -1797,6 +1798,12 @@ type MergedYAMLFile {
 input MetadataEntry {
 	key: String!
 	value: String!
+}
+
+input MetricsScrapingServerConfigInput {
+	name: String!
+	namespace: String!
+	kind: String!
 }
 
 type Mutation {

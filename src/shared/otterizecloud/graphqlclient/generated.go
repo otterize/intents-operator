@@ -426,6 +426,7 @@ type IntentsOperatorConfigurationInput struct {
 	AllowExternalTrafficPolicy            AllowExternalTrafficPolicy             `json:"allowExternalTrafficPolicy"`
 	ExternallyManagedPolicyWorkloads      []ExternallyManagedPolicyWorkloadInput `json:"externallyManagedPolicyWorkloads"`
 	AutomateThirdPartyNetworkPolicies     AutomateThirdPartyNetworkPolicy        `json:"automateThirdPartyNetworkPolicies"`
+	MetricsScrapingServerConfig           []MetricsScrapingServerConfigInput     `json:"metricsScrapingServerConfig"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -511,6 +512,11 @@ func (v *IntentsOperatorConfigurationInput) GetExternallyManagedPolicyWorkloads(
 // GetAutomateThirdPartyNetworkPolicies returns IntentsOperatorConfigurationInput.AutomateThirdPartyNetworkPolicies, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetAutomateThirdPartyNetworkPolicies() AutomateThirdPartyNetworkPolicy {
 	return v.AutomateThirdPartyNetworkPolicies
+}
+
+// GetMetricsScrapingServerConfig returns IntentsOperatorConfigurationInput.MetricsScrapingServerConfig, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetMetricsScrapingServerConfig() []MetricsScrapingServerConfigInput {
+	return v.MetricsScrapingServerConfig
 }
 
 type InternetConfigInput struct {
@@ -653,6 +659,21 @@ const (
 	KubernetesServiceTypeClusterIp    KubernetesServiceType = "CLUSTER_IP"
 	KubernetesServiceTypeExternalName KubernetesServiceType = "EXTERNAL_NAME"
 )
+
+type MetricsScrapingServerConfigInput struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Kind      string `json:"kind"`
+}
+
+// GetName returns MetricsScrapingServerConfigInput.Name, and is useful for accessing the field via an interface.
+func (v *MetricsScrapingServerConfigInput) GetName() string { return v.Name }
+
+// GetNamespace returns MetricsScrapingServerConfigInput.Namespace, and is useful for accessing the field via an interface.
+func (v *MetricsScrapingServerConfigInput) GetNamespace() string { return v.Namespace }
+
+// GetKind returns MetricsScrapingServerConfigInput.Kind, and is useful for accessing the field via an interface.
+func (v *MetricsScrapingServerConfigInput) GetKind() string { return v.Kind }
 
 type NetworkPolicyEgressRuleInput struct {
 	To []PeerInput `json:"to"`
