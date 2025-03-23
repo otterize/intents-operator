@@ -823,16 +823,27 @@ func (in *Target) ConvertToCloudFormat(ctx context.Context, k8sClient client.Cli
 				serverServiceIdentity = si
 			}
 		}
+	} else if in.Kubernetes != nil && in.Kubernetes.Kind == "" && serverServiceIdentity.ResolvedUsingOverrideAnnotation == nil {
+		nameResolvedUsingAnnotation, ok, err := getIsNameResolvedUsingAnnotation(ctx, k8sClient, serverServiceIdentity)
+		if err != nil {
+			// no need to fail here, just log the error
+			logrus.Errorf("Failed to get resolved using annotation for server service identity %s", serverServiceIdentity.GetNameAsServer())
+		}
+		if ok {
+			serverServiceIdentity.ResolvedUsingOverrideAnnotation = nameResolvedUsingAnnotation
+		}
 	}
 
 	intentInput := graphqlclient.IntentInput{
-		ClientName:         lo.ToPtr(clientServiceIdentity.Name),
-		ClientWorkloadKind: lo.Ternary(clientServiceIdentity.Kind != serviceidentity.KindOtterizeLegacy, lo.ToPtr(clientServiceIdentity.Kind), nil),
-		ServerName:         lo.ToPtr(serverServiceIdentity.Name),
-		ServerWorkloadKind: lo.Ternary(serverServiceIdentity.Kind != serviceidentity.KindOtterizeLegacy, lo.ToPtr(serverServiceIdentity.Kind), nil),
-		Namespace:          lo.ToPtr(clientServiceIdentity.Namespace),
-		ServerNamespace:    toPtrOrNil(in.GetTargetServerNamespace(clientServiceIdentity.Namespace)),
-		ServerAlias:        alias,
+		ClientName:                        lo.ToPtr(clientServiceIdentity.Name),
+		ClientWorkloadKind:                lo.Ternary(clientServiceIdentity.Kind != serviceidentity.KindOtterizeLegacy, lo.ToPtr(clientServiceIdentity.Kind), nil),
+		ClientNameResolvedUsingAnnotation: clientServiceIdentity.ResolvedUsingOverrideAnnotation,
+		ServerName:                        lo.ToPtr(serverServiceIdentity.Name),
+		ServerWorkloadKind:                lo.Ternary(serverServiceIdentity.Kind != serviceidentity.KindOtterizeLegacy, lo.ToPtr(serverServiceIdentity.Kind), nil),
+		Namespace:                         lo.ToPtr(clientServiceIdentity.Namespace),
+		ServerNamespace:                   toPtrOrNil(in.GetTargetServerNamespace(clientServiceIdentity.Namespace)),
+		ServerAlias:                       alias,
+		ServerNameResolvedUsingAnnotation: serverServiceIdentity.ResolvedUsingOverrideAnnotation,
 	}
 	if gqlType := in.typeAsGQLType(); gqlType != "" {
 		intentInput.Type = lo.ToPtr(gqlType)
@@ -910,6 +921,29 @@ func (in *Target) ConvertToCloudFormat(ctx context.Context, k8sClient client.Cli
 	}
 
 	return intentInput, nil
+}
+
+func getIsNameResolvedUsingAnnotation(ctx context.Context, k8sClient client.Client, serverServiceIdentity serviceidentity.ServiceIdentity) (*bool, bool, error) {
+	labelSelector, ok, err := ServiceIdentityToLabelsForWorkloadSelection(ctx, k8sClient, serverServiceIdentity)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+	podList := &corev1.PodList{}
+	err = k8sClient.List(ctx, podList, client.InNamespace(serverServiceIdentity.Namespace), client.MatchingLabels(labelSelector))
+	if err != nil {
+		return nil, false, err
+	}
+	if len(podList.Items) > 0 {
+		si, err := podownerresolver.ResolvePodToServiceIdentity(ctx, k8sClient, &podList.Items[0])
+		if err != nil {
+			return nil, false, err
+		}
+		return si.ResolvedUsingOverrideAnnotation, true, nil
+	}
+	return nil, false, nil
 }
 
 func intentsHTTPResourceToCloud(resource HTTPTarget, _ int) *graphqlclient.HTTPConfigInput {

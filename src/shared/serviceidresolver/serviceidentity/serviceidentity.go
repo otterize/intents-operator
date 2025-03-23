@@ -18,7 +18,7 @@ type ServiceIdentity struct {
 	Name                            string
 	Namespace                       string
 	Kind                            string
-	ResolvedUsingOverrideAnnotation bool
+	ResolvedUsingOverrideAnnotation *bool
 	// OwnerObject used to resolve the service name. May be nil if service name was resolved using annotation.
 	OwnerObject client.Object
 }
