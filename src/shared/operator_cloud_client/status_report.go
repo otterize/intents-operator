@@ -71,6 +71,16 @@ func getAutomateThirdPartyNetworkPoliciesConfig() graphqlclient.AutomateThirdPar
 	}
 }
 
+func getMetricsScrapingServiceIdentities() []graphqlclient.MetricsScrapingServerConfigInput {
+	return lo.Map(enforcement.GetConfig().MetricsScrapingServiceIdentities, func(item serviceidentity.ServiceIdentity, _ int) graphqlclient.MetricsScrapingServerConfigInput {
+		return graphqlclient.MetricsScrapingServerConfigInput{
+			Name:      item.Name,
+			Namespace: item.Namespace,
+			Kind:      item.Kind,
+		}
+	})
+}
+
 func getAllowExternalTrafficConfig() graphqlclient.AllowExternalTrafficPolicy {
 	switch enforcement.GetConfig().AutomateThirdPartyNetworkPolicies {
 	case automate_third_party_network_policy.Always:
@@ -130,6 +140,7 @@ func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Ma
 		EnforcedNamespaces:                    enforcementConfig.EnforcedNamespaces.Items(),
 		AllowExternalTrafficPolicy:            getAllowExternalTrafficConfig(), // The server expect for AllowExternalTrafficPolicy because of backwards compatibility
 		AutomateThirdPartyNetworkPolicies:     getAutomateThirdPartyNetworkPoliciesConfig(),
+		MetricsScrapingServerConfig:           getMetricsScrapingServiceIdentities(),
 	}
 
 	configInput.IngressControllerConfig = lo.Map(ingressConfigIdentities, func(identity serviceidentity.ServiceIdentity, _ int) graphqlclient.IngressControllerConfigInput {
