@@ -3,6 +3,9 @@ package enforcement
 import (
 	"github.com/amit7itz/goset"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
+	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -20,6 +23,7 @@ type Config struct {
 	EnableLinkerdPolicies                bool
 	EnforcedNamespaces                   *goset.Set[string]
 	AutomateThirdPartyNetworkPolicies    automate_third_party_network_policy.Enum
+	MetricsScrapingServiceIdentities     []serviceidentity.ServiceIdentity
 }
 
 func (c Config) GetAutomateThirdPartyNetworkPolicy() automate_third_party_network_policy.Enum {
@@ -64,6 +68,7 @@ const (
 	EnableGCPPolicyDefault                      = false
 	EnableAzurePolicyKey                        = "enable-azure-iam-policy"
 	EnableAzurePolicyDefault                    = false
+	MetricsCollectionServiceConfigKey           = "metricsScrapingService"
 )
 
 func init() {
@@ -108,5 +113,28 @@ func GetConfig() Config {
 		EnableAzurePolicy:                    viper.GetBool(EnableAzurePolicyKey),
 		EnforcedNamespaces:                   goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
 		AutomateThirdPartyNetworkPolicies:    automate_third_party_network_policy.Enum(viper.GetString(AutomateThirdPartyNetworkPoliciesKey)),
+		MetricsScrapingServiceIdentities:     GetMetricsScrapingServiceIdentities(),
 	}
+}
+
+type ServiceIdentityConfig struct {
+	Name      string
+	Namespace string
+	Kind      string
+}
+
+func GetMetricsScrapingServiceIdentities() []serviceidentity.ServiceIdentity {
+	controllers := make([]ServiceIdentityConfig, 0)
+	err := viper.UnmarshalKey(MetricsCollectionServiceConfigKey, &controllers)
+	if err != nil {
+		logrus.WithError(err).Panic("Failed to unmarshal metrics scraping server config")
+	}
+
+	return lo.Map(controllers, func(controller ServiceIdentityConfig, _ int) serviceidentity.ServiceIdentity {
+		return serviceidentity.ServiceIdentity{
+			Name:      controller.Name,
+			Namespace: controller.Namespace,
+			Kind:      controller.Kind,
+		}
+	})
 }

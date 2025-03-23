@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
@@ -21,6 +22,28 @@ import (
 
 const TEST_NAMESPACE = "test-namespace"
 
+var SCRAPING_METRICS_SERVER = []serviceidentity.ServiceIdentity{{
+	Name:      "prometheus-server",
+	Namespace: "default",
+	Kind:      "Deployment",
+}}
+
+var EXPECTED_NETPOL_FROM = []v1.NetworkPolicyPeer{
+	{
+		PodSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				v2alpha1.OtterizeServiceLabelKey:   SCRAPING_METRICS_SERVER[0].GetFormattedOtterizeIdentityWithoutKind(),
+				v2alpha1.OtterizeOwnerKindLabelKey: SCRAPING_METRICS_SERVER[0].Kind,
+			},
+		},
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				v2alpha1.KubernetesStandardNamespaceNameLabelKey: SCRAPING_METRICS_SERVER[0].Namespace,
+			},
+		},
+	},
+}
+
 var EXPECTRED_NETPOL = v1.NetworkPolicy{
 	ObjectMeta: metav1.ObjectMeta{
 		Namespace:   TEST_NAMESPACE,
@@ -35,6 +58,7 @@ var EXPECTRED_NETPOL = v1.NetworkPolicy{
 		Ingress: []v1.NetworkPolicyIngressRule{
 			{
 				Ports: []v1.NetworkPolicyPort{{}},
+				From:  []v1.NetworkPolicyPeer{},
 			},
 		},
 		PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
@@ -43,10 +67,11 @@ var EXPECTRED_NETPOL = v1.NetworkPolicy{
 
 type NetworkPolicyMatcher struct {
 	expectedPorts []int32
+	expectedFrom  []v1.NetworkPolicyPeer
 }
 
-func NewNetworkPolicyMatcher(expectedPorts []int32) *NetworkPolicyMatcher {
-	return &NetworkPolicyMatcher{expectedPorts: expectedPorts}
+func NewNetworkPolicyMatcher(expectedPorts []int32, expectedFrom []v1.NetworkPolicyPeer) *NetworkPolicyMatcher {
+	return &NetworkPolicyMatcher{expectedPorts: expectedPorts, expectedFrom: expectedFrom}
 }
 
 func (m *NetworkPolicyMatcher) Matches(other interface{}) bool {
@@ -62,6 +87,7 @@ func (m *NetworkPolicyMatcher) Matches(other interface{}) bool {
 		expectedNetpol.Spec.Ingress[0].Ports[i].Port = lo.ToPtr(intstr.IntOrString{Type: intstr.Int, IntVal: m.expectedPorts[i]})
 		expectedNetpol.Spec.Ingress[0].Ports[i].Protocol = lo.ToPtr(corev1.ProtocolTCP)
 	}
+	expectedNetpol.Spec.Ingress[0].From = m.expectedFrom
 
 	return otherAsNetpol.Namespace == TEST_NAMESPACE &&
 		otherAsNetpol.Name == expectedNetpol.Name &&
@@ -86,7 +112,7 @@ func TestNetworkPolicyHandlerTestSuite(t *testing.T) {
 
 func (s *NetworkPolicyHandlerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.IfBlockedByOtterize)
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.IfBlockedByOtterize, SCRAPING_METRICS_SERVER)
 	s.handler.InjectRecorder(s.Recorder)
 
 	s.podMarkedForScraping = &corev1.Pod{
@@ -126,7 +152,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 	s.mockNoExistingMetricCollectionNetworkPolicies()
 	s.mockForRecordingEventExistingPolicy()
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{9090})
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{9090}, EXPECTED_NETPOL_FROM)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAllPodsInNamespace(context.Background(), TEST_NAMESPACE)
 	s.Require().NoError(err)
@@ -155,7 +181,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 	s.mockForGettingExistingPolicyDuringUpdate()
 	s.mockForRecordingEventExistingPolicy()
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{9090})
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{9090}, EXPECTED_NETPOL_FROM)
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.All(netpolMatcher), gomock.Any()).Return(nil)
 	err := s.handler.HandleAllPodsInNamespace(context.Background(), TEST_NAMESPACE)
 	s.Require().NoError(err)
@@ -170,7 +196,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Sh
 	s.mockNoExistingMetricCollectionNetworkPolicies()
 	s.mockForRecordingEventExistingPolicy()
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{9090})
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{9090}, EXPECTED_NETPOL_FROM)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAllPodsInNamespace(context.Background(), TEST_NAMESPACE)
 	s.Require().NoError(err)
@@ -213,15 +239,87 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Po
 	s.mockNoExistingMetricCollectionNetworkPolicies()
 	s.mockForRecordingEventExistingPolicy()
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{1234, 4321})
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{1234, 4321}, EXPECTED_NETPOL_FROM)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAllPodsInNamespace(context.Background(), TEST_NAMESPACE)
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonCreatingMetricsCollectorPolicy)
 }
 
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_MetricsCollectionServerOrderDoesNoHaveAnImpact() {
+	scrapingMetricsServer := []serviceidentity.ServiceIdentity{
+		{
+			Name:      "bbb",
+			Namespace: "default",
+			Kind:      "Deployment",
+		},
+		{
+			Name:      "aaa",
+			Namespace: "default",
+			Kind:      "Deployment",
+		},
+	}
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, scrapingMetricsServer)
+	s.handler.InjectRecorder(s.Recorder)
+	s.mockForReturningScrapePodInListNamespace()
+	s.mockForResolvingScrapingPodIdentity()
+	//s.mockOneExistingOtterizeNetworkPolicies() // would not reach here since configuration is always
+	s.mockNoExistingMetricCollectionNetworkPolicies()
+	s.mockForRecordingEventExistingPolicy()
+
+	expectedFromInNetpol := []v1.NetworkPolicyPeer{
+		{
+			PodSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					v2alpha1.OtterizeServiceLabelKey:   "aaa-default-0dcc78",
+					v2alpha1.OtterizeOwnerKindLabelKey: "Deployment",
+				},
+			},
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					v2alpha1.KubernetesStandardNamespaceNameLabelKey: "default",
+				},
+			},
+		},
+		{
+			PodSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					v2alpha1.OtterizeServiceLabelKey:   "bbb-default-badc93",
+					v2alpha1.OtterizeOwnerKindLabelKey: "Deployment",
+				},
+			},
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					v2alpha1.KubernetesStandardNamespaceNameLabelKey: "default",
+				},
+			},
+		},
+	}
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{9090}, expectedFromInNetpol)
+	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
+	err := s.handler.HandleAllPodsInNamespace(context.Background(), TEST_NAMESPACE)
+	s.Require().NoError(err)
+	s.ExpectEvent(ReasonCreatingMetricsCollectorPolicy)
+}
+
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_NoScrapingMetricsServer_ShouldDoNothing() {
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, make([]serviceidentity.ServiceIdentity, 0))
+	s.handler.InjectRecorder(s.Recorder)
+	s.mockForReturningScrapePodInListNamespace()
+	s.mockForResolvingScrapingPodIdentity()
+	//s.mockOneExistingOtterizeNetworkPolicies() // would not reach here since configuration is never
+	s.mockNoExistingMetricCollectionNetworkPolicies()
+	//s.mockForRecordingEventExistingPolicy() // would not reach here - not creating netpol
+
+	//netpolMatcher := NewNetworkPolicyMatcher() // would not reach here - not creating netpol
+	//s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil) // would not reach here - not creating netpol
+	err := s.handler.HandleAllPodsInNamespace(context.Background(), TEST_NAMESPACE)
+	s.Require().NoError(err)
+	//s.ExpectEvent(ReasonCreatingMetricsCollectorPolicy) // would not reach here - not creating netpol
+}
+
 func (s *NetworkPolicyHandlerTestSuite) setHandler(allowMetricsCollector automate_third_party_network_policy.Enum) {
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, allowMetricsCollector)
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, allowMetricsCollector, SCRAPING_METRICS_SERVER)
 	s.handler.InjectRecorder(s.Recorder)
 }
 

@@ -59,18 +59,27 @@ type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	allowMetricsCollector automate_third_party_network_policy.Enum
+	allowMetricsCollector            automate_third_party_network_policy.Enum
+	metricsScrapingServiceIdentities []serviceidentity.ServiceIdentity
 }
 
 func NewNetworkPolicyHandler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	allowMetricsCollector automate_third_party_network_policy.Enum,
+	metricsScrapingServiceIdentities []serviceidentity.ServiceIdentity,
 ) *NetworkPolicyHandler {
+	// We want to make sure that the order of the metrics scraping server identity is deterministic, since it is parts of
+	// the network policy that would be created, and before creating a new network policy we want compare it with the existing one.
+	// We don't want the order of the metrics scraping server identity to create a difference in the network policy.
+	slices.SortFunc(metricsScrapingServiceIdentities, func(serviceA, serviceB serviceidentity.ServiceIdentity) bool {
+		return serviceA.GetFormattedOtterizeIdentityWithKind() < serviceB.GetFormattedOtterizeIdentityWithKind()
+	})
 	return &NetworkPolicyHandler{
-		client:                client,
-		scheme:                scheme,
-		allowMetricsCollector: allowMetricsCollector,
+		client:                           client,
+		scheme:                           scheme,
+		allowMetricsCollector:            allowMetricsCollector,
+		metricsScrapingServiceIdentities: metricsScrapingServiceIdentities,
 	}
 }
 
@@ -330,6 +339,11 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyIfNeeded(ctx context.Context, p
 
 	policyName := r.formatPolicyName(pod.scrapeResourceType, serviceId)
 
+	// If the scraping metrics server is not defined - we handle this case as if the configuration was off
+	if len(r.metricsScrapingServiceIdentities) == 0 {
+		return v1.NetworkPolicy{}, false, nil
+	}
+
 	// If configuration is set to "Always", we want to create the network policy regardless of other network policies
 	if r.allowMetricsCollector == automate_third_party_network_policy.Always {
 		netpol, errBuild := r.buildNetpolForPod(ctx, pod, policyName, serviceId, scrapeResourceLabel)
@@ -423,6 +437,22 @@ func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *Poten
 	}
 
 	rule := v1.NetworkPolicyIngressRule{}
+
+	for _, serviceIdentity := range r.metricsScrapingServiceIdentities {
+		rule.From = append(rule.From, v1.NetworkPolicyPeer{
+			PodSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					v2alpha1.OtterizeServiceLabelKey:   serviceIdentity.GetFormattedOtterizeIdentityWithoutKind(),
+					v2alpha1.OtterizeOwnerKindLabelKey: serviceIdentity.Kind,
+				},
+			},
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					v2alpha1.KubernetesStandardNamespaceNameLabelKey: serviceIdentity.Namespace,
+				},
+			},
+		})
+	}
 
 	newPolicy := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
