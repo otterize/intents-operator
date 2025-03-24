@@ -518,10 +518,138 @@ jobs:
            # should be blocked (using 3 because the log should repeat itself every 3 lines)
           echo "check client other log - should get timed out because it does not have an applied intent"
           wait_for_log $CLI2_POD 10 "curl timed out"
-  
-  
-  
-  
+
+
+  e2e-test-auto-allow-prometheus-scraping:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Start minikube
+        uses: medyagh/setup-minikube@master
+        with:
+          start-args: "--network-plugin=cni --cni=calico"
+
+      - name: Load images from GitHub Artifacts
+        if: github.repository != 'otterize/intents-operator' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != 'otterize/intents-operator')
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.REGISTRY }}_${{ github.actor }}_intents-operator_${{ github.sha }}.tar
+
+      - name: Load Docker image
+        if: github.repository != 'otterize/intents-operator' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != 'otterize/intents-operator')
+        run: |-
+          docker image load -i intents-operator.tar
+          minikube image load ${{ env.REGISTRY }}/${{ github.actor }}/intents-operator:${{ github.sha }}
+
+      - name: Login to GCR
+        if: (github.event_name == 'push' && github.repository == 'otterize/intents-operator') || github.event.pull_request.head.repo.full_name == 'otterize/intents-operator'
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: _json_key_base64
+          password: ${{ secrets.B64_GCLOUD_SERVICE_ACCOUNT_JSON}}
+
+      - name: Load Docker images from GCR
+        if: (github.event_name == 'push' && github.repository == 'otterize/intents-operator') || github.event.pull_request.head.repo.full_name == 'otterize/intents-operator'
+        run: |-
+          docker pull ${{ env.REGISTRY }}/intents-operator:${{ inputs.operator-tag }}
+          minikube image load ${{ env.REGISTRY }}/intents-operator:${{ inputs.operator-tag }}
+          docker pull ${{ env.REGISTRY }}/intents-operator-webhook-server:${{ inputs.webhook-server-tag }}
+          minikube image load ${{ env.REGISTRY }}/intents-operator-webhook-server:${{ inputs.webhook-server-tag }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+
+      - name: Wait for Calico startup
+        run: |-
+          kubectl wait pods -n kube-system -l k8s-app=calico-kube-controllers --for condition=Ready --timeout=90s
+          kubectl wait pods -n kube-system -l k8s-app=calico-node --for condition=Ready --timeout=90s
+          kubectl wait pods -n kube-system -l k8s-app=calico-kube-controllers --for condition=Ready --timeout=90s
+
+      - name: Install Otterize
+        run: |-
+          OPERATOR_FLAGS="--set-string intentsOperator.operator.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.image=${{ inputs.webhook-server-image }} --set-string intentsOperator.webhookServer.tag=${{ inputs.webhook-server-tag }} --set-string intentsOperator.webhookServer.pullPolicy=Never --set-string intentsOperator.operator.image=${{ inputs.operator-image }} --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
+          TELEMETRY_FLAG="--set global.telemetry.enabled=false"
+          EGRESS_FLAG="--set intentsOperator.operator.enableEgressNetworkPolicyCreation=true"
+          THIRD_PARTY_TRAFFIC_FLAG=`echo --set-string intentsOperator.operator.automateThirdPartyNetworkPolicies=ifBlockedByOtterize --set "intentsOperator.operator.metricsScrapingServiceConfigs[0].name=prometheus-server" --set "intentsOperator.operator.metricsScrapingServiceConfigs[0].namespace=prometheus" --set "intentsOperator.operator.metricsScrapingServiceConfigs[0].kind=Deployment"`
+          helm dep up ./helm-charts/otterize-kubernetes
+          helm install otterize ./helm-charts/otterize-kubernetes -n otterize-system --create-namespace $OPERATOR_FLAGS $TELEMETRY_FLAG $EGRESS_FLAG $THIRD_PARTY_TRAFFIC_FLAG
+
+
+      - name: Install Prometheus
+        run: |-
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
+          helm install prometheus prometheus-community/prometheus -n prometheus --create-namespace
+
+      - name: Deploy Tutorial services
+        run: |-
+          kubectl apply -f ./.github/workflow-helpers/prometheus-test-deployment.yaml
+
+      - name: Wait for Otterize
+        run: |-
+          kubectl wait pods -n otterize-system -l app=intents-operator --for condition=Ready --timeout=360s
+          kubectl wait pods -n otterize-system -l app=intents-operator-webhook-server --for condition=Ready --timeout=360s
+          # wait for webhook to be ready
+          POD_IP=`kubectl get pod -l app=intents-operator-webhook-server -n otterize-system -o=jsonpath='{.items[0].status.podIP}'`
+          kubectl wait -n otterize-system --for=jsonpath='{.subsets[0].addresses[0].ip}'=$POD_IP endpoints/intents-operator-webhook-service
+          # wait for CRD update
+          kubectl wait --for=jsonpath='{.spec.conversion.webhook.clientConfig.service.namespace}'=otterize-system customresourcedefinitions/clientintents.k8s.otterize.com
+
+
+      - name: Wait for Tutorial services
+        run: |-
+          kubectl wait pods -n otterize-tutorial-npol -l app=client --for condition=Ready --timeout=180s
+          kubectl wait pods -n otterize-tutorial-npol -l app=client-other --for condition=Ready --timeout=180s
+          kubectl wait pods -n otterize-tutorial-npol -l app=simple-server --for condition=Ready --timeout=180s
+
+      - name: Wait for Prometheus
+        run: |-
+          kubectl wait pods -n prometheus -l app.kubernetes.io/name=prometheus,app.kubernetes.io/component=server --for condition=Ready --timeout=120s
+
+      - name: Before apply intents
+        run: |-
+          CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
+          CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
+          echo Client: $CLI1_POD      client_other: $CLI2_POD
+          source .github/workflows/test-bashrc.sh
+          
+          echo check client log
+          wait_for_log $CLI1_POD 10 "You entered: client"
+          
+          echo check client other log
+          wait_for_log $CLI2_POD 10 "You entered: client-other"
+
+      - name: Apply intents and test connectivity
+        run: |-
+          CLI1_POD=`kubectl get pod --selector app=client -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`
+          CLI2_POD=`kubectl get pod --selector app=client-other -n otterize-tutorial-npol -o json | jq -r ".items[0].metadata.name"`          
+          echo Client: $CLI1_POD      client_other: $CLI2_POD
+          source .github/workflows/test-bashrc.sh
+          
+          echo "Apply intents"
+          apply_intents_and_wait_for_webhook ./.github/workflow-helpers/prometheus-test-client-intents.yaml
+          echo "Intents applied"
+          
+          # should be blocked
+          echo "check client other log - should get timed out because it does not have an applied intent"
+          wait_for_log $CLI2_POD 10 "curl timed out"
+          
+          # should work because there is an applied intent
+          echo "check client log - should work because there is an applied intent"
+          wait_for_log $CLI1_POD 10 "You entered: client"
+
+      - name: Check network policies was created for Prometheus
+        run: |-
+          source .github/workflows/test-bashrc.sh
+          echo "Waiting for network policy to be created"
+          wait_for_netpol metrics-collection-access-to-service-simple-server-deployment 60
+          
   
 
   e2e-test:
@@ -530,6 +658,7 @@ jobs:
       - e2e-test-intents-before-pods
       - e2e-test-intents-after-pods-with-egress
       - e2e-test-intents-with-kind-after-pods-with-egress
+      - e2e-test-auto-allow-prometheus-scraping
     runs-on: ubuntu-latest
     steps:
       - run: |-
