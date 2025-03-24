@@ -39,3 +39,23 @@ apply_intents_and_wait_for_webhook() {
         fi;
     done
 }
+
+wait_for_netpol() {
+    NETPOL_NAME=$1
+    DELAY_SECONDS=$2
+    CURRENT_TIME=$(date +%s)
+    END_TIME=$((CURRENT_TIME+DELAY_SECONDS))
+    echo "Waiting for netpol: $NETPOL_NAME"
+    echo "Waiting for $DELAY_SECONDS seconds until $END_TIME starting from $CURRENT_TIME"
+    while [ $CURRENT_TIME -lt $END_TIME ];
+    do
+        OUTPUT=$(kubectl get netpol -n otterize-tutorial-npol | cut -d' ' -f1)
+        grep -qw "$NETPOL_NAME" <(echo $OUTPUT) && return || sleep 1;
+        CURRENT_TIME=$(date +%s)
+    done
+    echo "##############################################"
+    echo "Failed to find netpol"
+    echo "Last output was: $OUTPUT"
+    echo "##############################################"
+    exit 1
+}
