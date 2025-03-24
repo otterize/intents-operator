@@ -271,29 +271,31 @@ func (v *IngressControllerConfigInput) GetNamespace() string { return v.Namespac
 func (v *IngressControllerConfigInput) GetKind() string { return v.Kind }
 
 type IntentInput struct {
-	Namespace            *string                   `json:"namespace"`
-	ClientName           *string                   `json:"clientName"`
-	ClientResolutionData *string                   `json:"clientResolutionData"`
-	ClientWorkloadKind   *string                   `json:"clientWorkloadKind"`
-	ServerName           *string                   `json:"serverName"`
-	ServerResolutionData *string                   `json:"serverResolutionData"`
-	ServerWorkloadKind   *string                   `json:"serverWorkloadKind"`
-	ServerAlias          *ServerAliasInput         `json:"serverAlias"`
-	ServerNamespace      *string                   `json:"serverNamespace"`
-	Type                 *IntentType               `json:"type"`
-	Topics               []*KafkaConfigInput       `json:"topics"`
-	Resources            []*HTTPConfigInput        `json:"resources"`
-	DatabaseResources    []*DatabaseConfigInput    `json:"databaseResources"`
-	AwsRole              *string                   `json:"awsRole"`
-	AwsActions           []*string                 `json:"awsActions"`
-	AzureRoles           []*string                 `json:"azureRoles"`
-	AzureActions         []*string                 `json:"azureActions"`
-	AzureDataActions     []*string                 `json:"azureDataActions"`
-	AzureKeyVaultPolicy  *AzureKeyVaultPolicyInput `json:"azureKeyVaultPolicy"`
-	GcpPermissions       []*string                 `json:"gcpPermissions"`
-	Internet             *InternetConfigInput      `json:"internet"`
-	Status               *IntentStatusInput        `json:"status"`
-	ResolutionData       *string                   `json:"resolutionData"`
+	Namespace                         *string                   `json:"namespace"`
+	ClientName                        *string                   `json:"clientName"`
+	ClientResolutionData              *string                   `json:"clientResolutionData"`
+	ClientWorkloadKind                *string                   `json:"clientWorkloadKind"`
+	ClientNameResolvedUsingAnnotation *bool                     `json:"clientNameResolvedUsingAnnotation"`
+	ServerName                        *string                   `json:"serverName"`
+	ServerResolutionData              *string                   `json:"serverResolutionData"`
+	ServerWorkloadKind                *string                   `json:"serverWorkloadKind"`
+	ServerNameResolvedUsingAnnotation *bool                     `json:"serverNameResolvedUsingAnnotation"`
+	ServerAlias                       *ServerAliasInput         `json:"serverAlias"`
+	ServerNamespace                   *string                   `json:"serverNamespace"`
+	Type                              *IntentType               `json:"type"`
+	Topics                            []*KafkaConfigInput       `json:"topics"`
+	Resources                         []*HTTPConfigInput        `json:"resources"`
+	DatabaseResources                 []*DatabaseConfigInput    `json:"databaseResources"`
+	AwsRole                           *string                   `json:"awsRole"`
+	AwsActions                        []*string                 `json:"awsActions"`
+	AzureRoles                        []*string                 `json:"azureRoles"`
+	AzureActions                      []*string                 `json:"azureActions"`
+	AzureDataActions                  []*string                 `json:"azureDataActions"`
+	AzureKeyVaultPolicy               *AzureKeyVaultPolicyInput `json:"azureKeyVaultPolicy"`
+	GcpPermissions                    []*string                 `json:"gcpPermissions"`
+	Internet                          *InternetConfigInput      `json:"internet"`
+	Status                            *IntentStatusInput        `json:"status"`
+	ResolutionData                    *string                   `json:"resolutionData"`
 }
 
 // GetNamespace returns IntentInput.Namespace, and is useful for accessing the field via an interface.
@@ -308,6 +310,11 @@ func (v *IntentInput) GetClientResolutionData() *string { return v.ClientResolut
 // GetClientWorkloadKind returns IntentInput.ClientWorkloadKind, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetClientWorkloadKind() *string { return v.ClientWorkloadKind }
 
+// GetClientNameResolvedUsingAnnotation returns IntentInput.ClientNameResolvedUsingAnnotation, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetClientNameResolvedUsingAnnotation() *bool {
+	return v.ClientNameResolvedUsingAnnotation
+}
+
 // GetServerName returns IntentInput.ServerName, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetServerName() *string { return v.ServerName }
 
@@ -316,6 +323,11 @@ func (v *IntentInput) GetServerResolutionData() *string { return v.ServerResolut
 
 // GetServerWorkloadKind returns IntentInput.ServerWorkloadKind, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetServerWorkloadKind() *string { return v.ServerWorkloadKind }
+
+// GetServerNameResolvedUsingAnnotation returns IntentInput.ServerNameResolvedUsingAnnotation, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetServerNameResolvedUsingAnnotation() *bool {
+	return v.ServerNameResolvedUsingAnnotation
+}
 
 // GetServerAlias returns IntentInput.ServerAlias, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetServerAlias() *ServerAliasInput { return v.ServerAlias }

@@ -9,8 +9,10 @@ import (
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/mocks"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/podownerresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
@@ -54,11 +56,29 @@ func (s *CloudReconcilerTestSuite) TearDownTest() {
 }
 
 func (s *CloudReconcilerTestSuite) TestAppliedIntentsUpload() {
+	s.expectPopulateResolvedUsingAnnotation()
 	server := "test-server"
 	server2 := "other-server"
 	server2Namespace := "other-namespace"
 
 	s.assertUploadIntent(server, server2, server2Namespace)
+}
+
+func (s *CloudReconcilerTestSuite) TestAppliedIntentsUploadWithNameAnnotation() {
+	server := "test-server"
+	server2 := "other-server"
+	server2Namespace := "other-namespace"
+
+	s.assertUploadIntentWithNameAnnotation(server, server2, server2Namespace)
+}
+
+func (s *CloudReconcilerTestSuite) expectPopulateResolvedUsingAnnotation() {
+	s.client.EXPECT().List(
+		gomock.Any(),
+		gomock.Eq(&v1.PodList{}),
+		gomock.AssignableToTypeOf(client.InNamespace("")),
+		gomock.AssignableToTypeOf(client.MatchingLabels{}),
+	).AnyTimes()
 }
 
 func (s *CloudReconcilerTestSuite) assertUploadIntent(server string, server2 string, server2Namespace string) {
@@ -112,7 +132,96 @@ func (s *CloudReconcilerTestSuite) assertUploadIntent(server string, server2 str
 	s.assertReportedIntents(clientIntents, expectedIntents)
 }
 
+func (s *CloudReconcilerTestSuite) assertUploadIntentWithNameAnnotation(server string, server2 string, server2Namespace string) {
+	server2FullName := server2 + "." + server2Namespace
+
+	s.client.EXPECT().List(
+		gomock.Any(),
+		gomock.Eq(&v1.PodList{}),
+		gomock.AssignableToTypeOf(client.InNamespace(testNamespace)),
+		gomock.AssignableToTypeOf(client.MatchingLabels{}),
+	).DoAndReturn(func(ctx context.Context, list *v1.PodList, opts ...client.ListOption) error {
+		pod := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      server,
+				Namespace: testNamespace,
+				Annotations: map[string]string{
+					viper.GetString(podownerresolver.WorkloadNameOverrideAnnotationKey): server,
+				},
+			},
+		}
+		list.Items = append(list.Items, *pod)
+		return nil
+	})
+
+	s.client.EXPECT().List(
+		gomock.Any(),
+		gomock.Eq(&v1.PodList{}),
+		gomock.AssignableToTypeOf(client.InNamespace(server2Namespace)),
+		gomock.AssignableToTypeOf(client.MatchingLabels{}),
+	).DoAndReturn(func(ctx context.Context, list *v1.PodList, opts ...client.ListOption) error {
+		pod := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      server2,
+				Namespace: server2Namespace,
+			}}
+		list.Items = append(list.Items, *pod)
+		return nil
+	})
+
+	clientIntents := otterizev2alpha1.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      intentsObjectName,
+			Namespace: testNamespace,
+		},
+
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{
+				Name: clientName,
+			},
+			Targets: []otterizev2alpha1.Target{
+				{
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: server},
+				},
+				{
+					Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: server2FullName},
+				},
+			},
+		},
+	}
+
+	expectedIntentInNamespace := graphqlclient.IntentInput{
+		ClientName:                        lo.ToPtr(clientName),
+		ServerName:                        lo.ToPtr(server),
+		Namespace:                         lo.ToPtr(testNamespace),
+		ServerNamespace:                   lo.ToPtr(testNamespace),
+		ServerNameResolvedUsingAnnotation: lo.ToPtr(true),
+		Type:                              nil,
+		Topics:                            nil,
+		Resources:                         nil,
+	}
+
+	expectedIntentInOtherNamespace := graphqlclient.IntentInput{
+		ClientName:                        lo.ToPtr(clientName),
+		ServerName:                        lo.ToPtr(server2),
+		Namespace:                         lo.ToPtr(testNamespace),
+		ServerNamespace:                   lo.ToPtr(server2Namespace),
+		ServerNameResolvedUsingAnnotation: lo.ToPtr(false),
+		Type:                              nil,
+		Topics:                            nil,
+		Resources:                         nil,
+	}
+
+	expectedIntents := []graphqlclient.IntentInput{
+		expectedIntentInNamespace,
+		expectedIntentInOtherNamespace,
+	}
+
+	s.assertReportedIntents(clientIntents, expectedIntents)
+}
+
 func (s *CloudReconcilerTestSuite) TestAppliedIntentsUploadUnderscore() {
+	s.expectPopulateResolvedUsingAnnotation()
 	server := "metric-server_3_6_9"
 	server2 := "other-server_2_0_0"
 	server2Namespace := "other-namespace"
@@ -121,6 +230,7 @@ func (s *CloudReconcilerTestSuite) TestAppliedIntentsUploadUnderscore() {
 }
 
 func (s *CloudReconcilerTestSuite) TestAppliedIntentsRetryWhenUploadFailed() {
+	s.expectPopulateResolvedUsingAnnotation()
 	server := "test-server"
 
 	clientIntents := otterizev2alpha1.ClientIntents{
@@ -232,6 +342,7 @@ func (s *CloudReconcilerTestSuite) TestUploadKafkaType() {
 }
 
 func (s *CloudReconcilerTestSuite) TestHTTPUpload() {
+	s.expectPopulateResolvedUsingAnnotation()
 	serviceAccountName := "test-service-account"
 	server := "test-server"
 	clientIntents := otterizev2alpha1.ClientIntents{
@@ -442,6 +553,7 @@ func (s *CloudReconcilerTestSuite) TestInternetUploadDomainsOnly() {
 }
 
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSharedSA() {
+	s.expectPopulateResolvedUsingAnnotation()
 	serviceAccountName := "test-service-account"
 	server := "test-server"
 	clientIntents := otterizev2alpha1.ClientIntents{
@@ -502,6 +614,7 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingShared
 }
 
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSidecar() {
+	s.expectPopulateResolvedUsingAnnotation()
 	serviceAccountName := "test-service-account"
 	server := "test-server"
 	clientIntents := otterizev2alpha1.ClientIntents{
@@ -540,6 +653,7 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_MissingSideca
 }
 
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatSharedSA() {
+	s.expectPopulateResolvedUsingAnnotation()
 	serviceAccountName := "test-service-account"
 	server := "test-server"
 
@@ -580,6 +694,7 @@ func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatShar
 }
 
 func (s *CloudReconcilerTestSuite) TestIntentStatusFormattingError_BadFormatSidecar() {
+	s.expectPopulateResolvedUsingAnnotation()
 	serviceAccountName := "test-service-account"
 	server := "test-server"
 	clientIntents := otterizev2alpha1.ClientIntents{
@@ -712,6 +827,7 @@ func (s *CloudReconcilerTestSuite) TestUploadIntentsDeletion() {
 }
 
 func (s *CloudReconcilerTestSuite) TestUploadIntentsOnlyOneDeleted() {
+	s.expectPopulateResolvedUsingAnnotation()
 	deletedIntents := otterizev2alpha1.ClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "deleted-intents",
@@ -783,6 +899,7 @@ func (s *CloudReconcilerTestSuite) TestUploadIntentsOnlyOneDeleted() {
 }
 
 func (s *CloudReconcilerTestSuite) TestNamespaceParseSuccess() {
+	s.expectPopulateResolvedUsingAnnotation()
 	serverName := "server.other-namespace"
 	intent := &otterizev2alpha1.Target{Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serverName}}
 
@@ -811,6 +928,7 @@ func (s *CloudReconcilerTestSuite) TestKafkaTarget() {
 }
 
 func (s *CloudReconcilerTestSuite) TestTargetNamespaceAsSourceNamespace() {
+	s.expectPopulateResolvedUsingAnnotation()
 	serverName := "server"
 	intent := &otterizev2alpha1.Target{Kubernetes: &otterizev2alpha1.KubernetesTarget{Name: serverName}}
 	cloudIntent, err := intent.ConvertToCloudFormat(context.Background(), s.client, serviceidentity.ServiceIdentity{Name: clientName, Namespace: testNamespace})
