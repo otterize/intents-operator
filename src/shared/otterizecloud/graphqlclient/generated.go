@@ -9,12 +9,21 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+// This enum should be removed after removing allowExternalTrafficPolicy from IntentsOperatorConfigurationInput, it is here for backward compatibility
 type AllowExternalTrafficPolicy string
 
 const (
 	AllowExternalTrafficPolicyOff                 AllowExternalTrafficPolicy = "OFF"
 	AllowExternalTrafficPolicyAlways              AllowExternalTrafficPolicy = "ALWAYS"
 	AllowExternalTrafficPolicyIfBlockedByOtterize AllowExternalTrafficPolicy = "IF_BLOCKED_BY_OTTERIZE"
+)
+
+type AutomateThirdPartyNetworkPolicy string
+
+const (
+	AutomateThirdPartyNetworkPolicyOff                 AutomateThirdPartyNetworkPolicy = "OFF"
+	AutomateThirdPartyNetworkPolicyAlways              AutomateThirdPartyNetworkPolicy = "ALWAYS"
+	AutomateThirdPartyNetworkPolicyIfBlockedByOtterize AutomateThirdPartyNetworkPolicy = "IF_BLOCKED_BY_OTTERIZE"
 )
 
 type AzureKeyVaultPolicyInput struct {
@@ -416,6 +425,8 @@ type IntentsOperatorConfigurationInput struct {
 	AwsALBLoadBalancerExemptionEnabled    bool                                   `json:"awsALBLoadBalancerExemptionEnabled"`
 	AllowExternalTrafficPolicy            AllowExternalTrafficPolicy             `json:"allowExternalTrafficPolicy"`
 	ExternallyManagedPolicyWorkloads      []ExternallyManagedPolicyWorkloadInput `json:"externallyManagedPolicyWorkloads"`
+	AutomateThirdPartyNetworkPolicies     AutomateThirdPartyNetworkPolicy        `json:"automateThirdPartyNetworkPolicies"`
+	PrometheusServerConfigs               []PrometheusServerConfigInput          `json:"prometheusServerConfigs"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -496,6 +507,16 @@ func (v *IntentsOperatorConfigurationInput) GetAllowExternalTrafficPolicy() Allo
 // GetExternallyManagedPolicyWorkloads returns IntentsOperatorConfigurationInput.ExternallyManagedPolicyWorkloads, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetExternallyManagedPolicyWorkloads() []ExternallyManagedPolicyWorkloadInput {
 	return v.ExternallyManagedPolicyWorkloads
+}
+
+// GetAutomateThirdPartyNetworkPolicies returns IntentsOperatorConfigurationInput.AutomateThirdPartyNetworkPolicies, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAutomateThirdPartyNetworkPolicies() AutomateThirdPartyNetworkPolicy {
+	return v.AutomateThirdPartyNetworkPolicies
+}
+
+// GetPrometheusServerConfigs returns IntentsOperatorConfigurationInput.PrometheusServerConfigs, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetPrometheusServerConfigs() []PrometheusServerConfigInput {
+	return v.PrometheusServerConfigs
 }
 
 type InternetConfigInput struct {
@@ -684,6 +705,21 @@ type PeerInput struct {
 
 // GetIpBlock returns PeerInput.IpBlock, and is useful for accessing the field via an interface.
 func (v *PeerInput) GetIpBlock() IpBlockInput { return v.IpBlock }
+
+type PrometheusServerConfigInput struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Kind      string `json:"kind"`
+}
+
+// GetName returns PrometheusServerConfigInput.Name, and is useful for accessing the field via an interface.
+func (v *PrometheusServerConfigInput) GetName() string { return v.Name }
+
+// GetNamespace returns PrometheusServerConfigInput.Namespace, and is useful for accessing the field via an interface.
+func (v *PrometheusServerConfigInput) GetNamespace() string { return v.Namespace }
+
+// GetKind returns PrometheusServerConfigInput.Kind, and is useful for accessing the field via an interface.
+func (v *PrometheusServerConfigInput) GetKind() string { return v.Kind }
 
 type ProtectedServiceInput struct {
 	Name string `json:"name"`

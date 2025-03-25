@@ -51,7 +51,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/k8sconf"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -213,13 +212,13 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
-	metricsCollectorNetpolHandler := metrics_collection_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), allowexternaltraffic.Off)
+	metricsCollectorNetpolHandler := metrics_collection_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetAutomateThirdPartyNetworkPolicy(), enforcementConfig.PrometheusServiceIdentities)
 	metricsCollectorPodReconciler := metrics_collection_traffic.NewPodReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 	metricsCollectorEndpointsReconciler := metrics_collection_traffic.NewEndpointsReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 	metricsCollectorServiceReconciler := metrics_collection_traffic.NewServiceReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 	metricsCollectorNetworkPolicyReconciler := metrics_collection_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 
-	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
+	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetAutomateThirdPartyNetworkPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 
