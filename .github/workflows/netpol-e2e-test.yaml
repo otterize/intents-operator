@@ -576,7 +576,7 @@ jobs:
           OPERATOR_FLAGS="--set-string intentsOperator.operator.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.repository=${{ env.REGISTRY }} --set-string intentsOperator.webhookServer.image=${{ inputs.webhook-server-image }} --set-string intentsOperator.webhookServer.tag=${{ inputs.webhook-server-tag }} --set-string intentsOperator.webhookServer.pullPolicy=Never --set-string intentsOperator.operator.image=${{ inputs.operator-image }} --set-string intentsOperator.operator.tag=${{ inputs.operator-tag }} --set-string intentsOperator.operator.pullPolicy=Never"
           TELEMETRY_FLAG="--set global.telemetry.enabled=false"
           EGRESS_FLAG="--set intentsOperator.operator.enableEgressNetworkPolicyCreation=true"
-          THIRD_PARTY_TRAFFIC_FLAG=`echo --set-string intentsOperator.operator.automateThirdPartyNetworkPolicies=ifBlockedByOtterize --set "intentsOperator.operator.metricsScrapingServiceConfigs[0].name=prometheus-server" --set "intentsOperator.operator.metricsScrapingServiceConfigs[0].namespace=prometheus" --set "intentsOperator.operator.metricsScrapingServiceConfigs[0].kind=Deployment"`
+          THIRD_PARTY_TRAFFIC_FLAG=`echo --set-string intentsOperator.operator.automateThirdPartyNetworkPolicies=ifBlockedByOtterize --set "intentsOperator.operator.prometheusServerConfigs[0].name=prometheus-server" --set "intentsOperator.operator.prometheusServerConfigs[0].namespace=prometheus" --set "intentsOperator.operator.prometheusServerConfigs[0].kind=Deployment"`
           helm dep up ./helm-charts/otterize-kubernetes
           helm install otterize ./helm-charts/otterize-kubernetes -n otterize-system --create-namespace $OPERATOR_FLAGS $TELEMETRY_FLAG $EGRESS_FLAG $THIRD_PARTY_TRAFFIC_FLAG
 

@@ -23,7 +23,7 @@ type Config struct {
 	EnableLinkerdPolicies                bool
 	EnforcedNamespaces                   *goset.Set[string]
 	AutomateThirdPartyNetworkPolicies    automate_third_party_network_policy.Enum
-	MetricsScrapingServiceIdentities     []serviceidentity.ServiceIdentity
+	PrometheusServiceIdentities          []serviceidentity.ServiceIdentity
 }
 
 func (c Config) GetAutomateThirdPartyNetworkPolicy() automate_third_party_network_policy.Enum {
@@ -68,7 +68,7 @@ const (
 	EnableGCPPolicyDefault                      = false
 	EnableAzurePolicyKey                        = "enable-azure-iam-policy"
 	EnableAzurePolicyDefault                    = false
-	MetricsCollectionServiceConfigKey           = "metricsScrapingService"
+	PrometheusServiceConfigKey                  = "prometheusServerConfigs"
 )
 
 func init() {
@@ -113,7 +113,7 @@ func GetConfig() Config {
 		EnableAzurePolicy:                    viper.GetBool(EnableAzurePolicyKey),
 		EnforcedNamespaces:                   goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
 		AutomateThirdPartyNetworkPolicies:    automate_third_party_network_policy.Enum(viper.GetString(AutomateThirdPartyNetworkPoliciesKey)),
-		MetricsScrapingServiceIdentities:     GetMetricsScrapingServiceIdentities(),
+		PrometheusServiceIdentities:          GetPrometheusServiceIdentities(),
 	}
 }
 
@@ -123,11 +123,11 @@ type ServiceIdentityConfig struct {
 	Kind      string
 }
 
-func GetMetricsScrapingServiceIdentities() []serviceidentity.ServiceIdentity {
+func GetPrometheusServiceIdentities() []serviceidentity.ServiceIdentity {
 	controllers := make([]ServiceIdentityConfig, 0)
-	err := viper.UnmarshalKey(MetricsCollectionServiceConfigKey, &controllers)
+	err := viper.UnmarshalKey(PrometheusServiceConfigKey, &controllers)
 	if err != nil {
-		logrus.WithError(err).Panic("Failed to unmarshal metrics scraping server config")
+		logrus.WithError(err).Panic("Failed to unmarshal Prometheus server config")
 	}
 
 	return lo.Map(controllers, func(controller ServiceIdentityConfig, _ int) serviceidentity.ServiceIdentity {

@@ -1388,9 +1388,11 @@ input IntentInput {
 	clientName: String!
 	clientResolutionData: String
 	clientWorkloadKind: String
+	clientNameResolvedUsingAnnotation: Boolean
 	serverName: String!
 	serverResolutionData: String
 	serverWorkloadKind: String
+	serverNameResolvedUsingAnnotation: Boolean
 	serverAlias: ServerAliasInput
 	serverNamespace: String
 	type: IntentType
@@ -1481,7 +1483,7 @@ input IntentsOperatorConfigurationInput {
 	allowExternalTrafficPolicy: AllowExternalTrafficPolicy
 	externallyManagedPolicyWorkloads: [ExternallyManagedPolicyWorkloadInput!]
 	automateThirdPartyNetworkPolicies: AutomateThirdPartyNetworkPolicy
-	metricsScrapingServerConfig: [MetricsScrapingServerConfigInput!]
+	prometheusServerConfigs: [PrometheusServerConfigInput!]
 }
 
 type IntentsOperatorState {
@@ -1796,12 +1798,6 @@ type MergedYAMLFile {
 input MetadataEntry {
 	key: String!
 	value: String!
-}
-
-input MetricsScrapingServerConfigInput {
-	name: String!
-	namespace: String!
-	kind: String!
 }
 
 type Mutation {
@@ -2253,6 +2249,12 @@ input PortStatusInput {
 	port: Int!
 	protocol: K8sPortProtocol!
 	error: String
+}
+
+input PrometheusServerConfigInput {
+	name: String!
+	namespace: String!
+	kind: String!
 }
 
 input ProtectedServiceInput {

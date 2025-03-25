@@ -59,27 +59,27 @@ type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	allowMetricsCollector            automate_third_party_network_policy.Enum
-	metricsScrapingServiceIdentities []serviceidentity.ServiceIdentity
+	allowMetricsCollector       automate_third_party_network_policy.Enum
+	prometheusServiceIdentities []serviceidentity.ServiceIdentity
 }
 
 func NewNetworkPolicyHandler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	allowMetricsCollector automate_third_party_network_policy.Enum,
-	metricsScrapingServiceIdentities []serviceidentity.ServiceIdentity,
+	prometheusServiceIdentities []serviceidentity.ServiceIdentity,
 ) *NetworkPolicyHandler {
 	// We want to make sure that the order of the metrics scraping server identity is deterministic, since it is parts of
 	// the network policy that would be created, and before creating a new network policy we want compare it with the existing one.
 	// We don't want the order of the metrics scraping server identity to create a difference in the network policy.
-	slices.SortFunc(metricsScrapingServiceIdentities, func(serviceA, serviceB serviceidentity.ServiceIdentity) bool {
+	slices.SortFunc(prometheusServiceIdentities, func(serviceA, serviceB serviceidentity.ServiceIdentity) bool {
 		return serviceA.GetFormattedOtterizeIdentityWithKind() < serviceB.GetFormattedOtterizeIdentityWithKind()
 	})
 	return &NetworkPolicyHandler{
-		client:                           client,
-		scheme:                           scheme,
-		allowMetricsCollector:            allowMetricsCollector,
-		metricsScrapingServiceIdentities: metricsScrapingServiceIdentities,
+		client:                      client,
+		scheme:                      scheme,
+		allowMetricsCollector:       allowMetricsCollector,
+		prometheusServiceIdentities: prometheusServiceIdentities,
 	}
 }
 
@@ -340,7 +340,7 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyIfNeeded(ctx context.Context, p
 	policyName := r.formatPolicyName(pod.scrapeResourceType, serviceId)
 
 	// If the scraping metrics server is not defined - we handle this case as if the configuration was off
-	if len(r.metricsScrapingServiceIdentities) == 0 {
+	if len(r.prometheusServiceIdentities) == 0 {
 		return v1.NetworkPolicy{}, false, nil
 	}
 
@@ -438,7 +438,7 @@ func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *Poten
 
 	rule := v1.NetworkPolicyIngressRule{}
 
-	for _, serviceIdentity := range r.metricsScrapingServiceIdentities {
+	for _, serviceIdentity := range r.prometheusServiceIdentities {
 		rule.From = append(rule.From, v1.NetworkPolicyPeer{
 			PodSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{

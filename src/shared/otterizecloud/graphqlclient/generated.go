@@ -426,7 +426,7 @@ type IntentsOperatorConfigurationInput struct {
 	AllowExternalTrafficPolicy            AllowExternalTrafficPolicy             `json:"allowExternalTrafficPolicy"`
 	ExternallyManagedPolicyWorkloads      []ExternallyManagedPolicyWorkloadInput `json:"externallyManagedPolicyWorkloads"`
 	AutomateThirdPartyNetworkPolicies     AutomateThirdPartyNetworkPolicy        `json:"automateThirdPartyNetworkPolicies"`
-	MetricsScrapingServerConfig           []MetricsScrapingServerConfigInput     `json:"metricsScrapingServerConfig"`
+	PrometheusServerConfigs               []PrometheusServerConfigInput          `json:"prometheusServerConfigs"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -514,9 +514,9 @@ func (v *IntentsOperatorConfigurationInput) GetAutomateThirdPartyNetworkPolicies
 	return v.AutomateThirdPartyNetworkPolicies
 }
 
-// GetMetricsScrapingServerConfig returns IntentsOperatorConfigurationInput.MetricsScrapingServerConfig, and is useful for accessing the field via an interface.
-func (v *IntentsOperatorConfigurationInput) GetMetricsScrapingServerConfig() []MetricsScrapingServerConfigInput {
-	return v.MetricsScrapingServerConfig
+// GetPrometheusServerConfigs returns IntentsOperatorConfigurationInput.PrometheusServerConfigs, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetPrometheusServerConfigs() []PrometheusServerConfigInput {
+	return v.PrometheusServerConfigs
 }
 
 type InternetConfigInput struct {
@@ -660,21 +660,6 @@ const (
 	KubernetesServiceTypeExternalName KubernetesServiceType = "EXTERNAL_NAME"
 )
 
-type MetricsScrapingServerConfigInput struct {
-	Name      string `json:"name"`
-	Namespace string `json:"namespace"`
-	Kind      string `json:"kind"`
-}
-
-// GetName returns MetricsScrapingServerConfigInput.Name, and is useful for accessing the field via an interface.
-func (v *MetricsScrapingServerConfigInput) GetName() string { return v.Name }
-
-// GetNamespace returns MetricsScrapingServerConfigInput.Namespace, and is useful for accessing the field via an interface.
-func (v *MetricsScrapingServerConfigInput) GetNamespace() string { return v.Namespace }
-
-// GetKind returns MetricsScrapingServerConfigInput.Kind, and is useful for accessing the field via an interface.
-func (v *MetricsScrapingServerConfigInput) GetKind() string { return v.Kind }
-
 type NetworkPolicyEgressRuleInput struct {
 	To []PeerInput `json:"to"`
 }
@@ -720,6 +705,21 @@ type PeerInput struct {
 
 // GetIpBlock returns PeerInput.IpBlock, and is useful for accessing the field via an interface.
 func (v *PeerInput) GetIpBlock() IpBlockInput { return v.IpBlock }
+
+type PrometheusServerConfigInput struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Kind      string `json:"kind"`
+}
+
+// GetName returns PrometheusServerConfigInput.Name, and is useful for accessing the field via an interface.
+func (v *PrometheusServerConfigInput) GetName() string { return v.Name }
+
+// GetNamespace returns PrometheusServerConfigInput.Namespace, and is useful for accessing the field via an interface.
+func (v *PrometheusServerConfigInput) GetNamespace() string { return v.Namespace }
+
+// GetKind returns PrometheusServerConfigInput.Kind, and is useful for accessing the field via an interface.
+func (v *PrometheusServerConfigInput) GetKind() string { return v.Kind }
 
 type ProtectedServiceInput struct {
 	Name string `json:"name"`

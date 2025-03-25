@@ -212,7 +212,7 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
-	metricsCollectorNetpolHandler := metrics_collection_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetAutomateThirdPartyNetworkPolicy(), enforcementConfig.MetricsScrapingServiceIdentities)
+	metricsCollectorNetpolHandler := metrics_collection_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetAutomateThirdPartyNetworkPolicy(), enforcementConfig.PrometheusServiceIdentities)
 	metricsCollectorPodReconciler := metrics_collection_traffic.NewPodReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 	metricsCollectorEndpointsReconciler := metrics_collection_traffic.NewEndpointsReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
 	metricsCollectorServiceReconciler := metrics_collection_traffic.NewServiceReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
