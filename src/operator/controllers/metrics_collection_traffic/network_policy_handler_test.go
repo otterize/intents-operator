@@ -247,7 +247,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Po
 }
 
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_MetricsCollectionServerOrderDoesNoHaveAnImpact() {
-	scrapingMetricsServer := []serviceidentity.ServiceIdentity{
+	prometheusServer := []serviceidentity.ServiceIdentity{
 		{
 			Name:      "bbb",
 			Namespace: "default",
@@ -259,7 +259,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Me
 			Kind:      "Deployment",
 		},
 	}
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, scrapingMetricsServer)
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, prometheusServer)
 	s.handler.InjectRecorder(s.Recorder)
 	s.mockForReturningScrapePodInListNamespace()
 	s.mockForResolvingScrapingPodIdentity()
@@ -302,7 +302,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Me
 	s.ExpectEvent(ReasonCreatingMetricsCollectorPolicy)
 }
 
-func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_NoScrapingMetricsServer_ShouldDoNothing() {
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_NoPrometheusServer_ShouldDoNothing() {
 	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, make([]serviceidentity.ServiceIdentity, 0))
 	s.handler.InjectRecorder(s.Recorder)
 	s.mockForReturningScrapePodInListNamespace()
