@@ -95,8 +95,6 @@ func InitCLIFlags() {
 	pflag.Bool(EnableDatabasePolicy, EnableDatabasePolicyDefault, "Enable the database reconciler")
 	pflag.Bool(EnableEgressNetworkPolicyReconcilersKey, EnableEgressNetworkPolicyReconcilersDefault, "Experimental - enable the generation of egress network policies alongside ingress network policies")
 	pflag.Bool(EnableAWSPolicyKey, EnableAWSPolicyDefault, "Enable the AWS IAM reconciler")
-	automateThirdPartyNetworkPoliciesKeyDefault := AutomateThirdPartyNetworkPoliciesDefault
-	pflag.String(automateThirdPartyNetworkPoliciesKeyDefault, AutomateThirdPartyNetworkPoliciesKey, "Whether to automatically create network policies for third parties traffic, like external traffic and metrics collection traffic")
 }
 
 func GetConfig() Config {
