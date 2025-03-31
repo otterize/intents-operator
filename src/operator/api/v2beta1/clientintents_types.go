@@ -699,15 +699,16 @@ func clientIntentsStatusToCloudFormat(clientIntents ClientIntents, intent Target
 	status.IstioStatus.IsServiceAccountShared = lo.ToPtr(isShared)
 
 	clientMissingSidecarValue, ok := clientIntents.Annotations[OtterizeMissingSidecarAnnotation]
-	if !ok {
-		return nil, false, errors.Errorf("missing annotation missing sidecar for client intents %s", clientIntents.Name)
-	}
-
-	clientMissingSidecar, err := strconv.ParseBool(clientMissingSidecarValue)
-	if err != nil {
-		return nil, false, errors.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
+	clientMissingSidecar := false
+	if ok {
+		parsedClientMissingSidecar, err := strconv.ParseBool(clientMissingSidecarValue)
+		if err != nil {
+			return nil, false, errors.Errorf("failed to parse missing sidecar annotation for client intents %s", clientIntents.Name)
+		}
+		clientMissingSidecar = parsedClientMissingSidecar
 	}
 	status.IstioStatus.IsClientMissingSidecar = lo.ToPtr(clientMissingSidecar)
+
 	isServerMissingSidecar, err := clientIntents.IsServerMissingSidecar(intent)
 	if err != nil {
 		return nil, false, errors.Wrap(err)
