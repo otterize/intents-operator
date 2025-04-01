@@ -423,6 +423,8 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		netpolsAffectingThisWorkload = append(netpolsAffectingThisWorkload, netpolList.Items...)
 
 		// Sort netpolsAffectingThisWorkload by name so that we always use the same netpol when running Find below
+		// This is important because we relay on the order of the netpols to determine whether it already exists, does not
+		// exist or need an update
 		slices.SortStableFunc(netpolsAffectingThisWorkload, func(i, j v1.NetworkPolicy) bool {
 			return i.Name < j.Name
 		})
