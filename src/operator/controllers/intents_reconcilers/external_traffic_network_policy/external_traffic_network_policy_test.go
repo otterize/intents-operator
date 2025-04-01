@@ -839,12 +839,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestEndpointsReconcilerNetwor
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 		assert.True(errors.IsNotFound(err))
 	})
-	select {
-	case event := <-recorder.Events:
-		s.Require().Contains(event, external_traffic.ReasonEnforcementGloballyDisabled)
-	default:
-		s.Fail("event not raised")
-	}
+	s.ExpectNoEvent(recorder)
 }
 
 func TestExternalNetworkPolicyReconcilerTestSuite(t *testing.T) {
