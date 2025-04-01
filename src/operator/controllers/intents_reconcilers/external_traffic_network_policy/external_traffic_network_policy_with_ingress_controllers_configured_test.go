@@ -21,7 +21,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
@@ -104,7 +104,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 	testName := s.T().Name()
 	isShadowMode := strings.Contains(testName, "ShadowMode")
 	defaultActive := !isShadowMode
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.IfBlockedByOtterize, []serviceidentity.ServiceIdentity{
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, automate_third_party_network_policy.IfBlockedByOtterize, []serviceidentity.ServiceIdentity{
 		{
 			Kind:      "Deployment",
 			Namespace: ingressControllerNamespace,
@@ -900,7 +900,7 @@ func (s *ExternalNetworkPolicyReconcilerWithIngressControllersConfiguredTestSuit
 
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
 
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Off, []serviceidentity.ServiceIdentity{
+	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, automate_third_party_network_policy.Off, []serviceidentity.ServiceIdentity{
 		{
 			Namespace: s.TestNamespace,
 			Name:      ingressControllerName,

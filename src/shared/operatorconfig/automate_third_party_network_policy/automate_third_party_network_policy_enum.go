@@ -1,4 +1,4 @@
-package allowexternaltraffic
+package automate_third_party_network_policy
 
 import (
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -28,11 +28,11 @@ func (e *Enum) Set(value string) error {
 		return nil
 	}
 
-	return errors.Errorf("invalid value %s for allowExternalTraffic", value)
+	return errors.Errorf("invalid value %s for automateThirdPartyNetworkPolicy", value)
 }
 
 func (e *Enum) Type() string {
-	return "allowExternalTraffic.Enum"
+	return "automateThirdPartyNetworkPolicy.Enum"
 }
 
 func (e *Enum) String() string {
