@@ -54,9 +54,9 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupSuite() {
 	logrus.Info("Setting up test suite")
 	s.TestEnv = &envtest.Environment{Scheme: clientgoscheme.Scheme}
 	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "..", "config", "crd")}
+	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd")}
 	s.TestEnv.WebhookInstallOptions = envtest.WebhookInstallOptions{
-		Paths:            []string{filepath.Join("..", "..", "..", "config", "webhook")},
+		Paths:            []string{filepath.Join("..", "..", "config", "webhook")},
 		LocalServingHost: "localhost",
 	}
 	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
