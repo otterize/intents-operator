@@ -34,7 +34,6 @@ const (
 	ReasonRemovingExternalTrafficPolicyFailed = "RemovingExternalTrafficPolicyFailed"
 	ReasonRemovedExternalTrafficPolicy        = "RemovedExternalTrafficPolicy"
 	OtterizeExternalNetworkPolicyNameTemplate = "external-access-to-%s"
-	successMsgNetpolCreate                    = "Created external traffic network policy. service '%s' refers to pods protected by network policy '%s'"
 )
 
 type NetworkPolicyHandler struct {
@@ -540,7 +539,8 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 	}
 
 	for _, netpol := range netpolList {
-		successMsg := fmt.Sprintf(successMsgNetpolCreate, endpoints.GetName(), netpol.GetName())
+		successMsg := fmt.Sprintf("Created external traffic network policy. service '%s' refers to pods protected by network policy '%s'",
+			endpoints.GetName(), netpol.GetName())
 		err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, netpol.Spec.PodSelector, ingressList, successMsg)
 
 		if err != nil {
