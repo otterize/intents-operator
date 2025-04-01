@@ -11,6 +11,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -393,35 +394,42 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		if !ok {
 			continue
 		}
-		netpolSlice := make([]v1.NetworkPolicy, 0)
+		netpolsAffectingThisWorkload := make([]v1.NetworkPolicy, 0)
 
 		serviceId, err := serviceidresolver.NewResolver(r.client).ResolvePodToServiceIdentity(ctx, pod)
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		netpolList := &v1.NetworkPolicyList{}
-		// Get netpolSlice which was created by intents targeting this pod by its owner with "kind"
+		// Get netpolsAffectingThisWorkload which was created by intents targeting this pod by its owner with "kind"
 		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithKind()})
 		if err != nil {
 			return errors.Wrap(err)
 		}
-		netpolSlice = append(netpolSlice, netpolList.Items...)
-		// Get netpolSlice which was created by intents targeting this pod by its owner without "kind"
+		netpolsAffectingThisWorkload = append(netpolsAffectingThisWorkload, netpolList.Items...)
+		// Get netpolsAffectingThisWorkload which was created by intents targeting this pod by its owner without "kind"
 		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithoutKind()})
 		if err != nil {
 			return errors.Wrap(err)
 		}
-		netpolSlice = append(netpolSlice, netpolList.Items...)
+		netpolsAffectingThisWorkload = append(netpolsAffectingThisWorkload, netpolList.Items...)
 
-		// Get netpolSlice which was created by intents targeting this pod by its service
+		// Get netpolsAffectingThisWorkload which was created by intents targeting this pod by its service
 		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: (&serviceidentity.ServiceIdentity{Name: endpoints.Name, Namespace: endpoints.Namespace, Kind: serviceidentity.KindService}).GetFormattedOtterizeIdentityWithKind()})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 
-		netpolSlice = append(netpolSlice, netpolList.Items...)
+		netpolsAffectingThisWorkload = append(netpolsAffectingThisWorkload, netpolList.Items...)
 
-		hasIngressRules := lo.SomeBy(netpolSlice, func(netpol v1.NetworkPolicy) bool {
+		// Sort netpolsAffectingThisWorkload by name so that we always use the same netpol when running Find below
+		// This is important because we relay on the order of the netpols to determine whether it already exists, does not
+		// exist or need an update
+		slices.SortStableFunc(netpolsAffectingThisWorkload, func(i, j v1.NetworkPolicy) bool {
+			return i.Name < j.Name
+		})
+
+		ingressNetpol, hasIngressRules := lo.Find(netpolsAffectingThisWorkload, func(netpol v1.NetworkPolicy) bool {
 			return lo.Contains(netpol.Spec.PolicyTypes, v1.PolicyTypeIngress)
 		})
 
@@ -442,7 +450,7 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		}
 
 		foundOtterizeNetpolsAffectingPods = true
-		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, netpolSlice)
+		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, ingressNetpol.Spec.PodSelector)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -522,7 +530,7 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 	return nil
 }
 
-func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, netpolList []v1.NetworkPolicy) error {
+func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, affectedPodSelector metav1.LabelSelector) error {
 	svc := &corev1.Service{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
 	if err != nil {
@@ -538,14 +546,10 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 		return nil
 	}
 
-	for _, netpol := range netpolList {
-		successMsg := fmt.Sprintf("Created external traffic network policy. service '%s' refers to pods protected by network policy '%s'",
-			endpoints.GetName(), netpol.GetName())
-		err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, netpol.Spec.PodSelector, ingressList, successMsg)
+	err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, affectedPodSelector, ingressList, fmt.Sprintf("Created external traffic network policy. Service '%s' is affected by Otterize network policies", endpoints.GetName()))
 
-		if err != nil {
-			return errors.Wrap(err)
-		}
+	if err != nil {
+		return errors.Wrap(err)
 	}
 	return nil
 }
