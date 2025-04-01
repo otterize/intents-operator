@@ -35,7 +35,6 @@ const (
 	ReasonCreatedLinkerdServer            = "CreatedLinkerdServer"
 	ReasonCreatedLinkerdAuthPolicy        = "CreatedLinkerdAuthorizationPolicy"
 	ReasonNamespaceNotAllowed             = "NamespaceNotAllowed"
-	ReasonShouldNotCreatePolicy           = "ShouldNotCreatePolicy"
 	ReasonNotPartOfLinkerdMesh            = "NotPartOfLinkerdMesh"
 	FullServiceAccountName                = "%s.%s.serviceaccount.identity.linkerd.cluster.local"
 	NetworkAuthenticationNameTemplate     = "network-auth-for-probe-routes"
@@ -187,8 +186,7 @@ func (ldm *LinkerdManager) CreateResources(ctx context.Context, ep effectivepoli
 		}
 
 		if !shouldCreateLinkerdResources {
-			ep.ClientIntentsEventRecorder.RecordWarningEvent(ReasonShouldNotCreatePolicy, fmt.Sprintf("Enforcement is disabled globally and server is not explicitly protected, skipping linkerd policy creation for server %s in namespace %s", target.GetTargetServerName(), target.GetTargetServerNamespace(clientNamespace)))
-			logrus.Warningf("Enforcement is disabled globally and server is not explicitly protected, skipping linkerd policy creation for server %s in namespace %s", target.GetTargetServerName(), target.GetTargetServerNamespace(clientNamespace))
+			logrus.Debugf("Enforcement is disabled globally and server is not explicitly protected, skipping linkerd policy creation for server %s in namespace %s", target.GetTargetServerName(), target.GetTargetServerNamespace(clientNamespace))
 			continue
 		}
 
