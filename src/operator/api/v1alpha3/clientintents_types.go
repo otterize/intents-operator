@@ -332,6 +332,7 @@ type IntentsStatus struct {
 //+kubebuilder:subresource:status
 
 // ClientIntents is the Schema for the intents API
+// +kubebuilder:pruning:PreserveUnknownFields
 type ClientIntents struct {
 	metav1.TypeMeta   `json:",inline" yaml:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`

@@ -414,6 +414,7 @@ spec:
                 type: boolean
             type: object
         type: object
+        x-kubernetes-preserve-unknown-fields: true
     served: true
     storage: false
     subresources:
@@ -691,6 +692,7 @@ spec:
                 type: boolean
             type: object
         type: object
+        x-kubernetes-preserve-unknown-fields: true
     served: true
     storage: false
     subresources:
@@ -1024,6 +1026,7 @@ spec:
                 type: boolean
             type: object
         type: object
+        x-kubernetes-preserve-unknown-fields: true
     served: true
     storage: true
     subresources:
@@ -1357,6 +1360,7 @@ spec:
                 type: boolean
             type: object
         type: object
+        x-kubernetes-preserve-unknown-fields: true
     served: true
     storage: false
     subresources:

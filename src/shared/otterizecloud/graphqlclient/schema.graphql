@@ -32,9 +32,20 @@ directive @include(
 	if: Boolean!
 ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
+"""@noRole indicates that the specified query / mutation / subscription can be executed regardless of the user's roles.
+This practically means that the query will not allow accessing any org-specific data."""
+directive @noRole on FIELD_DEFINITION
+
 """@noauth indicates that the specified query / mutation / subscription can be executed anonymously without
+user authentication, meaning anyone and everyone can execute it. USE WITH CAUTION.
 user authentication, meaning anyone and everyone can execute it. USE WITH CAUTION."""
 directive @noauth on FIELD_DEFINITION
+
+"""@requiresRole indicates that the specified query / mutation / subscription requires any of the provided roles to be executed.
+Users without any of the specified roles will not be able to execute the query / mutation / subscription."""
+directive @requiresRole(
+	roles: [AuthRole!]!
+) on FIELD_DEFINITION
 
 directive @restApiField(
 	action: ApiFieldAction
@@ -273,6 +284,11 @@ type AppliedIntentsRequestWithDetails {
 	status: AppliedIntentsRequestStatusLabel!
 	reason: String
 	clientIntents: ClientIntentsFileRepresentation!
+}
+
+enum AuthRole {
+	ADMIN
+	VIEWER
 }
 
 enum AutomateThirdPartyNetworkPolicy {
@@ -550,6 +566,12 @@ enum ComponentType {
 	INTENTS_OPERATOR
 	CREDENTIALS_OPERATOR
 	NETWORK_MAPPER
+}
+
+input ConnectionsCount {
+	current: Int!
+	removed: Int!
+	added: Int!
 }
 
 type CreateGitHubIntegrationResponse {
@@ -1210,6 +1232,25 @@ input InputIntegrationAccessGraphFilter {
 	namespaceFilterType: IDFilterOperators
 	serviceIds: [ID!]
 	serviceFilterType: IDFilterOperators
+	targets: [IntentType!]
+}
+
+""" Network policies filter """
+input InputNetworkPolicyFilter {
+""" Network policies filter """
+	search: String
+""" Network policies filter """
+	clusterIds: InputIDFilterValue
+""" Network policies filter """
+	namespaceIds: InputIDFilterValue
+""" Network policies filter """
+	environmentIds: InputIDFilterValue
+""" Network policies filter """
+	networkPolicyIds: InputIDFilterValue
+""" Network policies filter """
+	policyKinds: InputIDFilterValue
+""" Network policies filter """
+	since: InputTimeFilterValue
 }
 
 input InputResourceInventoryFilter {
@@ -1317,6 +1358,7 @@ type IntegrationAccessGraphFilter {
 	serviceIds: [ID!]
 	serviceFilterType: IDFilterOperators
 	lastSeenAfter: Time
+	targets: [IntentType!]
 }
 
 type IntegrationComponents {
@@ -1409,6 +1451,7 @@ input IntentInput {
 	internet: InternetConfigInput
 	status: IntentStatusInput
 	resolutionData: String
+	connectionsCount: ConnectionsCount
 }
 
 input IntentRequestInput {
@@ -1433,6 +1476,7 @@ input IntentStatusInput {
 }
 
 enum IntentType {
+	KUBERNETES
 	HTTP
 	KAFKA
 	DATABASE
@@ -1510,6 +1554,7 @@ type Invite {
 	id: ID!
 	email: String!
 	organization: Organization!
+	organizationMembership: OrganizationMembership!
 	inviter: User!
 	created: Time!
 	acceptedAt: Time
@@ -1519,11 +1564,6 @@ type Invite {
 enum InviteStatus {
 	PENDING
 	ACCEPTED
-}
-
-input IpBlockInput {
-	cidr: String!
-	except: [String!]
 }
 
 enum IpFamilyPolicy {
@@ -2019,10 +2059,6 @@ type Mutation {
 		intents: [IntentInput!]!
 		ossClusterId: String
 	): Boolean!
-	reportNetworkPolicies(
-		namespace: String!
-		policies: [NetworkPolicyInput!]!
-	): Boolean!
 	reportExternallyAccessibleServices(
 		namespace: String!
 		services: [ExternallyAccessibleServiceInput!]!
@@ -2036,6 +2072,7 @@ type Mutation {
 """Create user invite"""
 	createInvite(
 		email: String!
+		organizationMembership: OrganizationMembershipInput
 	): Invite!
 """Delete user invite"""
 	deleteInvite(
@@ -2069,6 +2106,14 @@ type Mutation {
 		id: ID!
 		environmentId: ID
 	): Namespace!
+	reportNamespaceLabels(
+		name: String!
+		labels: [LabelInput!]
+	): Boolean!
+	reportNetworkPolicies(
+		namespace: String!
+		networkPolicies: [NetworkPolicyInput!]
+	): Boolean!
 """Create a new organization"""
 	createOrganization(
 		name: String
@@ -2079,6 +2124,9 @@ type Mutation {
 		name: String
 		imageURL: String
 		settings: OrganizationSettingsInput
+	): Organization!
+	updateDomainsDefaultRole(
+		defaultRole: AuthRole!
 	): Organization!
 """Remove user from organization"""
 	removeUserFromOrganization(
@@ -2186,20 +2234,39 @@ enum NetworkPoliciesStep {
 	COMPLETED
 }
 
-input NetworkPolicyEgressRuleInput {
-	to: [PeerInput!]!
+type NetworkPolicy {
+	id: ID!
+	name: String!
+	kind: NetworkPolicyKind!
+	cluster: Cluster!
+	namespace: Namespace
+	environment: Environment!
+	hits: Int!
+	workloads: [NetworkPolicyWorkload!]!
+	workloadsAffected: Int!
+	spec: String!
+	lastUsed: Time!
 }
 
 input NetworkPolicyInput {
-	namespace: String!
 	name: String!
-	serverName: String!
-	externalNetworkTrafficPolicy: Boolean!
-	spec: NetworkPolicySpecInput
+	yaml: String!
 }
 
-input NetworkPolicySpecInput {
-	egress: [NetworkPolicyEgressRuleInput!]
+enum NetworkPolicyKind {
+	NETWORK_POLICY
+	CILIUM_NETWORK_POLICY
+}
+
+enum NetworkPolicyScope {
+	PRIMARY
+	EGRESS
+	INGRESS
+}
+
+type NetworkPolicyWorkload {
+	scope: NetworkPolicyScope!
+	service: Service!
 }
 
 type Organization {
@@ -2211,11 +2278,37 @@ type Organization {
 	created: Time!
 }
 
+type OrganizationMembership {
+	role: AuthRole!
+	restrictions: OrganizationMembershipRestrictions
+}
+
+input OrganizationMembershipInput {
+	role: AuthRole!
+	restrictions: OrganizationMembershipRestrictionsInput
+}
+
+type OrganizationMembershipRestrictions {
+	clusterIds: IDFilterValue
+	serviceIds: IDFilterValue
+	namespaceIds: IDFilterValue
+	environmentIds: IDFilterValue
+}
+
+input OrganizationMembershipRestrictionsInput {
+	clusterIds: InputIDFilterValue
+	serviceIds: InputIDFilterValue
+	namespaceIds: InputIDFilterValue
+	environmentIds: InputIDFilterValue
+}
+
 type OrganizationSettings {
 	domains: [String!]
 	enforcedRegulations: [String!]
 	ignoredCloudDomains: [String!]
 	defaultIntentsApprovalActionByEnv: [DefaultIntentsApprovalActionByEnv!]!
+	ignoreInternetIntents: Boolean
+	domainsDefaultRole: AuthRole!
 }
 
 input OrganizationSettingsInput {
@@ -2223,6 +2316,7 @@ input OrganizationSettingsInput {
 	enforcedRegulations: [String]
 	ignoredCloudDomains: [String!]
 	defaultIntentsApprovalActionByEnv: [InputDefaultIntentsApprovalActionByEnv!]
+	ignoreInternetIntents: Boolean
 }
 
 input PaginationInput {
@@ -2239,10 +2333,6 @@ enum PathType {
 	IMPLEMENTATION_SPECIFIC
 	PREFIX
 	EXACT
-}
-
-input PeerInput {
-	ipBlock: IpBlockInput!
 }
 
 input PortStatusInput {
@@ -2295,6 +2385,16 @@ type Query {
 		targetServiceId: ID!
 		lastSeenAfter: Time!
 	): [String!]!
+	edgeNetworkPolicies(
+		clientServiceId: ID!
+		serverServiceId: ID!
+	): [NetworkPolicy!]!
+""" Get edge connections count """
+	edgeConnectionsCount(
+		clientId: ID!
+		serverId: ID!
+		lastSeenAfter: Time!
+	): Int!
 """Get access log"""
 	accessLog(
 		filter: InputAccessLogFilter
@@ -2420,6 +2520,12 @@ type Query {
 		clusterId: ID
 		name: String
 	): Namespace!
+	networkPolicy(
+		id: ID!
+	): NetworkPolicy
+	networkPolicies(
+		filter: InputNetworkPolicyFilter
+	): [NetworkPolicy!]!
 """List organizations"""
 	organizations: [Organization!]!
 """Get organization"""
@@ -2508,6 +2614,9 @@ enum RegulationCode {
 	ZERO_TRUST_EGRESS_ACCESS_COVERED
 	ZERO_TRUST_EXTERNAL_INGRESS_TAGGED
 	ZERO_TRUST_ALL_INTRA_CLUSTER_ACCESS_COVERED
+	THREAT_INTELLIGENCE
+"""Detect known IOCs (IPs, domain names) against ingress and egress Internet traffic"""
+	THREAT_INTELLIGENCE_KNOWN_IOCS
 }
 
 enum RegulationStandard {
@@ -2515,6 +2624,7 @@ enum RegulationStandard {
 	PII
 	HIPAA
 	ZERO_TRUST
+	THREAT_INTELLIGENCE
 }
 
 input ReportServiceMetadataInput {
@@ -2622,6 +2732,7 @@ type Service {
 	aliases: [ServerAlias!]
 	namespace: Namespace
 	environment: Environment!
+	networkPolicies: [NetworkPolicy!]
 """If service is Kafka, its KafkaServerConfig."""
 	kafkaServerConfig: KafkaServerConfig
 	certificateInformation: CertificateInformation
@@ -2685,6 +2796,7 @@ input ServiceIdentityInput {
 	name: String!
 	namespace: String!
 	kind: String!
+	nameResolvedUsingAnnotation: Boolean
 }
 
 enum ServiceInternalTrafficPolicy {
@@ -2695,6 +2807,7 @@ enum ServiceInternalTrafficPolicy {
 input ServiceMetadataInput {
 	tags: [String!]
 	awsRoles: [String!]
+	labels: [LabelInput!]
 }
 
 enum ServiceType {
@@ -2908,6 +3021,7 @@ type User {
 	authProviderUserId: String!
 	tutorials: [UserTutorial!]
 	activeTutorial: UserTutorial!
+	orgMembership: OrganizationMembership!
 	awsCustomer: AWSCustomer
 }
 

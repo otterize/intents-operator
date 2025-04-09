@@ -157,6 +157,21 @@ const (
 	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
 )
 
+type ConnectionsCount struct {
+	Current *int `json:"current"`
+	Removed *int `json:"removed"`
+	Added   *int `json:"added"`
+}
+
+// GetCurrent returns ConnectionsCount.Current, and is useful for accessing the field via an interface.
+func (v *ConnectionsCount) GetCurrent() *int { return v.Current }
+
+// GetRemoved returns ConnectionsCount.Removed, and is useful for accessing the field via an interface.
+func (v *ConnectionsCount) GetRemoved() *int { return v.Removed }
+
+// GetAdded returns ConnectionsCount.Added, and is useful for accessing the field via an interface.
+func (v *ConnectionsCount) GetAdded() *int { return v.Added }
+
 type DNSIPPairInput struct {
 	DnsName *string   `json:"dnsName"`
 	Ips     []*string `json:"ips"`
@@ -305,6 +320,7 @@ type IntentInput struct {
 	Internet                          *InternetConfigInput      `json:"internet"`
 	Status                            *IntentStatusInput        `json:"status"`
 	ResolutionData                    *string                   `json:"resolutionData"`
+	ConnectionsCount                  *ConnectionsCount         `json:"connectionsCount"`
 }
 
 // GetNamespace returns IntentInput.Namespace, and is useful for accessing the field via an interface.
@@ -388,6 +404,9 @@ func (v *IntentInput) GetStatus() *IntentStatusInput { return v.Status }
 // GetResolutionData returns IntentInput.ResolutionData, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetResolutionData() *string { return v.ResolutionData }
 
+// GetConnectionsCount returns IntentInput.ConnectionsCount, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetConnectionsCount() *ConnectionsCount { return v.ConnectionsCount }
+
 type IntentStatusInput struct {
 	IstioStatus *IstioStatusInput `json:"istioStatus"`
 }
@@ -398,14 +417,15 @@ func (v *IntentStatusInput) GetIstioStatus() *IstioStatusInput { return v.IstioS
 type IntentType string
 
 const (
-	IntentTypeHttp     IntentType = "HTTP"
-	IntentTypeKafka    IntentType = "KAFKA"
-	IntentTypeDatabase IntentType = "DATABASE"
-	IntentTypeAws      IntentType = "AWS"
-	IntentTypeGcp      IntentType = "GCP"
-	IntentTypeAzure    IntentType = "AZURE"
-	IntentTypeS3       IntentType = "S3"
-	IntentTypeInternet IntentType = "INTERNET"
+	IntentTypeKubernetes IntentType = "KUBERNETES"
+	IntentTypeHttp       IntentType = "HTTP"
+	IntentTypeKafka      IntentType = "KAFKA"
+	IntentTypeDatabase   IntentType = "DATABASE"
+	IntentTypeAws        IntentType = "AWS"
+	IntentTypeGcp        IntentType = "GCP"
+	IntentTypeAzure      IntentType = "AZURE"
+	IntentTypeS3         IntentType = "S3"
+	IntentTypeInternet   IntentType = "INTERNET"
 )
 
 type IntentsOperatorConfigurationInput struct {
@@ -538,17 +558,6 @@ func (v *InternetConfigInput) GetIps() []*string { return v.Ips }
 // GetPorts returns InternetConfigInput.Ports, and is useful for accessing the field via an interface.
 func (v *InternetConfigInput) GetPorts() []*int { return v.Ports }
 
-type IpBlockInput struct {
-	Cidr   string   `json:"cidr"`
-	Except []string `json:"except"`
-}
-
-// GetCidr returns IpBlockInput.Cidr, and is useful for accessing the field via an interface.
-func (v *IpBlockInput) GetCidr() string { return v.Cidr }
-
-// GetExcept returns IpBlockInput.Except, and is useful for accessing the field via an interface.
-func (v *IpBlockInput) GetExcept() []string { return v.Except }
-
 type IstioStatusInput struct {
 	ServiceAccountName     *string `json:"serviceAccountName"`
 	IsServiceAccountShared *bool   `json:"isServiceAccountShared"`
@@ -660,51 +669,16 @@ const (
 	KubernetesServiceTypeExternalName KubernetesServiceType = "EXTERNAL_NAME"
 )
 
-type NetworkPolicyEgressRuleInput struct {
-	To []PeerInput `json:"to"`
-}
-
-// GetTo returns NetworkPolicyEgressRuleInput.To, and is useful for accessing the field via an interface.
-func (v *NetworkPolicyEgressRuleInput) GetTo() []PeerInput { return v.To }
-
 type NetworkPolicyInput struct {
-	Namespace                    string                 `json:"namespace"`
-	Name                         string                 `json:"name"`
-	ServerName                   string                 `json:"serverName"`
-	ExternalNetworkTrafficPolicy bool                   `json:"externalNetworkTrafficPolicy"`
-	Spec                         NetworkPolicySpecInput `json:"spec"`
+	Name string `json:"name"`
+	Yaml string `json:"yaml"`
 }
-
-// GetNamespace returns NetworkPolicyInput.Namespace, and is useful for accessing the field via an interface.
-func (v *NetworkPolicyInput) GetNamespace() string { return v.Namespace }
 
 // GetName returns NetworkPolicyInput.Name, and is useful for accessing the field via an interface.
 func (v *NetworkPolicyInput) GetName() string { return v.Name }
 
-// GetServerName returns NetworkPolicyInput.ServerName, and is useful for accessing the field via an interface.
-func (v *NetworkPolicyInput) GetServerName() string { return v.ServerName }
-
-// GetExternalNetworkTrafficPolicy returns NetworkPolicyInput.ExternalNetworkTrafficPolicy, and is useful for accessing the field via an interface.
-func (v *NetworkPolicyInput) GetExternalNetworkTrafficPolicy() bool {
-	return v.ExternalNetworkTrafficPolicy
-}
-
-// GetSpec returns NetworkPolicyInput.Spec, and is useful for accessing the field via an interface.
-func (v *NetworkPolicyInput) GetSpec() NetworkPolicySpecInput { return v.Spec }
-
-type NetworkPolicySpecInput struct {
-	Egress []NetworkPolicyEgressRuleInput `json:"egress"`
-}
-
-// GetEgress returns NetworkPolicySpecInput.Egress, and is useful for accessing the field via an interface.
-func (v *NetworkPolicySpecInput) GetEgress() []NetworkPolicyEgressRuleInput { return v.Egress }
-
-type PeerInput struct {
-	IpBlock IpBlockInput `json:"ipBlock"`
-}
-
-// GetIpBlock returns PeerInput.IpBlock, and is useful for accessing the field via an interface.
-func (v *PeerInput) GetIpBlock() IpBlockInput { return v.IpBlock }
+// GetYaml returns NetworkPolicyInput.Yaml, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetYaml() string { return v.Yaml }
 
 type PrometheusServerConfigInput struct {
 	Name      string `json:"name"`
@@ -1185,7 +1159,7 @@ func ReportNetworkPolicies(
 		OpName: "ReportNetworkPolicies",
 		Query: `
 mutation ReportNetworkPolicies ($namespace: String!, $policies: [NetworkPolicyInput!]!) {
-	reportNetworkPolicies(namespace: $namespace, policies: $policies)
+	reportNetworkPolicies(namespace: $namespace, networkPolicies: $policies)
 }
 `,
 		Variables: &__ReportNetworkPoliciesInput{
