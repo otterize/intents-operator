@@ -2,6 +2,7 @@ package azureagent
 
 import (
 	"context"
+	azureerrors "github.com/Azure/azure-sdk-for-go-extensions/pkg/errors"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/amit7itz/goset"
@@ -24,6 +25,7 @@ func (a *Agent) IsCustomRoleAssignment(roleAssignment armauthorization.RoleAssig
 
 func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssignedIdentity armmsi.Identity, roleDefinition armauthorization.RoleDefinition, desc *string) error {
 	roleAssignmentName := uuid.NewString()
+
 	_, err := a.roleAssignmentsClient.Create(
 		ctx,
 		scope,
@@ -37,7 +39,15 @@ func (a *Agent) CreateRoleAssignment(ctx context.Context, scope string, userAssi
 			},
 		},
 		nil)
+
 	if err != nil {
+		azureErr := azureerrors.IsResponseError(err)
+		if azureErr != nil {
+			if azureErr.StatusCode == 409 {
+				// WA for "RoleAssignmentExists" error which we ignore
+				return nil
+			}
+		}
 		return errors.Wrap(err)
 	}
 	return nil
@@ -90,18 +100,18 @@ func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscrip
 
 	var roleAssignments []armauthorization.RoleAssignment
 	pager := roleClient.NewListForSubscriptionPager(nil)
+	customRoles := make([]armauthorization.RoleAssignment, 0)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
-
 		for _, roleAssignment := range page.Value {
 			// We want to list only otterize role assignments
 			if !a.IsCustomRoleAssignment(*roleAssignment) {
 				continue
 			}
-
+			customRoles = append(customRoles, *roleAssignment)
 			// Skip filtering if userAssignedIdentity is nil
 			if userAssignedIdentity == nil {
 				roleAssignments = append(roleAssignments, *roleAssignment)
