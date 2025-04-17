@@ -100,18 +100,18 @@ func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscrip
 
 	var roleAssignments []armauthorization.RoleAssignment
 	pager := roleClient.NewListForSubscriptionPager(nil)
-	customRoles := make([]armauthorization.RoleAssignment, 0)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
+
 		for _, roleAssignment := range page.Value {
 			// We want to list only otterize role assignments
 			if !a.IsCustomRoleAssignment(*roleAssignment) {
 				continue
 			}
-			customRoles = append(customRoles, *roleAssignment)
+
 			// Skip filtering if userAssignedIdentity is nil
 			if userAssignedIdentity == nil {
 				roleAssignments = append(roleAssignments, *roleAssignment)
