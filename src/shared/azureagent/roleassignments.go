@@ -97,18 +97,14 @@ func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscrip
 		}
 
 		for _, roleAssignment := range page.Value {
-			// We want to list only otterize role assignments
-			if !a.IsCustomRoleAssignment(*roleAssignment) {
-				continue
-			}
-
-			// Skip filtering if userAssignedIdentity is nil
-			if userAssignedIdentity == nil {
+			// If the userAssignedIdentity is not nil, compare its principal ID with the role assignment's principal ID
+			// This is for backwards compatibility for Azure roles
+			if userAssignedIdentity != nil && *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
 				roleAssignments = append(roleAssignments, *roleAssignment)
-				continue
 			}
 
-			if *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
+			// If userAssignedIdentity is nil, add only custom role assignments
+			if userAssignedIdentity == nil && a.IsCustomRoleAssignment(*roleAssignment) {
 				roleAssignments = append(roleAssignments, *roleAssignment)
 			}
 		}
