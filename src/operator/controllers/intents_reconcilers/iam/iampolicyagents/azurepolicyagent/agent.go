@@ -161,8 +161,8 @@ func (a *Agent) ensureRoleAssignmentsForIntent(
 	}))
 
 	for _, roleName := range roleNames {
-		roleDefinition, roleExists := roleDefinitionsByName[roleName]
-		if !roleExists {
+		roleDefinition, exists := roleDefinitionsByName[roleName]
+		if !exists {
 			// The role mentioned in the intents does not exist in the subscription, record event and move on
 			a.recorder.Eventf(&intents, corev1.EventTypeWarning, "RoleDefinitionNotFound", "Role definition %s not found in scope %s", roleName, scope)
 			continue
