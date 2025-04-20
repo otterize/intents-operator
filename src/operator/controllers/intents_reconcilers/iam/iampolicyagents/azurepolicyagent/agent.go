@@ -14,6 +14,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 	"regexp"
 	"strings"
 	"sync"
@@ -21,15 +22,17 @@ import (
 
 var KeyVaultNameRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.KeyVault/vaults/([^/]+)$`)
 var StorageAccountRegex = regexp.MustCompile(`providers/Microsoft.Storage/storageAccounts/([^/]+)`)
+var InvalidRole = errors.New("Invalid role")
 
 type Agent struct {
 	*azureagent.Agent
 	roleMutex       sync.Mutex
 	assignmentMutex sync.Mutex
+	recorder        record.EventRecorder
 }
 
-func NewAzurePolicyAgent(ctx context.Context, azureAgent *azureagent.Agent) *Agent {
-	agent := &Agent{azureAgent, sync.Mutex{}, sync.Mutex{}}
+func NewAzurePolicyAgent(ctx context.Context, azureAgent *azureagent.Agent, recorder record.EventRecorder) *Agent {
+	agent := &Agent{azureAgent, sync.Mutex{}, sync.Mutex{}, recorder}
 
 	return agent
 }
@@ -129,7 +132,7 @@ func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssigne
 		roleNames := intent.Azure.Roles
 		existingRoleAssignmentsForScope := existingRoleAssignmentsByScope[scope]
 
-		if err := a.ensureRoleAssignmentsForIntent(ctx, scope, roleNames, userAssignedIdentity, existingRoleAssignmentsForScope); err != nil {
+		if err := a.ensureRoleAssignmentsForIntent(ctx, scope, roleNames, userAssignedIdentity, existingRoleAssignmentsForScope, clientIntents); err != nil {
 			return errors.Wrap(err)
 		}
 	}
@@ -141,18 +144,29 @@ func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssigne
 	return nil
 }
 
-func (a *Agent) ensureRoleAssignmentsForIntent(ctx context.Context, scope string, roleNames []string, userAssignedIdentity armmsi.Identity, existingRoleAssignmentsForScope []armauthorization.RoleAssignment) error {
+func (a *Agent) ensureRoleAssignmentsForIntent(
+	ctx context.Context,
+	scope string,
+	roleNames []string,
+	userAssignedIdentity armmsi.Identity,
+	existingRoleAssignmentsForScope []armauthorization.RoleAssignment,
+	intents otterizev2alpha1.ClientIntents,
+) error {
 	roleDefinitionsByName, err := a.FindRoleDefinitionByName(ctx, scope, roleNames)
 	if err != nil {
 		return errors.Wrap(err)
 	}
-
 	existingRoleDefinitionIDs := goset.FromSlice(lo.Map(existingRoleAssignmentsForScope, func(roleAssignment armauthorization.RoleAssignment, _ int) string {
 		return *roleAssignment.Properties.RoleDefinitionID
 	}))
 
 	for _, roleName := range roleNames {
-		roleDefinition := roleDefinitionsByName[roleName]
+		roleDefinition, roleExists := roleDefinitionsByName[roleName]
+		if !roleExists {
+			// The role mentioned in the intents does not exist in the subscription, record event and move on
+			a.recorder.Eventf(&intents, corev1.EventTypeWarning, "RoleDefinitionNotFound", "Role definition %s not found in scope %s", roleName, scope)
+			continue
+		}
 		roleDefinitionID := *roleDefinition.ID
 		if !existingRoleDefinitionIDs.Contains(roleDefinitionID) {
 			if err := a.CreateRoleAssignment(ctx, scope, userAssignedIdentity, roleDefinition, nil); err != nil {
