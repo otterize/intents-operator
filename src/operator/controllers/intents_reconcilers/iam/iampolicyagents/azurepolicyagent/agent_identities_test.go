@@ -13,6 +13,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+	"k8s.io/client-go/tools/record"
 	"sync"
 	"testing"
 )
@@ -83,6 +84,7 @@ func (s *AzureAgentIdentitiesSuite) SetupTest() {
 		),
 		sync.Mutex{},
 		sync.Mutex{},
+		&record.FakeRecorder{},
 	}
 }
 

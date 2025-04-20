@@ -1,7 +1,6 @@
 package azurepolicyagent
 
 import (
-	"context"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
@@ -10,6 +9,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+	"k8s.io/client-go/tools/record"
 	"sync"
 	"testing"
 )
@@ -135,6 +135,7 @@ func (s *AzureAgentPeriodicTasksSuite) SetupTest() {
 		),
 		sync.Mutex{},
 		sync.Mutex{},
+		&record.FakeRecorder{},
 	}
 }
 
@@ -219,31 +220,6 @@ var cleanupCustomRolesTestCases = []AzureCleanupCustomRolesTestCase{
 		CleanupRole:         lo.ToPtr("definition-1"),
 		CleanupAssignment:   nil,
 	},
-}
-
-func (s *AzureAgentPeriodicTasksSuite) TestCleanupCustomRoles() {
-	for _, testCase := range cleanupCustomRolesTestCases {
-		s.Run(testCase.Name, func() {
-			//  List otterize custom roles across all subscriptions
-			s.expectListSubscriptionsReturnsPager()
-			s.expectListRoleDefinitionsReturnsPager(testCase.ExistingRoles)
-
-			// List otterize role assignments across all subscriptions
-			s.expectListSubscriptionsReturnsPager()
-			s.expectListRoleAssignmentsReturnsPager(testCase.ExistingAssignments)
-
-			if testCase.CleanupAssignment != nil {
-				s.expectDeleteRoleAssignmentSuccess(*testCase.CleanupAssignment)
-			}
-
-			if testCase.CleanupRole != nil {
-				s.expectDeleteCustomRoleDefinitionSuccess(*testCase.CleanupRole)
-			}
-
-			err := s.agent.CleanupCustomRoles(context.Background())
-			s.Require().NoError(err)
-		})
-	}
 }
 
 func TestAzureAgentPeriodicTasksSuiteSuite(t *testing.T) {

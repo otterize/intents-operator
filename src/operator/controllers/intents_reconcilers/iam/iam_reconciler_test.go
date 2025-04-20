@@ -170,7 +170,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheiamAgent() 
 		},
 	}
 
-	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, clientIntents, clientPod).Return(nil)
+	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, clientIntents, clientIntents.GetTargetList(), clientPod).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -218,7 +218,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
 
-	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, clientIntents, clientPod).Return(nil)
+	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, clientIntents, clientIntents.GetTargetList(), clientPod).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -259,7 +259,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestRoleNotFoundErrorReQueuesEvent() {
 	).Return(nil)
 
 	// Throw the sentinel error
-	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, iamIntents, clientPod).Return(
+	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, iamIntents, iamIntents.GetTargetList(), clientPod).Return(
 		errors.Errorf("%w: %s", agentutils.ErrCloudIdentityNotFound, "test error"),
 	)
 

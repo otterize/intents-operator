@@ -16,6 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"sync"
 	"testing"
 )
@@ -86,6 +87,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 		),
 		sync.Mutex{},
 		sync.Mutex{},
+		&record.FakeRecorder{},
 	}
 }
 
@@ -285,7 +287,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestAddRolePolicyFromIntents_AzureKeyV
 			}
 
 			// Act
-			err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, corev1.Pod{})
+			err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, clientIntents.GetTargetList(), corev1.Pod{})
 
 			// Assert
 			s.NoError(err)

@@ -21,6 +21,7 @@ import (
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"sync"
 	"testing"
 )
@@ -193,6 +194,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) SetupTest() {
 		),
 		sync.Mutex{},
 		sync.Mutex{},
+		&record.FakeRecorder{},
 	}
 }
 
@@ -316,7 +318,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 				s.expectCreateOrUpdateRoleDefinitionWriteRoleDefinition(&customRoleDefinition)
 			}
 
-			err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, corev1.Pod{})
+			err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, clientIntents.GetTargetList(), corev1.Pod{})
 			s.Require().NoError(err)
 
 			if testCase.UpdateExpected {
@@ -341,7 +343,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Identi
 		},
 	}
 
-	err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, corev1.Pod{})
+	err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, clientIntents.GetTargetList(), corev1.Pod{})
 	s.Require().ErrorIs(err, agentutils.ErrCloudIdentityNotFound)
 }
 
