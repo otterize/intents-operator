@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sync"
 	"testing"
 )
@@ -266,7 +267,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 		targetScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/test/blobServices/default/containers/container", testSubscriptionID, testResourceGroup)
 
 		s.Run(testCase.Name, func() {
-			intents := []otterizev2alpha1.Target{
+			targets := []otterizev2alpha1.Target{
 				{
 					Azure: &otterizev2alpha1.AzureTarget{
 						Scope:       targetScope,
@@ -274,6 +275,17 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 						Actions:     testCase.Actions,
 						DataActions: testCase.DataActions,
 					},
+				},
+			}
+
+			clientIntents := otterizev2alpha1.ClientIntents{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testIntentsServiceName,
+					Namespace: testNamespace,
+				},
+				Spec: &otterizev2alpha1.IntentsSpec{
+					Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName},
+					Targets:  targets,
 				},
 			}
 
@@ -304,7 +316,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 				s.expectCreateOrUpdateRoleDefinitionWriteRoleDefinition(&customRoleDefinition)
 			}
 
-			err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, intents, corev1.Pod{})
+			err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, corev1.Pod{})
 			s.Require().NoError(err)
 
 			if testCase.UpdateExpected {
@@ -319,7 +331,17 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_IdentityNotFound() {
 	s.expectGetUserAssignedIdentityReturnsNotFoundError()
 
-	err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, nil, corev1.Pod{})
+	clientIntents := otterizev2alpha1.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testIntentsServiceName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName},
+		},
+	}
+
+	err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, corev1.Pod{})
 	s.Require().ErrorIs(err, agentutils.ErrCloudIdentityNotFound)
 }
 

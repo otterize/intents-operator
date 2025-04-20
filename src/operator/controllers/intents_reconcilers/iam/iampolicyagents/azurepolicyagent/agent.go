@@ -14,11 +14,9 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 )
 
 var KeyVaultNameRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.KeyVault/vaults/([^/]+)$`)
@@ -32,9 +30,6 @@ type Agent struct {
 
 func NewAzurePolicyAgent(ctx context.Context, azureAgent *azureagent.Agent) *Agent {
 	agent := &Agent{azureAgent, sync.Mutex{}, sync.Mutex{}}
-
-	// Start periodic tasks goroutine
-	go wait.Forever(func() { agent.PeriodicTasks(ctx) }, 5*time.Hour)
 
 	return agent
 }
@@ -75,7 +70,7 @@ func (a *Agent) getIntentScope(ctx context.Context, intent otterizev2alpha1.Targ
 	return fullScope, nil
 }
 
-func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, _ string, intentsServiceName string, intents []otterizev2alpha1.Target, _ corev1.Pod) error {
+func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, _ string, intentsServiceName string, intents otterizev2alpha1.ClientIntents, _ []otterizev2alpha1.Target, _ corev1.Pod) error {
 	userAssignedIdentity, exists, err := a.FindUserAssignedIdentity(ctx, namespace, intentsServiceName)
 	if err != nil {
 		return errors.Wrap(err)
@@ -84,35 +79,22 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 		return errors.Errorf("%w: %s-%s", agentutils.ErrCloudIdentityNotFound, namespace, intentsServiceName)
 	}
 
-	// Custom roles
-	azureCustomRolesIntents := lo.Filter(intents, func(intent otterizev2alpha1.Target, _ int) bool {
-		hasCustomRoles := intent.Azure != nil && (len(intent.Azure.Actions) > 0 || len(intent.Azure.DataActions) > 0)
-		return hasCustomRoles && len(intent.Azure.Roles) == 0
-	})
-	if err := a.ensureCustomRolesForIntents(ctx, userAssignedIdentity, azureCustomRolesIntents); err != nil {
+	if err := a.ensureCustomRolesForIntents(ctx, userAssignedIdentity, intents); err != nil {
 		return errors.Wrap(err)
 	}
 
-	// Backwards compatibility for role assignments
-	azureRBACIntents := lo.Filter(intents, func(intent otterizev2alpha1.Target, _ int) bool {
-		return intent.Azure != nil && len(intent.Azure.Roles) > 0
-	})
-	if err := a.ensureRoleAssignmentsForIntents(ctx, userAssignedIdentity, azureRBACIntents); err != nil {
+	if err := a.ensureRoleAssignmentsForIntents(ctx, userAssignedIdentity, intents); err != nil {
 		return errors.Wrap(err)
 	}
 
-	// Key Vault permissions
-	azureKeyVaultIntents := lo.Filter(intents, func(intent otterizev2alpha1.Target, _ int) bool {
-		return intent.Azure != nil && intent.Azure.KeyVaultPolicy != nil
-	})
-	if err := a.ensureKeyVaultPermissionsForIntents(ctx, userAssignedIdentity, azureKeyVaultIntents); err != nil {
+	if err := a.ensureKeyVaultPermissionsForIntents(ctx, userAssignedIdentity, intents); err != nil {
 		return errors.Wrap(err)
 	}
 
 	return nil
 }
 
-func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev2alpha1.Target) error {
+func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, clientIntents otterizev2alpha1.ClientIntents) error {
 	// Lock the agent to ensure that no other goroutine is modifying the assignments
 	a.assignmentMutex.Lock()
 	defer a.assignmentMutex.Unlock()
@@ -131,8 +113,13 @@ func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssigne
 		return *roleAssignment.Properties.Scope
 	})
 
+	// Backwards compatibility for role assignments
+	azureRBACIntents := lo.Filter(clientIntents.GetTargetList(), func(intent otterizev2alpha1.Target, _ int) bool {
+		return intent.Azure != nil && len(intent.Azure.Roles) > 0
+	})
+
 	var expectedScopes []string
-	for _, intent := range intents {
+	for _, intent := range azureRBACIntents {
 		scope, err := a.getIntentScope(ctx, intent)
 		if err != nil {
 			return errors.Wrap(err)
@@ -233,6 +220,24 @@ func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otteriz
 		}
 	}
 
+	// Custom roles
+	azureCustomRolesTargets := lo.Filter(intents.GetTargetList(), func(intent otterizev2alpha1.Target, _ int) bool {
+		hasCustomRoles := intent.Azure != nil && (len(intent.Azure.Actions) > 0 || len(intent.Azure.DataActions) > 0)
+		return hasCustomRoles && len(intent.Azure.Roles) == 0
+	})
+
+	for _, target := range azureCustomRolesTargets {
+		scope, err := a.getIntentScope(ctx, target)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+
+		err = a.DeleteCustomRole(ctx, scope, intents)
+		if err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
 	existingKeyVaultsAccessPolicies, err := a.GetExistingKeyVaultAccessPolicies(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
@@ -256,7 +261,7 @@ func extractKeyVaultName(scope string) (string, error) {
 	return match[1], nil
 }
 
-func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev2alpha1.Target) error {
+func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, clientIntents otterizev2alpha1.ClientIntents) error {
 	existingKeyVaultsAccessPolicies, err := a.GetExistingKeyVaultAccessPolicies(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
@@ -264,7 +269,12 @@ func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAss
 
 	var expectedIntentsKeyVaults []string
 
-	for _, intent := range intents {
+	// Key Vault permissions
+	azureKeyVaultIntents := lo.Filter(clientIntents.GetTargetList(), func(intent otterizev2alpha1.Target, _ int) bool {
+		return intent.Azure != nil && intent.Azure.KeyVaultPolicy != nil
+	})
+
+	for _, intent := range azureKeyVaultIntents {
 		scope, err := a.getIntentScope(ctx, intent)
 		if err != nil {
 			return errors.Wrap(err)
@@ -348,7 +358,7 @@ func (a *Agent) vaultAccessPolicyEntryFromIntent(userAssignedIdentity armmsi.Ide
 	}
 }
 
-func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, intents []otterizev2alpha1.Target) error {
+func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, clientIntents otterizev2alpha1.ClientIntents) error {
 	// Lock the agent to ensure that no other goroutine is modifying the custom roles in parallel
 	a.roleMutex.Lock()
 	defer a.roleMutex.Unlock()
@@ -358,21 +368,27 @@ func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIde
 		return errors.Wrap(err)
 	}
 
-	// Filter out assignments on predefined roles
+	// Filter out non-otterize roles
 	existingRoleAssignments = lo.Filter(existingRoleAssignments, func(roleAssignment armauthorization.RoleAssignment, _ int) bool {
 		return a.IsCustomRoleAssignment(roleAssignment)
 	})
 
+	// Custom roles
+	azureCustomRolesTargets := lo.Filter(clientIntents.GetTargetList(), func(intent otterizev2alpha1.Target, _ int) bool {
+		hasCustomRoles := intent.Azure != nil && (len(intent.Azure.Actions) > 0 || len(intent.Azure.DataActions) > 0)
+		return hasCustomRoles && len(intent.Azure.Roles) == 0
+	})
+
 	var expectedScopes []string
-	for _, intent := range intents {
-		scope, err := a.getIntentScope(ctx, intent)
+	for _, target := range azureCustomRolesTargets {
+		scope, err := a.getIntentScope(ctx, target)
 		if err != nil {
 			return errors.Wrap(err)
 		}
 
 		expectedScopes = append(expectedScopes, scope)
 
-		err = a.ensureCustomRoleForIntent(ctx, userAssignedIdentity, scope, intent)
+		err = a.ensureCustomRoleForIntent(ctx, userAssignedIdentity, scope, clientIntents, target)
 		if err != nil {
 			return errors.Wrap(err)
 		}
@@ -385,11 +401,11 @@ func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIde
 	return nil
 }
 
-func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdentity armmsi.Identity, scope string, intent otterizev2alpha1.Target) error {
+func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdentity armmsi.Identity, scope string, intents otterizev2alpha1.ClientIntents, intent otterizev2alpha1.Target) error {
 	actions := intent.Azure.Actions
 	dataActions := intent.Azure.DataActions
 
-	customRoleName := a.GenerateCustomRoleName(userAssignedIdentity, scope)
+	customRoleName := a.GenerateCustomRoleName(intents, scope)
 	role, found := a.FindCustomRoleByName(ctx, scope, customRoleName)
 	if found {
 		err := a.UpdateCustomRole(ctx, scope, role, actions, dataActions)
@@ -403,7 +419,7 @@ func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdent
 			return errors.Wrap(err)
 		}
 
-		newRole, err := a.CreateCustomRole(ctx, scope, userAssignedIdentity, actions, dataActions)
+		newRole, err := a.CreateCustomRole(ctx, scope, intents, actions, dataActions)
 		if err != nil {
 			return errors.Wrap(err)
 		}

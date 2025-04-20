@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
-	"strings"
 )
 
 const (
@@ -49,17 +48,6 @@ func (a *Agent) DeleteRoleAssignment(ctx context.Context, roleAssignment armauth
 		return errors.Wrap(err)
 	}
 
-	// If the assignment is for a custom role, we also need to delete the role itself
-	if a.IsCustomRoleAssignment(roleAssignment) {
-		// The role id is the last hash of the assignments roleDefinitionID
-		fullID := *roleAssignment.Properties.RoleDefinitionID
-		roleDefinitionID := fullID[strings.LastIndex(fullID, "/")+1:]
-
-		if err := a.DeleteCustomRole(ctx, *roleAssignment.Properties.Scope, roleDefinitionID); err != nil {
-			return errors.Wrap(err)
-		}
-	}
-
 	return nil
 }
 
@@ -97,14 +85,8 @@ func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscrip
 		}
 
 		for _, roleAssignment := range page.Value {
-			// If the userAssignedIdentity is not nil, compare its principal ID with the role assignment's principal ID
-			// This is for backwards compatibility for Azure roles
-			if userAssignedIdentity != nil && *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
-				roleAssignments = append(roleAssignments, *roleAssignment)
-			}
-
-			// If userAssignedIdentity is nil, add only custom role assignments
-			if userAssignedIdentity == nil && a.IsCustomRoleAssignment(*roleAssignment) {
+			// We don't filter only Otterize role assignments here for backwards compatibility with intents v1 Azure Roles
+			if *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
 				roleAssignments = append(roleAssignments, *roleAssignment)
 			}
 		}
@@ -115,7 +97,7 @@ func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscrip
 
 func (a *Agent) FindRoleDefinitionByName(ctx context.Context, scope string, roleNames []string) (map[string]armauthorization.RoleDefinition, error) {
 	roleDefinitionsByName := map[string]armauthorization.RoleDefinition{}
-	roleDefinitions := a.roleDefinitionsClient.NewListPager(scope, nil)
+	roleDefinitions := a.RoleDefinitionsClient.NewListPager(scope, nil)
 	roleNamesSet := goset.FromSlice(roleNames)
 	for roleDefinitions.More() {
 		page, err := roleDefinitions.NextPage(ctx)

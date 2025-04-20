@@ -16,7 +16,9 @@ func (a *Agent) ListSubscriptions(ctx context.Context) ([]armsubscriptions.Subsc
 		}
 
 		for _, subscription := range page.Value {
-			subscriptions = append(subscriptions, *subscription)
+			if *subscription.ID != "/subscriptions/0eb222dc-cf72-4123-b0f5-d0dd21804d10" {
+				subscriptions = append(subscriptions, *subscription)
+			}
 		}
 	}
 

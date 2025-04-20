@@ -3,10 +3,8 @@ package azureagent
 import (
 	"context"
 	"fmt"
-	azureerrors "github.com/Azure/azure-sdk-for-go-extensions/pkg/errors"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/agentutils"
@@ -31,12 +29,12 @@ func (a *Agent) GetSubscriptionScope(scope string) string {
 	return fmt.Sprintf("/subscriptions/%s", subscriptionId)
 }
 
-func (a *Agent) GenerateCustomRoleName(uai armmsi.Identity, scope string) string {
-	fullName := fmt.Sprintf("%s-%s", *uai.Name, scope)
+func (a *Agent) GenerateCustomRoleName(intents v2alpha1.ClientIntents, scope string) string {
+	fullName := fmt.Sprintf("ottr-%s-%s-%s-%s", intents.GetWorkloadName(), intents.Namespace, a.Conf.AKSClusterName, scope)
 	return agentutils.TruncateHashName(fullName, maxRoleNameLength)
 }
 
-func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.Identity, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) (*armauthorization.RoleDefinition, error) {
+func (a *Agent) CreateCustomRole(ctx context.Context, scope string, clientIntents v2alpha1.ClientIntents, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) (*armauthorization.RoleDefinition, error) {
 	roleScope := a.GetSubscriptionScope(scope)
 
 	formattedActions := lo.Map(actions, func(action v2alpha1.AzureAction, _ int) *string {
@@ -47,7 +45,7 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 	})
 
 	id := uuid.NewString()
-	name := a.GenerateCustomRoleName(uai, scope)
+	name := a.GenerateCustomRoleName(clientIntents, scope)
 	description := fmt.Sprintf("%s - %s", OtterizeCustomRoleTag, OtterizeCustomRoleDescription)
 
 	roleDefinition := armauthorization.RoleDefinition{
@@ -64,8 +62,8 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, uai armmsi.I
 		},
 	}
 
-	logrus.WithField("name", *uai.Name).Debug("Creating custom role for uai")
-	resp, err := a.roleDefinitionsClient.CreateOrUpdate(ctx, roleScope, id, roleDefinition, nil)
+	logrus.WithField("name", name).Debug("Creating custom role")
+	resp, err := a.RoleDefinitionsClient.CreateOrUpdate(ctx, roleScope, id, roleDefinition, nil)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -101,7 +99,7 @@ func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armaut
 	}
 
 	logrus.WithField("name", *role.Name).Debug("Updating custom role")
-	_, err := a.roleDefinitionsClient.CreateOrUpdate(ctx, roleScope, *role.Name, *role, nil)
+	_, err := a.RoleDefinitionsClient.CreateOrUpdate(ctx, roleScope, *role.Name, *role, nil)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -113,7 +111,7 @@ func (a *Agent) FindCustomRoleByName(ctx context.Context, scope string, name str
 	roleScope := a.GetSubscriptionScope(scope)
 	filter := fmt.Sprintf("roleName eq '%s'", name)
 
-	pager := a.roleDefinitionsClient.NewListPager(roleScope, &armauthorization.RoleDefinitionsClientListOptions{
+	pager := a.RoleDefinitionsClient.NewListPager(roleScope, &armauthorization.RoleDefinitionsClientListOptions{
 		Filter: &filter,
 	})
 
@@ -127,44 +125,38 @@ func (a *Agent) FindCustomRoleByName(ctx context.Context, scope string, name str
 	return nil, false
 }
 
-func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, roleDefinitionID string) error {
+func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, clientIntents v2alpha1.ClientIntents) error {
 	roleScope := a.GetSubscriptionScope(scope)
-
-	logrus.WithField("id", roleDefinitionID).Debug("Deleting custom role")
-	_, err := a.roleDefinitionsClient.Delete(ctx, roleScope, roleDefinitionID, nil)
+	roleName := a.GenerateCustomRoleName(clientIntents, scope)
+	roles, err := a.FindRoleDefinitionByName(ctx, roleScope, []string{roleName})
 	if err != nil {
-		if azureerrors.IsNotFoundErr(err) {
-			return nil
-		}
+		return errors.Wrap(err)
+	}
+
+	if len(roles) == 0 {
+		logrus.WithField("name", roleName).Debug("Custom role not found")
+		return nil
+	}
+
+	if len(roles) > 1 {
+		return errors.Errorf("multiple custom roles found with name %s", roleName)
+	}
+
+	role := lo.Values(roles)[0]
+
+	logrus.WithField("id", role.ID).Debug("Deleting custom role")
+	_, err = a.RoleDefinitionsClient.Delete(ctx, roleScope, *role.ID, nil)
+	if err != nil {
 		return errors.Wrap(err)
 	}
 
 	return nil
 }
 
-func (a *Agent) ListCustomRolesAcrossSubscriptions(ctx context.Context) ([]armauthorization.RoleDefinition, error) {
-	subscriptions, err := a.ListSubscriptions(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
-
-	var customRoles []armauthorization.RoleDefinition
-	for _, sub := range subscriptions {
-		rolesForSubscription, err := a.ListCustomRolesForSubscription(ctx, *sub.ID)
-		if err != nil {
-			return nil, errors.Wrap(err)
-		}
-
-		customRoles = append(customRoles, rolesForSubscription...)
-	}
-
-	return customRoles, nil
-}
-
 func (a *Agent) ListCustomRolesForSubscription(ctx context.Context, subscriptionID string) ([]armauthorization.RoleDefinition, error) {
 	var customRoles []armauthorization.RoleDefinition
 
-	pager := a.roleDefinitionsClient.NewListPager(subscriptionID, nil)
+	pager := a.RoleDefinitionsClient.NewListPager(subscriptionID, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
