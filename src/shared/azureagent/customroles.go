@@ -145,7 +145,7 @@ func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, clientIntent
 	role := lo.Values(roles)[0]
 
 	logrus.WithField("id", role.ID).Debug("Deleting custom role")
-	_, err = a.RoleDefinitionsClient.Delete(ctx, roleScope, *role.ID, nil)
+	_, err = a.RoleDefinitionsClient.Delete(ctx, roleScope, *role.Name, nil)
 	if err != nil {
 		return errors.Wrap(err)
 	}

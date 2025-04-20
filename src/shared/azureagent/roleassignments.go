@@ -112,13 +112,5 @@ func (a *Agent) FindRoleDefinitionByName(ctx context.Context, scope string, role
 		}
 	}
 
-	missingRoles := lo.Filter(roleNames, func(roleName string, _ int) bool {
-		_, exists := roleDefinitionsByName[roleName]
-		return !exists
-	})
-	if len(missingRoles) > 0 {
-		return nil, errors.Errorf("azure role definitions not found: %s", missingRoles)
-	}
-
 	return roleDefinitionsByName, nil
 }
