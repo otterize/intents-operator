@@ -2,7 +2,9 @@ package azurepolicyagent
 
 import (
 	"context"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"strings"
 )
@@ -39,8 +41,12 @@ func (a *Agent) CleanupCustomRoles(ctx context.Context) error {
 		return errors.Wrap(err)
 	}
 
+	customRoleAssignments := lo.Filter(existingRoleAssignments, func(roleAssignment armauthorization.RoleAssignment, _ int) bool {
+		return a.IsCustomRoleAssignment(roleAssignment)
+	})
+
 	// Mark custom roles that are in use
-	for _, roleAssignment := range existingRoleAssignments {
+	for _, roleAssignment := range customRoleAssignments {
 		roleID := *roleAssignment.Properties.RoleDefinitionID
 
 		if _, ok := rolesInUse[roleID]; !ok {
