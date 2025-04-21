@@ -170,7 +170,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheiamAgent() 
 		},
 	}
 
-	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, clientIntents, clientIntents.GetTargetList(), clientPod).Return(nil)
+	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, clientIntents, filteredIntents, clientPod).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -218,7 +218,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
 
-	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, clientIntents, clientIntents.GetTargetList(), clientPod).Return(nil)
+	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, clientIntents, []otterizev2alpha1.Target{}, clientPod).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
