@@ -12,13 +12,15 @@ import (
 	"github.com/otterize/intents-operator/src/shared/agentutils"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/samber/lo"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/record"
 	"regexp"
 	"strings"
 	"sync"
 )
+
+const ReasonRoleDefinitionNotFound = "RoleDefinitionNotFound"
 
 var KeyVaultNameRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.KeyVault/vaults/([^/]+)$`)
 var StorageAccountRegex = regexp.MustCompile(`providers/Microsoft.Storage/storageAccounts/([^/]+)`)
@@ -27,12 +29,11 @@ type Agent struct {
 	*azureagent.Agent
 	roleMutex       sync.Mutex
 	assignmentMutex sync.Mutex
-	recorder        record.EventRecorder
+	injectablerecorder.InjectableRecorder
 }
 
-func NewAzurePolicyAgent(ctx context.Context, azureAgent *azureagent.Agent, recorder record.EventRecorder) *Agent {
-	agent := &Agent{azureAgent, sync.Mutex{}, sync.Mutex{}, recorder}
-
+func NewAzurePolicyAgent(ctx context.Context, azureAgent *azureagent.Agent) *Agent {
+	agent := &Agent{Agent: azureAgent, roleMutex: sync.Mutex{}, assignmentMutex: sync.Mutex{}}
 	return agent
 }
 
@@ -163,7 +164,7 @@ func (a *Agent) ensureRoleAssignmentsForIntent(
 		roleDefinition, exists := roleDefinitionsByName[roleName]
 		if !exists {
 			// The role mentioned in the intents does not exist in the subscription, record event and move on
-			a.recorder.Eventf(&intents, corev1.EventTypeWarning, "RoleDefinitionNotFound", "Role definition %s not found in scope %s", roleName, scope)
+			a.RecordWarningEventf(&intents, ReasonRoleDefinitionNotFound, "Role definition %s not found in scope %s", roleName, scope)
 			continue
 		}
 		roleDefinitionID := *roleDefinition.ID

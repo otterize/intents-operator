@@ -63,7 +63,7 @@ func (a *Agent) CreateCustomRole(ctx context.Context, scope string, clientIntent
 	}
 
 	logrus.WithField("name", name).Debug("Creating custom role")
-	resp, err := a.RoleDefinitionsClient.CreateOrUpdate(ctx, roleScope, id, roleDefinition, nil)
+	resp, err := a.roleDefinitionsClient.CreateOrUpdate(ctx, roleScope, id, roleDefinition, nil)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -99,7 +99,7 @@ func (a *Agent) UpdateCustomRole(ctx context.Context, scope string, role *armaut
 	}
 
 	logrus.WithField("name", *role.Name).Debug("Updating custom role")
-	_, err := a.RoleDefinitionsClient.CreateOrUpdate(ctx, roleScope, *role.Name, *role, nil)
+	_, err := a.roleDefinitionsClient.CreateOrUpdate(ctx, roleScope, *role.Name, *role, nil)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -111,7 +111,7 @@ func (a *Agent) FindCustomRoleByName(ctx context.Context, scope string, name str
 	roleScope := a.GetSubscriptionScope(scope)
 	filter := fmt.Sprintf("roleName eq '%s'", name)
 
-	pager := a.RoleDefinitionsClient.NewListPager(roleScope, &armauthorization.RoleDefinitionsClientListOptions{
+	pager := a.roleDefinitionsClient.NewListPager(roleScope, &armauthorization.RoleDefinitionsClientListOptions{
 		Filter: &filter,
 	})
 
@@ -145,7 +145,7 @@ func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, clientIntent
 	role := lo.Values(roles)[0]
 
 	logrus.WithField("id", role.ID).Debug("Deleting custom role")
-	_, err = a.RoleDefinitionsClient.Delete(ctx, roleScope, *role.Name, nil)
+	_, err = a.roleDefinitionsClient.Delete(ctx, roleScope, *role.Name, nil)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -156,7 +156,7 @@ func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, clientIntent
 func (a *Agent) ListCustomRolesForSubscription(ctx context.Context, subscriptionID string) ([]armauthorization.RoleDefinition, error) {
 	var customRoles []armauthorization.RoleDefinition
 
-	pager := a.RoleDefinitionsClient.NewListPager(subscriptionID, nil)
+	pager := a.roleDefinitionsClient.NewListPager(subscriptionID, nil)
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {

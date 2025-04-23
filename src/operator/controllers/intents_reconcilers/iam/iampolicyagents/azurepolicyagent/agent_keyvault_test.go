@@ -38,7 +38,8 @@ type AzureAgentPoliciesKeyVaultSuite struct {
 	subscriptionToResourceClient        map[string]azureagent.AzureARMResourcesClient
 	subscriptionToRoleAssignmentsClient map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient
 
-	agent *Agent
+	testRecoder record.FakeRecorder
+	agent       *Agent
 }
 
 func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
@@ -62,7 +63,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 	s.subscriptionToRoleAssignmentsClient[testSubscriptionID] = s.mockRoleAssignmentsClient
 
 	s.agent = &Agent{
-		azureagent.NewAzureAgentFromClients(
+		Agent: azureagent.NewAzureAgentFromClients(
 			azureagent.Config{
 				SubscriptionID:          testSubscriptionID,
 				ResourceGroup:           testResourceGroup,
@@ -85,10 +86,11 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 			s.subscriptionToResourceClient,
 			s.subscriptionToRoleAssignmentsClient,
 		),
-		sync.Mutex{},
-		sync.Mutex{},
-		&record.FakeRecorder{},
+		roleMutex:       sync.Mutex{},
+		assignmentMutex: sync.Mutex{},
 	}
+	s.testRecoder = *record.NewFakeRecorder(100)
+	s.agent.InjectRecorder(&s.testRecoder)
 }
 
 func (s *AzureAgentPoliciesKeyVaultSuite) expectGetUserAssignedIdentityReturnsClientID(clientId string) {

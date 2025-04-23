@@ -52,8 +52,8 @@ type AzureAgentPoliciesCustomRolesSuite struct {
 
 	subscriptionToResourceClient        map[string]azureagent.AzureARMResourcesClient
 	subscriptionToRoleAssignmentsClient map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient
-
-	agent *Agent
+	testRecoder                         record.FakeRecorder
+	agent                               *Agent
 }
 
 func (s *AzureAgentPoliciesCustomRolesSuite) expectGetByIDReturnsResource(scope string) {
@@ -169,7 +169,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) SetupTest() {
 	s.subscriptionToRoleAssignmentsClient[testSubscriptionID] = s.mockRoleAssignmentsClient
 
 	s.agent = &Agent{
-		azureagent.NewAzureAgentFromClients(
+		Agent: azureagent.NewAzureAgentFromClients(
 			azureagent.Config{
 				SubscriptionID:          testSubscriptionID,
 				ResourceGroup:           testResourceGroup,
@@ -192,10 +192,11 @@ func (s *AzureAgentPoliciesCustomRolesSuite) SetupTest() {
 			s.subscriptionToResourceClient,
 			s.subscriptionToRoleAssignmentsClient,
 		),
-		sync.Mutex{},
-		sync.Mutex{},
-		&record.FakeRecorder{},
+		roleMutex:       sync.Mutex{},
+		assignmentMutex: sync.Mutex{},
 	}
+	s.testRecoder = *record.NewFakeRecorder(100)
+	s.agent.InjectRecorder(&s.testRecoder)
 }
 
 var azureCustomRoleTestCases = []AzureCustomRoleTestCase{
@@ -327,6 +328,135 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 				s.Require().Len(customRoleDefinition.Properties.Permissions[0].DataActions, len(testCase.DataActions))
 			}
 		})
+	}
+}
+
+func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyWithExistingRolesNotTryingToRecreateAssignments() {
+	targetScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/test/blobServices/default/containers/container", testSubscriptionID, testResourceGroup)
+	targets := []otterizev2alpha1.Target{
+		{
+			Azure: &otterizev2alpha1.AzureTarget{
+				Scope: targetScope,
+				Roles: []string{"Storage Blob Data Reader"},
+			},
+		},
+	}
+
+	clientIntents := otterizev2alpha1.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testIntentsServiceName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName},
+			Targets:  targets,
+		},
+	}
+	existingRoles := []*armauthorization.RoleDefinition{
+		{
+			ID:   to.Ptr("Storage Blob Data Reader"),
+			Name: to.Ptr("Storage Blob Data Reader"),
+			Properties: &armauthorization.RoleDefinitionProperties{
+				RoleName: to.Ptr("Storage Blob Data Reader"),
+				Permissions: []*armauthorization.Permission{
+					{
+						Actions: []*string{
+							to.Ptr("Microsoft.Storage/storageAccounts/blobServices/containers/read"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	clientId := uuid.NewString()
+	s.expectGetUserAssignedIdentityReturnsClientID(clientId)
+
+	s.expectListKeyVaultsReturnsEmpty()
+
+	// Two calls - one from custom roles and one from backwards compatibility to built-in roles
+	s.expectListSubscriptionsReturnsPager()
+	s.expectListSubscriptionsReturnsPager()
+	s.expectListRoleAssignmentsReturnsEmpty()
+	s.expectListRoleAssignmentsReturnsEmpty()
+	s.expectListRoleDefinitionsReturnsPager(existingRoles) // Pager should return the roles from the intents
+	s.expectCreateRoleAssignmentReturnsEmpty()
+
+	// We expect s.mockRoleDefinitionsClient.EXPECT().CreateOrUpdate() to NOT be called - the roles already exist
+
+	err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, clientIntents.GetTargetList(), corev1.Pod{})
+	s.Require().NoError(err)
+
+	// All expectations should be called again
+	s.expectGetUserAssignedIdentityReturnsClientID(clientId)
+	s.expectListKeyVaultsReturnsEmpty()
+	s.expectListSubscriptionsReturnsPager()
+	s.expectListSubscriptionsReturnsPager()
+	s.expectListRoleAssignmentsReturnsEmpty()
+	s.expectListRoleAssignmentsReturnsEmpty()
+	s.expectListRoleDefinitionsReturnsPager(existingRoles) // Pager should return the roles from the intents
+	s.expectCreateRoleAssignmentReturnsEmpty()
+
+	err = s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, clientIntents.GetTargetList(), corev1.Pod{})
+	s.Require().NoError(err)
+}
+
+func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyWithMadeUpRoleRaisesEventButDoesntError() {
+	targetScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/test/blobServices/default/containers/container", testSubscriptionID, testResourceGroup)
+	targets := []otterizev2alpha1.Target{
+		{
+			Azure: &otterizev2alpha1.AzureTarget{
+				Scope: targetScope,
+				Roles: []string{"Storage GLOB DATA SHMEADER"},
+			},
+		},
+	}
+
+	clientIntents := otterizev2alpha1.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testIntentsServiceName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName},
+			Targets:  targets,
+		},
+	}
+	existingRoles := []*armauthorization.RoleDefinition{
+		{
+			ID:   to.Ptr("Storage Blob Data Reader"),
+			Name: to.Ptr("Storage Blob Data Reader"),
+			Properties: &armauthorization.RoleDefinitionProperties{
+				RoleName: to.Ptr("Storage Blob Data Reader"),
+				Permissions: []*armauthorization.Permission{
+					{
+						Actions: []*string{
+							to.Ptr("Microsoft.Storage/storageAccounts/blobServices/containers/read"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	clientId := uuid.NewString()
+	s.expectGetUserAssignedIdentityReturnsClientID(clientId)
+	s.expectListKeyVaultsReturnsEmpty()
+	// Two calls - one from custom roles and one from backwards compatibility to built-in roles
+	s.expectListSubscriptionsReturnsPager()
+	s.expectListSubscriptionsReturnsPager()
+	s.expectListRoleAssignmentsReturnsEmpty()
+	s.expectListRoleAssignmentsReturnsEmpty()
+	s.expectListRoleDefinitionsReturnsPager(existingRoles) // Pager should return the roles from the intents
+
+	err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, clientIntents.GetTargetList(), corev1.Pod{})
+	s.Require().NoError(err)
+
+	select {
+	case event := <-s.testRecoder.Events:
+		s.Require().Contains(event, "RoleDefinitionNotFound")
+	default:
+		s.Fail("event not raised")
 	}
 }
 

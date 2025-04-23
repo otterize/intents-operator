@@ -40,7 +40,7 @@ type Agent struct {
 	managedClustersClient               AzureARMContainerServiceManagedClustersClient
 	userAssignedIdentitiesClient        AzureARMMSIUserAssignedIdentitiesClient
 	federatedIdentityCredentialsClient  AzureARMMSIFederatedIdentityCredentialsClient
-	RoleDefinitionsClient               AzureARMAuthorizationRoleDefinitionsClient
+	roleDefinitionsClient               AzureARMAuthorizationRoleDefinitionsClient
 	roleAssignmentsClient               AzureARMAuthorizationRoleAssignmentsClient
 	vaultsClient                        AzureARMKeyVaultVaultsClient
 	subscriptionToResourceClient        map[string]AzureARMResourcesClient
@@ -159,7 +159,7 @@ func NewAzureAgentFromClients(
 		managedClustersClient:               managedClustersClient,
 		userAssignedIdentitiesClient:        userAssignedIdentitiesClient,
 		federatedIdentityCredentialsClient:  federatedIdentityCredentialsClient,
-		RoleDefinitionsClient:               roleDefinitionsClient,
+		roleDefinitionsClient:               roleDefinitionsClient,
 		roleAssignmentsClient:               roleAssignmentsClient,
 		vaultsClient:                        vaultsClient,
 		subscriptionToResourceClient:        subscriptionToResourceClient,

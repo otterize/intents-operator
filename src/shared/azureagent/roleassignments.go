@@ -97,7 +97,7 @@ func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscrip
 
 func (a *Agent) FindRoleDefinitionByName(ctx context.Context, scope string, roleNames []string) (map[string]armauthorization.RoleDefinition, error) {
 	roleDefinitionsByName := map[string]armauthorization.RoleDefinition{}
-	roleDefinitions := a.RoleDefinitionsClient.NewListPager(scope, nil)
+	roleDefinitions := a.roleDefinitionsClient.NewListPager(scope, nil)
 	roleNamesSet := goset.FromSlice(roleNames)
 	for roleDefinitions.More() {
 		page, err := roleDefinitions.NextPage(ctx)
