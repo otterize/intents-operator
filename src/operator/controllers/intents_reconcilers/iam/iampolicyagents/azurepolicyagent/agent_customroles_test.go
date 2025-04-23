@@ -98,6 +98,16 @@ func (s *AzureAgentPoliciesCustomRolesSuite) expectListRoleDefinitionsReturnsPag
 	))
 }
 
+func (s *AzureAgentPoliciesCustomRolesSuite) expectListRoleAssignmentReturnsPager(assignments []*armauthorization.RoleAssignment) {
+	s.mockRoleAssignmentsClient.EXPECT().NewListForSubscriptionPager(gomock.Any()).Return(azureagent.NewListPager[armauthorization.RoleAssignmentsClientListForSubscriptionResponse](
+		armauthorization.RoleAssignmentsClientListForSubscriptionResponse{
+			RoleAssignmentListResult: armauthorization.RoleAssignmentListResult{
+				Value: assignments,
+			},
+		},
+	))
+}
+
 func (s *AzureAgentPoliciesCustomRolesSuite) expectCreateOrUpdateRoleDefinitionWriteRoleDefinition(customRoleDefinition *armauthorization.RoleDefinition) {
 	s.mockRoleDefinitionsClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, scope string, roleDefinitionID string, roleDefinition armauthorization.RoleDefinition, options *armauthorization.RoleDefinitionsClientCreateOrUpdateOptions) (armauthorization.RoleDefinitionsClientCreateOrUpdateResponse, error) {
@@ -121,14 +131,15 @@ func (s *AzureAgentPoliciesCustomRolesSuite) expectListRoleAssignmentsReturnsEmp
 	s.mockRoleAssignmentsClient.EXPECT().NewListForSubscriptionPager(nil).Return(azureagent.NewListPager[armauthorization.RoleAssignmentsClientListForSubscriptionResponse]())
 }
 
-func (s *AzureAgentPoliciesCustomRolesSuite) expectGetUserAssignedIdentityReturnsClientID(clientId string) {
+func (s *AzureAgentPoliciesCustomRolesSuite) expectGetUserAssignedIdentity(clientId, principalId string) {
 	userAssignedIndentityName := s.agent.GenerateUserAssignedIdentityName(testNamespace, testIntentsServiceName)
 	s.mockUserAssignedIdentitiesClient.EXPECT().Get(gomock.Any(), testResourceGroup, userAssignedIndentityName, nil).Return(
 		armmsi.UserAssignedIdentitiesClientGetResponse{
 			Identity: armmsi.Identity{
 				Name: &userAssignedIndentityName,
 				Properties: &armmsi.UserAssignedIdentityProperties{
-					ClientID: &clientId,
+					ClientID:    &clientId,
+					PrincipalID: &principalId,
 				},
 			},
 		}, nil)
@@ -293,7 +304,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 			}
 
 			clientId := uuid.NewString()
-			s.expectGetUserAssignedIdentityReturnsClientID(clientId)
+			s.expectGetUserAssignedIdentity(clientId, "")
 
 			s.expectListKeyVaultsReturnsEmpty()
 
@@ -370,7 +381,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyWithExistingRolesN
 	}
 
 	clientId := uuid.NewString()
-	s.expectGetUserAssignedIdentityReturnsClientID(clientId)
+	s.expectGetUserAssignedIdentity(clientId, "")
 
 	s.expectListKeyVaultsReturnsEmpty()
 
@@ -388,7 +399,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyWithExistingRolesN
 	s.Require().NoError(err)
 
 	// All expectations should be called again
-	s.expectGetUserAssignedIdentityReturnsClientID(clientId)
+	s.expectGetUserAssignedIdentity(clientId, "")
 	s.expectListKeyVaultsReturnsEmpty()
 	s.expectListSubscriptionsReturnsPager()
 	s.expectListSubscriptionsReturnsPager()
@@ -407,7 +418,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyWithMadeUpRoleRais
 		{
 			Azure: &otterizev2alpha1.AzureTarget{
 				Scope: targetScope,
-				Roles: []string{"Storage GLOB DATA SHMEADER"},
+				Roles: []string{"Role That Does Not Exist"},
 			},
 		},
 	}
@@ -440,7 +451,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyWithMadeUpRoleRais
 	}
 
 	clientId := uuid.NewString()
-	s.expectGetUserAssignedIdentityReturnsClientID(clientId)
+	s.expectGetUserAssignedIdentity(clientId, "")
 	s.expectListKeyVaultsReturnsEmpty()
 	// Two calls - one from custom roles and one from backwards compatibility to built-in roles
 	s.expectListSubscriptionsReturnsPager()
@@ -479,10 +490,71 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Identi
 
 func (s *AzureAgentPoliciesCustomRolesSuite) TestDeleteRolePolicyFromIntents_IdentityNotFound() {
 	s.expectGetUserAssignedIdentityReturnsNotFoundError()
-
 	intent := otterizev2alpha1.ClientIntents{Spec: &otterizev2alpha1.IntentsSpec{Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName}}}
 	err := s.agent.DeleteRolePolicyFromIntents(context.Background(), intent)
 	s.Require().ErrorIs(err, agentutils.ErrCloudIdentityNotFound)
+}
+
+func (s *AzureAgentPoliciesCustomRolesSuite) TestDeleteCustomRoles() {
+	targetScope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/test/blobServices/default/containers/container", testSubscriptionID, testResourceGroup)
+	targets := []otterizev2alpha1.Target{
+		{
+			Azure: &otterizev2alpha1.AzureTarget{
+				Scope: targetScope,
+				DataActions: []otterizev2alpha1.AzureDataAction{
+					"Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",
+				},
+			},
+		},
+	}
+
+	clientIntents := otterizev2alpha1.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testIntentsServiceName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName},
+			Targets:  targets,
+		},
+	}
+	clientId := uuid.NewString()
+	principalId := uuid.NewString()
+	roleDefId := uuid.NewString()
+
+	customRole := &armauthorization.RoleDefinition{
+		Name: to.Ptr("otterizeCustomRole"),
+		ID:   to.Ptr(roleDefId),
+		Properties: &armauthorization.RoleDefinitionProperties{
+			RoleName:    to.Ptr(s.agent.GenerateCustomRoleName(clientIntents, targetScope)),
+			Description: to.Ptr(azureagent.OtterizeRoleAssignmentTag),
+		},
+	}
+
+	roleAssignment := &armauthorization.RoleAssignment{
+		Name: to.Ptr("roleAssignmentName"),
+		Properties: &armauthorization.RoleAssignmentProperties{
+			RoleDefinitionID: to.Ptr("roleDefinitionID"),
+			PrincipalID:      to.Ptr(principalId),
+			PrincipalType:    to.Ptr(armauthorization.PrincipalTypeServicePrincipal),
+			Scope:            to.Ptr(targetScope),
+		},
+	}
+	s.expectGetUserAssignedIdentity(clientId, principalId)
+	s.expectListKeyVaultsReturnsEmpty()
+	s.expectListSubscriptionsReturnsPager()
+	s.expectListRoleDefinitionsReturnsPager([]*armauthorization.RoleDefinition{customRole})
+	s.expectListRoleAssignmentReturnsPager([]*armauthorization.RoleAssignment{roleAssignment})
+
+	// Expect deletion of assignment
+	s.mockRoleAssignmentsClient.EXPECT().Delete(context.Background(), targetScope, *roleAssignment.Name, nil)
+
+	// Expect deletion of custom role
+	subscriptionScope := s.agent.GetSubscriptionScope(targetScope)
+	s.mockRoleDefinitionsClient.EXPECT().Delete(context.Background(), subscriptionScope, *customRole.Name, nil)
+
+	err := s.agent.DeleteRolePolicyFromIntents(context.Background(), clientIntents)
+	s.Require().NoError(err)
 }
 
 func TestAzureAgentPoliciesCustomRolesSuite(t *testing.T) {
