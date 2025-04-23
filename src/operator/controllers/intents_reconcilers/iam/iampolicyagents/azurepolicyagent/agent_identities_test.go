@@ -2,13 +2,10 @@ package azurepolicyagent
 
 import (
 	"context"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	mock_azureagent "github.com/otterize/intents-operator/src/shared/azureagent/mocks"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	"k8s.io/client-go/tools/record"
@@ -100,42 +97,6 @@ func (s *AzureAgentIdentitiesSuite) expectGetUserAssignedIdentityReturnsClientID
 				},
 			},
 		}, nil)
-}
-
-func (s *AzureAgentIdentitiesSuite) expectListRoleAssignmentsReturnsAssignments(assignments []*armauthorization.RoleAssignment) {
-	s.mockRoleAssignmentsClient.EXPECT().NewListForSubscriptionPager(nil).Return(azureagent.NewListPager[armauthorization.RoleAssignmentsClientListForSubscriptionResponse](
-		armauthorization.RoleAssignmentsClientListForSubscriptionResponse{
-			RoleAssignmentListResult: armauthorization.RoleAssignmentListResult{
-				Value: assignments,
-			},
-		},
-	))
-}
-
-func (s *AzureAgentIdentitiesSuite) expectDeleteRoleAssignmentSuccess(scope string) {
-	s.mockRoleAssignmentsClient.EXPECT().Delete(gomock.Any(), scope, gomock.Any(), gomock.Any()).Return(
-		armauthorization.RoleAssignmentsClientDeleteResponse{}, nil,
-	)
-}
-
-func (s *AzureAgentIdentitiesSuite) expectDeleteCustomRoleDefinitionSuccess(roleDefinitionID string) {
-	s.mockRoleDefinitionsClient.EXPECT().Delete(gomock.Any(), gomock.Any(), roleDefinitionID, nil).Return(
-		armauthorization.RoleDefinitionsClientDeleteResponse{}, nil,
-	)
-}
-
-func (s *AzureAgentIdentitiesSuite) expectListSubscriptionsReturnsPager() {
-	s.mockSubscriptionsClient.EXPECT().NewListPager(nil).Return(azureagent.NewListPager[armsubscriptions.ClientListResponse](
-		armsubscriptions.ClientListResponse{
-			SubscriptionListResult: armsubscriptions.SubscriptionListResult{
-				Value: []*armsubscriptions.Subscription{
-					{
-						SubscriptionID: lo.ToPtr(testSubscriptionID),
-					},
-				},
-			},
-		},
-	))
 }
 
 func (s *AzureAgentIdentitiesSuite) expectDeleteFederatedIdentityCredentialsSuccess() {
