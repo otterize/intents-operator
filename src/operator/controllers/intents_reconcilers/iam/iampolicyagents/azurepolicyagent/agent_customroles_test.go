@@ -465,7 +465,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyWithMadeUpRoleRais
 
 	select {
 	case event := <-s.testRecoder.Events:
-		s.Require().Contains(event, "RoleDefinitionNotFound")
+		s.Require().Contains(event, "RoleNotFound")
 	default:
 		s.Fail("event not raised")
 	}
