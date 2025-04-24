@@ -20,7 +20,7 @@ import (
 	"sync"
 )
 
-const ReasonRoleDefinitionNotFound = "RoleDefinitionNotFound"
+const ReasonRoleNotFound = "RoleNotFound"
 
 var KeyVaultNameRegex = regexp.MustCompile(`^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft.KeyVault/vaults/([^/]+)$`)
 var StorageAccountRegex = regexp.MustCompile(`providers/Microsoft.Storage/storageAccounts/([^/]+)`)

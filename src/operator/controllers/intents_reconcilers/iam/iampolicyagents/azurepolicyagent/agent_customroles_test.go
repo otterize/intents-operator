@@ -392,8 +392,8 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyWithExistingRolesN
 	s.expectListRoleAssignmentsReturnsEmpty()
 	s.expectListRoleDefinitionsReturnsPager(existingRoles) // Pager should return the roles from the intents
 	s.expectCreateRoleAssignmentReturnsEmpty()
-
-	// We expect s.mockRoleDefinitionsClient.EXPECT().CreateOrUpdate() to NOT be called - the roles already exist
+	// We expect s.mockRoleDefinitionsClient.CreateOrUpdate() to not be called (hence .Times(0))
+	s.mockRoleDefinitionsClient.EXPECT().CreateOrUpdate(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 
 	err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, clientIntents.GetTargetList(), corev1.Pod{})
 	s.Require().NoError(err)
