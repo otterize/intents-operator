@@ -37,17 +37,17 @@ func (m *MockIAMPolicyAgent) EXPECT() *MockIAMPolicyAgentMockRecorder {
 }
 
 // AddRolePolicyFromIntents mocks base method.
-func (m *MockIAMPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace, accountName, intentsServiceName string, intents []v2alpha1.Target, pod v1.Pod) error {
+func (m *MockIAMPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace, accountName, intentsServiceName string, intents v2alpha1.ClientIntents, filteredTargets []v2alpha1.Target, pod v1.Pod) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddRolePolicyFromIntents", ctx, namespace, accountName, intentsServiceName, intents, pod)
+	ret := m.ctrl.Call(m, "AddRolePolicyFromIntents", ctx, namespace, accountName, intentsServiceName, intents, filteredTargets, pod)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddRolePolicyFromIntents indicates an expected call of AddRolePolicyFromIntents.
-func (mr *MockIAMPolicyAgentMockRecorder) AddRolePolicyFromIntents(ctx, namespace, accountName, intentsServiceName, intents, pod interface{}) *gomock.Call {
+func (mr *MockIAMPolicyAgentMockRecorder) AddRolePolicyFromIntents(ctx, namespace, accountName, intentsServiceName, intents, filteredTargets, pod interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRolePolicyFromIntents", reflect.TypeOf((*MockIAMPolicyAgent)(nil).AddRolePolicyFromIntents), ctx, namespace, accountName, intentsServiceName, intents, pod)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRolePolicyFromIntents", reflect.TypeOf((*MockIAMPolicyAgent)(nil).AddRolePolicyFromIntents), ctx, namespace, accountName, intentsServiceName, intents, filteredTargets, pod)
 }
 
 // AppliesOnPod mocks base method.

@@ -20,8 +20,8 @@ func (a *Agent) IntentType() otterizev2alpha1.IntentType {
 	return otterizev2alpha1.IntentTypeGCP
 }
 
-func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev2alpha1.Target, pod corev1.Pod) error {
-	return a.ApplyIAMPartialPolicy(ctx, namespace, accountName, intentsServiceName, intents)
+func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, _ otterizev2alpha1.ClientIntents, filteredTargets []otterizev2alpha1.Target, pod corev1.Pod) error {
+	return a.ApplyIAMPartialPolicy(ctx, namespace, accountName, intentsServiceName, filteredTargets)
 }
 
 func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {

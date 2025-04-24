@@ -158,7 +158,19 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheiamAgent() 
 		gomock.AssignableToTypeOf(&otterizev2alpha1.ClientIntentsList{}),
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
-	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, filteredIntents, clientPod).Return(nil)
+
+	clientIntents := otterizev2alpha1.ClientIntents{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testClientIntentsName,
+			Namespace: testNamespace,
+		},
+		Spec: &otterizev2alpha1.IntentsSpec{
+			Workload: otterizev2alpha1.Workload{Name: testServiceName},
+			Targets:  allIntents,
+		},
+	}
+
+	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, clientIntents, filteredIntents, clientPod).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -205,7 +217,8 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentPartialDeleteCallingT
 		gomock.AssignableToTypeOf(&otterizev2alpha1.ClientIntentsList{}),
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
-	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, []otterizev2alpha1.Target{}, clientPod).Return(nil)
+
+	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, clientIntents, []otterizev2alpha1.Target{}, clientPod).Return(nil)
 
 	res, err := s.Reconciler.Reconcile(context.Background(), req)
 	s.NoError(err)
@@ -246,7 +259,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestRoleNotFoundErrorReQueuesEvent() {
 	).Return(nil)
 
 	// Throw the sentinel error
-	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, []otterizev2alpha1.Target{}, clientPod).Return(
+	s.iamAgent.EXPECT().AddRolePolicyFromIntents(gomock.Any(), testNamespace, testClientServiceAccount, testServiceName, iamIntents, iamIntents.GetTargetList(), clientPod).Return(
 		errors.Errorf("%w: %s", agentutils.ErrCloudIdentityNotFound, "test error"),
 	)
 

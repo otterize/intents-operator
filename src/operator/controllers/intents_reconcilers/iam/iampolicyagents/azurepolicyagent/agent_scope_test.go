@@ -11,6 +11,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+	"k8s.io/client-go/tools/record"
 	"sync"
 	"testing"
 )
@@ -31,8 +32,8 @@ type AzureAgentScopeSuite struct {
 
 	subscriptionToResourceClient        map[string]azureagent.AzureARMResourcesClient
 	subscriptionToRoleAssignmentsClient map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient
-
-	agent *Agent
+	testRecoder                         record.FakeRecorder
+	agent                               *Agent
 }
 
 func (s *AzureAgentScopeSuite) SetupTest() {
@@ -56,7 +57,7 @@ func (s *AzureAgentScopeSuite) SetupTest() {
 	s.subscriptionToRoleAssignmentsClient[testSubscriptionID] = s.mockRoleAssignmentsClient
 
 	s.agent = &Agent{
-		azureagent.NewAzureAgentFromClients(
+		Agent: azureagent.NewAzureAgentFromClients(
 			azureagent.Config{
 				SubscriptionID:          testSubscriptionID,
 				ResourceGroup:           testResourceGroup,
@@ -79,9 +80,11 @@ func (s *AzureAgentScopeSuite) SetupTest() {
 			s.subscriptionToResourceClient,
 			s.subscriptionToRoleAssignmentsClient,
 		),
-		sync.Mutex{},
-		sync.Mutex{},
+		roleMutex:       sync.Mutex{},
+		assignmentMutex: sync.Mutex{},
 	}
+	s.testRecoder = *record.NewFakeRecorder(100)
+	s.agent.InjectRecorder(&s.testRecoder)
 }
 
 func (s *AzureAgentScopeSuite) expectListSubscriptionsReturnsPager() {

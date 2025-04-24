@@ -2,17 +2,13 @@ package azurepolicyagent
 
 import (
 	"context"
-	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/msi/armmsi"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armsubscriptions"
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/shared/azureagent"
 	mock_azureagent "github.com/otterize/intents-operator/src/shared/azureagent/mocks"
-	"github.com/samber/lo"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
+	"k8s.io/client-go/tools/record"
 	"sync"
 	"testing"
 )
@@ -34,7 +30,8 @@ type AzureAgentIdentitiesSuite struct {
 	subscriptionToResourceClient        map[string]azureagent.AzureARMResourcesClient
 	subscriptionToRoleAssignmentsClient map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient
 
-	agent *Agent
+	testRecoder record.FakeRecorder
+	agent       *Agent
 }
 
 func (s *AzureAgentIdentitiesSuite) SetupTest() {
@@ -58,7 +55,7 @@ func (s *AzureAgentIdentitiesSuite) SetupTest() {
 	s.subscriptionToRoleAssignmentsClient[testSubscriptionID] = s.mockRoleAssignmentsClient
 
 	s.agent = &Agent{
-		azureagent.NewAzureAgentFromClients(
+		Agent: azureagent.NewAzureAgentFromClients(
 			azureagent.Config{
 				SubscriptionID:          testSubscriptionID,
 				ResourceGroup:           testResourceGroup,
@@ -81,9 +78,11 @@ func (s *AzureAgentIdentitiesSuite) SetupTest() {
 			s.subscriptionToResourceClient,
 			s.subscriptionToRoleAssignmentsClient,
 		),
-		sync.Mutex{},
-		sync.Mutex{},
+		roleMutex:       sync.Mutex{},
+		assignmentMutex: sync.Mutex{},
 	}
+	s.testRecoder = *record.NewFakeRecorder(100)
+	s.agent.InjectRecorder(&s.testRecoder)
 }
 
 func (s *AzureAgentIdentitiesSuite) expectGetUserAssignedIdentityReturnsClientID(clientId string) {
@@ -100,42 +99,6 @@ func (s *AzureAgentIdentitiesSuite) expectGetUserAssignedIdentityReturnsClientID
 		}, nil)
 }
 
-func (s *AzureAgentIdentitiesSuite) expectListRoleAssignmentsReturnsAssignments(assignments []*armauthorization.RoleAssignment) {
-	s.mockRoleAssignmentsClient.EXPECT().NewListForSubscriptionPager(nil).Return(azureagent.NewListPager[armauthorization.RoleAssignmentsClientListForSubscriptionResponse](
-		armauthorization.RoleAssignmentsClientListForSubscriptionResponse{
-			RoleAssignmentListResult: armauthorization.RoleAssignmentListResult{
-				Value: assignments,
-			},
-		},
-	))
-}
-
-func (s *AzureAgentIdentitiesSuite) expectDeleteRoleAssignmentSuccess(scope string) {
-	s.mockRoleAssignmentsClient.EXPECT().Delete(gomock.Any(), scope, gomock.Any(), gomock.Any()).Return(
-		armauthorization.RoleAssignmentsClientDeleteResponse{}, nil,
-	)
-}
-
-func (s *AzureAgentIdentitiesSuite) expectDeleteCustomRoleDefinitionSuccess(roleDefinitionID string) {
-	s.mockRoleDefinitionsClient.EXPECT().Delete(gomock.Any(), gomock.Any(), roleDefinitionID, nil).Return(
-		armauthorization.RoleDefinitionsClientDeleteResponse{}, nil,
-	)
-}
-
-func (s *AzureAgentIdentitiesSuite) expectListSubscriptionsReturnsPager() {
-	s.mockSubscriptionsClient.EXPECT().NewListPager(nil).Return(azureagent.NewListPager[armsubscriptions.ClientListResponse](
-		armsubscriptions.ClientListResponse{
-			SubscriptionListResult: armsubscriptions.SubscriptionListResult{
-				Value: []*armsubscriptions.Subscription{
-					{
-						SubscriptionID: lo.ToPtr(testSubscriptionID),
-					},
-				},
-			},
-		},
-	))
-}
-
 func (s *AzureAgentIdentitiesSuite) expectDeleteFederatedIdentityCredentialsSuccess() {
 	userAssignedIndentityName := s.agent.GenerateUserAssignedIdentityName(testNamespace, testIntentsServiceName)
 	s.mockFederatedIdentityCredentialsClient.EXPECT().Delete(gomock.Any(), testResourceGroup, userAssignedIndentityName, gomock.Any(), gomock.Any()).Return(
@@ -150,34 +113,9 @@ func (s *AzureAgentIdentitiesSuite) expectDeleteUserAssignedIdentitiesSuccess() 
 	)
 }
 
-func (s *AzureAgentIdentitiesSuite) TestDeleteUserAssignedIdentityWithRoles() {
+func (s *AzureAgentIdentitiesSuite) TestDeleteUserAssignedIdentity() {
 	clientId := uuid.NewString()
-
-	roleID := "custom-role-id"
-	scope := fmt.Sprintf("/subscription/%s", testSubscriptionID)
-	fullRoleID := fmt.Sprintf("/subscription/%s/role/%s", testSubscriptionID, roleID)
-
 	s.expectGetUserAssignedIdentityReturnsClientID(clientId)
-
-	// 1 role assigned to the identity
-	s.expectListRoleAssignmentsReturnsAssignments([]*armauthorization.RoleAssignment{
-		{
-			ID:   to.Ptr("role-assignment-1"),
-			Name: to.Ptr("role-assignment-1"),
-			Properties: &armauthorization.RoleAssignmentProperties{
-				PrincipalID:      to.Ptr(clientId),
-				Scope:            &scope,
-				Description:      lo.ToPtr(azureagent.OtterizeRoleAssignmentTag),
-				RoleDefinitionID: lo.ToPtr(fullRoleID),
-			},
-		},
-	})
-
-	s.expectListSubscriptionsReturnsPager()
-
-	s.expectDeleteRoleAssignmentSuccess(scope)
-	s.expectDeleteCustomRoleDefinitionSuccess(roleID)
-
 	s.expectDeleteFederatedIdentityCredentialsSuccess()
 	s.expectDeleteUserAssignedIdentitiesSuccess()
 
