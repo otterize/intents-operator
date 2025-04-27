@@ -22,6 +22,8 @@ import (
 	"fmt"
 	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig"
+	"github.com/spf13/viper"
 	"golang.org/x/net/idna"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -64,6 +66,13 @@ func (v *IntentsValidatorV2beta1) ValidateCreate(ctx context.Context, obj runtim
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
 		return nil, errors.Wrap(err)
 	}
+
+	if viper.GetBool(operatorconfig.StrictModeIntentsKey) {
+		if err := v.enforceIntentsAbideStrictMode(intentsObj); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
 	if err := v.validateNoDuplicateClients(intentsObj, intentsList); err != nil {
 		allErrs = append(allErrs, err)
 	}
@@ -90,6 +99,13 @@ func (v *IntentsValidatorV2beta1) ValidateUpdate(ctx context.Context, oldObj, ne
 	if err := v.List(ctx, intentsList, &client.ListOptions{Namespace: intentsObj.Namespace}); err != nil {
 		return nil, errors.Wrap(err)
 	}
+
+	if viper.GetBool(operatorconfig.StrictModeIntentsKey) {
+		if err := v.enforceIntentsAbideStrictMode(intentsObj); err != nil {
+			allErrs = append(allErrs, err)
+		}
+	}
+
 	if err := v.validateNoDuplicateClients(intentsObj, intentsList); err != nil {
 		allErrs = append(allErrs, err)
 	}
@@ -460,6 +476,25 @@ func (v *IntentsValidatorV2beta1) validateInternetTarget(internetTarget *otteriz
 				Detail:   "should be value IP address or CIDR",
 				BadValue: ip,
 			}
+		}
+	}
+	return nil
+}
+
+func (v *IntentsValidatorV2beta1) enforceIntentsAbideStrictMode(intents *otterizev2beta1.ClientIntents) *field.Error {
+	for _, target := range intents.GetTargetList() {
+		intentType := target.GetIntentType()
+		switch intentType {
+		case otterizev2beta1.IntentTypeInternet:
+			if hasWildcardDomain(target.Internet.Domains) {
+				return &field.Error{
+					Type:   field.ErrorTypeForbidden,
+					Field:  "domains",
+					Detail: fmt.Sprintf("invalid target format. type %s must not contain wildcard domains while in strict mode", intentType),
+				}
+			}
+		default:
+			continue
 		}
 	}
 	return nil

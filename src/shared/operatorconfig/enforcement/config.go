@@ -21,6 +21,7 @@ type Config struct {
 	EnableGCPPolicy                      bool
 	EnableAzurePolicy                    bool
 	EnableLinkerdPolicies                bool
+	StrictModeEnabled                    bool
 	EnforcedNamespaces                   *goset.Set[string]
 	AutomateThirdPartyNetworkPolicies    automate_third_party_network_policy.Enum
 	PrometheusServiceIdentities          []serviceidentity.ServiceIdentity
@@ -69,6 +70,8 @@ const (
 	EnableAzurePolicyKey                        = "enable-azure-iam-policy"
 	EnableAzurePolicyDefault                    = false
 	PrometheusServiceConfigKey                  = "prometheusServerConfigs"
+	StrictModeIntentsKey                        = "strict-mode-intents"
+	StrictModeIntentsDefault                    = false
 )
 
 func init() {
@@ -83,6 +86,7 @@ func init() {
 	viper.SetDefault(EnableGCPPolicyKey, EnableGCPPolicyDefault)
 	viper.SetDefault(EnableAzurePolicyKey, EnableAzurePolicyDefault)
 	viper.SetDefault(AutomateThirdPartyNetworkPoliciesKey, AutomateThirdPartyNetworkPoliciesDefault)
+	viper.SetDefault(StrictModeIntentsKey, StrictModeIntentsDefault)
 }
 
 func InitCLIFlags() {
@@ -109,6 +113,7 @@ func GetConfig() Config {
 		EnableAWSPolicy:                      viper.GetBool(EnableAWSPolicyKey),
 		EnableGCPPolicy:                      viper.GetBool(EnableGCPPolicyKey),
 		EnableAzurePolicy:                    viper.GetBool(EnableAzurePolicyKey),
+		StrictModeEnabled:                    viper.GetBool(StrictModeIntentsKey),
 		EnforcedNamespaces:                   goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
 		AutomateThirdPartyNetworkPolicies:    automate_third_party_network_policy.Enum(viper.GetString(AutomateThirdPartyNetworkPoliciesKey)),
 		PrometheusServiceIdentities:          GetPrometheusServiceIdentities(),
