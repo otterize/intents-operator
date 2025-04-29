@@ -493,6 +493,13 @@ func (v *IntentsValidatorV2beta1) enforceIntentsAbideStrictMode(intents *otteriz
 					Detail: fmt.Sprintf("invalid target format. type %s must not contain wildcard domains while in strict mode", intentType),
 				}
 			}
+			if len(target.Internet.Ports) == 0 {
+				return &field.Error{
+					Type:   field.ErrorTypeForbidden,
+					Field:  "ports",
+					Detail: fmt.Sprintf("invalid target format. type %s must contain ports while in strict mode", intentType),
+				}
+			}
 		case otterizev2beta1.IntentTypeHTTP:
 			if nonServiceTarget(target) {
 				return &field.Error{
