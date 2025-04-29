@@ -22,7 +22,7 @@ import (
 	"fmt"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/spf13/viper"
 	"golang.org/x/net/idna"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -67,7 +67,7 @@ func (v *IntentsValidatorV2alpha1) ValidateCreate(ctx context.Context, obj runti
 		return nil, errors.Wrap(err)
 	}
 
-	if viper.GetBool(operatorconfig.StrictModeIntentsKey) {
+	if viper.GetBool(enforcement.StrictModeIntentsKey) {
 		if err := v.enforceIntentsAbideStrictMode(intentsObj); err != nil {
 			allErrs = append(allErrs, err)
 		}
@@ -100,7 +100,7 @@ func (v *IntentsValidatorV2alpha1) ValidateUpdate(ctx context.Context, oldObj, n
 		return nil, errors.Wrap(err)
 	}
 
-	if viper.GetBool(operatorconfig.StrictModeIntentsKey) {
+	if viper.GetBool(enforcement.StrictModeIntentsKey) {
 		if err := v.enforceIntentsAbideStrictMode(intentsObj); err != nil {
 			allErrs = append(allErrs, err)
 		}
