@@ -1545,6 +1545,7 @@ type IntentsOperatorConfiguration {
 	protectedServices: [Service!]!
 	egressNetworkPolicyEnforcementEnabled: Boolean!
 	enforcedNamespaces: [String!]
+	strictModeEnabled: Boolean!
 }
 
 input IntentsOperatorConfigurationInput {
@@ -1566,6 +1567,7 @@ input IntentsOperatorConfigurationInput {
 	externallyManagedPolicyWorkloads: [ExternallyManagedPolicyWorkloadInput!]
 	automateThirdPartyNetworkPolicies: AutomateThirdPartyNetworkPolicy
 	prometheusServerConfigs: [PrometheusServerConfigInput!]
+	strictModeEnabled: Boolean
 }
 
 type IntentsOperatorState {
