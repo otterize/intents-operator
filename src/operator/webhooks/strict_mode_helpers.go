@@ -1,8 +1,6 @@
 package webhooks
 
 import (
-	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
-	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"strings"
 )
 
@@ -13,13 +11,5 @@ func hasWildcardDomain(fqdns []string) bool {
 			return true
 		}
 	}
-	return false
-}
-
-func nonServiceTarget(target otterizev2beta1.Target) bool {
-	if target.Service == nil && (target.Kubernetes == nil || target.Kubernetes.Kind != serviceidentity.KindService) {
-		return true
-	}
-
 	return false
 }

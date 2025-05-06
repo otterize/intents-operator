@@ -1541,11 +1541,12 @@ type IntentsOperatorConfiguration {
 	gcpIAMPolicyEnforcementEnabled: Boolean!
 	azureIAMPolicyEnforcementEnabled: Boolean!
 	databaseEnforcementEnabled: Boolean!
+	strictModeEnabled: Boolean!
 	protectedServicesEnabled: Boolean!
 	protectedServices: [Service!]!
 	egressNetworkPolicyEnforcementEnabled: Boolean!
 	enforcedNamespaces: [String!]
-	strictModeEnabled: Boolean!
+	excludedStrictModeNamespaces: [String!]
 }
 
 input IntentsOperatorConfigurationInput {
@@ -1560,6 +1561,8 @@ input IntentsOperatorConfigurationInput {
 	gcpIAMPolicyEnforcementEnabled: Boolean
 	azureIAMPolicyEnforcementEnabled: Boolean
 	databaseEnforcementEnabled: Boolean
+	strictModeEnabled: Boolean
+	excludedStrictModeNamespaces: [String!]
 	enforcedNamespaces: [String!]
 	ingressControllerConfig: [IngressControllerConfigInput!]
 	awsALBLoadBalancerExemptionEnabled: Boolean
@@ -1567,7 +1570,6 @@ input IntentsOperatorConfigurationInput {
 	externallyManagedPolicyWorkloads: [ExternallyManagedPolicyWorkloadInput!]
 	automateThirdPartyNetworkPolicies: AutomateThirdPartyNetworkPolicy
 	prometheusServerConfigs: [PrometheusServerConfigInput!]
-	strictModeEnabled: Boolean
 }
 
 type IntentsOperatorState {
@@ -1599,6 +1601,11 @@ type Invite {
 	created: Time!
 	acceptedAt: Time
 	status: InviteStatus!
+}
+
+input InviteOrgMembershipInput {
+	inviteId: ID!
+	membership: OrganizationMembershipInput!
 }
 
 enum InviteStatus {
@@ -1868,6 +1875,7 @@ or, for users with a single organization, this is that single selected organizat
 This is selected by the X-Otterize-Organization header,
 or, for users with a single organization, this is that single selected organization."""
 	selectedUserOrganization: UserOrganizationAssociation!
+	selectedOrganizationRestrictionResources: OrganizationMembershipRestrictionResources
 }
 
 type MeMutation {
@@ -2139,6 +2147,9 @@ type Mutation {
 	acceptInvite(
 		id: ID!
 	): Invite!
+	saveInviteOrgMemberships(
+		memberships: [InviteOrgMembershipInput!]!
+	): Boolean!
 	reportK8sServices(
 		namespace: String!
 		services: [K8sServiceInput!]!
@@ -2366,6 +2377,7 @@ type Organization {
 }
 
 type OrganizationMembership {
+	organizationId: ID!
 	role: AuthRole!
 	restrictions: OrganizationMembershipRestrictions
 	restrictionResources: OrganizationMembershipRestrictionResources
@@ -2404,6 +2416,7 @@ type OrganizationSettings {
 	defaultIntentsApprovalActionByEnv: [DefaultIntentsApprovalActionByEnv!]!
 	ignoreInternetIntents: Boolean
 	domainsDefaultRole: AuthRole!
+	defaultInviteMembership: OrganizationMembership!
 }
 
 input OrganizationSettingsInput {
@@ -2412,6 +2425,7 @@ input OrganizationSettingsInput {
 	ignoredCloudDomains: [String!]
 	defaultIntentsApprovalActionByEnv: [InputDefaultIntentsApprovalActionByEnv!]
 	ignoreInternetIntents: Boolean
+	defaultInviteMembership: OrganizationMembershipInput
 }
 
 input PaginationInput {
@@ -2671,8 +2685,6 @@ type Query {
 	): TerraformResourceInfo!
 """List users"""
 	users: [User!]!
-"""List users with restriction resources"""
-	orgUsersWithRestrictionResources: UsersWithRestrictionResources!
 	orgUsers: [UserOrganizationAssociation!]!
 """Get user"""
 	user(
@@ -3041,13 +3053,13 @@ scalar String
 
 type TLSConfiguration {
 	caCertificate: String
-	certificate: String!
+	certificate: String
 }
 
 input TLSConfigurationInput {
 	caCertificate: String
-	certificate: String!
-	key: String!
+	certificate: String
+	key: String
 }
 
 enum TelemetryComponentType {
@@ -3207,11 +3219,6 @@ type UserTutorial {
 	isCompleted: Boolean!
 	step: String!
 	stepSeen: String!
-}
-
-type UsersWithRestrictionResources {
-	orgUsers: [UserOrganizationAssociation!]!
-	restrictionResources: OrganizationMembershipRestrictionResources
 }
 
 """ Used to validate ID based filters """

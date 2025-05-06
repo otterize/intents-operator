@@ -139,6 +139,7 @@ func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Ma
 		ProtectedServicesEnabled:              enforcementConfig.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 		EnforcedNamespaces:                    enforcementConfig.EnforcedNamespaces.Items(),
 		StrictModeEnabled:                     enforcementConfig.StrictModeEnabled,
+		ExcludedStrictModeNamespaces:          enforcementConfig.ExcludedStrictModeNamespaces.Items(),
 		AllowExternalTrafficPolicy:            getAllowExternalTrafficConfig(), // The server expect for AllowExternalTrafficPolicy because of backwards compatibility
 		AutomateThirdPartyNetworkPolicies:     getAutomateThirdPartyNetworkPoliciesConfig(),
 		PrometheusServerConfigs:               getPrometheusServiceIdentities(),

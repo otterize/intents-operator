@@ -440,6 +440,8 @@ type IntentsOperatorConfigurationInput struct {
 	GcpIAMPolicyEnforcementEnabled        bool                                   `json:"gcpIAMPolicyEnforcementEnabled"`
 	AzureIAMPolicyEnforcementEnabled      bool                                   `json:"azureIAMPolicyEnforcementEnabled"`
 	DatabaseEnforcementEnabled            bool                                   `json:"databaseEnforcementEnabled"`
+	StrictModeEnabled                     bool                                   `json:"strictModeEnabled"`
+	ExcludedStrictModeNamespaces          []string                               `json:"excludedStrictModeNamespaces"`
 	EnforcedNamespaces                    []string                               `json:"enforcedNamespaces"`
 	IngressControllerConfig               []IngressControllerConfigInput         `json:"ingressControllerConfig"`
 	AwsALBLoadBalancerExemptionEnabled    bool                                   `json:"awsALBLoadBalancerExemptionEnabled"`
@@ -447,7 +449,7 @@ type IntentsOperatorConfigurationInput struct {
 	ExternallyManagedPolicyWorkloads      []ExternallyManagedPolicyWorkloadInput `json:"externallyManagedPolicyWorkloads"`
 	AutomateThirdPartyNetworkPolicies     AutomateThirdPartyNetworkPolicy        `json:"automateThirdPartyNetworkPolicies"`
 	PrometheusServerConfigs               []PrometheusServerConfigInput          `json:"prometheusServerConfigs"`
-	StrictModeEnabled                     bool                                   `json:"strictModeEnabled"`
+	excludedStrictModeNamespaces          interface{}
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -505,6 +507,14 @@ func (v *IntentsOperatorConfigurationInput) GetDatabaseEnforcementEnabled() bool
 	return v.DatabaseEnforcementEnabled
 }
 
+// GetStrictModeEnabled returns IntentsOperatorConfigurationInput.StrictModeEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetStrictModeEnabled() bool { return v.StrictModeEnabled }
+
+// GetExcludedStrictModeNamespaces returns IntentsOperatorConfigurationInput.ExcludedStrictModeNamespaces, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetExcludedStrictModeNamespaces() []string {
+	return v.ExcludedStrictModeNamespaces
+}
+
 // GetEnforcedNamespaces returns IntentsOperatorConfigurationInput.EnforcedNamespaces, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetEnforcedNamespaces() []string {
 	return v.EnforcedNamespaces
@@ -539,9 +549,6 @@ func (v *IntentsOperatorConfigurationInput) GetAutomateThirdPartyNetworkPolicies
 func (v *IntentsOperatorConfigurationInput) GetPrometheusServerConfigs() []PrometheusServerConfigInput {
 	return v.PrometheusServerConfigs
 }
-
-// GetStrictModeEnabled returns IntentsOperatorConfigurationInput.StrictModeEnabled, and is useful for accessing the field via an interface.
-func (v *IntentsOperatorConfigurationInput) GetStrictModeEnabled() bool { return v.StrictModeEnabled }
 
 type InternetConfigInput struct {
 	Domains          []*string       `json:"domains"`

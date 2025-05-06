@@ -23,6 +23,7 @@ import (
 	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/spf13/viper"
 	"golang.org/x/net/idna"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -490,22 +491,22 @@ func (v *IntentsValidatorV2beta1) enforceIntentsAbideStrictMode(intents *otteriz
 				return &field.Error{
 					Type:   field.ErrorTypeForbidden,
 					Field:  "domains",
-					Detail: fmt.Sprintf("invalid target format. type %s must not contain wildcard domains while in strict mode", intentType),
+					Detail: fmt.Sprintf("invalid target format. Type %s must not contain wildcard domains while in strict mode", intentType),
 				}
 			}
 			if len(target.Internet.Ports) == 0 {
 				return &field.Error{
 					Type:   field.ErrorTypeForbidden,
 					Field:  "ports",
-					Detail: fmt.Sprintf("invalid target format. type %s must contain ports while in strict mode", intentType),
+					Detail: fmt.Sprintf("invalid target format. Type %s must contain ports while in strict mode", intentType),
 				}
 			}
-		case otterizev2beta1.IntentTypeHTTP:
-			if nonServiceTarget(target) {
+		case otterizev2beta1.IntentTypeHTTP, "": // Empty type is also considered HTTP
+			if target.Service == nil && (target.Kubernetes == nil || target.Kubernetes.Kind != serviceidentity.KindService) {
 				return &field.Error{
 					Type:   field.ErrorTypeForbidden,
 					Field:  "service",
-					Detail: fmt.Sprintf("invalid target format. type %s must not contain service without port while in strict mode", intentType),
+					Detail: fmt.Sprint("invalid target format. Target must be a Kubernetes service while in strict mode"),
 				}
 			}
 		default:

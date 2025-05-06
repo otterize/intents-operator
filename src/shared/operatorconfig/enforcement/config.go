@@ -23,6 +23,7 @@ type Config struct {
 	EnableLinkerdPolicies                bool
 	StrictModeEnabled                    bool
 	EnforcedNamespaces                   *goset.Set[string]
+	ExcludedStrictModeNamespaces         *goset.Set[string]
 	AutomateThirdPartyNetworkPolicies    automate_third_party_network_policy.Enum
 	PrometheusServiceIdentities          []serviceidentity.ServiceIdentity
 }
@@ -72,6 +73,7 @@ const (
 	PrometheusServiceConfigKey                  = "prometheusServerConfigs"
 	StrictModeIntentsKey                        = "strict-mode-intents"
 	StrictModeIntentsDefault                    = false
+	ExcludedStrictModeNamespacesKey             = "excluded-strict-mode-namespaces"
 )
 
 func init() {
@@ -94,6 +96,8 @@ func InitCLIFlags() {
 	pflag.Bool(EnableNetworkPolicyKey, EnableNetworkPolicyDefault, "Whether to enable Intents network policy creation")
 	pflag.Bool(EnableKafkaACLKey, EnableKafkaACLDefault, "Whether to disable Intents Kafka ACL creation")
 	pflag.StringSlice(ActiveEnforcementNamespacesKey, nil, "While using the shadow enforcement mode, namespaces in this list will be treated as if the enforcement were active.")
+	pflag.StringSlice(ExcludedStrictModeNamespacesKey, nil, "Namespaces to exclude from strict mode intents when it is enabled.")
+	pflag.Bool(StrictModeIntentsKey, StrictModeIntentsDefault, "Whether to enable strict mode intents")
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
 	pflag.Bool(EnableLinkerdPolicyKey, EnableLinkerdPolicyDefault, "Experimental - enable Linkerd policy creation")
 	pflag.Bool(EnableDatabasePolicy, EnableDatabasePolicyDefault, "Enable the database reconciler")
@@ -115,6 +119,7 @@ func GetConfig() Config {
 		EnableAzurePolicy:                    viper.GetBool(EnableAzurePolicyKey),
 		StrictModeEnabled:                    viper.GetBool(StrictModeIntentsKey),
 		EnforcedNamespaces:                   goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
+		ExcludedStrictModeNamespaces:         goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
 		AutomateThirdPartyNetworkPolicies:    automate_third_party_network_policy.Enum(viper.GetString(AutomateThirdPartyNetworkPoliciesKey)),
 		PrometheusServiceIdentities:          GetPrometheusServiceIdentities(),
 	}
