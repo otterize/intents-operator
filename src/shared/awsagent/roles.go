@@ -174,10 +174,15 @@ func (a *Agent) CreateRolesAnywhereProfileForRole(ctx context.Context, role type
 }
 
 // CreateOtterizeIAMRole creates a new IAM role for service, if one doesn't exist yet
-func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string, accountName string, useSoftDeleteStrategy bool) (*types.Role, error) {
+func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string, accountName string, useSoftDeleteStrategy bool, additionalTrustRelationshipEntries ...StatementEntry) (*types.Role, error) {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
 	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
 
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	trustPolicy, err := a.generateTrustPolicy(namespaceName, accountName, additionalTrustRelationshipEntries...)
 	if err != nil {
 		return nil, errors.Wrap(err)
 	}
@@ -208,11 +213,6 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 		}
 
 		return role, nil
-	}
-
-	trustPolicy, err := a.generateTrustPolicy(namespaceName, accountName)
-	if err != nil {
-		return nil, errors.Wrap(err)
 	}
 
 	tags := []types.Tag{
@@ -417,7 +417,7 @@ func (a *Agent) unsetAllRolePoliciesSoftDeleteStrategyTag(ctx context.Context, r
 	return nil
 }
 
-func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, error) {
+func (a *Agent) generateTrustPolicy(namespaceName string, accountName string, additionalEntries ...StatementEntry) (string, error) {
 	if a.RolesAnywhereEnabled {
 		return a.generateTrustPolicyForRolesAnywhere(namespaceName, accountName)
 	}
@@ -441,6 +441,10 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 				},
 			},
 		},
+	}
+
+	if len(additionalEntries) > 0 {
+		policy.Statement = append(policy.Statement, additionalEntries...)
 	}
 
 	serialized, err := json.Marshal(policy)
