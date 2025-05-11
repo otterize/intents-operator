@@ -775,7 +775,7 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookInternetIntents() {
 
 func (s *ValidationWebhookTestSuite) TestStrictModeNonKubernetesServiceRejected() {
 	viper.Set(enforcement.StrictModeIntentsKey, true)
-	_, err := s.AddIntentsInNamespaceV2beta1("test-intents", "test-client", "test-namespace", []otterizev2beta1.Target{
+	_, err := s.AddIntentsInNamespaceV2beta1("test-intents", "test-client", s.TestNamespace, []otterizev2beta1.Target{
 		{
 			Kubernetes: &otterizev2beta1.KubernetesTarget{
 				Name: "deny-me",
@@ -789,7 +789,7 @@ func (s *ValidationWebhookTestSuite) TestStrictModeNonKubernetesServiceRejected(
 
 func (s *ValidationWebhookTestSuite) TestStrictModeWildcardDNSRejected() {
 	viper.Set(enforcement.StrictModeIntentsKey, true)
-	_, err := s.AddIntentsInNamespaceV2beta1("test-intents", "test-client", "test-namespace", []otterizev2beta1.Target{
+	_, err := s.AddIntentsInNamespaceV2beta1("test-intents", "test-client", s.TestNamespace, []otterizev2beta1.Target{
 		{
 			Internet: &otterizev2beta1.Internet{
 				Domains: []string{"*.example.com"},
@@ -802,7 +802,7 @@ func (s *ValidationWebhookTestSuite) TestStrictModeWildcardDNSRejected() {
 
 func (s *ValidationWebhookTestSuite) TestStrictModeDNSWithoutPortRejected() {
 	viper.Set(enforcement.StrictModeIntentsKey, true)
-	_, err := s.AddIntentsInNamespaceV2beta1("test-intents", "test-client", "test-namespace", []otterizev2beta1.Target{
+	_, err := s.AddIntentsInNamespaceV2beta1("test-intents", "test-client", s.TestNamespace, []otterizev2beta1.Target{
 		{
 			Internet: &otterizev2beta1.Internet{
 				Domains: []string{"api.example.com"},
