@@ -8,7 +8,7 @@ mutation ReportAppliedKubernetesIntents($namespace: String!,$intents: [IntentInp
 }
 
 mutation ReportNetworkPolicies($namespace: String!, $policies: [NetworkPolicyInput!]!) {
-    reportNetworkPolicies(namespace: $namespace, policies: $policies)
+    reportNetworkPolicies(namespace: $namespace, networkPolicies: $policies)
 }
 
 mutation ReportIntentsOperatorConfiguration($configuration: IntentsOperatorConfigurationInput!) {
