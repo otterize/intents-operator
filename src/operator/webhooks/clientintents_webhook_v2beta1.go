@@ -68,7 +68,7 @@ func (v *IntentsValidatorV2beta1) ValidateCreate(ctx context.Context, obj runtim
 		return nil, errors.Wrap(err)
 	}
 
-	if viper.GetBool(enforcement.StrictModeIntentsKey) {
+	if viper.GetBool(enforcement.EnableStrictModeIntentsKey) {
 		if err := v.enforceIntentsAbideStrictMode(intentsObj); err != nil {
 			allErrs = append(allErrs, err)
 		}
@@ -101,7 +101,7 @@ func (v *IntentsValidatorV2beta1) ValidateUpdate(ctx context.Context, oldObj, ne
 		return nil, errors.Wrap(err)
 	}
 
-	if viper.GetBool(enforcement.StrictModeIntentsKey) {
+	if viper.GetBool(enforcement.EnableStrictModeIntentsKey) {
 		if err := v.enforceIntentsAbideStrictMode(intentsObj); err != nil {
 			allErrs = append(allErrs, err)
 		}

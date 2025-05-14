@@ -71,8 +71,8 @@ const (
 	EnableAzurePolicyKey                        = "enable-azure-iam-policy"
 	EnableAzurePolicyDefault                    = false
 	PrometheusServiceConfigKey                  = "prometheusServerConfigs"
-	StrictModeIntentsKey                        = "strict-mode-intents"
-	StrictModeIntentsDefault                    = false
+	EnableStrictModeIntentsKey                  = "enable-strict-mode-intents" // Whether to enable strict mode intents
+	EnableStrictModeIntentsDefault              = false
 	ExcludedStrictModeNamespacesKey             = "excluded-strict-mode-namespaces"
 )
 
@@ -88,7 +88,7 @@ func init() {
 	viper.SetDefault(EnableGCPPolicyKey, EnableGCPPolicyDefault)
 	viper.SetDefault(EnableAzurePolicyKey, EnableAzurePolicyDefault)
 	viper.SetDefault(AutomateThirdPartyNetworkPoliciesKey, AutomateThirdPartyNetworkPoliciesDefault)
-	viper.SetDefault(StrictModeIntentsKey, StrictModeIntentsDefault)
+	viper.SetDefault(EnableStrictModeIntentsKey, EnableStrictModeIntentsDefault)
 }
 
 func InitCLIFlags() {
@@ -97,7 +97,7 @@ func InitCLIFlags() {
 	pflag.Bool(EnableKafkaACLKey, EnableKafkaACLDefault, "Whether to disable Intents Kafka ACL creation")
 	pflag.StringSlice(ActiveEnforcementNamespacesKey, nil, "While using the shadow enforcement mode, namespaces in this list will be treated as if the enforcement were active.")
 	pflag.StringSlice(ExcludedStrictModeNamespacesKey, nil, "Namespaces to exclude from strict mode intents when it is enabled.")
-	pflag.Bool(StrictModeIntentsKey, StrictModeIntentsDefault, "Whether to enable strict mode intents")
+	pflag.Bool(EnableStrictModeIntentsKey, EnableStrictModeIntentsDefault, "Whether to enable strict mode intents")
 	pflag.Bool(EnableIstioPolicyKey, EnableIstioPolicyDefault, "Whether to enable Istio authorization policy creation")
 	pflag.Bool(EnableLinkerdPolicyKey, EnableLinkerdPolicyDefault, "Experimental - enable Linkerd policy creation")
 	pflag.Bool(EnableDatabasePolicy, EnableDatabasePolicyDefault, "Enable the database reconciler")
@@ -117,7 +117,7 @@ func GetConfig() Config {
 		EnableAWSPolicy:                      viper.GetBool(EnableAWSPolicyKey),
 		EnableGCPPolicy:                      viper.GetBool(EnableGCPPolicyKey),
 		EnableAzurePolicy:                    viper.GetBool(EnableAzurePolicyKey),
-		StrictModeEnabled:                    viper.GetBool(StrictModeIntentsKey),
+		StrictModeEnabled:                    viper.GetBool(EnableStrictModeIntentsKey),
 		EnforcedNamespaces:                   goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
 		ExcludedStrictModeNamespaces:         goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
 		AutomateThirdPartyNetworkPolicies:    automate_third_party_network_policy.Enum(viper.GetString(AutomateThirdPartyNetworkPoliciesKey)),
