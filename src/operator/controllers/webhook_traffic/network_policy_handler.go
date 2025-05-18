@@ -7,6 +7,8 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	"golang.org/x/exp/slices"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
@@ -122,8 +124,12 @@ func (n *NetworkPolicyHandler) reconcileWebhooks(ctx context.Context, webhooksCl
 }
 
 func (n *NetworkPolicyHandler) reduceWebhooksNetpols(ctx context.Context, webhooksClientConfigs []WebhookClientConfigurationWithMeta) (NetworkPolicyWithMetaByName, error) {
+	if n.policy == automate_third_party_network_policy.Off {
+		// If the configuration is off, we don't want to create any network policies
+		return make(NetworkPolicyWithMetaByName), nil
+	}
+
 	policiesByName := make(NetworkPolicyWithMetaByName)
-	
 	for _, webhookClientConfig := range webhooksClientConfigs {
 		if webhookClientConfig.clientConfiguration.Service != nil {
 			service, serviceFound, err := n.getWebhookService(ctx, webhookClientConfig.clientConfiguration.Service)
@@ -135,6 +141,18 @@ func (n *NetworkPolicyHandler) reduceWebhooksNetpols(ctx context.Context, webhoo
 				continue
 			}
 
+			if n.policy == automate_third_party_network_policy.IfBlockedByOtterize {
+				blockedByOtterize, err := n.isServiceBlockedByOtterize(ctx, service)
+				if err != nil {
+					return make(NetworkPolicyWithMetaByName), errors.Wrap(err)
+				}
+				if !blockedByOtterize {
+					continue
+				}
+			}
+
+			// At this point we want to create the network policy, because the configuration is either set to "always" or
+			// that it is set to "if blocked by otterize" and the service is blocked by otterize
 			// TODO: do we also need to create netpol for Otterize?
 			netpol, err := n.buildNetworkPolicy(ctx, webhookClientConfig.webhookName, webhookClientConfig.clientConfiguration.Service, service)
 			if err != nil {
@@ -155,6 +173,97 @@ func (n *NetworkPolicyHandler) reduceWebhooksNetpols(ctx context.Context, webhoo
 	n.dedupAndSortPorts(policiesByName)
 
 	return policiesByName, nil
+}
+
+func (n *NetworkPolicyHandler) isServiceBlockedByOtterize(ctx context.Context, service *corev1.Service) (bool, error) {
+	endpoints := &corev1.Endpoints{}
+	err := n.client.Get(ctx, types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, endpoints)
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	endpointsAddresses := n.getAddressesFromEndpoints(endpoints)
+
+	for _, address := range endpointsAddresses {
+		pod, err := n.getAffectedPod(ctx, address)
+		if k8sErr := &(k8serrors.StatusError{}); errors.As(err, &k8sErr) {
+			if k8serrors.IsNotFound(k8sErr) {
+				continue
+			}
+		}
+
+		if err != nil {
+			return false, errors.Wrap(err)
+		}
+
+		// only act on pods affected by Otterize
+		_, ok := pod.Labels[v2alpha1.OtterizeServiceLabelKey]
+		if !ok {
+			continue
+		}
+		netpolsAffectingThisWorkload := make([]v1.NetworkPolicy, 0)
+
+		serviceId, err := serviceidresolver.NewResolver(n.client).ResolvePodToServiceIdentity(ctx, pod)
+		if err != nil {
+			return false, errors.Wrap(err)
+		}
+		netpolList := &v1.NetworkPolicyList{}
+
+		// Get netpolsAffectingThisWorkload which was created by intents targeting this pod by its owner with "kind"
+		err = n.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithKind()})
+		if err != nil {
+			return false, errors.Wrap(err)
+		}
+		netpolsAffectingThisWorkload = append(netpolsAffectingThisWorkload, netpolList.Items...)
+
+		// Get netpolsAffectingThisWorkload which was created by intents targeting this pod by its owner without "kind"
+		err = n.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithoutKind()})
+		if err != nil {
+			return false, errors.Wrap(err)
+		}
+		netpolsAffectingThisWorkload = append(netpolsAffectingThisWorkload, netpolList.Items...)
+
+		// Get netpolsAffectingThisWorkload which was created by intents targeting this pod by its service
+		err = n.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: (&serviceidentity.ServiceIdentity{Name: endpoints.Name, Namespace: endpoints.Namespace, Kind: serviceidentity.KindService}).GetFormattedOtterizeIdentityWithKind()})
+		if err != nil {
+			return false, errors.Wrap(err)
+		}
+		netpolsAffectingThisWorkload = append(netpolsAffectingThisWorkload, netpolList.Items...)
+
+		blockedByOtterize := lo.SomeBy(netpolsAffectingThisWorkload, func(netpol v1.NetworkPolicy) bool {
+			return lo.Contains(netpol.Spec.PolicyTypes, v1.PolicyTypeIngress)
+		})
+
+		if blockedByOtterize {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (n *NetworkPolicyHandler) getAffectedPod(ctx context.Context, address corev1.EndpointAddress) (*corev1.Pod, error) {
+	if address.TargetRef == nil || address.TargetRef.Kind != "Pod" {
+		return nil, k8serrors.NewNotFound(corev1.Resource("Pod"), "not-a-pod")
+	}
+
+	pod := &corev1.Pod{}
+	err := n.client.Get(ctx, types.NamespacedName{Name: address.TargetRef.Name, Namespace: address.TargetRef.Namespace}, pod)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	return pod, nil
+}
+
+func (n *NetworkPolicyHandler) getAddressesFromEndpoints(endpoints *corev1.Endpoints) []corev1.EndpointAddress {
+	addresses := make([]corev1.EndpointAddress, 0)
+	for _, subset := range endpoints.Subsets {
+		addresses = append(addresses, subset.Addresses...)
+		addresses = append(addresses, subset.NotReadyAddresses...)
+
+	}
+	return addresses
 }
 
 func (n *NetworkPolicyHandler) dedupAndSortPorts(policiesByNames NetworkPolicyWithMetaByName) {
