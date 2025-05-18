@@ -40,6 +40,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
 	"github.com/otterize/intents-operator/src/operator/controllers/metrics_collection_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/webhook_traffic"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/health"
 	"github.com/otterize/intents-operator/src/shared"
@@ -235,6 +236,9 @@ func main() {
 			[]networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder, dnsServerNetpolBuilder},
 			make([]networkpolicy.EgressRuleBuilder, 0))
 	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, serviceIdResolver, epNetpolReconciler)
+
+	webhooksTrafficNetworkHandler := webhook_traffic.NewNetworkPolicyHandler(mgr.GetClient(), scheme, enforcementConfig.GetAutomateThirdPartyNetworkPolicy())
+	validatingWebhookTrafficReconciler := webhook_traffic.NewValidatingWebhookReconciler(mgr.GetClient(), webhooksTrafficNetworkHandler)
 
 	if enforcementConfig.EnableLinkerdPolicies {
 		epGroupReconciler.AddReconciler(intents_reconcilers.NewLinkerdReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnforcementDefaultState))
@@ -446,6 +450,10 @@ func main() {
 
 	if err = netpolReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "NetworkPolicy")
+	}
+
+	if err = validatingWebhookTrafficReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Webhooks")
 	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(

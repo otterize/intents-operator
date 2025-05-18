@@ -64,6 +64,7 @@ const (
 	OtterizeNetworkPolicyExternalTraffic       = "intents.otterize.com/network-policy-external-traffic"
 	OtterizeNetPolMetricsCollectors            = "intents.otterize.com/network-policy-metrics-collectors"
 	OtterizeNetPolMetricsCollectorsLevel       = "intents.otterize.com/network-policy-metrics-collectors-level"
+	OtterizeNetworkPolicyWebhooks              = "intents.otterize.com/network-policy-webhooks"
 	ClientIntentsFinalizerName                 = "intents.otterize.com/client-intents-finalizer"
 	ProtectedServicesFinalizerName             = "intents.otterize.com/protected-services-finalizer"
 	OtterizeIstioClientAnnotationKeyDeprecated = "intents.otterize.com/istio-client"
