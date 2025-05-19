@@ -103,7 +103,7 @@ type NetworkPolicyHandlerTestSuite struct {
 
 func (s *NetworkPolicyHandlerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.IfBlockedByOtterize)
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.IfBlockedByOtterize, 32)
 	s.handler.InjectRecorder(s.Recorder)
 
 	s.validatingWebhook = ValidatingWebhookConfiguration.DeepCopy()
@@ -281,7 +281,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 }
 
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_ServiceIsBlockedByOtterize_DoNothing() {
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Off)
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Off, 32)
 
 	s.mockForReturningValidatingWebhook()
 	//s.mockReturningWebhookService()
@@ -298,7 +298,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_Servi
 }
 
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_ServiceIsBlockedByOtterize_ExistingWebhookPolicy_DeletePolicy() {
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Off)
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Off, 32)
 
 	s.mockForReturningValidatingWebhook()
 	//s.mockReturningWebhookService()
@@ -315,7 +315,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_Servi
 }
 
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_ServiceIsNotBlockedByOtterize_CreatePolicy() {
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always)
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, 32)
 	s.handler.InjectRecorder(s.Recorder)
 
 	s.mockForReturningValidatingWebhook()
@@ -500,6 +500,16 @@ func (s *NetworkPolicyHandlerTestSuite) mockGetControlPlaneIPs() {
 	).DoAndReturn(
 		func(_ any, _ any, svc *corev1.Service, _ ...any) error {
 			svc.Spec.ClusterIP = TestControlPlaneIP
+			svc.Name = "kubernetes"
+			svc.Namespace = "default"
+			return nil
+		},
+	)
+
+	s.Client.EXPECT().Get(
+		gomock.Any(), gomock.Eq(types.NamespacedName{Name: "kubernetes", Namespace: "default"}), gomock.Eq(&corev1.Endpoints{}),
+	).DoAndReturn(
+		func(_ any, _ any, endpoints *corev1.Endpoints, _ ...any) error {
 			return nil
 		},
 	)

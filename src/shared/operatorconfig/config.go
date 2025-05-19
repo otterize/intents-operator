@@ -66,6 +66,8 @@ const (
 	SeparateNetpolsForIngressAndEgress            = "separate-netpols-for-ingress-and-egress"
 	SeparateNetpolsForIngressAndEgressDefault     = false
 	ExternallyManagedPolicyWorkloadsKey           = "externallyManagedPolicyWorkloads"
+	ControlPlaneIPv4CidrPrefixLength              = "control-plane-ipv4-cidr-prefix-length"
+	ControlPlaneIPv4CidrPrefixLengthDefault       = 32
 )
 
 func init() {
@@ -89,6 +91,7 @@ func init() {
 	viper.SetDefault(SeparateNetpolsForIngressAndEgress, SeparateNetpolsForIngressAndEgressDefault)
 	viper.SetDefault(EnableGroupInternetIPsByCIDRKey, EnableGroupInternetIPsByCIDRDefault)
 	viper.SetDefault(EnableGroupInternetIPsByCIDRPeersLimitKey, EnableGroupInternetIPsByCIDRPeersLimitDefault)
+	viper.SetDefault(ControlPlaneIPv4CidrPrefixLength, ControlPlaneIPv4CidrPrefixLengthDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 

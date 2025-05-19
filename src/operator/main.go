@@ -237,7 +237,10 @@ func main() {
 			make([]networkpolicy.EgressRuleBuilder, 0))
 	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, serviceIdResolver, epNetpolReconciler)
 
-	webhooksTrafficNetworkHandler := webhook_traffic.NewNetworkPolicyHandler(mgr.GetClient(), scheme, enforcementConfig.GetAutomateThirdPartyNetworkPolicy())
+	webhooksTrafficNetworkHandler := webhook_traffic.NewNetworkPolicyHandler(mgr.GetClient(),
+		scheme,
+		enforcementConfig.GetAutomateThirdPartyNetworkPolicy(),
+		viper.GetInt(operatorconfig.ControlPlaneIPv4CidrPrefixLength))
 	webhookTrafficReconcilerManager := webhook_traffic.NewWebhookTrafficReconcilerManager(mgr.GetClient(), webhooksTrafficNetworkHandler)
 
 	if enforcementConfig.EnableLinkerdPolicies {

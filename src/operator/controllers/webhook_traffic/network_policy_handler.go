@@ -51,18 +51,21 @@ type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	policy automate_third_party_network_policy.Enum
+	policy                       automate_third_party_network_policy.Enum
+	controlPlaneCIDRPrefixLength int
 }
 
 func NewNetworkPolicyHandler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	policy automate_third_party_network_policy.Enum,
+	controlPlaneCIDRPrefixLength int,
 ) *NetworkPolicyHandler {
 	return &NetworkPolicyHandler{
-		client: client,
-		scheme: scheme,
-		policy: policy,
+		client:                       client,
+		scheme:                       scheme,
+		policy:                       policy,
+		controlPlaneCIDRPrefixLength: controlPlaneCIDRPrefixLength,
 	}
 }
 
@@ -303,19 +306,21 @@ func (n *NetworkPolicyHandler) getWebhookService(ctx context.Context, webhookSer
 func (n *NetworkPolicyHandler) buildNetworkPolicy(ctx context.Context, webhookName string, webhookService *admissionv1.ServiceReference, service *corev1.Service) (v1.NetworkPolicy, error) {
 	policyName := fmt.Sprintf("webhook-%s-access-to-%s", strings.ToLower(webhookName), strings.ToLower(service.Name))
 
-	controlPLaneIP, err := n.getControlPlaneIPs(ctx)
+	controlPlaneIPs, err := n.getControlPlaneIPsAsCIDR(ctx)
 	if err != nil {
 		return v1.NetworkPolicy{}, errors.Wrap(err)
 	}
 
-	rule := v1.NetworkPolicyIngressRule{}
-
-	rule.From = append(rule.From, v1.NetworkPolicyPeer{
-		IPBlock: &v1.IPBlock{
-			// TODO: handle google cloud CIDR
-			CIDR: fmt.Sprintf("%s/32", controlPLaneIP),
-		},
+	fromControlPlaneIPs := lo.Map(controlPlaneIPs, func(controlPLaneIP string, _ int) v1.NetworkPolicyPeer {
+		return v1.NetworkPolicyPeer{
+			IPBlock: &v1.IPBlock{
+				CIDR: controlPLaneIP,
+			},
+		}
 	})
+
+	rule := v1.NetworkPolicyIngressRule{}
+	rule.From = append(rule.From, fromControlPlaneIPs...)
 
 	newPolicy := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -374,15 +379,29 @@ func (n *NetworkPolicyHandler) getExistingWebhooksNetpols(ctx context.Context) (
 	return networkPolicies, nil
 }
 
-func (n *NetworkPolicyHandler) getControlPlaneIPs(ctx context.Context) (string, error) {
+func (n *NetworkPolicyHandler) getControlPlaneIPsAsCIDR(ctx context.Context) ([]string, error) {
 	var svc corev1.Service
 	err := n.client.Get(ctx, types.NamespacedName{Name: "kubernetes", Namespace: "default"}, &svc)
 	if err != nil {
-		return "", errors.Wrap(err)
+		return make([]string, 0), errors.Wrap(err)
 	}
 
-	// TODO: Do we also need to get the IPs of the service endpoints'?
-	return svc.Spec.ClusterIP, nil
+	addresses := make([]string, 0)
+	addresses = append(addresses, fmt.Sprintf("%s/32", svc.Spec.ClusterIP))
+
+	var endpoints corev1.Endpoints
+	err = n.client.Get(ctx, types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &endpoints)
+	if err != nil {
+		return make([]string, 0), errors.Wrap(err)
+	}
+
+	for _, subset := range endpoints.Subsets {
+		for _, endpointAddress := range subset.Addresses {
+			addresses = append(addresses, fmt.Sprintf("%s/%d", endpointAddress.IP, n.controlPlaneCIDRPrefixLength))
+		}
+	}
+
+	return addresses, nil
 }
 
 func (n *NetworkPolicyHandler) policiesAreEqual(policy *v1.NetworkPolicy, otherPolicy *v1.NetworkPolicy) bool {
