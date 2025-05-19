@@ -14,6 +14,7 @@ import (
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,22 +66,28 @@ func NewNetworkPolicyHandler(
 	}
 }
 
-func (n *NetworkPolicyHandler) ReconcileAllValidatingWebhooksWebhooks(ctx context.Context) error {
-	validatingWebhookConfigurationList := &admissionv1.ValidatingWebhookConfigurationList{}
-	err := n.client.List(ctx, validatingWebhookConfigurationList)
+func (n *NetworkPolicyHandler) ReconcileAll(ctx context.Context) error {
+	validatingWebhooks, err := n.collectValidatingWebhooks(ctx)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	allClientConfigurations := make([]WebhookClientConfigurationWithMeta, 0)
-	for _, webhookConfiguration := range validatingWebhookConfigurationList.Items {
-		webhooksClientConfigurations := lo.Map(webhookConfiguration.Webhooks, func(webhook admissionv1.ValidatingWebhook, _ int) WebhookClientConfigurationWithMeta {
-			return WebhookClientConfigurationWithMeta{clientConfiguration: webhook.ClientConfig, webhookName: webhookConfiguration.Name, webhook: &webhookConfiguration}
-		})
-		allClientConfigurations = append(allClientConfigurations, webhooksClientConfigurations...)
+	mutatingWebhooks, err := n.collectMutatingWebhooks(ctx)
+	if err != nil {
+		return errors.Wrap(err)
 	}
 
-	err = n.reconcileWebhooks(ctx, allClientConfigurations)
+	crdsWebhooks, err := n.collectCRDsWebhooks(ctx)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+
+	allWebhooks := make([]WebhookClientConfigurationWithMeta, 0, len(validatingWebhooks)+len(mutatingWebhooks)+len(crdsWebhooks))
+	allWebhooks = append(allWebhooks, validatingWebhooks...)
+	allWebhooks = append(allWebhooks, mutatingWebhooks...)
+	allWebhooks = append(allWebhooks, crdsWebhooks...)
+
+	err = n.reconcileWebhooks(ctx, allWebhooks)
 	if err != nil {
 		return errors.Wrap(err)
 	}
@@ -479,4 +486,74 @@ func (n *NetworkPolicyHandler) updatePolicy(ctx context.Context, webhookRuntime 
 	n.RecordNormalEventf(webhookRuntime, ReasonPatchingWebhookTrafficNetpolSuccess, "Patching network policy for webhook for serivce %s succeed", serviceName)
 
 	return nil
+}
+
+func (n *NetworkPolicyHandler) collectValidatingWebhooks(ctx context.Context) ([]WebhookClientConfigurationWithMeta, error) {
+	validatingWebhookConfigurationList := &admissionv1.ValidatingWebhookConfigurationList{}
+	err := n.client.List(ctx, validatingWebhookConfigurationList)
+	if err != nil {
+		return make([]WebhookClientConfigurationWithMeta, 0), errors.Wrap(err)
+	}
+
+	allClientConfigurations := make([]WebhookClientConfigurationWithMeta, 0)
+	for _, webhookConfiguration := range validatingWebhookConfigurationList.Items {
+		webhooksClientConfigurations := lo.Map(webhookConfiguration.Webhooks, func(webhook admissionv1.ValidatingWebhook, _ int) WebhookClientConfigurationWithMeta {
+			return WebhookClientConfigurationWithMeta{clientConfiguration: webhook.ClientConfig, webhookName: webhookConfiguration.Name, webhook: &webhookConfiguration}
+		})
+		allClientConfigurations = append(allClientConfigurations, webhooksClientConfigurations...)
+	}
+
+	return allClientConfigurations, nil
+}
+
+func (n *NetworkPolicyHandler) collectMutatingWebhooks(ctx context.Context) ([]WebhookClientConfigurationWithMeta, error) {
+	webhookConfigurationList := &admissionv1.MutatingWebhookConfigurationList{}
+	err := n.client.List(ctx, webhookConfigurationList)
+	if err != nil {
+		return make([]WebhookClientConfigurationWithMeta, 0), errors.Wrap(err)
+	}
+
+	allClientConfigurations := make([]WebhookClientConfigurationWithMeta, 0)
+	for _, webhookConfiguration := range webhookConfigurationList.Items {
+		webhooksClientConfigurations := lo.Map(webhookConfiguration.Webhooks, func(webhook admissionv1.MutatingWebhook, _ int) WebhookClientConfigurationWithMeta {
+			return WebhookClientConfigurationWithMeta{clientConfiguration: webhook.ClientConfig, webhookName: webhookConfiguration.Name, webhook: &webhookConfiguration}
+		})
+		allClientConfigurations = append(allClientConfigurations, webhooksClientConfigurations...)
+	}
+
+	return allClientConfigurations, nil
+}
+
+func (n *NetworkPolicyHandler) collectCRDsWebhooks(ctx context.Context) ([]WebhookClientConfigurationWithMeta, error) {
+	crds := &apiextensionsv1.CustomResourceDefinitionList{}
+	err := n.client.List(ctx, crds)
+	if err != nil {
+		return make([]WebhookClientConfigurationWithMeta, 0), errors.Wrap(err)
+	}
+
+	webhookdsCRDs := lo.Filter(crds.Items, func(crd apiextensionsv1.CustomResourceDefinition, _ int) bool {
+		return crd.Spec.Conversion != nil && crd.Spec.Conversion.Webhook != nil && crd.Spec.Conversion.Webhook.ClientConfig != nil
+	})
+
+	allClientConfigurations := make([]WebhookClientConfigurationWithMeta, 0)
+	for _, crd := range webhookdsCRDs {
+		webhookConfig := WebhookClientConfigurationWithMeta{
+			clientConfiguration: admissionv1.WebhookClientConfig{},
+			webhookName:         crd.Name,
+			webhook:             &crd,
+		}
+
+		if crd.Spec.Conversion.Webhook.ClientConfig.Service != nil {
+			webhookConfig.clientConfiguration.Service =
+				&admissionv1.ServiceReference{
+					Name:      crd.Spec.Conversion.Webhook.ClientConfig.Service.Name,
+					Namespace: crd.Spec.Conversion.Webhook.ClientConfig.Service.Namespace,
+					Port:      crd.Spec.Conversion.Webhook.ClientConfig.Service.Port,
+				}
+		}
+
+		allClientConfigurations = append(allClientConfigurations, webhookConfig)
+	}
+
+	return allClientConfigurations, nil
 }

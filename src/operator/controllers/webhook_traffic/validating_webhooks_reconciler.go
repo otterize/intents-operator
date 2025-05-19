@@ -42,7 +42,7 @@ func (r *ValidatingWebhookReconciler) InjectRecorder(recorder record.EventRecord
 }
 
 func (r *ValidatingWebhookReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.handler.ReconcileAllValidatingWebhooksWebhooks(ctx)
+	err := r.handler.ReconcileAll(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

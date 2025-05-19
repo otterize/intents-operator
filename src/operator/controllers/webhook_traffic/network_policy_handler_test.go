@@ -11,6 +11,7 @@ import (
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,6 +36,61 @@ var OtterizeIngressNetpols = []v1.NetworkPolicy{
 	},
 }
 
+var ValidatingWebhookConfiguration = admissionv1.ValidatingWebhookConfiguration{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: TestWebhookName,
+	},
+	Webhooks: []admissionv1.ValidatingWebhook{
+		{
+			Name: "First",
+			ClientConfig: admissionv1.WebhookClientConfig{
+				Service: &admissionv1.ServiceReference{
+					Name:      TestServiceName,
+					Namespace: TestNamespace,
+					Port:      lo.ToPtr(int32(TestServicePort)),
+				},
+			},
+		},
+	},
+}
+
+var MutatingWebhookConfiguration = admissionv1.MutatingWebhookConfiguration{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: TestWebhookName,
+	},
+	Webhooks: []admissionv1.MutatingWebhook{
+		{
+			Name: "First",
+			ClientConfig: admissionv1.WebhookClientConfig{
+				Service: &admissionv1.ServiceReference{
+					Name:      TestServiceName,
+					Namespace: TestNamespace,
+					Port:      lo.ToPtr(int32(TestServicePort)),
+				},
+			},
+		},
+	},
+}
+
+var CRDWebhookConfiguration = apiextensionsv1.CustomResourceDefinition{
+	ObjectMeta: metav1.ObjectMeta{
+		Name: TestWebhookName,
+	},
+	Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+		Conversion: &apiextensionsv1.CustomResourceConversion{
+			Webhook: &apiextensionsv1.WebhookConversion{
+				ClientConfig: &apiextensionsv1.WebhookClientConfig{
+					Service: &apiextensionsv1.ServiceReference{
+						Name:      TestServiceName,
+						Namespace: TestNamespace,
+						Port:      lo.ToPtr(int32(TestServicePort)),
+					},
+				},
+			},
+		},
+	},
+}
+
 type NetworkPolicyHandlerTestSuite struct {
 	testbase.MocksSuiteBase
 	handler *NetworkPolicyHandler
@@ -50,23 +106,7 @@ func (s *NetworkPolicyHandlerTestSuite) SetupTest() {
 	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.IfBlockedByOtterize)
 	s.handler.InjectRecorder(s.Recorder)
 
-	s.validatingWebhook = &admissionv1.ValidatingWebhookConfiguration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: TestWebhookName,
-		},
-		Webhooks: []admissionv1.ValidatingWebhook{
-			{
-				Name: "First",
-				ClientConfig: admissionv1.WebhookClientConfig{
-					Service: &admissionv1.ServiceReference{
-						Name:      TestServiceName,
-						Namespace: TestNamespace,
-						Port:      lo.ToPtr(int32(TestServicePort)),
-					},
-				},
-			},
-		},
-	}
+	s.validatingWebhook = ValidatingWebhookConfiguration.DeepCopy()
 
 	s.webhookService = &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -116,7 +156,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAllValidatingWebhooksWebhooks(context.Background())
+	err := s.handler.ReconcileAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -151,7 +191,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAllValidatingWebhooksWebhooks(context.Background())
+	err := s.handler.ReconcileAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -187,7 +227,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{secondPort, TestServicePort})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAllValidatingWebhooksWebhooks(context.Background())
+	err := s.handler.ReconcileAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -203,7 +243,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	//netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	//s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAllValidatingWebhooksWebhooks(context.Background())
+	err := s.handler.ReconcileAll(context.Background())
 	s.Require().NoError(err)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -219,7 +259,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.All(netpolMatcher), gomock.Any()).Return(nil)
-	err := s.handler.ReconcileAllValidatingWebhooksWebhooks(context.Background())
+	err := s.handler.ReconcileAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonPatchingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonPatchingWebhookTrafficNetpolSuccess)
@@ -234,7 +274,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	//netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	//s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAllValidatingWebhooksWebhooks(context.Background())
+	err := s.handler.ReconcileAll(context.Background())
 	s.Require().NoError(err)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -251,7 +291,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_Servi
 
 	//netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	//s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAllValidatingWebhooksWebhooks(context.Background())
+	err := s.handler.ReconcileAll(context.Background())
 	s.Require().NoError(err)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -268,7 +308,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_Servi
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAllValidatingWebhooksWebhooks(context.Background())
+	err := s.handler.ReconcileAll(context.Background())
 	s.Require().NoError(err)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -286,7 +326,37 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Se
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAllValidatingWebhooksWebhooks(context.Background())
+	err := s.handler.ReconcileAll(context.Background())
+	s.Require().NoError(err)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
+}
+
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_MutatingWebhooks_HandleIfBlockedByOtterize_ServiceIsBlockedByOtterize_CreatingWebhookPolicy() {
+	s.mockForReturningMutatingWebhook()
+	s.mockReturningWebhookService()
+	s.mockServiceIsBlockedByOtterize(OtterizeIngressNetpols)
+	s.mockGetControlPlaneIPs()
+	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
+
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
+	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
+	err := s.handler.ReconcileAll(context.Background())
+	s.Require().NoError(err)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
+}
+
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_CRDsWebhooks_HandleIfBlockedByOtterize_ServiceIsBlockedByOtterize_CreatingWebhookPolicy() {
+	s.mockForReturningCRDsWebhook()
+	s.mockReturningWebhookService()
+	s.mockServiceIsBlockedByOtterize(OtterizeIngressNetpols)
+	s.mockGetControlPlaneIPs()
+	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
+
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
+	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
+	err := s.handler.ReconcileAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -298,6 +368,82 @@ func (s *NetworkPolicyHandlerTestSuite) mockForReturningValidatingWebhook() {
 	).DoAndReturn(
 		func(_ any, list *admissionv1.ValidatingWebhookConfigurationList, _ ...any) error {
 			list.Items = []admissionv1.ValidatingWebhookConfiguration{*s.validatingWebhook}
+			return nil
+		},
+	)
+
+	// No mutating webhooks
+	s.Client.EXPECT().List(
+		gomock.Any(), gomock.Eq(&admissionv1.MutatingWebhookConfigurationList{}),
+	).DoAndReturn(
+		func(_ any, list *admissionv1.MutatingWebhookConfigurationList, _ ...any) error {
+			return nil
+		},
+	)
+
+	// No CRDs webhooks
+	s.Client.EXPECT().List(
+		gomock.Any(), gomock.Eq(&apiextensionsv1.CustomResourceDefinitionList{}),
+	).DoAndReturn(
+		func(_ any, list *apiextensionsv1.CustomResourceDefinitionList, _ ...any) error {
+			return nil
+		},
+	)
+}
+
+func (s *NetworkPolicyHandlerTestSuite) mockForReturningMutatingWebhook() {
+	s.Client.EXPECT().List(
+		gomock.Any(), gomock.Eq(&admissionv1.ValidatingWebhookConfigurationList{}),
+	).DoAndReturn(
+		func(_ any, list *admissionv1.ValidatingWebhookConfigurationList, _ ...any) error {
+			return nil
+		},
+	)
+
+	// No mutating webhooks
+	s.Client.EXPECT().List(
+		gomock.Any(), gomock.Eq(&admissionv1.MutatingWebhookConfigurationList{}),
+	).DoAndReturn(
+		func(_ any, list *admissionv1.MutatingWebhookConfigurationList, _ ...any) error {
+			list.Items = []admissionv1.MutatingWebhookConfiguration{MutatingWebhookConfiguration}
+			return nil
+		},
+	)
+
+	// No CRDs webhooks
+	s.Client.EXPECT().List(
+		gomock.Any(), gomock.Eq(&apiextensionsv1.CustomResourceDefinitionList{}),
+	).DoAndReturn(
+		func(_ any, list *apiextensionsv1.CustomResourceDefinitionList, _ ...any) error {
+			return nil
+		},
+	)
+}
+
+func (s *NetworkPolicyHandlerTestSuite) mockForReturningCRDsWebhook() {
+	s.Client.EXPECT().List(
+		gomock.Any(), gomock.Eq(&admissionv1.ValidatingWebhookConfigurationList{}),
+	).DoAndReturn(
+		func(_ any, list *admissionv1.ValidatingWebhookConfigurationList, _ ...any) error {
+			return nil
+		},
+	)
+
+	// No mutating webhooks
+	s.Client.EXPECT().List(
+		gomock.Any(), gomock.Eq(&admissionv1.MutatingWebhookConfigurationList{}),
+	).DoAndReturn(
+		func(_ any, list *admissionv1.MutatingWebhookConfigurationList, _ ...any) error {
+			return nil
+		},
+	)
+
+	// No CRDs webhooks
+	s.Client.EXPECT().List(
+		gomock.Any(), gomock.Eq(&apiextensionsv1.CustomResourceDefinitionList{}),
+	).DoAndReturn(
+		func(_ any, list *apiextensionsv1.CustomResourceDefinitionList, _ ...any) error {
+			list.Items = []apiextensionsv1.CustomResourceDefinition{CRDWebhookConfiguration}
 			return nil
 		},
 	)
