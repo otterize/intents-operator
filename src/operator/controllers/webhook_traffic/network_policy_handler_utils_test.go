@@ -24,10 +24,7 @@ var ExpectedNetpol = v1.NetworkPolicy{
 		},
 		Ingress: []v1.NetworkPolicyIngressRule{
 			{
-				Ports: []v1.NetworkPolicyPort{{
-					Protocol: lo.ToPtr(corev1.ProtocolTCP),
-					Port:     lo.ToPtr(intstr.IntOrString{Type: intstr.Int, IntVal: TestServicePort}),
-				}},
+				Ports: []v1.NetworkPolicyPort{},
 				From: []v1.NetworkPolicyPeer{
 					{
 						IPBlock: &v1.IPBlock{
@@ -42,10 +39,11 @@ var ExpectedNetpol = v1.NetworkPolicy{
 }
 
 type NetworkPolicyMatcher struct {
+	ports []int32
 }
 
-func NewNetworkPolicyMatcher() *NetworkPolicyMatcher {
-	return &NetworkPolicyMatcher{}
+func NewNetworkPolicyMatcher(ports []int32) *NetworkPolicyMatcher {
+	return &NetworkPolicyMatcher{ports: ports}
 }
 
 func (m *NetworkPolicyMatcher) String() string {
@@ -58,8 +56,21 @@ func (m *NetworkPolicyMatcher) Matches(other interface{}) bool {
 		return false
 	}
 
+	expectedNetpol := getExpectedNetpolWithPorts(m.ports)
+
 	return otherAsNetpol.Namespace == TestNamespace &&
-		otherAsNetpol.Name == ExpectedNetpol.Name &&
-		reflect.DeepEqual(otherAsNetpol.Labels, ExpectedNetpol.Labels) &&
-		reflect.DeepEqual(otherAsNetpol.Spec, ExpectedNetpol.Spec)
+		otherAsNetpol.Name == expectedNetpol.Name &&
+		reflect.DeepEqual(otherAsNetpol.Labels, expectedNetpol.Labels) &&
+		reflect.DeepEqual(otherAsNetpol.Spec, expectedNetpol.Spec)
+}
+
+func getExpectedNetpolWithPorts(ports []int32) *v1.NetworkPolicy {
+	expectedNetpol := ExpectedNetpol.DeepCopy()
+	expectedNetpol.Spec.Ingress[0].Ports = lo.Map(ports, func(port int32, _ int) v1.NetworkPolicyPort {
+		return v1.NetworkPolicyPort{
+			Protocol: lo.ToPtr(corev1.ProtocolTCP),
+			Port:     lo.ToPtr(intstr.IntOrString{Type: intstr.Int, IntVal: port}),
+		}
+	})
+	return expectedNetpol
 }
