@@ -238,7 +238,7 @@ func main() {
 	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, serviceIdResolver, epNetpolReconciler)
 
 	webhooksTrafficNetworkHandler := webhook_traffic.NewNetworkPolicyHandler(mgr.GetClient(), scheme, enforcementConfig.GetAutomateThirdPartyNetworkPolicy())
-	validatingWebhookTrafficReconciler := webhook_traffic.NewValidatingWebhookReconciler(mgr.GetClient(), webhooksTrafficNetworkHandler)
+	webhookTrafficReconcilerManager := webhook_traffic.NewWebhookTrafficReconcilerManager(mgr.GetClient(), webhooksTrafficNetworkHandler)
 
 	if enforcementConfig.EnableLinkerdPolicies {
 		epGroupReconciler.AddReconciler(intents_reconcilers.NewLinkerdReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnforcementDefaultState))
@@ -452,7 +452,7 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "NetworkPolicy")
 	}
 
-	if err = validatingWebhookTrafficReconciler.SetupWithManager(mgr); err != nil {
+	if err = webhookTrafficReconcilerManager.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Webhooks")
 	}
 
