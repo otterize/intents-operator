@@ -24,8 +24,10 @@ import (
 	otterizev1beta1 "github.com/otterize/intents-operator/src/operator/api/v1beta1"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/suite"
 	istiosecurityscheme "istio.io/client-go/pkg/apis/security/v1beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -769,6 +771,47 @@ func (s *ConversionWebhookTestSuite) TestConversionWebhookInternetIntents() {
 		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Internet.Ports, anotherV1alpha3Intents.GetCallsList()[i].Internet.Ports)
 		s.Require().Equal(v1alpha3Intents.GetCallsList()[i].Internet.Domains, anotherV1alpha3Intents.GetCallsList()[i].Internet.Domains)
 	}
+}
+
+func (s *ValidationWebhookTestSuite) TestStrictModeNonKubernetesServiceRejected() {
+	viper.Set(enforcement.EnableStrictModeIntentsKey, true)
+	_, err := s.AddIntentsInNamespaceV2beta1("test-intents", "test-client", s.TestNamespace, []otterizev2beta1.Target{
+		{
+			Kubernetes: &otterizev2beta1.KubernetesTarget{
+				Name: "deny-me",
+				Kind: "ReplicaSet",
+			},
+		},
+	})
+	s.Require().Error(err)
+	s.Require().ErrorContains(err, "Target must be a Kubernetes service while in strict mode")
+}
+
+func (s *ValidationWebhookTestSuite) TestStrictModeWildcardDNSRejected() {
+	viper.Set(enforcement.EnableStrictModeIntentsKey, true)
+	_, err := s.AddIntentsInNamespaceV2beta1("test-intents", "test-client", s.TestNamespace, []otterizev2beta1.Target{
+		{
+			Internet: &otterizev2beta1.Internet{
+				Domains: []string{"*.example.com"},
+			},
+		},
+	})
+	s.Require().Error(err)
+	s.Require().ErrorContains(err, "must not contain wildcard domains while in strict mode")
+}
+
+func (s *ValidationWebhookTestSuite) TestStrictModeDNSWithoutPortRejected() {
+	viper.Set(enforcement.EnableStrictModeIntentsKey, true)
+	_, err := s.AddIntentsInNamespaceV2beta1("test-intents", "test-client", s.TestNamespace, []otterizev2beta1.Target{
+		{
+			Internet: &otterizev2beta1.Internet{
+				Domains: []string{"api.example.com"},
+				// Ports is not set
+			},
+		},
+	})
+	s.Require().Error(err)
+	s.Require().ErrorContains(err, "must contain ports while in strict mode")
 }
 
 func TestValidationWebhookTestSuite(t *testing.T) {
