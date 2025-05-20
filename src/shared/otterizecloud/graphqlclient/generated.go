@@ -449,7 +449,6 @@ type IntentsOperatorConfigurationInput struct {
 	ExternallyManagedPolicyWorkloads      []ExternallyManagedPolicyWorkloadInput `json:"externallyManagedPolicyWorkloads"`
 	AutomateThirdPartyNetworkPolicies     AutomateThirdPartyNetworkPolicy        `json:"automateThirdPartyNetworkPolicies"`
 	PrometheusServerConfigs               []PrometheusServerConfigInput          `json:"prometheusServerConfigs"`
-	excludedStrictModeNamespaces          interface{}
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
