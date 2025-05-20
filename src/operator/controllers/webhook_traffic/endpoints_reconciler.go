@@ -29,7 +29,7 @@ func NewEndpointReconciler(client client.Client, handler *NetworkPolicyHandler) 
 func (r *EndpointReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	recorder := mgr.GetEventRecorderFor("intents-operator")
 	r.InjectRecorder(recorder)
-	
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Endpoints{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
@@ -41,7 +41,7 @@ func (r *EndpointReconciler) InjectRecorder(recorder record.EventRecorder) {
 }
 
 func (r *EndpointReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.handler.ReconcileAll(ctx)
+	err := r.handler.HandleAll(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

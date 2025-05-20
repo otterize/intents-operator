@@ -41,7 +41,7 @@ func (r *CustomResourceDefinitionReconciler) InjectRecorder(recorder record.Even
 }
 
 func (r *CustomResourceDefinitionReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.handler.ReconcileAll(ctx)
+	err := r.handler.HandleAll(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

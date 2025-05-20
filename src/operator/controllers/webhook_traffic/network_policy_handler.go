@@ -69,7 +69,7 @@ func NewNetworkPolicyHandler(
 	}
 }
 
-func (n *NetworkPolicyHandler) ReconcileAll(ctx context.Context) error {
+func (n *NetworkPolicyHandler) HandleAll(ctx context.Context) error {
 	validatingWebhooks, err := n.collectValidatingWebhooks(ctx)
 	if err != nil {
 		return errors.Wrap(err)
@@ -387,7 +387,9 @@ func (n *NetworkPolicyHandler) getControlPlaneIPsAsCIDR(ctx context.Context) ([]
 	}
 
 	addresses := make([]string, 0)
-	addresses = append(addresses, fmt.Sprintf("%s/32", svc.Spec.ClusterIP))
+	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != "None" {
+		addresses = append(addresses, fmt.Sprintf("%s/32", svc.Spec.ClusterIP))
+	}
 
 	var endpoints corev1.Endpoints
 	err = n.client.Get(ctx, types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &endpoints)
@@ -397,7 +399,9 @@ func (n *NetworkPolicyHandler) getControlPlaneIPsAsCIDR(ctx context.Context) ([]
 
 	for _, subset := range endpoints.Subsets {
 		for _, endpointAddress := range subset.Addresses {
-			addresses = append(addresses, fmt.Sprintf("%s/%d", endpointAddress.IP, n.controlPlaneCIDRPrefixLength))
+			if endpointAddress.IP != "" && endpointAddress.IP != "None" {
+				addresses = append(addresses, fmt.Sprintf("%s/%d", endpointAddress.IP, n.controlPlaneCIDRPrefixLength))
+			}
 		}
 	}
 
@@ -406,8 +410,7 @@ func (n *NetworkPolicyHandler) getControlPlaneIPsAsCIDR(ctx context.Context) ([]
 
 func (n *NetworkPolicyHandler) policiesAreEqual(policy *v1.NetworkPolicy, otherPolicy *v1.NetworkPolicy) bool {
 	return reflect.DeepEqual(policy.Spec, otherPolicy.Spec) &&
-		reflect.DeepEqual(policy.Labels, otherPolicy.Labels) &&
-		reflect.DeepEqual(policy.Annotations, otherPolicy.Annotations)
+		reflect.DeepEqual(policy.Labels, otherPolicy.Labels)
 }
 
 func (n *NetworkPolicyHandler) handlePoliciesToAdd(ctx context.Context, policiesNamesToAdd []string, policiesByName NetworkPolicyWithMetaByName) error {
@@ -490,7 +493,6 @@ func (n *NetworkPolicyHandler) handlePoliciesToUpdate(ctx context.Context, polic
 func (n *NetworkPolicyHandler) updatePolicy(ctx context.Context, webhookRuntime runtime.Object, existingPolicy *v1.NetworkPolicy, newPolicy *v1.NetworkPolicy) error {
 	policyCopy := existingPolicy.DeepCopy()
 	policyCopy.Labels = newPolicy.Labels
-	policyCopy.Annotations = newPolicy.Annotations
 	policyCopy.Spec = newPolicy.Spec
 
 	serviceName := policyCopy.Spec.PodSelector.MatchLabels["app"]

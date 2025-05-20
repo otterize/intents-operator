@@ -41,7 +41,7 @@ func (r *ServicesReconciler) InjectRecorder(recorder record.EventRecorder) {
 }
 
 func (r *ServicesReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	err := r.handler.ReconcileAll(ctx)
+	err := r.handler.HandleAll(ctx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

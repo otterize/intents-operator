@@ -156,7 +156,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAll(context.Background())
+	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -191,7 +191,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAll(context.Background())
+	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -227,7 +227,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{secondPort, TestServicePort})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAll(context.Background())
+	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -243,7 +243,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	//netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	//s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAll(context.Background())
+	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -259,7 +259,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.All(netpolMatcher), gomock.Any()).Return(nil)
-	err := s.handler.ReconcileAll(context.Background())
+	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonPatchingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonPatchingWebhookTrafficNetpolSuccess)
@@ -274,7 +274,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	//netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	//s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAll(context.Background())
+	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -291,7 +291,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_Servi
 
 	//netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	//s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAll(context.Background())
+	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -308,7 +308,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_Servi
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAll(context.Background())
+	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	//s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -326,7 +326,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Se
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAll(context.Background())
+	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -341,7 +341,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_MutatingWebhook
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAll(context.Background())
+	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
@@ -356,7 +356,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_CRDsWebhooks_Ha
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort})
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.ReconcileAll(context.Background())
+	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
