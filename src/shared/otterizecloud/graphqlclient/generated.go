@@ -26,6 +26,14 @@ const (
 	AutomateThirdPartyNetworkPolicyIfBlockedByOtterize AutomateThirdPartyNetworkPolicy = "IF_BLOCKED_BY_OTTERIZE"
 )
 
+type AutomatedThirdPartyPolicyTypes string
+
+const (
+	AutomatedThirdPartyPolicyTypesExternalTraffic AutomatedThirdPartyPolicyTypes = "EXTERNAL_TRAFFIC"
+	AutomatedThirdPartyPolicyTypesMetricsTraffic  AutomatedThirdPartyPolicyTypes = "METRICS_TRAFFIC"
+	AutomatedThirdPartyPolicyTypesWebhookTraffic  AutomatedThirdPartyPolicyTypes = "WEBHOOK_TRAFFIC"
+)
+
 type AzureKeyVaultPolicyInput struct {
 	CertificatePermissions []*string `json:"certificatePermissions"`
 	KeyPermissions         []*string `json:"keyPermissions"`
@@ -449,6 +457,7 @@ type IntentsOperatorConfigurationInput struct {
 	ExternallyManagedPolicyWorkloads      []ExternallyManagedPolicyWorkloadInput `json:"externallyManagedPolicyWorkloads"`
 	AutomateThirdPartyNetworkPolicies     AutomateThirdPartyNetworkPolicy        `json:"automateThirdPartyNetworkPolicies"`
 	PrometheusServerConfigs               []PrometheusServerConfigInput          `json:"prometheusServerConfigs"`
+	AutomatedThirdPartyPolicyTypes        []AutomatedThirdPartyPolicyTypes       `json:"automatedThirdPartyPolicyTypes"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -547,6 +556,11 @@ func (v *IntentsOperatorConfigurationInput) GetAutomateThirdPartyNetworkPolicies
 // GetPrometheusServerConfigs returns IntentsOperatorConfigurationInput.PrometheusServerConfigs, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetPrometheusServerConfigs() []PrometheusServerConfigInput {
 	return v.PrometheusServerConfigs
+}
+
+// GetAutomatedThirdPartyPolicyTypes returns IntentsOperatorConfigurationInput.AutomatedThirdPartyPolicyTypes, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAutomatedThirdPartyPolicyTypes() []AutomatedThirdPartyPolicyTypes {
+	return v.AutomatedThirdPartyPolicyTypes
 }
 
 type InternetConfigInput struct {
