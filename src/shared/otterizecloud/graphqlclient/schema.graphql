@@ -624,7 +624,7 @@ enum CustomConstraint {
 }
 
 input DNSIPPairInput {
-	dnsName: String!
+	dnsName: String
 	ips: [String!]
 }
 
@@ -1610,7 +1610,7 @@ type IntentsOperatorState {
 
 type InternetConfig {
 	appliedDomains: [String!]
-	dnsName: String!
+	dnsName: String
 	ips: [String!]
 	ports: [Int!]
 }
