@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"net"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
@@ -387,8 +388,11 @@ func (n *NetworkPolicyHandler) getControlPlaneIPsAsCIDR(ctx context.Context) ([]
 	}
 
 	addresses := make([]string, 0)
-	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != "None" {
-		addresses = append(addresses, fmt.Sprintf("%s/32", svc.Spec.ClusterIP))
+	for _, clusterIP := range svc.Spec.ClusterIPs {
+		ip, isIP := n.ipAddressToCIDR(clusterIP)
+		if isIP {
+			addresses = append(addresses, ip)
+		}
 	}
 
 	var endpoints corev1.Endpoints
@@ -399,13 +403,28 @@ func (n *NetworkPolicyHandler) getControlPlaneIPsAsCIDR(ctx context.Context) ([]
 
 	for _, subset := range endpoints.Subsets {
 		for _, endpointAddress := range subset.Addresses {
-			if endpointAddress.IP != "" && endpointAddress.IP != "None" {
-				addresses = append(addresses, fmt.Sprintf("%s/%d", endpointAddress.IP, n.controlPlaneCIDRPrefixLength))
+			ip, isIP := n.ipAddressToCIDR(endpointAddress.IP)
+			if isIP {
+				addresses = append(addresses, ip)
 			}
 		}
 	}
 
 	return addresses, nil
+}
+
+func (n *NetworkPolicyHandler) ipAddressToCIDR(ipAddress string) (string, bool) {
+	ip := net.ParseIP(ipAddress)
+	if ip == nil {
+		return "", false
+	}
+
+	if ip.To4() != nil {
+		return fmt.Sprintf("%s/%d", ipAddress, n.controlPlaneCIDRPrefixLength), true
+	}
+	// The address is IPv6, we currently support configurable CIDR prefix length only for IPv4
+	return fmt.Sprintf("%s/128", ipAddress), true
+
 }
 
 func (n *NetworkPolicyHandler) policiesAreEqual(policy *v1.NetworkPolicy, otherPolicy *v1.NetworkPolicy) bool {
