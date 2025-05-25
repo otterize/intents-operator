@@ -24,26 +24,28 @@ var ExpectedNetpol = v1.NetworkPolicy{
 		},
 		Ingress: []v1.NetworkPolicyIngressRule{
 			{
-				Ports: []v1.NetworkPolicyPort{},
-				From: []v1.NetworkPolicyPeer{
-					{
-						IPBlock: &v1.IPBlock{
-							CIDR: fmt.Sprintf("%s/32", TestControlPlaneIP),
-						},
-					},
-				},
+				Ports: nil,
+				From:  nil,
 			},
 		},
 		PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 	},
 }
 
-type NetworkPolicyMatcher struct {
-	ports []int32
+type NetworkPolicyBuilder struct {
+	policy *v1.NetworkPolicy
 }
 
-func NewNetworkPolicyMatcher(ports []int32) *NetworkPolicyMatcher {
-	return &NetworkPolicyMatcher{ports: ports}
+type NetworkPolicyMatcher struct {
+	ports                   []int32
+	allowAllIncomingTraffic bool
+}
+
+func NewNetworkPolicyMatcher(ports []int32, allowAllIncomingTraffic bool) *NetworkPolicyMatcher {
+	return &NetworkPolicyMatcher{
+		ports:                   ports,
+		allowAllIncomingTraffic: allowAllIncomingTraffic,
+	}
 }
 
 func (m *NetworkPolicyMatcher) String() string {
@@ -56,7 +58,10 @@ func (m *NetworkPolicyMatcher) Matches(other interface{}) bool {
 		return false
 	}
 
-	expectedNetpol := getExpectedNetpolWithPorts(m.ports)
+	expectedNetpol := NewNetworkPolicyBuilder(ExpectedNetpol).
+		WithPorts(m.ports).
+		WithFromIPBlock(m.allowAllIncomingTraffic).
+		Build()
 
 	return otherAsNetpol.Namespace == TestNamespace &&
 		otherAsNetpol.Name == expectedNetpol.Name &&
@@ -64,13 +69,36 @@ func (m *NetworkPolicyMatcher) Matches(other interface{}) bool {
 		reflect.DeepEqual(otherAsNetpol.Spec, expectedNetpol.Spec)
 }
 
-func getExpectedNetpolWithPorts(ports []int32) *v1.NetworkPolicy {
-	expectedNetpol := ExpectedNetpol.DeepCopy()
-	expectedNetpol.Spec.Ingress[0].Ports = lo.Map(ports, func(port int32, _ int) v1.NetworkPolicyPort {
+func NewNetworkPolicyBuilder(base v1.NetworkPolicy) *NetworkPolicyBuilder {
+	return &NetworkPolicyBuilder{policy: base.DeepCopy()}
+}
+
+func (b *NetworkPolicyBuilder) WithPorts(ports []int32) *NetworkPolicyBuilder {
+	b.policy.Spec.Ingress[0].Ports = lo.Map(ports, func(port int32, _ int) v1.NetworkPolicyPort {
 		return v1.NetworkPolicyPort{
 			Protocol: lo.ToPtr(corev1.ProtocolTCP),
 			Port:     lo.ToPtr(intstr.IntOrString{Type: intstr.Int, IntVal: port}),
 		}
 	})
-	return expectedNetpol
+	return b
+}
+
+func (b *NetworkPolicyBuilder) WithFromIPBlock(allowAll bool) *NetworkPolicyBuilder {
+	if allowAll {
+		// leave .From empty
+		return b
+	}
+
+	b.policy.Spec.Ingress[0].From = []v1.NetworkPolicyPeer{
+		{
+			IPBlock: &v1.IPBlock{
+				CIDR: fmt.Sprintf("%s/32", TestControlPlaneIP),
+			},
+		},
+	}
+	return b
+}
+
+func (b *NetworkPolicyBuilder) Build() v1.NetworkPolicy {
+	return *b.policy
 }

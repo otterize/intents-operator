@@ -54,6 +54,7 @@ type NetworkPolicyHandler struct {
 	injectablerecorder.InjectableRecorder
 	policy                       automate_third_party_network_policy.Enum
 	controlPlaneCIDRPrefixLength int
+	allowAllIncomingTraffic      bool
 }
 
 func NewNetworkPolicyHandler(
@@ -61,12 +62,14 @@ func NewNetworkPolicyHandler(
 	scheme *runtime.Scheme,
 	policy automate_third_party_network_policy.Enum,
 	controlPlaneCIDRPrefixLength int,
+	allowAllIncomingTraffic bool,
 ) *NetworkPolicyHandler {
 	return &NetworkPolicyHandler{
 		client:                       client,
 		scheme:                       scheme,
 		policy:                       policy,
 		controlPlaneCIDRPrefixLength: controlPlaneCIDRPrefixLength,
+		allowAllIncomingTraffic:      allowAllIncomingTraffic,
 	}
 }
 
@@ -306,22 +309,24 @@ func (n *NetworkPolicyHandler) getWebhookService(ctx context.Context, webhookSer
 
 func (n *NetworkPolicyHandler) buildNetworkPolicy(ctx context.Context, webhookName string, webhookService *admissionv1.ServiceReference, service *corev1.Service) (v1.NetworkPolicy, error) {
 	policyName := fmt.Sprintf("webhook-%s-access-to-%s", strings.ToLower(webhookName), strings.ToLower(service.Name))
-
-	controlPlaneIPs, err := n.getControlPlaneIPsAsCIDR(ctx)
-	if err != nil {
-		return v1.NetworkPolicy{}, errors.Wrap(err)
-	}
-
-	fromControlPlaneIPs := lo.Map(controlPlaneIPs, func(controlPLaneIP string, _ int) v1.NetworkPolicyPeer {
-		return v1.NetworkPolicyPeer{
-			IPBlock: &v1.IPBlock{
-				CIDR: controlPLaneIP,
-			},
-		}
-	})
-
 	rule := v1.NetworkPolicyIngressRule{}
-	rule.From = append(rule.From, fromControlPlaneIPs...)
+
+	if !n.allowAllIncomingTraffic {
+		controlPlaneIPs, err := n.getControlPlaneIPsAsCIDR(ctx)
+		if err != nil {
+			return v1.NetworkPolicy{}, errors.Wrap(err)
+		}
+
+		fromControlPlaneIPs := lo.Map(controlPlaneIPs, func(controlPLaneIP string, _ int) v1.NetworkPolicyPeer {
+			return v1.NetworkPolicyPeer{
+				IPBlock: &v1.IPBlock{
+					CIDR: controlPLaneIP,
+				},
+			}
+		})
+
+		rule.From = append(rule.From, fromControlPlaneIPs...)
+	}
 
 	newPolicy := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{

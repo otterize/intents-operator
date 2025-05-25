@@ -68,6 +68,8 @@ const (
 	ExternallyManagedPolicyWorkloadsKey           = "externallyManagedPolicyWorkloads"
 	ControlPlaneIPv4CidrPrefixLength              = "control-plane-ipv4-cidr-prefix-length"
 	ControlPlaneIPv4CidrPrefixLengthDefault       = 32
+	WebhookTrafficAllowAllKey                     = "webhook-traffic-allow-all"
+	WebhookTrafficAllowAllDefault                 = true
 )
 
 func init() {
@@ -92,6 +94,7 @@ func init() {
 	viper.SetDefault(EnableGroupInternetIPsByCIDRKey, EnableGroupInternetIPsByCIDRDefault)
 	viper.SetDefault(EnableGroupInternetIPsByCIDRPeersLimitKey, EnableGroupInternetIPsByCIDRPeersLimitDefault)
 	viper.SetDefault(ControlPlaneIPv4CidrPrefixLength, ControlPlaneIPv4CidrPrefixLengthDefault)
+	viper.SetDefault(WebhookTrafficAllowAllKey, WebhookTrafficAllowAllDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 

@@ -242,7 +242,8 @@ func main() {
 		scheme,
 		automate_third_party_network_policy.Off,
 		//enforcementConfig.GetAutomateThirdPartyNetworkPolicy(),
-		viper.GetInt(operatorconfig.ControlPlaneIPv4CidrPrefixLength))
+		viper.GetInt(operatorconfig.ControlPlaneIPv4CidrPrefixLength),
+		viper.GetBool(operatorconfig.WebhookTrafficAllowAllKey))
 	webhookTrafficReconcilerManager := webhook_traffic.NewWebhookTrafficReconcilerManager(mgr.GetClient(), webhooksTrafficNetworkHandler)
 
 	if enforcementConfig.EnableLinkerdPolicies {
