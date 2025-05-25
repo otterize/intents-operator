@@ -25,7 +25,7 @@ const (
 	TestNamespace      = "test-namespace"
 	TestWebhookName    = "test-webhook"
 	TestServicePodName = "test-service-pod"
-	TestControlPlaneIP = "111.222.333.4"
+	TestControlPlaneIP = "11.22.33.4"
 )
 
 var OtterizeIngressNetpols = []v1.NetworkPolicy{
@@ -499,7 +499,7 @@ func (s *NetworkPolicyHandlerTestSuite) mockGetControlPlaneIPs() {
 		gomock.Any(), gomock.Eq(types.NamespacedName{Name: "kubernetes", Namespace: "default"}), gomock.Eq(&corev1.Service{}),
 	).DoAndReturn(
 		func(_ any, _ any, svc *corev1.Service, _ ...any) error {
-			svc.Spec.ClusterIP = TestControlPlaneIP
+			svc.Spec.ClusterIPs = []string{TestControlPlaneIP}
 			svc.Name = "kubernetes"
 			svc.Namespace = "default"
 			return nil
