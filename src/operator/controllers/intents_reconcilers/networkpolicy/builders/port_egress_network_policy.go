@@ -80,13 +80,25 @@ func getEgressRuleBasedOnServicePodSelector(svc *corev1.Service) v1.NetworkPolic
 	// Create a list of network policy ports
 	networkPolicyPorts := make([]v1.NetworkPolicyPort, 0)
 	for _, port := range svc.Spec.Ports {
-		netpolPort := v1.NetworkPolicyPort{
+		targetPort := v1.NetworkPolicyPort{
 			Port: lo.ToPtr(port.TargetPort),
 		}
 		if len(port.Protocol) != 0 {
-			netpolPort.Protocol = lo.ToPtr(port.Protocol)
+			targetPort.Protocol = lo.ToPtr(port.Protocol)
 		}
-		networkPolicyPorts = append(networkPolicyPorts, netpolPort)
+		// Adding service port to the list to solve some off-brand CNIs having issues with allowing traffic correctly
+		servicePort := v1.NetworkPolicyPort{
+			Port: &intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: port.Port,
+			},
+			Protocol: lo.ToPtr(port.Protocol),
+		}
+		if len(port.Protocol) != 0 {
+			targetPort.Protocol = lo.ToPtr(port.Protocol)
+		}
+
+		networkPolicyPorts = append(networkPolicyPorts, targetPort, servicePort)
 	}
 
 	podSelectorEgressRule.Ports = networkPolicyPorts
