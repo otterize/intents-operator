@@ -92,12 +92,10 @@ func getEgressRuleBasedOnServicePodSelector(svc *corev1.Service) v1.NetworkPolic
 				Type:   intstr.Int,
 				IntVal: port.Port,
 			},
-			Protocol: lo.ToPtr(port.Protocol),
 		}
 		if len(port.Protocol) != 0 {
-			targetPort.Protocol = lo.ToPtr(port.Protocol)
+			servicePort.Protocol = lo.ToPtr(port.Protocol)
 		}
-
 		networkPolicyPorts = append(networkPolicyPorts, targetPort, servicePort)
 	}
 
