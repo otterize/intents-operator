@@ -108,7 +108,7 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKind() {
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		},
 		}},
-		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, To: []v1.NetworkPolicyPeer{{
+		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}, {Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 0}}}, To: []v1.NetworkPolicyPeer{{
 			PodSelector:       &metav1.LabelSelector{MatchLabels: serviceSelector},
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		}}},
@@ -259,7 +259,7 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindShouldCreateSeparatePolici
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		},
 		}},
-		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, To: []v1.NetworkPolicyPeer{{
+		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}, {Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 0}}}, To: []v1.NetworkPolicyPeer{{
 			PodSelector:       &metav1.LabelSelector{MatchLabels: serviceSelector},
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		}}},
@@ -411,7 +411,7 @@ func (s *AllBuildersTestSuite) TestCreateEveryRuleKindWithKinds() {
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		},
 		}},
-		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}}, To: []v1.NetworkPolicyPeer{{
+		{Ports: []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 80}}, {Port: &intstr.IntOrString{Type: intstr.Int, IntVal: 0}}}, To: []v1.NetworkPolicyPeer{{
 			PodSelector:       &metav1.LabelSelector{MatchLabels: serviceSelector},
 			NamespaceSelector: &metav1.LabelSelector{MatchLabels: map[string]string{otterizev2alpha1.KubernetesStandardNamespaceNameLabelKey: serverNamespace}},
 		}}},
