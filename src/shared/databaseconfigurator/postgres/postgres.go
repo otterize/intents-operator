@@ -182,13 +182,22 @@ func (p *PostgresConfigurator) getAllowedDatabasesDiffForUser(ctx context.Contex
 }
 
 func (p *PostgresConfigurator) revokeDatabasePermissions(ctx context.Context, username string, dbname string) error {
+	if IsManagedDBName(dbname) {
+		// If we know that this is managed DB, we don't want to try to connect to it, becasue we know that we will
+		// fail, and this might raise an alert on the database (for example, if we will try to connect to
+		// 'cloudsqladmin' database in managed Google cloud SQL)
+		logrus.WithField("database", dbname).Debug("Skipping known managed database")
+		return nil
+	}
+
 	err := p.setConnection(ctx, dbname)
-	if err != nil && (IsInvalidAuthorizationError(err) || IsManagedDBName(dbname)) {
+	if err != nil && IsInvalidAuthorizationError(err) {
 		// Probably an admin database that we're failing to connect to or something along those lines
 		// (like 'cloudsqladmin' database in managed Google cloud SQL)
 		logrus.WithField("database", dbname).Debug("Skipping invalid authorization error")
 		return nil
 	}
+
 	if err != nil {
 		pgErr, ok := TranslatePostgresConnectionError(err)
 		if ok {
