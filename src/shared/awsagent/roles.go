@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -179,23 +180,60 @@ func (a *Agent) IsPolicyDocumentsIdenticalUnordered(role *types.Role, newDocumen
 		return false, errors.New("role AssumeRolePolicyDocument is nil")
 	}
 
-	var existingPolicy PolicyDocument
-	err := json.Unmarshal([]byte(*role.AssumeRolePolicyDocument), &existingPolicy)
+	// AssumeRolePolicyDocument is url-encoded
+	assumeRolePolicyDocumentRaw, err := url.QueryUnescape(*role.AssumeRolePolicyDocument)
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
 
-	if existingPolicy.Version != newDocument.Version {
+	var existingPolicy map[string]any
+	err = json.Unmarshal([]byte(assumeRolePolicyDocumentRaw), &existingPolicy)
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	// For some reason, Action can either be a list or a string.
+	statements := existingPolicy["Statement"].([]any)
+	for i, statement := range statements {
+		statementTyped := statement.(map[string]any)
+		// Get action or actions
+		if action, ok := statementTyped["Action"]; ok {
+			switch actionType := action.(type) {
+			case string:
+				statementTyped["Action"] = []string{actionType} // Convert single string to slice
+				statements[i] = statementTyped                  // Update the statement in the slice
+			case []any:
+				// do nothing
+			default:
+				return false, errors.Errorf("unexpected type for Action: %T", actionType)
+			}
+		}
+	}
+	existingPolicy["Statement"] = statements
+
+	// Marshal the policy back to JSON
+	assumeRolePolicyDocument, err := json.Marshal(existingPolicy)
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	var existingPolicyStructured PolicyDocument
+	err = json.Unmarshal(assumeRolePolicyDocument, &existingPolicyStructured)
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	if existingPolicyStructured.Version != newDocument.Version {
 		return false, nil
 	}
 
-	if len(existingPolicy.Statement) != len(newDocument.Statement) {
+	if len(existingPolicyStructured.Statement) != len(newDocument.Statement) {
 		return false, nil
 	}
 
 	for _, newStatement := range newDocument.Statement {
 		found := false
-		for _, existingStatement := range existingPolicy.Statement {
+		for _, existingStatement := range existingPolicyStructured.Statement {
 			// Fields: Effect, Action, Resource, Principal, Sid, Condition
 			// Action is a slice
 			// Principal is a map
@@ -261,9 +299,6 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 	}
 
 	trustPolicy := a.generateCompleteTrustPolicyAnyIdentityProvider(logger, namespaceName, accountName, additionalTrustRelationshipEntries)
-	if err != nil {
-		return nil, errors.Wrap(err)
-	}
 
 	identicalPolicyDocuments := false
 	if exists {
