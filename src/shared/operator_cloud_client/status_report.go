@@ -162,6 +162,11 @@ func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Ma
 	})
 
 	configInput.AwsALBLoadBalancerExemptionEnabled = viper.GetBool(operatorconfig.IngressControllerALBExemptKey)
+	configInput.AutomatedThirdPartyPolicyTypes = []graphqlclient.AutomatedThirdPartyPolicyTypes{
+		graphqlclient.AutomatedThirdPartyPolicyTypesExternalTraffic,
+		graphqlclient.AutomatedThirdPartyPolicyTypesMetricsTraffic,
+		graphqlclient.AutomatedThirdPartyPolicyTypesWebhookTraffic,
+	}
 
 	client.ReportIntentsOperatorConfiguration(timeoutCtx, configInput)
 }

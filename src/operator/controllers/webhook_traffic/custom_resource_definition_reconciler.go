@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
-// +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
+//+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch
 
 type CustomResourceDefinitionReconciler struct {
 	client.Client
