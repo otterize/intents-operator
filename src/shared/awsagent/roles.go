@@ -175,6 +175,53 @@ func (a *Agent) CreateRolesAnywhereProfileForRole(ctx context.Context, role type
 	return createProfileOutput.Profile, nil
 }
 
+func compareStatements(existingStatement StatementEntry, newStatement StatementEntry) bool {
+	// Fields: Effect, Action, Resource, Principal, Sid, Condition
+	// Action is a slice
+	// Principal is a map
+	// Condition is a map
+	if newStatement.Effect != existingStatement.Effect {
+		return false
+	}
+	slices.Sort(existingStatement.Action)
+	slices.Sort(newStatement.Action)
+	if !slices.Equal(existingStatement.Action, newStatement.Action) {
+		return false
+	}
+	if newStatement.Resource != existingStatement.Resource {
+		return false
+	}
+	existingPrincipals := lo.MapToSlice(existingStatement.Principal, func(key string, value string) string {
+		return fmt.Sprintf("%s:%s", key, value)
+	})
+	newPrincipals := lo.MapToSlice(newStatement.Principal, func(key string, value string) string {
+		return fmt.Sprintf("%s:%s", key, value)
+	})
+	slices.Sort(existingPrincipals)
+	slices.Sort(newPrincipals)
+	if !slices.Equal(existingPrincipals, newPrincipals) {
+		return false
+	}
+	if existingStatement.Sid != newStatement.Sid {
+		return false
+	}
+	if len(existingStatement.Condition) != len(newStatement.Condition) {
+		return false
+	}
+	existingCondition := lo.MapToSlice(existingStatement.Condition, func(key string, value any) string {
+		return fmt.Sprintf("%s:%s", key, value)
+	})
+	newCondition := lo.MapToSlice(newStatement.Condition, func(key string, value any) string {
+		return fmt.Sprintf("%s:%s", key, value)
+	})
+	slices.Sort(existingCondition)
+	slices.Sort(newCondition)
+	if !slices.Equal(existingCondition, newCondition) {
+		return false
+	}
+	return true
+}
+
 func (a *Agent) IsPolicyDocumentsIdenticalUnordered(role *types.Role, newDocument PolicyDocument) (bool, error) {
 	if role.AssumeRolePolicyDocument == nil {
 		return false, errors.New("role AssumeRolePolicyDocument is nil")
@@ -192,7 +239,8 @@ func (a *Agent) IsPolicyDocumentsIdenticalUnordered(role *types.Role, newDocumen
 		return false, errors.Wrap(err)
 	}
 
-	// For some reason, Action can either be a list or a string.
+	// For some reason, Action can either be a list or a string, so it can't be unmarshalled into the same struct.
+	// Let's make sure it's always a list.
 	statements := existingPolicy["Statement"].([]any)
 	for i, statement := range statements {
 		statementTyped := statement.(map[string]any)
@@ -232,55 +280,10 @@ func (a *Agent) IsPolicyDocumentsIdenticalUnordered(role *types.Role, newDocumen
 	}
 
 	for _, newStatement := range newDocument.Statement {
-		found := false
-		for _, existingStatement := range existingPolicyStructured.Statement {
-			// Fields: Effect, Action, Resource, Principal, Sid, Condition
-			// Action is a slice
-			// Principal is a map
-			// Condition is a map
-			if newStatement.Effect != existingStatement.Effect {
-				continue
-			}
-			slices.Sort(existingStatement.Action)
-			slices.Sort(newStatement.Action)
-			if !slices.Equal(existingStatement.Action, newStatement.Action) {
-				continue
-			}
-			if newStatement.Resource != existingStatement.Resource {
-				continue
-			}
-			existingPrincipals := lo.MapToSlice(existingStatement.Principal, func(key string, value string) string {
-				return fmt.Sprintf("%s:%s", key, value)
-			})
-			newPrincipals := lo.MapToSlice(newStatement.Principal, func(key string, value string) string {
-				return fmt.Sprintf("%s:%s", key, value)
-			})
-			slices.Sort(existingPrincipals)
-			slices.Sort(newPrincipals)
-			if !slices.Equal(existingPrincipals, newPrincipals) {
-				continue
-			}
-			if existingStatement.Sid != newStatement.Sid {
-				continue
-			}
-			if len(existingStatement.Condition) != len(newStatement.Condition) {
-				continue
-			}
-			existingCondition := lo.MapToSlice(existingStatement.Condition, func(key string, value any) string {
-				return fmt.Sprintf("%s:%s", key, value)
-			})
-			newCondition := lo.MapToSlice(newStatement.Condition, func(key string, value any) string {
-				return fmt.Sprintf("%s:%s", key, value)
-			})
-			slices.Sort(existingCondition)
-			slices.Sort(newCondition)
-			if !slices.Equal(existingCondition, newCondition) {
-				continue
-			}
-			found = true
-			break
+		_, found := lo.Find(existingPolicyStructured.Statement, func(existingStatement StatementEntry) bool {
+			return compareStatements(existingStatement, newStatement)
+		})
 
-		}
 		if !found {
 			return false, nil
 		}
