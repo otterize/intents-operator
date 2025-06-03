@@ -481,6 +481,21 @@ func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *Poten
 	}
 
 	newPolicy.Spec.Ingress[0].Ports = ports
+	allowDNS := v1.NetworkPolicyIngressRule{
+		From: []v1.NetworkPolicyPeer{},
+		Ports: []v1.NetworkPolicyPort{
+			{
+				Port:     lo.ToPtr(intstr.IntOrString{IntVal: 53, Type: intstr.Int}),
+				Protocol: lo.ToPtr(corev1.ProtocolTCP),
+			},
+			{
+				Port:     lo.ToPtr(intstr.IntOrString{IntVal: 53, Type: intstr.Int}),
+				Protocol: lo.ToPtr(corev1.ProtocolUDP),
+			},
+		},
+	}
+
+	newPolicy.Spec.Ingress = append(newPolicy.Spec.Ingress, allowDNS)
 
 	return newPolicy, nil
 }
