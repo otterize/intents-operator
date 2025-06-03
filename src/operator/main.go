@@ -52,7 +52,6 @@ import (
 	"github.com/otterize/intents-operator/src/shared/k8sconf"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -240,8 +239,7 @@ func main() {
 
 	webhooksTrafficNetworkHandler := webhook_traffic.NewNetworkPolicyHandler(mgr.GetClient(),
 		scheme,
-		automate_third_party_network_policy.Off,
-		//enforcementConfig.GetAutomateThirdPartyNetworkPolicy(),
+		enforcementConfig.GetAutomateThirdPartyNetworkPolicy(),
 		viper.GetInt(operatorconfig.ControlPlaneIPv4CidrPrefixLength),
 		viper.GetBool(operatorconfig.WebhookTrafficAllowAllKey))
 	webhookTrafficReconcilerManager := webhook_traffic.NewWebhookTrafficReconcilerManager(mgr.GetClient(), webhooksTrafficNetworkHandler)
