@@ -318,7 +318,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 
 	if exists {
 		if identicalPolicyDocuments {
-			logger.Debugf("found existing role, arn: %s", *role.Arn)
+			logger.WithField("arn", *role.Arn).Debug("found existing role")
 			// check if it is soft deleted - if so remove soft deleted tag
 			if hasSoftDeletedTagSet(role.Tags) {
 				logger.Debug("role is tagged unused, untagging")
@@ -353,7 +353,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 		if err != nil {
 			return nil, errors.Wrap(err)
 		}
-		logger.Debugf("updated existing role, arn: %s", *role.Arn)
+		logger.WithField("arn", *role.Arn).Debug("updated existing role")
 		return role, nil
 	}
 
