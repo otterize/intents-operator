@@ -60,6 +60,19 @@ var EXPECTRED_NETPOL = v1.NetworkPolicy{
 				Ports: []v1.NetworkPolicyPort{{}},
 				From:  []v1.NetworkPolicyPeer{},
 			},
+			{
+				Ports: []v1.NetworkPolicyPort{
+					{
+						Port:     lo.ToPtr(intstr.IntOrString{IntVal: 53, Type: intstr.Int}),
+						Protocol: lo.ToPtr(corev1.ProtocolTCP),
+					},
+					{
+						Port:     lo.ToPtr(intstr.IntOrString{IntVal: 53, Type: intstr.Int}),
+						Protocol: lo.ToPtr(corev1.ProtocolUDP),
+					},
+				},
+				From: []v1.NetworkPolicyPeer{},
+			},
 		},
 		PolicyTypes: []v1.PolicyType{v1.PolicyTypeIngress},
 	},
@@ -104,10 +117,6 @@ type NetworkPolicyHandlerTestSuite struct {
 	testbase.MocksSuiteBase
 	handler              *NetworkPolicyHandler
 	podMarkedForScraping *corev1.Pod
-}
-
-func TestNetworkPolicyHandlerTestSuite(t *testing.T) {
-	suite.Run(t, new(NetworkPolicyHandlerTestSuite))
 }
 
 func (s *NetworkPolicyHandlerTestSuite) SetupTest() {
@@ -426,4 +435,8 @@ func (s *NetworkPolicyHandlerTestSuite) mockForRecordingEventExistingPolicy() {
 			return nil
 		},
 	)
+}
+
+func TestNetworkPolicyHandlerTestSuite(t *testing.T) {
+	suite.Run(t, new(NetworkPolicyHandlerTestSuite))
 }

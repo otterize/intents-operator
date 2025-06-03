@@ -475,35 +475,69 @@ func (r *NetworkPolicyHandler) buildNetpolForPod(ctx context.Context, pod *Poten
 		},
 	}
 
-	scrapePort, portDefined, err := r.getMetricsPort(pod.scrapeResourceMeta)
+	ports, err := r.getNetpolPorts(pod)
 	if err != nil {
 		return v1.NetworkPolicy{}, errors.Wrap(err)
 	}
 
+	newPolicy.Spec.Ingress[0].Ports = ports
+	allowDNS := v1.NetworkPolicyIngressRule{
+		From: []v1.NetworkPolicyPeer{},
+		Ports: []v1.NetworkPolicyPort{
+			{
+				Port:     lo.ToPtr(intstr.IntOrString{IntVal: 53, Type: intstr.Int}),
+				Protocol: lo.ToPtr(corev1.ProtocolTCP),
+			},
+			{
+				Port:     lo.ToPtr(intstr.IntOrString{IntVal: 53, Type: intstr.Int}),
+				Protocol: lo.ToPtr(corev1.ProtocolUDP),
+			},
+		},
+	}
+
+	newPolicy.Spec.Ingress = append(newPolicy.Spec.Ingress, allowDNS)
+
+	return newPolicy, nil
+}
+
+func (r *NetworkPolicyHandler) getNetpolPorts(pod *PotentiallyScrapeMetricPod) ([]v1.NetworkPolicyPort, error) {
+	netpolPorts := make([]v1.NetworkPolicyPort, 0)
+
+	scrapePort, portDefined, err := r.getMetricsPort(pod.scrapeResourceMeta)
+	if err != nil {
+		return make([]v1.NetworkPolicyPort, 0), errors.Wrap(err)
+	}
+
+	// First we want to see whether the resource has the scraping-port annotation
 	if portDefined {
-		newPolicy.Spec.Ingress[0].Ports = append(newPolicy.Spec.Ingress[0].Ports, v1.NetworkPolicyPort{
+		netpolPorts = append(netpolPorts, v1.NetworkPolicyPort{
 			Port:     lo.ToPtr(intstr.IntOrString{IntVal: scrapePort, Type: intstr.Int}),
 			Protocol: lo.ToPtr(corev1.ProtocolTCP),
 		})
-		return newPolicy, nil
-	}
+	} else {
+		// If it doesn't, we want to mimic Prometheus behavior - which is to attempt to scrape all the ports of the resource
+		// that is defined with the scraping annotation
 
-	if len(pod.scrapeResourcePorts) == 0 {
-		return v1.NetworkPolicy{}, errors.Wrap(fmt.Errorf("can not deduce the port to scrape"))
+		// If the resource does not define any ports - then we can't scrape anything..
+		if len(pod.scrapeResourcePorts) == 0 {
+			return make([]v1.NetworkPolicyPort, 0), errors.Wrap(fmt.Errorf("can not deduce the port to scrape"))
+		}
+
+		netpolPorts = lo.Map(pod.scrapeResourcePorts, func(port int32, _ int) v1.NetworkPolicyPort {
+			return v1.NetworkPolicyPort{
+				Port:     lo.ToPtr(intstr.IntOrString{IntVal: port, Type: intstr.Int}),
+				Protocol: lo.ToPtr(corev1.ProtocolTCP),
+			}
+		})
 	}
 
 	// We want to have deterministic order, since later on we will compare this policy with the existing one, and we don't
 	// want to order of the ports to create a difference
-	slices.Sort(pod.scrapeResourcePorts)
-	ingressPorts := lo.Map(pod.scrapeResourcePorts, func(port int32, _ int) v1.NetworkPolicyPort {
-		return v1.NetworkPolicyPort{
-			Port:     lo.ToPtr(intstr.IntOrString{IntVal: port, Type: intstr.Int}),
-			Protocol: lo.ToPtr(corev1.ProtocolTCP),
-		}
+	slices.SortFunc(netpolPorts, func(port, otherPort v1.NetworkPolicyPort) bool {
+		return port.Port.IntValue() < otherPort.Port.IntValue()
 	})
-	newPolicy.Spec.Ingress[0].Ports = ingressPorts
 
-	return newPolicy, nil
+	return netpolPorts, nil
 }
 
 func (r *NetworkPolicyHandler) handleCreationErrors(ctx context.Context, err error, policy *v1.NetworkPolicy) error {
