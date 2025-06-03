@@ -106,10 +106,6 @@ type NetworkPolicyHandlerTestSuite struct {
 	podMarkedForScraping *corev1.Pod
 }
 
-func TestNetworkPolicyHandlerTestSuite(t *testing.T) {
-	suite.Run(t, new(NetworkPolicyHandlerTestSuite))
-}
-
 func (s *NetworkPolicyHandlerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
 	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.IfBlockedByOtterize, SCRAPING_METRICS_SERVER)
@@ -426,4 +422,8 @@ func (s *NetworkPolicyHandlerTestSuite) mockForRecordingEventExistingPolicy() {
 			return nil
 		},
 	)
+}
+
+func TestNetworkPolicyHandlerTestSuite(t *testing.T) {
+	suite.Run(t, new(NetworkPolicyHandlerTestSuite))
 }
