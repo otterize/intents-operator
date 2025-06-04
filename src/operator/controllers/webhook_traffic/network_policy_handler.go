@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"net"
 	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
@@ -53,6 +54,7 @@ type NetworkPolicyHandler struct {
 	injectablerecorder.InjectableRecorder
 	policy                       automate_third_party_network_policy.Enum
 	controlPlaneCIDRPrefixLength int
+	allowAllIncomingTraffic      bool
 }
 
 func NewNetworkPolicyHandler(
@@ -60,12 +62,14 @@ func NewNetworkPolicyHandler(
 	scheme *runtime.Scheme,
 	policy automate_third_party_network_policy.Enum,
 	controlPlaneCIDRPrefixLength int,
+	allowAllIncomingTraffic bool,
 ) *NetworkPolicyHandler {
 	return &NetworkPolicyHandler{
 		client:                       client,
 		scheme:                       scheme,
 		policy:                       policy,
 		controlPlaneCIDRPrefixLength: controlPlaneCIDRPrefixLength,
+		allowAllIncomingTraffic:      allowAllIncomingTraffic,
 	}
 }
 
@@ -305,22 +309,24 @@ func (n *NetworkPolicyHandler) getWebhookService(ctx context.Context, webhookSer
 
 func (n *NetworkPolicyHandler) buildNetworkPolicy(ctx context.Context, webhookName string, webhookService *admissionv1.ServiceReference, service *corev1.Service) (v1.NetworkPolicy, error) {
 	policyName := fmt.Sprintf("webhook-%s-access-to-%s", strings.ToLower(webhookName), strings.ToLower(service.Name))
-
-	controlPlaneIPs, err := n.getControlPlaneIPsAsCIDR(ctx)
-	if err != nil {
-		return v1.NetworkPolicy{}, errors.Wrap(err)
-	}
-
-	fromControlPlaneIPs := lo.Map(controlPlaneIPs, func(controlPLaneIP string, _ int) v1.NetworkPolicyPeer {
-		return v1.NetworkPolicyPeer{
-			IPBlock: &v1.IPBlock{
-				CIDR: controlPLaneIP,
-			},
-		}
-	})
-
 	rule := v1.NetworkPolicyIngressRule{}
-	rule.From = append(rule.From, fromControlPlaneIPs...)
+
+	if !n.allowAllIncomingTraffic {
+		controlPlaneIPs, err := n.getControlPlaneIPsAsCIDR(ctx)
+		if err != nil {
+			return v1.NetworkPolicy{}, errors.Wrap(err)
+		}
+
+		fromControlPlaneIPs := lo.Map(controlPlaneIPs, func(controlPLaneIP string, _ int) v1.NetworkPolicyPeer {
+			return v1.NetworkPolicyPeer{
+				IPBlock: &v1.IPBlock{
+					CIDR: controlPLaneIP,
+				},
+			}
+		})
+
+		rule.From = append(rule.From, fromControlPlaneIPs...)
+	}
 
 	newPolicy := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -387,8 +393,11 @@ func (n *NetworkPolicyHandler) getControlPlaneIPsAsCIDR(ctx context.Context) ([]
 	}
 
 	addresses := make([]string, 0)
-	if svc.Spec.ClusterIP != "" && svc.Spec.ClusterIP != "None" {
-		addresses = append(addresses, fmt.Sprintf("%s/32", svc.Spec.ClusterIP))
+	for _, clusterIP := range svc.Spec.ClusterIPs {
+		ip, isIP := n.ipAddressToCIDR(clusterIP)
+		if isIP {
+			addresses = append(addresses, ip)
+		}
 	}
 
 	var endpoints corev1.Endpoints
@@ -399,13 +408,28 @@ func (n *NetworkPolicyHandler) getControlPlaneIPsAsCIDR(ctx context.Context) ([]
 
 	for _, subset := range endpoints.Subsets {
 		for _, endpointAddress := range subset.Addresses {
-			if endpointAddress.IP != "" && endpointAddress.IP != "None" {
-				addresses = append(addresses, fmt.Sprintf("%s/%d", endpointAddress.IP, n.controlPlaneCIDRPrefixLength))
+			ip, isIP := n.ipAddressToCIDR(endpointAddress.IP)
+			if isIP {
+				addresses = append(addresses, ip)
 			}
 		}
 	}
 
 	return addresses, nil
+}
+
+func (n *NetworkPolicyHandler) ipAddressToCIDR(ipAddress string) (string, bool) {
+	ip := net.ParseIP(ipAddress)
+	if ip == nil {
+		return "", false
+	}
+
+	if ip.To4() != nil {
+		return fmt.Sprintf("%s/%d", ipAddress, n.controlPlaneCIDRPrefixLength), true
+	}
+	// The address is IPv6, we currently support configurable CIDR prefix length only for IPv4
+	return fmt.Sprintf("%s/128", ipAddress), true
+
 }
 
 func (n *NetworkPolicyHandler) policiesAreEqual(policy *v1.NetworkPolicy, otherPolicy *v1.NetworkPolicy) bool {
