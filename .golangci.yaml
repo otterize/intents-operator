@@ -1,35 +1,19 @@
-version: "2"
+# See https://golangci-lint.run/usage/linters/ for linters explanations
 linters:
-  default: none
+  disable-all: true
   enable:
+    # Enabled by default
     - errcheck
-    - errorsnew
     - govet
     - ineffassign
-    - nilerr
-    - nilnil
     - staticcheck
+    - typecheck
     - unused
-  settings:
-    custom:
-      errorsnew:
-        path: ./errorsnew.so
-        original-url: github.com/otterize/intents-operator/linters
-  exclusions:
-    generated: lax
-    presets:
-      - comments
-      - common-false-positives
-      - legacy
-      - std-error-handling
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
-formatters:
-  exclusions:
-    generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+    - nilnil
+    - nilerr
+    - errorsnew
+linters-settings:
+  custom:
+    errorsnew:
+      path: "./errorsnew.so"
+      original-url: github.com/otterize/intents-operator/linters
