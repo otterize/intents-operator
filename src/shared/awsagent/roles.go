@@ -318,31 +318,8 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 
 	if exists {
 		if identicalPolicyDocuments {
-			logger.WithField("arn", *role.Arn).Debug("found existing role")
-			// check if it is soft deleted - if so remove soft deleted tag
-			if hasSoftDeletedTagSet(role.Tags) {
-				logger.Debug("role is tagged unused, untagging")
-				// There is no need to untag the role's policies from this context, It will happen if the policy will be created again
-				_, err := a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{softDeletedTagKey}})
-				if err != nil {
-					return nil, errors.Wrap(err)
-				}
-				// Intentionally not returning here, as we want to continue and check if we need to mark as soft delete only
-			}
-			if useSoftDeleteStrategy {
-				err = a.setRoleSoftDeleteStrategyTag(ctx, role)
-				if err != nil {
-					return nil, errors.Wrap(err)
-				}
-			}
-			if !useSoftDeleteStrategy && HasSoftDeleteStrategyTagSet(role.Tags) {
-				err = a.UnsetRoleSoftDeleteStrategyTag(ctx, role)
-				if err != nil {
-					return nil, errors.Wrap(err)
-				}
-			}
-
-			return role, nil
+			// Role exists and everything is identical - we handle soft delete if needed or just return it if not
+			return a.handleSoftDeleteOrReturnUnchanged(ctx, logger, role, useSoftDeleteStrategy)
 		}
 		logger.WithField("role", *role.RoleName).Info("updating existing role with new trust policy")
 		_, err = a.iamClient.UpdateAssumeRolePolicy(ctx, &iam.UpdateAssumeRolePolicyInput{
@@ -390,6 +367,34 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 	logger.Debugf("created new role, arn: %s", *createRoleOutput.Role.Arn)
 	return createRoleOutput.Role, nil
 
+}
+
+func (a *Agent) handleSoftDeleteOrReturnUnchanged(ctx context.Context, logger *logrus.Entry, role *types.Role, useSoftDeleteStrategy bool) (*types.Role, error) {
+	logger.WithField("arn", *role.Arn).Debug("found existing role")
+	// check if it is soft deleted - if so remove soft deleted tag
+	if hasSoftDeletedTagSet(role.Tags) {
+		logger.Debug("role is tagged unused, untagging")
+		// There is no need to untag the role's policies from this context, It will happen if the policy will be created again
+		_, err := a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{softDeletedTagKey}})
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+		// Intentionally not returning here, as we want to continue and check if we need to mark as soft delete only
+	}
+	if useSoftDeleteStrategy {
+		err := a.setRoleSoftDeleteStrategyTag(ctx, role)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+	}
+	if !useSoftDeleteStrategy && HasSoftDeleteStrategyTagSet(role.Tags) {
+		err := a.UnsetRoleSoftDeleteStrategyTag(ctx, role)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+	}
+
+	return role, nil
 }
 
 func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accountName string) error {
