@@ -1,22 +1,35 @@
-# .golangci.yml — v2.1
-version: "2.1"
-
+version: "2"
 linters:
-  # keep everything off unless we enable it
   default: none
-
   enable:
     - errcheck
+    - errorsnew
     - govet
     - ineffassign
-    - staticcheck     # gosimple + stylecheck are bundled here
-    - typecheck
-    - unused
-    - nilnil
     - nilerr
-    - errorsnew
-
+    - nilnil
+    - staticcheck
+    - unused
   settings:
     custom:
       errorsnew:
-        path: "./errorsnew.so"
+        path: ./errorsnew.so
+        original-url: github.com/otterize/intents-operator/linters
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
