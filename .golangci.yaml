@@ -1,8 +1,7 @@
-# See https://golangci-lint.run/usage/linters/ for linters explanations
+# See https://golangci-lint.run/v2.1/configuration/ for v2.1 config reference
+
 linters:
-  disable-all: true
   enable:
-    # Enabled by default
     - errcheck
     - govet
     - ineffassign
@@ -12,8 +11,9 @@ linters:
     - nilnil
     - nilerr
     - errorsnew
-linters-settings:
-  custom:
-    errorsnew:
-      path: "./errorsnew.so"
-      original-url: github.com/otterize/intents-operator/linters
+
+plugins:
+  - name: errorsnew
+    path: "./errorsnew.so"
+    module: github.com/otterize/intents-operator/linters
+version: v2.1
