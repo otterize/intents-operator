@@ -59,7 +59,7 @@ jobs:
           working-directory: src
 
           # Optional: golangci-lint command line arguments.
-          args: --timeout 5m --format text --color always
+          args: --timeout 5m --output.text.colors=true
 
           # Optional: show only new issues if it's a pull request. The default value is `false`.
           # only-new-issues: true
