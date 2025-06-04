@@ -24,7 +24,7 @@ jobs:
       # Upgraded Go version? Make sure to upgrade it in the GitHub Actions setup, the Dockerfile and the go.mod as well, so the linter and tests run the same version.
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.21
+          go-version: 1.22.1
 
       - name: go vet
         run: go vet ./...
@@ -40,7 +40,7 @@ jobs:
       # Upgraded Go version? Make sure to upgrade it in the GitHub Actions setup, the Dockerfile and the go.mod as well, so the linter and tests run the same version.
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.21
+          go-version: 1.22.1
 
       - name: go build errorsNew linter
         run: CGO_ENABLED=1 go build -buildmode=plugin -o ../errorsnew.so ./plugin/errorsnew.go

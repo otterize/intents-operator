@@ -13,6 +13,8 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -173,8 +175,125 @@ func (a *Agent) CreateRolesAnywhereProfileForRole(ctx context.Context, role type
 	return createProfileOutput.Profile, nil
 }
 
+func compareStatements(existingStatement StatementEntry, newStatement StatementEntry) bool {
+	// Fields: Effect, Action, Resource, Principal, Sid, Condition
+	// Action is a slice
+	// Principal is a map
+	// Condition is a map
+	if newStatement.Effect != existingStatement.Effect {
+		return false
+	}
+	slices.Sort(existingStatement.Action)
+	slices.Sort(newStatement.Action)
+	if !slices.Equal(existingStatement.Action, newStatement.Action) {
+		return false
+	}
+	if newStatement.Resource != existingStatement.Resource {
+		return false
+	}
+	existingPrincipals := lo.MapToSlice(existingStatement.Principal, func(key string, value string) string {
+		return fmt.Sprintf("%s:%s", key, value)
+	})
+	newPrincipals := lo.MapToSlice(newStatement.Principal, func(key string, value string) string {
+		return fmt.Sprintf("%s:%s", key, value)
+	})
+	slices.Sort(existingPrincipals)
+	slices.Sort(newPrincipals)
+	if !slices.Equal(existingPrincipals, newPrincipals) {
+		return false
+	}
+	if existingStatement.Sid != newStatement.Sid {
+		return false
+	}
+	if len(existingStatement.Condition) != len(newStatement.Condition) {
+		return false
+	}
+	existingCondition := lo.MapToSlice(existingStatement.Condition, func(key string, value any) string {
+		return fmt.Sprintf("%s:%s", key, value)
+	})
+	newCondition := lo.MapToSlice(newStatement.Condition, func(key string, value any) string {
+		return fmt.Sprintf("%s:%s", key, value)
+	})
+	slices.Sort(existingCondition)
+	slices.Sort(newCondition)
+	if !slices.Equal(existingCondition, newCondition) {
+		return false
+	}
+	return true
+}
+
+func (a *Agent) IsPolicyDocumentsIdenticalUnordered(role *types.Role, newDocument PolicyDocument) (bool, error) {
+	if role.AssumeRolePolicyDocument == nil {
+		return false, errors.New("role AssumeRolePolicyDocument is nil")
+	}
+
+	// AssumeRolePolicyDocument is url-encoded
+	assumeRolePolicyDocumentRaw, err := url.QueryUnescape(*role.AssumeRolePolicyDocument)
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	var existingPolicy map[string]any
+	err = json.Unmarshal([]byte(assumeRolePolicyDocumentRaw), &existingPolicy)
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	// For some reason, Action can either be a list or a string, so it can't be unmarshalled into the same struct.
+	// Let's make sure it's always a list.
+	statements := existingPolicy["Statement"].([]any)
+	for i, statement := range statements {
+		statementTyped := statement.(map[string]any)
+		// Get action or actions
+		if action, ok := statementTyped["Action"]; ok {
+			switch actionType := action.(type) {
+			case string:
+				statementTyped["Action"] = []string{actionType} // Convert single string to slice
+				statements[i] = statementTyped                  // Update the statement in the slice
+			case []any:
+				// do nothing
+			default:
+				return false, errors.Errorf("unexpected type for Action: %T", actionType)
+			}
+		}
+	}
+	existingPolicy["Statement"] = statements
+
+	// Marshal the policy back to JSON
+	assumeRolePolicyDocument, err := json.Marshal(existingPolicy)
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	var existingPolicyStructured PolicyDocument
+	err = json.Unmarshal(assumeRolePolicyDocument, &existingPolicyStructured)
+	if err != nil {
+		return false, errors.Wrap(err)
+	}
+
+	if existingPolicyStructured.Version != newDocument.Version {
+		return false, nil
+	}
+
+	if len(existingPolicyStructured.Statement) != len(newDocument.Statement) {
+		return false, nil
+	}
+
+	for _, newStatement := range newDocument.Statement {
+		_, found := lo.Find(existingPolicyStructured.Statement, func(existingStatement StatementEntry) bool {
+			return compareStatements(existingStatement, newStatement)
+		})
+
+		if !found {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
 // CreateOtterizeIAMRole creates a new IAM role for service, if one doesn't exist yet
-func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string, accountName string, useSoftDeleteStrategy bool) (*types.Role, error) {
+func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string, accountName string, useSoftDeleteStrategy bool, additionalTrustRelationshipEntries []StatementEntry) (*types.Role, error) {
 	logger := logrus.WithField("namespace", namespaceName).WithField("account", accountName)
 	exists, role, err := a.GetOtterizeRole(ctx, namespaceName, accountName)
 
@@ -182,37 +301,37 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 		return nil, errors.Wrap(err)
 	}
 
-	if exists {
-		logger.Debugf("found existing role, arn: %s", *role.Arn)
-		// check if it is soft deleted - if so remove soft deleted tag
-		if hasSoftDeletedTagSet(role.Tags) {
-			logger.Debug("role is tagged unused, untagging")
-			// There is no need to untag the role's policies from this context, It will happen if the policy will be created again
-			_, err := a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{softDeletedTagKey}})
-			if err != nil {
-				return nil, errors.Wrap(err)
-			}
-			// Intentionally not returning here, as we want to continue and check if we need to mark as soft delete only
-		}
-		if useSoftDeleteStrategy {
-			err = a.setRoleSoftDeleteStrategyTag(ctx, role)
-			if err != nil {
-				return nil, errors.Wrap(err)
-			}
-		}
-		if !useSoftDeleteStrategy && HasSoftDeleteStrategyTagSet(role.Tags) {
-			err = a.UnsetRoleSoftDeleteStrategyTag(ctx, role)
-			if err != nil {
-				return nil, errors.Wrap(err)
-			}
-		}
+	trustPolicy := a.generateCompleteTrustPolicyAnyIdentityProvider(logger, namespaceName, accountName, additionalTrustRelationshipEntries)
 
-		return role, nil
+	identicalPolicyDocuments := false
+	if exists {
+		identicalPolicyDocuments, err = a.IsPolicyDocumentsIdenticalUnordered(role, trustPolicy)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
 	}
 
-	trustPolicy, err := a.generateTrustPolicy(namespaceName, accountName)
+	serializedPolicyDocument, err := json.Marshal(trustPolicy)
 	if err != nil {
 		return nil, errors.Wrap(err)
+	}
+
+	if exists {
+		if identicalPolicyDocuments {
+			// Role exists and everything is identical - we handle soft delete if needed or just return it if not
+			return a.handleSoftDeleteOrReturnUnchanged(ctx, logger, role, useSoftDeleteStrategy)
+		}
+		logger.WithField("role", *role.RoleName).Info("updating existing role with new trust policy")
+		_, err = a.iamClient.UpdateAssumeRolePolicy(ctx, &iam.UpdateAssumeRolePolicyInput{
+			RoleName:       role.RoleName,
+			PolicyDocument: aws.String(string(serializedPolicyDocument)),
+		})
+		role.AssumeRolePolicyDocument = lo.ToPtr(string(serializedPolicyDocument))
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+		logger.WithField("arn", *role.Arn).Debug("updated existing role")
+		return role, nil
 	}
 
 	tags := []types.Tag{
@@ -234,7 +353,7 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 	}
 	createRoleInput := &iam.CreateRoleInput{
 		RoleName:                 aws.String(a.generateRoleName(namespaceName, accountName)),
-		AssumeRolePolicyDocument: aws.String(trustPolicy),
+		AssumeRolePolicyDocument: aws.String(string(serializedPolicyDocument)),
 		Tags:                     tags,
 		Description:              aws.String(iamRoleDescription),
 		PermissionsBoundary:      aws.String(fmt.Sprintf("arn:aws:iam::%s:policy/%s-limit-iam-permission-boundary", a.AccountID, a.ClusterName)),
@@ -248,6 +367,34 @@ func (a *Agent) CreateOtterizeIAMRole(ctx context.Context, namespaceName string,
 	logger.Debugf("created new role, arn: %s", *createRoleOutput.Role.Arn)
 	return createRoleOutput.Role, nil
 
+}
+
+func (a *Agent) handleSoftDeleteOrReturnUnchanged(ctx context.Context, logger *logrus.Entry, role *types.Role, useSoftDeleteStrategy bool) (*types.Role, error) {
+	logger.WithField("arn", *role.Arn).Debug("found existing role")
+	// check if it is soft deleted - if so remove soft deleted tag
+	if hasSoftDeletedTagSet(role.Tags) {
+		logger.Debug("role is tagged unused, untagging")
+		// There is no need to untag the role's policies from this context, It will happen if the policy will be created again
+		_, err := a.iamClient.UntagRole(ctx, &iam.UntagRoleInput{RoleName: role.RoleName, TagKeys: []string{softDeletedTagKey}})
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+		// Intentionally not returning here, as we want to continue and check if we need to mark as soft delete only
+	}
+	if useSoftDeleteStrategy {
+		err := a.setRoleSoftDeleteStrategyTag(ctx, role)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+	}
+	if !useSoftDeleteStrategy && HasSoftDeleteStrategyTagSet(role.Tags) {
+		err := a.UnsetRoleSoftDeleteStrategyTag(ctx, role)
+		if err != nil {
+			return nil, errors.Wrap(err)
+		}
+	}
+
+	return role, nil
 }
 
 func (a *Agent) DeleteOtterizeIAMRole(ctx context.Context, namespaceName, accountName string) error {
@@ -417,11 +564,22 @@ func (a *Agent) unsetAllRolePoliciesSoftDeleteStrategyTag(ctx context.Context, r
 	return nil
 }
 
-func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, error) {
+func (a *Agent) generateCompleteTrustPolicyAnyIdentityProvider(logger *logrus.Entry, namespaceName string, accountName string, additionalEntries []StatementEntry) PolicyDocument {
+	policy := a.generateBaseTrustPolicyOIDC(namespaceName, accountName)
+
 	if a.RolesAnywhereEnabled {
-		return a.generateTrustPolicyForRolesAnywhere(namespaceName, accountName)
+		policy = a.generateBaseTrustPolicyForRolesAnywhere(namespaceName, accountName)
 	}
 
+	if len(additionalEntries) > 0 {
+		logger.WithField("statements", additionalEntries).Debug("Adding additional trust relationship statements to role")
+		policy.Statement = append(policy.Statement, additionalEntries...)
+	}
+
+	return policy
+}
+
+func (a *Agent) generateBaseTrustPolicyOIDC(namespaceName string, accountName string) PolicyDocument {
 	oidc := strings.TrimPrefix(a.OidcURL, "https://")
 
 	policy := PolicyDocument{
@@ -443,17 +601,10 @@ func (a *Agent) generateTrustPolicy(namespaceName, accountName string) (string, 
 		},
 	}
 
-	serialized, err := json.Marshal(policy)
-
-	if err != nil {
-		logrus.WithError(err).Error("failed to create trust policy")
-		return "", errors.Wrap(err)
-	}
-
-	return string(serialized), nil
+	return policy
 }
 
-func (a *Agent) generateTrustPolicyForRolesAnywhere(namespaceName, accountName string) (string, error) {
+func (a *Agent) generateBaseTrustPolicyForRolesAnywhere(namespaceName string, accountName string) PolicyDocument {
 	policy := PolicyDocument{
 		Version: iamAPIVersion,
 		Statement: []StatementEntry{
@@ -475,14 +626,7 @@ func (a *Agent) generateTrustPolicyForRolesAnywhere(namespaceName, accountName s
 		},
 	}
 
-	serialized, err := json.Marshal(policy)
-
-	if err != nil {
-		logrus.WithError(err).Error("failed to create trust policy")
-		return "", errors.Wrap(err)
-	}
-
-	return string(serialized), errors.Wrap(err)
+	return policy
 }
 
 func (a *Agent) generateRoleName(namespace string, accountName string) string {
