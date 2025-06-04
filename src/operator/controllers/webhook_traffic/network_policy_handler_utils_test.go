@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
@@ -39,12 +40,14 @@ type NetworkPolicyBuilder struct {
 type NetworkPolicyMatcher struct {
 	ports                   []int32
 	allowAllIncomingTraffic bool
+	webhookName             *string
 }
 
-func NewNetworkPolicyMatcher(ports []int32, allowAllIncomingTraffic bool) *NetworkPolicyMatcher {
+func NewNetworkPolicyMatcher(ports []int32, allowAllIncomingTraffic bool, webhookName *string) *NetworkPolicyMatcher {
 	return &NetworkPolicyMatcher{
 		ports:                   ports,
 		allowAllIncomingTraffic: allowAllIncomingTraffic,
+		webhookName:             webhookName,
 	}
 }
 
@@ -61,6 +64,7 @@ func (m *NetworkPolicyMatcher) Matches(other interface{}) bool {
 	expectedNetpol := NewNetworkPolicyBuilder(ExpectedNetpol).
 		WithPorts(m.ports).
 		WithFromIPBlock(m.allowAllIncomingTraffic).
+		WithWebhookName(m.webhookName).
 		Build()
 
 	return otherAsNetpol.Namespace == TestNamespace &&
@@ -96,6 +100,24 @@ func (b *NetworkPolicyBuilder) WithFromIPBlock(allowAll bool) *NetworkPolicyBuil
 			},
 		},
 	}
+	return b
+}
+
+func (b *NetworkPolicyBuilder) WithWebhookName(webhookName *string) *NetworkPolicyBuilder {
+	if webhookName == nil {
+		return b
+	}
+
+	webhookShortName := *webhookName
+	if len(webhookShortName) > 63 {
+		webhookShortName = webhookShortName[:63]
+	}
+	b.policy.Labels = map[string]string{
+		v2alpha1.OtterizeNetworkPolicyWebhooks: webhookShortName,
+	}
+
+	b.policy.Name = fmt.Sprintf("webhook-%s-access-to-test-service", strings.ToLower(*webhookName))
+
 	return b
 }
 
