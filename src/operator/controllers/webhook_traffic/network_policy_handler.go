@@ -168,7 +168,7 @@ func (n *NetworkPolicyHandler) reduceWebhooksNetpols(ctx context.Context, webhoo
 			// At this point we want to create the network policy, because the configuration is either set to "always" or
 			// that it is set to "if blocked by otterize" and the service is blocked by otterize
 			// TODO: do we also need to create netpol for Otterize?
-			netpol, err := n.buildNetworkPolicy(ctx, webhookClientConfig.webhookName, webhookClientConfig.clientConfiguration.Service, service)
+			netpol, err := n.buildNetworkPolicy(ctx, webhookClientConfig.webhookName, service)
 			if err != nil {
 				return make(NetworkPolicyWithMetaByName), errors.Wrap(err)
 			}
@@ -307,7 +307,7 @@ func (n *NetworkPolicyHandler) getWebhookService(ctx context.Context, webhookSer
 	return service, true, nil
 }
 
-func (n *NetworkPolicyHandler) buildNetworkPolicy(ctx context.Context, webhookName string, webhookService *admissionv1.ServiceReference, service *corev1.Service) (v1.NetworkPolicy, error) {
+func (n *NetworkPolicyHandler) buildNetworkPolicy(ctx context.Context, webhookName string, service *corev1.Service) (v1.NetworkPolicy, error) {
 	policyName := fmt.Sprintf("webhook-%s-access-to-%s", strings.ToLower(webhookName), strings.ToLower(service.Name))
 	rule := v1.NetworkPolicyIngressRule{}
 
@@ -328,12 +328,17 @@ func (n *NetworkPolicyHandler) buildNetworkPolicy(ctx context.Context, webhookNa
 		rule.From = append(rule.From, fromControlPlaneIPs...)
 	}
 
+	labelValue := webhookName
+	if len(labelValue) > 63 {
+		labelValue = labelValue[:63]
+	}
+
 	newPolicy := v1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      policyName,
 			Namespace: service.Namespace,
 			Labels: map[string]string{
-				v2alpha1.OtterizeNetworkPolicyWebhooks: webhookName,
+				v2alpha1.OtterizeNetworkPolicyWebhooks: labelValue,
 			},
 		},
 		Spec: v1.NetworkPolicySpec{
@@ -347,12 +352,26 @@ func (n *NetworkPolicyHandler) buildNetworkPolicy(ctx context.Context, webhookNa
 		},
 	}
 
-	if webhookService.Port != nil {
-		newPolicy.Spec.Ingress[0].Ports = append(newPolicy.Spec.Ingress[0].Ports, v1.NetworkPolicyPort{
-			Port:     lo.ToPtr(intstr.IntOrString{IntVal: *webhookService.Port, Type: intstr.Int}),
-			Protocol: lo.ToPtr(corev1.ProtocolTCP),
-		})
+	netpolPorts := make([]v1.NetworkPolicyPort, 0, 2*len(service.Spec.Ports))
+
+	for _, servicePort := range service.Spec.Ports {
+		// Add the port
+		netpolPorts = append(netpolPorts,
+			v1.NetworkPolicyPort{
+				Port:     lo.ToPtr(intstr.IntOrString{IntVal: servicePort.Port, Type: intstr.Int}),
+				Protocol: lo.ToPtr(servicePort.Protocol),
+			})
+		// Add the target port
+		if servicePort.TargetPort.IntVal != 0 || servicePort.TargetPort.StrVal != "" {
+			netpolPorts = append(netpolPorts,
+				v1.NetworkPolicyPort{
+					Port:     lo.ToPtr(servicePort.TargetPort),
+					Protocol: lo.ToPtr(servicePort.Protocol),
+				})
+		}
 	}
+
+	newPolicy.Spec.Ingress[0].Ports = netpolPorts
 
 	return newPolicy, nil
 }

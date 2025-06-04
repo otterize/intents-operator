@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
 )
@@ -117,6 +118,12 @@ func (s *NetworkPolicyHandlerTestSuite) SetupTest() {
 			Selector: map[string]string{
 				"Taylor": "Swift",
 			},
+			Ports: []corev1.ServicePort{
+				{
+					Port:     TestServicePort,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
 		},
 	}
 
@@ -154,7 +161,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 	s.mockGetControlPlaneIPs()
 	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, false)
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, false, nil)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
@@ -189,43 +196,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 
 	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic)
-	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
-	err := s.handler.HandleAll(context.Background())
-	s.Require().NoError(err)
-	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
-	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
-}
-
-func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlockedByOtterize_ServiceIsBlockedByOtterize_TwoWebhooksToSameServiceDifferentPorts_CreatingOneWebhookPolicy() {
-	secondPort := int32(1432)
-	s.validatingWebhook.Webhooks = append(s.validatingWebhook.Webhooks,
-		admissionv1.ValidatingWebhook{
-			Name: "Second",
-			ClientConfig: admissionv1.WebhookClientConfig{
-				Service: &admissionv1.ServiceReference{
-					Name:      TestServiceName,
-					Namespace: TestNamespace,
-					Port:      lo.ToPtr(secondPort),
-				},
-			},
-		})
-
-	s.mockForReturningValidatingWebhook()
-
-	// Called once for "First" webhook
-	s.mockReturningWebhookService()
-	s.mockServiceIsBlockedByOtterize(OtterizeIngressNetpols)
-	s.mockGetControlPlaneIPs()
-
-	// Called second time for "Second"" webhook
-	s.mockReturningWebhookService()
-	s.mockServiceIsBlockedByOtterize(OtterizeIngressNetpols)
-	s.mockGetControlPlaneIPs()
-
-	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
-
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{secondPort, TestServicePort}, s.handler.allowAllIncomingTraffic)
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic, nil)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
@@ -272,7 +243,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlocked
 			WithFromIPBlock(s.handler.allowAllIncomingTraffic).
 			Build())
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic)
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic, nil)
 	s.Client.EXPECT().Patch(gomock.Any(), gomock.All(netpolMatcher), gomock.Any()).Return(nil)
 	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
@@ -325,7 +296,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleOff_Servi
 			WithFromIPBlock(s.handler.allowAllIncomingTraffic).
 			Build()})
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic)
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic, nil)
 	s.Client.EXPECT().Delete(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
@@ -343,7 +314,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Se
 	s.mockGetControlPlaneIPs()
 	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic)
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic, nil)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
@@ -358,7 +329,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_MutatingWebhook
 	s.mockGetControlPlaneIPs()
 	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic)
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic, nil)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
@@ -373,7 +344,7 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_CRDsWebhooks_Ha
 	s.mockGetControlPlaneIPs()
 	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic)
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic, nil)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
@@ -391,7 +362,64 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Al
 	//s.mockGetControlPlaneIPs()
 	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
 
-	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic)
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic, nil)
+	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
+	err := s.handler.HandleAll(context.Background())
+	s.Require().NoError(err)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
+}
+
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_ServiceHasDifferentTargetPortThanPort_CreatePolicy() {
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, 32, false)
+	s.handler.InjectRecorder(s.Recorder)
+	targetPort := int32(1820)
+	s.webhookService = &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      TestServiceName,
+			Namespace: TestNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"Taylor": "Swift",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Port:       TestServicePort,
+					TargetPort: intstr.FromInt32(targetPort),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+
+	s.mockForReturningValidatingWebhook()
+	s.mockReturningWebhookService()
+	//s.mockServiceIsBlockedByOtterize(make([]v1.NetworkPolicy, 0))
+	s.mockGetControlPlaneIPs()
+	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
+
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{targetPort, TestServicePort}, s.handler.allowAllIncomingTraffic, nil)
+	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
+	err := s.handler.HandleAll(context.Background())
+	s.Require().NoError(err)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
+}
+
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_WebhookNameTooLong_CreatePolicy() {
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, 32, false)
+	s.handler.InjectRecorder(s.Recorder)
+	s.validatingWebhook = ValidatingWebhookConfiguration.DeepCopy()
+	s.validatingWebhook.Name = "A-lantern-lit-her-journey-through-the-meadow-A-breeze-whispered-shadows-danced-and-the-forest-echoed-with-silent-wonder"
+
+	s.mockForReturningValidatingWebhook()
+	s.mockReturningWebhookService()
+	//s.mockServiceIsBlockedByOtterize(make([]v1.NetworkPolicy, 0))
+	s.mockGetControlPlaneIPs()
+	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
+
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, false, lo.ToPtr("A-lantern-lit-her-journey-through-the-meadow-A-breeze-whispered-shadows-danced-and-the-forest-echoed-with-silent-wonder"))
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
