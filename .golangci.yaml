@@ -1,23 +1,22 @@
-# .golangci.yml – v2.1 syntax
+# .golangci.yml — v2.1
 version: "2.1"
 
 linters:
-  # v1 `disable-all: true` ⇒ v2 `default: none`
+  # keep everything off unless we enable it
   default: none
 
   enable:
     - errcheck
     - govet
     - ineffassign
-    - staticcheck   # includes stylecheck + gosimple in v2
+    - staticcheck     # gosimple + stylecheck are bundled here
     - typecheck
     - unused
     - nilnil
     - nilerr
-    - errorsnew     # custom plugin
+    - errorsnew
 
-
-plugins:
- - name: errorsnew          # the linter’s ID – must match what you `enable`
-   path: "./errorsnew.so"   # same .so you used before
-   module: github.com/otterize/intents-operator/linters
+  settings:
+    custom:
+      errorsnew:
+        path: "./errorsnew.so"
