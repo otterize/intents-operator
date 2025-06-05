@@ -194,6 +194,9 @@ func (n *NetworkPolicyHandler) reduceWebhooksNetpols(ctx context.Context, webhoo
 func (n *NetworkPolicyHandler) isServiceBlockedByOtterize(ctx context.Context, service *corev1.Service) (bool, error) {
 	endpoints := &corev1.Endpoints{}
 	err := n.client.Get(ctx, types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, endpoints)
+	if err != nil && k8serrors.IsNotFound(err) {
+		return false, nil
+	}
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
@@ -202,10 +205,8 @@ func (n *NetworkPolicyHandler) isServiceBlockedByOtterize(ctx context.Context, s
 
 	for _, address := range endpointsAddresses {
 		pod, err := n.getAffectedPod(ctx, address)
-		if k8sErr := &(k8serrors.StatusError{}); errors.As(err, &k8sErr) {
-			if k8serrors.IsNotFound(k8sErr) {
-				continue
-			}
+		if k8serrors.IsNotFound(err) {
+			continue
 		}
 
 		if err != nil {
