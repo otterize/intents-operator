@@ -10,6 +10,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +34,7 @@ const (
 	ReasonPatchingWebhookTrafficNetpol        = "PatchingNetworkPolicyForWebhook"
 	ReasonPatchingWebhookTrafficNetpolFailed  = "PatchingNetworkPolicyForWebhookFailed"
 	ReasonPatchingWebhookTrafficNetpolSuccess = "PatchingNetworkPolicyForWebhookSucceeded"
+	ReasonWebhookPortNotFoundOnServiceError   = "WebhookPortNotFoundOnServiceError"
 )
 
 type WebhookClientConfigurationWithMeta struct {
@@ -168,7 +170,7 @@ func (n *NetworkPolicyHandler) reduceWebhooksNetpols(ctx context.Context, webhoo
 			// At this point we want to create the network policy, because the configuration is either set to "always" or
 			// that it is set to "if blocked by otterize" and the service is blocked by otterize
 			// TODO: do we also need to create netpol for Otterize?
-			netpol, err := n.buildNetworkPolicy(ctx, webhookClientConfig.webhookName, service)
+			netpol, err := n.buildNetworkPolicy(ctx, webhookClientConfig.webhookName, webhookClientConfig.clientConfiguration.Service, service)
 			if err != nil {
 				return make(NetworkPolicyWithMetaByName), errors.Wrap(err)
 			}
@@ -192,6 +194,9 @@ func (n *NetworkPolicyHandler) reduceWebhooksNetpols(ctx context.Context, webhoo
 func (n *NetworkPolicyHandler) isServiceBlockedByOtterize(ctx context.Context, service *corev1.Service) (bool, error) {
 	endpoints := &corev1.Endpoints{}
 	err := n.client.Get(ctx, types.NamespacedName{Namespace: service.Namespace, Name: service.Name}, endpoints)
+	if err != nil && k8serrors.IsNotFound(err) {
+		return false, nil
+	}
 	if err != nil {
 		return false, errors.Wrap(err)
 	}
@@ -200,10 +205,8 @@ func (n *NetworkPolicyHandler) isServiceBlockedByOtterize(ctx context.Context, s
 
 	for _, address := range endpointsAddresses {
 		pod, err := n.getAffectedPod(ctx, address)
-		if k8sErr := &(k8serrors.StatusError{}); errors.As(err, &k8sErr) {
-			if k8serrors.IsNotFound(k8sErr) {
-				continue
-			}
+		if k8serrors.IsNotFound(err) {
+			continue
 		}
 
 		if err != nil {
@@ -307,7 +310,7 @@ func (n *NetworkPolicyHandler) getWebhookService(ctx context.Context, webhookSer
 	return service, true, nil
 }
 
-func (n *NetworkPolicyHandler) buildNetworkPolicy(ctx context.Context, webhookName string, service *corev1.Service) (v1.NetworkPolicy, error) {
+func (n *NetworkPolicyHandler) buildNetworkPolicy(ctx context.Context, webhookName string, webhookService *admissionv1.ServiceReference, service *corev1.Service) (v1.NetworkPolicy, error) {
 	policyName := fmt.Sprintf("webhook-%s-access-to-%s", strings.ToLower(webhookName), strings.ToLower(service.Name))
 	rule := v1.NetworkPolicyIngressRule{}
 
@@ -352,23 +355,43 @@ func (n *NetworkPolicyHandler) buildNetworkPolicy(ctx context.Context, webhookNa
 		},
 	}
 
-	netpolPorts := make([]v1.NetworkPolicyPort, 0, 2*len(service.Spec.Ports))
+	netpolPorts := make([]v1.NetworkPolicyPort, 0, 2)
+	if webhookService.Port != nil {
+		// If the webhook defines a port - lets use it
+		netpolPorts = append(netpolPorts, v1.NetworkPolicyPort{
+			Port:     lo.ToPtr(intstr.IntOrString{IntVal: *webhookService.Port, Type: intstr.Int}),
+			Protocol: lo.ToPtr(corev1.ProtocolTCP),
+		})
+	} else {
+		// Otherwise, use the defaukt webhook port - 443
+		netpolPorts = append(netpolPorts, v1.NetworkPolicyPort{
+			Port:     lo.ToPtr(intstr.IntOrString{IntVal: 443, Type: intstr.Int}),
+			Protocol: lo.ToPtr(corev1.ProtocolTCP),
+		})
+	}
 
-	for _, servicePort := range service.Spec.Ports {
-		// Add the port
-		netpolPorts = append(netpolPorts,
-			v1.NetworkPolicyPort{
-				Port:     lo.ToPtr(intstr.IntOrString{IntVal: servicePort.Port, Type: intstr.Int}),
-				Protocol: lo.ToPtr(servicePort.Protocol),
-			})
-		// Add the target port
-		if servicePort.TargetPort.IntVal != 0 || servicePort.TargetPort.StrVal != "" {
-			netpolPorts = append(netpolPorts,
-				v1.NetworkPolicyPort{
-					Port:     lo.ToPtr(servicePort.TargetPort),
-					Protocol: lo.ToPtr(servicePort.Protocol),
-				})
-		}
+	// Find the webhook's-service's-port in the service
+	servicePort, servicePortFound := lo.Find(service.Spec.Ports, func(item corev1.ServicePort) bool {
+		return item.Port == netpolPorts[0].Port.IntVal
+	})
+
+	if !servicePortFound {
+		logrus.WithFields(logrus.Fields{
+			"WebhookName":      webhookName,
+			"ServiceName":      service.Name,
+			"ServiceNamespace": service.Namespace,
+			"ServicePort":      netpolPorts[0].Port.IntVal,
+		}).Warning("Webhook service port not found on service resource")
+		n.RecordWarningEventf(service, ReasonWebhookPortNotFoundOnServiceError, "Webhook %s is defined to work on port %d", webhookName, netpolPorts[0].Port.IntVal)
+		return v1.NetworkPolicy{}, errors.New("Webhook port was not found on service")
+	}
+
+	// Add the service's target port if exists
+	if servicePort.TargetPort.IntVal != 0 || servicePort.TargetPort.StrVal != "" {
+		netpolPorts = append(netpolPorts, v1.NetworkPolicyPort{
+			Port:     lo.ToPtr(servicePort.TargetPort),
+			Protocol: lo.ToPtr(servicePort.Protocol),
+		})
 	}
 
 	newPolicy.Spec.Ingress[0].Ports = netpolPorts

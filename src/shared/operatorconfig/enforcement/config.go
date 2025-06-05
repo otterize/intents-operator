@@ -25,6 +25,7 @@ type Config struct {
 	EnforcedNamespaces                   *goset.Set[string]
 	ExcludedStrictModeNamespaces         *goset.Set[string]
 	AutomateThirdPartyNetworkPolicies    automate_third_party_network_policy.Enum
+	AutomateAllowWebhookTraffic          automate_third_party_network_policy.Enum
 	PrometheusServiceIdentities          []serviceidentity.ServiceIdentity
 }
 
@@ -46,10 +47,29 @@ func (c Config) GetAutomateThirdPartyNetworkPolicy() automate_third_party_networ
 	}
 }
 
+func (c Config) GetAutomateAllowWebhookTraffic() automate_third_party_network_policy.Enum {
+	switch c.AutomateAllowWebhookTraffic {
+	case automate_third_party_network_policy.Off:
+		return automate_third_party_network_policy.Off
+	case automate_third_party_network_policy.Always:
+		if !c.EnforcementDefaultState {
+			// We don't want to create network policies for third parties when enforcement is disabled.
+			// However, if one uses shadow mode we can still block third party traffic to his protected services
+			// therefore we should return automate_third_party_network_policy.IfBlockedByOtterize
+			return automate_third_party_network_policy.IfBlockedByOtterize
+		}
+		return automate_third_party_network_policy.Always
+	default:
+		return automate_third_party_network_policy.IfBlockedByOtterize
+	}
+}
+
 const (
 	ActiveEnforcementNamespacesKey              = "active-enforcement-namespaces"         // When using the "shadow enforcement" mode, namespaces in this list will be treated as if the enforcement were active
 	AutomateThirdPartyNetworkPoliciesKey        = "automate-third-party-network-policies" // Whether to automatically create network policies for external traffic & metrics collection traffic
 	AutomateThirdPartyNetworkPoliciesDefault    = string(automate_third_party_network_policy.IfBlockedByOtterize)
+	AutomateAllowWebhookTrafficKey              = "automate-allow-webhook-traffic" // Whether to automatically create network policies for webhook services
+	AutomateAllowWebhookTrafficDefault          = string(automate_third_party_network_policy.IfBlockedByOtterize)
 	EnforcementDefaultStateKey                  = "enforcement-default-state" // Sets the default state of the  If true, always enforces. If false, can be overridden using ProtectedService.
 	EnforcementDefaultStateDefault              = true
 	EnableNetworkPolicyKey                      = "enable-network-policy-creation" // Whether to enable Intents network policy creation
@@ -88,6 +108,7 @@ func init() {
 	viper.SetDefault(EnableGCPPolicyKey, EnableGCPPolicyDefault)
 	viper.SetDefault(EnableAzurePolicyKey, EnableAzurePolicyDefault)
 	viper.SetDefault(AutomateThirdPartyNetworkPoliciesKey, AutomateThirdPartyNetworkPoliciesDefault)
+	viper.SetDefault(AutomateAllowWebhookTrafficKey, AutomateAllowWebhookTrafficDefault)
 	viper.SetDefault(EnableStrictModeIntentsKey, EnableStrictModeIntentsDefault)
 }
 
@@ -121,6 +142,7 @@ func GetConfig() Config {
 		EnforcedNamespaces:                   goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
 		ExcludedStrictModeNamespaces:         goset.FromSlice(viper.GetStringSlice(ActiveEnforcementNamespacesKey)),
 		AutomateThirdPartyNetworkPolicies:    automate_third_party_network_policy.Enum(viper.GetString(AutomateThirdPartyNetworkPoliciesKey)),
+		AutomateAllowWebhookTraffic:          automate_third_party_network_policy.Enum(viper.GetString(AutomateAllowWebhookTrafficKey)),
 		PrometheusServiceIdentities:          GetPrometheusServiceIdentities(),
 	}
 }

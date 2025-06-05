@@ -407,6 +407,101 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_Se
 	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
 }
 
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_ServiceHasNoTargetPortThanPort_CreatePolicy() {
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, 32, false)
+	s.handler.InjectRecorder(s.Recorder)
+
+	s.webhookService = &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      TestServiceName,
+			Namespace: TestNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"Taylor": "Swift",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Port:     TestServicePort,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+
+	s.mockForReturningValidatingWebhook()
+	s.mockReturningWebhookService()
+	//s.mockServiceIsBlockedByOtterize(make([]v1.NetworkPolicy, 0))
+	s.mockGetControlPlaneIPs()
+	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
+
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, s.handler.allowAllIncomingTraffic, nil)
+	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
+	err := s.handler.HandleAll(context.Background())
+	s.Require().NoError(err)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
+}
+
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_WebhookDoesNotDefinePort_CreatePolicyWithDefaultPort() {
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, 32, false)
+	s.handler.InjectRecorder(s.Recorder)
+
+	s.validatingWebhook = ValidatingWebhookConfiguration.DeepCopy()
+	s.validatingWebhook.Webhooks[0].ClientConfig.Service.Port = nil
+
+	s.webhookService = &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      TestServiceName,
+			Namespace: TestNamespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"Taylor": "Swift",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Port:     443,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+
+	s.mockForReturningValidatingWebhook()
+	s.mockReturningWebhookService()
+	//s.mockServiceIsBlockedByOtterize(make([]v1.NetworkPolicy, 0))
+	s.mockGetControlPlaneIPs()
+	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
+
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{443}, s.handler.allowAllIncomingTraffic, nil)
+	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
+	err := s.handler.HandleAll(context.Background())
+	s.Require().NoError(err)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
+}
+
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_WebhookPortNotFoundOnService_ExpectErrors() {
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, 32, false)
+	s.handler.InjectRecorder(s.Recorder)
+
+	s.validatingWebhook = ValidatingWebhookConfiguration.DeepCopy()
+	s.validatingWebhook.Webhooks[0].ClientConfig.Service.Port = nil
+
+	s.mockForReturningValidatingWebhook()
+	s.mockReturningWebhookService()
+	//s.mockServiceIsBlockedByOtterize(make([]v1.NetworkPolicy, 0))
+	s.mockGetControlPlaneIPs()
+	//s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
+
+	//netpolMatcher := NewNetworkPolicyMatcher([]int32{443}, s.handler.allowAllIncomingTraffic, nil)
+	//s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
+	err := s.handler.HandleAll(context.Background())
+	s.Require().Error(err, "Webhook port was not found on service")
+	s.ExpectEvent(ReasonWebhookPortNotFoundOnServiceError)
+}
+
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_WebhookNameTooLong_CreatePolicy() {
 	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.Always, 32, false)
 	s.handler.InjectRecorder(s.Recorder)
@@ -420,6 +515,46 @@ func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleAlways_We
 	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
 
 	netpolMatcher := NewNetworkPolicyMatcher([]int32{TestServicePort}, false, lo.ToPtr("A-lantern-lit-her-journey-through-the-meadow-A-breeze-whispered-shadows-danced-and-the-forest-echoed-with-silent-wonder"))
+	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
+	err := s.handler.HandleAll(context.Background())
+	s.Require().NoError(err)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpol)
+	s.ExpectEvent(ReasonCreatingWebhookTrafficNetpolSuccess)
+}
+
+func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleIfBlockedByOtterize_ServiceIsBlockedByOtterize_TwoWebhooksToSameServiceDifferentPorts_CreatingOneWebhookPolicy() {
+	secondPort := int32(1432)
+	s.validatingWebhook.Webhooks = append(s.validatingWebhook.Webhooks,
+		admissionv1.ValidatingWebhook{
+			Name: "Second",
+			ClientConfig: admissionv1.WebhookClientConfig{
+				Service: &admissionv1.ServiceReference{
+					Name:      TestServiceName,
+					Namespace: TestNamespace,
+					Port:      lo.ToPtr(secondPort),
+				},
+			},
+		})
+	s.webhookService.Spec.Ports = append(s.webhookService.Spec.Ports, corev1.ServicePort{
+		Port:     secondPort,
+		Protocol: corev1.ProtocolTCP,
+	})
+
+	s.mockForReturningValidatingWebhook()
+
+	// Called once for "First" webhook
+	s.mockReturningWebhookService()
+	s.mockServiceIsBlockedByOtterize(OtterizeIngressNetpols)
+	s.mockGetControlPlaneIPs()
+
+	// Called second time for "Second"" webhook
+	s.mockReturningWebhookService()
+	s.mockServiceIsBlockedByOtterize(OtterizeIngressNetpols)
+	s.mockGetControlPlaneIPs()
+
+	s.mockGetExistingOtterizeWebhooksNetpols([]v1.NetworkPolicy{})
+
+	netpolMatcher := NewNetworkPolicyMatcher([]int32{secondPort, TestServicePort}, s.handler.allowAllIncomingTraffic, nil)
 	s.Client.EXPECT().Create(gomock.Any(), gomock.All(netpolMatcher)).Return(nil)
 	err := s.handler.HandleAll(context.Background())
 	s.Require().NoError(err)
