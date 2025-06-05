@@ -94,6 +94,19 @@ func getAllowExternalTrafficConfig() graphqlclient.AllowExternalTrafficPolicy {
 	}
 }
 
+func getAutomateAllowWebhookTrafficConfig() graphqlclient.AutomateThirdPartyNetworkPolicy {
+	switch enforcement.GetConfig().AutomateAllowWebhookTraffic {
+	case automate_third_party_network_policy.Always:
+		return graphqlclient.AutomateThirdPartyNetworkPolicyAlways
+	case automate_third_party_network_policy.Off:
+		return graphqlclient.AutomateThirdPartyNetworkPolicyOff
+	case automate_third_party_network_policy.IfBlockedByOtterize:
+		return graphqlclient.AutomateThirdPartyNetworkPolicyIfBlockedByOtterize
+	default:
+		return ""
+	}
+}
+
 func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Manager) {
 	ingressConfigIdentities := operatorconfig.GetIngressControllerServiceIdentities()
 	externallyManagedPolicyWorkloadIdentities := operatorconfig.GetExternallyManagedPoliciesServiceIdentities()
@@ -143,6 +156,7 @@ func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Ma
 		AllowExternalTrafficPolicy:            getAllowExternalTrafficConfig(), // The server expect for AllowExternalTrafficPolicy because of backwards compatibility
 		AutomateThirdPartyNetworkPolicies:     getAutomateThirdPartyNetworkPoliciesConfig(),
 		PrometheusServerConfigs:               getPrometheusServiceIdentities(),
+		AutomateAllowWebhookTraffic:           getAutomateAllowWebhookTrafficConfig(),
 	}
 
 	configInput.IngressControllerConfig = lo.Map(ingressConfigIdentities, func(identity serviceidentity.ServiceIdentity, _ int) graphqlclient.IngressControllerConfigInput {
@@ -165,7 +179,6 @@ func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Ma
 	configInput.AutomatedThirdPartyPolicyTypes = []graphqlclient.AutomatedThirdPartyPolicyTypes{
 		graphqlclient.AutomatedThirdPartyPolicyTypesExternalTraffic,
 		graphqlclient.AutomatedThirdPartyPolicyTypesMetricsTraffic,
-		graphqlclient.AutomatedThirdPartyPolicyTypesWebhookTraffic,
 	}
 
 	client.ReportIntentsOperatorConfiguration(timeoutCtx, configInput)
