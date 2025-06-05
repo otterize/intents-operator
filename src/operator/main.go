@@ -239,7 +239,7 @@ func main() {
 
 	webhooksTrafficNetworkHandler := webhook_traffic.NewNetworkPolicyHandler(mgr.GetClient(),
 		scheme,
-		enforcementConfig.GetAutomateThirdPartyNetworkPolicy(),
+		enforcementConfig.GetAutomateAllowWebhookTraffic(),
 		viper.GetInt(operatorconfig.ControlPlaneIPv4CidrPrefixLength),
 		viper.GetBool(operatorconfig.WebhookTrafficAllowAllKey))
 	webhookTrafficReconcilerManager := webhook_traffic.NewWebhookTrafficReconcilerManager(mgr.GetClient(), webhooksTrafficNetworkHandler)
