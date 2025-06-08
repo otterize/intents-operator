@@ -309,7 +309,7 @@ func (r *ApprovedIntentsReconciler) getIntentsToService(ctx context.Context, ser
 	return intentsToReconcile
 }
 
-// InitIntentsServerIndices indexes intents by target server name
+// InitIntentsServerIndices indexes ApprovedClientIntents by target server name
 // This is used in finalizers to determine whether a network policy should be removed from the target namespace
 func (r *ApprovedIntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
 	err := mgr.GetCache().IndexField(
