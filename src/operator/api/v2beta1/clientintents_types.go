@@ -374,7 +374,6 @@ type AzureKeyVaultPolicy struct {
 type IntentsStatus struct {
 	// upToDate field reflects whether the client intents have successfully been applied
 	// to the cluster to the state specified
-	// Deprecated: Use ApprovedClientIntents.Status.UpToDate instead
 	// +optional
 	UpToDate bool `json:"upToDate"`
 
@@ -384,7 +383,7 @@ type IntentsStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration"`
 
 	// ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
-	// Deprecated: Use ApprovedClientIntents.Status.ResolvedIPs instead
+	// Deprecated: Use ApprovedClientIntents.Status.ResolvedIPs instead. This field is kept here for the migration.
 	// +optional
 	ResolvedIPs []ResolvedIPs `json:"resolvedIPs,omitempty" yaml:"resolvedIPs,omitempty"`
 

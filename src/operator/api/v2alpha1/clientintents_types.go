@@ -62,9 +62,9 @@ const (
 	OtterizeSvcNetworkPolicy                     = "intents.otterize.com/svc-network-policy"
 	OtterizeNetworkPolicyServiceDefaultDeny      = "intents.otterize.com/network-policy-service-default-deny"
 	OtterizeNetworkPolicyExternalTraffic         = "intents.otterize.com/network-policy-external-traffic"
-	OtterizeNetPolMetricsCollectors            = "intents.otterize.com/network-policy-metrics-collectors"
-	OtterizeNetPolMetricsCollectorsLevel       = "intents.otterize.com/network-policy-metrics-collectors-level"
-	OtterizeNetworkPolicyWebhooks              = "intents.otterize.com/network-policy-webhooks"
+	OtterizeNetPolMetricsCollectors              = "intents.otterize.com/network-policy-metrics-collectors"
+	OtterizeNetPolMetricsCollectorsLevel         = "intents.otterize.com/network-policy-metrics-collectors-level"
+	OtterizeNetworkPolicyWebhooks                = "intents.otterize.com/network-policy-webhooks"
 	ClientIntentsFinalizerName                   = "intents.otterize.com/client-intents-finalizer"
 	ProtectedServicesFinalizerName               = "intents.otterize.com/protected-services-finalizer"
 	OtterizeIstioClientAnnotationKeyDeprecated   = "intents.otterize.com/istio-client"
@@ -377,7 +377,6 @@ type AzureKeyVaultPolicy struct {
 type IntentsStatus struct {
 	// upToDate field reflects whether the client intents have successfully been applied
 	// to the cluster to the state specified
-	// Deprecated: Use ApprovedClientIntents.Status.UpToDate instead
 	// +optional
 	UpToDate bool `json:"upToDate"`
 
@@ -386,7 +385,7 @@ type IntentsStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration"`
 
 	// ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
-	// Deprecated: Use ApprovedClientIntents.Status.ResolvedIPs instead
+	// Deprecated: Use ApprovedClientIntents.Status.ResolvedIPs instead.  This field is kept here for the migration.
 	// +optional
 	ResolvedIPs []ResolvedIPs `json:"resolvedIPs,omitempty" yaml:"resolvedIPs,omitempty"`
 
