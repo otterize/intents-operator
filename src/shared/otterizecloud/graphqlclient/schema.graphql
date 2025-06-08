@@ -316,6 +316,7 @@ enum AutomateThirdPartyNetworkPolicy {
 enum AutomatedThirdPartyPolicyTypes {
 	EXTERNAL_TRAFFIC
 	METRICS_TRAFFIC
+	WEBHOOK_TRAFFIC
 }
 
 enum AwsIamStep {
