@@ -3,3 +3,4 @@ generated.go linguist-generated=true
 go.mod linguist-generated=true
 go.sum linguist-generated=true
 schema.graphql linguist-generated=true
+*.patched linguist-generated=true
