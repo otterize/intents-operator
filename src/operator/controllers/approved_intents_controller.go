@@ -65,7 +65,7 @@ func NewApprovedIntentsReconciler(
 	}
 	reconcilers = append(reconcilers, additionalReconcilers...)
 	reconcilersGroup := reconcilergroup.NewGroup(
-		"intents-reconciler",
+		"approved-intents-reconciler",
 		client,
 		scheme,
 		&otterizev2alpha1.ApprovedClientIntents{},
