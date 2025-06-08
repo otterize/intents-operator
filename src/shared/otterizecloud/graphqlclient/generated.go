@@ -18,6 +18,15 @@ const (
 	AllowExternalTrafficPolicyIfBlockedByOtterize AllowExternalTrafficPolicy = "IF_BLOCKED_BY_OTTERIZE"
 )
 
+type AppliedIntentsRequestStatusLabel string
+
+const (
+	AppliedIntentsRequestStatusLabelPending  AppliedIntentsRequestStatusLabel = "PENDING"
+	AppliedIntentsRequestStatusLabelApproved AppliedIntentsRequestStatusLabel = "APPROVED"
+	AppliedIntentsRequestStatusLabelDenied   AppliedIntentsRequestStatusLabel = "DENIED"
+	AppliedIntentsRequestStatusLabelStale    AppliedIntentsRequestStatusLabel = "STALE"
+)
+
 type AutomateThirdPartyNetworkPolicy string
 
 const (
@@ -31,6 +40,7 @@ type AutomatedThirdPartyPolicyTypes string
 const (
 	AutomatedThirdPartyPolicyTypesExternalTraffic AutomatedThirdPartyPolicyTypes = "EXTERNAL_TRAFFIC"
 	AutomatedThirdPartyPolicyTypesMetricsTraffic  AutomatedThirdPartyPolicyTypes = "METRICS_TRAFFIC"
+	AutomatedThirdPartyPolicyTypesWebhookTraffic  AutomatedThirdPartyPolicyTypes = "WEBHOOK_TRAFFIC"
 )
 
 type AzureKeyVaultPolicyInput struct {
@@ -261,6 +271,44 @@ func (v *ExternallyManagedPolicyWorkloadInput) GetNamespace() string { return v.
 // GetKind returns ExternallyManagedPolicyWorkloadInput.Kind, and is useful for accessing the field via an interface.
 func (v *ExternallyManagedPolicyWorkloadInput) GetKind() string { return v.Kind }
 
+// GetAppliedIntentsRequestStatusResponse is returned by GetAppliedIntentsRequestStatus on success.
+type GetAppliedIntentsRequestStatusResponse struct {
+	SyncPendingRequestStatuses []GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus `json:"syncPendingRequestStatuses"`
+}
+
+// GetSyncPendingRequestStatuses returns GetAppliedIntentsRequestStatusResponse.SyncPendingRequestStatuses, and is useful for accessing the field via an interface.
+func (v *GetAppliedIntentsRequestStatusResponse) GetSyncPendingRequestStatuses() []GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus {
+	return v.SyncPendingRequestStatuses
+}
+
+// GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus includes the requested fields of the GraphQL type AppliedIntentsRequestStatus.
+type GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus struct {
+	ResourceId string                           `json:"resourceId"`
+	Generation int                              `json:"generation"`
+	Reason     string                           `json:"reason"`
+	Status     AppliedIntentsRequestStatusLabel `json:"status"`
+}
+
+// GetResourceId returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.ResourceId, and is useful for accessing the field via an interface.
+func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetResourceId() string {
+	return v.ResourceId
+}
+
+// GetGeneration returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.Generation, and is useful for accessing the field via an interface.
+func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetGeneration() int {
+	return v.Generation
+}
+
+// GetReason returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.Reason, and is useful for accessing the field via an interface.
+func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetReason() string {
+	return v.Reason
+}
+
+// GetStatus returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.Status, and is useful for accessing the field via an interface.
+func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetStatus() AppliedIntentsRequestStatusLabel {
+	return v.Status
+}
+
 type HTTPConfigInput struct {
 	Path    *string       `json:"path"`
 	Methods []*HTTPMethod `json:"methods"`
@@ -413,6 +461,30 @@ func (v *IntentInput) GetResolutionData() *string { return v.ResolutionData }
 
 // GetConnectionsCount returns IntentInput.ConnectionsCount, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetConnectionsCount() *ConnectionsCount { return v.ConnectionsCount }
+
+type IntentRequestInput struct {
+	ResourceGeneration IntentRequestResourceGeneration `json:"resourceGeneration"`
+	Intent             IntentInput                     `json:"intent"`
+}
+
+// GetResourceGeneration returns IntentRequestInput.ResourceGeneration, and is useful for accessing the field via an interface.
+func (v *IntentRequestInput) GetResourceGeneration() IntentRequestResourceGeneration {
+	return v.ResourceGeneration
+}
+
+// GetIntent returns IntentRequestInput.Intent, and is useful for accessing the field via an interface.
+func (v *IntentRequestInput) GetIntent() IntentInput { return v.Intent }
+
+type IntentRequestResourceGeneration struct {
+	ResourceId string `json:"resourceId"`
+	Generation int    `json:"generation"`
+}
+
+// GetResourceId returns IntentRequestResourceGeneration.ResourceId, and is useful for accessing the field via an interface.
+func (v *IntentRequestResourceGeneration) GetResourceId() string { return v.ResourceId }
+
+// GetGeneration returns IntentRequestResourceGeneration.Generation, and is useful for accessing the field via an interface.
+func (v *IntentRequestResourceGeneration) GetGeneration() int { return v.Generation }
 
 type IntentStatusInput struct {
 	IstioStatus *IstioStatusInput `json:"istioStatus"`
@@ -731,6 +803,17 @@ type ProtectedServiceInput struct {
 // GetName returns ProtectedServiceInput.Name, and is useful for accessing the field via an interface.
 func (v *ProtectedServiceInput) GetName() string { return v.Name }
 
+// ReportAppliedIntentsRequestResponse is returned by ReportAppliedIntentsRequest on success.
+type ReportAppliedIntentsRequestResponse struct {
+	// applied intents requests
+	ReportAppliedIntentsRequest bool `json:"reportAppliedIntentsRequest"`
+}
+
+// GetReportAppliedIntentsRequest returns ReportAppliedIntentsRequestResponse.ReportAppliedIntentsRequest, and is useful for accessing the field via an interface.
+func (v *ReportAppliedIntentsRequestResponse) GetReportAppliedIntentsRequest() bool {
+	return v.ReportAppliedIntentsRequest
+}
+
 // ReportAppliedKubernetesIntentsResponse is returned by ReportAppliedKubernetesIntents on success.
 type ReportAppliedKubernetesIntentsResponse struct {
 	ReportAppliedKubernetesIntents *bool `json:"reportAppliedKubernetesIntents"`
@@ -847,6 +930,24 @@ const (
 	UserErrorTypeTimeout             UserErrorType = "TIMEOUT"
 )
 
+// __GetAppliedIntentsRequestStatusInput is used internally by genqlient
+type __GetAppliedIntentsRequestStatusInput struct {
+	IntentResourceGenerations []IntentRequestResourceGeneration `json:"intentResourceGenerations"`
+}
+
+// GetIntentResourceGenerations returns __GetAppliedIntentsRequestStatusInput.IntentResourceGenerations, and is useful for accessing the field via an interface.
+func (v *__GetAppliedIntentsRequestStatusInput) GetIntentResourceGenerations() []IntentRequestResourceGeneration {
+	return v.IntentResourceGenerations
+}
+
+// __ReportAppliedIntentsRequestInput is used internally by genqlient
+type __ReportAppliedIntentsRequestInput struct {
+	Intents []IntentRequestInput `json:"intents"`
+}
+
+// GetIntents returns __ReportAppliedIntentsRequestInput.Intents, and is useful for accessing the field via an interface.
+func (v *__ReportAppliedIntentsRequestInput) GetIntents() []IntentRequestInput { return v.Intents }
+
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
 type __ReportAppliedKubernetesIntentsInput struct {
 	Namespace *string        `json:"namespace"`
@@ -960,6 +1061,77 @@ type dummyResponse struct {
 
 // GetDummyError returns dummyResponse.DummyError, and is useful for accessing the field via an interface.
 func (v *dummyResponse) GetDummyError() UserErrorType { return v.DummyError }
+
+// The query or mutation executed by GetAppliedIntentsRequestStatus.
+const GetAppliedIntentsRequestStatus_Operation = `
+mutation GetAppliedIntentsRequestStatus ($intentResourceGenerations: [IntentRequestResourceGeneration!]!) {
+	syncPendingRequestStatuses(intentResourceGeneration: $intentResourceGenerations) {
+		resourceId
+		generation
+		reason
+		status
+	}
+}
+`
+
+func GetAppliedIntentsRequestStatus(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	intentResourceGenerations []IntentRequestResourceGeneration,
+) (*GetAppliedIntentsRequestStatusResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "GetAppliedIntentsRequestStatus",
+		Query:  GetAppliedIntentsRequestStatus_Operation,
+		Variables: &__GetAppliedIntentsRequestStatusInput{
+			IntentResourceGenerations: intentResourceGenerations,
+		},
+	}
+	var err_ error
+
+	var data_ GetAppliedIntentsRequestStatusResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
+
+// The query or mutation executed by ReportAppliedIntentsRequest.
+const ReportAppliedIntentsRequest_Operation = `
+mutation ReportAppliedIntentsRequest ($intents: [IntentRequestInput!]!) {
+	reportAppliedIntentsRequest(intents: $intents)
+}
+`
+
+func ReportAppliedIntentsRequest(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	intents []IntentRequestInput,
+) (*ReportAppliedIntentsRequestResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportAppliedIntentsRequest",
+		Query:  ReportAppliedIntentsRequest_Operation,
+		Variables: &__ReportAppliedIntentsRequestInput{
+			Intents: intents,
+		},
+	}
+	var err_ error
+
+	var data_ ReportAppliedIntentsRequestResponse
+	resp_ := &graphql.Response{Data: &data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return &data_, err_
+}
 
 // The query or mutation executed by ReportAppliedKubernetesIntents.
 const ReportAppliedKubernetesIntents_Operation = `

@@ -1007,7 +1007,7 @@ spec:
               resolvedIPs:
                 description: |-
                   ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
-                  Deprecated: Use ApprovedClientIntents.Status.ResolvedIPs instead
+                  Deprecated: Use ApprovedClientIntents.Status.ResolvedIPs instead.  This field is kept here for the migration.
                 items:
                   properties:
                     dns:
@@ -1026,7 +1026,6 @@ spec:
                 description: |-
                   upToDate field reflects whether the client intents have successfully been applied
                   to the cluster to the state specified
-                  Deprecated: Use ApprovedClientIntents.Status.UpToDate instead
                 type: boolean
             type: object
         type: object
@@ -1347,7 +1346,7 @@ spec:
               resolvedIPs:
                 description: |-
                   ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
-                  Deprecated: Use ApprovedClientIntents.Status.ResolvedIPs instead
+                  Deprecated: Use ApprovedClientIntents.Status.ResolvedIPs instead. This field is kept here for the migration.
                 items:
                   properties:
                     dns:
@@ -1366,7 +1365,6 @@ spec:
                 description: |-
                   upToDate field reflects whether the client intents have successfully been applied
                   to the cluster to the state specified
-                  Deprecated: Use ApprovedClientIntents.Status.UpToDate instead
                 type: boolean
             type: object
         type: object

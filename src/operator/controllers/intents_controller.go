@@ -368,10 +368,6 @@ func (r *IntentsReconciler) removeOrphanedApprovedIntents(ctx context.Context) e
 }
 
 func (r *IntentsReconciler) handleCloudAppliedIntentsRequests(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
-	if intents.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved || !intents.DeletionTimestamp.IsZero() {
-		// Will be handled elsewhere
-		return nil
-	}
 	if intents.Status.ReviewStatus == "" {
 		if err := r.updateClientIntentsStatus(ctx, intents, otterizev2alpha1.ReviewStatusPending); err != nil {
 			return errors.Wrap(err)
@@ -398,14 +394,14 @@ func (r *IntentsReconciler) periodicQueryAppliedIntentsRequestsStatus(ctx contex
 		case <-ctx.Done():
 			return
 		case <-approvalQueryTicker.C:
-			if err := r.queryAppliedIntentsRequestsStatus(ctx); err != nil {
+			if err := r.findAndHandlePendingRequests(ctx); err != nil {
 				logrus.WithError(err).Error("periodic intents approval query failed")
 			}
 		}
 	}
 }
 
-func (r *IntentsReconciler) queryAppliedIntentsRequestsStatus(ctx context.Context) error {
+func (r *IntentsReconciler) findAndHandlePendingRequests(ctx context.Context) error {
 	clientIntentsList := &otterizev2alpha1.ClientIntentsList{}
 	statusSelector := fields.OneTermEqualSelector(ReviewStatusIndexField, string(otterizev2alpha1.ReviewStatusPending))
 	if err := r.client.List(ctx, clientIntentsList, &client.ListOptions{FieldSelector: statusSelector}); err != nil {
@@ -443,7 +439,7 @@ func (r *IntentsReconciler) handlePendingRequests(ctx context.Context, pendingCl
 			continue
 		}
 
-		if err := r.handleRequestStatusChanges(ctx, request, clientIntents); err != nil {
+		if err := r.handleRequestStatusResponse(ctx, request, clientIntents); err != nil {
 			return errors.Wrap(err)
 		}
 	}
@@ -451,7 +447,7 @@ func (r *IntentsReconciler) handlePendingRequests(ctx context.Context, pendingCl
 	return nil
 }
 
-func (r *IntentsReconciler) handleRequestStatusChanges(ctx context.Context, request operator_cloud_client.AppliedIntentsRequestStatus, clientIntents otterizev2alpha1.ClientIntents) error {
+func (r *IntentsReconciler) handleRequestStatusResponse(ctx context.Context, request operator_cloud_client.AppliedIntentsRequestStatus, clientIntents otterizev2alpha1.ClientIntents) error {
 	if request.Status == graphqlclient.AppliedIntentsRequestStatusLabelPending {
 		logrus.Debugf("Received pending status for intents request %v", request.ResourceGeneration)
 		return nil
