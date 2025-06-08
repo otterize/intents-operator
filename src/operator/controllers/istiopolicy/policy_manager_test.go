@@ -42,7 +42,7 @@ func (s *PolicyManagerTestSuite) TestCreateProtectedService() {
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -125,7 +125,7 @@ func (s *PolicyManagerTestSuite) TestCreateEnforcementDisabledNoProtectedService
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -165,7 +165,7 @@ func (s *PolicyManagerTestSuite) TestCreateIstioEnforcementDisabledNoProtectedSe
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -201,7 +201,7 @@ func (s *PolicyManagerTestSuite) TestCreateProtectedServiceIstioEnforcementDisab
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -238,7 +238,7 @@ func (s *PolicyManagerTestSuite) TestCreate() {
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -306,7 +306,7 @@ func (s *PolicyManagerTestSuite) TestCreateHTTPResources() {
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -409,7 +409,7 @@ func (s *PolicyManagerTestSuite) TestUpdateHTTPResources() {
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -556,7 +556,7 @@ func (s *PolicyManagerTestSuite) TestNothingToUpdateHTTPResources() {
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -663,7 +663,7 @@ func (s *PolicyManagerTestSuite) TestNamespaceNotAllowed() {
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 	s.admin.restrictToNamespaces = []string{fmt.Sprintf("this-is-not-%s", clientIntentsNamespace)}
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -692,7 +692,7 @@ func (s *PolicyManagerTestSuite) TestNamespaceAllowed() {
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 	s.admin.restrictToNamespaces = []string{clientIntentsNamespace}
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -755,7 +755,7 @@ func (s *PolicyManagerTestSuite) TestUpdatePolicy() {
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -862,7 +862,7 @@ func (s *PolicyManagerTestSuite) TestDeleteAllPoliciesForClientIntents() {
 	serverName2 := "test-server-2"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -904,7 +904,7 @@ func (s *PolicyManagerTestSuite) TestNothingToUpdate() {
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -970,7 +970,7 @@ func (s *PolicyManagerTestSuite) TestDeletePolicy() {
 	policyName := "authorization-policy-to-test-server-from-test-client.test-namespace"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      policyName,
 			Namespace: clientIntentsNamespace,
@@ -1069,7 +1069,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServiceAccount() {
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1087,7 +1087,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServiceAccount() {
 	}
 
 	clientServiceAccountName := "test-client-sa"
-	labeledIntents := v2alpha1.ClientIntents{
+	labeledIntents := v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1107,7 +1107,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServiceAccount() {
 		},
 	}
 
-	intentsWithStatus := v2alpha1.ClientIntents{
+	intentsWithStatus := v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1128,18 +1128,18 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServiceAccount() {
 		},
 	}
 	gomock.InOrder(
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(labeledIntents, *intents)
 		}).Return(nil),
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			missingSideCar, ok := intents.Annotations[v2alpha1.OtterizeMissingSidecarAnnotation]
 			s.True(ok)
 			s.Equal(strconv.FormatBool(false), missingSideCar)
 		}).Return(nil),
-		s.Client.EXPECT().List(gomock.Any(), &v2alpha1.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v2alpha1.ClientIntentsList, _ ...client.ListOption) {
+		s.Client.EXPECT().List(gomock.Any(), &v2alpha1.ApprovedClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntentsList, _ ...client.ListOption) {
 			intents.Items = append(intents.Items, labeledIntents)
 		}).Return(nil),
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(intentsWithStatus, *intents)
 		}).Return(nil),
 	)
@@ -1153,7 +1153,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusMissingSidecar() {
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1171,7 +1171,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusMissingSidecar() {
 	}
 
 	clientServiceAccountName := "test-client-sa"
-	labeledIntents := v2alpha1.ClientIntents{
+	labeledIntents := v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1191,7 +1191,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusMissingSidecar() {
 		},
 	}
 
-	intentsWithStatus := v2alpha1.ClientIntents{
+	intentsWithStatus := v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1212,18 +1212,18 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusMissingSidecar() {
 		},
 	}
 	gomock.InOrder(
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(labeledIntents, *intents)
 		}).Return(nil),
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			missingSideCar, ok := intents.Annotations[v2alpha1.OtterizeMissingSidecarAnnotation]
 			s.True(ok)
 			s.Equal(strconv.FormatBool(true), missingSideCar)
 		}).Return(nil),
-		s.Client.EXPECT().List(gomock.Any(), &v2alpha1.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v2alpha1.ClientIntentsList, _ ...client.ListOption) {
+		s.Client.EXPECT().List(gomock.Any(), &v2alpha1.ApprovedClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntentsList, _ ...client.ListOption) {
 			intents.Items = append(intents.Items, labeledIntents)
 		}).Return(nil),
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(intentsWithStatus, *intents)
 		}).Return(nil),
 	)
@@ -1245,7 +1245,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServerMissingSidecar() {
 	}
 
 	gomock.InOrder(
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(*intentsWithStatus, *intents)
 		}).Return(nil),
 	)
@@ -1255,8 +1255,8 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServerMissingSidecar() {
 	s.ExpectEvent(ReasonServerMissingSidecar)
 }
 
-func emptyIntents(clientIntentsNamespace string, clientName string, serverName string) *v2alpha1.ClientIntents {
-	intents := &v2alpha1.ClientIntents{
+func emptyIntents(clientIntentsNamespace string, clientName string, serverName string) *v2alpha1.ApprovedClientIntents {
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1309,7 +1309,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServerMissingSidecarExistingSer
 	}
 
 	gomock.InOrder(
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(*intentsWithStatus, *intents)
 		}).Return(nil),
 	)
@@ -1338,7 +1338,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServerHasSidecarRemovedFromList
 	}
 
 	gomock.InOrder(
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(*intentsWithStatus, *intents)
 		}).Return(nil),
 	)
@@ -1366,7 +1366,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusServerHasSidecarRemovedLastFrom
 	}
 
 	gomock.InOrder(
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(*intentsWithStatus, *intents)
 		}).Return(nil),
 	)
@@ -1397,7 +1397,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 	serverName := "test-server"
 	clientIntentsNamespace := "test-namespace"
 
-	intents := &v2alpha1.ClientIntents{
+	intents := &v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1415,7 +1415,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 	}
 
 	clientServiceAccountName := "test-client-sa"
-	labeledIntents := v2alpha1.ClientIntents{
+	labeledIntents := v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1435,7 +1435,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 		},
 	}
 
-	anotherIntents := v2alpha1.ClientIntents{
+	anotherIntents := v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-other-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1455,7 +1455,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 		},
 	}
 
-	intentsWithStatus := v2alpha1.ClientIntents{
+	intentsWithStatus := v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1476,7 +1476,7 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 		},
 	}
 
-	anotherIntentsWithStatus := v2alpha1.ClientIntents{
+	anotherIntentsWithStatus := v2alpha1.ApprovedClientIntents{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "test-other-client-intents",
 			Namespace: clientIntentsNamespace,
@@ -1499,27 +1499,27 @@ func (s *PolicyManagerTestSuite) TestUpdateStatusSharedServiceAccount() {
 	isMissingSideCar := false
 
 	gomock.InOrder(
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(labeledIntents, *intents)
 		}).Return(nil),
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			missingSideCar, ok := intents.Annotations[v2alpha1.OtterizeMissingSidecarAnnotation]
 			s.Equal(true, ok)
 			s.Equal(strconv.FormatBool(isMissingSideCar), missingSideCar)
 		}).Return(nil),
-		s.Client.EXPECT().List(gomock.Any(), &v2alpha1.ClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v2alpha1.ClientIntentsList, _ ...client.ListOption) {
+		s.Client.EXPECT().List(gomock.Any(), &v2alpha1.ApprovedClientIntentsList{}, &client.ListOptions{Namespace: clientIntentsNamespace}).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntentsList, _ ...client.ListOption) {
 			intents.Items = append(intents.Items, labeledIntents, anotherIntents)
 		}).Return(nil),
 	)
 
 	gomock.InOrder(
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(intentsWithStatus, *intents)
 		}).Return(nil),
 	)
 
 	gomock.InOrder(
-		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ClientIntents, _ client.Patch, _ ...client.PatchOption) {
+		s.Client.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any()).Do(func(_ context.Context, intents *v2alpha1.ApprovedClientIntents, _ client.Patch, _ ...client.PatchOption) {
 			s.Equal(anotherIntentsWithStatus, *intents)
 		}).Return(nil),
 	)

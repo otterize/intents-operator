@@ -8,6 +8,7 @@ import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/operator/controllers/access_annotation"
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/prometheus"
 	"github.com/otterize/intents-operator/src/shared/databaseconfigurator"
 	"github.com/otterize/intents-operator/src/shared/errors"
@@ -184,19 +185,19 @@ func (p *PodWatcher) updateServerSideCar(ctx context.Context, pod v1.Pod, servic
 	missingSideCar := !istiopolicy.IsPodPartOfIstioMesh(pod)
 
 	serviceFullName := fmt.Sprintf("%s.%s", serviceID.Name, pod.Namespace)
-	var intentsList otterizev2alpha1.ClientIntentsList
+	var approvedClientIntentsList otterizev2alpha1.ApprovedClientIntentsList
 	err := p.List(
-		ctx, &intentsList,
+		ctx, &approvedClientIntentsList,
 		&client.MatchingFields{otterizev2alpha1.OtterizeTargetServerIndexField: serviceFullName})
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	if len(intentsList.Items) == 0 {
+	if len(approvedClientIntentsList.Items) == 0 {
 		return nil
 	}
 
-	for _, clientIntents := range intentsList.Items {
+	for _, clientIntents := range approvedClientIntentsList.Items {
 		err = p.istioPolicyAdmin.UpdateServerSidecar(ctx, &clientIntents, serviceID.GetFormattedOtterizeIdentityWithoutKind(), missingSideCar)
 		if err != nil {
 			return errors.Wrap(err)
@@ -279,8 +280,8 @@ func (p *PodWatcher) addOtterizePodLabels(ctx context.Context, req ctrl.Request,
 	return nil
 }
 
-func (p *PodWatcher) getClientIntentsForServiceIdentity(ctx context.Context, serviceID serviceidentity.ServiceIdentity) ([]otterizev2alpha1.ClientIntents, error) {
-	var intents otterizev2alpha1.ClientIntentsList
+func (p *PodWatcher) getClientIntentsForServiceIdentity(ctx context.Context, serviceID serviceidentity.ServiceIdentity) ([]otterizev2alpha1.ApprovedClientIntents, error) {
+	var intents otterizev2alpha1.ApprovedClientIntentsList
 
 	// first check if there are intents specifically for this service identity (with kind)
 	err := p.List(
@@ -288,14 +289,14 @@ func (p *PodWatcher) getClientIntentsForServiceIdentity(ctx context.Context, ser
 		&client.MatchingFields{OtterizeClientNameWithKindIndexField: serviceID.GetNameWithKind()},
 		&client.ListOptions{Namespace: serviceID.Namespace})
 	if err != nil {
-		return []otterizev2alpha1.ClientIntents{}, errors.Wrap(err)
+		return []otterizev2alpha1.ApprovedClientIntents{}, errors.Wrap(err)
 	}
 
 	clientIntentsWithKind := intents.Items
 
 	intentsFromAnnotation, err := p.getIntentsFromAccessAnnotation(ctx, serviceID)
 	if err != nil {
-		return []otterizev2alpha1.ClientIntents{}, errors.Wrap(err)
+		return []otterizev2alpha1.ApprovedClientIntents{}, errors.Wrap(err)
 	}
 
 	// list all intents for this service name (without kind)
@@ -304,7 +305,7 @@ func (p *PodWatcher) getClientIntentsForServiceIdentity(ctx context.Context, ser
 		&client.MatchingFields{OtterizeClientNameIndexField: serviceID.Name},
 		&client.ListOptions{Namespace: serviceID.Namespace})
 	if err != nil {
-		return []otterizev2alpha1.ClientIntents{}, errors.Wrap(err)
+		return []otterizev2alpha1.ApprovedClientIntents{}, errors.Wrap(err)
 	}
 
 	clientIntentsWithoutKind := intents.Items
@@ -352,9 +353,9 @@ func (p *PodWatcher) getServersFromAnnotationsCalledByTheService(ctx context.Con
 	return serversPods, nil
 }
 
-func appendCalls(client serviceidentity.ServiceIdentity, intentsFromCRD []otterizev2alpha1.ClientIntents, intentsFromAnnotation []otterizev2alpha1.Target) []otterizev2alpha1.ClientIntents {
+func appendCalls(client serviceidentity.ServiceIdentity, intentsFromCRD []otterizev2alpha1.ApprovedClientIntents, intentsFromAnnotation []otterizev2alpha1.Target) []otterizev2alpha1.ApprovedClientIntents {
 	if len(intentsFromCRD) == 0 && len(intentsFromAnnotation) > 0 {
-		clientIntent := otterizev2alpha1.ClientIntents{
+		clientIntent := otterizev2alpha1.ApprovedClientIntents{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      client.Name,
 				Namespace: client.Namespace,
@@ -367,7 +368,7 @@ func appendCalls(client serviceidentity.ServiceIdentity, intentsFromCRD []otteri
 				Targets: intentsFromAnnotation,
 			},
 		}
-		return []otterizev2alpha1.ClientIntents{clientIntent}
+		return []otterizev2alpha1.ApprovedClientIntents{clientIntent}
 	}
 	for _, clientIntent := range intentsFromCRD {
 		clientIntent.Spec.Targets = append(clientIntent.Spec.Targets, intentsFromAnnotation...)
@@ -379,7 +380,7 @@ func (p *PodWatcher) istioEnforcementEnabled() bool {
 	return viper.GetBool(enforcement.EnableIstioPolicyKey)
 }
 
-func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev2alpha1.ClientIntents, pod v1.Pod) error {
+func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev2alpha1.ApprovedClientIntents, pod v1.Pod) error {
 	if intents.DeletionTimestamp != nil {
 		return nil
 	}
@@ -407,10 +408,10 @@ func (p *PodWatcher) createIstioPolicies(ctx context.Context, intents otterizev2
 func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 	err := mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev2alpha1.ClientIntents{},
+		&otterizev2alpha1.ApprovedClientIntents{},
 		OtterizeClientNameIndexField,
 		func(object client.Object) []string {
-			intents := object.(*otterizev2alpha1.ClientIntents)
+			intents := object.(*otterizev2alpha1.ApprovedClientIntents)
 			if intents.Spec == nil {
 				return nil
 			}
@@ -423,10 +424,10 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 
 	err = mgr.GetCache().IndexField(
 		context.Background(),
-		&otterizev2alpha1.ClientIntents{},
+		&otterizev2alpha1.ApprovedClientIntents{},
 		OtterizeClientNameWithKindIndexField,
 		func(object client.Object) []string {
-			intents := object.(*otterizev2alpha1.ClientIntents)
+			intents := object.(*otterizev2alpha1.ApprovedClientIntents)
 			serviceIdentity := intents.ToServiceIdentity()
 			return []string{serviceIdentity.GetNameWithKind()}
 		})
@@ -446,7 +447,7 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 			clients, ok, err := access_annotation.ParseAccessAnnotations(pod)
 			if err != nil {
 				logrus.WithError(err).Error("Failed to parse access annotation")
-				mgr.GetEventRecorderFor("intents-operator").Eventf(pod, "Warning", FailedParsingAnnotationEvent, annotationParsingErr(err))
+				mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator").Eventf(pod, "Warning", FailedParsingAnnotationEvent, annotationParsingErr(err))
 				return []string{}
 			}
 			if !ok {
@@ -475,7 +476,7 @@ func (p *PodWatcher) InitIntentsClientIndices(mgr manager.Manager) error {
 			_, ok, err := access_annotation.ParseAccessAnnotations(pod)
 			if err != nil {
 				logrus.WithError(err).Error("Failed to parse access annotation")
-				mgr.GetEventRecorderFor("intents-operator").Eventf(pod, "Warning", FailedParsingAnnotationEvent, annotationParsingErr(err))
+				mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator").Eventf(pod, "Warning", FailedParsingAnnotationEvent, annotationParsingErr(err))
 				return []string{}
 			}
 			if !ok {
@@ -584,7 +585,7 @@ func (p *PodWatcher) handleDatabaseIntents(ctx context.Context, pod v1.Pod, serv
 		return ctrl.Result{}, errors.Wrap(err)
 	}
 
-	dbIntents := lo.Filter(clientIntents, func(clientIntents otterizev2alpha1.ClientIntents, _ int) bool {
+	dbIntents := lo.Filter(clientIntents, func(clientIntents otterizev2alpha1.ApprovedClientIntents, _ int) bool {
 		return len(clientIntents.GetDatabaseIntents()) > 0
 	})
 	for _, clientIntents := range dbIntents {

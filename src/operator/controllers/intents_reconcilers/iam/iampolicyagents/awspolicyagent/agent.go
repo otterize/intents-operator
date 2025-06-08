@@ -69,6 +69,6 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 	return a.agent.AddRolePolicy(ctx, namespace, accountName, intentsServiceName, policyDoc.Statement)
 }
 
-func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ApprovedClientIntents) error {
 	return a.agent.DeleteRolePolicyByNamespacedName(ctx, intents.Namespace, intents.Spec.Workload.Name)
 }

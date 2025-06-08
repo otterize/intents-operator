@@ -39,55 +39,56 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 const (
-	OtterizeAccessLabelPrefix                  = "intents.otterize.com/access"
-	OtterizeServiceAccessLabelPrefix           = "intents.otterize.com/svc-access"
-	OtterizeAccessLabelKey                     = "intents.otterize.com/access-%s"
-	OtterizeSvcAccessLabelKey                  = "intents.otterize.com/svc-access-%s"
-	OtterizeClientLabelKey                     = "intents.otterize.com/client"
-	OtterizeServiceLabelKey                    = "intents.otterize.com/service"
-	OtterizeOwnerKindLabelKey                  = "intents.otterize.com/owner-kind"
-	OtterizeServerLabelKeyDeprecated           = "intents.otterize.com/server"
-	OtterizeKubernetesServiceLabelKeyPrefix    = "intents.otterize.com/k8s-svc"
-	OtterizeKubernetesServiceLabelKey          = "intents.otterize.com/k8s-svc-%s"
-	KubernetesStandardNamespaceNameLabelKey    = "kubernetes.io/metadata.name"
-	AllIntentsRemovedAnnotation                = "intents.otterize.com/all-intents-removed"
-	OtterizeCreatedForServiceAnnotation        = "intents.otterize.com/created-for-service"
-	OtterizeCreatedForIngressAnnotation        = "intents.otterize.com/created-for-ingress"
-	OtterizeSingleNetworkPolicyNameTemplate    = "%s-access"
-	OtterizeLinkerdMeshTLSAnnotationKey        = "intents.otterize.com/linkerd-authenticates"
-	OtterizeLinkerdServerAnnotationKey         = "intents.otterize.com/linkerd-server"
-	OtterizeNetworkPolicyIngressNameTemplate   = "%s-ingress"
-	OtterizeNetworkPolicyEgressNameTemplate    = "%s-egress"
-	OtterizeNetworkPolicy                      = "intents.otterize.com/network-policy"
-	OtterizeSvcNetworkPolicy                   = "intents.otterize.com/svc-network-policy"
-	OtterizeNetworkPolicyServiceDefaultDeny    = "intents.otterize.com/network-policy-service-default-deny"
-	OtterizeNetworkPolicyExternalTraffic       = "intents.otterize.com/network-policy-external-traffic"
-	OtterizeNetPolMetricsCollectors            = "intents.otterize.com/network-policy-metrics-collectors"
-	OtterizeNetPolMetricsCollectorsLevel       = "intents.otterize.com/network-policy-metrics-collectors-level"
-	OtterizeNetworkPolicyWebhooks              = "intents.otterize.com/network-policy-webhooks"
-	ClientIntentsFinalizerName                 = "intents.otterize.com/client-intents-finalizer"
-	ProtectedServicesFinalizerName             = "intents.otterize.com/protected-services-finalizer"
-	OtterizeIstioClientAnnotationKeyDeprecated = "intents.otterize.com/istio-client"
-	OtterizeIstioClientWithKindLabelKey        = "intents.otterize.com/istio-client-with-kind"
-	OtterizeClientServiceAccountAnnotation     = "intents.otterize.com/client-intents-service-account"
-	OtterizeSharedServiceAccountAnnotation     = "intents.otterize.com/shared-service-account"
-	OtterizeMissingSidecarAnnotation           = "intents.otterize.com/service-missing-sidecar"
-	OtterizeServersWithoutSidecarAnnotation    = "intents.otterize.com/servers-without-sidecar"
-	OtterizeTargetServerIndexField             = "spec.service.calls.server"
-	OtterizeKafkaServerConfigServiceNameField  = "spec.service.name"
-	OtterizeProtectedServiceNameIndexField     = "spec.name"
-	OtterizeFormattedTargetServerIndexField    = "formattedTargetServer"
-	OtterizePodByOwnerKindAndNameIndexField    = "podByOwnerKindAndName"
-	EndpointsPodNamesIndexField                = "endpointsPodNames"
-	IngressServiceNamesIndexField              = "ingressServiceNames"
-	MaxOtterizeNameLength                      = 20
-	MaxNamespaceLength                         = 20
-	OtterizeSvcEgressNetworkPolicy             = "intents.otterize.com/svc-egress-network-policy"
-	OtterizeEgressNetworkPolicy                = "intents.otterize.com/egress-network-policy"
-	OtterizeInternetNetworkPolicy              = "intents.otterize.com/egress-internet-network-policy"
-	OtterizeInternetTargetName                 = "internet"
-	KubernetesAPIServerName                    = "kubernetes"
-	KubernetesAPIServerNamespace               = "default"
+	OtterizeAccessLabelPrefix                    = "intents.otterize.com/access"
+	OtterizeServiceAccessLabelPrefix             = "intents.otterize.com/svc-access"
+	OtterizeAccessLabelKey                       = "intents.otterize.com/access-%s"
+	OtterizeSvcAccessLabelKey                    = "intents.otterize.com/svc-access-%s"
+	OtterizeClientLabelKey                       = "intents.otterize.com/client"
+	OtterizeServiceLabelKey                      = "intents.otterize.com/service"
+	OtterizeOwnerKindLabelKey                    = "intents.otterize.com/owner-kind"
+	OtterizeServerLabelKeyDeprecated             = "intents.otterize.com/server"
+	OtterizeKubernetesServiceLabelKeyPrefix      = "intents.otterize.com/k8s-svc"
+	OtterizeKubernetesServiceLabelKey            = "intents.otterize.com/k8s-svc-%s"
+	KubernetesStandardNamespaceNameLabelKey      = "kubernetes.io/metadata.name"
+	AllIntentsRemovedAnnotation                  = "intents.otterize.com/all-intents-removed"
+	OtterizeCreatedForServiceAnnotation          = "intents.otterize.com/created-for-service"
+	OtterizeCreatedForIngressAnnotation          = "intents.otterize.com/created-for-ingress"
+	OtterizeSingleNetworkPolicyNameTemplate      = "%s-access"
+	OtterizeLinkerdMeshTLSAnnotationKey          = "intents.otterize.com/linkerd-authenticates"
+	OtterizeLinkerdServerAnnotationKey           = "intents.otterize.com/linkerd-server"
+	OtterizeNetworkPolicyIngressNameTemplate     = "%s-ingress"
+	OtterizeNetworkPolicyEgressNameTemplate      = "%s-egress"
+	OtterizeNetworkPolicy                        = "intents.otterize.com/network-policy"
+	OtterizeSvcNetworkPolicy                     = "intents.otterize.com/svc-network-policy"
+	OtterizeNetworkPolicyServiceDefaultDeny      = "intents.otterize.com/network-policy-service-default-deny"
+	OtterizeNetworkPolicyExternalTraffic         = "intents.otterize.com/network-policy-external-traffic"
+	OtterizeNetPolMetricsCollectors              = "intents.otterize.com/network-policy-metrics-collectors"
+	OtterizeNetPolMetricsCollectorsLevel         = "intents.otterize.com/network-policy-metrics-collectors-level"
+	OtterizeNetworkPolicyWebhooks                = "intents.otterize.com/network-policy-webhooks"
+	ClientIntentsFinalizerName                   = "intents.otterize.com/client-intents-finalizer"
+	ProtectedServicesFinalizerName               = "intents.otterize.com/protected-services-finalizer"
+	OtterizeIstioClientAnnotationKeyDeprecated   = "intents.otterize.com/istio-client"
+	OtterizeIstioClientWithKindLabelKey          = "intents.otterize.com/istio-client-with-kind"
+	OtterizeClientServiceAccountAnnotation       = "intents.otterize.com/client-intents-service-account"
+	OtterizeSharedServiceAccountAnnotation       = "intents.otterize.com/shared-service-account"
+	OtterizeMissingSidecarAnnotation             = "intents.otterize.com/service-missing-sidecar"
+	OtterizeServersWithoutSidecarAnnotation      = "intents.otterize.com/servers-without-sidecar"
+	OtterizeTargetServerIndexField               = "spec.service.calls.server"
+	OtterizeKafkaServerConfigServiceNameField    = "spec.service.name"
+	OtterizeProtectedServiceNameIndexField       = "spec.name"
+	OtterizeFormattedTargetServerIndexField      = "formattedTargetServer"
+	OtterizePodByOwnerKindAndNameIndexField      = "podByOwnerKindAndName"
+	EndpointsPodNamesIndexField                  = "endpointsPodNames"
+	IngressServiceNamesIndexField                = "ingressServiceNames"
+	OtterizeClientIntentsPendingReviewIndexField = "pendingReview"
+	MaxOtterizeNameLength                        = 20
+	MaxNamespaceLength                           = 20
+	OtterizeSvcEgressNetworkPolicy               = "intents.otterize.com/svc-egress-network-policy"
+	OtterizeEgressNetworkPolicy                  = "intents.otterize.com/egress-network-policy"
+	OtterizeInternetNetworkPolicy                = "intents.otterize.com/egress-internet-network-policy"
+	OtterizeInternetTargetName                   = "internet"
+	KubernetesAPIServerName                      = "kubernetes"
+	KubernetesAPIServerNamespace                 = "default"
 )
 
 // +kubebuilder:validation:Enum=http;kafka;database;aws;gcp;azure;internet
@@ -353,6 +354,14 @@ type ResolvedIPs struct {
 	IPs []string `json:"ips,omitempty" yaml:"ips,omitempty"`
 }
 
+type ReviewStatus string
+
+const (
+	ReviewStatusApproved ReviewStatus = "APPROVED"
+	ReviewStatusPending  ReviewStatus = "PENDING"
+	ReviewStatusDenied   ReviewStatus = "DENIED"
+)
+
 type AzureKeyVaultPolicy struct {
 	//+optional
 	CertificatePermissions []AzureKeyVaultCertificatePermission `json:"certificatePermissions,omitempty" yaml:"certificatePermissions,omitempty"`
@@ -370,12 +379,18 @@ type IntentsStatus struct {
 	// to the cluster to the state specified
 	// +optional
 	UpToDate bool `json:"upToDate"`
-	// The last generation of the intents that was successfully reconciled.
+
+	// The last generation of the intents that was observed by the operator.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration"`
+
 	// ResolvedIPs stores resolved IPs for a domain name - the network mapper populates it when DNS internetTarget is used
+	// Deprecated: Use ApprovedClientIntents.Status.ResolvedIPs instead.  This field is kept here for the migration.
 	// +optional
 	ResolvedIPs []ResolvedIPs `json:"resolvedIPs,omitempty" yaml:"resolvedIPs,omitempty"`
+
+	// ReviewStatus stores the review status for these ClientIntents (whether they were approved, denied, or pending)
+	ReviewStatus ReviewStatus `json:"reviewStatus,omitempty" yaml:"reviewStatus,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -402,6 +417,13 @@ type ClientIntentsList struct {
 
 func init() {
 	SchemeBuilder.Register(&ClientIntents{}, &ClientIntentsList{})
+}
+
+func (in *ClientIntents) GetResourceGeneration() graphqlclient.IntentRequestResourceGeneration {
+	return graphqlclient.IntentRequestResourceGeneration{
+		ResourceId: string(in.UID),
+		Generation: int(in.Generation),
+	}
 }
 
 func (in *ClientIntents) GetWorkloadName() string {
@@ -673,6 +695,35 @@ func (in *ClientIntentsList) FormatAsOtterizeIntents(ctx context.Context, k8sCli
 				input.Status = statusInput
 			}
 			otterizeIntents = append(otterizeIntents, lo.ToPtr(input))
+		}
+	}
+
+	return otterizeIntents, nil
+}
+
+func (in *ClientIntentsList) FormatAsOtterizeIntentsRequests(ctx context.Context, k8sClient client.Client) ([]*graphqlclient.IntentRequestInput, error) {
+	otterizeIntents := make([]*graphqlclient.IntentRequestInput, 0)
+	for _, clientIntents := range in.Items {
+		for _, intent := range clientIntents.GetTargetList() {
+			clientServiceIdentity := clientIntents.ToServiceIdentity()
+			input, err := intent.ConvertToCloudFormat(ctx, k8sClient, clientServiceIdentity)
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+			statusInput, ok, err := clientIntentsStatusToCloudFormat(clientIntents, intent)
+			if err != nil {
+				return nil, errors.Wrap(err)
+			}
+
+			input.Status = nil
+			if ok {
+				input.Status = statusInput
+			}
+
+			otterizeIntents = append(otterizeIntents, &graphqlclient.IntentRequestInput{
+				Intent:             input,
+				ResourceGeneration: clientIntents.GetResourceGeneration(),
+			})
 		}
 	}
 

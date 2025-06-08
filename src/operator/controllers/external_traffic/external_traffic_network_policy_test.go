@@ -19,6 +19,7 @@ import (
 	podreconcilersmocks "github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/protected_service_reconcilers"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
@@ -86,12 +87,11 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	s.Require().NoError((&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator))
 	intentsValidator13 := webhooks.NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
 	s.Require().NoError((&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator13))
-	intentsValidator2 := webhooks.NewIntentsValidatorV2alpha1(s.Mgr.GetClient())
-	s.Require().NoError((&otterizev2alpha1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
+	s.Require().NoError((&otterizev2alpha1.ApprovedClientIntents{}).SetupWebhookWithManager(s.Mgr))
 	intentsValidator2beta1 := webhooks.NewIntentsValidatorV2beta1(s.Mgr.GetClient())
 	s.Require().NoError((&otterizev2beta1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2beta1))
 
-	recorder := s.Mgr.GetEventRecorderFor("intents-operator")
+	recorder := mirrorevents.GetMirrorToClientIntentsEventRecorderFor(s.Mgr, "intents-operator")
 	testName := s.T().Name()
 	isShadowMode := strings.Contains(testName, "ShadowMode")
 	defaultActive := !isShadowMode
@@ -101,7 +101,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	serviceIdResolver := serviceidresolver.NewResolver(s.Mgr.GetClient())
 	epReconciler := effectivepolicy.NewGroupReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, serviceIdResolver, netpolReconciler)
 	s.EffectivePolicyIntentsReconciler = intents_reconcilers.NewServiceEffectiveIntentsReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, epReconciler)
-	s.Require().NoError((&controllers.IntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
+	s.Require().NoError((&controllers.ApprovedIntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
 	s.EffectivePolicyIntentsReconciler.InjectRecorder(recorder)
 
 	s.endpointReconciler = NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
@@ -119,7 +119,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) SetupTest() {
 	err = s.podWatcher.InitIntentsClientIndices(s.Mgr)
 	s.Require().NoError(err)
 
-	err = (&controllers.IntentsReconciler{}).InitEndpointsPodNamesIndex(s.Mgr)
+	err = (&controllers.ApprovedIntentsReconciler{}).InitEndpointsPodNamesIndex(s.Mgr)
 	s.Require().NoError(err)
 }
 
@@ -572,7 +572,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	// Delete the intent and reconcile it
 	s.Require().NoError(s.Mgr.GetClient().Delete(context.Background(), intents))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		intentsDeleted := &otterizev2alpha1.ClientIntents{}
+		intentsDeleted := &otterizev2alpha1.ApprovedClientIntents{}
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intents.Name}, intentsDeleted)
 		assert.NoError(err)
 		assert.NotNil(intentsDeleted.DeletionTimestamp)
@@ -684,7 +684,7 @@ func (s *ExternalNetworkPolicyReconcilerTestSuite) TestNetworkPolicyCreateForLoa
 	// Delete the intent and reconcile it
 	s.Require().NoError(s.Mgr.GetClient().Delete(context.Background(), intents))
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
-		intentsDeleted := &otterizev2alpha1.ClientIntents{}
+		intentsDeleted := &otterizev2alpha1.ApprovedClientIntents{}
 		err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: intents.Name}, intentsDeleted)
 		assert.NoError(err)
 		assert.NotNil(intentsDeleted.DeletionTimestamp)

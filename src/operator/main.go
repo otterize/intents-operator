@@ -17,6 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
+	"github.com/otterize/intents-operator/src/operator/otterizecrds"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"context"
 	"github.com/bombsimon/logrusr/v3"
 	linkerdauthscheme "github.com/linkerd/linkerd2/controller/gen/apis/policy/v1alpha1"
@@ -334,7 +338,7 @@ func main() {
 		iamIntentsReconciler := iam.NewIAMIntentsReconciler(mgr.GetClient(), scheme, serviceIdResolver, iamAgent)
 		additionalIntentsReconcilers = append(additionalIntentsReconcilers, iamIntentsReconciler)
 
-		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), iamIntentsReconciler)
+		iamPodWatcher := iam_pod_reconciler.NewIAMPodReconciler(mgr.GetClient(), mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator"), iamIntentsReconciler)
 		err = iamPodWatcher.SetupWithManager(mgr)
 
 		if err != nil {
@@ -383,7 +387,7 @@ func main() {
 		logrus.Infof("Running with enforcement disabled globally, won't perform any enforcement")
 	}
 
-	intentsReconciler := controllers.NewIntentsReconciler(
+	approvedIntentsReconciler := controllers.NewApprovedIntentsReconciler(
 		mgr.GetClient(),
 		mgr.GetScheme(),
 		kafkaServersStore,
@@ -394,20 +398,25 @@ func main() {
 		additionalIntentsReconcilers...,
 	)
 
-	if err = intentsReconciler.InitIntentsServerIndices(mgr); err != nil {
+	if err = approvedIntentsReconciler.InitIntentsServerIndices(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to init indices")
 	}
 
-	if err = intentsReconciler.InitEndpointsPodNamesIndex(mgr); err != nil {
+	if err = approvedIntentsReconciler.InitEndpointsPodNamesIndex(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to init indices")
 	}
 
-	if err = intentsReconciler.InitProtectedServiceIndexField(mgr); err != nil {
+	if err = approvedIntentsReconciler.InitProtectedServiceIndexField(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to init protected service index")
 	}
 
+	if err = approvedIntentsReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Approved Intents")
+	}
+
+	intentsReconciler := controllers.NewIntentsReconciler(signalHandlerCtx, mgr.GetClient(), otterizeCloudClient, viper.GetBool(operatorconfig.EnableIntentsCloudApproval))
 	if err = intentsReconciler.SetupWithManager(mgr); err != nil {
-		logrus.WithError(err).Panic("unable to create controller", "controller", "Intents")
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Client Intents")
 	}
 
 	if telemetriesconfig.IsUsageTelemetryEnabled() {
@@ -415,6 +424,11 @@ func main() {
 		if err = telemetryReconciler.SetupWithManager(mgr); err != nil {
 			logrus.WithError(err).Panic("unable to create controller", "controller", "Telemetry")
 		}
+	}
+
+	upToDateReconciler := intents_reconcilers.NewUpToDateReconciler(mgr.GetClient(), mgr.GetScheme())
+	if err = upToDateReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "UpToDate")
 	}
 
 	if otterizeCloudClient != nil {
@@ -492,9 +506,9 @@ func main() {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "ProtectedServices")
 	}
 
-	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, intentsReconciler, epGroupReconciler)
+	podWatcher := pod_reconcilers.NewPodWatcher(mgr.GetClient(), mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator"), watchedNamespaces, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcedNamespaces, approvedIntentsReconciler, epGroupReconciler)
 	nsWatcher := pod_reconcilers.NewNamespaceWatcher(mgr.GetClient())
-	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mgr.GetEventRecorderFor("intents-operator"), epGroupReconciler, enforcementConfig.EnableNetworkPolicy)
+	svcWatcher := port_network_policy.NewServiceWatcher(mgr.GetClient(), mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator"), epGroupReconciler, enforcementConfig.EnableNetworkPolicy)
 
 	err = svcWatcher.SetupWithManager(mgr)
 	if err != nil {
@@ -540,6 +554,15 @@ func main() {
 	logrus.Info("starting manager")
 	telemetrysender.SendIntentOperator(telemetriesgql.EventTypeStarted, 1)
 	telemetrysender.IntentsOperatorRunActiveReporter(signalHandlerCtx)
+
+	directClient, err := client.New(ctrl.GetConfigOrDie(), client.Options{Scheme: mgr.GetScheme()})
+	if err != nil {
+		logrus.WithError(err).Panic("unable to create kubernetes API client")
+	}
+	err = otterizecrds.WaitForApprovedClientIntentsMigration(signalHandlerCtx, directClient)
+	if err != nil {
+		logrus.WithError(err).Panic("approved client intents migration has not completed")
+	}
 
 	if err := mgr.Start(signalHandlerCtx); err != nil {
 		logrus.WithError(err).Panic("problem running manager")

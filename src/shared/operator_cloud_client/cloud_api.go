@@ -7,6 +7,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
+	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
 )
 
@@ -20,6 +21,8 @@ type CloudClient interface {
 	ReportProtectedServices(ctx context.Context, namespace string, protectedServices []graphqlclient.ProtectedServiceInput) error
 	ReportIntentEvents(ctx context.Context, events []graphqlclient.ClientIntentEventInput) error
 	ReportClientIntentStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) error
+	ReportAppliedIntentsRequest(ctx context.Context, intents []*graphqlclient.IntentRequestInput) error
+	GetAppliedIntentsRequestsStatus(ctx context.Context, resourceGenerations []graphqlclient.IntentRequestResourceGeneration) ([]AppliedIntentsRequestStatus, error)
 }
 
 type CloudClientImpl struct {
@@ -123,5 +126,21 @@ func (c *CloudClientImpl) ReportIntentEvents(ctx context.Context, events []graph
 
 func (c *CloudClientImpl) ReportClientIntentStatuses(ctx context.Context, statuses []graphqlclient.ClientIntentStatusInput) error {
 	_, err := graphqlclient.ReportClientIntentStatuses(ctx, c.client, statuses)
+	return errors.Wrap(err)
+}
+
+func (c *CloudClientImpl) GetAppliedIntentsRequestsStatus(ctx context.Context, resourceGenerations []graphqlclient.IntentRequestResourceGeneration) ([]AppliedIntentsRequestStatus, error) {
+	result, err := graphqlclient.GetAppliedIntentsRequestStatus(ctx, c.client, resourceGenerations)
+	if err != nil {
+		return nil, errors.Wrap(err)
+	}
+
+	return translateAppliedIntentsRequestsStatusModel(result.GetSyncPendingRequestStatuses()), nil
+}
+
+func (c *CloudClientImpl) ReportAppliedIntentsRequest(ctx context.Context, intents []*graphqlclient.IntentRequestInput) error {
+	_, err := graphqlclient.ReportAppliedIntentsRequest(ctx, c.client, lo.Map(intents, func(intent *graphqlclient.IntentRequestInput, _ int) graphqlclient.IntentRequestInput {
+		return *intent
+	}))
 	return errors.Wrap(err)
 }

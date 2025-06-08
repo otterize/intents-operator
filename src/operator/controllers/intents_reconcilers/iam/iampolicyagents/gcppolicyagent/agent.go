@@ -24,7 +24,7 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 	return a.ApplyIAMPartialPolicy(ctx, namespace, accountName, intentsServiceName, filteredTargets)
 }
 
-func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ApprovedClientIntents) error {
 	err := a.DeleteIAMPartialPolicy(ctx, intents.Namespace, intents.Spec.Workload.Name)
 	if err != nil {
 		return errors.Wrap(err)

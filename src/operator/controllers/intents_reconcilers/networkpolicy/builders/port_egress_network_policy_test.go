@@ -106,10 +106,10 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestErrorWhenKubernetesServ
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
 	kubernetesSvcNamespacedName := types.NamespacedName{
@@ -228,10 +228,10 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
 	kubernetesSvcNamespacedName := types.NamespacedName{
@@ -376,10 +376,10 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCreateNetworkPolicyForA
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	serverStrippedSVCPrefix := strings.ReplaceAll(serverName, "svc:", "")
 	kubernetesSvcNamespacedName := types.NamespacedName{
@@ -529,10 +529,10 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForK
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
 	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, ports, svcSelector)
@@ -599,10 +599,10 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForK
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{Spec: intentsSpec}
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{Spec: intentsSpec}
 	clientIntents.Name = clientIntentsName
 	clientIntents.Namespace = testClientNamespace
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntents})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
 	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, []corev1.ServicePort{{TargetPort: intstr.IntOrString{IntVal: 80}, Port: 3333}}, svcSelector)
@@ -669,7 +669,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKu
 		},
 	}
 
-	clientIntentsObj := otterizev2alpha1.ClientIntents{
+	clientIntentsObj := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              clientIntentsName,
 			Namespace:         testNamespace,
@@ -677,7 +677,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestCleanNetworkPolicyForKu
 		},
 		Spec: intentsSpec,
 	}
-	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ClientIntents{clientIntentsObj})
+	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntentsObj})
 
 	selector := map[string]string{"test": "selector"}
 	svcObject := corev1.Service{

@@ -130,13 +130,13 @@ func (s *RulesBuilderTestSuiteBase) expectRemoveOrphanFindsPolicies(netpols []v1
 	s.ignoreRemoveDeprecatedPolicies()
 }
 
-func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents []otterizev2alpha1.ClientIntents) {
-	var intentsList otterizev2alpha1.ClientIntentsList
+func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents []otterizev2alpha1.ApprovedClientIntents) {
+	var intentsList otterizev2alpha1.ApprovedClientIntentsList
 	for _, clientIntentsEntry := range clientIntents {
 		s.expectKubernetesServicesReferencingPodsIndirectly(clientIntentsEntry)
 	}
 
-	s.Client.EXPECT().List(gomock.Any(), &intentsList).DoAndReturn(func(_ context.Context, intents *otterizev2alpha1.ClientIntentsList, _ ...any) error {
+	s.Client.EXPECT().List(gomock.Any(), &intentsList).DoAndReturn(func(_ context.Context, intents *otterizev2alpha1.ApprovedClientIntentsList, _ ...any) error {
 		intents.Items = append(intents.Items, clientIntents...)
 		return nil
 	})
@@ -148,7 +148,7 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 		})
 
 	// create service to ClientIntents pointing to it
-	services := make(map[string][]otterizev2alpha1.ClientIntents)
+	services := make(map[string][]otterizev2alpha1.ApprovedClientIntents)
 	for _, clientIntent := range clientIntents {
 		for _, intentCall := range clientIntent.GetTargetList() {
 			serverService := intentCall.ToServiceIdentity(clientIntent.Namespace)
@@ -158,9 +158,9 @@ func (s *RulesBuilderTestSuiteBase) expectGetAllEffectivePolicies(clientIntents 
 
 	s.Client.EXPECT().List(
 		gomock.Any(),
-		&otterizev2alpha1.ClientIntentsList{},
+		&otterizev2alpha1.ApprovedClientIntentsList{},
 		gomock.AssignableToTypeOf(&client.MatchingFields{}),
-	).DoAndReturn(func(_ context.Context, intents *otterizev2alpha1.ClientIntentsList, args ...any) error {
+	).DoAndReturn(func(_ context.Context, intents *otterizev2alpha1.ApprovedClientIntentsList, args ...any) error {
 		matchFields := args[0].(*client.MatchingFields)
 		intents.Items = services[(*matchFields)[otterizev2alpha1.OtterizeFormattedTargetServerIndexField]]
 		return nil
@@ -194,7 +194,7 @@ func (s *RulesBuilderTestSuiteBase) addExpectedKubernetesServiceCall(serviceName
 	return &svcObject
 }
 
-func (s *RulesBuilderTestSuiteBase) expectKubernetesServicesReferencingPodsIndirectly(clientIntents otterizev2alpha1.ClientIntents) {
+func (s *RulesBuilderTestSuiteBase) expectKubernetesServicesReferencingPodsIndirectly(clientIntents otterizev2alpha1.ApprovedClientIntents) {
 	podList := []corev1.Pod{
 		{
 			ObjectMeta: metav1.ObjectMeta{

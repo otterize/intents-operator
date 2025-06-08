@@ -213,7 +213,7 @@ func (a *Agent) deleteRoleAssignmentsWithUnexpectedScopes(ctx context.Context, e
 	return nil
 }
 
-func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+func (a *Agent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ApprovedClientIntents) error {
 	accountName := intents.Spec.Workload.Name
 	userAssignedIdentity, exists, err := a.FindUserAssignedIdentity(ctx, intents.Namespace, accountName)
 	if err != nil {

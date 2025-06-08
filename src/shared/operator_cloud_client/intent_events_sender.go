@@ -33,7 +33,7 @@ type intentStatusDetails struct {
 
 type IntentEvent struct {
 	Event  v1.Event
-	Intent v2alpha1.ClientIntents
+	Intent v2alpha1.ApprovedClientIntents
 }
 
 type IntentEventsPeriodicReporter struct {
@@ -164,7 +164,7 @@ func (ies *IntentEventsPeriodicReporter) queryIntentEvents(ctx context.Context) 
 	})
 
 	intentEvents := lo.FilterMap(filteredEvents, func(event v1.Event, _ int) (IntentEvent, bool) {
-		intent := v2alpha1.ClientIntents{}
+		intent := v2alpha1.ApprovedClientIntents{}
 		err := ies.k8sClient.Get(ctx, client.ObjectKey{Namespace: event.InvolvedObject.Namespace, Name: event.InvolvedObject.Name}, &intent)
 		if err != nil {
 			if !k8errors.IsNotFound(err) {
@@ -273,7 +273,7 @@ func statusToGQLStatus(intent v2alpha1.ClientIntents) graphqlclient.ClientIntent
 	return gqlStatus
 }
 
-func eventToGQLEvent(intent v2alpha1.ClientIntents, event v1.Event) graphqlclient.ClientIntentEventInput {
+func eventToGQLEvent(intent v2alpha1.ApprovedClientIntents, event v1.Event) graphqlclient.ClientIntentEventInput {
 	si := intent.ToServiceIdentity()
 	gqlEvent := graphqlclient.ClientIntentEventInput{
 		ClientName:         si.Name,

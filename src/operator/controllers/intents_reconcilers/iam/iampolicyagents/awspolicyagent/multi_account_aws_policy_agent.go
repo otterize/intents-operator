@@ -37,7 +37,7 @@ func (m *MultiaccountAWSPolicyAgent) AddRolePolicyFromIntents(ctx context.Contex
 	return agent.AddRolePolicyFromIntents(ctx, namespace, accountName, intentsServiceName, intents, filteredTargets, pod)
 }
 
-func (m *MultiaccountAWSPolicyAgent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+func (m *MultiaccountAWSPolicyAgent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ApprovedClientIntents) error {
 	// Go over all accounts and delete policies
 	for _, agent := range m.agents {
 		err := agent.DeleteRolePolicyFromIntents(ctx, intents)

@@ -21,6 +21,8 @@ const (
 	IntentEventsReportIntervalDefault   = 60
 	IntentStatusReportIntervalKey       = "intent-status-report-interval"
 	IntentStatusReportIntervalDefault   = 60
+	IntentsApprovalQueryIntervalKey     = "intents-approval-query-interval"
+	IntentsApprovalQueryIntervalDefault = 5
 	EnvPrefix                           = "OTTERIZE"
 )
 
@@ -32,6 +34,7 @@ func init() {
 	viper.SetDefault(OtterizeAPIExtraCAPEMPathsKey, []string{})
 	viper.SetDefault(IntentEventsReportIntervalKey, IntentEventsReportIntervalDefault)
 	viper.SetDefault(IntentStatusReportIntervalKey, IntentStatusReportIntervalDefault)
+	viper.SetDefault(IntentsApprovalQueryIntervalKey, IntentsApprovalQueryIntervalDefault)
 	viper.SetEnvPrefix(EnvPrefix)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()

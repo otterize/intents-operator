@@ -217,8 +217,7 @@ func (s *KafkaACLReconcilerTestSuite) SetupTest() {
 	s.Require().NoError((&otterizev1alpha2.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator))
 	intentsValidator13 := webhooks.NewIntentsValidatorV1alpha3(s.Mgr.GetClient())
 	s.Require().NoError((&otterizev1alpha3.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator13))
-	intentsValidator2 := webhooks.NewIntentsValidatorV2alpha1(s.Mgr.GetClient())
-	s.Require().NoError((&otterizev2alpha1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2))
+	s.Require().NoError((&otterizev2alpha1.ApprovedClientIntents{}).SetupWebhookWithManager(s.Mgr))
 	intentsValidator2beta := webhooks.NewIntentsValidatorV2beta1(s.Mgr.GetClient())
 	s.Require().NoError((&otterizev2beta1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2beta))
 }
@@ -284,7 +283,7 @@ func (s *KafkaACLReconcilerTestSuite) TestKafkaACLGetCreatedAndUpdatedBasedOnInt
 
 	s.reconcile(namespacedName, true)
 
-	intentsFromReconciler := &otterizev2alpha1.ClientIntents{}
+	intentsFromReconciler := &otterizev2alpha1.ApprovedClientIntents{}
 	s.WaitUntilCondition(func(assert *assert.Assertions) {
 		_ = s.Mgr.GetClient().Get(context.Background(), namespacedName, intentsFromReconciler)
 		f := intentsFromReconciler.GetFinalizers()

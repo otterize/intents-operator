@@ -70,6 +70,9 @@ const (
 	ControlPlaneIPv4CidrPrefixLengthDefault       = 32
 	WebhookTrafficAllowAllKey                     = "webhook-traffic-allow-all"
 	WebhookTrafficAllowAllDefault                 = true
+
+	EnableIntentsCloudApproval        = "enable-intents-cloud-approval"
+	EnableIntentsCloudApprovalDefault = true
 )
 
 func init() {
@@ -95,6 +98,7 @@ func init() {
 	viper.SetDefault(EnableGroupInternetIPsByCIDRPeersLimitKey, EnableGroupInternetIPsByCIDRPeersLimitDefault)
 	viper.SetDefault(ControlPlaneIPv4CidrPrefixLength, ControlPlaneIPv4CidrPrefixLengthDefault)
 	viper.SetDefault(WebhookTrafficAllowAllKey, WebhookTrafficAllowAllDefault)
+	viper.SetDefault(EnableIntentsCloudApproval, EnableIntentsCloudApprovalDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 

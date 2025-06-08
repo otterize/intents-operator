@@ -90,7 +90,7 @@ func getAllowExternalTrafficConfig() graphqlclient.AllowExternalTrafficPolicy {
 	case automate_third_party_network_policy.IfBlockedByOtterize:
 		return graphqlclient.AllowExternalTrafficPolicyIfBlockedByOtterize
 	default:
-		return ""
+		return graphqlclient.AllowExternalTrafficPolicyOff
 	}
 }
 

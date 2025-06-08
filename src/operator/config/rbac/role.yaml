@@ -76,12 +76,36 @@ rules:
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
   - mutatingwebhookconfigurations
   verbs:
   - get
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - services
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - admissionregistration.k8s.io
@@ -142,6 +166,32 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - k8s.otterize.com
+  resources:
+  - approvedclientintents
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - k8s.otterize.com
+  resources:
+  - approvedclientintents/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - k8s.otterize.com
+  resources:
+  - approvedclientintents/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - k8s.otterize.com
   resources:

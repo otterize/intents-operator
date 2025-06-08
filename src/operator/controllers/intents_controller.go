@@ -18,94 +18,73 @@ package controllers
 
 import (
 	"context"
-	"fmt"
+	"github.com/amit7itz/goset"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
-	"github.com/otterize/intents-operator/src/operator/controllers/access_annotation"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/database"
-	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/protected_services"
-	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
-	"github.com/otterize/intents-operator/src/operator/health"
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/shared/errors"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
-	"github.com/otterize/intents-operator/src/shared/reconcilergroup"
-	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
+	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
+	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
+	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/spf13/viper"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sync"
 	"time"
 )
 
-var intentsLegacyFinalizers = []string{
-	"intents.otterize.com/svc-network-policy-finalizer",
-	"intents.otterize.com/network-policy-finalizer",
-	"intents.otterize.com/telemetry-reconciler-finalizer",
-	"intents.otterize.com/kafka-finalizer",
-	"intents.otterize.com/istio-policy-finalizer",
-	"intents.otterize.com/database-finalizer",
-	"intents.otterize.com/pods-finalizer",
-}
+const (
+	ReviewStatusIndexField              = ".status.reviewStatus"
+	ReasonApprovedIntentsCreated        = "ApprovedIntentsCreated"
+	ReasonReviewStatusChanged           = "ReviewStatusChanged"
+	ReasonApprovedIntentsUpdated        = "ApprovedIntentsUpdated"
+	ReasonApprovedIntentsCreationFailed = "ApprovedIntentsCreationFailed"
+)
 
 // IntentsReconciler reconciles a Intents object
 type IntentsReconciler struct {
-	group  *reconcilergroup.Group
-	client client.Client
+	client        client.Client
+	cloudClient   operator_cloud_client.CloudClient
+	approvalState IntentsApprovalState
+	injectablerecorder.InjectableRecorder
 }
 
-func NewIntentsReconciler(
-	client client.Client,
-	scheme *runtime.Scheme,
-	kafkaServerStore kafkaacls.ServersStore,
-	restrictToNamespaces []string,
-	enforcementConfig enforcement.Config,
-	operatorPodName string,
-	operatorPodNamespace string,
-	additionalReconcilers ...reconcilergroup.ReconcilerWithEvents,
-) *IntentsReconciler {
+type IntentsApprovalState struct {
+	mutex          *sync.Mutex
+	approvalMethod IntentsApprover
+}
 
-	serviceIdResolver := serviceidresolver.NewResolver(client)
-	reconcilers := []reconcilergroup.ReconcilerWithEvents{
-		intents_reconcilers.NewPodLabelReconciler(client, scheme),
-		intents_reconcilers.NewKafkaACLReconciler(client, scheme, kafkaServerStore, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState, operatorPodName, operatorPodNamespace, serviceIdResolver, enforcementConfig.EnforcedNamespaces),
-		intents_reconcilers.NewIstioPolicyReconciler(client, scheme, restrictToNamespaces, enforcementConfig.EnableIstioPolicy, enforcementConfig.EnforcementDefaultState, enforcementConfig.EnforcedNamespaces),
-	}
-	reconcilers = append(reconcilers, additionalReconcilers...)
-	reconcilersGroup := reconcilergroup.NewGroup(
-		"intents-reconciler",
-		client,
-		scheme,
-		&otterizev2alpha1.ClientIntents{},
-		otterizev2alpha1.ClientIntentsFinalizerName,
-		intentsLegacyFinalizers,
-		reconcilers...,
-	)
+type IntentsApprover string
 
-	intentsReconciler := &IntentsReconciler{
-		group:  reconcilersGroup,
-		client: client,
-	}
+const (
+	ApprovalMethodCloudApproval IntentsApprover = "CloudApproval"
+	ApprovalMethodAutoApproval  IntentsApprover = "AutoApproval" // auto approve, for operators not integrated with Otterize cloud
+)
 
-	if enforcementConfig.EnableDatabasePolicy {
-		databaseReconciler := database.NewDatabaseReconciler(client, scheme)
-		intentsReconciler.group.AddToGroup(databaseReconciler)
-	}
+func NewIntentsReconciler(ctx context.Context, client client.Client, cloudClient operator_cloud_client.CloudClient, enableCloudApproval bool) *IntentsReconciler {
+	approvalState := IntentsApprovalState{mutex: &sync.Mutex{}}
 
+	intentsReconciler := &IntentsReconciler{client: client, cloudClient: cloudClient, approvalState: approvalState}
+	intentsReconciler.initIntentsApprovalState(ctx, enableCloudApproval)
 	return intentsReconciler
 }
 
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=approvedclientintents,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=postgresqlserverconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=mysqlserverconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=k8s.otterize.com,resources=clientintents/finalizers,verbs=update
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=approvedclientintents/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=k8s.otterize.com,resources=approvedclientintents/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;update;patch;list;watch
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;update;patch;list;watch;create
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get
@@ -115,11 +94,28 @@ func NewIntentsReconciler(
 //+kubebuilder:rbac:groups="apiextensions.k8s.io",resources=customresourcedefinitions,verbs=get;list;watch;update;create;patch
 // +kubebuilder:rbac:groups=iam.cnrm.cloud.google.com,resources=iampartialpolicies,verbs=get;list;watch;create;update;patch;delete
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
+// Reconcile - main reconciliation loop
+// The ClientIntents lifecycle is as follows:
+//  1. ClientIntents is created/updated, so it's generation is increased and the review status seems approved/empty. The operator should:
+//     a. Set the review status to pending
+//     b. Set the observed generation to the new generation
+//     c. set upToData to false
+//     d. finish reconciliation
+//  2. ClientIntents review status is pending:
+//     a. The operator should handle intents requests (send to cloud / auto approve)
+//     b. finish reconciliation
+//  3. ClientIntents review status is approved (could be set by the pending-intents go routine):
+//     a. The operator should create/update/DoNothing the ApprovedClientIntents
+//     c. finish reconciliation
+//
+// Status.UpToDate should reflect if the intents have been applied successfully to the cluster,
+// therefore it is being set to true only after the *approvedClientIntents* is reconciled successfully
 func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	intents := &otterizev2alpha1.ClientIntents{}
+	if err := r.removeOrphanedApprovedIntents(ctx); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
 
+	intents := &otterizev2alpha1.ClientIntents{}
 	err := r.client.Get(ctx, req.NamespacedName, intents)
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
@@ -127,281 +123,368 @@ func (r *IntentsReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, errors.Wrap(err)
 	}
-	if intents.Status.UpToDate != false && intents.Status.ObservedGeneration != intents.Generation {
-		intentsCopy := intents.DeepCopy()
-		intentsCopy.Status.UpToDate = false
-		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
-			return ctrl.Result{}, errors.Wrap(err)
-		}
-		// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
-		// and that we don't trigger an infinite loop
-		return ctrl.Result{}, nil
+
+	// delete approved intents if client intents is being deleted
+	if !intents.DeletionTimestamp.IsZero() {
+		return r.handleClientIntentDeletion(ctx, intents)
 	}
 
-	health.UpdateLastReconcileStartTime()
+	// add finalizer if not exists
+	if !controllerutil.ContainsFinalizer(intents, otterizev2alpha1.ClientIntentsFinalizerName) {
+		return r.addFinalizer(ctx, intents)
+	}
 
-	timeoutCtx, cancel := context.WithTimeoutCause(ctx, 60*time.Second, errors.Errorf("timeout while reconciling client intents %s", req.NamespacedName))
-	defer cancel()
+	// If the observed generation is not the same as the generation, we update the observed generation and the review status
+	if intents.Status.ObservedGeneration != intents.Generation {
+		return r.handleClientIntentsChanged(ctx, intents)
+	}
 
-	result, err := r.group.Reconcile(timeoutCtx, req)
-	if err != nil {
+	if intents.Status.ReviewStatus != otterizev2alpha1.ReviewStatusApproved {
+		// If the intents are not approved, we send them to the right approver and stop the reconcile loop
+		// Once the intents will be approved we will get a new reconcile loop
+		return r.handleClientIntentsRequests(ctx, *intents)
+	}
+
+	// intents.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved
+	return r.handleApprovedClientIntents(ctx, intents)
+}
+
+func (r *IntentsReconciler) handleApprovedClientIntents(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+	if err := r.createOrUpdateApprovedIntents(ctx, *intents); err != nil {
+		r.RecordWarningEventf(intents, ReasonApprovedIntentsCreationFailed, "Failed to create approved intents: %s", err)
 		return ctrl.Result{}, errors.Wrap(err)
 	}
+	return ctrl.Result{}, nil
+}
 
-	if intents.DeletionTimestamp == nil {
-		intentsCopy := intents.DeepCopy()
-		intentsCopy.Status.UpToDate = true
-		intentsCopy.Status.ObservedGeneration = intentsCopy.Generation
-		if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
+func (r *IntentsReconciler) handleClientIntentsChanged(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+	intentsCopy := intents.DeepCopy()
+	intentsCopy.Status.ObservedGeneration = intents.Generation
+	intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusPending
+	intentsCopy.Status.UpToDate = false
+	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(intents)); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+	r.RecordNormalEventf(intents, ReasonReviewStatusChanged, "Updated review status to %s (for generation %d)", otterizev2alpha1.ReviewStatusPending, intents.Generation)
+	// we have to finish this reconcile loop here so that the group has a fresh copy of the intents
+	// and that we don't trigger an infinite loop
+	return ctrl.Result{}, nil
+}
+
+func (r *IntentsReconciler) addFinalizer(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+	intentsCopy := intents.DeepCopy()
+	controllerutil.AddFinalizer(intentsCopy, otterizev2alpha1.ClientIntentsFinalizerName)
+	if err := r.client.Update(ctx, intentsCopy); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *IntentsReconciler) handleClientIntentDeletion(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+	approvedIntents := &otterizev2alpha1.ApprovedClientIntents{}
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: intents.Namespace, Name: intents.Name}, approvedIntents)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			// if approvedClientIntents not found, we can remove the finalizer and finish the reconcile loop
+			return r.removeFinalizer(ctx, intents)
+		}
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+	if err := r.client.Delete(ctx, approvedIntents); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *IntentsReconciler) removeFinalizer(ctx context.Context, intents *otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+	intentsCopy := intents.DeepCopy()
+	if !controllerutil.ContainsFinalizer(intentsCopy, otterizev2alpha1.ClientIntentsFinalizerName) {
+		return ctrl.Result{}, nil
+	}
+	controllerutil.RemoveFinalizer(intentsCopy, otterizev2alpha1.ClientIntentsFinalizerName)
+	if err := r.client.Update(ctx, intentsCopy); err != nil {
+		return ctrl.Result{}, errors.Wrap(err)
+	}
+	return ctrl.Result{}, nil
+}
+
+func (r *IntentsReconciler) handleClientIntentsRequests(ctx context.Context, intents otterizev2alpha1.ClientIntents) (ctrl.Result, error) {
+	if !intents.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+	approvalMethod := r.approvalState.approvalMethod
+	switch approvalMethod {
+	case ApprovalMethodCloudApproval:
+		if err := r.handleCloudAppliedIntentsRequests(ctx, intents); err != nil {
+			return ctrl.Result{}, errors.Wrap(err)
+		}
+	case ApprovalMethodAutoApproval:
+		if err := r.handleAutoApprovalForIntents(ctx, intents); err != nil {
 			return ctrl.Result{}, errors.Wrap(err)
 		}
 	}
+	return ctrl.Result{}, nil
+}
 
-	// Only consider reconcile ended if no error and no requeue.
-	if result.IsZero() {
-		health.UpdateLastReconcileEndTime()
+func (r *IntentsReconciler) initIntentsApprovalState(ctx context.Context, enableCloudApproval bool) {
+	if r.cloudClient == nil || !enableCloudApproval {
+		r.approvalState.approvalMethod = ApprovalMethodAutoApproval
+		return
 	}
-	return result, nil
+
+	r.approvalState.mutex.Lock()
+	defer r.approvalState.mutex.Unlock()
+
+	r.approvalState.approvalMethod = ApprovalMethodCloudApproval
+	go r.periodicQueryAppliedIntentsRequestsStatus(ctx)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *IntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := ctrl.NewControllerManagedBy(mgr).
+	err := r.initReviewStatusIndex(mgr)
+	if err != nil {
+		return errors.Wrap(err)
+	}
+	err = ctrl.NewControllerManagedBy(mgr).
 		For(&otterizev2alpha1.ClientIntents{}).
 		WithOptions(controller.Options{RecoverPanic: lo.ToPtr(true)}).
-		Watches(&otterizev2alpha1.ProtectedService{}, handler.EnqueueRequestsFromMapFunc(r.mapProtectedServiceToClientIntents)).
-		Watches(&corev1.Endpoints{}, handler.EnqueueRequestsFromMapFunc(r.watchApiServerEndpoint)).
-		Watches(&otterizev2alpha1.PostgreSQLServerConfig{}, handler.EnqueueRequestsFromMapFunc(r.mapPostgresInstanceNameToDatabaseIntents)).
-		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.mapPodWithAccessAnnotationToClientIntents)).
 		Complete(r)
+
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	r.group.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
+	r.InjectRecorder(mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator"))
 
 	return nil
 }
 
-func (r *IntentsReconciler) mapPodWithAccessAnnotationToClientIntents(ctx context.Context, obj client.Object) []reconcile.Request {
-	pod := obj.(*corev1.Pod)
-	logrus.Debugf("Enqueueing client intents for pod %s", pod.Name)
+func (r *IntentsReconciler) handleAutoApprovalForIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+	if intents.Status.ReviewStatus == otterizev2alpha1.ReviewStatusApproved {
+		return nil
+	}
+	intentsCopy := intents.DeepCopy()
+	intentsCopy.Status.ReviewStatus = otterizev2alpha1.ReviewStatusApproved
 
-	clients, ok, err := access_annotation.ParseAccessAnnotations(pod)
+	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
+		return errors.Wrap(err)
+	}
+	r.RecordNormalEventf(&intents, ReasonReviewStatusChanged, "Generation %d: Updated review status to %s", intents.Generation, otterizev2alpha1.ReviewStatusApproved)
+	return nil
+}
+
+func (r *IntentsReconciler) createOrUpdateApprovedIntents(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+	newApprovedClientIntents := r.buildApprovedClientIntents(intents)
+	// set owner reference
+	err := controllerutil.SetOwnerReference(&intents, newApprovedClientIntents, r.client.Scheme())
 	if err != nil {
-		// If parsing fails an error will be recorded by the pods reconciler so here we just log it
-		logrus.WithError(err).Errorf("Failed to parse access annotations for pod %s", pod.Name)
-		return nil
-	}
-	if !ok {
-		return nil
+		return errors.Wrap(err)
 	}
 
-	requests := make([]reconcile.Request, 0)
-	for _, clientService := range clients {
-		intentsToReconcile := r.getIntentsToService(ctx, clientService.Name, clientService.Namespace)
-		serviceRequests := r.mapIntentsToRequests(intentsToReconcile)
-
-		requests = append(requests, serviceRequests...)
+	existingApprovedClientIntents := &otterizev2alpha1.ApprovedClientIntents{}
+	err = r.client.Get(ctx, types.NamespacedName{Namespace: newApprovedClientIntents.Namespace, Name: newApprovedClientIntents.Name}, existingApprovedClientIntents)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrap(err)
 	}
-	return requests
-}
+	if k8serrors.IsNotFound(err) {
+		if err := r.client.Create(ctx, newApprovedClientIntents); err != nil {
 
-func (r *IntentsReconciler) watchApiServerEndpoint(ctx context.Context, obj client.Object) []reconcile.Request {
-	if obj.GetNamespace() != otterizev2alpha1.KubernetesAPIServerNamespace || obj.GetName() != otterizev2alpha1.KubernetesAPIServerName {
-		return nil
-	}
-
-	intentsToReconcile := r.getIntentsToAPIServerService(ctx)
-	return r.mapIntentsToRequests(intentsToReconcile)
-}
-
-func (r *IntentsReconciler) getIntentsToAPIServerService(ctx context.Context) []otterizev2alpha1.ClientIntents {
-	intentsToReconcile := make([]otterizev2alpha1.ClientIntents, 0)
-	fullServerName := fmt.Sprintf("svc:%s.%s", otterizev2alpha1.KubernetesAPIServerName, otterizev2alpha1.KubernetesAPIServerNamespace)
-	var intentsToServer otterizev2alpha1.ClientIntentsList
-	err := r.client.List(
-		ctx,
-		&intentsToServer,
-		&client.MatchingFields{otterizev2alpha1.OtterizeTargetServerIndexField: fullServerName},
-	)
-	if err != nil {
-		logrus.WithError(err).Errorf("Failed to list client intents for client %s", fullServerName)
-		return nil
-	}
-	logrus.Debugf("Enqueueing client intents %v for api server", intentsToServer.Items)
-
-	intentsToReconcile = append(intentsToReconcile, intentsToServer.Items...)
-	return intentsToReconcile
-}
-
-func (r *IntentsReconciler) mapProtectedServiceToClientIntents(ctx context.Context, obj client.Object) []reconcile.Request {
-	protectedService := obj.(*otterizev2alpha1.ProtectedService)
-	logrus.Debugf("Enqueueing client intents for protected services %s", protectedService.Name)
-
-	intentsToReconcile := r.getIntentsToService(ctx, protectedService.Spec.Name, protectedService.Namespace)
-	return r.mapIntentsToRequests(intentsToReconcile)
-}
-
-func (r *IntentsReconciler) mapPostgresInstanceNameToDatabaseIntents(_ context.Context, obj client.Object) []reconcile.Request {
-	pgServerConf := obj.(*otterizev2alpha1.PostgreSQLServerConfig)
-	logrus.Infof("Enqueueing client intents for PostgreSQLServerConfig change %s", pgServerConf.Name)
-
-	intentsToReconcile := r.getIntentsToPostgresInstance(pgServerConf)
-
-	requests := make([]reconcile.Request, 0)
-	for _, clientIntents := range intentsToReconcile {
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      clientIntents.Name,
-				Namespace: clientIntents.Namespace,
-			},
-		})
-	}
-	return requests
-}
-
-func (r *IntentsReconciler) getIntentsToPostgresInstance(pgServerConf *otterizev2alpha1.PostgreSQLServerConfig) []otterizev2alpha1.ClientIntents {
-	intentsList := otterizev2alpha1.ClientIntentsList{}
-	dbInstanceName := pgServerConf.Name
-	err := r.client.List(context.Background(),
-		&intentsList,
-		&client.MatchingFields{otterizev2alpha1.OtterizeTargetServerIndexField: dbInstanceName},
-	)
-	if err != nil {
-		logrus.Errorf("Failed to list client intents targeting %s: %v", dbInstanceName, err)
-	}
-
-	return intentsList.Items
-}
-
-func (r *IntentsReconciler) mapIntentsToRequests(intentsToReconcile []otterizev2alpha1.ClientIntents) []reconcile.Request {
-	requests := make([]reconcile.Request, 0)
-	for _, clientIntents := range intentsToReconcile {
-		request := reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name:      clientIntents.Name,
-				Namespace: clientIntents.Namespace,
-			},
+			return errors.Wrap(err)
 		}
-		requests = append(requests, request)
-	}
-	return requests
-}
-
-func (r *IntentsReconciler) getIntentsToService(ctx context.Context, serviceName string, namespace string) []otterizev2alpha1.ClientIntents {
-	intentsToReconcile := make([]otterizev2alpha1.ClientIntents, 0)
-	fullServerName := fmt.Sprintf("%s.%s", serviceName, namespace)
-	var intentsToServer otterizev2alpha1.ClientIntentsList
-	err := r.client.List(ctx,
-		&intentsToServer,
-		&client.MatchingFields{otterizev2alpha1.OtterizeTargetServerIndexField: fullServerName},
-	)
-	if err != nil {
-		logrus.Errorf("Failed to list client intents for client %s: %v", fullServerName, err)
-		// Intentionally no return - we are not able to return errors in this flow currently
+		r.RecordNormalEventf(&intents, ReasonApprovedIntentsCreated, "Created approved intents %s", newApprovedClientIntents.Name)
+		return nil
 	}
 
-	intentsToReconcile = append(intentsToReconcile, intentsToServer.Items...)
-	return intentsToReconcile
+	if !r.hasApprovedClientIntentsChanged(existingApprovedClientIntents, newApprovedClientIntents) {
+		logrus.Debugf("Approved intents %s has not changed", newApprovedClientIntents.Name)
+		return nil
+	}
+
+	patchedClientIntents := existingApprovedClientIntents.DeepCopy()
+	patchedClientIntents.Spec = newApprovedClientIntents.Spec
+	patchedClientIntents.OwnerReferences = newApprovedClientIntents.OwnerReferences
+
+	if err := r.client.Patch(ctx, patchedClientIntents, client.MergeFrom(existingApprovedClientIntents)); err != nil {
+		return errors.Wrap(err)
+	}
+	r.RecordNormalEventf(&intents, ReasonApprovedIntentsUpdated, "Updated approved intents %s", newApprovedClientIntents.Name)
+
+	return nil
 }
 
-// InitIntentsServerIndices indexes intents by target server name
-// This is used in finalizers to determine whether a network policy should be removed from the target namespace
-func (r *IntentsReconciler) InitIntentsServerIndices(mgr ctrl.Manager) error {
-	err := mgr.GetCache().IndexField(
-		context.Background(),
-		&otterizev2alpha1.ClientIntents{},
-		otterizev2alpha1.OtterizeTargetServerIndexField,
-		func(object client.Object) []string {
-			var res []string
-			intents := object.(*otterizev2alpha1.ClientIntents)
-			if intents.Spec == nil {
-				return nil
-			}
+func (r *IntentsReconciler) buildApprovedClientIntents(intents otterizev2alpha1.ClientIntents) *otterizev2alpha1.ApprovedClientIntents {
+	approvedClientIntents := &otterizev2alpha1.ApprovedClientIntents{}
+	approvedClientIntents.FromClientIntents(intents)
 
-			for _, intent := range intents.GetTargetList() {
-				if !intent.IsTargetServerKubernetesService() {
-					res = append(res, intent.GetServerFullyQualifiedName(intents.Namespace))
-				}
-				if intent.SQL != nil {
-					res = append(res, intent.GetTargetServerName())
-				}
-				fullyQualifiedSvcName, ok := intent.GetK8sServiceFullyQualifiedName(intents.Namespace)
-				if ok {
-					res = append(res, fullyQualifiedSvcName)
-				}
-			}
+	return approvedClientIntents
+}
 
-			return res
-		})
+func (r *IntentsReconciler) hasApprovedClientIntentsChanged(existingApprovedIntents, newApprovedIntents *otterizev2alpha1.ApprovedClientIntents) bool {
+	if !reflect.DeepEqual(existingApprovedIntents.Spec, newApprovedIntents.Spec) {
+		return true
+	}
+	oldOwnerReferences := existingApprovedIntents.GetOwnerReferences()
+	newOwnerReferences := newApprovedIntents.GetOwnerReferences()
+	if len(oldOwnerReferences) != 1 || len(newOwnerReferences) != 1 {
+		return true
+	}
+
+	if oldOwnerReferences[0].UID != newOwnerReferences[0].UID {
+		return true
+	}
+
+	return false
+}
+
+func (r *IntentsReconciler) removeOrphanedApprovedIntents(ctx context.Context) error {
+	logrus.Debug("Checking for orphaned approved intents")
+
+	clientIntentsList := &otterizev2alpha1.ClientIntentsList{}
+	if err := r.client.List(ctx, clientIntentsList); err != nil {
+		return errors.Wrap(err)
+	}
+
+	approvedNamesThatShouldExist := goset.FromSlice(lo.Map(
+		clientIntentsList.Items, func(intent otterizev2alpha1.ClientIntents, _ int) types.NamespacedName {
+			return types.NamespacedName{Namespace: intent.Namespace, Name: intent.Name}
+		}))
+
+	approvedClientIntentsList := &otterizev2alpha1.ApprovedClientIntentsList{}
+	if err := r.client.List(ctx, approvedClientIntentsList); err != nil {
+		return errors.Wrap(err)
+	}
+
+	for _, approvedClientIntents := range approvedClientIntentsList.Items {
+		if approvedNamesThatShouldExist.Contains(types.NamespacedName{Namespace: approvedClientIntents.Namespace, Name: approvedClientIntents.Name}) {
+			continue
+		}
+		logrus.Infof("Deleting orphaned approved intents %s", approvedClientIntents.Name)
+		if err := r.client.Delete(ctx, &approvedClientIntents); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+func (r *IntentsReconciler) handleCloudAppliedIntentsRequests(ctx context.Context, intents otterizev2alpha1.ClientIntents) error {
+	if intents.Status.ReviewStatus == "" {
+		if err := r.updateClientIntentsStatus(ctx, intents, otterizev2alpha1.ReviewStatusPending); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	// Convert to list to save the hellish conversion to cloud format
+	intentsList := &otterizev2alpha1.ClientIntentsList{
+		Items: []otterizev2alpha1.ClientIntents{intents},
+	}
+	cloudIntents, err := intentsList.FormatAsOtterizeIntentsRequests(ctx, r.client)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 
-	err = mgr.GetCache().IndexField(
-		context.Background(),
-		&otterizev2alpha1.ClientIntents{},
-		otterizev2alpha1.OtterizeFormattedTargetServerIndexField,
-		func(object client.Object) []string {
-			var res []string
-			intents := object.(*otterizev2alpha1.ClientIntents)
-			if intents.Spec == nil {
-				return nil
-			}
+	return errors.Wrap(r.cloudClient.ReportAppliedIntentsRequest(ctx, cloudIntents))
+}
 
-			for _, intent := range intents.GetTargetList() {
-				if intent.Internet != nil {
-					res = append(res, otterizev2alpha1.OtterizeInternetTargetName)
-					continue
-				}
-				service := intent.ToServiceIdentity(intents.Namespace)
-				res = append(res, service.GetFormattedOtterizeIdentityWithKind())
-			}
+func (r *IntentsReconciler) periodicQueryAppliedIntentsRequestsStatus(ctx context.Context) {
+	approvalQueryTicker := time.NewTicker(time.Second * time.Duration(viper.GetInt(otterizecloudclient.IntentsApprovalQueryIntervalKey)))
 
-			return res
-		})
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-approvalQueryTicker.C:
+			if err := r.findAndHandlePendingRequests(ctx); err != nil {
+				logrus.WithError(err).Error("periodic intents approval query failed")
+			}
+		}
+	}
+}
+
+func (r *IntentsReconciler) findAndHandlePendingRequests(ctx context.Context) error {
+	clientIntentsList := &otterizev2alpha1.ClientIntentsList{}
+	statusSelector := fields.OneTermEqualSelector(ReviewStatusIndexField, string(otterizev2alpha1.ReviewStatusPending))
+	if err := r.client.List(ctx, clientIntentsList, &client.ListOptions{FieldSelector: statusSelector}); err != nil {
+		logrus.WithError(err).Error("failed to list intents pending review")
+		return errors.Wrap(err)
+	}
+
+	if len(clientIntentsList.Items) == 0 {
+		logrus.Debug("No intents pending review")
+		// Still reporting to the cloud since the cloud might have to mark the requests as stale
+	}
+
+	return errors.Wrap(r.handlePendingRequests(ctx, clientIntentsList))
+}
+
+func (r *IntentsReconciler) handlePendingRequests(ctx context.Context, pendingClientIntentsList *otterizev2alpha1.ClientIntentsList) error {
+	resourceUIDToIntent := lo.SliceToMap(pendingClientIntentsList.Items, func(intent otterizev2alpha1.ClientIntents) (graphqlclient.IntentRequestResourceGeneration, otterizev2alpha1.ClientIntents) {
+		return intent.GetResourceGeneration(), intent
+	})
+
+	requestStatuses, err := r.cloudClient.GetAppliedIntentsRequestsStatus(ctx, lo.Keys(resourceUIDToIntent))
 	if err != nil {
+		logrus.WithError(err).Error("failed to get applied intents requests status")
+		return errors.Wrap(err)
+	}
+	if len(requestStatuses) == 0 {
+		return nil
+	}
+
+	for _, request := range requestStatuses {
+		clientIntents, ok := resourceUIDToIntent[request.ResourceGeneration]
+		if !ok {
+			// Should not happen
+			logrus.Errorf("Received status for unknown intents request %v", request.ResourceGeneration)
+			continue
+		}
+
+		if err := r.handleRequestStatusResponse(ctx, request, clientIntents); err != nil {
+			return errors.Wrap(err)
+		}
+	}
+
+	return nil
+}
+
+func (r *IntentsReconciler) handleRequestStatusResponse(ctx context.Context, request operator_cloud_client.AppliedIntentsRequestStatus, clientIntents otterizev2alpha1.ClientIntents) error {
+	if request.Status == graphqlclient.AppliedIntentsRequestStatusLabelPending {
+		logrus.Debugf("Received pending status for intents request %v", request.ResourceGeneration)
+		return nil
+	}
+
+	// Check the GQL status that returned and request the K8s status accordingly
+	reviewStatus := lo.Ternary(request.Status == graphqlclient.AppliedIntentsRequestStatusLabelApproved, otterizev2alpha1.ReviewStatusApproved, otterizev2alpha1.ReviewStatusDenied)
+	if err := r.updateClientIntentsStatus(ctx, clientIntents, reviewStatus); err != nil {
 		return errors.Wrap(err)
 	}
 
 	return nil
 }
 
-// InitProtectedServiceIndexField indexes protected service resources by their service name
-// This is used in finalizers to determine whether a network policy should be removed from the target namespace
-func (r *IntentsReconciler) InitProtectedServiceIndexField(mgr ctrl.Manager) error {
-	return protected_services.InitProtectedServiceIndexField(mgr)
-}
-
-func (r *IntentsReconciler) InitEndpointsPodNamesIndex(mgr ctrl.Manager) error {
-	err := mgr.GetCache().IndexField(
-		context.Background(),
-		&corev1.Endpoints{},
-		otterizev2alpha1.EndpointsPodNamesIndexField,
-		func(object client.Object) []string {
-			var res []string
-			endpoints := object.(*corev1.Endpoints)
-			addresses := make([]corev1.EndpointAddress, 0)
-			for _, subset := range endpoints.Subsets {
-				addresses = append(addresses, subset.Addresses...)
-				addresses = append(addresses, subset.NotReadyAddresses...)
-			}
-
-			for _, address := range addresses {
-				if address.TargetRef == nil || address.TargetRef.Kind != "Pod" {
-					continue
-				}
-
-				res = append(res, address.TargetRef.Name)
-			}
-
-			return res
-		})
-
-	if err != nil {
+func (r *IntentsReconciler) updateClientIntentsStatus(ctx context.Context, intents otterizev2alpha1.ClientIntents, status otterizev2alpha1.ReviewStatus) error {
+	intentsCopy := intents.DeepCopy()
+	intentsCopy.Status.ReviewStatus = status
+	if err := r.client.Status().Patch(ctx, intentsCopy, client.MergeFrom(&intents)); err != nil {
 		return errors.Wrap(err)
 	}
+	r.RecordNormalEventf(&intents, ReasonReviewStatusChanged, "Updated review status to %s (for generation %d)", status, intents.Generation)
+	logrus.WithFields(logrus.Fields{
+		"clientIntents.name":       intentsCopy.Name,
+		"clientIntents.namespaces": intentsCopy.Namespace,
+		"status":                   status,
+	}).Info("Updated client intents status")
 
 	return nil
+}
+
+func (*IntentsReconciler) initReviewStatusIndex(mgr ctrl.Manager) error {
+	return mgr.GetCache().IndexField(
+		context.Background(),
+		&otterizev2alpha1.ClientIntents{},
+		ReviewStatusIndexField,
+		func(object client.Object) []string {
+			clientIntents := object.(*otterizev2alpha1.ClientIntents)
+			return []string{string(clientIntents.Status.ReviewStatus)}
+		})
 }

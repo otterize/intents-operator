@@ -347,7 +347,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestDeleteRolePolicyFromIntents_Clears
 	s.expectUpdateKeyVaultAccessPolicyWritesPolicy(testKeyVaultName, armkeyvault.AccessPolicyUpdateKindRemove, &updatedPolicy)
 
 	// Act
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testAccountName,
 			Namespace: testNamespace,

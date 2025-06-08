@@ -62,7 +62,7 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodExists() {
 	namespace := "coolnamespace"
 	SAName := "backendservice"
 
-	intent := v2alpha1.ClientIntents{Spec: &v2alpha1.IntentsSpec{Workload: v2alpha1.Workload{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
+	intent := v2alpha1.ApprovedClientIntents{Spec: &v2alpha1.IntentsSpec{Workload: v2alpha1.Workload{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
 	ls, _, err := v2alpha1.ServiceIdentityToLabelsForWorkloadSelection(context.Background(), s.Client, intent.ToServiceIdentity())
 	s.Require().NoError(err)
 
@@ -87,7 +87,7 @@ func (s *ServiceIdResolverTestSuite) TestResolveClientIntentToPod_PodDoesntExist
 	serviceName := "coolservice"
 	namespace := "coolnamespace"
 
-	intent := v2alpha1.ClientIntents{Spec: &v2alpha1.IntentsSpec{Workload: v2alpha1.Workload{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
+	intent := v2alpha1.ApprovedClientIntents{Spec: &v2alpha1.IntentsSpec{Workload: v2alpha1.Workload{Name: serviceName}}, ObjectMeta: metav1.ObjectMeta{Namespace: namespace}}
 	ls, _, err := v2alpha1.ServiceIdentityToLabelsForWorkloadSelection(context.Background(), s.Client, intent.ToServiceIdentity())
 	s.Require().NoError(err)
 
@@ -496,7 +496,7 @@ func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSe
 
 func (s *ServiceIdResolverTestSuite) TestUserSpecifiedAnnotationForServiceName() {
 	annotationName := "coolAnnotationName"
-	expectedEnvVarName := "OTTERIZE_SERVICE_NAME_OVERRIDE_ANNOTATION"
+	expectedEnvVarName := "OTTERIZE_WORKLOAD_NAME_OVERRIDE_ANNOTATION"
 	_ = os.Setenv(expectedEnvVarName, annotationName)
 	s.Require().Equal(annotationName, viper.GetString(podownerresolver.WorkloadNameOverrideAnnotationKey))
 	_ = os.Unsetenv(expectedEnvVarName)

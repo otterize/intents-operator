@@ -2,6 +2,7 @@ package external_traffic
 
 import (
 	"context"
+	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
@@ -34,7 +35,7 @@ func NewIngressUploadReconciler(
 }
 
 func (r *IngressUploadReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	recorder := mgr.GetEventRecorderFor("intents-operator")
+	recorder := mirrorevents.GetMirrorToClientIntentsEventRecorderFor(mgr, "intents-operator")
 	r.InjectRecorder(recorder)
 
 	return ctrl.NewControllerManagedBy(mgr).

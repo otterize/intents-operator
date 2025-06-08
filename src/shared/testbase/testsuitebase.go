@@ -449,7 +449,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntents(
 	objName,
 	clientName,
 	clientKind string,
-	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
+	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ApprovedClientIntents, error) {
 	return s.AddIntentsInNamespace(objName, clientName, clientKind, s.TestNamespace, callList)
 }
 
@@ -458,9 +458,9 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespace(
 	clientName string,
 	clientKind string,
 	namespace string,
-	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
+	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ApprovedClientIntents, error) {
 
-	intents := &otterizev2alpha1.ClientIntents{
+	intents := &otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      objName,
 			Namespace: namespace,
@@ -517,7 +517,7 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsV1alpha2(
 func (s *ControllerManagerTestSuiteBase) AddIntentsv2alpha1(
 	objName,
 	clientName string,
-	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
+	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ApprovedClientIntents, error) {
 	return s.AddIntentsInNamespacev2alpha1(objName, clientName, s.TestNamespace, callList)
 }
 
@@ -560,9 +560,9 @@ func (s *ControllerManagerTestSuiteBase) AddIntentsInNamespacev2alpha1(
 	objName,
 	clientName string,
 	namespace string,
-	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ClientIntents, error) {
+	callList []otterizev2alpha1.Target) (*otterizev2alpha1.ApprovedClientIntents, error) {
 
-	intents := &otterizev2alpha1.ClientIntents{
+	intents := &otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      objName,
 			Namespace: namespace,
@@ -618,7 +618,7 @@ func (s *ControllerManagerTestSuiteBase) UpdateIntents(
 	objName string,
 	callList []otterizev2alpha1.Target) error {
 
-	intents := &otterizev2alpha1.ClientIntents{}
+	intents := &otterizev2alpha1.ApprovedClientIntents{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
 	s.Require().NoError(err)
 
@@ -644,7 +644,7 @@ func (s *ControllerManagerTestSuiteBase) UpdateIntentsv2alpha1(
 	objName string,
 	callList []otterizev2alpha1.Target) error {
 
-	intents := &otterizev2alpha1.ClientIntents{}
+	intents := &otterizev2alpha1.ApprovedClientIntents{}
 	err := s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Name: objName, Namespace: s.TestNamespace}, intents)
 	s.Require().NoError(err)
 
