@@ -240,7 +240,7 @@ func (r *ApprovedIntentsReconciler) getIntentsToAPIServerService(ctx context.Con
 
 func (r *ApprovedIntentsReconciler) mapProtectedServiceToClientIntents(ctx context.Context, obj client.Object) []reconcile.Request {
 	protectedService := obj.(*otterizev2alpha1.ProtectedService)
-	logrus.Debugf("Enqueueing client intents for protected services %s", protectedService.Name)
+	logrus.Debugf("Enqueueing approved client intents for protected services %s", protectedService.Name)
 
 	intentsToReconcile := r.getIntentsToService(ctx, protectedService.Spec.Name, protectedService.Namespace)
 	return r.mapIntentsToRequests(intentsToReconcile)
