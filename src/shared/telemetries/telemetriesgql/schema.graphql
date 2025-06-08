@@ -7,14 +7,17 @@ directive @constraint(
 	example: String!
 ) on ENUM_VALUE
 
-"""The @defer directive may be specified on a fragment spread to imply de-prioritization, that causes the fragment to be omitted in the initial response, and delivered as a subsequent response afterward. A query with @defer directive will cause the request to potentially return multiple responses, where non-deferred data is delivered in the initial response and data deferred delivered in a subsequent response. @include and @skip take precedence over @defer."""
+"""Directs the executor to defer this fragment when the `if` argument is true or undefined."""
 directive @defer(
+"""Deferred when true or undefined."""
 	if: Boolean
+"""Unique name"""
 	label: String
 ) on FRAGMENT_SPREAD | INLINE_FRAGMENT
 
-"""The @deprecated built-in directive is used within the type system definition language to indicate deprecated portions of a GraphQL service's schema, such as deprecated fields on a type, arguments on a field, input fields on an input type, or values of an enum type."""
+"""Marks an element of a GraphQL schema as no longer supported."""
 directive @deprecated(
+"""Explains why this element was deprecated, usually also including a suggestion for how to access supported similar data. Formatted using the Markdown syntax, as specified by [CommonMark](https://commonmark.org/)."""
 	reason: String
 ) on FIELD_DEFINITION | ARGUMENT_DEFINITION | INPUT_FIELD_DEFINITION | ENUM_VALUE
 
@@ -27,14 +30,29 @@ directive @httpError(
 	statusCode: Int!
 ) on ENUM_VALUE
 
-"""The @include directive may be provided for fields, fragment spreads, and inline fragments, and allows for conditional inclusion during execution as described by the if argument."""
+"""Directs the executor to include this field or fragment only when the `if` argument is true."""
 directive @include(
+"""Included when true."""
 	if: Boolean!
 ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
+"""@noRole indicates that the specified query / mutation / subscription can be executed regardless of the user's roles.
+This practically means that the query will not allow accessing any org-specific data."""
+directive @noRole on FIELD_DEFINITION
+
 """@noauth indicates that the specified query / mutation / subscription can be executed anonymously without
+user authentication, meaning anyone and everyone can execute it. USE WITH CAUTION.
 user authentication, meaning anyone and everyone can execute it. USE WITH CAUTION."""
 directive @noauth on FIELD_DEFINITION
+
+"""Indicates exactly one field must be supplied and this field must not be `null`."""
+directive @oneOf on INPUT_OBJECT
+
+"""@requiresRole indicates that the specified query / mutation / subscription requires any of the provided roles to be executed.
+Users without any of the specified roles will not be able to execute the query / mutation / subscription."""
+directive @requiresRole(
+	roles: [AuthRole!]!
+) on FIELD_DEFINITION
 
 directive @restApiField(
 	action: ApiFieldAction
@@ -46,13 +64,15 @@ directive @restApiRoute(
 	tags: [String!]!
 ) on FIELD_DEFINITION
 
-"""The @skip directive may be provided for fields, fragment spreads, and inline fragments, and allows for conditional exclusion during execution as described by the if argument."""
+"""Directs the executor to skip this field or fragment when the `if` argument is true."""
 directive @skip(
+"""Skipped when true."""
 	if: Boolean!
 ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
-"""The @specifiedBy built-in directive is used within the type system definition language to provide a scalar specification URL for specifying the behavior of custom scalar types."""
+"""Exposes a URL that specifies the behavior of this scalar."""
 directive @specifiedBy(
+"""The URL that specifies the behavior of this scalar."""
 	url: String!
 ) on SCALAR
 
@@ -134,6 +154,7 @@ input AWSVisibilitySettingsInput {
 
 type AccessApprovalRuleset {
 	id: ID!
+	order: Int!
 	origin: AccessApprovalRulesetFilter!
 	target: AccessApprovalRulesetFilter!
 	action: AccessApprovalRulesetAction!
@@ -195,6 +216,7 @@ type AccessGraphFilter {
 	lastSeen: TimeFilterValue
 	featureFlags: FeatureFlags
 	includeOnlyClientsMatchingFilter: Boolean
+	hits: NumericFilterValue
 }
 
 type AccessLog {
@@ -215,6 +237,7 @@ type AccessLogEdge {
 	accessStatus: EdgeAccessStatus!
 }
 
+""" This enum should be removed after removing allowExternalTrafficPolicy from IntentsOperatorConfigurationInput, it is here for backward compatibility """
 enum AllowExternalTrafficPolicy {
 	OFF
 	ALWAYS
@@ -272,6 +295,27 @@ type AppliedIntentsRequestWithDetails {
 	status: AppliedIntentsRequestStatusLabel!
 	reason: String
 	clientIntents: ClientIntentsFileRepresentation!
+}
+
+enum AuthRole {
+	ADMIN
+	VIEWER
+}
+
+type AutoApproveMoreRestrictiveIntentsByEnv {
+	environmentId: ID!
+	enabled: Boolean!
+}
+
+enum AutomateThirdPartyNetworkPolicy {
+	OFF
+	ALWAYS
+	IF_BLOCKED_BY_OTTERIZE
+}
+
+enum AutomatedThirdPartyPolicyTypes {
+	EXTERNAL_TRAFFIC
+	METRICS_TRAFFIC
 }
 
 enum AwsIamStep {
@@ -545,6 +589,12 @@ enum ComponentType {
 	NETWORK_MAPPER
 }
 
+input ConnectionsCount {
+	current: Int!
+	removed: Int!
+	added: Int!
+}
+
 type CreateGitHubIntegrationResponse {
 	integration: Integration!
 	nextURL: String!
@@ -553,6 +603,10 @@ type CreateGitHubIntegrationResponse {
 type CreateGitLabIntegrationResponse {
 	integration: Integration!
 	nextURL: String!
+}
+
+type CreateSIEMIntegrationResponse {
+	integration: Integration!
 }
 
 type CreateSlackIntegrationResponse {
@@ -575,7 +629,7 @@ enum CustomConstraint {
 }
 
 input DNSIPPairInput {
-	dnsName: String!
+	dnsName: String
 	ips: [String!]
 }
 
@@ -692,6 +746,8 @@ enum EdgeAccessStatusReason {
 	ALLOWED_BY_APPLIED_INTENTS_KAFKA_OVERLY_PERMISSIVE
 	ALLOWED_BY_APPLIED_INTENTS_DATABASE_OVERLY_PERMISSIVE
 	ALLOWED_BY_EXTERNAL_TRAFFIC_NETWORK_POLICY
+	ALLOWED_BY_INTERNET_EGRESS_NETWORK_POLICY
+	ALLOWED_BY_INTERNET_INGRESS_NETWORK_POLICY
 	WOULD_BE_ALLOWED_BY_EXTERNAL_TRAFFIC_NETWORK_POLICY
 	BLOCKED_BY_APPLIED_INTENTS_UNDER_PERMISSIVE
 	BLOCKED_BY_APPLIED_INTENTS_RESOURCE_MISMATCH
@@ -703,6 +759,8 @@ enum EdgeAccessStatusReason {
 	BLOCKED_BY_APPLIED_INTENTS_DATABASE_UNDER_PERMISSIVE
 	BLOCKED_BY_APPLIED_INTENTS_DATABASE_RESOURCE_MISMATCH
 	BLOCKED_BY_DATABASE_ENFORCEMENT_CONFIG_MISSING_APPLIED_INTENTS
+	BLOCKED_BY_INTERNET_EGRESS_NETWORK_POLICY
+	BLOCKED_BY_INTERNET_INGRESS_NETWORK_POLICY
 	BLOCKED_BY_DEFAULT_DENY
 	SHARED_SERVICE_ACCOUNT
 	CLIENT_ISTIO_SIDECAR_MISSING
@@ -722,6 +780,10 @@ enum EdgeAccessStatusReason {
 	BLOCKED_BY_DEFAULT_DENY_MISSING_EXTERNAL_TRAFFIC_POLICY
 	BLOCKED_BY_APPLIED_INTENTS_MISSING_EXTERNAL_TRAFFIC_POLICY
 	ALLOWED_BY_EXTERNALLY_MANAGED_NETWORK_POLICY
+	ALLOWED_BY_METRICS_COLLECTION_TRAFFIC_NETWORK_POLICY
+	WOULD_BE_ALLOWED_BY_METRICS_COLLECTION_TRAFFIC_NETWORK_POLICY
+	ALLOWED_BY_WEBHOOK_TRAFFIC_NETWORK_POLICY
+	WOULD_BE_ALLOWED_BY_WEBHOOK_TRAFFIC_NETWORK_POLICY
 }
 
 enum EdgeAccessStatusVerdict {
@@ -741,6 +803,11 @@ type EdgeAccessStatuses {
 	azureIAM: EdgeAccessStatus!
 	database: EdgeAccessStatus!
 	linkerdPolicies: EdgeAccessStatus!
+}
+
+enum EligibleForMetricsCollectionReason {
+	POD_ANNOTATIONS
+	SERVICE_ANNOTATIONS
 }
 
 type Environment {
@@ -791,6 +858,7 @@ enum EventType {
 	ACTIVE
 	EBPF_ATTACHED
 	EBPF_ATTACH_FAILED
+	EBPF_PROCESSING_ERROR
 }
 
 input ExternalTrafficDiscoveredIntentInput {
@@ -802,6 +870,8 @@ input ExternalTrafficIntentInput {
 	namespace: String!
 	clientName: String!
 	target: DNSIPPairInput!
+	connectionsCount: ConnectionsCount
+	ttl: Time
 }
 
 input ExternallyAccessibleServiceInput {
@@ -827,6 +897,8 @@ type FeatureFlags {
 	useTypedIntentsCTE: Boolean
 	enableInternetIntentsSuggestions: Boolean
 	enableIAMIntentsSuggestions: Boolean
+	enableNetworkPoliciesInAccessGraph: Boolean
+	enableTrafficFromTCPResolveDestBugfixInAccessGraph: Boolean
 }
 
 type Finding {
@@ -947,12 +1019,14 @@ type GitHubRepoInfo {
 	repository: String!
 	baseBranch: String!
 	intentsPath: String!
+	terraformPath: String
 }
 
 input GitHubRepoInfoInput {
 	repository: String!
 	baseBranch: String!
 	intentsPath: String!
+	terraformPath: String
 }
 
 type GitHubSettings {
@@ -987,6 +1061,7 @@ input GitLabRepoInfoInput {
 	projectPath: String!
 	baseBranch: String!
 	intentsPath: String!
+	terraformPath: String
 }
 
 type GitLabSettings {
@@ -1041,6 +1116,12 @@ enum IPFamily {
 	UNKNOWN
 }
 
+"""IP filters"""
+type IPFilterValue {
+	cidr: String!
+	exclude: [String!]
+}
+
 input IncomingInternetSourceInput {
 	ip: String!
 }
@@ -1054,6 +1135,7 @@ input IncomingTrafficIntentInput {
 	serverName: String!
 	namespace: String!
 	source: IncomingInternetSourceInput!
+	connectionsCount: ConnectionsCount
 }
 
 input IngressControllerConfigInput {
@@ -1066,6 +1148,8 @@ input IngressControllerConfigInput {
 input InputAccessApprovalRuleset {
 """Ruleset"""
 	id: ID!
+"""Ruleset"""
+	order: Int!
 """Ruleset"""
 	origin: InputAccessApprovalRulesetConfigFilter!
 """Ruleset"""
@@ -1104,6 +1188,7 @@ input InputAccessGraphFilter {
 	lastSeen: InputTimeFilterValue
 	featureFlags: InputFeatureFlags
 	includeOnlyClientsMatchingFilter: Boolean
+	hits: InputNumericFilterValue
 }
 
 """ Access log filter """
@@ -1144,6 +1229,11 @@ input InputAppliedIntentsRequestFilter {
 	approvalStatuses: InputIDFilterValue
 }
 
+input InputAutoApproveMoreRestrictiveIntentsByEnv {
+	environmentId: ID!
+	enabled: Boolean!
+}
+
 input InputDefaultIntentsApprovalActionByEnv {
 	environmentId: ID!
 	action: AccessApprovalRulesetAction!
@@ -1157,6 +1247,8 @@ input InputFeatureFlags {
 	useTypedIntentsCTE: Boolean
 	enableInternetIntentsSuggestions: Boolean
 	enableIAMIntentsSuggestions: Boolean
+	enableNetworkPoliciesInAccessGraph: Boolean
+	enableTrafficFromTCPResolveDestBugfixInAccessGraph: Boolean
 }
 
 """ Findings filter """
@@ -1195,6 +1287,39 @@ input InputIntegrationAccessGraphFilter {
 	namespaceFilterType: IDFilterOperators
 	serviceIds: [ID!]
 	serviceFilterType: IDFilterOperators
+	targets: [IntentType!]
+}
+
+""" Network policies filter """
+input InputNetworkPolicyFilter {
+""" Network policies filter """
+	search: String
+""" Network policies filter """
+	clusterIds: InputIDFilterValue
+""" Network policies filter """
+	namespaceIds: InputIDFilterValue
+""" Network policies filter """
+	environmentIds: InputIDFilterValue
+""" Network policies filter """
+	networkPolicyIds: InputIDFilterValue
+""" Network policies filter """
+	policyKinds: InputIDFilterValue
+""" Network policies filter """
+	since: InputTimeFilterValue
+}
+
+input InputNetworkPolicyHitsFilter {
+	since: InputTimeFilterValue
+}
+
+input InputNumericFilterValue {
+	value: Int!
+	operator: NumericFilterOperators!
+}
+
+input InputOffsetPagination {
+	page: Int
+	size: Int
 }
 
 input InputResourceInventoryFilter {
@@ -1220,15 +1345,21 @@ input InputServiceFilter {
 	integrationIds: [ID!]
 }
 
+input InputTerraformAwsInlinePolicyInfo {
+	name: String!
+	policy: String!
+}
+
 input InputTerraformAwsPolicyInfo {
 	arn: String!
+	policy: String!
 	address: String!
 }
 
 input InputTerraformAwsRoleInfo {
 	arn: String!
 	address: String!
-	inlinePolicy: String!
+	inlinePolicy: [InputTerraformAwsInlinePolicyInfo!]
 	attachedPolicies: [InputTerraformAwsPolicyInfo!]
 }
 
@@ -1288,6 +1419,7 @@ type Integration {
 	gitLabSettings: GitLabSettings
 	slackSettings: SlackSettings
 	awsVisibilitySettings: AWSVisibilitySettings
+	siemSettings: SIEMSettings
 	organizationId: String!
 	status: IntegrationStatus
 }
@@ -1302,6 +1434,7 @@ type IntegrationAccessGraphFilter {
 	serviceIds: [ID!]
 	serviceFilterType: IDFilterOperators
 	lastSeenAfter: Time
+	targets: [IntentType!]
 }
 
 type IntegrationComponents {
@@ -1346,6 +1479,7 @@ enum IntegrationType {
 	AZURE
 	SLACK
 	AWS_VISIBILITY
+	SIEM
 }
 
 type Intent {
@@ -1373,9 +1507,11 @@ input IntentInput {
 	clientName: String!
 	clientResolutionData: String
 	clientWorkloadKind: String
+	clientNameResolvedUsingAnnotation: Boolean
 	serverName: String!
 	serverResolutionData: String
 	serverWorkloadKind: String
+	serverNameResolvedUsingAnnotation: Boolean
 	serverAlias: ServerAliasInput
 	serverNamespace: String
 	type: IntentType
@@ -1392,6 +1528,7 @@ input IntentInput {
 	internet: InternetConfigInput
 	status: IntentStatusInput
 	resolutionData: String
+	connectionsCount: ConnectionsCount
 }
 
 input IntentRequestInput {
@@ -1416,6 +1553,7 @@ input IntentStatusInput {
 }
 
 enum IntentType {
+	KUBERNETES
 	HTTP
 	KAFKA
 	DATABASE
@@ -1442,10 +1580,12 @@ type IntentsOperatorConfiguration {
 	gcpIAMPolicyEnforcementEnabled: Boolean!
 	azureIAMPolicyEnforcementEnabled: Boolean!
 	databaseEnforcementEnabled: Boolean!
+	strictModeEnabled: Boolean!
 	protectedServicesEnabled: Boolean!
 	protectedServices: [Service!]!
 	egressNetworkPolicyEnforcementEnabled: Boolean!
 	enforcedNamespaces: [String!]
+	excludedStrictModeNamespaces: [String!]
 }
 
 input IntentsOperatorConfigurationInput {
@@ -1460,11 +1600,17 @@ input IntentsOperatorConfigurationInput {
 	gcpIAMPolicyEnforcementEnabled: Boolean
 	azureIAMPolicyEnforcementEnabled: Boolean
 	databaseEnforcementEnabled: Boolean
+	strictModeEnabled: Boolean
+	excludedStrictModeNamespaces: [String!]
 	enforcedNamespaces: [String!]
 	ingressControllerConfig: [IngressControllerConfigInput!]
 	awsALBLoadBalancerExemptionEnabled: Boolean
 	allowExternalTrafficPolicy: AllowExternalTrafficPolicy
 	externallyManagedPolicyWorkloads: [ExternallyManagedPolicyWorkloadInput!]
+	automateThirdPartyNetworkPolicies: AutomateThirdPartyNetworkPolicy
+	prometheusServerConfigs: [PrometheusServerConfigInput!]
+	automatedThirdPartyPolicyTypes: [AutomatedThirdPartyPolicyTypes!]
+	automateAllowWebhookTraffic: AutomateThirdPartyNetworkPolicy
 }
 
 type IntentsOperatorState {
@@ -1475,7 +1621,7 @@ type IntentsOperatorState {
 
 type InternetConfig {
 	appliedDomains: [String!]
-	dnsName: String!
+	dnsName: String
 	ips: [String!]
 	ports: [Int!]
 }
@@ -1491,20 +1637,21 @@ type Invite {
 	id: ID!
 	email: String!
 	organization: Organization!
+	organizationMembership: OrganizationMembership!
 	inviter: User!
 	created: Time!
 	acceptedAt: Time
 	status: InviteStatus!
 }
 
+input InviteOrgMembershipInput {
+	inviteId: ID!
+	membership: OrganizationMembershipInput!
+}
+
 enum InviteStatus {
 	PENDING
 	ACCEPTED
-}
-
-input IpBlockInput {
-	cidr: String!
-	except: [String!]
 }
 
 enum IpFamilyPolicy {
@@ -1564,6 +1711,12 @@ enum K8sPortProtocol {
 	SCTP
 }
 
+input K8sResourceEligibleForMetricsCollectionInput {
+	namespace: String!
+	name: String!
+	kind: String!
+}
+
 input K8sResourceIngressInput {
 	spec: K8sResourceIngressSpecInput!
 	status: K8sResourceIngressStatusInput
@@ -1589,6 +1742,7 @@ input K8sResourceLoadBalancerIngressInput {
 input K8sResourceServiceInput {
 	spec: K8sResourceServiceSpecInput!
 	status: K8sResourceServiceStatusInput
+	targetNamedPorts: [NamedPortInput!]
 }
 
 input K8sResourceServiceLoadBalancerIngressInput {
@@ -1649,6 +1803,12 @@ enum K8sServiceType {
 	NODE_PORT
 	LOAD_BALANCER
 	EXTERNAL_NAME
+}
+
+input K8sWebhookServiceInput {
+	identity: ServiceIdentityInput!
+	webhookName: String!
+	webhookType: WebhookType!
 }
 
 type KafkaConfig {
@@ -1751,12 +1911,19 @@ type Me {
 	user: User!
 """The organizations to which the current logged-in user belongs."""
 	organizations: [Organization!]!
+"""The organizations to which the current logged-in user belongs."""
+	userOrganizations: [UserOrganizationAssociation!]!
 """Organizations to which the current logged-in user may join."""
 	invites: [Invite!]!
 """The organization under which the current user request acts.
 This is selected by the X-Otterize-Organization header,
 or, for users with a single organization, this is that single selected organization."""
 	selectedOrganization: Organization!
+"""The organization under which the current user request acts.
+This is selected by the X-Otterize-Organization header,
+or, for users with a single organization, this is that single selected organization."""
+	selectedUserOrganization: UserOrganizationAssociation!
+	selectedOrganizationRestrictionResources: OrganizationMembershipRestrictionResources
 }
 
 type MeMutation {
@@ -1905,6 +2072,17 @@ type Mutation {
 		name: String!
 		slackSettings: SlackSettingsInput!
 	): CreateSlackIntegrationResponse
+"""Create a new SIEM integration"""
+	createSIEMIntegration(
+		name: String!
+		siemSettings: SIEMSettingsInput!
+	): CreateSIEMIntegrationResponse
+"""Update SIEM integration"""
+	updateSIEMIntegration(
+		id: ID!
+		name: String!
+		siemSettings: SIEMSettingsInput!
+	): Integration
 """Update a Slack integration"""
 	updateSlackIntegration(
 		id: ID!
@@ -1994,10 +2172,6 @@ type Mutation {
 		intents: [IntentInput!]!
 		ossClusterId: String
 	): Boolean!
-	reportNetworkPolicies(
-		namespace: String!
-		policies: [NetworkPolicyInput!]!
-	): Boolean!
 	reportExternallyAccessibleServices(
 		namespace: String!
 		services: [ExternallyAccessibleServiceInput!]!
@@ -2011,6 +2185,7 @@ type Mutation {
 """Create user invite"""
 	createInvite(
 		email: String!
+		organizationMembership: OrganizationMembershipInput
 	): Invite!
 """Delete user invite"""
 	deleteInvite(
@@ -2020,6 +2195,9 @@ type Mutation {
 	acceptInvite(
 		id: ID!
 	): Invite!
+	saveInviteOrgMemberships(
+		memberships: [InviteOrgMembershipInput!]!
+	): Boolean!
 	reportK8sServices(
 		namespace: String!
 		services: [K8sServiceInput!]!
@@ -2027,6 +2205,14 @@ type Mutation {
 	reportK8sIngresses(
 		namespace: String!
 		ingresses: [K8sIngressInput!]!
+	): Boolean!
+	reportK8sResourceEligibleForMetricsCollection(
+		namespace: String!
+		reason: EligibleForMetricsCollectionReason!
+		resources: [K8sResourceEligibleForMetricsCollectionInput!]!
+	): Boolean!
+	reportK8sWebhookServices(
+		services: [K8sWebhookServiceInput!]!
 	): Boolean!
 	reportKafkaServerConfigs(
 		namespace: String!
@@ -2039,6 +2225,15 @@ type Mutation {
 		id: ID!
 		environmentId: ID
 	): Namespace!
+	reportNamespaceLabels(
+		name: String!
+		labels: [LabelInput!]
+	): Boolean!
+	reportNetworkPolicies(
+		namespace: String
+		networkPolicies: [NetworkPolicyInput!]
+	): Boolean!
+	computeNetworkPoliciesForOrg: Boolean!
 """Create a new organization"""
 	createOrganization(
 		name: String
@@ -2049,6 +2244,9 @@ type Mutation {
 		name: String
 		imageURL: String
 		settings: OrganizationSettingsInput
+	): Organization!
+	updateDomainsDefaultRole(
+		defaultRole: AuthRole!
 	): Organization!
 """Remove user from organization"""
 	removeUserFromOrganization(
@@ -2095,6 +2293,9 @@ type Mutation {
 		userEmail: String!
 		feedback: String!
 	): Boolean!
+	saveOrgMemberships(
+		memberships: [UserOrgMembershipInput!]!
+	): Boolean!
 	createOrActivateTutorial(
 		tutorialName: TutorialName!
 	): Boolean!
@@ -2114,6 +2315,12 @@ type Mutation {
 		tutorialName: TutorialName!
 		step: String!
 	): Boolean!
+}
+
+input NamedPortInput {
+	name: String!
+	port: Int!
+	protocol: K8sPortProtocol!
 }
 
 type Namespace {
@@ -2141,6 +2348,11 @@ type NetworkMapperComponent {
 	status: ComponentStatus!
 }
 
+type NetworkPoliciesPage {
+	data: [NetworkPolicy!]!
+	meta: PaginationMeta
+}
+
 enum NetworkPoliciesStep {
 """Connect cluster"""
 	CREATE_CLUSTER
@@ -2156,20 +2368,65 @@ enum NetworkPoliciesStep {
 	COMPLETED
 }
 
-input NetworkPolicyEgressRuleInput {
-	to: [PeerInput!]!
+type NetworkPolicy {
+	id: ID!
+	name: String!
+	kind: NetworkPolicyKind!
+	cluster: Cluster!
+	namespace: Namespace
+	environment: Environment!
+	hits: Int!
+	allowedHits: Int!
+	blockedHits: Int!
+	workloads: [NetworkPolicyWorkload!]!
+	workloadsAffected: Int!
+	spec: String!
+	lastUsed: Time
+	metadata: NetworkPolicyMetadata
 }
 
 input NetworkPolicyInput {
-	namespace: String!
 	name: String!
-	serverName: String!
-	externalNetworkTrafficPolicy: Boolean!
-	spec: NetworkPolicySpecInput
+	yaml: String!
 }
 
-input NetworkPolicySpecInput {
-	egress: [NetworkPolicyEgressRuleInput!]
+enum NetworkPolicyKind {
+	NETWORK_POLICY
+	NETWORK_POLICY_MANAGED_BY_OTTERIZE
+	CILIUM_NETWORK_POLICY
+	CILIUM_CLUSTER_WIDE_NETWORK_POLICY
+}
+
+type NetworkPolicyMetadata {
+	isEgress: Boolean!
+	isIngress: Boolean!
+	hasIpBlocks: Boolean!
+}
+
+enum NetworkPolicyScope {
+	PRIMARY
+	EGRESS
+	INGRESS
+}
+
+type NetworkPolicyWorkload {
+	scopes: [NetworkPolicyScope!]!
+	service: Service!
+}
+
+"""Numeric filters"""
+enum NumericFilterOperators {
+	EQUAL
+	NOT_EQUAL
+	GREATER_THAN
+	GREATER_THAN_OR_EQUAL
+	LESS_THAN
+	LESS_THAN_OR_EQUAL
+}
+
+type NumericFilterValue {
+	value: Int!
+	operator: NumericFilterOperators!
 }
 
 type Organization {
@@ -2181,11 +2438,48 @@ type Organization {
 	created: Time!
 }
 
+type OrganizationMembership {
+	organizationId: ID!
+	role: AuthRole!
+	restrictions: OrganizationMembershipRestrictions
+	restrictionResources: OrganizationMembershipRestrictionResources
+}
+
+input OrganizationMembershipInput {
+	role: AuthRole!
+	restrictions: OrganizationMembershipRestrictionsInput
+}
+
+type OrganizationMembershipRestrictionResources {
+	clusters: [Cluster!]!
+	services: [Service!]!
+	namespaces: [Namespace!]!
+	environments: [Environment!]!
+}
+
+type OrganizationMembershipRestrictions {
+	clusterIds: IDFilterValue
+	serviceIds: IDFilterValue
+	namespaceIds: IDFilterValue
+	environmentIds: IDFilterValue
+}
+
+input OrganizationMembershipRestrictionsInput {
+	clusterIds: InputIDFilterValue
+	serviceIds: InputIDFilterValue
+	namespaceIds: InputIDFilterValue
+	environmentIds: InputIDFilterValue
+}
+
 type OrganizationSettings {
 	domains: [String!]
 	enforcedRegulations: [String!]
 	ignoredCloudDomains: [String!]
 	defaultIntentsApprovalActionByEnv: [DefaultIntentsApprovalActionByEnv!]!
+	ignoreInternetIntents: Boolean
+	domainsDefaultRole: AuthRole!
+	defaultInviteMembership: OrganizationMembership!
+	autoApproveMoreRestrictiveIntentsByEnv: [AutoApproveMoreRestrictiveIntentsByEnv!]!
 }
 
 input OrganizationSettingsInput {
@@ -2193,6 +2487,9 @@ input OrganizationSettingsInput {
 	enforcedRegulations: [String]
 	ignoredCloudDomains: [String!]
 	defaultIntentsApprovalActionByEnv: [InputDefaultIntentsApprovalActionByEnv!]
+	ignoreInternetIntents: Boolean
+	defaultInviteMembership: OrganizationMembershipInput
+	autoApproveMoreRestrictiveIntentsByEnv: [InputAutoApproveMoreRestrictiveIntentsByEnv!]
 }
 
 input PaginationInput {
@@ -2211,14 +2508,16 @@ enum PathType {
 	EXACT
 }
 
-input PeerInput {
-	ipBlock: IpBlockInput!
-}
-
 input PortStatusInput {
 	port: Int!
 	protocol: K8sPortProtocol!
 	error: String
+}
+
+input PrometheusServerConfigInput {
+	name: String!
+	namespace: String!
+	kind: String!
 }
 
 input ProtectedServiceInput {
@@ -2235,6 +2534,9 @@ type Query {
 	accessGraphServices(
 		filter: InputAccessGraphFilter
 	): [Service!]!
+	accessGraphNamespaces(
+		filter: InputAccessGraphFilter
+	): [Namespace!]!
 	serviceAccessGraph(
 		id: ID!
 	): ServiceAccessGraph!
@@ -2259,6 +2561,19 @@ type Query {
 		targetServiceId: ID!
 		lastSeenAfter: Time!
 	): [String!]!
+	edgeNetworkPolicies(
+		clientServiceId: ID!
+		serverServiceId: ID!
+	): [NetworkPolicy!]!
+	serviceNetworkPolicies(
+		serviceId: ID!
+	): [NetworkPolicy!]!
+""" Get edge connections count """
+	edgeConnectionsCount(
+		clientId: ID!
+		serverId: ID!
+		lastSeenAfter: Time!
+	): Int!
 """Get access log"""
 	accessLog(
 		filter: InputAccessLogFilter
@@ -2384,6 +2699,14 @@ type Query {
 		clusterId: ID
 		name: String
 	): Namespace!
+	networkPolicy(
+		id: ID!
+		filter: InputNetworkPolicyHitsFilter
+	): NetworkPolicy
+	networkPolicies(
+		filter: InputNetworkPolicyFilter
+		pagination: InputOffsetPagination
+	): NetworkPoliciesPage
 """List organizations"""
 	organizations: [Organization!]!
 """Get organization"""
@@ -2433,6 +2756,7 @@ type Query {
 	): TerraformResourceInfo!
 """List users"""
 	users: [User!]!
+	orgUsers: [UserOrganizationAssociation!]!
 """Get user"""
 	user(
 		id: ID!
@@ -2472,6 +2796,9 @@ enum RegulationCode {
 	ZERO_TRUST_EGRESS_ACCESS_COVERED
 	ZERO_TRUST_EXTERNAL_INGRESS_TAGGED
 	ZERO_TRUST_ALL_INTRA_CLUSTER_ACCESS_COVERED
+	THREAT_INTELLIGENCE
+"""Detect known IOCs (IPs, domain names) against ingress and egress Internet traffic"""
+	THREAT_INTELLIGENCE_KNOWN_IOCS
 }
 
 enum RegulationStandard {
@@ -2479,6 +2806,7 @@ enum RegulationStandard {
 	PII
 	HIPAA
 	ZERO_TRUST
+	THREAT_INTELLIGENCE
 }
 
 input ReportServiceMetadataInput {
@@ -2496,11 +2824,50 @@ type Resource {
 enum RowDiff {
 	ADDED
 	REMOVED
+	STRICT_MODE_WARNING
 }
 
 type RulesetsWithResources {
 	rulesets: [AccessApprovalRuleset!]!
 	resources: AccessApprovalRulesetResources!
+}
+
+type SIEMIntegrationTrigger {
+	isActive: Boolean!
+}
+
+input SIEMIntegrationTriggerInput {
+	isActive: Boolean!
+}
+
+type SIEMSettings {
+	isActive: Boolean!
+	syslogHostname: String!
+	syslogPort: Int!
+	syslogFacility: Int!
+	tlsConfiguration: TLSConfiguration
+	serviceTriggers: [SIEMTrigger!]!
+	findingTriggers: [SIEMTrigger!]!
+	integrationTriggers: SIEMIntegrationTrigger!
+}
+
+input SIEMSettingsInput {
+	isActive: Boolean!
+	syslogHostname: String!
+	syslogPort: Int!
+	syslogFacility: Int!
+	tlsConfiguration: TLSConfigurationInput
+	serviceTriggers: [SIEMTriggerInput!]!
+	findingTriggers: [SIEMTriggerInput!]!
+	integrationTriggers: SIEMIntegrationTriggerInput!
+}
+
+type SIEMTrigger {
+	filter: IntegrationAccessGraphFilter!
+}
+
+input SIEMTriggerInput {
+	filter: InputIntegrationAccessGraphFilter!
 }
 
 input SelectorKeyValueInput {
@@ -2586,6 +2953,7 @@ type Service {
 	aliases: [ServerAlias!]
 	namespace: Namespace
 	environment: Environment!
+	networkPolicies: [NetworkPolicy!]
 """If service is Kafka, its KafkaServerConfig."""
 	kafkaServerConfig: KafkaServerConfig
 	certificateInformation: CertificateInformation
@@ -2649,6 +3017,7 @@ input ServiceIdentityInput {
 	name: String!
 	namespace: String!
 	kind: String!
+	nameResolvedUsingAnnotation: Boolean
 }
 
 enum ServiceInternalTrafficPolicy {
@@ -2659,6 +3028,9 @@ enum ServiceInternalTrafficPolicy {
 input ServiceMetadataInput {
 	tags: [String!]
 	awsRoles: [String!]
+	labels: [LabelInput!]
+	podIps: [String!]
+	serviceIps: [String!]
 }
 
 enum ServiceType {
@@ -2675,6 +3047,7 @@ enum ServiceType {
 	KUBERNETES_LOAD_BALANCER
 	AWS_VISIBILITY_EKS
 	DETECTED_CLOUD_SERVER
+	CONTROL_PLANE
 }
 
 type ServicesResponse {
@@ -2751,6 +3124,19 @@ type StatusSummary {
 """The `String`scalar type represents textual data, represented as UTF-8 character sequences. The String type is most often used by GraphQL to represent free-form human-readable text."""
 scalar String
 
+type TLSConfiguration {
+	caCertificate: String
+	certificate: String
+	caCertificateFingerprint: String
+	certificateFingerprint: String
+}
+
+input TLSConfigurationInput {
+	caCertificate: String
+	certificate: String
+	key: String
+}
+
 enum TelemetryComponentType {
 	INTENTS_OPERATOR
 	CREDENTIALS_OPERATOR
@@ -2771,21 +3157,28 @@ input TelemetryInput {
 	data: TelemetryData!
 }
 
+type TerraformAwsInlinePolicyInfo {
+	name: String!
+	policy: String!
+}
+
 type TerraformAwsPolicyInfo {
 	arn: String!
+	policy: String!
 	address: String!
 }
 
 type TerraformAwsRoleInfo {
 	arn: String!
 	address: String!
-	inlinePolicy: String!
+	inlinePolicy: [TerraformAwsInlinePolicyInfo!]
 	attachedPolicies: [TerraformAwsPolicyInfo!]
 }
 
 type TerraformResourceInfo {
 	modulePath: String!
-	gitOriginUrl: String!
+	gitPlatform: String!
+	gitOrigin: String!
 	gitCommitHash: String!
 	awsRoles: [TerraformAwsRoleInfo!]
 }
@@ -2884,6 +3277,18 @@ enum UserErrorType {
 	CONFLICT
 	BAD_USER_INPUT
 	APPLIED_INTENTS_ERROR
+	TIMEOUT
+}
+
+input UserOrgMembershipInput {
+	userId: ID!
+	membership: OrganizationMembershipInput!
+}
+
+type UserOrganizationAssociation {
+	org: Organization!
+	user: User!
+	membership: OrganizationMembership!
 }
 
 type UserTutorial {
@@ -2905,6 +3310,12 @@ type ValidIDFilter {
 	namespaceIds: IDFilterValue
 	regulationIds: IDFilterValue
 	environmentIds: IDFilterValue
+}
+
+enum WebhookType {
+	VALIDATING_WEBHOOK
+	MUTATING_WEBHOOK
+	CONVERSION_WEBHOOK
 }
 
 type Workload {

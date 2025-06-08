@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/samber/lo"
-	"strings"
 )
 
 const (
@@ -49,17 +48,6 @@ func (a *Agent) DeleteRoleAssignment(ctx context.Context, roleAssignment armauth
 		return errors.Wrap(err)
 	}
 
-	// If the assignment is for a custom role, we also need to delete the role itself
-	if a.IsCustomRoleAssignment(roleAssignment) {
-		// The role id is the last hash of the assignments roleDefinitionID
-		fullID := *roleAssignment.Properties.RoleDefinitionID
-		roleDefinitionID := fullID[strings.LastIndex(fullID, "/")+1:]
-
-		if err := a.DeleteCustomRole(ctx, *roleAssignment.Properties.Scope, roleDefinitionID); err != nil {
-			return errors.Wrap(err)
-		}
-	}
-
 	return nil
 }
 
@@ -97,17 +85,7 @@ func (a *Agent) ListRoleAssignmentsForSubscription(ctx context.Context, subscrip
 		}
 
 		for _, roleAssignment := range page.Value {
-			// We want to list only otterize role assignments
-			if !a.IsCustomRoleAssignment(*roleAssignment) {
-				continue
-			}
-
-			// Skip filtering if userAssignedIdentity is nil
-			if userAssignedIdentity == nil {
-				roleAssignments = append(roleAssignments, *roleAssignment)
-				continue
-			}
-
+			// We don't filter only Otterize role assignments here for backwards compatibility with intents v1 Azure Roles
 			if *roleAssignment.Properties.PrincipalID == *userAssignedIdentity.Properties.PrincipalID {
 				roleAssignments = append(roleAssignments, *roleAssignment)
 			}
@@ -132,14 +110,6 @@ func (a *Agent) FindRoleDefinitionByName(ctx context.Context, scope string, role
 				roleDefinitionsByName[roleName] = *roleDef
 			}
 		}
-	}
-
-	missingRoles := lo.Filter(roleNames, func(roleName string, _ int) bool {
-		_, exists := roleDefinitionsByName[roleName]
-		return !exists
-	})
-	if len(missingRoles) > 0 {
-		return nil, errors.Errorf("azure role definitions not found: %s", missingRoles)
 	}
 
 	return roleDefinitionsByName, nil

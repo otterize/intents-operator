@@ -1,4 +1,4 @@
-package external_traffic_network_policy
+package external_traffic
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	otterizev2beta1 "github.com/otterize/intents-operator/src/operator/api/v2beta1"
 	"github.com/otterize/intents-operator/src/operator/controllers"
-	"github.com/otterize/intents-operator/src/operator/controllers/external_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy"
@@ -20,7 +19,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/operator/webhooks"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
@@ -46,8 +45,8 @@ import (
 
 type ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite struct {
 	testbase.ControllerManagerTestSuiteBase
-	IngressReconciler                *external_traffic.IngressReconciler
-	endpointReconciler               external_traffic.EndpointsReconciler
+	IngressReconciler                *IngressReconciler
+	endpointReconciler               EndpointsReconciler
 	EffectivePolicyIntentsReconciler *intents_reconcilers.ServiceEffectivePolicyIntentsReconciler
 	podWatcher                       *pod_reconcilers.PodWatcher
 }
@@ -56,9 +55,9 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupSuite() {
 	logrus.Info("Setting up test suite")
 	s.TestEnv = &envtest.Environment{Scheme: clientgoscheme.Scheme}
 	var err error
-	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "..", "config", "crd")}
+	s.TestEnv.CRDDirectoryPaths = []string{filepath.Join("..", "..", "config", "crd")}
 	s.TestEnv.WebhookInstallOptions = envtest.WebhookInstallOptions{
-		Paths:            []string{filepath.Join("..", "..", "..", "config", "webhook")},
+		Paths:            []string{filepath.Join("..", "..", "config", "webhook")},
 		LocalServingHost: "localhost",
 	}
 	utilruntime.Must(apiextensionsv1.AddToScheme(s.TestEnv.Scheme))
@@ -90,7 +89,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupTest() {
 	s.Require().NoError((&otterizev2beta1.ClientIntents{}).SetupWebhookWithManager(s.Mgr, intentsValidator2Beta1))
 
 	recorder := mirrorevents.GetMirrorToClientIntentsEventRecorderFor(s.Mgr, "intents-operator")
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, allowexternaltraffic.Always, make([]serviceidentity.ServiceIdentity, 0), false)
+	netpolHandler := NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, automate_third_party_network_policy.Always, make([]serviceidentity.ServiceIdentity, 0), false)
 	netpolReconciler := networkpolicy.NewReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, netpolHandler, []string{}, goset.NewSet[string](), true, true, false, []networkpolicy.IngressRuleBuilder{builders.NewIngressNetpolBuilder()}, nil)
 	serviceIdResolver := serviceidresolver.NewResolver(s.Mgr.GetClient())
 	groupReconciler := effectivepolicy.NewGroupReconciler(s.Mgr.GetClient(), s.TestEnv.Scheme, serviceIdResolver, netpolReconciler)
@@ -98,12 +97,12 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) SetupTest() {
 	s.Require().NoError((&controllers.ApprovedIntentsReconciler{}).InitIntentsServerIndices(s.Mgr))
 	s.EffectivePolicyIntentsReconciler.InjectRecorder(recorder)
 
-	s.endpointReconciler = external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
+	s.endpointReconciler = NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.endpointReconciler.InjectRecorder(recorder)
 	err := s.endpointReconciler.InitIngressReferencedServicesIndex(s.Mgr)
 	s.Require().NoError(err)
 
-	s.IngressReconciler = external_traffic.NewIngressReconciler(s.Mgr.GetClient(), netpolHandler)
+	s.IngressReconciler = NewIngressReconciler(s.Mgr.GetClient(), netpolHandler)
 	s.IngressReconciler.InjectRecorder(recorder)
 	s.Require().NoError(err)
 
@@ -130,7 +129,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestNetworkPolic
 	s.Require().NoError(err)
 
 	// make sure the ingress network policy doesn't exist yet
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, serviceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, serviceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 	s.Require().True(errors.IsNotFound(err))
 
@@ -169,7 +168,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestNetworkPolic
 
 	// make sure the load balancer network policy doesn't exist yet
 	loadBalancerServiceName := serviceName + "-lb"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 	s.Require().True(errors.IsNotFound(err))
 
@@ -207,7 +206,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestNetworkPolic
 
 	// make sure the load balancer network policy doesn't exist yet
 	nodePortServiceName := serviceName + "-np"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 	s.Require().True(errors.IsNotFound(err))
 
@@ -245,19 +244,20 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestEndpointsRec
 
 	// make sure the load balancer network policy doesn't exist yet
 	nodePortServiceName := serviceName + "-np"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, nodePortServiceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, np)
 	s.Require().True(errors.IsNotFound(err))
 
 	s.AddNodePortService(nodePortServiceName, podIps, podLabels)
 
 	enforcementConfig := enforcement.Config{
-		AllowExternalTraffic:    allowexternaltraffic.Always,
-		EnforcementDefaultState: false,
+		AutomateThirdPartyNetworkPolicies: automate_third_party_network_policy.Always,
+		EnforcementDefaultState:           false,
 	}
-	s.Require().Equal(allowexternaltraffic.IfBlockedByOtterize, enforcementConfig.GetActualExternalTrafficPolicy())
-	netpolHandler := external_traffic.NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, enforcementConfig.GetActualExternalTrafficPolicy(), make([]serviceidentity.ServiceIdentity, 0), false)
-	endpointReconcilerWithEnforcementDisabled := external_traffic.NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
+
+	s.Require().Equal(automate_third_party_network_policy.IfBlockedByOtterize, enforcementConfig.GetAutomateThirdPartyNetworkPolicy())
+	netpolHandler := NewNetworkPolicyHandler(s.Mgr.GetClient(), s.TestEnv.Scheme, enforcementConfig.GetAutomateThirdPartyNetworkPolicy(), make([]serviceidentity.ServiceIdentity, 0), false)
+	endpointReconcilerWithEnforcementDisabled := NewEndpointsReconciler(s.Mgr.GetClient(), netpolHandler)
 	recorder := record.NewFakeRecorder(10)
 	endpointReconcilerWithEnforcementDisabled.InjectRecorder(recorder)
 
@@ -309,7 +309,7 @@ func (s *ExternalNetworkPolicyReconcilerWithNoIntentsTestSuite) TestNetworkPolic
 
 	// make sure the load balancer network policy doesn't exist yet
 	loadBalancerServiceName := serviceName + "-lb"
-	externalNetworkPolicyName := fmt.Sprintf(external_traffic.OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
+	externalNetworkPolicyName := fmt.Sprintf(OtterizeExternalNetworkPolicyNameTemplate, loadBalancerServiceName)
 	err = s.Mgr.GetClient().Get(context.Background(), types.NamespacedName{Namespace: s.TestNamespace, Name: externalNetworkPolicyName}, netpol)
 	s.Require().True(errors.IsNotFound(err))
 

@@ -29,6 +29,7 @@ import (
 type IAMClient interface {
 	ListAttachedRolePolicies(ctx context.Context, i *iam.ListAttachedRolePoliciesInput, opts ...func(*iam.Options)) (*iam.ListAttachedRolePoliciesOutput, error)
 	DeleteRole(ctx context.Context, i *iam.DeleteRoleInput, opts ...func(*iam.Options)) (*iam.DeleteRoleOutput, error)
+	UpdateAssumeRolePolicy(ctx context.Context, i *iam.UpdateAssumeRolePolicyInput, opts ...func(*iam.Options)) (*iam.UpdateAssumeRolePolicyOutput, error)
 	CreateRole(ctx context.Context, i *iam.CreateRoleInput, opts ...func(*iam.Options)) (*iam.CreateRoleOutput, error)
 	GetRole(ctx context.Context, i *iam.GetRoleInput, opts ...func(*iam.Options)) (*iam.GetRoleOutput, error)
 	GetPolicy(ctx context.Context, i *iam.GetPolicyInput, opts ...func(*iam.Options)) (*iam.GetPolicyOutput, error)

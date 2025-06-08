@@ -348,6 +348,15 @@ func (a *Agent) deleteOldestPolicyVersion(ctx context.Context, policy *types.Pol
 		VersionId: oldest.VersionId,
 	}, AWSBackoffRetryerOptions)
 
+	if err != nil && errors.As(err, &types.NoSuchEntityException{}) {
+		logrus.WithFields(logrus.Fields{
+			"policy":  policy.PolicyName,
+			"version": *oldest.VersionId,
+			"error":   err,
+		}).Debug("NoSuchEntityException while deleting policy version, it might have been deleted already")
+		return nil
+	}
+
 	if err != nil {
 		return errors.Wrap(err)
 	}

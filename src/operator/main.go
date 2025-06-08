@@ -19,10 +19,7 @@ package main
 import (
 	"github.com/otterize/intents-operator/src/operator/mirrorevents"
 	"github.com/otterize/intents-operator/src/operator/otterizecrds"
-	"github.com/otterize/intents-operator/src/shared/k8sconf"
-	"path"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 
 	"context"
 	"github.com/bombsimon/logrusr/v3"
@@ -45,7 +42,9 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/networkpolicy/builders"
 	"github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/port_network_policy"
 	"github.com/otterize/intents-operator/src/operator/controllers/kafkaacls"
+	"github.com/otterize/intents-operator/src/operator/controllers/metrics_collection_traffic"
 	"github.com/otterize/intents-operator/src/operator/controllers/pod_reconcilers"
+	"github.com/otterize/intents-operator/src/operator/controllers/webhook_traffic"
 	"github.com/otterize/intents-operator/src/operator/effectivepolicy"
 	"github.com/otterize/intents-operator/src/operator/health"
 	"github.com/otterize/intents-operator/src/shared"
@@ -54,6 +53,7 @@ import (
 	"github.com/otterize/intents-operator/src/shared/clusterutils"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/gcpagent"
+	"github.com/otterize/intents-operator/src/shared/k8sconf"
 	"github.com/otterize/intents-operator/src/shared/operator_cloud_client"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
@@ -69,9 +69,11 @@ import (
 	"github.com/spf13/viper"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"net/http"
+	"path"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"time"
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -215,7 +217,13 @@ func main() {
 
 	kafkaServersStore := kafkaacls.NewServersStore(tlsSource, enforcementConfig.EnableKafkaACL, kafkaacls.NewKafkaIntentsAdmin, enforcementConfig.EnforcementDefaultState)
 
-	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetActualExternalTrafficPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
+	metricsCollectorNetpolHandler := metrics_collection_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetAutomateThirdPartyNetworkPolicy(), enforcementConfig.PrometheusServiceIdentities)
+	metricsCollectorPodReconciler := metrics_collection_traffic.NewPodReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorEndpointsReconciler := metrics_collection_traffic.NewEndpointsReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorServiceReconciler := metrics_collection_traffic.NewServiceReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+	metricsCollectorNetworkPolicyReconciler := metrics_collection_traffic.NewNetworkPolicyReconciler(mgr.GetClient(), metricsCollectorNetpolHandler)
+
+	extNetpolHandler := external_traffic.NewNetworkPolicyHandler(mgr.GetClient(), mgr.GetScheme(), enforcementConfig.GetAutomateThirdPartyNetworkPolicy(), operatorconfig.GetIngressControllerServiceIdentities(), viper.GetBool(operatorconfig.IngressControllerALBExemptKey))
 	endpointReconciler := external_traffic.NewEndpointsReconciler(mgr.GetClient(), extNetpolHandler)
 	ingressRulesBuilder := builders.NewIngressNetpolBuilder()
 
@@ -232,6 +240,13 @@ func main() {
 			[]networkpolicy.IngressRuleBuilder{ingressRulesBuilder, svcNetworkPolicyBuilder, dnsServerNetpolBuilder},
 			make([]networkpolicy.EgressRuleBuilder, 0))
 	epGroupReconciler := effectivepolicy.NewGroupReconciler(mgr.GetClient(), scheme, serviceIdResolver, epNetpolReconciler)
+
+	webhooksTrafficNetworkHandler := webhook_traffic.NewNetworkPolicyHandler(mgr.GetClient(),
+		scheme,
+		enforcementConfig.GetAutomateAllowWebhookTraffic(),
+		viper.GetInt(operatorconfig.ControlPlaneIPv4CidrPrefixLength),
+		viper.GetBool(operatorconfig.WebhookTrafficAllowAllKey))
+	webhookTrafficReconcilerManager := webhook_traffic.NewWebhookTrafficReconcilerManager(mgr.GetClient(), webhooksTrafficNetworkHandler)
 
 	if enforcementConfig.EnableLinkerdPolicies {
 		epGroupReconciler.AddReconciler(intents_reconcilers.NewLinkerdReconciler(mgr.GetClient(), scheme, watchedNamespaces, enforcementConfig.EnforcementDefaultState))
@@ -315,7 +330,7 @@ func main() {
 			logrus.WithError(err).Panic("could not initialize Azure agent")
 		}
 		azureIntentsAgent := azurepolicyagent.NewAzurePolicyAgent(signalHandlerCtx, azureAgent)
-
+		azureIntentsAgent.InjectRecorder(mgr.GetEventRecorderFor("intents-operator"))
 		iamAgents = append(iamAgents, azureIntentsAgent)
 	}
 
@@ -423,6 +438,22 @@ func main() {
 		}
 	}
 
+	if err = metricsCollectorPodReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Pod")
+	}
+
+	if err = metricsCollectorEndpointsReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Endpoints")
+	}
+
+	if err = metricsCollectorServiceReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Service")
+	}
+
+	if err = metricsCollectorNetworkPolicyReconciler.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "NetworkPolicy")
+	}
+
 	if err = endpointReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "Endpoints")
 	}
@@ -437,6 +468,10 @@ func main() {
 
 	if err = netpolReconciler.SetupWithManager(mgr); err != nil {
 		logrus.WithError(err).Panic("unable to create controller", "controller", "NetworkPolicy")
+	}
+
+	if err = webhookTrafficReconcilerManager.SetupWithManager(mgr); err != nil {
+		logrus.WithError(err).Panic("unable to create controller", "controller", "Webhooks")
 	}
 
 	kafkaServerConfigReconciler := controllers.NewKafkaServerConfigReconciler(

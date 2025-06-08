@@ -3,7 +3,7 @@ package external_traffic
 import (
 	"context"
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/otterize/intents-operator/src/shared/testbase"
 	"github.com/stretchr/testify/suite"
@@ -22,11 +22,11 @@ type NetworkPolicyHandlerTestSuite struct {
 
 func (s *NetworkPolicyHandlerTestSuite) SetupTest() {
 	s.MocksSuiteBase.SetupTest()
-	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, allowexternaltraffic.IfBlockedByOtterize, make([]serviceidentity.ServiceIdentity, 0), false)
+	s.handler = NewNetworkPolicyHandler(s.Client, &runtime.Scheme{}, automate_third_party_network_policy.IfBlockedByOtterize, make([]serviceidentity.ServiceIdentity, 0), false)
 }
 
 func (s *NetworkPolicyHandlerTestSuite) TestNetworkPolicyHandler_HandleBeforeAccessPolicyRemoval_createWhenNoIntentsEnabled_doNothing() {
-	s.handler.allowExternalTraffic = allowexternaltraffic.Always
+	s.handler.allowExternalTraffic = automate_third_party_network_policy.Always
 
 	serviceName := "testservice"
 	serviceNamespace := "testnamespace"

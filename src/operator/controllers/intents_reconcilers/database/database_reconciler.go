@@ -353,6 +353,9 @@ func (r *DatabaseReconciler) handleDatabaseAnnotationOnPod(ctx context.Context, 
 	}
 
 	updatedPod := pod.DeepCopy()
+	if updatedPod.Annotations == nil {
+		updatedPod.Annotations = make(map[string]string)
+	}
 	updatedPod.Annotations[databaseconfigurator.LatestAccessChangeAnnotation] = time.Now().Format(time.RFC3339)
 	if !intents.DeletionTimestamp.IsZero() {
 		// Clean all databases

@@ -179,6 +179,9 @@ func PersistCertBundleToSecret(ctx context.Context, client client.Client, secret
 		// secret must exist as it is created as part of Helm chart
 		return errors.Wrap(err)
 	}
+	if secret.Data == nil {
+		secret.Data = make(map[string][]byte)
+	}
 
 	secret.Data[CertFilename] = bundle.CertPem
 	secret.Data[PrivateKeyFilename] = bundle.PrivateKeyPem

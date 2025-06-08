@@ -557,10 +557,12 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) testCreateNetworkPolicyForK
 		svcObject,
 	)
 	// Add target port and change selector in ingress to use svc
-	newPolicy.Spec.Egress[0].Ports = lo.Map(ports, func(port corev1.ServicePort, _ int) v1.NetworkPolicyPort {
-		return v1.NetworkPolicyPort{Port: &port.TargetPort, Protocol: lo.Ternary(len(port.Protocol) != 0, lo.ToPtr(port.Protocol), nil)}
-	})
-
+	egressPorts := make([]v1.NetworkPolicyPort, 0)
+	for _, port := range ports {
+		egressPorts = append(egressPorts, v1.NetworkPolicyPort{Port: &port.TargetPort, Protocol: lo.Ternary(len(port.Protocol) != 0, lo.ToPtr(port.Protocol), nil)})
+		egressPorts = append(egressPorts, v1.NetworkPolicyPort{Port: &intstr.IntOrString{IntVal: port.Port}, Protocol: lo.Ternary(len(port.Protocol) != 0, lo.ToPtr(port.Protocol), nil)})
+	}
+	newPolicy.Spec.Egress[0].Ports = egressPorts
 	s.externalNetpolHandler.EXPECT().HandlePodsByLabelSelector(gomock.Any(), gomock.Any(), gomock.Any())
 	s.Client.EXPECT().Create(gomock.Any(), gomock.Eq(newPolicy)).Return(nil)
 
@@ -603,7 +605,7 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForK
 	s.expectGetAllEffectivePolicies([]otterizev2alpha1.ApprovedClientIntents{clientIntents})
 
 	svcSelector := map[string]string{"a": "b"}
-	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, []corev1.ServicePort{{TargetPort: intstr.IntOrString{IntVal: 80}}}, svcSelector)
+	svcObject := s.addExpectedKubernetesServiceCall("test-server", testNamespace, []corev1.ServicePort{{TargetPort: intstr.IntOrString{IntVal: 80}, Port: 3333}}, svcSelector)
 	// Search for existing NetworkPolicy
 	emptyNetworkPolicy := &v1.NetworkPolicy{}
 	networkPolicyNamespacedName := types.NamespacedName{
@@ -621,6 +623,8 @@ func (s *PortEgressNetworkPolicyReconcilerTestSuite) TestUpdateNetworkPolicyForK
 	)
 	// Add target port and change selector in egress to use svc
 	newPolicy.Spec.Egress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 80}}}
+	port := svcObject.Spec.Ports[0]
+	newPolicy.Spec.Egress[0].Ports = append(newPolicy.Spec.Egress[0].Ports, v1.NetworkPolicyPort{Port: &intstr.IntOrString{IntVal: port.Port}, Protocol: lo.Ternary(len(port.Protocol) != 0, lo.ToPtr(port.Protocol), nil)})
 	existingBadPolicy := newPolicy.DeepCopy()
 	existingBadPolicy.Spec.Egress[0].Ports = []v1.NetworkPolicyPort{{Port: &intstr.IntOrString{IntVal: 90}}}
 

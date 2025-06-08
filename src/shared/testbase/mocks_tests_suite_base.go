@@ -3,7 +3,6 @@ package testbase
 import (
 	otterizev2alpha1 "github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	mocks "github.com/otterize/intents-operator/src/operator/controllers/intents_reconcilers/mocks"
-	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -16,7 +15,7 @@ const (
 )
 
 type MocksSuiteBase struct {
-	suite.Suite
+	TestSuiteBase
 	Controller   *gomock.Controller
 	Recorder     *record.FakeRecorder
 	Client       *mocks.MockClient
@@ -68,14 +67,5 @@ func (s *MocksSuiteBase) ExpectEventsOrderAndCountDontMatter(expectedEventReason
 		case <-time.After(100 * time.Millisecond):
 			return
 		}
-	}
-}
-
-func (s *MocksSuiteBase) ExpectNoEvent(eventRecorder *record.FakeRecorder) {
-	select {
-	case event := <-eventRecorder.Events:
-		s.Fail("Unexpected event found", event)
-	default:
-		// Amazing, no events left behind!
 	}
 }

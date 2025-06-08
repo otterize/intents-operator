@@ -64,8 +64,8 @@ func (a *Agent) createPolicyFromIntents(intents []otterizev2alpha1.Target) awsag
 	return policy
 }
 
-func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev2alpha1.Target, pod corev1.Pod) error {
-	policyDoc := a.createPolicyFromIntents(intents)
+func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, _ otterizev2alpha1.ClientIntents, filteredTargets []otterizev2alpha1.Target, _ corev1.Pod) error {
+	policyDoc := a.createPolicyFromIntents(filteredTargets)
 	return a.agent.AddRolePolicy(ctx, namespace, accountName, intentsServiceName, policyDoc.Statement)
 }
 

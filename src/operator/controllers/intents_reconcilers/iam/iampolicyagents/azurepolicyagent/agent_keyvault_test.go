@@ -16,6 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/record"
 	"sync"
 	"testing"
 )
@@ -37,7 +38,8 @@ type AzureAgentPoliciesKeyVaultSuite struct {
 	subscriptionToResourceClient        map[string]azureagent.AzureARMResourcesClient
 	subscriptionToRoleAssignmentsClient map[string]azureagent.AzureARMAuthorizationRoleAssignmentsClient
 
-	agent *Agent
+	testRecoder record.FakeRecorder
+	agent       *Agent
 }
 
 func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
@@ -61,7 +63,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 	s.subscriptionToRoleAssignmentsClient[testSubscriptionID] = s.mockRoleAssignmentsClient
 
 	s.agent = &Agent{
-		azureagent.NewAzureAgentFromClients(
+		Agent: azureagent.NewAzureAgentFromClients(
 			azureagent.Config{
 				SubscriptionID:          testSubscriptionID,
 				ResourceGroup:           testResourceGroup,
@@ -84,9 +86,11 @@ func (s *AzureAgentPoliciesKeyVaultSuite) SetupTest() {
 			s.subscriptionToResourceClient,
 			s.subscriptionToRoleAssignmentsClient,
 		),
-		sync.Mutex{},
-		sync.Mutex{},
+		roleMutex:       sync.Mutex{},
+		assignmentMutex: sync.Mutex{},
 	}
+	s.testRecoder = *record.NewFakeRecorder(100)
+	s.agent.InjectRecorder(&s.testRecoder)
 }
 
 func (s *AzureAgentPoliciesKeyVaultSuite) expectGetUserAssignedIdentityReturnsClientID(clientId string) {
@@ -243,12 +247,23 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestAddRolePolicyFromIntents_AzureKeyV
 	for _, testCase := range azureKeyVaultPolicyTestCases {
 		s.Run(testCase.Name, func() {
 			scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.KeyVault/vaults/%s", testSubscriptionID, testResourceGroup, testKeyVaultName)
-			intents := []otterizev2alpha1.Target{
+			targets := []otterizev2alpha1.Target{
 				{
 					Azure: &otterizev2alpha1.AzureTarget{
 						Scope:          scope,
 						KeyVaultPolicy: testCase.IntentPolicy,
 					},
+				},
+			}
+
+			clientIntents := otterizev2alpha1.ClientIntents{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testIntentsServiceName,
+					Namespace: testNamespace,
+				},
+				Spec: &otterizev2alpha1.IntentsSpec{
+					Workload: otterizev2alpha1.Workload{Name: testIntentsServiceName},
+					Targets:  targets,
 				},
 			}
 
@@ -274,7 +289,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestAddRolePolicyFromIntents_AzureKeyV
 			}
 
 			// Act
-			err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, intents, corev1.Pod{})
+			err := s.agent.AddRolePolicyFromIntents(context.Background(), testNamespace, testAccountName, testIntentsServiceName, clientIntents, clientIntents.GetTargetList(), corev1.Pod{})
 
 			// Assert
 			s.NoError(err)

@@ -66,6 +66,10 @@ const (
 	SeparateNetpolsForIngressAndEgress            = "separate-netpols-for-ingress-and-egress"
 	SeparateNetpolsForIngressAndEgressDefault     = false
 	ExternallyManagedPolicyWorkloadsKey           = "externallyManagedPolicyWorkloads"
+	ControlPlaneIPv4CidrPrefixLength              = "control-plane-ipv4-cidr-prefix-length"
+	ControlPlaneIPv4CidrPrefixLengthDefault       = 32
+	WebhookTrafficAllowAllKey                     = "webhook-traffic-allow-all"
+	WebhookTrafficAllowAllDefault                 = true
 
 	EnableIntentsCloudApproval        = "enable-intents-cloud-approval"
 	EnableIntentsCloudApprovalDefault = true
@@ -92,6 +96,8 @@ func init() {
 	viper.SetDefault(SeparateNetpolsForIngressAndEgress, SeparateNetpolsForIngressAndEgressDefault)
 	viper.SetDefault(EnableGroupInternetIPsByCIDRKey, EnableGroupInternetIPsByCIDRDefault)
 	viper.SetDefault(EnableGroupInternetIPsByCIDRPeersLimitKey, EnableGroupInternetIPsByCIDRPeersLimitDefault)
+	viper.SetDefault(ControlPlaneIPv4CidrPrefixLength, ControlPlaneIPv4CidrPrefixLengthDefault)
+	viper.SetDefault(WebhookTrafficAllowAllKey, WebhookTrafficAllowAllDefault)
 	viper.SetDefault(EnableIntentsCloudApproval, EnableIntentsCloudApprovalDefault)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()

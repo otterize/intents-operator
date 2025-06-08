@@ -6,11 +6,12 @@ import (
 	"github.com/otterize/intents-operator/src/operator/api/v2alpha1"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"github.com/otterize/intents-operator/src/shared/injectablerecorder"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver"
 	"github.com/otterize/intents-operator/src/shared/serviceidresolver/serviceidentity"
 	"github.com/samber/lo"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -27,7 +28,6 @@ import (
 )
 
 const (
-	ReasonEnforcementGloballyDisabled         = "EnforcementGloballyDisabled"
 	ReasonCreatingExternalTrafficPolicyFailed = "CreatingExternalTrafficPolicyFailed"
 	ReasonCreatedExternalTrafficPolicy        = "CreatedExternalTrafficPolicy"
 	ReasonGettingExternalTrafficPolicyFailed  = "GettingExternalTrafficPolicyFailed"
@@ -35,14 +35,13 @@ const (
 	ReasonRemovingExternalTrafficPolicyFailed = "RemovingExternalTrafficPolicyFailed"
 	ReasonRemovedExternalTrafficPolicy        = "RemovedExternalTrafficPolicy"
 	OtterizeExternalNetworkPolicyNameTemplate = "external-access-to-%s"
-	successMsgNetpolCreate                    = "created external traffic network policy. service '%s' refers to pods protected by network policy '%s'"
 )
 
 type NetworkPolicyHandler struct {
 	client client.Client
 	scheme *runtime.Scheme
 	injectablerecorder.InjectableRecorder
-	allowExternalTraffic         allowexternaltraffic.Enum
+	allowExternalTraffic         automate_third_party_network_policy.Enum
 	ingressControllerIdentities  []serviceidentity.ServiceIdentity
 	ingressControllerALBAllowAll bool
 }
@@ -50,7 +49,7 @@ type NetworkPolicyHandler struct {
 func NewNetworkPolicyHandler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	allowExternalTraffic allowexternaltraffic.Enum,
+	allowExternalTraffic automate_third_party_network_policy.Enum,
 	ingressControllerIdentities []serviceidentity.ServiceIdentity,
 	ingressControllerALBAllowAll bool,
 ) *NetworkPolicyHandler {
@@ -76,10 +75,10 @@ func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 		return errors.Wrap(err)
 	}
 	existingPolicy := &v1.NetworkPolicy{}
-	errGetExistingPolicy := r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
+	err = r.client.Get(ctx, types.NamespacedName{Name: policyName, Namespace: endpoints.GetNamespace()}, existingPolicy)
 
 	// No matching network policy found, create one
-	if k8serrors.IsNotFound(errGetExistingPolicy) {
+	if k8serrors.IsNotFound(err) {
 		logrus.Debugf("Creating network policy to allow external traffic to %s (ns %s)", endpoints.GetName(), endpoints.GetNamespace())
 		err := r.client.Create(ctx, newPolicy)
 		if err != nil {
@@ -87,9 +86,9 @@ func (r *NetworkPolicyHandler) createOrUpdateNetworkPolicy(
 		}
 		r.RecordNormalEvent(owner, ReasonCreatedExternalTrafficPolicy, successMsg)
 		return nil
-	} else if errGetExistingPolicy != nil {
+	} else if err != nil {
 		r.RecordWarningEventf(owner, ReasonGettingExternalTrafficPolicyFailed, "failed to get external traffic network policy: %s", err.Error())
-		return errGetExistingPolicy
+		return errors.Wrap(err)
 	}
 
 	// Found matching policy, is an update needed?
@@ -209,7 +208,7 @@ func (r *NetworkPolicyHandler) buildNetworkPolicyObjectForEndpoints(
 //	that related external policies will be removed as well (if needed)
 func (r *NetworkPolicyHandler) HandleBeforeAccessPolicyRemoval(ctx context.Context, accessPolicy *v1.NetworkPolicy) error {
 	// if allowExternalTraffic is Always - external policies are not dependent on access policies
-	if r.allowExternalTraffic == allowexternaltraffic.Always {
+	if r.allowExternalTraffic == automate_third_party_network_policy.Always {
 		return nil
 	}
 
@@ -395,40 +394,47 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		if !ok {
 			continue
 		}
-		netpolSlice := make([]v1.NetworkPolicy, 0)
+		netpolsAffectingThisWorkload := make([]v1.NetworkPolicy, 0)
 
 		serviceId, err := serviceidresolver.NewResolver(r.client).ResolvePodToServiceIdentity(ctx, pod)
 		if err != nil {
 			return errors.Wrap(err)
 		}
 		netpolList := &v1.NetworkPolicyList{}
-		// Get netpolSlice which was created by intents targeting this pod by its owner with "kind"
+		// Get netpolsAffectingThisWorkload which was created by intents targeting this pod by its owner with "kind"
 		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithKind()})
 		if err != nil {
 			return errors.Wrap(err)
 		}
-		netpolSlice = append(netpolSlice, netpolList.Items...)
-		// Get netpolSlice which was created by intents targeting this pod by its owner without "kind"
+		netpolsAffectingThisWorkload = append(netpolsAffectingThisWorkload, netpolList.Items...)
+		// Get netpolsAffectingThisWorkload which was created by intents targeting this pod by its owner without "kind"
 		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: serviceId.GetFormattedOtterizeIdentityWithoutKind()})
 		if err != nil {
 			return errors.Wrap(err)
 		}
-		netpolSlice = append(netpolSlice, netpolList.Items...)
+		netpolsAffectingThisWorkload = append(netpolsAffectingThisWorkload, netpolList.Items...)
 
-		// Get netpolSlice which was created by intents targeting this pod by its service
+		// Get netpolsAffectingThisWorkload which was created by intents targeting this pod by its service
 		err = r.client.List(ctx, netpolList, client.MatchingLabels{v2alpha1.OtterizeNetworkPolicy: (&serviceidentity.ServiceIdentity{Name: endpoints.Name, Namespace: endpoints.Namespace, Kind: serviceidentity.KindService}).GetFormattedOtterizeIdentityWithKind()})
 		if err != nil {
 			return errors.Wrap(err)
 		}
 
-		netpolSlice = append(netpolSlice, netpolList.Items...)
+		netpolsAffectingThisWorkload = append(netpolsAffectingThisWorkload, netpolList.Items...)
 
-		hasIngressRules := lo.SomeBy(netpolSlice, func(netpol v1.NetworkPolicy) bool {
+		// Sort netpolsAffectingThisWorkload by name so that we always use the same netpol when running Find below
+		// This is important because we relay on the order of the netpols to determine whether it already exists, does not
+		// exist or need an update
+		slices.SortStableFunc(netpolsAffectingThisWorkload, func(i, j v1.NetworkPolicy) bool {
+			return i.Name < j.Name
+		})
+
+		ingressNetpol, hasIngressRules := lo.Find(netpolsAffectingThisWorkload, func(netpol v1.NetworkPolicy) bool {
 			return lo.Contains(netpol.Spec.PolicyTypes, v1.PolicyTypeIngress)
 		})
 
 		if !hasIngressRules {
-			if r.allowExternalTraffic == allowexternaltraffic.Always {
+			if r.allowExternalTraffic == automate_third_party_network_policy.Always {
 				err := r.handleNetpolsForOtterizeServiceWithoutIntents(ctx, endpoints, serverLabel, ingressList)
 				if err != nil {
 					return errors.Wrap(err)
@@ -444,14 +450,14 @@ func (r *NetworkPolicyHandler) handleEndpointsWithIngressList(ctx context.Contex
 		}
 
 		foundOtterizeNetpolsAffectingPods = true
-		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, netpolSlice)
+		err = r.handleNetpolsForOtterizeService(ctx, endpoints, serverLabel, ingressList, ingressNetpol.Spec.PodSelector)
 		if err != nil {
 			return errors.Wrap(err)
 		}
 
 	}
 
-	if !foundOtterizeNetpolsAffectingPods && r.allowExternalTraffic != allowexternaltraffic.Always {
+	if !foundOtterizeNetpolsAffectingPods && r.allowExternalTraffic != automate_third_party_network_policy.Always {
 		policyName := r.formatPolicyName(endpoints.Name)
 		err := r.handlePolicyDelete(ctx, policyName, endpoints.Namespace)
 		if err != nil {
@@ -507,24 +513,24 @@ func (r *NetworkPolicyHandler) handlePolicyDelete(ctx context.Context, policyNam
 		ownerObj.SetKind(ownerRef.Kind)
 		err := r.client.Get(ctx, types.NamespacedName{Name: ownerRef.Name, Namespace: policyNamespace}, ownerObj)
 		if err != nil {
-			logrus.Debugf("can't get the owner of %s. So no events will be recorded for the deletion", policyName)
+			logrus.Debugf("Can't get the owner of %s. So no events will be recorded for the deletion", policyName)
 		}
 		owner = ownerObj
 	}
 
-	r.RecordNormalEvent(owner, ReasonRemovingExternalTrafficPolicy, "removing external traffic network policy, reconciler was disabled")
+	r.RecordNormalEvent(owner, ReasonRemovingExternalTrafficPolicy, "Removing external traffic network policy")
 
 	err = r.client.Delete(ctx, policy)
 	if err != nil && !k8serrors.IsNotFound(err) {
-		r.RecordWarningEventf(owner, ReasonRemovingExternalTrafficPolicyFailed, "failed removing external traffic network policy: %s", err.Error())
+		r.RecordWarningEventf(owner, ReasonRemovingExternalTrafficPolicyFailed, "Failed removing external traffic network policy: %s", err.Error())
 		return errors.Wrap(err)
 	}
-	r.RecordNormalEvent(owner, ReasonRemovedExternalTrafficPolicy, "removed external traffic network policy, success")
+	r.RecordNormalEvent(owner, ReasonRemovedExternalTrafficPolicy, "Removed external traffic network policy")
 
 	return nil
 }
 
-func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, netpolList []v1.NetworkPolicy) error {
+func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Context, endpoints *corev1.Endpoints, otterizeServiceName string, ingressList *v1.IngressList, affectedPodSelector metav1.LabelSelector) error {
 	svc := &corev1.Service{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: endpoints.Name, Namespace: endpoints.Namespace}, svc)
 	if err != nil {
@@ -532,8 +538,7 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 	}
 
 	// delete policy if disabled
-	if r.allowExternalTraffic == allowexternaltraffic.Off {
-		r.RecordNormalEventf(svc, ReasonEnforcementGloballyDisabled, "Skipping created external traffic network policy for service '%s' because enforcement is globally disabled", endpoints.GetName())
+	if r.allowExternalTraffic == automate_third_party_network_policy.Off {
 		err = r.handlePolicyDelete(ctx, r.formatPolicyName(endpoints.Name), endpoints.Namespace)
 		if err != nil {
 			return errors.Wrap(err)
@@ -541,13 +546,10 @@ func (r *NetworkPolicyHandler) handleNetpolsForOtterizeService(ctx context.Conte
 		return nil
 	}
 
-	for _, netpol := range netpolList {
-		successMsg := fmt.Sprintf(successMsgNetpolCreate, endpoints.GetName(), netpol.GetName())
-		err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, netpol.Spec.PodSelector, ingressList, successMsg)
+	err = r.createOrUpdateNetworkPolicy(ctx, endpoints, svc, otterizeServiceName, affectedPodSelector, ingressList, fmt.Sprintf("Created external traffic network policy. Service '%s' is affected by Otterize network policies", endpoints.GetName()))
 
-		if err != nil {
-			return errors.Wrap(err)
-		}
+	if err != nil {
+		return errors.Wrap(err)
 	}
 	return nil
 }

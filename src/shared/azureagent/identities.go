@@ -97,27 +97,12 @@ func (a *Agent) DeleteUserAssignedIdentity(ctx context.Context, namespace string
 	userAssignedIdentityName := a.GenerateUserAssignedIdentityName(namespace, accountName)
 	federatedIdentityCredentialsName := a.generateFederatedIdentityCredentialsName(namespace, accountName)
 
-	identity, exists, err := a.FindUserAssignedIdentity(ctx, namespace, accountName)
+	_, exists, err := a.FindUserAssignedIdentity(ctx, namespace, accountName)
 	if err != nil {
 		return errors.Wrap(err)
 	}
 	if !exists {
 		return nil
-	}
-
-	// Delete roles assigned to the identity
-	roleAssignments, err := a.ListRoleAssignmentsAcrossSubscriptions(ctx, &identity)
-	if err != nil {
-		return errors.Wrap(err)
-	}
-
-	for _, roleAssignment := range roleAssignments {
-		if err := a.DeleteRoleAssignment(ctx, roleAssignment); err != nil {
-			if azureerrors.IsNotFoundErr(err) {
-				continue
-			}
-			return errors.Wrap(err)
-		}
 	}
 
 	// Delete the federated identity credentials

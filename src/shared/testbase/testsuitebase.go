@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	_ "os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,8 +40,21 @@ const waitForCreationInterval = 20 * time.Millisecond
 const waitForCreationTimeout = 10 * time.Second
 const waitForDeletionTSTimeout = 3 * time.Second
 
-type ControllerManagerTestSuiteBase struct {
+type TestSuiteBase struct {
 	suite.Suite
+}
+
+func (s *TestSuiteBase) ExpectNoEvent(eventRecorder *record.FakeRecorder) {
+	select {
+	case event := <-eventRecorder.Events:
+		s.Fail("Unexpected event found", event)
+	default:
+		// Amazing, no events left behind!
+	}
+}
+
+type ControllerManagerTestSuiteBase struct {
+	TestSuiteBase
 	TestEnv          *envtest.Environment
 	RestConfig       *rest.Config
 	TestNamespace    string

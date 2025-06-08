@@ -5,7 +5,7 @@ import (
 	"github.com/otterize/intents-operator/src/operator/controllers/istiopolicy"
 	linkerdmanager "github.com/otterize/intents-operator/src/operator/controllers/linkerd"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig"
-	"github.com/otterize/intents-operator/src/shared/operatorconfig/allowexternaltraffic"
+	"github.com/otterize/intents-operator/src/shared/operatorconfig/automate_third_party_network_policy"
 	"github.com/otterize/intents-operator/src/shared/operatorconfig/enforcement"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/graphqlclient"
 	"github.com/otterize/intents-operator/src/shared/otterizecloud/otterizecloudclient"
@@ -58,16 +58,52 @@ func reportStatus(ctx context.Context, client CloudClient) {
 	client.ReportComponentStatus(timeoutCtx, graphqlclient.ComponentTypeIntentsOperator)
 }
 
-func getAllowExternalConfig() graphqlclient.AllowExternalTrafficPolicy {
-	switch enforcement.GetConfig().AllowExternalTraffic {
-	case allowexternaltraffic.Always:
+func getAutomateThirdPartyNetworkPoliciesConfig() graphqlclient.AutomateThirdPartyNetworkPolicy {
+	switch enforcement.GetConfig().AutomateThirdPartyNetworkPolicies {
+	case automate_third_party_network_policy.Always:
+		return graphqlclient.AutomateThirdPartyNetworkPolicyAlways
+	case automate_third_party_network_policy.Off:
+		return graphqlclient.AutomateThirdPartyNetworkPolicyOff
+	case automate_third_party_network_policy.IfBlockedByOtterize:
+		return graphqlclient.AutomateThirdPartyNetworkPolicyIfBlockedByOtterize
+	default:
+		return ""
+	}
+}
+
+func getPrometheusServiceIdentities() []graphqlclient.PrometheusServerConfigInput {
+	return lo.Map(enforcement.GetConfig().PrometheusServiceIdentities, func(item serviceidentity.ServiceIdentity, _ int) graphqlclient.PrometheusServerConfigInput {
+		return graphqlclient.PrometheusServerConfigInput{
+			Name:      item.Name,
+			Namespace: item.Namespace,
+			Kind:      item.Kind,
+		}
+	})
+}
+
+func getAllowExternalTrafficConfig() graphqlclient.AllowExternalTrafficPolicy {
+	switch enforcement.GetConfig().AutomateThirdPartyNetworkPolicies {
+	case automate_third_party_network_policy.Always:
 		return graphqlclient.AllowExternalTrafficPolicyAlways
-	case allowexternaltraffic.Off:
+	case automate_third_party_network_policy.Off:
 		return graphqlclient.AllowExternalTrafficPolicyOff
-	case allowexternaltraffic.IfBlockedByOtterize:
+	case automate_third_party_network_policy.IfBlockedByOtterize:
 		return graphqlclient.AllowExternalTrafficPolicyIfBlockedByOtterize
 	default:
 		return graphqlclient.AllowExternalTrafficPolicyOff
+	}
+}
+
+func getAutomateAllowWebhookTrafficConfig() graphqlclient.AutomateThirdPartyNetworkPolicy {
+	switch enforcement.GetConfig().AutomateAllowWebhookTraffic {
+	case automate_third_party_network_policy.Always:
+		return graphqlclient.AutomateThirdPartyNetworkPolicyAlways
+	case automate_third_party_network_policy.Off:
+		return graphqlclient.AutomateThirdPartyNetworkPolicyOff
+	case automate_third_party_network_policy.IfBlockedByOtterize:
+		return graphqlclient.AutomateThirdPartyNetworkPolicyIfBlockedByOtterize
+	default:
+		return ""
 	}
 }
 
@@ -115,7 +151,12 @@ func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Ma
 		LinkerdPolicyEnforcementEnabled:       enforcementConfig.EnableLinkerdPolicies && isLinkerdInstalled,
 		ProtectedServicesEnabled:              enforcementConfig.EnableNetworkPolicy, // in this version, protected services are enabled if network policy creation is enabled, regardless of enforcement default state
 		EnforcedNamespaces:                    enforcementConfig.EnforcedNamespaces.Items(),
-		AllowExternalTrafficPolicy:            getAllowExternalConfig(),
+		StrictModeEnabled:                     enforcementConfig.StrictModeEnabled,
+		ExcludedStrictModeNamespaces:          enforcementConfig.ExcludedStrictModeNamespaces.Items(),
+		AllowExternalTrafficPolicy:            getAllowExternalTrafficConfig(), // The server expect for AllowExternalTrafficPolicy because of backwards compatibility
+		AutomateThirdPartyNetworkPolicies:     getAutomateThirdPartyNetworkPoliciesConfig(),
+		PrometheusServerConfigs:               getPrometheusServiceIdentities(),
+		AutomateAllowWebhookTraffic:           getAutomateAllowWebhookTrafficConfig(),
 	}
 
 	configInput.IngressControllerConfig = lo.Map(ingressConfigIdentities, func(identity serviceidentity.ServiceIdentity, _ int) graphqlclient.IngressControllerConfigInput {
@@ -135,6 +176,10 @@ func uploadConfiguration(ctx context.Context, client CloudClient, mgr manager.Ma
 	})
 
 	configInput.AwsALBLoadBalancerExemptionEnabled = viper.GetBool(operatorconfig.IngressControllerALBExemptKey)
+	configInput.AutomatedThirdPartyPolicyTypes = []graphqlclient.AutomatedThirdPartyPolicyTypes{
+		graphqlclient.AutomatedThirdPartyPolicyTypesExternalTraffic,
+		graphqlclient.AutomatedThirdPartyPolicyTypesMetricsTraffic,
+	}
 
 	client.ReportIntentsOperatorConfiguration(timeoutCtx, configInput)
 }

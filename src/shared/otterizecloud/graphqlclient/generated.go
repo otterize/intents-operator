@@ -9,6 +9,7 @@ import (
 	"github.com/Khan/genqlient/graphql"
 )
 
+// This enum should be removed after removing allowExternalTrafficPolicy from IntentsOperatorConfigurationInput, it is here for backward compatibility
 type AllowExternalTrafficPolicy string
 
 const (
@@ -17,13 +18,19 @@ const (
 	AllowExternalTrafficPolicyIfBlockedByOtterize AllowExternalTrafficPolicy = "IF_BLOCKED_BY_OTTERIZE"
 )
 
-type AppliedIntentsRequestStatusLabel string
+type AutomateThirdPartyNetworkPolicy string
 
 const (
-	AppliedIntentsRequestStatusLabelPending  AppliedIntentsRequestStatusLabel = "PENDING"
-	AppliedIntentsRequestStatusLabelApproved AppliedIntentsRequestStatusLabel = "APPROVED"
-	AppliedIntentsRequestStatusLabelDenied   AppliedIntentsRequestStatusLabel = "DENIED"
-	AppliedIntentsRequestStatusLabelStale    AppliedIntentsRequestStatusLabel = "STALE"
+	AutomateThirdPartyNetworkPolicyOff                 AutomateThirdPartyNetworkPolicy = "OFF"
+	AutomateThirdPartyNetworkPolicyAlways              AutomateThirdPartyNetworkPolicy = "ALWAYS"
+	AutomateThirdPartyNetworkPolicyIfBlockedByOtterize AutomateThirdPartyNetworkPolicy = "IF_BLOCKED_BY_OTTERIZE"
+)
+
+type AutomatedThirdPartyPolicyTypes string
+
+const (
+	AutomatedThirdPartyPolicyTypesExternalTraffic AutomatedThirdPartyPolicyTypes = "EXTERNAL_TRAFFIC"
+	AutomatedThirdPartyPolicyTypesMetricsTraffic  AutomatedThirdPartyPolicyTypes = "METRICS_TRAFFIC"
 )
 
 type AzureKeyVaultPolicyInput struct {
@@ -157,6 +164,21 @@ const (
 	ComponentTypeNetworkMapper       ComponentType = "NETWORK_MAPPER"
 )
 
+type ConnectionsCount struct {
+	Current *int `json:"current"`
+	Removed *int `json:"removed"`
+	Added   *int `json:"added"`
+}
+
+// GetCurrent returns ConnectionsCount.Current, and is useful for accessing the field via an interface.
+func (v *ConnectionsCount) GetCurrent() *int { return v.Current }
+
+// GetRemoved returns ConnectionsCount.Removed, and is useful for accessing the field via an interface.
+func (v *ConnectionsCount) GetRemoved() *int { return v.Removed }
+
+// GetAdded returns ConnectionsCount.Added, and is useful for accessing the field via an interface.
+func (v *ConnectionsCount) GetAdded() *int { return v.Added }
+
 type DNSIPPairInput struct {
 	DnsName *string   `json:"dnsName"`
 	Ips     []*string `json:"ips"`
@@ -239,44 +261,6 @@ func (v *ExternallyManagedPolicyWorkloadInput) GetNamespace() string { return v.
 // GetKind returns ExternallyManagedPolicyWorkloadInput.Kind, and is useful for accessing the field via an interface.
 func (v *ExternallyManagedPolicyWorkloadInput) GetKind() string { return v.Kind }
 
-// GetAppliedIntentsRequestStatusResponse is returned by GetAppliedIntentsRequestStatus on success.
-type GetAppliedIntentsRequestStatusResponse struct {
-	SyncPendingRequestStatuses []GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus `json:"syncPendingRequestStatuses"`
-}
-
-// GetSyncPendingRequestStatuses returns GetAppliedIntentsRequestStatusResponse.SyncPendingRequestStatuses, and is useful for accessing the field via an interface.
-func (v *GetAppliedIntentsRequestStatusResponse) GetSyncPendingRequestStatuses() []GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus {
-	return v.SyncPendingRequestStatuses
-}
-
-// GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus includes the requested fields of the GraphQL type AppliedIntentsRequestStatus.
-type GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus struct {
-	ResourceId string                           `json:"resourceId"`
-	Generation int                              `json:"generation"`
-	Reason     string                           `json:"reason"`
-	Status     AppliedIntentsRequestStatusLabel `json:"status"`
-}
-
-// GetResourceId returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.ResourceId, and is useful for accessing the field via an interface.
-func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetResourceId() string {
-	return v.ResourceId
-}
-
-// GetGeneration returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.Generation, and is useful for accessing the field via an interface.
-func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetGeneration() int {
-	return v.Generation
-}
-
-// GetReason returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.Reason, and is useful for accessing the field via an interface.
-func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetReason() string {
-	return v.Reason
-}
-
-// GetStatus returns GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus.Status, and is useful for accessing the field via an interface.
-func (v *GetAppliedIntentsRequestStatusSyncPendingRequestStatusesAppliedIntentsRequestStatus) GetStatus() AppliedIntentsRequestStatusLabel {
-	return v.Status
-}
-
 type HTTPConfigInput struct {
 	Path    *string       `json:"path"`
 	Methods []*HTTPMethod `json:"methods"`
@@ -318,29 +302,32 @@ func (v *IngressControllerConfigInput) GetNamespace() string { return v.Namespac
 func (v *IngressControllerConfigInput) GetKind() string { return v.Kind }
 
 type IntentInput struct {
-	Namespace            *string                   `json:"namespace"`
-	ClientName           *string                   `json:"clientName"`
-	ClientResolutionData *string                   `json:"clientResolutionData"`
-	ClientWorkloadKind   *string                   `json:"clientWorkloadKind"`
-	ServerName           *string                   `json:"serverName"`
-	ServerResolutionData *string                   `json:"serverResolutionData"`
-	ServerWorkloadKind   *string                   `json:"serverWorkloadKind"`
-	ServerAlias          *ServerAliasInput         `json:"serverAlias"`
-	ServerNamespace      *string                   `json:"serverNamespace"`
-	Type                 *IntentType               `json:"type"`
-	Topics               []*KafkaConfigInput       `json:"topics"`
-	Resources            []*HTTPConfigInput        `json:"resources"`
-	DatabaseResources    []*DatabaseConfigInput    `json:"databaseResources"`
-	AwsRole              *string                   `json:"awsRole"`
-	AwsActions           []*string                 `json:"awsActions"`
-	AzureRoles           []*string                 `json:"azureRoles"`
-	AzureActions         []*string                 `json:"azureActions"`
-	AzureDataActions     []*string                 `json:"azureDataActions"`
-	AzureKeyVaultPolicy  *AzureKeyVaultPolicyInput `json:"azureKeyVaultPolicy"`
-	GcpPermissions       []*string                 `json:"gcpPermissions"`
-	Internet             *InternetConfigInput      `json:"internet"`
-	Status               *IntentStatusInput        `json:"status"`
-	ResolutionData       *string                   `json:"resolutionData"`
+	Namespace                         *string                   `json:"namespace"`
+	ClientName                        *string                   `json:"clientName"`
+	ClientResolutionData              *string                   `json:"clientResolutionData"`
+	ClientWorkloadKind                *string                   `json:"clientWorkloadKind"`
+	ClientNameResolvedUsingAnnotation *bool                     `json:"clientNameResolvedUsingAnnotation"`
+	ServerName                        *string                   `json:"serverName"`
+	ServerResolutionData              *string                   `json:"serverResolutionData"`
+	ServerWorkloadKind                *string                   `json:"serverWorkloadKind"`
+	ServerNameResolvedUsingAnnotation *bool                     `json:"serverNameResolvedUsingAnnotation"`
+	ServerAlias                       *ServerAliasInput         `json:"serverAlias"`
+	ServerNamespace                   *string                   `json:"serverNamespace"`
+	Type                              *IntentType               `json:"type"`
+	Topics                            []*KafkaConfigInput       `json:"topics"`
+	Resources                         []*HTTPConfigInput        `json:"resources"`
+	DatabaseResources                 []*DatabaseConfigInput    `json:"databaseResources"`
+	AwsRole                           *string                   `json:"awsRole"`
+	AwsActions                        []*string                 `json:"awsActions"`
+	AzureRoles                        []*string                 `json:"azureRoles"`
+	AzureActions                      []*string                 `json:"azureActions"`
+	AzureDataActions                  []*string                 `json:"azureDataActions"`
+	AzureKeyVaultPolicy               *AzureKeyVaultPolicyInput `json:"azureKeyVaultPolicy"`
+	GcpPermissions                    []*string                 `json:"gcpPermissions"`
+	Internet                          *InternetConfigInput      `json:"internet"`
+	Status                            *IntentStatusInput        `json:"status"`
+	ResolutionData                    *string                   `json:"resolutionData"`
+	ConnectionsCount                  *ConnectionsCount         `json:"connectionsCount"`
 }
 
 // GetNamespace returns IntentInput.Namespace, and is useful for accessing the field via an interface.
@@ -355,6 +342,11 @@ func (v *IntentInput) GetClientResolutionData() *string { return v.ClientResolut
 // GetClientWorkloadKind returns IntentInput.ClientWorkloadKind, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetClientWorkloadKind() *string { return v.ClientWorkloadKind }
 
+// GetClientNameResolvedUsingAnnotation returns IntentInput.ClientNameResolvedUsingAnnotation, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetClientNameResolvedUsingAnnotation() *bool {
+	return v.ClientNameResolvedUsingAnnotation
+}
+
 // GetServerName returns IntentInput.ServerName, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetServerName() *string { return v.ServerName }
 
@@ -363,6 +355,11 @@ func (v *IntentInput) GetServerResolutionData() *string { return v.ServerResolut
 
 // GetServerWorkloadKind returns IntentInput.ServerWorkloadKind, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetServerWorkloadKind() *string { return v.ServerWorkloadKind }
+
+// GetServerNameResolvedUsingAnnotation returns IntentInput.ServerNameResolvedUsingAnnotation, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetServerNameResolvedUsingAnnotation() *bool {
+	return v.ServerNameResolvedUsingAnnotation
+}
 
 // GetServerAlias returns IntentInput.ServerAlias, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetServerAlias() *ServerAliasInput { return v.ServerAlias }
@@ -414,29 +411,8 @@ func (v *IntentInput) GetStatus() *IntentStatusInput { return v.Status }
 // GetResolutionData returns IntentInput.ResolutionData, and is useful for accessing the field via an interface.
 func (v *IntentInput) GetResolutionData() *string { return v.ResolutionData }
 
-type IntentRequestInput struct {
-	ResourceGeneration IntentRequestResourceGeneration `json:"resourceGeneration"`
-	Intent             IntentInput                     `json:"intent"`
-}
-
-// GetResourceGeneration returns IntentRequestInput.ResourceGeneration, and is useful for accessing the field via an interface.
-func (v *IntentRequestInput) GetResourceGeneration() IntentRequestResourceGeneration {
-	return v.ResourceGeneration
-}
-
-// GetIntent returns IntentRequestInput.Intent, and is useful for accessing the field via an interface.
-func (v *IntentRequestInput) GetIntent() IntentInput { return v.Intent }
-
-type IntentRequestResourceGeneration struct {
-	ResourceId string `json:"resourceId"`
-	Generation int    `json:"generation"`
-}
-
-// GetResourceId returns IntentRequestResourceGeneration.ResourceId, and is useful for accessing the field via an interface.
-func (v *IntentRequestResourceGeneration) GetResourceId() string { return v.ResourceId }
-
-// GetGeneration returns IntentRequestResourceGeneration.Generation, and is useful for accessing the field via an interface.
-func (v *IntentRequestResourceGeneration) GetGeneration() int { return v.Generation }
+// GetConnectionsCount returns IntentInput.ConnectionsCount, and is useful for accessing the field via an interface.
+func (v *IntentInput) GetConnectionsCount() *ConnectionsCount { return v.ConnectionsCount }
 
 type IntentStatusInput struct {
 	IstioStatus *IstioStatusInput `json:"istioStatus"`
@@ -448,14 +424,15 @@ func (v *IntentStatusInput) GetIstioStatus() *IstioStatusInput { return v.IstioS
 type IntentType string
 
 const (
-	IntentTypeHttp     IntentType = "HTTP"
-	IntentTypeKafka    IntentType = "KAFKA"
-	IntentTypeDatabase IntentType = "DATABASE"
-	IntentTypeAws      IntentType = "AWS"
-	IntentTypeGcp      IntentType = "GCP"
-	IntentTypeAzure    IntentType = "AZURE"
-	IntentTypeS3       IntentType = "S3"
-	IntentTypeInternet IntentType = "INTERNET"
+	IntentTypeKubernetes IntentType = "KUBERNETES"
+	IntentTypeHttp       IntentType = "HTTP"
+	IntentTypeKafka      IntentType = "KAFKA"
+	IntentTypeDatabase   IntentType = "DATABASE"
+	IntentTypeAws        IntentType = "AWS"
+	IntentTypeGcp        IntentType = "GCP"
+	IntentTypeAzure      IntentType = "AZURE"
+	IntentTypeS3         IntentType = "S3"
+	IntentTypeInternet   IntentType = "INTERNET"
 )
 
 type IntentsOperatorConfigurationInput struct {
@@ -470,11 +447,17 @@ type IntentsOperatorConfigurationInput struct {
 	GcpIAMPolicyEnforcementEnabled        bool                                   `json:"gcpIAMPolicyEnforcementEnabled"`
 	AzureIAMPolicyEnforcementEnabled      bool                                   `json:"azureIAMPolicyEnforcementEnabled"`
 	DatabaseEnforcementEnabled            bool                                   `json:"databaseEnforcementEnabled"`
+	StrictModeEnabled                     bool                                   `json:"strictModeEnabled"`
+	ExcludedStrictModeNamespaces          []string                               `json:"excludedStrictModeNamespaces"`
 	EnforcedNamespaces                    []string                               `json:"enforcedNamespaces"`
 	IngressControllerConfig               []IngressControllerConfigInput         `json:"ingressControllerConfig"`
 	AwsALBLoadBalancerExemptionEnabled    bool                                   `json:"awsALBLoadBalancerExemptionEnabled"`
 	AllowExternalTrafficPolicy            AllowExternalTrafficPolicy             `json:"allowExternalTrafficPolicy"`
 	ExternallyManagedPolicyWorkloads      []ExternallyManagedPolicyWorkloadInput `json:"externallyManagedPolicyWorkloads"`
+	AutomateThirdPartyNetworkPolicies     AutomateThirdPartyNetworkPolicy        `json:"automateThirdPartyNetworkPolicies"`
+	PrometheusServerConfigs               []PrometheusServerConfigInput          `json:"prometheusServerConfigs"`
+	AutomatedThirdPartyPolicyTypes        []AutomatedThirdPartyPolicyTypes       `json:"automatedThirdPartyPolicyTypes"`
+	AutomateAllowWebhookTraffic           AutomateThirdPartyNetworkPolicy        `json:"automateAllowWebhookTraffic"`
 }
 
 // GetGlobalEnforcementEnabled returns IntentsOperatorConfigurationInput.GlobalEnforcementEnabled, and is useful for accessing the field via an interface.
@@ -532,6 +515,14 @@ func (v *IntentsOperatorConfigurationInput) GetDatabaseEnforcementEnabled() bool
 	return v.DatabaseEnforcementEnabled
 }
 
+// GetStrictModeEnabled returns IntentsOperatorConfigurationInput.StrictModeEnabled, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetStrictModeEnabled() bool { return v.StrictModeEnabled }
+
+// GetExcludedStrictModeNamespaces returns IntentsOperatorConfigurationInput.ExcludedStrictModeNamespaces, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetExcludedStrictModeNamespaces() []string {
+	return v.ExcludedStrictModeNamespaces
+}
+
 // GetEnforcedNamespaces returns IntentsOperatorConfigurationInput.EnforcedNamespaces, and is useful for accessing the field via an interface.
 func (v *IntentsOperatorConfigurationInput) GetEnforcedNamespaces() []string {
 	return v.EnforcedNamespaces
@@ -557,6 +548,26 @@ func (v *IntentsOperatorConfigurationInput) GetExternallyManagedPolicyWorkloads(
 	return v.ExternallyManagedPolicyWorkloads
 }
 
+// GetAutomateThirdPartyNetworkPolicies returns IntentsOperatorConfigurationInput.AutomateThirdPartyNetworkPolicies, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAutomateThirdPartyNetworkPolicies() AutomateThirdPartyNetworkPolicy {
+	return v.AutomateThirdPartyNetworkPolicies
+}
+
+// GetPrometheusServerConfigs returns IntentsOperatorConfigurationInput.PrometheusServerConfigs, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetPrometheusServerConfigs() []PrometheusServerConfigInput {
+	return v.PrometheusServerConfigs
+}
+
+// GetAutomatedThirdPartyPolicyTypes returns IntentsOperatorConfigurationInput.AutomatedThirdPartyPolicyTypes, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAutomatedThirdPartyPolicyTypes() []AutomatedThirdPartyPolicyTypes {
+	return v.AutomatedThirdPartyPolicyTypes
+}
+
+// GetAutomateAllowWebhookTraffic returns IntentsOperatorConfigurationInput.AutomateAllowWebhookTraffic, and is useful for accessing the field via an interface.
+func (v *IntentsOperatorConfigurationInput) GetAutomateAllowWebhookTraffic() AutomateThirdPartyNetworkPolicy {
+	return v.AutomateAllowWebhookTraffic
+}
+
 type InternetConfigInput struct {
 	Domains          []*string       `json:"domains"`
 	DiscoveredTarget *DNSIPPairInput `json:"discoveredTarget"`
@@ -575,17 +586,6 @@ func (v *InternetConfigInput) GetIps() []*string { return v.Ips }
 
 // GetPorts returns InternetConfigInput.Ports, and is useful for accessing the field via an interface.
 func (v *InternetConfigInput) GetPorts() []*int { return v.Ports }
-
-type IpBlockInput struct {
-	Cidr   string   `json:"cidr"`
-	Except []string `json:"except"`
-}
-
-// GetCidr returns IpBlockInput.Cidr, and is useful for accessing the field via an interface.
-func (v *IpBlockInput) GetCidr() string { return v.Cidr }
-
-// GetExcept returns IpBlockInput.Except, and is useful for accessing the field via an interface.
-func (v *IpBlockInput) GetExcept() []string { return v.Except }
 
 type IstioStatusInput struct {
 	ServiceAccountName     *string `json:"serviceAccountName"`
@@ -698,51 +698,31 @@ const (
 	KubernetesServiceTypeExternalName KubernetesServiceType = "EXTERNAL_NAME"
 )
 
-type NetworkPolicyEgressRuleInput struct {
-	To []PeerInput `json:"to"`
-}
-
-// GetTo returns NetworkPolicyEgressRuleInput.To, and is useful for accessing the field via an interface.
-func (v *NetworkPolicyEgressRuleInput) GetTo() []PeerInput { return v.To }
-
 type NetworkPolicyInput struct {
-	Namespace                    string                 `json:"namespace"`
-	Name                         string                 `json:"name"`
-	ServerName                   string                 `json:"serverName"`
-	ExternalNetworkTrafficPolicy bool                   `json:"externalNetworkTrafficPolicy"`
-	Spec                         NetworkPolicySpecInput `json:"spec"`
+	Name string `json:"name"`
+	Yaml string `json:"yaml"`
 }
-
-// GetNamespace returns NetworkPolicyInput.Namespace, and is useful for accessing the field via an interface.
-func (v *NetworkPolicyInput) GetNamespace() string { return v.Namespace }
 
 // GetName returns NetworkPolicyInput.Name, and is useful for accessing the field via an interface.
 func (v *NetworkPolicyInput) GetName() string { return v.Name }
 
-// GetServerName returns NetworkPolicyInput.ServerName, and is useful for accessing the field via an interface.
-func (v *NetworkPolicyInput) GetServerName() string { return v.ServerName }
+// GetYaml returns NetworkPolicyInput.Yaml, and is useful for accessing the field via an interface.
+func (v *NetworkPolicyInput) GetYaml() string { return v.Yaml }
 
-// GetExternalNetworkTrafficPolicy returns NetworkPolicyInput.ExternalNetworkTrafficPolicy, and is useful for accessing the field via an interface.
-func (v *NetworkPolicyInput) GetExternalNetworkTrafficPolicy() bool {
-	return v.ExternalNetworkTrafficPolicy
+type PrometheusServerConfigInput struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Kind      string `json:"kind"`
 }
 
-// GetSpec returns NetworkPolicyInput.Spec, and is useful for accessing the field via an interface.
-func (v *NetworkPolicyInput) GetSpec() NetworkPolicySpecInput { return v.Spec }
+// GetName returns PrometheusServerConfigInput.Name, and is useful for accessing the field via an interface.
+func (v *PrometheusServerConfigInput) GetName() string { return v.Name }
 
-type NetworkPolicySpecInput struct {
-	Egress []NetworkPolicyEgressRuleInput `json:"egress"`
-}
+// GetNamespace returns PrometheusServerConfigInput.Namespace, and is useful for accessing the field via an interface.
+func (v *PrometheusServerConfigInput) GetNamespace() string { return v.Namespace }
 
-// GetEgress returns NetworkPolicySpecInput.Egress, and is useful for accessing the field via an interface.
-func (v *NetworkPolicySpecInput) GetEgress() []NetworkPolicyEgressRuleInput { return v.Egress }
-
-type PeerInput struct {
-	IpBlock IpBlockInput `json:"ipBlock"`
-}
-
-// GetIpBlock returns PeerInput.IpBlock, and is useful for accessing the field via an interface.
-func (v *PeerInput) GetIpBlock() IpBlockInput { return v.IpBlock }
+// GetKind returns PrometheusServerConfigInput.Kind, and is useful for accessing the field via an interface.
+func (v *PrometheusServerConfigInput) GetKind() string { return v.Kind }
 
 type ProtectedServiceInput struct {
 	Name string `json:"name"`
@@ -750,17 +730,6 @@ type ProtectedServiceInput struct {
 
 // GetName returns ProtectedServiceInput.Name, and is useful for accessing the field via an interface.
 func (v *ProtectedServiceInput) GetName() string { return v.Name }
-
-// ReportAppliedIntentsRequestResponse is returned by ReportAppliedIntentsRequest on success.
-type ReportAppliedIntentsRequestResponse struct {
-	// applied intents requests
-	ReportAppliedIntentsRequest bool `json:"reportAppliedIntentsRequest"`
-}
-
-// GetReportAppliedIntentsRequest returns ReportAppliedIntentsRequestResponse.ReportAppliedIntentsRequest, and is useful for accessing the field via an interface.
-func (v *ReportAppliedIntentsRequestResponse) GetReportAppliedIntentsRequest() bool {
-	return v.ReportAppliedIntentsRequest
-}
 
 // ReportAppliedKubernetesIntentsResponse is returned by ReportAppliedKubernetesIntents on success.
 type ReportAppliedKubernetesIntentsResponse struct {
@@ -875,25 +844,8 @@ const (
 	UserErrorTypeConflict            UserErrorType = "CONFLICT"
 	UserErrorTypeBadUserInput        UserErrorType = "BAD_USER_INPUT"
 	UserErrorTypeAppliedIntentsError UserErrorType = "APPLIED_INTENTS_ERROR"
+	UserErrorTypeTimeout             UserErrorType = "TIMEOUT"
 )
-
-// __GetAppliedIntentsRequestStatusInput is used internally by genqlient
-type __GetAppliedIntentsRequestStatusInput struct {
-	IntentResourceGenerations []IntentRequestResourceGeneration `json:"intentResourceGenerations"`
-}
-
-// GetIntentResourceGenerations returns __GetAppliedIntentsRequestStatusInput.IntentResourceGenerations, and is useful for accessing the field via an interface.
-func (v *__GetAppliedIntentsRequestStatusInput) GetIntentResourceGenerations() []IntentRequestResourceGeneration {
-	return v.IntentResourceGenerations
-}
-
-// __ReportAppliedIntentsRequestInput is used internally by genqlient
-type __ReportAppliedIntentsRequestInput struct {
-	Intents []IntentRequestInput `json:"intents"`
-}
-
-// GetIntents returns __ReportAppliedIntentsRequestInput.Intents, and is useful for accessing the field via an interface.
-func (v *__ReportAppliedIntentsRequestInput) GetIntents() []IntentRequestInput { return v.Intents }
 
 // __ReportAppliedKubernetesIntentsInput is used internally by genqlient
 type __ReportAppliedKubernetesIntentsInput struct {
@@ -1009,375 +961,340 @@ type dummyResponse struct {
 // GetDummyError returns dummyResponse.DummyError, and is useful for accessing the field via an interface.
 func (v *dummyResponse) GetDummyError() UserErrorType { return v.DummyError }
 
-func GetAppliedIntentsRequestStatus(
-	ctx context.Context,
-	client graphql.Client,
-	intentResourceGenerations []IntentRequestResourceGeneration,
-) (*GetAppliedIntentsRequestStatusResponse, error) {
-	req := &graphql.Request{
-		OpName: "GetAppliedIntentsRequestStatus",
-		Query: `
-mutation GetAppliedIntentsRequestStatus ($intentResourceGenerations: [IntentRequestResourceGeneration!]!) {
-	syncPendingRequestStatuses(intentResourceGeneration: $intentResourceGenerations) {
-		resourceId
-		generation
-		reason
-		status
-	}
+// The query or mutation executed by ReportAppliedKubernetesIntents.
+const ReportAppliedKubernetesIntents_Operation = `
+mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentInput!]!, $clusterId: String!) {
+	reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents, ossClusterId: $clusterId)
 }
-`,
-		Variables: &__GetAppliedIntentsRequestStatusInput{
-			IntentResourceGenerations: intentResourceGenerations,
-		},
-	}
-	var err error
-
-	var data GetAppliedIntentsRequestStatusResponse
-	resp := &graphql.Response{Data: &data}
-
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
-	)
-
-	return &data, err
-}
-
-func ReportAppliedIntentsRequest(
-	ctx context.Context,
-	client graphql.Client,
-	intents []IntentRequestInput,
-) (*ReportAppliedIntentsRequestResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportAppliedIntentsRequest",
-		Query: `
-mutation ReportAppliedIntentsRequest ($intents: [IntentRequestInput!]!) {
-	reportAppliedIntentsRequest(intents: $intents)
-}
-`,
-		Variables: &__ReportAppliedIntentsRequestInput{
-			Intents: intents,
-		},
-	}
-	var err error
-
-	var data ReportAppliedIntentsRequestResponse
-	resp := &graphql.Response{Data: &data}
-
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
-	)
-
-	return &data, err
-}
+`
 
 func ReportAppliedKubernetesIntents(
-	ctx context.Context,
-	client graphql.Client,
+	ctx_ context.Context,
+	client_ graphql.Client,
 	namespace *string,
 	intents []*IntentInput,
 	clusterId *string,
 ) (*ReportAppliedKubernetesIntentsResponse, error) {
-	req := &graphql.Request{
+	req_ := &graphql.Request{
 		OpName: "ReportAppliedKubernetesIntents",
-		Query: `
-mutation ReportAppliedKubernetesIntents ($namespace: String!, $intents: [IntentInput!]!, $clusterId: String!) {
-	reportAppliedKubernetesIntents(namespace: $namespace, intents: $intents, ossClusterId: $clusterId)
-}
-`,
+		Query:  ReportAppliedKubernetesIntents_Operation,
 		Variables: &__ReportAppliedKubernetesIntentsInput{
 			Namespace: namespace,
 			Intents:   intents,
 			ClusterId: clusterId,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportAppliedKubernetesIntentsResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportAppliedKubernetesIntentsResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportClientIntentEvents(
-	ctx context.Context,
-	client graphql.Client,
-	events []ClientIntentEventInput,
-) (*ReportClientIntentEventsResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportClientIntentEvents",
-		Query: `
+// The query or mutation executed by ReportClientIntentEvents.
+const ReportClientIntentEvents_Operation = `
 mutation ReportClientIntentEvents ($events: [ClientIntentEventInput!]!) {
 	reportClientIntentEvent(events: $events)
 }
-`,
+`
+
+func ReportClientIntentEvents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	events []ClientIntentEventInput,
+) (*ReportClientIntentEventsResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportClientIntentEvents",
+		Query:  ReportClientIntentEvents_Operation,
 		Variables: &__ReportClientIntentEventsInput{
 			Events: events,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportClientIntentEventsResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportClientIntentEventsResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportClientIntentStatuses(
-	ctx context.Context,
-	client graphql.Client,
-	statuses []ClientIntentStatusInput,
-) (*ReportClientIntentStatusesResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportClientIntentStatuses",
-		Query: `
+// The query or mutation executed by ReportClientIntentStatuses.
+const ReportClientIntentStatuses_Operation = `
 mutation ReportClientIntentStatuses ($statuses: [ClientIntentStatusInput!]!) {
 	reportClientIntentStatus(statuses: $statuses)
 }
-`,
+`
+
+func ReportClientIntentStatuses(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	statuses []ClientIntentStatusInput,
+) (*ReportClientIntentStatusesResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportClientIntentStatuses",
+		Query:  ReportClientIntentStatuses_Operation,
 		Variables: &__ReportClientIntentStatusesInput{
 			Statuses: statuses,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportClientIntentStatusesResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportClientIntentStatusesResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportComponentStatus(
-	ctx context.Context,
-	client graphql.Client,
-	component ComponentType,
-) (*ReportComponentStatusResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportComponentStatus",
-		Query: `
+// The query or mutation executed by ReportComponentStatus.
+const ReportComponentStatus_Operation = `
 mutation ReportComponentStatus ($component: ComponentType!) {
 	reportIntegrationComponentStatus(component: $component)
 }
-`,
+`
+
+func ReportComponentStatus(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	component ComponentType,
+) (*ReportComponentStatusResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportComponentStatus",
+		Query:  ReportComponentStatus_Operation,
 		Variables: &__ReportComponentStatusInput{
 			Component: component,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportComponentStatusResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportComponentStatusResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportExternallyAccessibleServices(
-	ctx context.Context,
-	client graphql.Client,
-	namespace string,
-	services []ExternallyAccessibleServiceInput,
-) (*ReportExternallyAccessibleServicesResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportExternallyAccessibleServices",
-		Query: `
+// The query or mutation executed by ReportExternallyAccessibleServices.
+const ReportExternallyAccessibleServices_Operation = `
 mutation ReportExternallyAccessibleServices ($namespace: String!, $services: [ExternallyAccessibleServiceInput!]!) {
 	reportExternallyAccessibleServices(namespace: $namespace, services: $services)
 }
-`,
+`
+
+func ReportExternallyAccessibleServices(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	namespace string,
+	services []ExternallyAccessibleServiceInput,
+) (*ReportExternallyAccessibleServicesResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportExternallyAccessibleServices",
+		Query:  ReportExternallyAccessibleServices_Operation,
 		Variables: &__ReportExternallyAccessibleServicesInput{
 			Namespace: namespace,
 			Services:  services,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportExternallyAccessibleServicesResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportExternallyAccessibleServicesResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportIntentsOperatorConfiguration(
-	ctx context.Context,
-	client graphql.Client,
-	configuration IntentsOperatorConfigurationInput,
-) (*ReportIntentsOperatorConfigurationResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportIntentsOperatorConfiguration",
-		Query: `
+// The query or mutation executed by ReportIntentsOperatorConfiguration.
+const ReportIntentsOperatorConfiguration_Operation = `
 mutation ReportIntentsOperatorConfiguration ($configuration: IntentsOperatorConfigurationInput!) {
 	reportIntentsOperatorConfiguration(configuration: $configuration)
 }
-`,
+`
+
+func ReportIntentsOperatorConfiguration(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	configuration IntentsOperatorConfigurationInput,
+) (*ReportIntentsOperatorConfigurationResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportIntentsOperatorConfiguration",
+		Query:  ReportIntentsOperatorConfiguration_Operation,
 		Variables: &__ReportIntentsOperatorConfigurationInput{
 			Configuration: configuration,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportIntentsOperatorConfigurationResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportIntentsOperatorConfigurationResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportKafkaServerConfig(
-	ctx context.Context,
-	client graphql.Client,
-	namespace string,
-	kafkaServerConfigs []KafkaServerConfigInput,
-) (*ReportKafkaServerConfigResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportKafkaServerConfig",
-		Query: `
+// The query or mutation executed by ReportKafkaServerConfig.
+const ReportKafkaServerConfig_Operation = `
 mutation ReportKafkaServerConfig ($namespace: String!, $kafkaServerConfigs: [KafkaServerConfigInput!]!) {
 	reportKafkaServerConfigs(namespace: $namespace, serverConfigs: $kafkaServerConfigs)
 }
-`,
+`
+
+func ReportKafkaServerConfig(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	namespace string,
+	kafkaServerConfigs []KafkaServerConfigInput,
+) (*ReportKafkaServerConfigResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportKafkaServerConfig",
+		Query:  ReportKafkaServerConfig_Operation,
 		Variables: &__ReportKafkaServerConfigInput{
 			Namespace:          namespace,
 			KafkaServerConfigs: kafkaServerConfigs,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportKafkaServerConfigResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportKafkaServerConfigResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
+// The query or mutation executed by ReportNetworkPolicies.
+const ReportNetworkPolicies_Operation = `
+mutation ReportNetworkPolicies ($namespace: String!, $policies: [NetworkPolicyInput!]!) {
+	reportNetworkPolicies(namespace: $namespace, networkPolicies: $policies)
+}
+`
+
 func ReportNetworkPolicies(
-	ctx context.Context,
-	client graphql.Client,
+	ctx_ context.Context,
+	client_ graphql.Client,
 	namespace string,
 	policies []NetworkPolicyInput,
 ) (*ReportNetworkPoliciesResponse, error) {
-	req := &graphql.Request{
+	req_ := &graphql.Request{
 		OpName: "ReportNetworkPolicies",
-		Query: `
-mutation ReportNetworkPolicies ($namespace: String!, $policies: [NetworkPolicyInput!]!) {
-	reportNetworkPolicies(namespace: $namespace, policies: $policies)
-}
-`,
+		Query:  ReportNetworkPolicies_Operation,
 		Variables: &__ReportNetworkPoliciesInput{
 			Namespace: namespace,
 			Policies:  policies,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportNetworkPoliciesResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportNetworkPoliciesResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func ReportProtectedServicesSnapshot(
-	ctx context.Context,
-	client graphql.Client,
-	namespace string,
-	services []ProtectedServiceInput,
-) (*ReportProtectedServicesSnapshotResponse, error) {
-	req := &graphql.Request{
-		OpName: "ReportProtectedServicesSnapshot",
-		Query: `
+// The query or mutation executed by ReportProtectedServicesSnapshot.
+const ReportProtectedServicesSnapshot_Operation = `
 mutation ReportProtectedServicesSnapshot ($namespace: String!, $services: [ProtectedServiceInput!]!) {
 	reportProtectedServicesSnapshot(namespace: $namespace, services: $services)
 }
-`,
+`
+
+func ReportProtectedServicesSnapshot(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	namespace string,
+	services []ProtectedServiceInput,
+) (*ReportProtectedServicesSnapshotResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "ReportProtectedServicesSnapshot",
+		Query:  ReportProtectedServicesSnapshot_Operation,
 		Variables: &__ReportProtectedServicesSnapshotInput{
 			Namespace: namespace,
 			Services:  services,
 		},
 	}
-	var err error
+	var err_ error
 
-	var data ReportProtectedServicesSnapshotResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ ReportProtectedServicesSnapshotResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }
 
-func dummy(
-	ctx context.Context,
-	client graphql.Client,
-) (*dummyResponse, error) {
-	req := &graphql.Request{
-		OpName: "dummy",
-		Query: `
+// The query or mutation executed by dummy.
+const dummy_Operation = `
 query dummy {
 	dummyError
 }
-`,
+`
+
+func dummy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (*dummyResponse, error) {
+	req_ := &graphql.Request{
+		OpName: "dummy",
+		Query:  dummy_Operation,
 	}
-	var err error
+	var err_ error
 
-	var data dummyResponse
-	resp := &graphql.Response{Data: &data}
+	var data_ dummyResponse
+	resp_ := &graphql.Response{Data: &data_}
 
-	err = client.MakeRequest(
-		ctx,
-		req,
-		resp,
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
 	)
 
-	return &data, err
+	return &data_, err_
 }

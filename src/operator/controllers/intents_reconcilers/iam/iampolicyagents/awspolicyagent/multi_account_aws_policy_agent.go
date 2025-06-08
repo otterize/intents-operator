@@ -29,12 +29,12 @@ func (m *MultiaccountAWSPolicyAgent) AppliesOnPod(pod *corev1.Pod) bool {
 	return multi_account_aws_agent.AppliesOnPod(pod)
 }
 
-func (m *MultiaccountAWSPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents []otterizev2alpha1.Target, pod corev1.Pod) error {
+func (m *MultiaccountAWSPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents otterizev2alpha1.ClientIntents, filteredTargets []otterizev2alpha1.Target, pod corev1.Pod) error {
 	agent, err := m.getAgentForPod(&pod)
 	if err != nil {
 		return errors.Wrap(err)
 	}
-	return agent.AddRolePolicyFromIntents(ctx, namespace, accountName, intentsServiceName, intents, pod)
+	return agent.AddRolePolicyFromIntents(ctx, namespace, accountName, intentsServiceName, intents, filteredTargets, pod)
 }
 
 func (m *MultiaccountAWSPolicyAgent) DeleteRolePolicyFromIntents(ctx context.Context, intents otterizev2alpha1.ApprovedClientIntents) error {
