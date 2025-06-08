@@ -188,7 +188,7 @@ func (r *ApprovedIntentsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *ApprovedIntentsReconciler) mapPodWithAccessAnnotationToClientIntents(ctx context.Context, obj client.Object) []reconcile.Request {
 	pod := obj.(*corev1.Pod)
-	logrus.Debugf("Enqueueing client intents for pod %s", pod.Name)
+	logrus.Debugf("Enqueueing approved client intents for pod %s", pod.Name)
 
 	clients, ok, err := access_annotation.ParseAccessAnnotations(pod)
 	if err != nil {
