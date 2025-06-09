@@ -31,6 +31,7 @@ type AutomatedThirdPartyPolicyTypes string
 const (
 	AutomatedThirdPartyPolicyTypesExternalTraffic AutomatedThirdPartyPolicyTypes = "EXTERNAL_TRAFFIC"
 	AutomatedThirdPartyPolicyTypesMetricsTraffic  AutomatedThirdPartyPolicyTypes = "METRICS_TRAFFIC"
+	AutomatedThirdPartyPolicyTypesWebhookTraffic  AutomatedThirdPartyPolicyTypes = "WEBHOOK_TRAFFIC"
 )
 
 type AzureKeyVaultPolicyInput struct {
