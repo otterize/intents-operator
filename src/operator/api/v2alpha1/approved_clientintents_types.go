@@ -22,7 +22,6 @@ func init() {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// ApprovedClientIntents is the Schema for the intents API
 type ApprovedClientIntents struct {
 	metav1.TypeMeta   `json:",inline" yaml:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`

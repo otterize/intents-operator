@@ -1009,7 +1009,7 @@ spec:
                 - workload
               type: object
             status:
-              description: IntentsStatus defines the observed state of ClientIntents
+              description: ClientIntentsStatus defines the observed state of ClientIntents
               properties:
                 observedGeneration:
                   description: The last generation of the intents that was observed by the operator.
@@ -1031,6 +1031,10 @@ spec:
                   type: array
                 reviewStatus:
                   description: ReviewStatus stores the review status for these ClientIntents (whether they were approved, denied, or pending)
+                  enum:
+                    - APPROVED
+                    - PENDING
+                    - DENIED
                   type: string
                 upToDate:
                   description: |-
@@ -1345,7 +1349,7 @@ spec:
                 - workload
               type: object
             status:
-              description: IntentsStatus defines the observed state of ClientIntents
+              description: ClientIntentsStatus defines the observed state of ClientIntents
               properties:
                 observedGeneration:
                   description: |-
@@ -1369,6 +1373,10 @@ spec:
                   type: array
                 reviewStatus:
                   description: ReviewStatus stores the review status for these ClientIntents (whether they were approved, denied, or pending)
+                  enum:
+                    - APPROVED
+                    - PENDING
+                    - DENIED
                   type: string
                 upToDate:
                   description: |-

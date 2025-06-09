@@ -351,6 +351,8 @@ type ResolvedIPs struct {
 	IPs []string `json:"ips,omitempty" yaml:"ips,omitempty"`
 }
 
+// +kubebuilder:validation:Enum=APPROVED;PENDING;DENIED
+
 type ReviewStatus string
 
 const (
@@ -370,8 +372,8 @@ type AzureKeyVaultPolicy struct {
 	StoragePermissions []AzureKeyVaultStoragePermission `json:"storagePermissions,omitempty" yaml:"storagePermissions,omitempty"`
 }
 
-// IntentsStatus defines the observed state of ClientIntents
-type IntentsStatus struct {
+// ClientIntentsStatus defines the observed state of ClientIntents
+type ClientIntentsStatus struct {
 	// upToDate field reflects whether the client intents have successfully been applied
 	// to the cluster to the state specified
 	// +optional
@@ -399,8 +401,8 @@ type ClientIntents struct {
 	metav1.TypeMeta   `json:",inline" yaml:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty" yaml:"metadata,omitempty"`
 
-	Spec   *IntentsSpec  `json:"spec,omitempty" yaml:"spec,omitempty"`
-	Status IntentsStatus `json:"status,omitempty" yaml:"status,omitempty"`
+	Spec   *IntentsSpec        `json:"spec,omitempty" yaml:"spec,omitempty"`
+	Status ClientIntentsStatus `json:"status,omitempty" yaml:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true

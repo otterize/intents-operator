@@ -30,7 +30,6 @@ spec:
     - name: v2alpha1
       schema:
         openAPIV3Schema:
-          description: ApprovedClientIntents is the Schema for the intents API
           properties:
             apiVersion:
               description: |-
@@ -360,7 +359,6 @@ spec:
     - name: v2beta1
       schema:
         openAPIV3Schema:
-          description: ApprovedClientIntents is the Schema for the intents API
           properties:
             apiVersion:
               description: |-

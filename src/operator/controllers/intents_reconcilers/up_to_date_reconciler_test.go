@@ -46,7 +46,7 @@ func (s *UpToDateReconcilerTestSuite) TestReconcile_NeedsUpdate_FalseToTrue() {
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
-		Status: otterizev2alpha1.IntentsStatus{
+		Status: otterizev2alpha1.ClientIntentsStatus{
 			UpToDate: false,
 		},
 	}
@@ -93,7 +93,7 @@ func (s *UpToDateReconcilerTestSuite) TestReconcile_NeedsUpdate_TrueToFalse() {
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
-		Status: otterizev2alpha1.IntentsStatus{
+		Status: otterizev2alpha1.ClientIntentsStatus{
 			UpToDate: true,
 		},
 	}
@@ -139,7 +139,7 @@ func (s *UpToDateReconcilerTestSuite) TestReconcile_NoUpdate() {
 			Name:      intentsObjectName,
 			Namespace: testNamespace,
 		},
-		Status: otterizev2alpha1.IntentsStatus{
+		Status: otterizev2alpha1.ClientIntentsStatus{
 			UpToDate: true,
 		},
 	}

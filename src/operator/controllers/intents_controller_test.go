@@ -64,7 +64,7 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_FullAppr
 				Name: "workload",
 			},
 		},
-		Status: v2alpha1.IntentsStatus{
+		Status: v2alpha1.ClientIntentsStatus{
 			ReviewStatus:       v2alpha1.ReviewStatusApproved,
 			ObservedGeneration: 1,
 		},
@@ -164,7 +164,7 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_Existing
 				Name: "workload",
 			},
 		},
-		Status: v2alpha1.IntentsStatus{
+		Status: v2alpha1.ClientIntentsStatus{
 			ReviewStatus:       v2alpha1.ReviewStatusApproved,
 			ObservedGeneration: 2,
 		},
@@ -216,7 +216,7 @@ func (s *IntentsControllerTestSuite) TestIntentsReconcile_UpdateIntents_Existing
 				Name: "workload",
 			},
 		},
-		Status: v2alpha1.IntentsStatus{
+		Status: v2alpha1.ClientIntentsStatus{
 			ReviewStatus:       v2alpha1.ReviewStatusApproved,
 			ObservedGeneration: 2,
 		},
