@@ -169,7 +169,7 @@ func (s *CloudReconcilerTestSuite) assertUploadIntentWithNameAnnotation(server s
 		return nil
 	})
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      intentsObjectName,
 			Namespace: testNamespace,

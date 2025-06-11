@@ -159,7 +159,7 @@ func (s *IAMIntentsReconcilerTestSuite) TestCreateIAMIntentCallingTheiamAgent() 
 		&client.ListOptions{Namespace: testNamespace},
 	).Return(nil)
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testClientIntentsName,
 			Namespace: testNamespace,

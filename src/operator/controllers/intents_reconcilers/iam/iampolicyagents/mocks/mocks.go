@@ -37,7 +37,7 @@ func (m *MockIAMPolicyAgent) EXPECT() *MockIAMPolicyAgentMockRecorder {
 }
 
 // AddRolePolicyFromIntents mocks base method.
-func (m *MockIAMPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace, accountName, intentsServiceName string, intents v2alpha1.ClientIntents, filteredTargets []v2alpha1.Target, pod v1.Pod) error {
+func (m *MockIAMPolicyAgent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents v2alpha1.ApprovedClientIntents, filteredTargets []v2alpha1.Target, pod v1.Pod) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddRolePolicyFromIntents", ctx, namespace, accountName, intentsServiceName, intents, filteredTargets, pod)
 	ret0, _ := ret[0].(error)

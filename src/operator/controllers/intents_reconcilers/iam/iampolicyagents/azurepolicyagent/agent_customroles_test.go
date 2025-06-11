@@ -292,7 +292,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_Custom
 				},
 			}
 
-			clientIntents := otterizev2alpha1.ClientIntents{
+			clientIntents := otterizev2alpha1.ApprovedClientIntents{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testIntentsServiceName,
 					Namespace: testNamespace,
@@ -353,7 +353,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyWithExistingRolesN
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testIntentsServiceName,
 			Namespace: testNamespace,
@@ -423,7 +423,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyWithMadeUpRoleRais
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testIntentsServiceName,
 			Namespace: testNamespace,
@@ -474,7 +474,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyWithMadeUpRoleRais
 func (s *AzureAgentPoliciesCustomRolesSuite) TestAddRolePolicyFromIntents_IdentityNotFound() {
 	s.expectGetUserAssignedIdentityReturnsNotFoundError()
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testIntentsServiceName,
 			Namespace: testNamespace,
@@ -508,7 +508,7 @@ func (s *AzureAgentPoliciesCustomRolesSuite) TestDeleteCustomRoles() {
 		},
 	}
 
-	clientIntents := otterizev2alpha1.ClientIntents{
+	clientIntents := otterizev2alpha1.ApprovedClientIntents{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      testIntentsServiceName,
 			Namespace: testNamespace,

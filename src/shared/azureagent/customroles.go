@@ -29,12 +29,12 @@ func (a *Agent) GetSubscriptionScope(scope string) string {
 	return fmt.Sprintf("/subscriptions/%s", subscriptionId)
 }
 
-func (a *Agent) GenerateCustomRoleName(intents v2alpha1.ClientIntents, scope string) string {
+func (a *Agent) GenerateCustomRoleName(intents v2alpha1.ApprovedClientIntents, scope string) string {
 	fullName := fmt.Sprintf("ottr-%s-%s-%s-%s", intents.GetWorkloadName(), intents.Namespace, a.Conf.AKSClusterName, scope)
 	return agentutils.TruncateHashName(fullName, maxRoleNameLength)
 }
 
-func (a *Agent) CreateCustomRole(ctx context.Context, scope string, clientIntents v2alpha1.ClientIntents, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) (*armauthorization.RoleDefinition, error) {
+func (a *Agent) CreateCustomRole(ctx context.Context, scope string, clientIntents v2alpha1.ApprovedClientIntents, actions []v2alpha1.AzureAction, dataActions []v2alpha1.AzureDataAction) (*armauthorization.RoleDefinition, error) {
 	roleScope := a.GetSubscriptionScope(scope)
 
 	formattedActions := lo.Map(actions, func(action v2alpha1.AzureAction, _ int) *string {
@@ -125,7 +125,7 @@ func (a *Agent) FindCustomRoleByName(ctx context.Context, scope string, name str
 	return nil, false
 }
 
-func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, clientIntents v2alpha1.ClientIntents) error {
+func (a *Agent) DeleteCustomRole(ctx context.Context, scope string, clientIntents v2alpha1.ApprovedClientIntents) error {
 	roleScope := a.GetSubscriptionScope(scope)
 	roleName := a.GenerateCustomRoleName(clientIntents, scope)
 	roles, err := a.FindRoleDefinitionByName(ctx, roleScope, []string{roleName})

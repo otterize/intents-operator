@@ -256,7 +256,7 @@ func (s *AzureAgentPoliciesKeyVaultSuite) TestAddRolePolicyFromIntents_AzureKeyV
 				},
 			}
 
-			clientIntents := otterizev2alpha1.ClientIntents{
+			clientIntents := otterizev2alpha1.ApprovedClientIntents{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      testIntentsServiceName,
 					Namespace: testNamespace,

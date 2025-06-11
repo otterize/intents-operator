@@ -73,7 +73,7 @@ func (a *Agent) getIntentScope(ctx context.Context, intent otterizev2alpha1.Targ
 	return fullScope, nil
 }
 
-func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, _ string, intentsServiceName string, intents otterizev2alpha1.ClientIntents, _ []otterizev2alpha1.Target, _ corev1.Pod) error {
+func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, accountName string, intentsServiceName string, intents otterizev2alpha1.ApprovedClientIntents, filteredTargets []otterizev2alpha1.Target, pod corev1.Pod) error {
 	userAssignedIdentity, exists, err := a.FindUserAssignedIdentity(ctx, namespace, intentsServiceName)
 	if err != nil {
 		return errors.Wrap(err)
@@ -97,7 +97,7 @@ func (a *Agent) AddRolePolicyFromIntents(ctx context.Context, namespace string, 
 	return nil
 }
 
-func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, clientIntents otterizev2alpha1.ClientIntents) error {
+func (a *Agent) ensureRoleAssignmentsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, clientIntents otterizev2alpha1.ApprovedClientIntents) error {
 	// Lock the agent to ensure that no other goroutine is modifying the assignments
 	a.assignmentMutex.Lock()
 	defer a.assignmentMutex.Unlock()
@@ -150,7 +150,7 @@ func (a *Agent) ensureRoleAssignmentsForIntent(
 	roleNames []string,
 	userAssignedIdentity armmsi.Identity,
 	existingRoleAssignmentsForScope []armauthorization.RoleAssignment,
-	intents otterizev2alpha1.ClientIntents,
+	intents otterizev2alpha1.ApprovedClientIntents,
 ) error {
 	roleDefinitionsByName, err := a.FindRoleDefinitionByName(ctx, scope, roleNames)
 	if err != nil {
@@ -275,7 +275,7 @@ func extractKeyVaultName(scope string) (string, error) {
 	return match[1], nil
 }
 
-func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, clientIntents otterizev2alpha1.ClientIntents) error {
+func (a *Agent) ensureKeyVaultPermissionsForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, clientIntents otterizev2alpha1.ApprovedClientIntents) error {
 	existingKeyVaultsAccessPolicies, err := a.GetExistingKeyVaultAccessPolicies(ctx, userAssignedIdentity)
 	if err != nil {
 		return errors.Wrap(err)
@@ -372,7 +372,7 @@ func (a *Agent) vaultAccessPolicyEntryFromIntent(userAssignedIdentity armmsi.Ide
 	}
 }
 
-func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, clientIntents otterizev2alpha1.ClientIntents) error {
+func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIdentity armmsi.Identity, clientIntents otterizev2alpha1.ApprovedClientIntents) error {
 	// Lock the agent to ensure that no other goroutine is modifying the custom roles in parallel
 	a.roleMutex.Lock()
 	defer a.roleMutex.Unlock()
@@ -415,7 +415,7 @@ func (a *Agent) ensureCustomRolesForIntents(ctx context.Context, userAssignedIde
 	return nil
 }
 
-func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdentity armmsi.Identity, scope string, intents otterizev2alpha1.ClientIntents, intent otterizev2alpha1.Target) error {
+func (a *Agent) ensureCustomRoleForIntent(ctx context.Context, userAssignedIdentity armmsi.Identity, scope string, intents otterizev2alpha1.ApprovedClientIntents, intent otterizev2alpha1.Target) error {
 	actions := intent.Azure.Actions
 	dataActions := intent.Azure.DataActions
 
