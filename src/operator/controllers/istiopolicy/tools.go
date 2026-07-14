@@ -3,8 +3,8 @@ package istiopolicy
 import (
 	"context"
 	"fmt"
-	"golang.org/x/exp/slices"
 	"github.com/otterize/intents-operator/src/shared/errors"
+	"golang.org/x/exp/slices"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
