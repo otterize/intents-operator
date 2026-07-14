@@ -3,6 +3,7 @@ package istiopolicy
 import (
 	"context"
 	"fmt"
+	"golang.org/x/exp/slices"
 	"github.com/otterize/intents-operator/src/shared/errors"
 	"istio.io/client-go/pkg/apis/security/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -13,17 +14,19 @@ import (
 )
 
 const (
-	IstioCRDName            = "authorizationpolicies.security.istio.io"
-	IstioProxyContainerName = "istio-proxy"
+	IstioCRDName                 = "authorizationpolicies.security.istio.io"
+	IstioProxyContainerName      = "istio-proxy"
+	IstioSidecarStatusAnnotation = "sidecar.istio.io/status"
 )
 
 func IsPodPartOfIstioMesh(pod corev1.Pod) bool {
-	for _, container := range pod.Spec.Containers {
-		if container.Name == IstioProxyContainerName {
-			return true
-		}
+	if _, injected := pod.Annotations[IstioSidecarStatusAnnotation]; injected {
+		return true
 	}
-	return false
+
+	isProxy := func(c corev1.Container) bool { return c.Name == IstioProxyContainerName }
+	return slices.ContainsFunc(pod.Spec.Containers, isProxy) ||
+		slices.ContainsFunc(pod.Spec.InitContainers, isProxy)
 }
 
 func IsIstioAuthorizationPoliciesInstalled(ctx context.Context, client client.Client) (bool, error) {
