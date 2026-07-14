@@ -496,7 +496,7 @@ func (s *ServiceIdResolverTestSuite) TestServiceIdentityToPodLabelsForWorkloadSe
 
 func (s *ServiceIdResolverTestSuite) TestUserSpecifiedAnnotationForServiceName() {
 	annotationName := "coolAnnotationName"
-	expectedEnvVarName := "OTTERIZE_SERVICE_NAME_OVERRIDE_ANNOTATION"
+	expectedEnvVarName := "OTTERIZE_WORKLOAD_NAME_OVERRIDE_ANNOTATION"
 	_ = os.Setenv(expectedEnvVarName, annotationName)
 	s.Require().Equal(annotationName, viper.GetString(podownerresolver.WorkloadNameOverrideAnnotationKey))
 	_ = os.Unsetenv(expectedEnvVarName)
